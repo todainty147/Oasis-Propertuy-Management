@@ -13,13 +13,16 @@ import { usePayments } from "./hooks/usePayments";
 import { useTenants } from "./hooks/useTenants";
 
 import { createProperty } from "./services/propertyService";
-import { createTenant, updateTenant, deleteTenant } from "./services/tenantService";
+import {
+  createTenant,
+  updateTenant,
+  deleteTenant,
+} from "./services/tenantService";
 
 import AppLayout from "./layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Properties from "./pages/Properties";
 import Finance from "./pages/Finance";
-import Documents from "./pages/Documents";
 import Tenants from "./pages/Tenants";
 import PropertyDetails from "./pages/PropertyDetails";
 import TenantDetails from "./pages/TenantDetails";
@@ -30,30 +33,21 @@ import { INITIAL_OWNERS } from "./data/mockData";
 
 export default function App() {
   /* ======================
-     AUTH (ALWAYS)
+     AUTH
      ====================== */
   const { session, loading: sessionLoading } = useSession();
 
   /* ======================
-     DATA HOOKS (ALWAYS)
+     DATA HOOKS
      ====================== */
-  const {
-    properties,
-    loading: propertiesLoading,
-    error: propertiesError,
-  } = useProperties({ enabled: !!session });
+  const { properties, loading: propertiesLoading, error: propertiesError } =
+    useProperties({ enabled: !!session });
 
-  const {
-    payments,
-    loading: paymentsLoading,
-    error: paymentsError,
-  } = usePayments({ enabled: !!session });
+  const { payments, loading: paymentsLoading, error: paymentsError } =
+    usePayments({ enabled: !!session });
 
-  const {
-    tenants,
-    loading: tenantsLoading,
-    error: tenantsError,
-  } = useTenants({ enabled: !!session });
+  const { tenants, loading: tenantsLoading, error: tenantsError } =
+    useTenants({ enabled: !!session });
 
   /* ======================
      LOCAL STATE
@@ -85,13 +79,8 @@ export default function App() {
   /* ======================
      RENDER GATES
      ====================== */
-  if (sessionLoading) {
-    return <div className="p-6">Ładowanie sesji…</div>;
-  }
-
-  if (!session) {
-    return <Login />;
-  }
+  if (sessionLoading) return <div className="p-6">Ładowanie sesji…</div>;
+  if (!session) return <Login />;
 
   if (propertiesLoading || paymentsLoading || tenantsLoading) {
     return <div className="p-6">Ładowanie danych…</div>;
@@ -116,12 +105,9 @@ export default function App() {
      DERIVED DATA (OPTION A)
      ====================== */
 
-  // 🔑 Tenants drive occupancy (single source of truth)
+  // 🔑 Tenants drive occupancy
   const ownerProperties = properties.map((p) => {
-    const isOccupied = tenants.some(
-      (t) => t.propertyId === p.id
-    );
-
+    const isOccupied = tenants.some((t) => t.propertyId === p.id);
     return {
       ...p,
       status: isOccupied ? "Wynajęte" : "Wolne",
@@ -131,47 +117,102 @@ export default function App() {
   const ownerTenants = tenants;
 
   const ownerPropertyIds = ownerProperties.map((p) => p.id);
-
   const ownerPayments = payments.filter((p) =>
     ownerPropertyIds.includes(p.propertyId)
   );
 
-  const financeTotals = {
-    totalIncome: ownerPayments
-      .filter((p) => p.status === "Opłacone")
-      .reduce((s, p) => s + p.amount, 0),
+  /* ===== Occupancy ===== */
+  const occupiedCount = ownerProperties.filter(
+    (p) => p.status === "Wynajęte"
+  ).length;
 
-    overdueIncome: ownerPayments
-      .filter((p) => p.status === "Zaległe")
-      .reduce((s, p) => s + p.amount, 0),
+  const vacantCount = ownerProperties.length - occupiedCount;
 
-    expectedIncome: ownerPayments.reduce(
-      (s, p) => s + p.amount,
-      0
-    ),
+  const occupancyRate =
+    ownerProperties.length > 0
+      ? Math.round((occupiedCount / ownerProperties.length) * 100)
+      : 0;
+
+  /* ===== Vacancy aging ===== */
+  const now = new Date();
+
+  const vacancyAging = ownerProperties
+    .filter((p) => p.status === "Wolne")
+    .map((property) => {
+      const pastTenants = ownerTenants
+        .filter((t) => t.propertyId === property.id)
+        .sort(
+          (a, b) =>
+            new Date(b.created_at) - new Date(a.created_at)
+        );
+
+      const vacancyStart =
+        pastTenants[0]?.created_at || property.created_at;
+
+      const daysVacant = Math.floor(
+        (now - new Date(vacancyStart)) / (1000 * 60 * 60 * 24)
+      );
+
+      return { ...property, daysVacant };
+    });
+
+  const longVacantProperties = vacancyAging.filter(
+    (p) => p.daysVacant > 30
+  );
+
+  const longVacantCount = longVacantProperties.length;
+  const shortVacantCount =
+    vacancyAging.length - longVacantCount;
+
+    /* ======================
+   FINANCE TOTALS
+   ====================== */
+const financeTotals = {
+  totalIncome: ownerPayments
+    .filter((p) => p.status === "Opłacone")
+    .reduce((s, p) => s + p.amount, 0),
+
+  overdueIncome: ownerPayments
+    .filter((p) => p.status === "Zaległe")
+    .reduce((s, p) => s + p.amount, 0),
+
+  expectedIncome: ownerPayments.reduce(
+    (s, p) => s + p.amount,
+    0
+  ),
+};
+
+/* ======================
+   PROPERTY FINANCE
+   ====================== */
+const propertyFinance = ownerProperties.map((property) => {
+  const propertyPayments = ownerPayments.filter(
+    (p) => p.propertyId === property.id
+  );
+
+  const paid = propertyPayments
+    .filter((p) => p.status === "Opłacone")
+    .reduce((s, p) => s + p.amount, 0);
+
+  const overdue = propertyPayments
+    .filter((p) => p.status === "Zaległe")
+    .reduce((s, p) => s + p.amount, 0);
+
+  const expected = propertyPayments.reduce(
+    (s, p) => s + p.amount,
+    0
+  );
+
+  return {
+    propertyId: property.id,
+    address: property.address,
+    city: property.city,
+    paid,
+    overdue,
+    expected,
   };
+});
 
-  const propertyFinance = ownerProperties.map((property) => {
-    const propertyPayments = ownerPayments.filter(
-      (p) => p.propertyId === property.id
-    );
-
-    return {
-      propertyId: property.id,
-      address: property.address,
-      city: property.city,
-      paid: propertyPayments
-        .filter((p) => p.status === "Opłacone")
-        .reduce((s, p) => s + p.amount, 0),
-      overdue: propertyPayments
-        .filter((p) => p.status === "Zaległe")
-        .reduce((s, p) => s + p.amount, 0),
-      expected: propertyPayments.reduce(
-        (s, p) => s + p.amount,
-        0
-      ),
-    };
-  });
 
   /* ======================
      ROUTES
@@ -196,6 +237,12 @@ export default function App() {
               <Dashboard
                 properties={ownerProperties}
                 payments={payments}
+                occupiedCount={occupiedCount}
+                vacantCount={vacantCount}
+                occupancyRate={occupancyRate}
+                longVacantCount={longVacantCount}
+                shortVacantCount={shortVacantCount}
+                longVacantProperties={longVacantProperties}
               />
             }
           />
@@ -207,6 +254,7 @@ export default function App() {
                 <Properties
                   properties={ownerProperties}
                   tenants={ownerTenants}
+                  longVacantProperties={longVacantProperties}
                   onAddProperty={() => {
                     setEditingProperty(null);
                     setIsAddPropertyOpen(true);
