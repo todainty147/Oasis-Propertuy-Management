@@ -1,0 +1,186 @@
+export default function Finance({
+  summary,
+  payments,
+  propertyFinance,
+}) {
+  return (
+    <div className="space-y-8">
+      {/* ======================
+          PAGE HEADER
+         ====================== */}
+      <div>
+        <h1 className="text-2xl font-semibold">Finanse</h1>
+        <p className="text-sm text-gray-500">
+          Podsumowanie przychodów i płatności
+        </p>
+      </div>
+
+      {/* ======================
+          SUMMARY CARDS
+         ====================== */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <SummaryCard
+          label="Otrzymane"
+          value={summary.totalIncome}
+          color="text-green-600"
+        />
+        <SummaryCard
+          label="Zaległe"
+          value={summary.overdueIncome}
+          color="text-red-600"
+        />
+        <SummaryCard
+          label="Oczekiwane"
+          value={summary.expectedIncome}
+          color="text-blue-600"
+        />
+      </div>
+
+      {/* ======================
+          PROPERTY BREAKDOWN
+         ====================== */}
+      <div className="bg-white rounded-xl border overflow-hidden">
+        <div className="px-6 py-4 border-b">
+          <h2 className="font-semibold">Finanse wg nieruchomości</h2>
+        </div>
+
+        {propertyFinance.length === 0 ? (
+          <p className="p-6 text-sm text-gray-500">
+            Brak danych finansowych.
+          </p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-left">
+              <tr>
+                <th className="px-6 py-3">Adres</th>
+                <th className="px-6 py-3 text-right">Opłacone</th>
+                <th className="px-6 py-3 text-right">Zaległe</th>
+                <th className="px-6 py-3 text-right">Oczekiwane</th>
+              </tr>
+            </thead>
+            <tbody>
+              {propertyFinance.map((p) => (
+                <tr
+                  key={p.propertyId}
+                  className="border-t hover:bg-gray-50"
+                >
+                  <td className="px-6 py-3">
+                    <div className="font-medium">
+                      {p.address}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {p.city}
+                    </div>
+                  </td>
+
+                  <td className="px-6 py-3 text-right text-green-600">
+                    {formatCurrency(p.paid)}
+                  </td>
+
+                  <td className="px-6 py-3 text-right text-red-600">
+                    {formatCurrency(p.overdue)}
+                  </td>
+
+                  <td className="px-6 py-3 text-right">
+                    {formatCurrency(p.expected)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* ======================
+          PAYMENTS TABLE
+         ====================== */}
+      <div className="bg-white rounded-xl border overflow-hidden">
+        <div className="px-6 py-4 border-b">
+          <h2 className="font-semibold">Płatności</h2>
+        </div>
+
+        {payments.length === 0 ? (
+          <p className="p-6 text-sm text-gray-500">
+            Brak płatności dla wybranego właściciela.
+          </p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-left">
+              <tr>
+                <th className="px-6 py-3">Najemca</th>
+                <th className="px-6 py-3">Nieruchomość</th>
+                <th className="px-6 py-3 text-right">Kwota</th>
+                <th className="px-6 py-3">Status</th>
+                <th className="px-6 py-3">Termin</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payments.map((p) => (
+                <tr
+                  key={p.id}
+                  className="border-t hover:bg-gray-50"
+                >
+                  <td className="px-6 py-3">
+                    {p.tenantName}
+                  </td>
+
+                  <td className="px-6 py-3">
+                    {p.propertyAddress}
+                  </td>
+
+                  <td className="px-6 py-3 text-right">
+                    {formatCurrency(p.amount)}
+                  </td>
+
+                  <td className="px-6 py-3">
+                    <StatusBadge status={p.status} />
+                  </td>
+
+                  <td className="px-6 py-3">
+                    {p.dueDate}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ======================
+   HELPERS
+   ====================== */
+
+function SummaryCard({ label, value, color }) {
+  return (
+    <div className="bg-white border rounded-xl p-6">
+      <p className="text-sm text-gray-500">{label}</p>
+      <p className={`text-2xl font-semibold ${color}`}>
+        {formatCurrency(value)}
+      </p>
+    </div>
+  );
+}
+
+function StatusBadge({ status }) {
+  const styles =
+    status === "Opłacone"
+      ? "bg-green-100 text-green-700"
+      : status === "Zaległe"
+      ? "bg-red-100 text-red-700"
+      : "bg-gray-100 text-gray-700";
+
+  return (
+    <span
+      className={`px-2 py-1 rounded-full text-xs font-medium ${styles}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function formatCurrency(value) {
+  return `${value.toLocaleString("pl-PL")} zł`;
+}
