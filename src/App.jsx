@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -29,8 +29,6 @@ import TenantDetails from "./pages/TenantDetails";
 import AddPropertyModal from "./components/AddPropertyModal";
 import AddTenantModal from "./components/AddTenantModal";
 
-import { INITIAL_OWNERS } from "./data/mockData";
-
 export default function App() {
   /* ======================
      AUTH
@@ -38,7 +36,7 @@ export default function App() {
   const { session, loading: sessionLoading } = useSession();
 
   /* ======================
-     DATA HOOKS
+     DATA HOOKS (ALWAYS)
      ====================== */
   const { properties, loading: propertiesLoading, error: propertiesError } =
     useProperties({ enabled: !!session });
@@ -50,31 +48,12 @@ export default function App() {
     useTenants({ enabled: !!session });
 
   /* ======================
-     LOCAL STATE
+     UI STATE (MUST BE ABOVE RETURNS)
      ====================== */
-  const [owners] = useState(INITIAL_OWNERS);
-  const [activeOwnerId, setActiveOwnerId] = useState(() => {
-    const stored = localStorage.getItem("activeOwnerId");
-    return stored ? Number(stored) : INITIAL_OWNERS[0].id;
-  });
-
   const [isAddTenantOpen, setIsAddTenantOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState(null);
   const [isAddPropertyOpen, setIsAddPropertyOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState(null);
-
-  /* ======================
-     EFFECTS
-     ====================== */
-  useEffect(() => {
-    localStorage.setItem("activeOwnerId", activeOwnerId);
-  }, [activeOwnerId]);
-
-  useEffect(() => {
-    if (!owners.some((o) => o.id === activeOwnerId)) {
-      setActiveOwnerId(owners[0]?.id);
-    }
-  }, [owners, activeOwnerId]);
 
   /* ======================
      RENDER GATES
@@ -102,10 +81,20 @@ export default function App() {
   }
 
   /* ======================
+     OWNER (SESSION-BASED)
+     ====================== */
+  const owners = [
+    {
+      id: session.user.id,
+      name: session.user.email,
+    },
+  ];
+
+  /* ======================
      DERIVED DATA (OPTION A)
      ====================== */
 
-  // 🔑 Tenants drive occupancy
+  // Tenants drive occupancy
   const ownerProperties = properties.map((p) => {
     const isOccupied = tenants.some((t) => t.propertyId === p.id);
     return {
@@ -121,7 +110,6 @@ export default function App() {
     ownerPropertyIds.includes(p.propertyId)
   );
 
-  /* ===== Occupancy ===== */
   const occupiedCount = ownerProperties.filter(
     (p) => p.status === "Wynajęte"
   ).length;
@@ -133,7 +121,6 @@ export default function App() {
       ? Math.round((occupiedCount / ownerProperties.length) * 100)
       : 0;
 
-  /* ===== Vacancy aging ===== */
   const now = new Date();
 
   const vacancyAging = ownerProperties
@@ -164,55 +151,34 @@ export default function App() {
   const shortVacantCount =
     vacancyAging.length - longVacantCount;
 
-    /* ======================
-   FINANCE TOTALS
-   ====================== */
-const financeTotals = {
-  totalIncome: ownerPayments
-    .filter((p) => p.status === "Opłacone")
-    .reduce((s, p) => s + p.amount, 0),
-
-  overdueIncome: ownerPayments
-    .filter((p) => p.status === "Zaległe")
-    .reduce((s, p) => s + p.amount, 0),
-
-  expectedIncome: ownerPayments.reduce(
-    (s, p) => s + p.amount,
-    0
-  ),
-};
-
-/* ======================
-   PROPERTY FINANCE
-   ====================== */
-const propertyFinance = ownerProperties.map((property) => {
-  const propertyPayments = ownerPayments.filter(
-    (p) => p.propertyId === property.id
-  );
-
-  const paid = propertyPayments
-    .filter((p) => p.status === "Opłacone")
-    .reduce((s, p) => s + p.amount, 0);
-
-  const overdue = propertyPayments
-    .filter((p) => p.status === "Zaległe")
-    .reduce((s, p) => s + p.amount, 0);
-
-  const expected = propertyPayments.reduce(
-    (s, p) => s + p.amount,
-    0
-  );
-
-  return {
-    propertyId: property.id,
-    address: property.address,
-    city: property.city,
-    paid,
-    overdue,
-    expected,
+  const financeTotals = {
+    totalIncome: ownerPayments
+      .filter((p) => p.status === "Opłacone")
+      .reduce((s, p) => s + p.amount, 0),
+    overdueIncome: ownerPayments
+      .filter((p) => p.status === "Zaległe")
+      .reduce((s, p) => s + p.amount, 0),
+    expectedIncome: ownerPayments.reduce((s, p) => s + p.amount, 0),
   };
-});
 
+  const propertyFinance = ownerProperties.map((property) => {
+    const propertyPayments = ownerPayments.filter(
+      (p) => p.propertyId === property.id
+    );
+
+    return {
+      propertyId: property.id,
+      address: property.address,
+      city: property.city,
+      paid: propertyPayments
+        .filter((p) => p.status === "Opłacone")
+        .reduce((s, p) => s + p.amount, 0),
+      overdue: propertyPayments
+        .filter((p) => p.status === "Zaległe")
+        .reduce((s, p) => s + p.amount, 0),
+      expected: propertyPayments.reduce((s, p) => s + p.amount, 0),
+    };
+  });
 
   /* ======================
      ROUTES
@@ -224,8 +190,8 @@ const propertyFinance = ownerProperties.map((property) => {
           element={
             <AppLayout
               owners={owners}
-              activeOwnerId={activeOwnerId}
-              setActiveOwnerId={setActiveOwnerId}
+              activeOwnerId={session.user.id}
+              setActiveOwnerId={() => {}}
             />
           }
         >
@@ -254,7 +220,6 @@ const propertyFinance = ownerProperties.map((property) => {
                 <Properties
                   properties={ownerProperties}
                   tenants={ownerTenants}
-                  longVacantProperties={longVacantProperties}
                   onAddProperty={() => {
                     setEditingProperty(null);
                     setIsAddPropertyOpen(true);
@@ -275,11 +240,7 @@ const propertyFinance = ownerProperties.map((property) => {
                     setEditingProperty(null);
                   }}
                   onSave={async (property) => {
-                    await createProperty({
-                      address: property.address,
-                      city: property.city,
-                      tenantId: property.tenantId,
-                    });
+                    await createProperty(property);
                     setIsAddPropertyOpen(false);
                   }}
                   property={editingProperty}
@@ -327,11 +288,9 @@ const propertyFinance = ownerProperties.map((property) => {
                   properties={ownerProperties}
                   tenant={editingTenant}
                   onSave={async (data) => {
-                    if (data.id) {
-                      await updateTenant(data.id, data);
-                    } else {
-                      await createTenant(data);
-                    }
+                    data.id
+                      ? await updateTenant(data.id, data)
+                      : await createTenant(data);
                   }}
                 />
               </>
