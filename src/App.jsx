@@ -4,12 +4,9 @@ import {
   Routes,
   Route,
   Navigate,
-  useParams,
-  useNavigate,
 } from "react-router-dom";
 
-import { supabase } from "./lib/supabase";
-
+import Login from "./pages/Login";
 import { useSession } from "./hooks/useSession";
 import { useProperties } from "./hooks/useProperties";
 import { usePayments } from "./hooks/usePayments";
@@ -28,18 +25,17 @@ import PropertyDetails from "./pages/PropertyDetails";
 import TenantDetails from "./pages/TenantDetails";
 import AddPropertyModal from "./components/AddPropertyModal";
 import AddTenantModal from "./components/AddTenantModal";
+
 import { INITIAL_OWNERS } from "./data/mockData";
-
-
 
 export default function App() {
   /* ======================
-     AUTH (MUST BE FIRST)
+     AUTH (ALWAYS)
      ====================== */
   const { session, loading: sessionLoading } = useSession();
 
   /* ======================
-     SUPABASE DATA (GATED)
+     DATA HOOKS (ALWAYS)
      ====================== */
   const {
     properties,
@@ -54,18 +50,15 @@ export default function App() {
   } = usePayments({ enabled: !!session });
 
   const {
-  tenants,
-  loading: tenantsLoading,
-  error: tenantsError,
-} = useTenants({ enabled: !!session });
-
+    tenants,
+    loading: tenantsLoading,
+    error: tenantsError,
+  } = useTenants({ enabled: !!session });
 
   /* ======================
-     LOCAL STATE (TEMP)
+     LOCAL STATE
      ====================== */
-  
   const [owners] = useState(INITIAL_OWNERS);
-
   const [activeOwnerId, setActiveOwnerId] = useState(() => {
     const stored = localStorage.getItem("activeOwnerId");
     return stored ? Number(stored) : INITIAL_OWNERS[0].id;
@@ -77,27 +70,7 @@ export default function App() {
   const [editingProperty, setEditingProperty] = useState(null);
 
   /* ======================
-     DEV AUTH EFFECT
-     ====================== */
-  useEffect(() => {
-    async function devLogin() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        await supabase.auth.signInWithPassword({
-          email: "admin_test@local.com",
-          password: "Password123",
-        });
-      }
-    }
-
-    devLogin();
-  }, []);
-
-  /* ======================
-     OTHER EFFECTS
+     EFFECTS
      ====================== */
   useEffect(() => {
     localStorage.setItem("activeOwnerId", activeOwnerId);
@@ -110,41 +83,51 @@ export default function App() {
   }, [owners, activeOwnerId]);
 
   /* ======================
-     LOADING / ERROR GUARDS
+     RENDER GATES
      ====================== */
+  if (sessionLoading) {
+    return <div className="p-6">Ładowanie sesji…</div>;
+  }
 
-     if (sessionLoading) {
-  return <div className="p-6">Ładowanie sesji…</div>;
-}
+  if (!session) {
+    return <Login />;
+  }
 
-if (propertiesLoading || paymentsLoading || tenantsLoading) {
-  return <div className="p-6">Ładowanie danych…</div>;
-}
+  if (propertiesLoading || paymentsLoading || tenantsLoading) {
+    return <div className="p-6">Ładowanie danych…</div>;
+  }
 
-if (propertiesError || paymentsError || tenantsError) {
-  return (
-    <div className="p-6 bg-white rounded-xl border">
-      <p className="font-medium">Błąd ładowania danych z Supabase</p>
-      <pre className="mt-3 text-xs text-gray-600 whitespace-pre-wrap">
-        {String(
-          propertiesError?.message ||
-            paymentsError?.message ||
-            tenantsError?.message
-        )}
-      </pre>
-    </div>
-  );
-}
-
-  
-
+  if (propertiesError || paymentsError || tenantsError) {
+    return (
+      <div className="p-6 bg-white rounded-xl border">
+        <p className="font-medium">Błąd ładowania danych</p>
+        <pre className="mt-3 text-xs text-gray-600 whitespace-pre-wrap">
+          {String(
+            propertiesError?.message ||
+              paymentsError?.message ||
+              tenantsError?.message
+          )}
+        </pre>
+      </div>
+    );
+  }
 
   /* ======================
-     DERIVED DATA
+     DERIVED DATA (OPTION A)
      ====================== */
 
-  // RLS already scopes by user
-  const ownerProperties = properties;
+  // 🔑 Tenants drive occupancy (single source of truth)
+  const ownerProperties = properties.map((p) => {
+    const isOccupied = tenants.some(
+      (t) => t.propertyId === p.id
+    );
+
+    return {
+      ...p,
+      status: isOccupied ? "Wynajęte" : "Wolne",
+    };
+  });
+
   const ownerTenants = tenants;
 
   const ownerPropertyIds = ownerProperties.map((p) => p.id);
@@ -157,10 +140,15 @@ if (propertiesError || paymentsError || tenantsError) {
     totalIncome: ownerPayments
       .filter((p) => p.status === "Opłacone")
       .reduce((s, p) => s + p.amount, 0),
+
     overdueIncome: ownerPayments
       .filter((p) => p.status === "Zaległe")
       .reduce((s, p) => s + p.amount, 0),
-    expectedIncome: ownerPayments.reduce((s, p) => s + p.amount, 0),
+
+    expectedIncome: ownerPayments.reduce(
+      (s, p) => s + p.amount,
+      0
+    ),
   };
 
   const propertyFinance = ownerProperties.map((property) => {
@@ -178,169 +166,155 @@ if (propertiesError || paymentsError || tenantsError) {
       overdue: propertyPayments
         .filter((p) => p.status === "Zaległe")
         .reduce((s, p) => s + p.amount, 0),
-      expected: propertyPayments.reduce((s, p) => s + p.amount, 0),
+      expected: propertyPayments.reduce(
+        (s, p) => s + p.amount,
+        0
+      ),
     };
   });
-
-  /* ======================
-     ACTIONS LOCAL ONLY
-     ====================== */
-  
 
   /* ======================
      ROUTES
      ====================== */
   return (
     <BrowserRouter>
-  <Routes>
-    <Route
-      element={
-        <AppLayout
-          owners={owners}
-          activeOwnerId={activeOwnerId}
-          setActiveOwnerId={setActiveOwnerId}
-        />
-      }
-    >
-      {/* INDEX */}
-      <Route index element={<Navigate to="dashboard" replace />} />
-
-      {/* DASHBOARD */}
-      <Route
-        path="dashboard"
-        element={
-          <Dashboard
-            properties={ownerProperties}
-            payments={payments}
-          />
-        }
-      />
-
-      {/* PROPERTIES LIST */}
-      <Route
-        path="properties"
-        element={
-          <>
-            <Properties
-              properties={ownerProperties}
-              tenants={ownerTenants}
-              onAddProperty={() => {
-                setEditingProperty(null);
-                setIsAddPropertyOpen(true);
-              }}
-              onEditProperty={(p) => {
-                setEditingProperty(p);
-                setIsAddPropertyOpen(true);
-              }}
-              onDeleteProperty={() =>
-                alert("DELETE coming next")
-              }
-            />
-
-            <AddPropertyModal
-              isOpen={isAddPropertyOpen}
-              onClose={() => {
-                setIsAddPropertyOpen(false);
-                setEditingProperty(null);
-              }}
-              onSave={async (property) => {
-                await createProperty({
-                  address: property.address,
-                  city: property.city,
-                  tenantId: property.tenantId,
-                  status: property.status,
-                });
-                setIsAddPropertyOpen(false);
-              }}
-              property={editingProperty}
-              tenants={ownerTenants}
+      <Routes>
+        <Route
+          element={
+            <AppLayout
               owners={owners}
+              activeOwnerId={activeOwnerId}
+              setActiveOwnerId={setActiveOwnerId}
             />
-          </>
-        }
-      />
-
-      {/* TENANTS LIST */}
-<Route
-  path="tenants"
-  element={
-    <>
-      <Tenants
-        tenants={ownerTenants}
-        properties={ownerProperties}
-        onOpenAddTenant={() => {
-          setEditingTenant(null);
-          setIsAddTenantOpen(true);
-        }}
-        onEditTenant={(tenant) => {
-          setEditingTenant(tenant);
-          setIsAddTenantOpen(true);
-        }}
-        onDeleteTenant={deleteTenant}
-      />
-
-      <AddTenantModal
-        isOpen={isAddTenantOpen}
-        onClose={() => {
-          setIsAddTenantOpen(false);
-          setEditingTenant(null);
-        }}
-        properties={ownerProperties}
-        tenant={editingTenant}
-        onSave={async (data) => {
-          if (data.id) {
-            await updateTenant(data.id, data);
-          } else {
-            await createTenant(data);
           }
-        }}
-      />
-    </>
-  }
-/>
-{/*TENANT DETAILS*/}
+        >
+          <Route index element={<Navigate to="dashboard" replace />} />
 
-<Route
-  path="tenants/:id"
-  element={
-    <TenantDetails
-      tenants={ownerTenants}
-      properties={ownerProperties}
-      payments={payments}
-    />
-  }
-/>
-
-
-      {/* 🔴 PROPERTY DETAILS — THIS MUST EXIST */}
-      <Route
-        path="properties/:id"
-        element={
-          <PropertyDetails
-            properties={ownerProperties}
-            tenants={ownerTenants}
+          <Route
+            path="dashboard"
+            element={
+              <Dashboard
+                properties={ownerProperties}
+                payments={payments}
+              />
+            }
           />
-        }
-      />
 
-      {/* FINANCE */}
-      <Route
-        path="finance"
-        element={
-          <Finance
-            summary={financeTotals}
-            payments={ownerPayments}
-            propertyFinance={propertyFinance}
+          <Route
+            path="properties"
+            element={
+              <>
+                <Properties
+                  properties={ownerProperties}
+                  tenants={ownerTenants}
+                  onAddProperty={() => {
+                    setEditingProperty(null);
+                    setIsAddPropertyOpen(true);
+                  }}
+                  onEditProperty={(p) => {
+                    setEditingProperty(p);
+                    setIsAddPropertyOpen(true);
+                  }}
+                  onDeleteProperty={() =>
+                    alert("DELETE coming next")
+                  }
+                />
+
+                <AddPropertyModal
+                  isOpen={isAddPropertyOpen}
+                  onClose={() => {
+                    setIsAddPropertyOpen(false);
+                    setEditingProperty(null);
+                  }}
+                  onSave={async (property) => {
+                    await createProperty({
+                      address: property.address,
+                      city: property.city,
+                      tenantId: property.tenantId,
+                    });
+                    setIsAddPropertyOpen(false);
+                  }}
+                  property={editingProperty}
+                  tenants={ownerTenants}
+                  owners={owners}
+                />
+              </>
+            }
           />
-        }
-      />
 
-      {/* FALLBACK */}
-      <Route path="*" element={<Navigate to="dashboard" replace />} />
-    </Route>
-  </Routes>
-</BrowserRouter>
+          <Route
+            path="properties/:id"
+            element={
+              <PropertyDetails
+                properties={ownerProperties}
+                tenants={ownerTenants}
+              />
+            }
+          />
 
+          <Route
+            path="tenants"
+            element={
+              <>
+                <Tenants
+                  tenants={ownerTenants}
+                  properties={ownerProperties}
+                  onOpenAddTenant={() => {
+                    setEditingTenant(null);
+                    setIsAddTenantOpen(true);
+                  }}
+                  onEditTenant={(tenant) => {
+                    setEditingTenant(tenant);
+                    setIsAddTenantOpen(true);
+                  }}
+                  onDeleteTenant={deleteTenant}
+                />
 
+                <AddTenantModal
+                  isOpen={isAddTenantOpen}
+                  onClose={() => {
+                    setIsAddTenantOpen(false);
+                    setEditingTenant(null);
+                  }}
+                  properties={ownerProperties}
+                  tenant={editingTenant}
+                  onSave={async (data) => {
+                    if (data.id) {
+                      await updateTenant(data.id, data);
+                    } else {
+                      await createTenant(data);
+                    }
+                  }}
+                />
+              </>
+            }
+          />
+
+          <Route
+            path="tenants/:id"
+            element={
+              <TenantDetails
+                tenants={ownerTenants}
+                properties={ownerProperties}
+                payments={payments}
+              />
+            }
+          />
+
+          <Route
+            path="finance"
+            element={
+              <Finance
+                summary={financeTotals}
+                payments={ownerPayments}
+                propertyFinance={propertyFinance}
+              />
+            }
+          />
+
+          <Route path="*" element={<Navigate to="dashboard" replace />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }

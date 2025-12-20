@@ -1,4 +1,6 @@
 import { Bell, Search, Building2 } from "lucide-react";
+import { supabase } from "../lib/supabase";
+
 
 export default function Topbar({
   title,
@@ -34,6 +36,16 @@ export default function Topbar({
             </select>
           </div>
         )}
+        
+        {/* LOGOUT BUTTON */}
+  
+  <button
+  onClick={() => supabase.auth.signOut()}
+  className="text-sm text-slate-600 hover:text-slate-900"
+>
+  Wyloguj
+</button>
+
 
         {/* SEARCH */}
         <div className="hidden sm:flex relative">
@@ -48,6 +60,7 @@ export default function Topbar({
           />
         </div>
 
+
         {/* NOTIFICATIONS */}
         <button className="p-2 relative bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50">
           <Bell size={20} />
@@ -55,5 +68,8 @@ export default function Topbar({
         </button>
       </div>
     </div>
+
+    
   );
+  
 }
