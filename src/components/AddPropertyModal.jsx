@@ -20,12 +20,12 @@ export default function AddPropertyModal({
   useEffect(() => {
     if (property) {
       setForm({
-        address: property.address || "",
-        city: property.city || "",
-        size: property.size || "",
-        rent: property.rent || "",
+        address: property.address ?? "",
+        city: property.city ?? "",
+        size: property.size ?? "",
+        rent: property.rent ?? "",
         tenantId: property.tenantId ?? "",
-        ownerId: property.ownerId ?? "",
+        ownerId: property.ownerId ?? owners[0]?.id ?? "",
       });
     } else {
       setForm({
@@ -34,10 +34,10 @@ export default function AddPropertyModal({
         size: "",
         rent: "",
         tenantId: "",
-        ownerId: "",
+        ownerId: owners[0]?.id ?? "",
       });
     }
-  }, [property]);
+  }, [property, owners]);
 
   if (!isOpen) return null;
 
@@ -45,13 +45,14 @@ export default function AddPropertyModal({
     e.preventDefault();
 
     onSave({
-      ...(property || {}),
-      address: form.address,
-      city: form.city,
-      size: form.size,
-      rent: Number(form.rent),
+      ...(property ?? {}),
+      address: form.address.trim(),
+      city: form.city.trim(),
+      size: form.size.trim(),
+      rent: Number(form.rent), // ✅ ensure number
       tenantId: form.tenantId === "" ? null : Number(form.tenantId),
-      ownerId: Number(form.ownerId),
+      ownerId: form.ownerId,
+      // ⚠️ status is derived elsewhere (Option A), but keep for safety
       status: form.tenantId ? "Wynajęte" : "Wolne",
     });
 
@@ -79,7 +80,6 @@ export default function AddPropertyModal({
                 setForm({ ...form, ownerId: e.target.value })
               }
             >
-              <option value="">— Wybierz właściciela —</option>
               {owners.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.name}
@@ -110,7 +110,7 @@ export default function AddPropertyModal({
 
           <input
             required
-            placeholder="Metraż (np. 45m²)"
+            placeholder="Metraż (np. 45 m²)"
             className="w-full border rounded-lg px-3 py-2"
             value={form.size}
             onChange={(e) =>
@@ -121,6 +121,7 @@ export default function AddPropertyModal({
           <input
             required
             type="number"
+            min="0"
             placeholder="Czynsz (PLN)"
             className="w-full border rounded-lg px-3 py-2"
             value={form.rent}
@@ -129,7 +130,7 @@ export default function AddPropertyModal({
             }
           />
 
-          {/* TENANT */}
+          {/* TENANT — only when editing */}
           {property && (
             <div>
               <label className="block text-sm font-medium mb-1">
@@ -145,9 +146,8 @@ export default function AddPropertyModal({
                 <option value="">— Brak najemcy —</option>
                 {tenants.map((t) => {
                   const disabled =
-  t.ownerId !== form.ownerId ||
-  (t.propertyId && t.propertyId !== property.id);
-
+                    t.ownerId !== form.ownerId ||
+                    (t.propertyId && t.propertyId !== property.id);
 
                   return (
                     <option
@@ -159,9 +159,8 @@ export default function AddPropertyModal({
                       {disabled
                         ? t.ownerId !== form.ownerId
                           ? " (inny właściciel)"
-                        : " (wynajmuje inną nieruchomość)"
+                          : " (wynajmuje inną nieruchomość)"
                         : ""}
-
                     </option>
                   );
                 })}

@@ -3,13 +3,12 @@ import { supabase } from "../lib/supabase";
 
 export function usePayments({ enabled = true } = {}) {
   const [payments, setPayments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState(null);
 
-  /* ======================
-     INITIAL LOAD
-     ====================== */
   useEffect(() => {
+    if (!enabled) return;
+
     let channel;
 
     async function loadPayments() {
@@ -45,17 +44,12 @@ export function usePayments({ enabled = true } = {}) {
 
     loadPayments();
 
-    /* ======================
-       REALTIME
-       ====================== */
     channel = supabase
       .channel("payments-realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "payments" },
-        () => {
-          loadPayments(); // simple & safe
-        }
+        loadPayments
       )
       .subscribe();
 
@@ -67,10 +61,6 @@ export function usePayments({ enabled = true } = {}) {
   return { payments, loading, error };
 }
 
-/* ======================
-   MAPPERS
-   ====================== */
-
 function mapPayments(rows) {
   return rows.map((p) => ({
     id: p.id,
@@ -80,8 +70,6 @@ function mapPayments(rows) {
     paidAt: p.paid_at,
     propertyId: p.property_id,
     tenantId: p.tenant_id,
-
-    // Finance.jsx expects these
     propertyAddress: p.properties?.address ?? "-",
     tenantName: p.tenants?.name ?? "-",
   }));

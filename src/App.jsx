@@ -19,6 +19,13 @@ import {
   deleteTenant,
 } from "./services/tenantService";
 
+import {
+  createPayment,
+  updatePayment,
+  deletePayment,
+} from "./services/paymentService";
+
+
 import AppLayout from "./layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Properties from "./pages/Properties";
@@ -28,6 +35,7 @@ import PropertyDetails from "./pages/PropertyDetails";
 import TenantDetails from "./pages/TenantDetails";
 import AddPropertyModal from "./components/AddPropertyModal";
 import AddTenantModal from "./components/AddTenantModal";
+import AddPaymentModal from "./components/AddPaymentModal";
 
 export default function App() {
   /* ======================
@@ -54,6 +62,9 @@ export default function App() {
   const [editingTenant, setEditingTenant] = useState(null);
   const [isAddPropertyOpen, setIsAddPropertyOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState(null);
+  const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState(null);
+
 
   /* ======================
      RENDER GATES
@@ -309,15 +320,59 @@ export default function App() {
           />
 
           <Route
-            path="finance"
-            element={
-              <Finance
-                summary={financeTotals}
-                payments={ownerPayments}
-                propertyFinance={propertyFinance}
-              />
-            }
-          />
+  path="finance"
+  element={
+    <>
+      <Finance
+        summary={financeTotals}
+        payments={ownerPayments}
+        propertyFinance={propertyFinance}
+        onAddPayment={() => {
+          setEditingPayment(null);
+          setIsAddPaymentOpen(true);
+        }}
+        onEditPayment={(payment) => {
+          setEditingPayment(payment);
+          setIsAddPaymentOpen(true);
+        }}
+        onDeletePayment={deletePayment}
+      />
+
+      <AddPaymentModal
+        isOpen={isAddPaymentOpen}
+        onClose={() => {
+          setIsAddPaymentOpen(false);
+          setEditingPayment(null);
+        }}
+        payment={editingPayment}
+        properties={ownerProperties}
+        tenants={ownerTenants}
+        onSave={async (form) => {
+  const payload = {
+    propertyId: form.propertyId,
+    tenantId: form.tenantId,
+    amount: Number(form.amount),
+    status: form.status,
+    dueDate: form.dueDate,
+    paidAt:
+      form.status === "Opłacone"
+        ? new Date().toISOString()
+        : null,
+  };
+
+  if (form.id) {
+    await updatePayment(form.id, payload);
+  } else {
+    await createPayment(payload);
+  }
+}}
+
+
+      />
+    </>
+  }
+/>
+
 
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Route>

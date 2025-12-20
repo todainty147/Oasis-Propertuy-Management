@@ -3,14 +3,21 @@ import { supabase } from "../lib/supabase";
 
 export function useProperties({ enabled = true } = {}) {
   const [properties, setProperties] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!enabled) {
+      // ⛔ do nothing when disabled
+      setLoading(false);
+      return;
+    }
+
     let channel;
 
     async function loadProperties() {
       setLoading(true);
+      setError(null);
 
       const { data, error } = await supabase
         .from("properties")
@@ -20,7 +27,8 @@ export function useProperties({ enabled = true } = {}) {
           city,
           status,
           tenant_id,
-          created_at
+          created_at,
+          rent
         `)
         .order("created_at", { ascending: false });
 
@@ -66,7 +74,9 @@ function mapProperties(rows) {
     id: p.id,
     address: p.address,
     city: p.city,
-    status: p.status,
+    status: p.status,        // still okay (Option A overrides later)
     tenantId: p.tenant_id,
+    rent: Number(p.rent ?? 0), // ✅ safe numeric rent
+    createdAt: p.created_at,
   }));
 }

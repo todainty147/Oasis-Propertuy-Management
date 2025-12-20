@@ -2,17 +2,28 @@ export default function Finance({
   summary,
   payments,
   propertyFinance,
+  onAddPayment,
+  onDeletePayment,
 }) {
   return (
     <div className="space-y-8">
       {/* ======================
-          PAGE HEADER
+          PAGE HEADER + ADD
          ====================== */}
-      <div>
-        <h1 className="text-2xl font-semibold">Finanse</h1>
-        <p className="text-sm text-gray-500">
-          Podsumowanie przychodów i płatności
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-semibold">Finanse</h1>
+          <p className="text-sm text-gray-500">
+            Podsumowanie przychodów i płatności
+          </p>
+        </div>
+
+        <button
+          onClick={onAddPayment}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+        >
+          Dodaj płatność
+        </button>
       </div>
 
       {/* ======================
@@ -65,12 +76,8 @@ export default function Finance({
                   className="border-t hover:bg-gray-50"
                 >
                   <td className="px-6 py-3">
-                    <div className="font-medium">
-                      {p.address}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {p.city}
-                    </div>
+                    <div className="font-medium">{p.address}</div>
+                    <div className="text-xs text-gray-500">{p.city}</div>
                   </td>
 
                   <td className="px-6 py-3 text-right text-green-600">
@@ -112,6 +119,7 @@ export default function Finance({
                 <th className="px-6 py-3 text-right">Kwota</th>
                 <th className="px-6 py-3">Status</th>
                 <th className="px-6 py-3">Termin</th>
+                <th className="px-6 py-3 text-right"></th>
               </tr>
             </thead>
             <tbody>
@@ -120,13 +128,8 @@ export default function Finance({
                   key={p.id}
                   className="border-t hover:bg-gray-50"
                 >
-                  <td className="px-6 py-3">
-                    {p.tenantName}
-                  </td>
-
-                  <td className="px-6 py-3">
-                    {p.propertyAddress}
-                  </td>
+                  <td className="px-6 py-3">{p.tenantName}</td>
+                  <td className="px-6 py-3">{p.propertyAddress}</td>
 
                   <td className="px-6 py-3 text-right">
                     {formatCurrency(p.amount)}
@@ -136,8 +139,20 @@ export default function Finance({
                     <StatusBadge status={p.status} />
                   </td>
 
-                  <td className="px-6 py-3">
-                    {p.dueDate}
+                  <td className="px-6 py-3">{p.dueDate}</td>
+
+                  {/* DELETE */}
+                  <td className="px-6 py-3 text-right">
+                    <button
+                      onClick={() => {
+                        if (confirm("Usunąć tę płatność?")) {
+                          onDeletePayment(p.id);
+                        }
+                      }}
+                      className="text-red-600 hover:underline"
+                    >
+                      Usuń
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -173,9 +188,7 @@ function StatusBadge({ status }) {
       : "bg-gray-100 text-gray-700";
 
   return (
-    <span
-      className={`px-2 py-1 rounded-full text-xs font-medium ${styles}`}
-    >
+    <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles}`}>
       {status}
     </span>
   );
