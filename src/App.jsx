@@ -179,23 +179,36 @@ export default function App() {
   };
 
   const propertyFinance = ownerProperties.map((property) => {
-    const propertyPayments = ownerPayments.filter(
-      (p) => p.propertyId === property.id
-    );
+  const propertyPayments = ownerPayments.filter(
+    (p) =>
+      p.propertyId === property.id &&
+      p.status === "Opłacone"
+  );
 
-    return {
-      propertyId: property.id,
-      address: property.address,
-      city: property.city,
-      paid: propertyPayments
-        .filter((p) => p.status === "Opłacone")
-        .reduce((s, p) => s + p.amount, 0),
-      overdue: propertyPayments
-        .filter((p) => p.status === "Zaległe")
-        .reduce((s, p) => s + p.amount, 0),
-      expected: propertyPayments.reduce((s, p) => s + p.amount, 0),
-    };
-  });
+  const paid = propertyPayments.reduce(
+    (s, p) => s + p.amount,
+    0
+  );
+
+  const rent = property.rent || 0;
+  const remaining = Math.max(rent - paid, 0);
+
+  let paymentStatus = "Zaległe";
+  if (paid >= rent && rent > 0) paymentStatus = "Opłacone";
+  else if (paid > 0) paymentStatus = "Częściowo";
+
+  return {
+    propertyId: property.id,
+    address: property.address,
+    city: property.city,
+
+    rent,
+    paid,
+    remaining,
+    paymentStatus,
+  };
+});
+
 
   /* ======================
      ROUTES
@@ -279,17 +292,18 @@ export default function App() {
             }
           />
 
+          
           <Route
-            path="properties/:id"
-            element={
-              <PropertyDetails
-                properties={ownerProperties}
-                tenants={ownerTenants}
-              />
-            }
-          />
-
-          <Route
+  path="properties/:id"
+  element={
+    <PropertyDetails
+      properties={ownerProperties}
+      tenants={ownerTenants}
+      payments={ownerPayments} // 👈 this is what we actually need
+    />
+  }
+/>
+< Route
             path="tenants"
             element={
               <>

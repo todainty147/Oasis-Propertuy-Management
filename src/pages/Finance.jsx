@@ -64,11 +64,13 @@ export default function Finance({
             <thead className="bg-gray-50 text-left">
               <tr>
                 <th className="px-6 py-3">Adres</th>
+                <th className="px-6 py-3 text-right">Czynsz</th>
                 <th className="px-6 py-3 text-right">Opłacone</th>
-                <th className="px-6 py-3 text-right">Zaległe</th>
-                <th className="px-6 py-3 text-right">Oczekiwane</th>
+                <th className="px-6 py-3 text-right">Pozostało</th>
+                <th className="px-6 py-3">Status</th>
               </tr>
             </thead>
+
             <tbody>
               {propertyFinance.map((p) => (
                 <tr
@@ -80,16 +82,20 @@ export default function Finance({
                     <div className="text-xs text-gray-500">{p.city}</div>
                   </td>
 
+                  <td className="px-6 py-3 text-right">
+                    {formatCurrency(p.rent)}
+                  </td>
+
                   <td className="px-6 py-3 text-right text-green-600">
                     {formatCurrency(p.paid)}
                   </td>
 
                   <td className="px-6 py-3 text-right text-red-600">
-                    {formatCurrency(p.overdue)}
+                    {formatCurrency(p.remaining)}
                   </td>
 
-                  <td className="px-6 py-3 text-right">
-                    {formatCurrency(p.expected)}
+                  <td className="px-6 py-3">
+                    <StatusBadge status={p.paymentStatus} />
                   </td>
                 </tr>
               ))}
@@ -122,6 +128,7 @@ export default function Finance({
                 <th className="px-6 py-3 text-right"></th>
               </tr>
             </thead>
+
             <tbody>
               {payments.map((p) => (
                 <tr
@@ -141,7 +148,6 @@ export default function Finance({
 
                   <td className="px-6 py-3">{p.dueDate}</td>
 
-                  {/* DELETE */}
                   <td className="px-6 py-3 text-right">
                     <button
                       onClick={() => {
@@ -183,9 +189,9 @@ function StatusBadge({ status }) {
   const styles =
     status === "Opłacone"
       ? "bg-green-100 text-green-700"
-      : status === "Zaległe"
-      ? "bg-red-100 text-red-700"
-      : "bg-gray-100 text-gray-700";
+      : status === "Częściowo"
+      ? "bg-amber-100 text-amber-700"
+      : "bg-red-100 text-red-700";
 
   return (
     <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles}`}>
@@ -194,6 +200,6 @@ function StatusBadge({ status }) {
   );
 }
 
-function formatCurrency(value) {
+function formatCurrency(value = 0) {
   return `${value.toLocaleString("pl-PL")} zł`;
 }
