@@ -44,9 +44,7 @@ export default function Properties({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {properties.map((p) => {
           // 🔑 correct tenant lookup
-          const assignedTenants = tenants.filter(
-            (t) => t.propertyId === p.id
-          );
+          const isOccupied = p.status === "Wynajęte";
 
           return (
             <Link
@@ -74,11 +72,8 @@ export default function Properties({
 
                   <div className="mt-2 flex justify-between text-sm">
                     <span>Najemca</span>
-                    <span>
-                      {assignedTenants.length > 0
-                        ? assignedTenants.map((t) => t.name).join(", ")
-                        : "Brak"}
-                    </span>
+                    <span>{p.status === "Wynajęte" ? "Wynajęte" : "Brak"}</span>
+
                   </div>
                 </div>
 
@@ -101,22 +96,22 @@ export default function Properties({
                   </button>
 
                   <button
-                    disabled={assignedTenants.length > 0}
-                    title={
-                      assignedTenants.length > 0
-                        ? "Usuń przypisanie najemcy przed usunięciem nieruchomości"
-                        : "Usuń nieruchomość"
-                    }
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onDeleteProperty(p.id);
-                    }}
-                    className={`p-1 rounded ${
-                      assignedTenants.length > 0
-                        ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                        : "bg-white hover:bg-slate-100"
-                    }`}
+  disabled={isOccupied}
+  title={
+    isOccupied
+      ? "Usuń przypisanie najemcy przed usunięciem nieruchomości"
+      : "Usuń nieruchomość"
+  }
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDeleteProperty(p.id);
+  }}
+  className={`p-1 rounded ${
+    isOccupied
+      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+      : "bg-white hover:bg-slate-100"
+  }`}
                   >
                     <Trash2 size={16} />
                   </button>
