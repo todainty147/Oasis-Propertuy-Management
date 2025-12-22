@@ -12,7 +12,7 @@ import { useProperties } from "./hooks/useProperties";
 import { usePayments } from "./hooks/usePayments";
 import { useTenants } from "./hooks/useTenants";
 
-import { createProperty } from "./services/propertyService";
+
 import {
   createTenant,
   updateTenant,
@@ -24,6 +24,12 @@ import {
   updatePayment,
   deletePayment,
 } from "./services/paymentService";
+
+import {
+  createProperty,
+  updateProperty,
+  deleteProperty,
+} from "./services/propertyService";
 
 
 import AppLayout from "./layout/AppLayout";
@@ -239,25 +245,36 @@ export default function App() {
                     setEditingProperty(p);
                     setIsAddPropertyOpen(true);
                   }}
-                  onDeleteProperty={() =>
-                    alert("DELETE coming next")
-                  }
+                  onDeleteProperty={async (propertyId) => {
+  if (!confirm("Czy na pewno chcesz usunąć nieruchomość?")) return;
+  await deleteProperty(propertyId);
+}}
+
                 />
 
                 <AddPropertyModal
-                  isOpen={isAddPropertyOpen}
-                  onClose={() => {
-                    setIsAddPropertyOpen(false);
-                    setEditingProperty(null);
-                  }}
-                  onSave={async (property) => {
-                    await createProperty(property);
-                    setIsAddPropertyOpen(false);
-                  }}
-                  property={editingProperty}
-                  tenants={ownerTenants}
-                  owners={owners}
-                />
+  isOpen={isAddPropertyOpen}
+  onClose={() => {
+    setIsAddPropertyOpen(false);
+    setEditingProperty(null);
+  }}
+  onSave={async (property) => {
+    if (property.id) {
+      // ✏️ EDIT
+      await updateProperty(property.id, property);
+    } else {
+      // ➕ CREATE
+      await createProperty(property);
+    }
+
+    setIsAddPropertyOpen(false);
+    setEditingProperty(null);
+  }}
+  property={editingProperty}
+  tenants={ownerTenants}
+  owners={owners}
+/>
+
               </>
             }
           />
