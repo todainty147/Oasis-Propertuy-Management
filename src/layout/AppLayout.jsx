@@ -12,14 +12,14 @@ export default function AppLayout({
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Sidebar */}
+      {/* SIDEBAR */}
       <Sidebar
         mobileOpen={mobileOpen}
         onClose={() => setMobileOpen(false)}
       />
 
-      {/* Main content */}
-      <div className="lg:pl-64">
+      {/* CONTENT */}
+      <div className="lg:ml-64">
         <Topbar
           title=""
           owners={owners}
@@ -28,7 +28,7 @@ export default function AppLayout({
           onMenuClick={() => setMobileOpen(true)}
         />
 
-        <main className="p-4 lg:p-8">
+        <main className="pt-14 lg:pt-16 px-4 lg:px-8">
           <Outlet />
         </main>
       </div>
