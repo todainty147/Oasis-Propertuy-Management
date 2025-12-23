@@ -1,17 +1,11 @@
 import { NavLink } from "react-router-dom";
-import {
-  LayoutDashboard,
-  Home,
-  Users,
-  Wallet,
-  FileText,
-} from "lucide-react";
+import { LayoutDashboard, Home, Users, Wallet, FileText, X } from "lucide-react";
 
-function Item({ to, icon: Icon, label, onNavigate }) {
+function Item({ to, icon: Icon, label, onClick }) {
   return (
     <NavLink
       to={to}
-      onClick={onNavigate}
+      onClick={onClick}
       className={({ isActive }) =>
         `w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
           isActive
@@ -26,27 +20,46 @@ function Item({ to, icon: Icon, label, onNavigate }) {
   );
 }
 
-export default function Sidebar({ onNavigate }) {
+export default function Sidebar({ mobileOpen, onClose }) {
   return (
-    <aside className="flex flex-col w-64 bg-white border-r border-slate-200 h-full">
-      {/* LOGO */}
-      <div className="p-6 flex items-center space-x-3">
-        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
-          ORM
-        </div>
-        <span className="text-sm font-bold tracking-tight text-slate-900">
-          OASIS Rental
-        </span>
-      </div>
+    <>
+      {/* Overlay (mobile only) */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
 
-      {/* NAV */}
-      <nav className="flex-1 px-4 space-y-1 mt-4">
-        <Item to="/dashboard" icon={LayoutDashboard} label="Pulpit" onNavigate={onNavigate} />
-        <Item to="/properties" icon={Home} label="Nieruchomości" onNavigate={onNavigate} />
-        <Item to="/tenants" icon={Users} label="Najemcy" onNavigate={onNavigate} />
-        <Item to="/finance" icon={Wallet} label="Finanse" onNavigate={onNavigate} />
-        <Item to="/documents" icon={FileText} label="Dokumenty" onNavigate={onNavigate} />
-      </nav>
-    </aside>
+      <aside
+        className={`
+          fixed top-0 left-0 z-50 h-full w-64 bg-white border-r
+          transform transition-transform
+          ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
+          lg:translate-x-0
+        `}
+      >
+        <div className="p-6 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+              ORM
+            </div>
+            <span className="font-bold">OASIS Rental</span>
+          </div>
+
+          <button className="lg:hidden" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <nav className="px-4 space-y-1 mt-4">
+          <Item to="/dashboard" icon={LayoutDashboard} label="Pulpit" onClick={onClose} />
+          <Item to="/properties" icon={Home} label="Nieruchomości" onClick={onClose} />
+          <Item to="/tenants" icon={Users} label="Najemcy" onClick={onClose} />
+          <Item to="/finance" icon={Wallet} label="Finanse" onClick={onClose} />
+          <Item to="/documents" icon={FileText} label="Dokumenty" onClick={onClose} />
+        </nav>
+      </aside>
+    </>
   );
 }

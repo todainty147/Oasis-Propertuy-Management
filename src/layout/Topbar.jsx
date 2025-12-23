@@ -1,5 +1,7 @@
 import { Bell, Search, Building2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { Menu } from "lucide-react";
+
 
 
 export default function Topbar({
@@ -7,6 +9,7 @@ export default function Topbar({
   owners = [],
   activeOwnerId,
   setActiveOwnerId,
+   onMenuClick, 
 }) {
   return (
     <div className="flex justify-between items-center mb-8 gap-4">
@@ -37,6 +40,16 @@ export default function Topbar({
           </div>
         )}
         
+
+        {/* Menu Button*/}
+        <button
+  className="lg:hidden"
+  onClick={onMenuClick}
+>
+  <Menu size={24} />
+</button>
+
+
         {/* LOGOUT BUTTON */}
   
   <button
