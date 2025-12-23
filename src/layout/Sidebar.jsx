@@ -1,10 +1,17 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Home, Users, Wallet, FileText } from "lucide-react";
+import {
+  LayoutDashboard,
+  Home,
+  Users,
+  Wallet,
+  FileText,
+} from "lucide-react";
 
-function Item({ to, icon: Icon, label }) {
+function Item({ to, icon: Icon, label, onNavigate }) {
   return (
     <NavLink
       to={to}
+      onClick={onNavigate}
       className={({ isActive }) =>
         `w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
           isActive
@@ -19,24 +26,26 @@ function Item({ to, icon: Icon, label }) {
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({ onNavigate }) {
   return (
-    <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200 h-screen fixed left-0 top-0 z-20">
+    <aside className="flex flex-col w-64 bg-white border-r border-slate-200 h-full">
+      {/* LOGO */}
       <div className="p-6 flex items-center space-x-3">
         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
           ORM
         </div>
-        <span className="text-xl font-bold tracking-tight text-slate-900">
-          OASIS Rental Management
+        <span className="text-sm font-bold tracking-tight text-slate-900">
+          OASIS Rental
         </span>
       </div>
 
+      {/* NAV */}
       <nav className="flex-1 px-4 space-y-1 mt-4">
-        <Item to="/dashboard" icon={LayoutDashboard} label="Pulpit" />
-        <Item to="/properties" icon={Home} label="Nieruchomości" />
-        <Item to="/tenants" icon={Users} label="Najemcy" />
-        <Item to="/finance" icon={Wallet} label="Finanse" />
-        <Item to="/documents" icon={FileText} label="Dokumenty" />
+        <Item to="/dashboard" icon={LayoutDashboard} label="Pulpit" onNavigate={onNavigate} />
+        <Item to="/properties" icon={Home} label="Nieruchomości" onNavigate={onNavigate} />
+        <Item to="/tenants" icon={Users} label="Najemcy" onNavigate={onNavigate} />
+        <Item to="/finance" icon={Wallet} label="Finanse" onNavigate={onNavigate} />
+        <Item to="/documents" icon={FileText} label="Dokumenty" onNavigate={onNavigate} />
       </nav>
     </aside>
   );
