@@ -1,1 +1,21 @@
 @import "tailwindcss";
+
+/* =========================
+   Global layout fixes
+   ========================= */
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* Prevent scroll bleed & rubber-band on mobile */
+body {
+  overscroll-behavior: none;
+}
+
+/* iOS safe-area helper (used by Sidebar) */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}

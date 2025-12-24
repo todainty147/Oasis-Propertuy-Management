@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
@@ -24,12 +24,27 @@ export default function AppLayout({
   setActiveOwnerId,
 }) {
   const isDesktop = useMediaQuery("(min-width: 1024px)");
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // 🔒 Deterministic desktop behavior
+  // 🔒 Force open on desktop
   useEffect(() => {
     if (isDesktop) setSidebarOpen(true);
   }, [isDesktop]);
+
+  // 📱 Close sidebar on navigation (mobile failsafe)
+  useEffect(() => {
+    if (!isDesktop) setSidebarOpen(false);
+  }, [location.pathname]);
+
+  // 🛑 Prevent background scroll when mobile sidebar is open
+  useEffect(() => {
+    if (!isDesktop && sidebarOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+  }, [isDesktop, sidebarOpen]);
 
   return (
     <div className="h-screen flex bg-slate-50 overflow-hidden">

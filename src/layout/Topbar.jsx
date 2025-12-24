@@ -9,17 +9,19 @@ export default function Topbar({
   onMenuClick,
 }) {
   return (
-    <header className="
-      fixed top-0 left-0 right-0
-      h-14 lg:h-16
-      bg-white border-b border-slate-200
-      flex items-center
-      px-4 lg:px-8
-      z-30
-      lg:left-64
-    ">
+    <header
+      className="
+        fixed top-0 left-0 right-0
+        h-14 lg:h-16
+        bg-white border-b border-slate-200
+        flex items-center
+        px-4 lg:px-8
+        z-30
+        lg:left-64
+      "
+    >
       {/* LEFT */}
-      <div className="flex items-center gap-3 flex-1">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
         <button
           onClick={onMenuClick}
           className="lg:hidden p-2 rounded hover:bg-slate-100"
@@ -36,7 +38,7 @@ export default function Topbar({
       {/* RIGHT */}
       <div className="flex items-center gap-3">
         {owners.length > 1 && (
-          <div className="hidden sm:flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2">
+          <div className="hidden lg:flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2">
             <Building2 size={16} className="text-slate-400" />
             <select
               value={activeOwnerId}
@@ -52,7 +54,7 @@ export default function Topbar({
           </div>
         )}
 
-        <div className="hidden md:flex relative">
+        <div className="hidden xl:flex relative">
           <input
             type="text"
             placeholder="Szukaj..."
