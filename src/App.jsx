@@ -415,15 +415,18 @@ return (
 <Route
   path="documents"
   element={
-    <div className="p-6 bg-white rounded-xl border">
-      <h2 className="text-xl font-semibold">Dokumenty</h2>
-      <p className="text-slate-500 mt-2">
-        Moduł dokumentów w przygotowaniu.
-      </p>
-    </div>
+    <Documents
+      loading={false}
+      documents={[]}   // 👈 explicitly defined
+      onUpload={() => {
+        alert("Upload w przygotowaniu");
+      }}
+      onDelete={() => {}}
+    />
   }
-  handle={{ title: "Dokumenty" }}
 />
+
+
 
 
 

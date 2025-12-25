@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Skeleton from "../components/ui/Skeleton";
+import { useEffect } from "react";
+import { usePageTitle } from "../layout/PageTitleContext";
 
 /* ======================
    SKELETON
@@ -38,10 +40,19 @@ export default function Tenants({
   onEditTenant,
   onDeleteTenant,
 }) {
+  /* ---------- PAGE TITLE ---------- */
+  const { setTitle } = usePageTitle();
+
+  useEffect(() => {
+    setTitle("Najemcy");
+  }, [setTitle]);
+
+  /* ---------- LOADING ---------- */
   if (loading) {
     return <TenantsSkeleton />;
   }
 
+  /* ---------- EMPTY ---------- */
   if (tenants.length === 0) {
     return (
       <div className="text-center py-20">

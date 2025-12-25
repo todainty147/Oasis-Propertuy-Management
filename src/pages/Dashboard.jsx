@@ -6,6 +6,8 @@ import {
   AlertCircle,
   Home,
 } from "lucide-react";
+import { useEffect } from "react";
+import { usePageTitle } from "../layout/PageTitleContext";
 
 /* ======================
    SKELETON
@@ -47,10 +49,19 @@ export default function Dashboard({
   shortVacantCount,
   longVacantProperties,
 }) {
+  /* ---------- PAGE TITLE ---------- */
+  const { setTitle } = usePageTitle();
+
+  useEffect(() => {
+    setTitle("Pulpit");
+  }, [setTitle]);
+
+  /* ---------- LOADING ---------- */
   if (loading) {
     return <DashboardSkeleton />;
   }
 
+  /* ---------- DERIVED DATA ---------- */
   const totalRevenue = payments
     .filter((p) => p.status === "Opłacone")
     .reduce((s, p) => s + p.amount, 0);
@@ -153,7 +164,7 @@ export default function Dashboard({
           </div>
         </Card>
 
-        {/* LONG VACANT COUNT */}
+        {/* LONG VACANT */}
         <Card className="p-5">
           <div className="flex justify-between items-start">
             <div>

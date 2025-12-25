@@ -3,6 +3,8 @@ import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Skeleton from "../components/ui/Skeleton";
 import { Home, Pencil, Trash2 } from "lucide-react";
+import { useEffect } from "react";
+import { usePageTitle } from "../layout/PageTitleContext";
 
 /* ======================
    SKELETON
@@ -39,10 +41,19 @@ export default function Properties({
   onEditProperty,
   onDeleteProperty,
 }) {
+  /* ---------- PAGE TITLE ---------- */
+  const { setTitle } = usePageTitle();
+
+  useEffect(() => {
+    setTitle("Nieruchomości");
+  }, [setTitle]);
+
+  /* ---------- LOADING ---------- */
   if (loading) {
     return <PropertiesSkeleton />;
   }
 
+  /* ---------- EMPTY ---------- */
   if (properties.length === 0) {
     return (
       <div className="text-center py-20">

@@ -1,9 +1,6 @@
-import { useLocation, matchRoutes } from "react-router-dom";
 import { Bell, Search, Building2, Menu } from "lucide-react";
 import { supabase } from "../lib/supabase";
-
-// IMPORTANT: export your route config from App.jsx (see step 2)
-import { routesConfig } from "../routesConfig";
+import { usePageTitle } from "../layout/PageTitleContext";
 
 export default function Topbar({
   owners = [],
@@ -11,28 +8,10 @@ export default function Topbar({
   setActiveOwnerId,
   onMenuClick,
 }) {
-  const location = useLocation();
-
-  const matches = matchRoutes(routesConfig, location);
-
-  const title =
-    matches
-      ?.map((m) => m.route.handle?.title)
-      .filter(Boolean)
-      .at(-1) ?? "";
+  const { title } = usePageTitle();
 
   return (
-    <header
-      className="
-        fixed top-0 left-0 right-0
-        h-14 lg:h-16
-        bg-white border-b border-slate-200
-        flex items-center
-        px-4 lg:px-8
-        z-30
-        lg:left-64
-      "
-    >
+    <header className="fixed top-0 left-0 right-0 h-14 lg:h-16 bg-white border-b flex items-center px-4 lg:px-8 z-30 lg:left-64">
       {/* LEFT */}
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <button
@@ -43,12 +22,12 @@ export default function Topbar({
           <Menu size={22} />
         </button>
 
-        <h1 className="text-lg lg:text-2xl font-bold text-slate-900 truncate">
+        <h1 className="text-lg lg:text-2xl font-bold truncate">
           {title}
         </h1>
       </div>
 
-      {/* RIGHT (unchanged) */}
+      {/* RIGHT */}
       <div className="flex items-center gap-3">
         {owners.length > 1 && (
           <div className="hidden lg:flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2">

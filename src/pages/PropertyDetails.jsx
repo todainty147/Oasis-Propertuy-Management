@@ -1,7 +1,9 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import Card from "../components/Card";
 import Breadcrumbs from "../components/Breadcrumbs";
 import Skeleton from "../components/ui/Skeleton";
+import { usePageTitle } from "../layout/PageTitleContext";
 
 /* ======================
    SKELETON
@@ -43,6 +45,8 @@ export default function PropertyDetails({
   const { id } = useParams();
   const navigate = useNavigate();
 
+  const { setTitle } = usePageTitle();
+
   if (loading) {
     return <PropertyDetailsSkeleton />;
   }
@@ -50,6 +54,13 @@ export default function PropertyDetails({
   const property = properties.find(
     (p) => String(p.id) === String(id)
   );
+
+  /* ---------- PAGE TITLE ---------- */
+  useEffect(() => {
+    if (property?.address) {
+      setTitle(property.address);
+    }
+  }, [property?.address, setTitle]);
 
   if (!property) {
     return (

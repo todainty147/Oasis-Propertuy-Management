@@ -1,7 +1,10 @@
+import { useParams, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Breadcrumbs from "../components/Breadcrumbs";
 import Skeleton from "../components/ui/Skeleton";
+import { usePageTitle } from "../layout/PageTitleContext";
 
 /* ======================
    SKELETON
@@ -10,40 +13,19 @@ import Skeleton from "../components/ui/Skeleton";
 function TenantDetailsSkeleton() {
   return (
     <div className="space-y-6">
-      {/* Back link */}
       <Skeleton className="h-4 w-32" />
-
-      {/* Breadcrumbs */}
       <Skeleton className="h-4 w-56" />
 
-      {/* Main card */}
       <Card className="p-6 space-y-6">
-        <div className="flex justify-between gap-4">
-          <div>
-            <Skeleton className="h-7 w-48" />
-            <Skeleton className="h-4 w-40 mt-2" />
-            <Skeleton className="h-4 w-32 mt-1" />
-          </div>
-
-          <div className="flex gap-2">
-            <Skeleton className="h-6 w-20 rounded-full" />
-            <Skeleton className="h-6 w-20 rounded-full" />
-          </div>
-        </div>
+        <Skeleton className="h-7 w-48" />
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-4 w-32" />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-[96px]" />
           ))}
         </div>
-      </Card>
-
-      {/* Payments history */}
-      <Card className="p-6 space-y-4">
-        <Skeleton className="h-6 w-40" />
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-16" />
-        ))}
       </Card>
     </div>
   );
@@ -55,36 +37,56 @@ function TenantDetailsSkeleton() {
 
 export default function TenantDetails({
   loading = false,
-  tenant,
-  property,
-  payments,
-  onBack,
+  tenants = [],
+  properties = [],
+  payments = [],
 }) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { setTitle } = usePageTitle();
+
   if (loading) {
     return <TenantDetailsSkeleton />;
   }
 
-  const tenantPayments = payments.filter(
-    (p) => p.tenant === tenant.name
+  const tenant = tenants.find((t) => String(t.id) === String(id));
+
+  if (!tenant) {
+    return (
+      <div className="p-6 bg-white rounded-xl border">
+        <p>Nie znaleziono najemcy.</p>
+        <button
+          className="mt-4 text-blue-600"
+          onClick={() => navigate("/tenants")}
+        >
+          ← Wróć
+        </button>
+      </div>
+    );
+  }
+
+  const property = properties.find(
+    (p) => String(p.id) === String(tenant.propertyId)
   );
 
-  const paid = tenantPayments.filter(
+  useEffect(() => {
+    setTitle(tenant.name);
+  }, [tenant.name, setTitle]);
+
+  const tenantPayments = payments.filter(
+    (p) => String(p.tenantId) === String(tenant.id)
+  );
+
+  const paidCount = tenantPayments.filter(
     (p) => p.status === "Opłacone"
   ).length;
 
-  const overdue = tenantPayments.filter(
+  const overdueCount = tenantPayments.filter(
     (p) => p.status === "Zaległe"
   ).length;
 
   return (
     <div className="space-y-6">
-      <button
-        onClick={onBack}
-        className="text-sm font-medium text-blue-600 hover:text-blue-800"
-      >
-        ← Wróć do najemców
-      </button>
-
       <Breadcrumbs
         items={[
           { label: "Najemcy", to: "/tenants" },
@@ -107,7 +109,7 @@ export default function TenantDetails({
           </div>
 
           <div className="flex gap-2">
-            {overdue > 0 ? (
+            {overdueCount > 0 ? (
               <Badge status="Zaległe" />
             ) : (
               <Badge status="Opłacone" />
@@ -122,9 +124,7 @@ export default function TenantDetails({
 
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="p-4 bg-slate-50">
-            <p className="text-xs text-slate-500">
-              Lokal
-            </p>
+            <p className="text-xs text-slate-500">Lokal</p>
             <p className="font-semibold">
               {property?.address || "—"}
             </p>
@@ -137,9 +137,7 @@ export default function TenantDetails({
             <p className="text-xs text-slate-500">
               Płatności opłacone
             </p>
-            <p className="text-xl font-bold">
-              {paid}
-            </p>
+            <p className="text-xl font-bold">{paidCount}</p>
           </Card>
 
           <Card className="p-4 bg-slate-50">
@@ -147,48 +145,9 @@ export default function TenantDetails({
               Płatności zaległe
             </p>
             <p className="text-xl font-bold text-rose-600">
-              {overdue}
+              {overdueCount}
             </p>
           </Card>
-        </div>
-      </Card>
-
-      <Card className="p-6">
-        <h3 className="font-semibold text-lg mb-4">
-          Historia płatności
-        </h3>
-
-        <div className="space-y-3">
-          {tenantPayments.length === 0 ? (
-            <p className="text-slate-500 text-sm">
-              Brak płatności.
-            </p>
-          ) : (
-            tenantPayments.map((p) => (
-              <div
-                key={p.id}
-                className="flex items-center justify-between border-b border-slate-100 pb-3 last:border-0 last:pb-0"
-              >
-                <div>
-                  <p className="font-medium text-slate-900">
-                    {p.type}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {p.property} • {p.date}
-                  </p>
-                </div>
-
-                <div className="text-right">
-                  <p className="font-semibold">
-                    {p.amount} PLN
-                  </p>
-                  <div className="mt-1">
-                    <Badge status={p.status} />
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
         </div>
       </Card>
     </div>
