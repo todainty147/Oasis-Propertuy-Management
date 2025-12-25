@@ -69,10 +69,12 @@ export default function TenantDetails({
     (p) => String(p.id) === String(tenant.propertyId)
   );
 
+  /* ---------- PAGE TITLE ---------- */
   useEffect(() => {
     setTitle(tenant.name);
   }, [tenant.name, setTitle]);
 
+  /* ---------- PAYMENTS ---------- */
   const tenantPayments = payments.filter(
     (p) => String(p.tenantId) === String(tenant.id)
   );
@@ -84,6 +86,14 @@ export default function TenantDetails({
   const overdueCount = tenantPayments.filter(
     (p) => p.status === "Zaległe"
   ).length;
+
+  /* ---------- TENANT FINANCIAL STATUS ---------- */
+  let tenantStatus = "Zaległe";
+  if (overdueCount === 0 && paidCount > 0) {
+    tenantStatus = "Opłacone";
+  } else if (paidCount > 0 && overdueCount > 0) {
+    tenantStatus = "Częściowo";
+  }
 
   return (
     <div className="space-y-6">
@@ -108,17 +118,9 @@ export default function TenantDetails({
             </p>
           </div>
 
+          {/* ✅ TENANT FINANCIAL STATUS ONLY */}
           <div className="flex gap-2">
-            {overdueCount > 0 ? (
-              <Badge status="Zaległe" />
-            ) : (
-              <Badge status="Opłacone" />
-            )}
-            {property ? (
-              <Badge status="Wynajęte" />
-            ) : (
-              <Badge status="Wolne" />
-            )}
+            <Badge status={tenantStatus} />
           </div>
         </div>
 
@@ -137,7 +139,9 @@ export default function TenantDetails({
             <p className="text-xs text-slate-500">
               Płatności opłacone
             </p>
-            <p className="text-xl font-bold">{paidCount}</p>
+            <p className="text-xl font-bold">
+              {paidCount}
+            </p>
           </Card>
 
           <Card className="p-4 bg-slate-50">

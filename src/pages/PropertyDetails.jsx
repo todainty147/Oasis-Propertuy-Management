@@ -4,7 +4,7 @@ import Card from "../components/Card";
 import Breadcrumbs from "../components/Breadcrumbs";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
-import { calculateMonthlyBalance } from "../utils/finance";
+import { calculatePropertyFinance } from "../utils/finance";
 
 /* ======================
    SKELETON
@@ -37,8 +37,8 @@ function PropertyDetailsSkeleton() {
 
 export default function PropertyDetails({
   loading = false,
-  properties,
-  tenants,
+  properties = [],
+  tenants = [],
   payments = [],
 }) {
   const { id } = useParams();
@@ -53,13 +53,7 @@ export default function PropertyDetails({
     (p) => String(p.id) === String(id)
   );
 
-  /* ---------- PAGE TITLE ---------- */
-  useEffect(() => {
-    if (property?.address) {
-      setTitle(property.address);
-    }
-  }, [property?.address, setTitle]);
-
+  /* ---------- NOT FOUND ---------- */
   if (!property) {
     return (
       <div className="p-6 bg-white rounded-xl border">
@@ -74,22 +68,23 @@ export default function PropertyDetails({
     );
   }
 
+  /* ---------- PAGE TITLE ---------- */
+  useEffect(() => {
+    setTitle(property.address);
+  }, [property.address, setTitle]);
+
   /* ---------- TENANTS ---------- */
   const tenantNames = tenants
     .filter((t) => String(t.propertyId) === String(property.id))
     .map((t) => t.name)
     .filter(Boolean);
 
-  /* ---------- FINANCE ---------- */
-  const now = new Date();
-
-  const { paid, remaining, status } = calculateMonthlyBalance({
-    rent: Number(property.rent) || 0,
+  /* ---------- FINANCE (UTIL-DRIVEN) ---------- */
+  const finance = calculatePropertyFinance({
+    property,
     payments: payments.filter(
       (p) => String(p.propertyId) === String(property.id)
     ),
-    year: now.getFullYear(),
-    month: now.getMonth(),
   });
 
   return (
@@ -110,38 +105,49 @@ export default function PropertyDetails({
         </p>
 
         <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* RENT */}
           <Card className="p-4 bg-slate-50">
             <p className="text-xs text-slate-500">Czynsz</p>
             <p className="font-semibold">
-              {Number(property.rent || 0).toLocaleString("pl-PL")} zł
+              {finance.rent.toLocaleString("pl-PL")} zł
             </p>
           </Card>
 
+          {/* STATUS */}
           <Card className="p-4 bg-slate-50">
             <p className="text-xs text-slate-500">Status</p>
-            <p className="font-semibold">{status}</p>
+            <p className="font-semibold">
+              {finance.paymentStatus}
+            </p>
           </Card>
 
+          {/* TENANTS */}
           <Card className="p-4 bg-slate-50">
             <p className="text-xs text-slate-500">Najemca</p>
             <p className="font-semibold">
-              {tenantNames.length ? tenantNames.join(", ") : "Brak"}
+              {tenantNames.length
+                ? tenantNames.join(", ")
+                : "Brak"}
             </p>
           </Card>
 
+          {/* REMAINING */}
           <Card className="p-4 bg-slate-50">
             <p className="text-xs text-slate-500">
               Pozostało do zapłaty
             </p>
+
             <p
               className={`font-semibold ${
-                remaining > 0 ? "text-red-600" : "text-green-600"
+                finance.remaining > 0
+                  ? "text-red-600"
+                  : "text-green-600"
               }`}
             >
-              {remaining.toLocaleString("pl-PL")} zł
+              {finance.remaining.toLocaleString("pl-PL")} zł
             </p>
 
-            {remaining === 0 && (
+            {finance.remaining === 0 && (
               <p className="text-xs text-green-600 mt-1">
                 Opłacone
               </p>
