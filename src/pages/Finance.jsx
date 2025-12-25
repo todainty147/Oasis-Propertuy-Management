@@ -1,10 +1,88 @@
+import Skeleton from "../components/ui/Skeleton";
+
+/* ======================
+   SKELETONS
+   ====================== */
+
+function FinanceSkeleton() {
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-4 w-64 mt-2" />
+        </div>
+        <Skeleton className="h-10 w-40" />
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-[96px]" />
+        ))}
+      </div>
+
+      {/* Property finance table */}
+      <div className="bg-white rounded-xl border overflow-hidden">
+        <div className="px-6 py-4 border-b">
+          <Skeleton className="h-5 w-48" />
+        </div>
+
+        <div className="divide-y">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="px-6 py-4 grid grid-cols-5 gap-4">
+              <Skeleton className="h-4 col-span-2" />
+              <Skeleton className="h-4" />
+              <Skeleton className="h-4" />
+              <Skeleton className="h-4" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Payments table */}
+      <div className="bg-white rounded-xl border overflow-hidden">
+        <div className="px-6 py-4 border-b">
+          <Skeleton className="h-5 w-32" />
+        </div>
+
+        <div className="divide-y">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="px-6 py-4 grid grid-cols-6 gap-4"
+            >
+              <Skeleton className="h-4" />
+              <Skeleton className="h-4" />
+              <Skeleton className="h-4" />
+              <Skeleton className="h-4" />
+              <Skeleton className="h-4" />
+              <Skeleton className="h-4" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ======================
+   FINANCE
+   ====================== */
+
 export default function Finance({
+  loading = false,
   summary,
   payments,
   propertyFinance,
   onAddPayment,
   onDeletePayment,
 }) {
+  if (loading) {
+    return <FinanceSkeleton />;
+  }
+
   return (
     <div className="space-y-8">
       {/* ======================
@@ -52,7 +130,9 @@ export default function Finance({
          ====================== */}
       <div className="bg-white rounded-xl border overflow-hidden">
         <div className="px-6 py-4 border-b">
-          <h2 className="font-semibold">Finanse wg nieruchomości</h2>
+          <h2 className="font-semibold">
+            Finanse wg nieruchomości
+          </h2>
         </div>
 
         {propertyFinance.length === 0 ? (
@@ -78,8 +158,12 @@ export default function Finance({
                   className="border-t hover:bg-gray-50"
                 >
                   <td className="px-6 py-3">
-                    <div className="font-medium">{p.address}</div>
-                    <div className="text-xs text-gray-500">{p.city}</div>
+                    <div className="font-medium">
+                      {p.address}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {p.city}
+                    </div>
                   </td>
 
                   <td className="px-6 py-3 text-right">
@@ -95,7 +179,9 @@ export default function Finance({
                   </td>
 
                   <td className="px-6 py-3">
-                    <StatusBadge status={p.paymentStatus} />
+                    <StatusBadge
+                      status={p.paymentStatus}
+                    />
                   </td>
                 </tr>
               ))}
@@ -122,7 +208,9 @@ export default function Finance({
               <tr>
                 <th className="px-6 py-3">Najemca</th>
                 <th className="px-6 py-3">Nieruchomość</th>
-                <th className="px-6 py-3 text-right">Kwota</th>
+                <th className="px-6 py-3 text-right">
+                  Kwota
+                </th>
                 <th className="px-6 py-3">Status</th>
                 <th className="px-6 py-3">Termin</th>
                 <th className="px-6 py-3 text-right"></th>
@@ -135,8 +223,12 @@ export default function Finance({
                   key={p.id}
                   className="border-t hover:bg-gray-50"
                 >
-                  <td className="px-6 py-3">{p.tenantName}</td>
-                  <td className="px-6 py-3">{p.propertyAddress}</td>
+                  <td className="px-6 py-3">
+                    {p.tenantName}
+                  </td>
+                  <td className="px-6 py-3">
+                    {p.propertyAddress}
+                  </td>
 
                   <td className="px-6 py-3 text-right">
                     {formatCurrency(p.amount)}
@@ -146,12 +238,16 @@ export default function Finance({
                     <StatusBadge status={p.status} />
                   </td>
 
-                  <td className="px-6 py-3">{p.dueDate}</td>
+                  <td className="px-6 py-3">
+                    {p.dueDate}
+                  </td>
 
                   <td className="px-6 py-3 text-right">
                     <button
                       onClick={() => {
-                        if (confirm("Usunąć tę płatność?")) {
+                        if (
+                          confirm("Usunąć tę płatność?")
+                        ) {
                           onDeletePayment(p.id);
                         }
                       }}
@@ -194,7 +290,9 @@ function StatusBadge({ status }) {
       : "bg-red-100 text-red-700";
 
   return (
-    <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles}`}>
+    <span
+      className={`px-2 py-1 rounded-full text-xs font-medium ${styles}`}
+    >
       {status}
     </span>
   );

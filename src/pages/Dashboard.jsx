@@ -1,7 +1,43 @@
 import Card from "../components/Card";
-import { Wallet, TrendingUp, AlertCircle, Home } from "lucide-react";
+import Skeleton from "../components/ui/Skeleton";
+import {
+  Wallet,
+  TrendingUp,
+  AlertCircle,
+  Home,
+} from "lucide-react";
+
+/* ======================
+   SKELETON
+   ====================== */
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* KPI GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} className="h-[120px]" />
+        ))}
+      </div>
+
+      {/* VACANCY TABLE */}
+      <div className="space-y-3">
+        <Skeleton className="h-6 w-64" />
+        <Skeleton className="h-14" />
+        <Skeleton className="h-14" />
+        <Skeleton className="h-14" />
+      </div>
+    </div>
+  );
+}
+
+/* ======================
+   DASHBOARD
+   ====================== */
 
 export default function Dashboard({
+  loading = false,
   properties,
   payments,
   occupiedCount,
@@ -11,6 +47,10 @@ export default function Dashboard({
   shortVacantCount,
   longVacantProperties,
 }) {
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
+
   const totalRevenue = payments
     .filter((p) => p.status === "Opłacone")
     .reduce((s, p) => s + p.amount, 0);

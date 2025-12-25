@@ -1,35 +1,96 @@
-import Card from "../components/Card";
-import Badge from "../components/Badge";
-import { FileText, CheckCircle } from "lucide-react";
+import Skeleton from "../components/ui/Skeleton";
 
-export default function Documents() {
+/* ======================
+   SKELETON
+   ====================== */
+
+function DocumentsSkeleton() {
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900">Centrum Dokumentów</h2>
-        <p className="text-slate-500 text-sm mt-1">Generuj umowy i protokoły zgodne z polskim prawem.</p>
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-10 w-36" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="p-6 border-l-4 border-l-blue-500">
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-3 bg-blue-50 rounded-lg text-blue-600"><FileText size={24} /></div>
-            <Badge status="Standard" />
-          </div>
-          <h3 className="font-bold text-lg mb-2">Najem Okazjonalny</h3>
-          <p className="text-slate-600 text-sm mb-4">Wzór umowy najmu okazjonalnego z wymaganymi załącznikami.</p>
-          <button className="w-full py-2 bg-slate-900 text-white rounded-lg text-sm font-medium">Generuj PDF</button>
-        </Card>
+      {/* Document rows */}
+      <div className="space-y-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-14" />
+        ))}
+      </div>
+    </div>
+  );
+}
 
-        <Card className="p-6 border-l-4 border-l-purple-500">
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-3 bg-purple-50 rounded-lg text-purple-600"><CheckCircle size={24} /></div>
-            <Badge status="Protokół" />
+/* ======================
+   DOCUMENTS
+   ====================== */
+
+export default function Documents({
+  loading = false,
+  documents,
+  onUpload,
+  onDelete,
+}) {
+  if (loading) {
+    return <DocumentsSkeleton />;
+  }
+
+  if (documents.length === 0) {
+    return (
+      <div className="text-center py-20">
+        <h3 className="text-xl font-semibold text-slate-900">
+          Brak dokumentów
+        </h3>
+        <p className="text-slate-500 mt-2">
+          Dodaj pierwszy dokument
+        </p>
+        <button
+          onClick={onUpload}
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
+        >
+          Dodaj dokument
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Dokumenty</h2>
+        <button
+          onClick={onUpload}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+        >
+          Dodaj dokument
+        </button>
+      </div>
+
+      {/* Documents list */}
+      <div className="divide-y bg-white border rounded-xl">
+        {documents.map((doc) => (
+          <div
+            key={doc.id}
+            className="px-6 py-4 flex justify-between items-center"
+          >
+            <div>
+              <p className="font-medium">{doc.name}</p>
+              <p className="text-sm text-slate-500">
+                {doc.type} • {doc.size}
+              </p>
+            </div>
+
+            <button
+              onClick={() => onDelete(doc.id)}
+              className="text-sm text-red-600 hover:underline"
+            >
+              Usuń
+            </button>
           </div>
-          <h3 className="font-bold text-lg mb-2">Protokół Zdawczo-Odbiorczy</h3>
-          <p className="text-slate-600 text-sm mb-4">Lista kontrolna: liczniki, wyposażenie, stan techniczny.</p>
-          <button className="w-full py-2 bg-slate-900 text-white rounded-lg text-sm font-medium">Generuj PDF</button>
-        </Card>
+        ))}
       </div>
     </div>
   );

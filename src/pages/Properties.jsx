@@ -1,15 +1,48 @@
 import { Link } from "react-router-dom";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
+import Skeleton from "../components/ui/Skeleton";
 import { Home, Pencil, Trash2 } from "lucide-react";
 
+/* ======================
+   SKELETON
+   ====================== */
+
+function PropertiesSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between gap-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-10 w-40" />
+      </div>
+
+      {/* Cards grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-[280px]" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ======================
+   PROPERTIES
+   ====================== */
+
 export default function Properties({
+  loading = false,
   properties,
   tenants,
   onAddProperty,
   onEditProperty,
   onDeleteProperty,
 }) {
+  if (loading) {
+    return <PropertiesSkeleton />;
+  }
+
   if (properties.length === 0) {
     return (
       <div className="text-center py-20">
@@ -43,7 +76,6 @@ export default function Properties({
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {properties.map((p) => {
-          // 🔑 correct tenant lookup
           const isOccupied = p.status === "Wynajęte";
 
           return (
@@ -72,8 +104,9 @@ export default function Properties({
 
                   <div className="mt-2 flex justify-between text-sm">
                     <span>Najemca</span>
-                    <span>{p.status === "Wynajęte" ? "Wynajęte" : "Brak"}</span>
-
+                    <span>
+                      {p.status === "Wynajęte" ? "Wynajęte" : "Brak"}
+                    </span>
                   </div>
                 </div>
 
@@ -96,22 +129,22 @@ export default function Properties({
                   </button>
 
                   <button
-  disabled={isOccupied}
-  title={
-    isOccupied
-      ? "Usuń przypisanie najemcy przed usunięciem nieruchomości"
-      : "Usuń nieruchomość"
-  }
-  onClick={(e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onDeleteProperty(p.id);
-  }}
-  className={`p-1 rounded ${
-    isOccupied
-      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-      : "bg-white hover:bg-slate-100"
-  }`}
+                    disabled={isOccupied}
+                    title={
+                      isOccupied
+                        ? "Usuń przypisanie najemcy przed usunięciem nieruchomości"
+                        : "Usuń nieruchomość"
+                    }
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onDeleteProperty(p.id);
+                    }}
+                    className={`p-1 rounded ${
+                      isOccupied
+                        ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                        : "bg-white hover:bg-slate-100"
+                    }`}
                   >
                     <Trash2 size={16} />
                   </button>

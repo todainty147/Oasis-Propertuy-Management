@@ -1,14 +1,47 @@
 import { Link } from "react-router-dom";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
+import Skeleton from "../components/ui/Skeleton";
+
+/* ======================
+   SKELETON
+   ====================== */
+
+function TenantsSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-10 w-36" />
+      </div>
+
+      {/* Tenant cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-[150px]" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ======================
+   TENANTS
+   ====================== */
 
 export default function Tenants({
+  loading = false,
   tenants,
   properties,
   onOpenAddTenant,
   onEditTenant,
   onDeleteTenant,
 }) {
+  if (loading) {
+    return <TenantsSkeleton />;
+  }
+
   if (tenants.length === 0) {
     return (
       <div className="text-center py-20">
@@ -75,31 +108,30 @@ export default function Tenants({
                     ? `Wynajmuje: ${property.address}`
                     : "Brak przypisanej nieruchomości"}
                 </div>
-<div className="flex gap-2 mt-3">
-  <button
-    onClick={(e) => {
-      e.preventDefault();
-      onEditTenant(tenant);
-    }}
-    className="text-sm text-blue-600"
-  >
-    Edytuj
-  </button>
 
-  <button
-    onClick={async (e) => {
-      e.preventDefault();
-      if (confirm("Usunąć najemcę?")) {
-        await onDeleteTenant(tenant.id);
-      }
-    }}
-    className="text-sm text-red-600"
-  >
-    Usuń
-  </button>
-</div>
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onEditTenant(tenant);
+                    }}
+                    className="text-sm text-blue-600"
+                  >
+                    Edytuj
+                  </button>
 
-
+                  <button
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      if (confirm("Usunąć najemcę?")) {
+                        await onDeleteTenant(tenant.id);
+                      }
+                    }}
+                    className="text-sm text-red-600"
+                  >
+                    Usuń
+                  </button>
+                </div>
               </Card>
             </Link>
           );
