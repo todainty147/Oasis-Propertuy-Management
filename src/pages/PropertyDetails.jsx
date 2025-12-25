@@ -4,6 +4,7 @@ import Card from "../components/Card";
 import Breadcrumbs from "../components/Breadcrumbs";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
+import { calculateMonthlyBalance } from "../utils/finance";
 
 /* ======================
    SKELETON
@@ -12,10 +13,8 @@ import { usePageTitle } from "../layout/PageTitleContext";
 function PropertyDetailsSkeleton() {
   return (
     <div className="space-y-6">
-      {/* Breadcrumbs */}
       <Skeleton className="h-4 w-64" />
 
-      {/* Main card */}
       <Card className="p-6 space-y-4">
         <div>
           <Skeleton className="h-7 w-80" />
@@ -44,7 +43,6 @@ export default function PropertyDetails({
 }) {
   const { id } = useParams();
   const navigate = useNavigate();
-
   const { setTitle } = usePageTitle();
 
   if (loading) {
@@ -76,50 +74,23 @@ export default function PropertyDetails({
     );
   }
 
-  /* ======================
-     NAJEMCA (tenants-first)
-     ====================== */
-  const tenantNamesFromTenants = tenants
-    .filter(
-      (t) =>
-        String(t.propertyId) === String(property.id)
-    )
+  /* ---------- TENANTS ---------- */
+  const tenantNames = tenants
+    .filter((t) => String(t.propertyId) === String(property.id))
     .map((t) => t.name)
     .filter(Boolean);
 
-  // Fallback only — tenants table is source of truth
-  const tenantNamesFromPayments = payments
-    .filter(
-      (p) =>
-        String(p.propertyId) === String(property.id)
-    )
-    .map((p) => p.tenantName)
-    .filter(Boolean);
+  /* ---------- FINANCE ---------- */
+  const now = new Date();
 
-  const tenantNames = Array.from(
-    new Set([
-      ...tenantNamesFromTenants,
-      ...tenantNamesFromPayments,
-    ])
-  );
-
-  /* ======================
-     PAYMENTS / REMAINING
-     ====================== */
-  const propertyPayments = payments.filter(
-    (p) =>
-      String(p.propertyId) === String(property.id)
-  );
-
-  const paid = propertyPayments
-    .filter((p) => p.status === "Opłacone")
-    .reduce(
-      (sum, p) => sum + (Number(p.amount) || 0),
-      0
-    );
-
-  const rent = Number(property.rent) || 0;
-  const remaining = Math.max(rent - paid, 0);
+  const { paid, remaining, status } = calculateMonthlyBalance({
+    rent: Number(property.rent) || 0,
+    payments: payments.filter(
+      (p) => String(p.propertyId) === String(property.id)
+    ),
+    year: now.getFullYear(),
+    month: now.getMonth(),
+  });
 
   return (
     <div className="space-y-6">
@@ -139,49 +110,32 @@ export default function PropertyDetails({
         </p>
 
         <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* CZYNSZ */}
           <Card className="p-4 bg-slate-50">
-            <p className="text-xs text-slate-500">
-              Czynsz
-            </p>
+            <p className="text-xs text-slate-500">Czynsz</p>
             <p className="font-semibold">
-              {rent.toLocaleString("pl-PL")} zł
+              {Number(property.rent || 0).toLocaleString("pl-PL")} zł
             </p>
           </Card>
 
-          {/* STATUS */}
           <Card className="p-4 bg-slate-50">
-            <p className="text-xs text-slate-500">
-              Status
-            </p>
+            <p className="text-xs text-slate-500">Status</p>
+            <p className="font-semibold">{status}</p>
+          </Card>
+
+          <Card className="p-4 bg-slate-50">
+            <p className="text-xs text-slate-500">Najemca</p>
             <p className="font-semibold">
-              {property.status}
+              {tenantNames.length ? tenantNames.join(", ") : "Brak"}
             </p>
           </Card>
 
-          {/* NAJEMCA */}
-          <Card className="p-4 bg-slate-50">
-            <p className="text-xs text-slate-500">
-              Najemca
-            </p>
-            <p className="font-semibold">
-              {tenantNames.length
-                ? tenantNames.join(", ")
-                : "Brak"}
-            </p>
-          </Card>
-
-          {/* POZOSTAŁO */}
           <Card className="p-4 bg-slate-50">
             <p className="text-xs text-slate-500">
               Pozostało do zapłaty
             </p>
-
             <p
               className={`font-semibold ${
-                remaining > 0
-                  ? "text-red-600"
-                  : "text-green-600"
+                remaining > 0 ? "text-red-600" : "text-green-600"
               }`}
             >
               {remaining.toLocaleString("pl-PL")} zł
