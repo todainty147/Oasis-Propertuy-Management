@@ -87,3 +87,60 @@ export function sumExpected(payments = []) {
     0
   );
 }
+
+/* ======================
+   PAYMENT AGGREGATES
+   ====================== */
+
+export function sumPaid(payments = []) {
+  return payments
+    .filter((p) => p.status === "Opłacone")
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+}
+
+export function sumOverdue(payments = []) {
+  return payments
+    .filter((p) => p.status === "Zaległe")
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+}
+
+export function sumExpected(payments = []) {
+  return payments.reduce(
+    (sum, p) => sum + Number(p.amount || 0),
+    0
+  );
+}
+
+/* ======================
+   MONTHLY PROPERTY BALANCE
+   ====================== */
+
+export function calculateMonthlyBalance({
+  rent = 0,
+  payments = [],
+  year,
+  month, // 0-based
+}) {
+  const paidThisMonth = payments
+    .filter(
+      (p) =>
+        p.status === "Opłacone" &&
+        p.paidAt &&
+        new Date(p.paidAt).getFullYear() === year &&
+        new Date(p.paidAt).getMonth() === month
+    )
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+  const remaining = Math.max(rent - paidThisMonth, 0);
+
+  let status = "Zaległe";
+  if (paidThisMonth === 0) status = "Zaległe";
+  else if (paidThisMonth < rent) status = "Częściowo";
+  else status = "Opłacone";
+
+  return {
+    paid: paidThisMonth,
+    remaining,
+    status,
+  };
+}

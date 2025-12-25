@@ -30,7 +30,7 @@ import {
   deleteProperty,
 } from "./services/propertyService";
 
-import { calculatePropertyFinance } from "./utils/finance";
+import { calculatePropertyFinance, sumPaid, sumOverdue, sumExpected} from "./utils/finance";
 
 import AppLayout from "./layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
@@ -169,19 +169,10 @@ export default function App() {
 
   /* ---------- Finance totals ---------- */
   const financeTotals = {
-    totalIncome: ownerPayments
-      .filter((p) => p.status === "Opłacone")
-      .reduce((s, p) => s + p.amount, 0),
-
-    overdueIncome: ownerPayments
-      .filter((p) => p.status === "Zaległe")
-      .reduce((s, p) => s + p.amount, 0),
-
-    expectedIncome: ownerPayments.reduce(
-      (s, p) => s + p.amount,
-      0
-    ),
-  };
+  totalIncome: sumPaid(ownerPayments),
+  overdueIncome: sumOverdue(ownerPayments),
+  expectedIncome: sumExpected(ownerPayments),
+};
 
   /* ---------- Property finance (via util) ---------- */
   const propertyFinance = ownerProperties.map((property) => {
