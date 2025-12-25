@@ -215,199 +215,198 @@ export default function App() {
      ====================== */
   return (
     <BrowserRouter>
-      <Routes>
-        <Route
-          element={
-            <AppLayout
-              owners={owners}
-              activeOwnerId={session.user.id}
-              setActiveOwnerId={() => {}}
+  <Routes>
+    <Route
+      element={
+        <AppLayout
+          owners={owners}
+          activeOwnerId={session.user.id}
+          setActiveOwnerId={() => {}}
+        />
+      }
+    >
+      <Route index element={<Navigate to="dashboard" replace />} />
+
+      <Route
+        path="dashboard"
+        element={
+          <Dashboard
+            properties={ownerProperties}
+            payments={payments}
+            occupiedCount={occupiedCount}
+            vacantCount={vacantCount}
+            occupancyRate={occupancyRate}
+            longVacantCount={longVacantCount}
+            shortVacantCount={shortVacantCount}
+            longVacantProperties={longVacantProperties}
+          />
+        }
+        handle={{ title: "Pulpit" }}
+      />
+
+      <Route
+        path="properties"
+        element={
+          <>
+            <Properties
+              properties={ownerProperties}
+              tenants={ownerTenants}
+              onAddProperty={() => {
+                setEditingProperty(null);
+                setIsAddPropertyOpen(true);
+              }}
+              onEditProperty={(p) => {
+                setEditingProperty(p);
+                setIsAddPropertyOpen(true);
+              }}
+              onDeleteProperty={async (propertyId) => {
+                if (!confirm("Czy na pewno chcesz usunąć nieruchomość?")) return;
+                await deleteProperty(propertyId);
+              }}
             />
-          }
-        >
-          <Route index element={<Navigate to="dashboard" replace />} />
 
-          <Route
-            path="dashboard"
-            element={
-              <Dashboard
-                properties={ownerProperties}
-                payments={payments}
-                occupiedCount={occupiedCount}
-                vacantCount={vacantCount}
-                occupancyRate={occupancyRate}
-                longVacantCount={longVacantCount}
-                shortVacantCount={shortVacantCount}
-                longVacantProperties={longVacantProperties}
-              />
-            }
-          />
-
-          <Route
-            path="properties"
-            element={
-              <>
-                <Properties
-                  properties={ownerProperties}
-                  tenants={ownerTenants}
-                  onAddProperty={() => {
-                    setEditingProperty(null);
-                    setIsAddPropertyOpen(true);
-                  }}
-                  onEditProperty={(p) => {
-                    setEditingProperty(p);
-                    setIsAddPropertyOpen(true);
-                  }}
-                  onDeleteProperty={async (propertyId) => {
-  if (!confirm("Czy na pewno chcesz usunąć nieruchomość?")) return;
-  await deleteProperty(propertyId);
-}}
-
-                />
-
-                <AddPropertyModal
-  isOpen={isAddPropertyOpen}
-  onClose={() => {
-    setIsAddPropertyOpen(false);
-    setEditingProperty(null);
-  }}
-  onSave={async (property) => {
-    if (property.id) {
-      // ✏️ EDIT
-      await updateProperty(property.id, property);
-    } else {
-      // ➕ CREATE
-      await createProperty(property);
-    }
-
-    setIsAddPropertyOpen(false);
-    setEditingProperty(null);
-  }}
-  property={editingProperty}
-  tenants={ownerTenants}
-  owners={owners}
-/>
-
-              </>
-            }
-          />
-
-          
-          <Route
-  path="properties/:id"
-  element={
-    <PropertyDetails
-      properties={ownerProperties}
-      tenants={ownerTenants}
-      payments={ownerPayments} // 👈 this is what we actually need
-    />
-  }
-/>
-< Route
-            path="tenants"
-            element={
-              <>
-                <Tenants
-                  tenants={ownerTenants}
-                  properties={ownerProperties}
-                  onOpenAddTenant={() => {
-                    setEditingTenant(null);
-                    setIsAddTenantOpen(true);
-                  }}
-                  onEditTenant={(tenant) => {
-                    setEditingTenant(tenant);
-                    setIsAddTenantOpen(true);
-                  }}
-                  onDeleteTenant={deleteTenant}
-                />
-
-                <AddTenantModal
-                  isOpen={isAddTenantOpen}
-                  onClose={() => {
-                    setIsAddTenantOpen(false);
-                    setEditingTenant(null);
-                  }}
-                  properties={ownerProperties}
-                  tenant={editingTenant}
-                  onSave={async (data) => {
-                    data.id
-                      ? await updateTenant(data.id, data)
-                      : await createTenant(data);
-                  }}
-                />
-              </>
-            }
-          />
-
-          <Route
-            path="tenants/:id"
-            element={
-              <TenantDetails
-                tenants={ownerTenants}
-                properties={ownerProperties}
-                payments={payments}
-              />
-            }
-          />
-
-          <Route
-  path="finance"
-  element={
-    <>
-      <Finance
-        summary={financeTotals}
-        payments={ownerPayments}
-        propertyFinance={propertyFinance}
-        onAddPayment={() => {
-          setEditingPayment(null);
-          setIsAddPaymentOpen(true);
-        }}
-        onEditPayment={(payment) => {
-          setEditingPayment(payment);
-          setIsAddPaymentOpen(true);
-        }}
-        onDeletePayment={deletePayment}
+            <AddPropertyModal
+              isOpen={isAddPropertyOpen}
+              onClose={() => {
+                setIsAddPropertyOpen(false);
+                setEditingProperty(null);
+              }}
+              onSave={async (property) => {
+                if (property.id) {
+                  await updateProperty(property.id, property);
+                } else {
+                  await createProperty(property);
+                }
+                setIsAddPropertyOpen(false);
+                setEditingProperty(null);
+              }}
+              property={editingProperty}
+              tenants={ownerTenants}
+              owners={owners}
+            />
+          </>
+        }
+        handle={{ title: "Nieruchomości" }}
       />
 
-      <AddPaymentModal
-        isOpen={isAddPaymentOpen}
-        onClose={() => {
-          setIsAddPaymentOpen(false);
-          setEditingPayment(null);
-        }}
-        payment={editingPayment}
-        properties={ownerProperties}
-        tenants={ownerTenants}
-        onSave={async (form) => {
-  const payload = {
-    propertyId: form.propertyId,
-    tenantId: form.tenantId,
-    amount: Number(form.amount),
-    status: form.status,
-    dueDate: form.dueDate,
-    paidAt:
-      form.status === "Opłacone"
-        ? new Date().toISOString()
-        : null,
-  };
-
-  if (form.id) {
-    await updatePayment(form.id, payload);
-  } else {
-    await createPayment(payload);
-  }
-}}
-
-
+      <Route
+        path="properties/:id"
+        element={
+          <PropertyDetails
+            properties={ownerProperties}
+            tenants={ownerTenants}
+            payments={ownerPayments}
+          />
+        }
+        handle={{ title: "Szczegóły nieruchomości" }}
       />
-    </>
-  }
-/>
 
+      <Route
+        path="tenants"
+        element={
+          <>
+            <Tenants
+              tenants={ownerTenants}
+              properties={ownerProperties}
+              onOpenAddTenant={() => {
+                setEditingTenant(null);
+                setIsAddTenantOpen(true);
+              }}
+              onEditTenant={(tenant) => {
+                setEditingTenant(tenant);
+                setIsAddTenantOpen(true);
+              }}
+              onDeleteTenant={deleteTenant}
+            />
 
-          <Route path="*" element={<Navigate to="dashboard" replace />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+            <AddTenantModal
+              isOpen={isAddTenantOpen}
+              onClose={() => {
+                setIsAddTenantOpen(false);
+                setEditingTenant(null);
+              }}
+              properties={ownerProperties}
+              tenant={editingTenant}
+              onSave={async (data) => {
+                data.id
+                  ? await updateTenant(data.id, data)
+                  : await createTenant(data);
+              }}
+            />
+          </>
+        }
+        handle={{ title: "Najemcy" }}
+      />
+
+      <Route
+        path="tenants/:id"
+        element={
+          <TenantDetails
+            tenants={ownerTenants}
+            properties={ownerProperties}
+            payments={payments}
+          />
+        }
+        handle={{ title: "Szczegóły najemcy" }}
+      />
+
+      <Route
+        path="finance"
+        element={
+          <>
+            <Finance
+              summary={financeTotals}
+              payments={ownerPayments}
+              propertyFinance={propertyFinance}
+              onAddPayment={() => {
+                setEditingPayment(null);
+                setIsAddPaymentOpen(true);
+              }}
+              onEditPayment={(payment) => {
+                setEditingPayment(payment);
+                setIsAddPaymentOpen(true);
+              }}
+              onDeletePayment={deletePayment}
+            />
+
+            <AddPaymentModal
+              isOpen={isAddPaymentOpen}
+              onClose={() => {
+                setIsAddPaymentOpen(false);
+                setEditingPayment(null);
+              }}
+              payment={editingPayment}
+              properties={ownerProperties}
+              tenants={ownerTenants}
+              onSave={async (form) => {
+                const payload = {
+                  propertyId: form.propertyId,
+                  tenantId: form.tenantId,
+                  amount: Number(form.amount),
+                  status: form.status,
+                  dueDate: form.dueDate,
+                  paidAt:
+                    form.status === "Opłacone"
+                      ? new Date().toISOString()
+                      : null,
+                };
+
+                if (form.id) {
+                  await updatePayment(form.id, payload);
+                } else {
+                  await createPayment(payload);
+                }
+              }}
+            />
+          </>
+        }
+        handle={{ title: "Finanse" }}
+      />
+
+      <Route path="*" element={<Navigate to="dashboard" replace />} />
+    </Route>
+  </Routes>
+</BrowserRouter>
+
   );
 }

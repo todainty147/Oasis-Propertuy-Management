@@ -1,13 +1,26 @@
+import { useLocation, matchRoutes } from "react-router-dom";
 import { Bell, Search, Building2, Menu } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
+// IMPORTANT: export your route config from App.jsx (see step 2)
+import { routesConfig } from "../routesConfig";
+
 export default function Topbar({
-  title = "",
   owners = [],
   activeOwnerId,
   setActiveOwnerId,
   onMenuClick,
 }) {
+  const location = useLocation();
+
+  const matches = matchRoutes(routesConfig, location);
+
+  const title =
+    matches
+      ?.map((m) => m.route.handle?.title)
+      .filter(Boolean)
+      .at(-1) ?? "";
+
   return (
     <header
       className="
@@ -35,7 +48,7 @@ export default function Topbar({
         </h1>
       </div>
 
-      {/* RIGHT */}
+      {/* RIGHT (unchanged) */}
       <div className="flex items-center gap-3">
         {owners.length > 1 && (
           <div className="hidden lg:flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2">
