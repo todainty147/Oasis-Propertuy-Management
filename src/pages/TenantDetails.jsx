@@ -5,6 +5,7 @@ import Badge from "../components/Badge";
 import Breadcrumbs from "../components/Breadcrumbs";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
+import TenantDocumentsSection from "../components/TenantDocumentsSection";
 
 /* ======================
    SKELETON
@@ -152,6 +153,8 @@ export default function TenantDetails({
               {overdueCount}
             </p>
           </Card>
+          <TenantDocumentsSection tenantId={tenant.id} />
+
         </div>
       </Card>
     </div>

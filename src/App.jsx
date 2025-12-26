@@ -350,32 +350,35 @@ export default function App() {
                 />
 
                 <AddPaymentModal
-                  isOpen={isAddPaymentOpen}
-                  onClose={() => {
-                    setIsAddPaymentOpen(false);
-                    setEditingPayment(null);
-                  }}
-                  payment={editingPayment}
-                  properties={ownerProperties}
-                  tenants={ownerTenants}
-                  onSave={async (form) => {
-                    const payload = {
-                      propertyId: form.propertyId,
-                      tenantId: form.tenantId,
-                      amount: Number(form.amount),
-                      status: form.status,
-                      dueDate: form.dueDate,
-                      paidAt:
-                        form.status === "Opłacone"
-                          ? new Date().toISOString()
-                          : null,
-                    };
+  isOpen={isAddPaymentOpen}
+  onClose={() => {
+    setIsAddPaymentOpen(false);
+    setEditingPayment(null);
+  }}
+  payment={editingPayment}
+  properties={ownerProperties}
+  tenants={ownerTenants}
+  onSave={async (form) => {
+    const payload = {
+      propertyId: form.propertyId,
+      tenantId: form.tenantId,
+      amount: Number(form.amount),
+      status: form.status,
+      dueDate: form.dueDate, // already YYYY-MM-DD
+      paidAt:
+        form.status === "paid"
+          ? new Date().toISOString().slice(0, 10) // ✅ FIX
+          : null,
+    };
 
-                    form.id
-                      ? await updatePayment(form.id, payload)
-                      : await createPayment(payload);
-                  }}
-                />
+    if (form.id) {
+      await updatePayment(form.id, payload);
+    } else {
+      await createPayment(payload);
+    }
+  }}
+/>
+
               </>
             }
           />

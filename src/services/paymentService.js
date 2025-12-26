@@ -5,18 +5,21 @@ export async function createPayment(data) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  if (!user) throw new Error("No authenticated user");
+
   const { error } = await supabase.from("payments").insert({
-    owner_id: user.id,            // ✅ ALWAYS FROM SESSION
-    property_id: data.propertyId,
-    tenant_id: data.tenantId,     // ✅ REQUIRED
+    owner_id: user.id,                // always from session
+    property_id: data.propertyId,     // camelCase → snake_case
+    tenant_id: data.tenantId,
     amount: Number(data.amount),
     status: data.status,
-    due_date: data.dueDate,       // ✅ REQUIRED
+    due_date: data.dueDate,           // REQUIRED
     paid_at: data.paidAt ?? null,
   });
 
   if (error) throw error;
 }
+
 
 
 
