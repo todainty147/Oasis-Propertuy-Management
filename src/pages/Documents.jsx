@@ -8,6 +8,7 @@ import {
   deleteDocument,
 } from "../services/documentService";
 
+
 /* ======================
    SKELETON
    ====================== */
@@ -68,7 +69,7 @@ export default function Documents({
   async function handlePreview(doc) {
     try {
       setPreviewError(null);
-      const url = await getDocumentPreviewUrl(doc.path);
+      const url = await getDocumentPreviewUrl(doc.storage_path);
       setPreviewDoc(doc);
       setPreviewUrl(url);
     } catch {
@@ -141,7 +142,7 @@ export default function Documents({
             <div>
               <p className="font-medium">{doc.name}</p>
               <p className="text-sm text-slate-500">
-                {doc.mime_type} • {(doc.size / 1024).toFixed(1)} KB
+                {doc.mime_type} • {(doc.size_byte / 1024).toFixed(1)} KB
               </p>
             </div>
 
@@ -155,7 +156,11 @@ export default function Documents({
 
               <button
                 onClick={() =>
-                  downloadDocument(doc.path, doc.name)
+                  downloadDocument({
+  storagePath: doc.storage_path,
+  filename: doc.name,
+})
+
                 }
                 className="text-slate-600 hover:underline"
               >

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -30,7 +30,16 @@ import {
   deleteProperty,
 } from "./services/propertyService";
 
-import { calculatePropertyFinance, sumPaid, sumOverdue, sumExpected} from "./utils/finance";
+import {
+  fetchDocuments,
+} from "./services/documentService";
+
+import {
+  calculatePropertyFinance,
+  sumPaid,
+  sumOverdue,
+  sumExpected,
+} from "./utils/finance";
 
 import AppLayout from "./layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
@@ -39,10 +48,11 @@ import Finance from "./pages/Finance";
 import Tenants from "./pages/Tenants";
 import PropertyDetails from "./pages/PropertyDetails";
 import TenantDetails from "./pages/TenantDetails";
+import Documents from "./pages/Documents";
+
 import AddPropertyModal from "./components/AddPropertyModal";
 import AddTenantModal from "./components/AddTenantModal";
 import AddPaymentModal from "./components/AddPaymentModal";
-import Documents from "./pages/Documents";
 
 export default function App() {
   /* ======================
@@ -74,11 +84,38 @@ export default function App() {
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null);
 
+  const [documents, setDocuments] = useState([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+
+  /* ======================
+     DOCUMENTS
+     ====================== */
+  async function loadDocuments() {
+    setDocumentsLoading(true);
+    try {
+      const data = await fetchDocuments();
+      setDocuments(data);
+    } finally {
+      setDocumentsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (session) {
+      loadDocuments();
+    }
+  }, [session]);
+
   /* ======================
      RENDER GATES
      ====================== */
-  if (sessionLoading) return <div className="p-6">Ładowanie sesji…</div>;
-  if (!session) return <Login />;
+  if (sessionLoading) {
+    return <div className="p-6">Ładowanie sesji…</div>;
+  }
+
+  if (!session) {
+    return <Login />;
+  }
 
   if (propertiesError || paymentsError || tenantsError) {
     return (
@@ -109,7 +146,6 @@ export default function App() {
      DERIVED DATA
      ====================== */
 
-  // Occupancy driven by tenants
   const ownerProperties = properties.map((p) => {
     const isOccupied = tenants.some((t) => t.propertyId === p.id);
     return {
@@ -169,12 +205,12 @@ export default function App() {
 
   /* ---------- Finance totals ---------- */
   const financeTotals = {
-  totalIncome: sumPaid(ownerPayments),
-  overdueIncome: sumOverdue(ownerPayments),
-  expectedIncome: sumExpected(ownerPayments),
-};
+    totalIncome: sumPaid(ownerPayments),
+    overdueIncome: sumOverdue(ownerPayments),
+    expectedIncome: sumExpected(ownerPayments),
+  };
 
-  /* ---------- Property finance (via util) ---------- */
+  /* ---------- Property finance ---------- */
   const propertyFinance = ownerProperties.map((property) => {
     const finance = calculatePropertyFinance({
       property,
@@ -350,35 +386,34 @@ export default function App() {
                 />
 
                 <AddPaymentModal
-  isOpen={isAddPaymentOpen}
-  onClose={() => {
-    setIsAddPaymentOpen(false);
-    setEditingPayment(null);
-  }}
-  payment={editingPayment}
-  properties={ownerProperties}
-  tenants={ownerTenants}
-  onSave={async (form) => {
-    const payload = {
-      propertyId: form.propertyId,
-      tenantId: form.tenantId,
-      amount: Number(form.amount),
-      status: form.status,
-      dueDate: form.dueDate, // already YYYY-MM-DD
-      paidAt:
-        form.status === "paid"
-          ? new Date().toISOString().slice(0, 10) // ✅ FIX
-          : null,
-    };
+                  isOpen={isAddPaymentOpen}
+                  onClose={() => {
+                    setIsAddPaymentOpen(false);
+                    setEditingPayment(null);
+                  }}
+                  payment={editingPayment}
+                  properties={ownerProperties}
+                  tenants={ownerTenants}
+                  onSave={async (form) => {
+                    const payload = {
+                      propertyId: form.propertyId,
+                      tenantId: form.tenantId,
+                      amount: Number(form.amount),
+                      status: form.status, // Opłacone | Zaległe | Oczekujące
+                      dueDate: form.dueDate,
+                      paidAt:
+                        form.status === "Opłacone"
+                          ? new Date().toISOString().slice(0, 10)
+                          : null,
+                    };
 
-    if (form.id) {
-      await updatePayment(form.id, payload);
-    } else {
-      await createPayment(payload);
-    }
-  }}
-/>
-
+                    if (form.id) {
+                      await updatePayment(form.id, payload);
+                    } else {
+                      await createPayment(payload);
+                    }
+                  }}
+                />
               </>
             }
           />
@@ -387,10 +422,9 @@ export default function App() {
             path="documents"
             element={
               <Documents
-                loading={false}
-                documents={[]}
-                onUpload={() => alert("Upload w przygotowaniu")}
-                onDelete={() => {}}
+                loading={documentsLoading}
+                documents={documents}
+                onRefetch={loadDocuments}
               />
             }
           />
