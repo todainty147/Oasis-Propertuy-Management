@@ -5,8 +5,7 @@ import Badge from "../components/Badge";
 import Breadcrumbs from "../components/Breadcrumbs";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
-import Documents from "./Documents";
-import { fetchDocuments } from "../services/documentService";
+import TenantDocumentsSection from "../components/TenantDocumentsSection";
 
 /* ======================
    SKELETON
@@ -17,17 +16,10 @@ function TenantDetailsSkeleton() {
     <div className="space-y-6">
       <Skeleton className="h-4 w-32" />
       <Skeleton className="h-4 w-56" />
-
       <Card className="p-6 space-y-6">
         <Skeleton className="h-7 w-48" />
         <Skeleton className="h-4 w-40" />
         <Skeleton className="h-4 w-32" />
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-[96px]" />
-          ))}
-        </div>
       </Card>
     </div>
   );
@@ -43,15 +35,30 @@ export default function TenantDetails({
   properties = [],
   payments = [],
 }) {
+  /* ---------- ROUTER ---------- */
   const { id } = useParams();
   const navigate = useNavigate();
+
+  /* ---------- PAGE TITLE ---------- */
   const { setTitle } = usePageTitle();
 
+  /* ---------- DATA LOOKUPS ---------- */
+  const tenant = tenants.find((t) => String(t.id) === String(id));
+  const property = properties.find(
+    (p) => String(p.id) === String(tenant?.propertyId)
+  );
+
+  /* ---------- EFFECTS ---------- */
+  useEffect(() => {
+    if (tenant?.name) {
+      setTitle(tenant.name);
+    }
+  }, [tenant?.name, setTitle]);
+
+  /* ---------- EARLY STATES (AFTER HOOKS) ---------- */
   if (loading) {
     return <TenantDetailsSkeleton />;
   }
-
-  const tenant = tenants.find((t) => String(t.id) === String(id));
 
   if (!tenant) {
     return (
@@ -67,37 +74,6 @@ export default function TenantDetails({
     );
   }
 
-  const property = properties.find(
-    (p) => String(p.id) === String(tenant.propertyId)
-  );
-
-  /* ======================
-     DOCUMENTS
-     ====================== */
-  const [documents, setDocuments] = useState([]);
-  const [documentsLoading, setDocumentsLoading] = useState(false);
-
-  async function loadDocuments() {
-    setDocumentsLoading(true);
-    try {
-      const data = await fetchDocuments({ tenantId: tenant.id });
-      setDocuments(data);
-    } finally {
-      setDocumentsLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (tenant?.id) {
-      loadDocuments();
-    }
-  }, [tenant?.id]);
-
-  /* ---------- PAGE TITLE ---------- */
-  useEffect(() => {
-    setTitle(tenant.name);
-  }, [tenant.name, setTitle]);
-
   /* ---------- PAYMENTS ---------- */
   const tenantPayments = payments.filter(
     (p) => String(p.tenantId) === String(tenant.id)
@@ -111,13 +87,14 @@ export default function TenantDetails({
     (p) => p.status === "Zaległe"
   ).length;
 
-  /* ---------- TENANT FINANCIAL STATUS ---------- */
+  /* ---------- TENANT STATUS ---------- */
   let tenantStatus = "Zaległe";
-  if (overdueCount === 0 && paidCount > 0) {
-    tenantStatus = "Opłacone";
-  } else if (paidCount > 0 && overdueCount > 0) {
-    tenantStatus = "Częściowo";
-  }
+  if (overdueCount === 0 && paidCount > 0) tenantStatus = "Opłacone";
+  else if (paidCount > 0 && overdueCount > 0) tenantStatus = "Częściowo";
+
+  /* ======================
+     RENDER
+     ====================== */
 
   return (
     <div className="space-y-6">
@@ -129,7 +106,7 @@ export default function TenantDetails({
       />
 
       {/* ---------- TENANT CARD ---------- */}
-      <Card className="p-6">
+      <Card className="p-6 space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">
@@ -139,33 +116,23 @@ export default function TenantDetails({
             <p className="text-slate-600">{tenant.phone}</p>
           </div>
 
-          <div className="flex gap-2">
-            <Badge status={tenantStatus} />
-          </div>
+          <Badge status={tenantStatus} />
         </div>
 
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="p-4 bg-slate-50">
             <p className="text-xs text-slate-500">Lokal</p>
-            <p className="font-semibold">
-              {property?.address || "—"}
-            </p>
-            <p className="text-sm text-slate-500">
-              {property?.city || ""}
-            </p>
+            <p className="font-semibold">{property?.address || "—"}</p>
+            <p className="text-sm text-slate-500">{property?.city || ""}</p>
           </Card>
 
           <Card className="p-4 bg-slate-50">
-            <p className="text-xs text-slate-500">
-              Płatności opłacone
-            </p>
+            <p className="text-xs text-slate-500">Opłacone</p>
             <p className="text-xl font-bold">{paidCount}</p>
           </Card>
 
           <Card className="p-4 bg-slate-50">
-            <p className="text-xs text-slate-500">
-              Płatności zaległe
-            </p>
+            <p className="text-xs text-slate-500">Zaległe</p>
             <p className="text-xl font-bold text-rose-600">
               {overdueCount}
             </p>
@@ -174,18 +141,7 @@ export default function TenantDetails({
       </Card>
 
       {/* ---------- TENANT DOCUMENTS ---------- */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">
-          Dokumenty najemcy
-        </h3>
-
-        <Documents
-          loading={documentsLoading}
-          documents={documents}
-          tenantId={tenant.id}
-          onRefetch={loadDocuments}
-        />
-      </Card>
+      <TenantDocumentsSection tenantId={tenant.id} />
     </div>
   );
 }

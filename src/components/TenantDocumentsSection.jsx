@@ -31,13 +31,13 @@ export default function TenantDocumentsSection({ tenantId }) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    await uploadDocument({
-      file,
-      tenantId,
-    });
-
-    e.target.value = "";
-    await loadDocuments();
+    try {
+      await uploadDocument({ file, tenantId });
+      e.target.value = "";
+      await loadDocuments();
+    } catch (err) {
+      alert(err.message); // UI-visible error
+    }
   }
 
   async function handlePreview(doc) {
@@ -75,7 +75,9 @@ export default function TenantDocumentsSection({ tenantId }) {
       </div>
 
       {loading && (
-        <p className="text-sm text-slate-500">Ładowanie dokumentów…</p>
+        <p className="text-sm text-slate-500">
+          Ładowanie dokumentów…
+        </p>
       )}
 
       {!loading && documents.length === 0 && (
@@ -93,7 +95,8 @@ export default function TenantDocumentsSection({ tenantId }) {
             <div>
               <p className="font-medium">{doc.name}</p>
               <p className="text-xs text-slate-500">
-                {doc.mime_type} • {(doc.size_bytes / 1024).toFixed(1)} KB
+                {doc.mime_type} •{" "}
+                {(doc.size_bytes / 1024).toFixed(1)} KB
               </p>
             </div>
 

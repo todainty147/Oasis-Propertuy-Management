@@ -30,12 +30,12 @@ export default function PropertyDocumentsSection({ propertyId }) {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  /* ---------- PREVIEW ---------- */
+  /* ---------- PREVIEW STATE ---------- */
   const [previewDoc, setPreviewDoc] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewError, setPreviewError] = useState(null);
 
-  /* ---------- LOAD ---------- */
+  /* ---------- LOAD DOCUMENTS ---------- */
   async function loadDocuments() {
     if (!propertyId) return;
 
@@ -52,6 +52,25 @@ export default function PropertyDocumentsSection({ propertyId }) {
     loadDocuments();
   }, [propertyId]);
 
+  /* ---------- ESC TO CLOSE PREVIEW ---------- */
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === "Escape") {
+        setPreviewDoc(null);
+        setPreviewUrl(null);
+        setPreviewError(null);
+      }
+    }
+
+    if (previewDoc) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [previewDoc]);
+
   /* ---------- UPLOAD ---------- */
   async function handleUpload(e) {
     const file = e.target.files?.[0];
@@ -66,7 +85,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
       e.target.value = "";
       loadDocuments();
     } catch (err) {
-      alert(err.message); // UI-visible error (as requested)
+      alert(err.message); // UI-visible error
     }
   }
 
@@ -90,6 +109,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
 
   return (
     <Card className="p-6 space-y-4">
+      {/* ---------- HEADER ---------- */}
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">
           Dokumenty nieruchomości
@@ -186,6 +206,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
       {previewDoc && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
           <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
             <div className="flex justify-between items-center px-4 py-3 border-b">
               <p className="font-medium truncate">
                 {previewDoc.name}
@@ -194,6 +215,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
                 onClick={() => {
                   setPreviewDoc(null);
                   setPreviewUrl(null);
+                  setPreviewError(null);
                 }}
                 className="text-sm text-gray-600 hover:text-black"
               >
@@ -201,6 +223,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
               </button>
             </div>
 
+            {/* Content */}
             <div className="flex-1 overflow-auto p-4">
               {previewError && (
                 <p className="text-red-600 text-sm">
