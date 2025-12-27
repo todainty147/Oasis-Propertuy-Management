@@ -1,11 +1,12 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Breadcrumbs from "../components/Breadcrumbs";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
-import TenantDocumentsSection from "../components/TenantDocumentsSection";
+import Documents from "./Documents";
+import { fetchDocuments } from "../services/documentService";
 
 /* ======================
    SKELETON
@@ -70,6 +71,28 @@ export default function TenantDetails({
     (p) => String(p.id) === String(tenant.propertyId)
   );
 
+  /* ======================
+     DOCUMENTS
+     ====================== */
+  const [documents, setDocuments] = useState([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+
+  async function loadDocuments() {
+    setDocumentsLoading(true);
+    try {
+      const data = await fetchDocuments({ tenantId: tenant.id });
+      setDocuments(data);
+    } finally {
+      setDocumentsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (tenant?.id) {
+      loadDocuments();
+    }
+  }, [tenant?.id]);
+
   /* ---------- PAGE TITLE ---------- */
   useEffect(() => {
     setTitle(tenant.name);
@@ -105,21 +128,17 @@ export default function TenantDetails({
         ]}
       />
 
+      {/* ---------- TENANT CARD ---------- */}
       <Card className="p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">
               {tenant.name}
             </h2>
-            <p className="text-slate-600 mt-1">
-              {tenant.email}
-            </p>
-            <p className="text-slate-600">
-              {tenant.phone}
-            </p>
+            <p className="text-slate-600 mt-1">{tenant.email}</p>
+            <p className="text-slate-600">{tenant.phone}</p>
           </div>
 
-          {/* ✅ TENANT FINANCIAL STATUS ONLY */}
           <div className="flex gap-2">
             <Badge status={tenantStatus} />
           </div>
@@ -140,9 +159,7 @@ export default function TenantDetails({
             <p className="text-xs text-slate-500">
               Płatności opłacone
             </p>
-            <p className="text-xl font-bold">
-              {paidCount}
-            </p>
+            <p className="text-xl font-bold">{paidCount}</p>
           </Card>
 
           <Card className="p-4 bg-slate-50">
@@ -153,9 +170,21 @@ export default function TenantDetails({
               {overdueCount}
             </p>
           </Card>
-          <TenantDocumentsSection tenantId={tenant.id} />
-
         </div>
+      </Card>
+
+      {/* ---------- TENANT DOCUMENTS ---------- */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-4">
+          Dokumenty najemcy
+        </h3>
+
+        <Documents
+          loading={documentsLoading}
+          documents={documents}
+          tenantId={tenant.id}
+          onRefetch={loadDocuments}
+        />
       </Card>
     </div>
   );

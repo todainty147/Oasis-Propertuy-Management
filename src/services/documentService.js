@@ -61,6 +61,13 @@ export async function uploadDocument({
 
   if (!user) throw new Error("Brak sesji użytkownika");
 
+  //make sure upload always set either tenantId or propertyId
+  if (!propertyId && !tenantId) {
+  throw new Error(
+    "Dokument musi być przypisany do nieruchomości lub najemcy"
+  );
+}
+
   /* ---------- STORAGE PATH ---------- */
   const safeName = file.name.replace(/\s+/g, "_");
   const storagePath = `${user.id}/${generateUUID()}-${safeName}`;

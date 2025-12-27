@@ -1,10 +1,12 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import Card from "../components/Card";
+import Badge from "../components/Badge";
 import Breadcrumbs from "../components/Breadcrumbs";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { calculatePropertyFinance } from "../utils/finance";
+import PropertyDocumentsSection from "../components/PropertyDocumentsSection";
 
 /* ======================
    SKELETON
@@ -13,17 +15,17 @@ import { calculatePropertyFinance } from "../utils/finance";
 function PropertyDetailsSkeleton() {
   return (
     <div className="space-y-6">
-      <Skeleton className="h-4 w-64" />
+      <Skeleton className="h-4 w-32" />
+      <Skeleton className="h-4 w-56" />
 
-      <Card className="p-6 space-y-4">
-        <div>
-          <Skeleton className="h-7 w-80" />
-          <Skeleton className="h-4 w-48 mt-2" />
-        </div>
+      <Card className="p-6 space-y-6">
+        <Skeleton className="h-7 w-48" />
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-4 w-32" />
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-[88px]" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-[96px]" />
           ))}
         </div>
       </Card>
@@ -45,13 +47,22 @@ export default function PropertyDetails({
   const navigate = useNavigate();
   const { setTitle } = usePageTitle();
 
-  if (loading) {
-    return <PropertyDetailsSkeleton />;
-  }
-
+  /* ---------- PROPERTY ---------- */
   const property = properties.find(
     (p) => String(p.id) === String(id)
   );
+
+  /* ---------- PAGE TITLE (HOOK ALWAYS RUNS) ---------- */
+  useEffect(() => {
+    if (property?.address) {
+      setTitle(property.address);
+    }
+  }, [property?.address, setTitle]);
+
+  /* ---------- LOADING ---------- */
+  if (loading) {
+    return <PropertyDetailsSkeleton />;
+  }
 
   /* ---------- NOT FOUND ---------- */
   if (!property) {
@@ -68,23 +79,22 @@ export default function PropertyDetails({
     );
   }
 
-  /* ---------- PAGE TITLE ---------- */
-  useEffect(() => {
-    setTitle(property.address);
-  }, [property.address, setTitle]);
-
   /* ---------- TENANTS ---------- */
-  const tenantNames = tenants
-    .filter((t) => String(t.propertyId) === String(property.id))
-    .map((t) => t.name)
-    .filter(Boolean);
+  const propertyTenants = tenants.filter(
+    (t) => String(t.propertyId) === String(property.id)
+  );
 
-  /* ---------- FINANCE (UTIL-DRIVEN) ---------- */
+  const isOccupied = propertyTenants.length > 0;
+
+  /* ---------- PAYMENTS ---------- */
+  const propertyPayments = payments.filter(
+    (p) => String(p.propertyId) === String(property.id)
+  );
+
+  /* ---------- FINANCE ---------- */
   const finance = calculatePropertyFinance({
     property,
-    payments: payments.filter(
-      (p) => String(p.propertyId) === String(property.id)
-    ),
+    payments: propertyPayments,
   });
 
   return (
@@ -96,64 +106,47 @@ export default function PropertyDetails({
         ]}
       />
 
-      <Card className="p-6">
-        <h2 className="text-2xl font-bold text-slate-900">
-          {property.address}
-        </h2>
-        <p className="text-slate-600 mt-1">
-          {property.city} • {property.size}
-        </p>
+      <Card className="p-6 space-y-6">
+        {/* ---------- HEADER ---------- */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">
+              {property.address}
+            </h2>
+            <p className="text-slate-600 mt-1">
+              {property.city}
+            </p>
+          </div>
 
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* RENT */}
+          <Badge status={isOccupied ? "Wynajęte" : "Wolne"} />
+        </div>
+
+        {/* ---------- STATS ---------- */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="p-4 bg-slate-50">
             <p className="text-xs text-slate-500">Czynsz</p>
-            <p className="font-semibold">
-              {finance.rent.toLocaleString("pl-PL")} zł
+            <p className="text-xl font-bold">
+              {finance.rent.toLocaleString()} zł
             </p>
           </Card>
 
-          {/* STATUS */}
           <Card className="p-4 bg-slate-50">
-            <p className="text-xs text-slate-500">Status</p>
-            <p className="font-semibold">
-              {finance.paymentStatus}
+            <p className="text-xs text-slate-500">Opłacone</p>
+            <p className="text-xl font-bold text-green-600">
+              {finance.paid.toLocaleString()} zł
             </p>
           </Card>
 
-          {/* TENANTS */}
           <Card className="p-4 bg-slate-50">
-            <p className="text-xs text-slate-500">Najemca</p>
-            <p className="font-semibold">
-              {tenantNames.length
-                ? tenantNames.join(", ")
-                : "Brak"}
+            <p className="text-xs text-slate-500">Pozostało</p>
+            <p className="text-xl font-bold text-rose-600">
+              {finance.remaining.toLocaleString()} zł
             </p>
-          </Card>
-
-          {/* REMAINING */}
-          <Card className="p-4 bg-slate-50">
-            <p className="text-xs text-slate-500">
-              Pozostało do zapłaty
-            </p>
-
-            <p
-              className={`font-semibold ${
-                finance.remaining > 0
-                  ? "text-red-600"
-                  : "text-green-600"
-              }`}
-            >
-              {finance.remaining.toLocaleString("pl-PL")} zł
-            </p>
-
-            {finance.remaining === 0 && (
-              <p className="text-xs text-green-600 mt-1">
-                Opłacone
-              </p>
-            )}
           </Card>
         </div>
+
+        {/* ---------- DOCUMENTS ---------- */}
+        <PropertyDocumentsSection propertyId={property.id} />
       </Card>
     </div>
   );
