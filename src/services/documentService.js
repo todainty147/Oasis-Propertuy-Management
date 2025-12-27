@@ -187,3 +187,22 @@ export async function deleteDocument(document) {
 
   if (dbError) throw dbError;
 }
+/* ======================
+   SHARED HELPERS
+   ====================== */
+   export async function fetchSharedDocuments({
+  tenantId,
+  propertyId,
+}) {
+  if (!tenantId || !propertyId) return [];
+
+  const { data, error } = await supabase
+    .from("documents")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("property_id", propertyId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data ?? [];
+}

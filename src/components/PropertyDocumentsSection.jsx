@@ -1,13 +1,16 @@
+// src/components/PropertyDocumentsSection.jsx
 import { useEffect, useRef, useState } from "react";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
 import {
-  uploadDocument,
   fetchDocuments,
-  downloadDocument,
-  getDocumentPreviewUrl,
+  uploadDocument,
   deleteDocument,
+  getDocumentPreviewUrl,
+  downloadDocument,
 } from "../services/documentService";
+import { fetchDocumentAudit } from "../services/documentAuditService";
+import { supabase } from "../lib/supabase";
 
 /* ======================
    HELPERS
@@ -20,56 +23,55 @@ function canPreview(mime) {
   return false;
 }
 
+function shortId(id) {
+  return id ? id.slice(0, 8) : "—";
+}
+
 /* ======================
-   PROPERTY DOCUMENTS
+   COMPONENT
    ====================== */
 
 export default function PropertyDocumentsSection({ propertyId }) {
   const fileInputRef = useRef(null);
 
   const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [audit, setAudit] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  /* ---------- PREVIEW STATE ---------- */
   const [previewDoc, setPreviewDoc] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewError, setPreviewError] = useState(null);
 
-  /* ---------- LOAD DOCUMENTS ---------- */
-  async function loadDocuments() {
+  const [currentUserId, setCurrentUserId] = useState(null);
+
+  /* ---------- SESSION ---------- */
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(data?.user?.id ?? null);
+    });
+  }, []);
+
+  /* ---------- LOAD ---------- */
+  async function loadAll() {
     if (!propertyId) return;
 
     setLoading(true);
     try {
-      const data = await fetchDocuments({ propertyId });
-      setDocuments(data);
+      const [docs, auditLog] = await Promise.all([
+        fetchDocuments({ propertyId }),
+        fetchDocumentAudit({ propertyId }),
+      ]);
+
+      setDocuments(docs);
+      setAudit(auditLog);
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadDocuments();
+    loadAll();
   }, [propertyId]);
-
-  /* ---------- ESC TO CLOSE PREVIEW ---------- */
-  useEffect(() => {
-    function handleKeyDown(e) {
-      if (e.key === "Escape") {
-        setPreviewDoc(null);
-        setPreviewUrl(null);
-        setPreviewError(null);
-      }
-    }
-
-    if (previewDoc) {
-      window.addEventListener("keydown", handleKeyDown);
-    }
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [previewDoc]);
 
   /* ---------- UPLOAD ---------- */
   async function handleUpload(e) {
@@ -77,19 +79,15 @@ export default function PropertyDocumentsSection({ propertyId }) {
     if (!file) return;
 
     try {
-      await uploadDocument({
-        file,
-        propertyId,
-      });
-
+      await uploadDocument({ file, propertyId });
       e.target.value = "";
-      loadDocuments();
+      await loadAll();
     } catch (err) {
-      alert(err.message); // UI-visible error
+      alert(err.message);
     }
   }
 
-  /* ---------- PREVIEW ---------- */
+  /* ---------- ACTIONS ---------- */
   async function handlePreview(doc) {
     if (!canPreview(doc.mime_type)) return;
 
@@ -103,12 +101,25 @@ export default function PropertyDocumentsSection({ propertyId }) {
     }
   }
 
+  async function handleDownload(doc) {
+    await downloadDocument({
+      storagePath: doc.storage_path,
+      filename: doc.name,
+    });
+  }
+
+  async function handleDelete(doc) {
+    if (!confirm("Usunąć dokument?")) return;
+    await deleteDocument(doc);
+    await loadAll();
+  }
+
   /* ======================
      RENDER
      ====================== */
 
   return (
-    <Card className="p-6 space-y-4">
+    <Card className="p-6 space-y-6">
       {/* ---------- HEADER ---------- */}
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">
@@ -143,11 +154,11 @@ export default function PropertyDocumentsSection({ propertyId }) {
       {/* ---------- EMPTY ---------- */}
       {!loading && documents.length === 0 && (
         <p className="text-sm text-slate-500">
-          Brak dokumentów dla tej nieruchomości.
+          Brak dokumentów dla tej nieruchomości
         </p>
       )}
 
-      {/* ---------- LIST ---------- */}
+      {/* ---------- DOCUMENT LIST ---------- */}
       {!loading && documents.length > 0 && (
         <div className="divide-y border rounded-lg bg-white">
           {documents.map((doc) => (
@@ -156,7 +167,16 @@ export default function PropertyDocumentsSection({ propertyId }) {
               className="px-4 py-3 flex justify-between items-center"
             >
               <div>
-                <p className="font-medium">{doc.name}</p>
+                <p className="font-medium flex items-center gap-2">
+                  {doc.name}
+
+                  {doc.tenant_id && doc.property_id && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">
+                      Wspólny
+                    </span>
+                  )}
+                </p>
+
                 <p className="text-xs text-slate-500">
                   {doc.mime_type} •{" "}
                   {(doc.size_bytes / 1024).toFixed(1)} KB
@@ -174,31 +194,72 @@ export default function PropertyDocumentsSection({ propertyId }) {
                 )}
 
                 <button
-                  onClick={() =>
-                    downloadDocument({
-                      storagePath: doc.storage_path,
-                      filename: doc.name,
-                    })
-                  }
+                  onClick={() => handleDownload(doc)}
                   className="text-slate-600 hover:underline"
                 >
                   Pobierz
                 </button>
 
-                <button
-                  onClick={async () => {
-                    if (confirm("Usunąć dokument?")) {
-                      await deleteDocument(doc);
-                      loadDocuments();
-                    }
-                  }}
-                  className="text-red-600 hover:underline"
-                >
-                  Usuń
-                </button>
+                {currentUserId === doc.owner_id ? (
+                  <button
+                    onClick={() => handleDelete(doc)}
+                    className="text-red-600 hover:underline"
+                  >
+                    Usuń
+                  </button>
+                ) : (
+                  <span
+                    className="text-gray-400 cursor-not-allowed"
+                    title="Tylko właściciel może usunąć dokument"
+                  >
+                    Usuń
+                  </span>
+                )}
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ======================
+         AUDIT LOG
+         ====================== */}
+      {audit.length > 0 && (
+        <div>
+          <h4 className="text-sm font-semibold text-slate-700 mb-2">
+            Historia dokumentów
+          </h4>
+
+          <div className="divide-y border rounded-lg text-sm">
+            {audit.map((a) => (
+              <div
+                key={a.id}
+                className="px-4 py-2 flex justify-between"
+              >
+                <div>
+                  <p className="font-medium">
+                    {a.action === "UPLOAD"
+                      ? "Dodano dokument"
+                      : "Usunięto dokument"}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {a.name}
+                  </p>
+                </div>
+
+                <div className="text-right text-xs text-slate-500">
+                  <p>
+                    {a.actor_id === currentUserId
+                      ? "Ty"
+                      : `Użytkownik ${shortId(a.actor_id)}`}
+                  </p>
+                  <p>
+                    {new Date(a.created_at).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -206,7 +267,6 @@ export default function PropertyDocumentsSection({ propertyId }) {
       {previewDoc && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
           <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            {/* Header */}
             <div className="flex justify-between items-center px-4 py-3 border-b">
               <p className="font-medium truncate">
                 {previewDoc.name}
@@ -215,7 +275,6 @@ export default function PropertyDocumentsSection({ propertyId }) {
                 onClick={() => {
                   setPreviewDoc(null);
                   setPreviewUrl(null);
-                  setPreviewError(null);
                 }}
                 className="text-sm text-gray-600 hover:text-black"
               >
@@ -223,7 +282,6 @@ export default function PropertyDocumentsSection({ propertyId }) {
               </button>
             </div>
 
-            {/* Content */}
             <div className="flex-1 overflow-auto p-4">
               {previewError && (
                 <p className="text-red-600 text-sm">
