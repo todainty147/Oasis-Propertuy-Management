@@ -1,10 +1,10 @@
-// src/components/TenantDocumentsSection.jsx
 import { useEffect, useState } from "react";
 import Card from "./Card";
 import {
   fetchDocuments,
   uploadDocument,
   deleteDocument,
+  updateDocumentTags,
   getDocumentPreviewUrl,
   downloadDocument,
 } from "../services/documentService";
@@ -38,15 +38,10 @@ export default function TenantDocumentsSection({ tenantId }) {
   const [currentUserId, setCurrentUserId] = useState(null);
 
   /* ---------- TAGS ---------- */
-  const [selectedTags, setSelectedTags] = useState([]);
-
-  function toggleTag(tag) {
-    setSelectedTags((prev) =>
-      prev.includes(tag)
-        ? prev.filter((t) => t !== tag)
-        : [...prev, tag]
-    );
-  }
+  const [selectedTags, setSelectedTags] = useState([]); // upload
+  const [activeTags, setActiveTags] = useState([]);     // filter
+  const [editingDocId, setEditingDocId] = useState(null);
+  const [editingTags, setEditingTags] = useState([]);
 
   /* ---------- SESSION ---------- */
   useEffect(() => {
@@ -97,6 +92,47 @@ export default function TenantDocumentsSection({ tenantId }) {
     }
   }
 
+  /* ---------- TAG FILTER ---------- */
+  function toggleFilterTag(tag) {
+    setActiveTags((prev) =>
+      prev.includes(tag)
+        ? prev.filter((t) => t !== tag)
+        : [...prev, tag]
+    );
+  }
+
+  const filteredDocuments =
+    activeTags.length === 0
+      ? documents
+      : documents.filter((doc) =>
+          doc.tags?.some((t) => activeTags.includes(t))
+        );
+
+  /* ---------- TAG EDIT ---------- */
+  function startEditTags(doc) {
+    setEditingDocId(doc.id);
+    setEditingTags(doc.tags ?? []);
+  }
+
+  function toggleEditTag(tag) {
+    setEditingTags((prev) =>
+      prev.includes(tag)
+        ? prev.filter((t) => t !== tag)
+        : [...prev, tag]
+    );
+  }
+
+  async function saveTags(doc) {
+    await updateDocumentTags({
+      documentId: doc.id,
+      tags: editingTags,
+    });
+
+    setEditingDocId(null);
+    setEditingTags([]);
+    await loadAll();
+  }
+
   /* ---------- ACTIONS ---------- */
   async function handlePreview(doc) {
     if (!canPreview(doc.mime_type)) return;
@@ -123,7 +159,6 @@ export default function TenantDocumentsSection({ tenantId }) {
 
   return (
     <Card className="p-6 space-y-6">
-
       {/* ---------- HEADER ---------- */}
       <div className="flex justify-between items-center">
         <h3 className="font-semibold text-lg">Dokumenty najemcy</h3>
@@ -139,7 +174,7 @@ export default function TenantDocumentsSection({ tenantId }) {
         </label>
       </div>
 
-      {/* ---------- TAG SELECTOR ---------- */}
+      {/* ---------- UPLOAD TAG SELECTOR ---------- */}
       <div className="flex flex-wrap gap-3">
         {DOCUMENT_TAGS.map((tag) => (
           <label
@@ -147,20 +182,41 @@ export default function TenantDocumentsSection({ tenantId }) {
             className="flex items-center gap-1 text-sm cursor-pointer"
           >
             <input
-        type="checkbox"
-        checked={selectedTags.includes(tag.value)}
-        onChange={() =>
-          setSelectedTags((prev) =>
-            prev.includes(tag.value)
-              ? prev.filter((t) => t !== tag.value)
-              : [...prev, tag.value]
-          )
-        }
-      />
-      {tag.label}
+              type="checkbox"
+              checked={selectedTags.includes(tag.value)}
+              onChange={() =>
+                setSelectedTags((prev) =>
+                  prev.includes(tag.value)
+                    ? prev.filter((t) => t !== tag.value)
+                    : [...prev, tag.value]
+                )
+              }
+            />
+            {tag.label}
           </label>
         ))}
       </div>
+
+      {/* ---------- FILTER TAGS ---------- */}
+      {documents.some((d) => d.tags?.length) && (
+        <div className="flex gap-2 flex-wrap">
+          {[...new Set(documents.flatMap((d) => d.tags || []))].map(
+            (tag) => (
+              <button
+                key={tag}
+                onClick={() => toggleFilterTag(tag)}
+                className={`text-xs px-2 py-1 rounded border ${
+                  activeTags.includes(tag)
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-600 border-slate-300"
+                }`}
+              >
+                {tag}
+              </button>
+            )
+          )}
+        </div>
+      )}
 
       {/* ---------- LOADING ---------- */}
       {loading && (
@@ -177,31 +233,22 @@ export default function TenantDocumentsSection({ tenantId }) {
       )}
 
       {/* ---------- DOCUMENT LIST ---------- */}
-      {!loading && documents.length > 0 && (
+      {!loading && filteredDocuments.length > 0 && (
         <div className="divide-y border rounded-lg">
-          {documents.map((doc) => (
+          {filteredDocuments.map((doc) => (
             <div
               key={doc.id}
-              className="py-3 px-4 flex justify-between items-center"
+              className="py-3 px-4 flex justify-between items-start"
             >
               <div>
-                <p className="font-medium flex items-center gap-2">
-                  {doc.name}
-
-                  {doc.tenant_id && doc.property_id && (
-                    <span className="text-xs px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">
-                      Wspólny
-                    </span>
-                  )}
-                </p>
-
+                <p className="font-medium">{doc.name}</p>
                 <p className="text-xs text-slate-500">
                   {doc.mime_type} •{" "}
                   {(doc.size_bytes / 1024).toFixed(1)} KB
                 </p>
 
-                {/* ---------- TAGS ---------- */}
-                {doc.tags?.length > 0 && (
+                {/* ---------- TAG DISPLAY ---------- */}
+                {editingDocId !== doc.id && doc.tags?.length > 0 && (
                   <div className="flex gap-2 mt-1 flex-wrap">
                     {doc.tags.map((tag) => (
                       <span
@@ -213,8 +260,48 @@ export default function TenantDocumentsSection({ tenantId }) {
                     ))}
                   </div>
                 )}
+
+                {/* ---------- TAG EDIT ---------- */}
+                {editingDocId === doc.id && (
+                  <div className="mt-2 space-y-2">
+                    <div className="flex gap-3 flex-wrap">
+                      {DOCUMENT_TAGS.map((tag) => (
+                        <label
+                          key={tag.value}
+                          className="flex items-center gap-1 text-xs"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={editingTags.includes(tag.value)}
+                            onChange={() => toggleEditTag(tag.value)}
+                          />
+                          {tag.label}
+                        </label>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-3 text-xs">
+                      <button
+                        onClick={() => saveTags(doc)}
+                        className="text-blue-600 hover:underline"
+                      >
+                        Zapisz
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingDocId(null);
+                          setEditingTags([]);
+                        }}
+                        className="text-gray-500 hover:underline"
+                      >
+                        Anuluj
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
+              {/* ---------- ACTIONS ---------- */}
               <div className="flex gap-3 text-sm">
                 {canPreview(doc.mime_type) && (
                   <button
@@ -232,20 +319,22 @@ export default function TenantDocumentsSection({ tenantId }) {
                   Pobierz
                 </button>
 
-                {currentUserId === doc.owner_id ? (
-                  <button
-                    onClick={() => handleDelete(doc)}
-                    className="text-red-600 hover:underline"
-                  >
-                    Usuń
-                  </button>
-                ) : (
-                  <span
-                    className="text-gray-400 cursor-not-allowed"
-                    title="Tylko właściciel może usunąć dokument"
-                  >
-                    Usuń
-                  </span>
+                {currentUserId === doc.owner_id && editingDocId !== doc.id && (
+                  <>
+                    <button
+                      onClick={() => startEditTags(doc)}
+                      className="text-slate-600 hover:underline text-xs"
+                    >
+                      Edytuj tagi
+                    </button>
+
+                    <button
+                      onClick={() => handleDelete(doc)}
+                      className="text-red-600 hover:underline"
+                    >
+                      Usuń
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -272,9 +361,7 @@ export default function TenantDocumentsSection({ tenantId }) {
                       ? "Dodano dokument"
                       : "Usunięto dokument"}
                   </p>
-                  <p className="text-xs text-slate-500">
-                    {a.name}
-                  </p>
+                  <p className="text-xs text-slate-500">{a.name}</p>
                 </div>
 
                 <div className="text-right text-xs text-slate-500">

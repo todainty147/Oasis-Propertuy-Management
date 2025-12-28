@@ -25,7 +25,6 @@ function generateUUID() {
     return crypto.randomUUID();
   }
 
-  // UUID v4 fallback (browser-safe)
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === "x" ? r : (r & 0x3) | 0x8;
@@ -38,14 +37,14 @@ function generateUUID() {
    ====================== */
 
 function assertScope({ propertyId, tenantId }) {
-  // Enforce "must attach to either tenant or property"
   if (!propertyId && !tenantId) {
-    throw new Error("Dokument musi być przypisany do nieruchomości lub najemcy");
+    throw new Error(
+      "Dokument musi być przypisany do nieruchomości lub najemcy"
+    );
   }
 }
 
 function sanitizeFilename(name) {
-  // keep it simple and safe for paths
   return String(name || "file")
     .replace(/\s+/g, "_")
     .replace(/[^\w.\-()]/g, "_");
@@ -63,7 +62,6 @@ export async function uploadDocument({
 }) {
   if (!file) throw new Error("Brak pliku");
 
-  // ---- client validation ----
   if (!ALLOWED_MIME_TYPES.includes(file.type)) {
     throw new Error("Niedozwolony typ pliku");
   }
@@ -82,11 +80,9 @@ export async function uploadDocument({
   if (userError) throw userError;
   if (!user) throw new Error("Brak sesji użytkownika");
 
-  // ---- storage path ----
   const safeName = sanitizeFilename(file.name);
   const storagePath = `${user.id}/${generateUUID()}-${safeName}`;
 
-  // ---- upload to storage ----
   const { error: uploadError } = await supabase.storage
     .from("documents")
     .upload(storagePath, file, {
@@ -96,8 +92,6 @@ export async function uploadDocument({
 
   if (uploadError) throw uploadError;
 
-  // ---- save metadata ----
-  // NOTE: schema uses: storage_path, mime_type, size_bytes, uploaded_by, tags
   const { data, error: dbError } = await supabase
     .from("documents")
     .insert({
@@ -108,8 +102,8 @@ export async function uploadDocument({
       storage_path: storagePath,
       mime_type: file.type,
       size_bytes: file.size,
-      tags, // enum[] in DB
-      uploaded_by: user.id, // audit
+      tags, // document_tag[]
+      uploaded_by: user.id,
     })
     .select("*")
     .single();
@@ -126,7 +120,7 @@ export async function uploadDocument({
 export async function fetchDocuments({
   propertyId = null,
   tenantId = null,
-  tag = null, // optional single tag filter (e.g. "UMOWA")
+  tag = null,
 } = {}) {
   let query = supabase
     .from("documents")
@@ -135,8 +129,6 @@ export async function fetchDocuments({
 
   if (propertyId) query = query.eq("property_id", propertyId);
   if (tenantId) query = query.eq("tenant_id", tenantId);
-
-  // tags is an array column: filter where tags contains [tag]
   if (tag) query = query.contains("tags", [tag]);
 
   const { data, error } = await query;
@@ -146,7 +138,33 @@ export async function fetchDocuments({
 }
 
 /* ======================
-   SHARED DOCS (tenant + property)
+   GLOBAL SEARCH (NEW)
+   ====================== */
+
+export async function searchDocuments({
+  query = "",
+  tags = [],
+  tenantId = null,
+  propertyId = null,
+} = {}) {
+  let q = supabase
+    .from("documents")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (query) q = q.ilike("name", `%${query}%`);
+  if (tags.length > 0) q = q.contains("tags", tags);
+  if (tenantId) q = q.eq("tenant_id", tenantId);
+  if (propertyId) q = q.eq("property_id", propertyId);
+
+  const { data, error } = await q;
+  if (error) throw error;
+
+  return data ?? [];
+}
+
+/* ======================
+   SHARED DOCUMENTS
    ====================== */
 
 export async function fetchSharedDocuments({ tenantId, propertyId }) {
@@ -172,7 +190,7 @@ export async function getDocumentPreviewUrl(storagePath) {
 
   const { data, error } = await supabase.storage
     .from("documents")
-    .createSignedUrl(storagePath, 60 * 10); // 10 minutes
+    .createSignedUrl(storagePath, 60 * 10);
 
   if (error) throw error;
   return data.signedUrl;
@@ -200,6 +218,34 @@ export async function downloadDocument({ storagePath, filename }) {
   a.remove();
   URL.revokeObjectURL(url);
 }
+/* ======================
+   UPDATE TAGS
+   ====================== */
+
+export async function updateDocumentTags({ documentId, tags }) {
+  if (!documentId) {
+    throw new Error("Brak ID dokumentu");
+  }
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError) throw userError;
+  if (!user) throw new Error("Brak sesji");
+
+  const { data, error } = await supabase
+    .from("documents")
+    .update({ tags })
+    .eq("id", documentId)
+    .eq("owner_id", user.id) // 🔐 owner-only update
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
 
 /* ======================
    DELETE DOCUMENT
@@ -218,19 +264,16 @@ export async function deleteDocument(document) {
   if (userError) throw userError;
   if (!user) throw new Error("Brak sesji");
 
-  // Client-side guard only (RLS must enforce server-side)
   if (document.owner_id !== user.id) {
     throw new Error("Brak uprawnień do usunięcia dokumentu");
   }
 
-  // storage delete
   const { error: storageError } = await supabase.storage
     .from("documents")
     .remove([document.storage_path]);
 
   if (storageError) throw storageError;
 
-  // db delete
   const { error: dbError } = await supabase
     .from("documents")
     .delete()

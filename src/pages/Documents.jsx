@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import {
+  searchDocuments,
   downloadDocument,
   getDocumentPreviewUrl,
   deleteDocument,
 } from "../services/documentService";
+import { DOCUMENT_TAGS } from "../constants/documentTags";
 
 /* ======================
    HELPERS
@@ -24,28 +26,29 @@ function canPreview(mime) {
 
 function DocumentsSkeleton() {
   return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-14" />
-        ))}
-      </div>
+    <div className="space-y-3">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Skeleton key={i} className="h-14" />
+      ))}
     </div>
   );
 }
 
 /* ======================
-   DOCUMENTS (READ-ONLY)
+   DOCUMENTS (GLOBAL / READ-ONLY)
    ====================== */
 
-export default function Documents({
-  loading = false,
-  documents = [],
-  onRefetch,
-}) {
+export default function Documents() {
   const { setTitle } = usePageTitle();
 
-  /* ---------- PREVIEW STATE ---------- */
+  /* ---------- STATE ---------- */
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const [query, setQuery] = useState("");
+  const [selectedTags, setSelectedTags] = useState([]);
+
+  /* ---------- PREVIEW ---------- */
   const [previewDoc, setPreviewDoc] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewError, setPreviewError] = useState(null);
@@ -54,6 +57,33 @@ export default function Documents({
   useEffect(() => {
     setTitle("Dokumenty");
   }, [setTitle]);
+
+  /* ---------- LOAD / SEARCH ---------- */
+  async function loadDocuments() {
+    setLoading(true);
+    try {
+      const data = await searchDocuments({
+        query,
+        tags: selectedTags,
+      });
+      setDocuments(data);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadDocuments();
+  }, [query, selectedTags]);
+
+  /* ---------- TAG TOGGLE ---------- */
+  function toggleTag(tag) {
+    setSelectedTags((prev) =>
+      prev.includes(tag)
+        ? prev.filter((t) => t !== tag)
+        : [...prev, tag]
+    );
+  }
 
   /* ---------- PREVIEW ---------- */
   async function handlePreview(doc) {
@@ -69,80 +99,138 @@ export default function Documents({
     }
   }
 
-  /* ---------- LOADING ---------- */
-  if (loading) {
-    return <DocumentsSkeleton />;
-  }
+  /* ======================
+     RENDER
+     ====================== */
 
-  /* ---------- EMPTY ---------- */
-  if (documents.length === 0) {
-    return (
-      <div className="text-center py-20">
-        <h3 className="text-xl font-semibold text-slate-900">
-          Brak dokumentów
-        </h3>
-        <p className="text-slate-500 mt-2">
-          Dokumenty pojawią się po dodaniu ich do najemców lub nieruchomości
-        </p>
-      </div>
-    );
-  }
-
-  /* ---------- CONTENT ---------- */
   return (
     <div className="space-y-6">
-      <div className="divide-y bg-white border rounded-xl">
-        {documents.map((doc) => (
-          <div
-            key={doc.id}
-            className="px-6 py-4 flex justify-between items-center"
-          >
-            <div>
-              <p className="font-medium">{doc.name}</p>
-              <p className="text-sm text-slate-500">
-                {doc.mime_type} • {(doc.size_bytes / 1024).toFixed(1)} KB
-              </p>
-            </div>
+      {/* ======================
+         SEARCH + FILTERS
+         ====================== */}
+      <div className="bg-white border rounded-xl p-4 space-y-4">
+        {/* Search */}
+        <input
+          type="text"
+          placeholder="Szukaj dokumentów…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="w-full border rounded-lg px-3 py-2 text-sm"
+        />
 
-            <div className="flex gap-4 text-sm">
-              {canPreview(doc.mime_type) && (
-                <button
-                  onClick={() => handlePreview(doc)}
-                  className="text-blue-600 hover:underline"
-                >
-                  Podgląd
-                </button>
-              )}
-
-              <button
-                onClick={() =>
-                  downloadDocument({
-                    storagePath: doc.storage_path,
-                    filename: doc.name,
-                  })
-                }
-                className="text-slate-600 hover:underline"
-              >
-                Pobierz
-              </button>
-
-              <button
-                onClick={async () => {
-                  if (confirm("Usunąć dokument?")) {
-                    await deleteDocument(doc);
-                    onRefetch?.();
-                  }
-                }}
-                className="text-red-600 hover:underline"
-              >
-                Usuń
-              </button>
-            </div>
-          </div>
-        ))}
+        {/* Tags */}
+        <div className="flex flex-wrap gap-3">
+          {DOCUMENT_TAGS.map((tag) => (
+            <label
+              key={tag.value}
+              className="flex items-center gap-1 text-sm cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                checked={selectedTags.includes(tag.value)}
+                onChange={() => toggleTag(tag.value)}
+              />
+              {tag.label}
+            </label>
+          ))}
+        </div>
       </div>
 
-      {/* ---------- PREVIEW MODAL ---------- */}
+      {/* ======================
+         RESULTS
+         ====================== */}
+      {loading && <DocumentsSkeleton />}
+
+      {!loading && documents.length === 0 && (
+        <div className="text-center py-20">
+          <h3 className="text-xl font-semibold text-slate-900">
+            Brak dokumentów
+          </h3>
+          <p className="text-slate-500 mt-2">
+            Spróbuj zmienić kryteria wyszukiwania
+          </p>
+        </div>
+      )}
+
+      {!loading && documents.length > 0 && (
+        <div className="divide-y bg-white border rounded-xl">
+          {documents.map((doc) => (
+            <div
+              key={doc.id}
+              className="px-6 py-4 flex justify-between items-center"
+            >
+              <div>
+                <p className="font-medium flex items-center gap-2">
+                  {doc.name}
+
+                  {doc.tenant_id && doc.property_id && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">
+                      Wspólny
+                    </span>
+                  )}
+                </p>
+
+                <p className="text-sm text-slate-500">
+                  {doc.mime_type} •{" "}
+                  {(doc.size_bytes / 1024).toFixed(1)} KB
+                </p>
+
+                {doc.tags?.length > 0 && (
+                  <div className="flex gap-2 mt-1">
+                    {doc.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-4 text-sm">
+                {canPreview(doc.mime_type) && (
+                  <button
+                    onClick={() => handlePreview(doc)}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Podgląd
+                  </button>
+                )}
+
+                <button
+                  onClick={() =>
+                    downloadDocument({
+                      storagePath: doc.storage_path,
+                      filename: doc.name,
+                    })
+                  }
+                  className="text-slate-600 hover:underline"
+                >
+                  Pobierz
+                </button>
+
+                <button
+                  onClick={async () => {
+                    if (confirm("Usunąć dokument?")) {
+                      await deleteDocument(doc);
+                      loadDocuments();
+                    }
+                  }}
+                  className="text-red-600 hover:underline"
+                >
+                  Usuń
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ======================
+         PREVIEW MODAL
+         ====================== */}
       {previewDoc && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
           <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
