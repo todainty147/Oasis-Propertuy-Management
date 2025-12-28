@@ -11,6 +11,7 @@ import {
 } from "../services/documentService";
 import { fetchDocumentAudit } from "../services/documentAuditService";
 import { supabase } from "../lib/supabase";
+import { DOCUMENT_TAGS } from "../constants/documentTags";
 
 /* ======================
    HELPERS
@@ -43,6 +44,17 @@ export default function PropertyDocumentsSection({ propertyId }) {
   const [previewError, setPreviewError] = useState(null);
 
   const [currentUserId, setCurrentUserId] = useState(null);
+
+  /* ---------- TAGS ---------- */
+  const [selectedTags, setSelectedTags] = useState([]);
+
+  function toggleTag(tag) {
+    setSelectedTags((prev) =>
+      prev.includes(tag)
+        ? prev.filter((t) => t !== tag)
+        : [...prev, tag]
+    );
+  }
 
   /* ---------- SESSION ---------- */
   useEffect(() => {
@@ -79,8 +91,14 @@ export default function PropertyDocumentsSection({ propertyId }) {
     if (!file) return;
 
     try {
-      await uploadDocument({ file, propertyId });
+      await uploadDocument({
+        file,
+        propertyId,
+        tags: selectedTags,
+      });
+
       e.target.value = "";
+      setSelectedTags([]);
       await loadAll();
     } catch (err) {
       alert(err.message);
@@ -142,6 +160,23 @@ export default function PropertyDocumentsSection({ propertyId }) {
         />
       </div>
 
+      {/* ---------- TAG SELECTOR ---------- */}
+      <div className="flex flex-wrap gap-3">
+        {DOCUMENT_TAGS.map((tag) => (
+          <label
+            key={tag.value}
+            className="flex items-center gap-1 text-sm cursor-pointer"
+          >
+            <input
+              type="checkbox"
+              checked={selectedTags.includes(tag.value)}
+              onChange={() => toggleTag(tag.value)}
+            />
+            {tag.label}
+          </label>
+        ))}
+      </div>
+
       {/* ---------- LOADING ---------- */}
       {loading && (
         <div className="space-y-3">
@@ -181,6 +216,20 @@ export default function PropertyDocumentsSection({ propertyId }) {
                   {doc.mime_type} •{" "}
                   {(doc.size_bytes / 1024).toFixed(1)} KB
                 </p>
+
+                {/* ---------- TAGS ---------- */}
+                {doc.tags?.length > 0 && (
+                  <div className="flex gap-2 mt-1 flex-wrap">
+                    {doc.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3 text-sm">
