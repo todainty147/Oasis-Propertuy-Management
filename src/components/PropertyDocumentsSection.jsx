@@ -1,5 +1,6 @@
 // src/components/PropertyDocumentsSection.jsx
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
 import {
@@ -32,21 +33,31 @@ function shortId(id) {
 
 export default function PropertyDocumentsSection({ propertyId }) {
   const fileInputRef = useRef(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
+  /* ---------- URL FILTER STATE ---------- */
+  const filterTags =
+    searchParams.get("tags")?.split(",").filter(Boolean) ?? [];
+
+  /* ---------- DATA ---------- */
   const [documents, setDocuments] = useState([]);
   const [audit, setAudit] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  /* ---------- USER ---------- */
+  const [currentUserId, setCurrentUserId] = useState(null);
+
+  /* ---------- UPLOAD TAGS ---------- */
+  const [uploadTags, setUploadTags] = useState([]);
+
+  /* ---------- TAG EDIT ---------- */
+  const [editingDocId, setEditingDocId] = useState(null);
+  const [editingTags, setEditingTags] = useState([]);
+
+  /* ---------- PREVIEW ---------- */
   const [previewDoc, setPreviewDoc] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewError, setPreviewError] = useState(null);
-
-  const [currentUserId, setCurrentUserId] = useState(null);
-
-  /* ---------- TAGS (UPLOAD + FILTER) ---------- */
-  const [selectedTags, setSelectedTags] = useState([]);
-  const [editingDocId, setEditingDocId] = useState(null);
-  const [editingTags, setEditingTags] = useState([]);
 
   /* ---------- SESSION ---------- */
   useEffect(() => {
@@ -65,7 +76,6 @@ export default function PropertyDocumentsSection({ propertyId }) {
         fetchDocuments({ propertyId }),
         fetchDocumentAudit({ propertyId }),
       ]);
-
       setDocuments(docs);
       setAudit(auditLog);
     } finally {
@@ -77,20 +87,24 @@ export default function PropertyDocumentsSection({ propertyId }) {
     loadAll();
   }, [propertyId]);
 
-  /* ---------- TAG TOGGLE (UPLOAD + FILTER) ---------- */
-  function toggleTag(tag) {
-    setSelectedTags((prev) =>
-      prev.includes(tag)
-        ? prev.filter((t) => t !== tag)
-        : [...prev, tag]
-    );
+  /* ---------- URL FILTER TOGGLE ---------- */
+  function toggleFilterTag(tag) {
+    const next =
+      filterTags.includes(tag)
+        ? filterTags.filter((t) => t !== tag)
+        : [...filterTags, tag];
+
+    const params = new URLSearchParams(searchParams);
+    next.length ? params.set("tags", next.join(",")) : params.delete("tags");
+    setSearchParams(params, { replace: true });
   }
 
+  /* ---------- FILTERED DOCS ---------- */
   const filteredDocuments =
-    selectedTags.length === 0
+    filterTags.length === 0
       ? documents
       : documents.filter((doc) =>
-          doc.tags?.some((t) => selectedTags.includes(t))
+          doc.tags?.some((t) => filterTags.includes(t))
         );
 
   /* ---------- UPLOAD ---------- */
@@ -102,11 +116,11 @@ export default function PropertyDocumentsSection({ propertyId }) {
       await uploadDocument({
         file,
         propertyId,
-        tags: selectedTags,
+        tags: uploadTags,
       });
-
+      setUploadTags([]);
       e.target.value = "";
-      await loadAll();
+      loadAll();
     } catch (err) {
       alert(err.message);
     }
@@ -120,9 +134,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
 
   function toggleEditTag(tag) {
     setEditingTags((prev) =>
-      prev.includes(tag)
-        ? prev.filter((t) => t !== tag)
-        : [...prev, tag]
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
     );
   }
 
@@ -131,10 +143,9 @@ export default function PropertyDocumentsSection({ propertyId }) {
       documentId: doc.id,
       tags: editingTags,
     });
-
     setEditingDocId(null);
     setEditingTags([]);
-    await loadAll();
+    loadAll();
   }
 
   /* ---------- ACTIONS ---------- */
@@ -161,7 +172,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
   async function handleDelete(doc) {
     if (!confirm("Usunąć dokument?")) return;
     await deleteDocument(doc);
-    await loadAll();
+    loadAll();
   }
 
   /* ======================
@@ -186,20 +197,25 @@ export default function PropertyDocumentsSection({ propertyId }) {
         <input
           ref={fileInputRef}
           type="file"
-          onChange={handleUpload}
-          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
           className="hidden"
+          onChange={handleUpload}
         />
       </div>
 
-      {/* ---------- TAGS (UPLOAD + FILTER) ---------- */}
+      {/* ---------- UPLOAD TAGS ---------- */}
       <div className="flex gap-2 flex-wrap">
         {DOCUMENT_TAGS.map((tag) => (
           <button
             key={tag.value}
-            onClick={() => toggleTag(tag.value)}
+            onClick={() =>
+              setUploadTags((prev) =>
+                prev.includes(tag.value)
+                  ? prev.filter((t) => t !== tag.value)
+                  : [...prev, tag.value]
+              )
+            }
             className={`text-xs px-2 py-1 rounded border ${
-              selectedTags.includes(tag.value)
+              uploadTags.includes(tag.value)
                 ? "bg-blue-600 text-white border-blue-600"
                 : "bg-white text-slate-600 border-slate-300"
             }`}
@@ -208,6 +224,25 @@ export default function PropertyDocumentsSection({ propertyId }) {
           </button>
         ))}
       </div>
+
+      {/* ---------- FILTER TAGS ---------- */}
+      {documents.some((d) => d.tags?.length) && (
+        <div className="flex gap-2 flex-wrap">
+          {[...new Set(documents.flatMap((d) => d.tags || []))].map((tag) => (
+            <button
+              key={tag}
+              onClick={() => toggleFilterTag(tag)}
+              className={`text-xs px-2 py-1 rounded border ${
+                filterTags.includes(tag)
+                  ? "bg-indigo-600 text-white border-indigo-600"
+                  : "bg-white text-slate-600 border-slate-300"
+              }`}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ---------- LOADING ---------- */}
       {loading && (
@@ -236,10 +271,10 @@ export default function PropertyDocumentsSection({ propertyId }) {
               <div>
                 <p className="font-medium">{doc.name}</p>
                 <p className="text-xs text-slate-500">
-                  {doc.mime_type} • {(doc.size_bytes / 1024).toFixed(1)} KB
+                  {(doc.size_bytes / 1024).toFixed(1)} KB
                 </p>
 
-                {editingDocId !== doc.id && doc.tags?.length > 0 && (
+                {doc.tags?.length > 0 && (
                   <div className="flex gap-2 mt-1 flex-wrap">
                     {doc.tags.map((tag) => (
                       <span
@@ -249,38 +284,6 @@ export default function PropertyDocumentsSection({ propertyId }) {
                         {tag}
                       </span>
                     ))}
-                  </div>
-                )}
-
-                {editingDocId === doc.id && (
-                  <div className="mt-2 space-y-2">
-                    <div className="flex gap-3 flex-wrap">
-                      {DOCUMENT_TAGS.map((tag) => (
-                        <label key={tag.value} className="text-xs">
-                          <input
-                            type="checkbox"
-                            checked={editingTags.includes(tag.value)}
-                            onChange={() => toggleEditTag(tag.value)}
-                          />{" "}
-                          {tag.label}
-                        </label>
-                      ))}
-                    </div>
-
-                    <div className="flex gap-3 text-xs">
-                      <button
-                        onClick={() => saveTags(doc)}
-                        className="text-blue-600 hover:underline"
-                      >
-                        Zapisz
-                      </button>
-                      <button
-                        onClick={() => setEditingDocId(null)}
-                        className="text-gray-500 hover:underline"
-                      >
-                        Anuluj
-                      </button>
-                    </div>
                   </div>
                 )}
               </div>
@@ -294,7 +297,6 @@ export default function PropertyDocumentsSection({ propertyId }) {
                     Podgląd
                   </button>
                 )}
-
                 <button
                   onClick={() => handleDownload(doc)}
                   className="text-slate-600 hover:underline"
@@ -310,7 +312,6 @@ export default function PropertyDocumentsSection({ propertyId }) {
                     >
                       Edytuj tagi
                     </button>
-
                     <button
                       onClick={() => handleDelete(doc)}
                       className="text-red-600 hover:underline"
@@ -322,96 +323,6 @@ export default function PropertyDocumentsSection({ propertyId }) {
               </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* ---------- AUDIT LOG ---------- */}
-      {audit.length > 0 && (
-        <div>
-          <h4 className="text-sm font-semibold text-slate-700 mb-2">
-            Historia dokumentów
-          </h4>
-
-          <div className="divide-y border rounded-lg text-sm">
-            {audit.map((a) => (
-              <div
-                key={a.id}
-                className="px-4 py-2 flex justify-between"
-              >
-                <div>
-                  <p className="font-medium">
-                    {a.action === "UPLOAD"
-                      ? "Dodano dokument"
-                      : "Usunięto dokument"}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {a.name}
-                  </p>
-                </div>
-
-                <div className="text-right text-xs text-slate-500">
-                  <p>
-                    {a.actor_id === currentUserId
-                      ? "Ty"
-                      : `Użytkownik ${shortId(a.actor_id)}`}
-                  </p>
-                  <p>
-                    {new Date(a.created_at).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ---------- PREVIEW MODAL ---------- */}
-      {previewDoc && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
-          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center px-4 py-3 border-b">
-              <p className="font-medium truncate">
-                {previewDoc.name}
-              </p>
-              <button
-                onClick={() => {
-                  setPreviewDoc(null);
-                  setPreviewUrl(null);
-                }}
-                className="text-sm text-gray-600 hover:text-black"
-              >
-                Zamknij ✕
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-auto p-4">
-              {previewError && (
-                <p className="text-red-600 text-sm">
-                  {previewError}
-                </p>
-              )}
-
-              {!previewError && previewUrl && (
-                <>
-                  {previewDoc.mime_type.startsWith("image/") && (
-                    <img
-                      src={previewUrl}
-                      alt={previewDoc.name}
-                      className="max-w-full mx-auto"
-                    />
-                  )}
-
-                  {previewDoc.mime_type === "application/pdf" && (
-                    <iframe
-                      src={previewUrl}
-                      title={previewDoc.name}
-                      className="w-full h-[70vh] border rounded"
-                    />
-                  )}
-                </>
-              )}
-            </div>
-          </div>
         </div>
       )}
     </Card>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import {
@@ -35,18 +36,24 @@ function DocumentsSkeleton() {
 }
 
 /* ======================
-   DOCUMENTS (GLOBAL / READ-ONLY)
+   DOCUMENTS (GLOBAL)
    ====================== */
 
 export default function Documents() {
   const { setTitle } = usePageTitle();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  /* ---------- STATE ---------- */
+  /* ---------- URL STATE ---------- */
+  const queryParam = searchParams.get("q") ?? "";
+  const tagsParam =
+    searchParams.get("tags")?.split(",").filter(Boolean) ?? [];
+
+  const [query, setQuery] = useState(queryParam);
+  const [selectedTags, setSelectedTags] = useState(tagsParam);
+
+  /* ---------- DATA ---------- */
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const [query, setQuery] = useState("");
-  const [selectedTags, setSelectedTags] = useState([]);
 
   /* ---------- PREVIEW ---------- */
   const [previewDoc, setPreviewDoc] = useState(null);
@@ -58,7 +65,14 @@ export default function Documents() {
     setTitle("Dokumenty");
   }, [setTitle]);
 
-  /* ---------- LOAD / SEARCH ---------- */
+  /* ---------- SYNC URL → STATE ---------- */
+  useEffect(() => {
+    setQuery(queryParam);
+    setSelectedTags(tagsParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  /* ---------- LOAD ---------- */
   async function loadDocuments() {
     setLoading(true);
     try {
@@ -76,13 +90,30 @@ export default function Documents() {
     loadDocuments();
   }, [query, selectedTags]);
 
+  /* ---------- UPDATE URL ---------- */
+  function updateUrl(nextQuery, nextTags) {
+    const params = new URLSearchParams();
+
+    if (nextQuery) params.set("q", nextQuery);
+    if (nextTags.length > 0) params.set("tags", nextTags.join(","));
+
+    setSearchParams(params, { replace: true });
+  }
+
+  /* ---------- SEARCH ---------- */
+  function handleSearch(value) {
+    setQuery(value);
+    updateUrl(value, selectedTags);
+  }
+
   /* ---------- TAG TOGGLE ---------- */
   function toggleTag(tag) {
-    setSelectedTags((prev) =>
-      prev.includes(tag)
-        ? prev.filter((t) => t !== tag)
-        : [...prev, tag]
-    );
+    const nextTags = selectedTags.includes(tag)
+      ? selectedTags.filter((t) => t !== tag)
+      : [...selectedTags, tag];
+
+    setSelectedTags(nextTags);
+    updateUrl(query, nextTags);
   }
 
   /* ---------- PREVIEW ---------- */
@@ -114,7 +145,7 @@ export default function Documents() {
           type="text"
           placeholder="Szukaj dokumentów…"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => handleSearch(e.target.value)}
           className="w-full border rounded-lg px-3 py-2 text-sm"
         />
 
