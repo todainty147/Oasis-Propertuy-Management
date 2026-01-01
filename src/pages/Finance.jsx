@@ -1,6 +1,7 @@
 import Skeleton from "../components/ui/Skeleton";
 import { useEffect } from "react";
 import { usePageTitle } from "../layout/PageTitleContext";
+import { useAccount } from "../context/AccountContext";
 
 /* ======================
    SKELETONS
@@ -81,6 +82,9 @@ export default function Finance({
   onAddPayment,
   onDeletePayment,
 }) {
+  /* ---------- ACCOUNT ---------- */
+  const { accountLoading } = useAccount();
+
   /* ---------- PAGE TITLE ---------- */
   const { setTitle } = usePageTitle();
 
@@ -89,7 +93,7 @@ export default function Finance({
   }, [setTitle]);
 
   /* ---------- LOADING ---------- */
-  if (loading) {
+  if (loading || accountLoading) {
     return <FinanceSkeleton />;
   }
 

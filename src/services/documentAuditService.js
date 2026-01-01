@@ -1,6 +1,14 @@
 import { supabase } from "../lib/supabase";
 
-export async function fetchDocumentAudit({ tenantId = null, propertyId = null } = {}) {
+export async function fetchDocumentAudit({
+  tenantId = null,
+  propertyId = null,
+} = {}) {
+  // Optional safety: avoid broad audit queries
+  if (!tenantId && !propertyId) {
+    return [];
+  }
+
   let q = supabase
     .from("document_audit")
     .select("*")

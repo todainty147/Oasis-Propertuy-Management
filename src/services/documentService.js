@@ -56,11 +56,17 @@ function sanitizeFilename(name) {
 
 export async function uploadDocument({
   file,
+  accountId, // ✅ REQUIRED for multi-tenancy
   propertyId = null,
   tenantId = null,
   tags = [],
 }) {
   if (!file) throw new Error("Brak pliku");
+
+  // ✅ Multi-tenant: must always know which account owns this doc
+  if (!accountId) {
+    throw new Error("Brak accountId (kontekst konta nie jest ustawiony)");
+  }
 
   if (!ALLOWED_MIME_TYPES.includes(file.type)) {
     throw new Error("Niedozwolony typ pliku");
@@ -81,7 +87,10 @@ export async function uploadDocument({
   if (!user) throw new Error("Brak sesji użytkownika");
 
   const safeName = sanitizeFilename(file.name);
-  const storagePath = `${user.id}/${generateUUID()}-${safeName}`;
+
+  // ✅ Multi-tenant storage path: scope by account first
+  // Keeps storage policies simple: folder == account_id
+  const storagePath = `${accountId}/${user.id}/${generateUUID()}-${safeName}`;
 
   const { error: uploadError } = await supabase.storage
     .from("documents")
@@ -95,7 +104,8 @@ export async function uploadDocument({
   const { data, error: dbError } = await supabase
     .from("documents")
     .insert({
-      owner_id: user.id,
+      account_id: accountId, // ✅ MULTI-TENANT (CRITICAL)
+      owner_id: user.id, // keep legacy semantics (creator/owner); RLS controls visibility
       property_id: propertyId,
       tenant_id: tenantId,
       name: file.name,
@@ -127,6 +137,7 @@ export async function fetchDocuments({
     .select("*")
     .order("created_at", { ascending: false });
 
+  // ✅ rely on RLS for account scoping
   if (propertyId) query = query.eq("property_id", propertyId);
   if (tenantId) query = query.eq("tenant_id", tenantId);
   if (tag) query = query.contains("tags", [tag]);
@@ -138,7 +149,7 @@ export async function fetchDocuments({
 }
 
 /* ======================
-   GLOBAL SEARCH (NEW)
+   GLOBAL SEARCH
    ====================== */
 
 export async function searchDocuments({
@@ -152,6 +163,7 @@ export async function searchDocuments({
     .select("*")
     .order("created_at", { ascending: false });
 
+  // ✅ rely on RLS for account scoping
   if (query) q = q.ilike("name", `%${query}%`);
   if (tags.length > 0) q = q.contains("tags", tags);
   if (tenantId) q = q.eq("tenant_id", tenantId);
@@ -218,6 +230,7 @@ export async function downloadDocument({ storagePath, filename }) {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
 /* ======================
    UPDATE TAGS
    ====================== */
@@ -227,6 +240,7 @@ export async function updateDocumentTags({ documentId, tags }) {
     throw new Error("Brak ID dokumentu");
   }
 
+  // ✅ Session check (optional but fine to keep)
   const {
     data: { user },
     error: userError,
@@ -235,11 +249,12 @@ export async function updateDocumentTags({ documentId, tags }) {
   if (userError) throw userError;
   if (!user) throw new Error("Brak sesji");
 
+  // ✅ Multi-tenant: do NOT hardcode owner_id checks in client code.
+  // Let RLS decide whether this user can update.
   const { data, error } = await supabase
     .from("documents")
     .update({ tags })
     .eq("id", documentId)
-    .eq("owner_id", user.id) // 🔐 owner-only update
     .select("*")
     .single();
 
@@ -256,6 +271,7 @@ export async function deleteDocument(document) {
     throw new Error("Nieprawidłowy dokument");
   }
 
+  // ✅ Session check (optional but fine to keep)
   const {
     data: { user },
     error: userError,
@@ -264,10 +280,8 @@ export async function deleteDocument(document) {
   if (userError) throw userError;
   if (!user) throw new Error("Brak sesji");
 
-  if (document.owner_id !== user.id) {
-    throw new Error("Brak uprawnień do usunięcia dokumentu");
-  }
-
+  // ✅ Multi-tenant: don't pre-block by owner_id here.
+  // UI permissions + RLS/storage policies are the source of truth.
   const { error: storageError } = await supabase.storage
     .from("documents")
     .remove([document.storage_path]);

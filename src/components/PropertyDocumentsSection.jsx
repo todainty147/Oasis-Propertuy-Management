@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
 import { useAuth } from "../context/AuthContext";
+import { useAccount } from "../context/AccountContext"; // ✅ MULTI-TENANT
 import {
   fetchDocuments,
   uploadDocument,
@@ -41,6 +42,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
   const fileInputRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, role, loading: authLoading } = useAuth();
+  const { activeAccountId, accountLoading } = useAccount(); // ✅ MULTI-TENANT
 
   /* ---------- URL FILTER STATE ---------- */
   const filterTags =
@@ -65,7 +67,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
 
   /* ---------- LOAD ---------- */
   async function loadAll() {
-    if (!propertyId) return;
+    if (!propertyId || !activeAccountId) return; // ✅ MULTI-TENANT
 
     setLoading(true);
     try {
@@ -81,9 +83,11 @@ export default function PropertyDocumentsSection({ propertyId }) {
   }
 
   useEffect(() => {
-    loadAll();
+    if (!authLoading && !accountLoading) {
+      loadAll();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [propertyId]);
+  }, [propertyId, authLoading, accountLoading, activeAccountId]);
 
   /* ---------- PERMISSIONS ---------- */
   const canUpload = canUploadDocument(role);
@@ -117,11 +121,12 @@ export default function PropertyDocumentsSection({ propertyId }) {
   /* ---------- UPLOAD ---------- */
   async function handleUpload(e) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !activeAccountId) return; // ✅ MULTI-TENANT
 
     try {
       await uploadDocument({
         file,
+        accountId: activeAccountId, // ✅ MULTI-TENANT (CRITICAL)
         propertyId,
         tags: uploadTags,
       });
@@ -202,10 +207,12 @@ export default function PropertyDocumentsSection({ propertyId }) {
      RENDER
      ====================== */
 
-  if (authLoading) {
+  if (authLoading || accountLoading) {
     return (
       <Card className="p-6">
-        <p className="text-sm text-slate-500">Ładowanie uprawnień…</p>
+        <p className="text-sm text-slate-500">
+          Ładowanie uprawnień…
+        </p>
       </Card>
     );
   }

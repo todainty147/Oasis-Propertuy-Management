@@ -1,43 +1,67 @@
 import { supabase } from "../lib/supabase";
 
-export async function createTenant(data) {
+/* ======================
+   CREATE
+   ====================== */
+
+export async function createTenant({
+  accountId, // ✅ REQUIRED for multi-tenancy
+  name,
+  email,
+  phone,
+  propertyId = null,
+}) {
+  if (!accountId) {
+    throw new Error("Brak accountId przy tworzeniu najemcy");
+  }
+
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
+
+  if (userError) throw userError;
+  if (!user) throw new Error("Brak sesji użytkownika");
 
   const { data: tenant, error } = await supabase
     .from("tenants")
     .insert({
-      owner_id: user.id,          // ✅ REQUIRED
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      property_id: data.propertyId ?? null,
+      account_id: accountId, // ✅ MULTI-TENANT (CRITICAL)
+      owner_id: user.id,     // creator / legacy owner
+      name,
+      email,
+      phone,
+      property_id: propertyId,
     })
     .select()
     .single();
 
   if (error) throw error;
 
-  // keep your property status sync logic
-  if (data.propertyId) {
+  // 🔄 keep your property status sync logic (RLS enforces account)
+  if (propertyId) {
     await supabase
       .from("properties")
       .update({ status: "Wynajęte" })
-      .eq("id", data.propertyId);
+      .eq("id", propertyId);
   }
 
   return tenant;
 }
 
+/* ======================
+   UPDATE
+   ====================== */
 
 export async function updateTenant(id, data) {
   // fetch current tenant (to detect property change)
-  const { data: current } = await supabase
+  const { data: current, error: currentError } = await supabase
     .from("tenants")
     .select("property_id")
     .eq("id", id)
     .single();
+
+  if (currentError) throw currentError;
 
   const { error } = await supabase
     .from("tenants")
@@ -69,13 +93,18 @@ export async function updateTenant(id, data) {
   }
 }
 
+/* ======================
+   DELETE
+   ====================== */
 
 export async function deleteTenant(id) {
-  const { data: tenant } = await supabase
+  const { data: tenant, error: tenantError } = await supabase
     .from("tenants")
     .select("property_id")
     .eq("id", id)
     .single();
+
+  if (tenantError) throw tenantError;
 
   const { error } = await supabase
     .from("tenants")
@@ -91,4 +120,3 @@ export async function deleteTenant(id) {
       .eq("id", tenant.property_id);
   }
 }
-

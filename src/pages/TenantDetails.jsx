@@ -1,11 +1,12 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Breadcrumbs from "../components/Breadcrumbs";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import TenantDocumentsSection from "../components/TenantDocumentsSection";
+import { useAccount } from "../context/AccountContext";
 
 /* ======================
    SKELETON
@@ -39,6 +40,9 @@ export default function TenantDetails({
   const { id } = useParams();
   const navigate = useNavigate();
 
+  /* ---------- ACCOUNT ---------- */
+  const { accountLoading } = useAccount();
+
   /* ---------- PAGE TITLE ---------- */
   const { setTitle } = usePageTitle();
 
@@ -55,8 +59,8 @@ export default function TenantDetails({
     }
   }, [tenant?.name, setTitle]);
 
-  /* ---------- EARLY STATES (AFTER HOOKS) ---------- */
-  if (loading) {
+  /* ---------- EARLY STATES ---------- */
+  if (loading || accountLoading) {
     return <TenantDetailsSkeleton />;
   }
 
@@ -123,7 +127,9 @@ export default function TenantDetails({
           <Card className="p-4 bg-slate-50">
             <p className="text-xs text-slate-500">Lokal</p>
             <p className="font-semibold">{property?.address || "—"}</p>
-            <p className="text-sm text-slate-500">{property?.city || ""}</p>
+            <p className="text-sm text-slate-500">
+              {property?.city || ""}
+            </p>
           </Card>
 
           <Card className="p-4 bg-slate-50">

@@ -1,22 +1,30 @@
 export default function DocumentPreview({ document }) {
-  const { mime_type, publicUrl } = document;
+  if (!document) {
+    return (
+      <div className="text-sm text-slate-500">
+        Brak danych dokumentu.
+      </div>
+    );
+  }
 
-  if (mime_type.startsWith("image/")) {
+  const { mime_type, publicUrl, name } = document;
+
+  if (mime_type?.startsWith("image/") && publicUrl) {
     return (
       <img
         src={publicUrl}
-        alt={document.name}
+        alt={name}
         className="max-h-[80vh] mx-auto"
       />
     );
   }
 
-  if (mime_type === "application/pdf") {
+  if (mime_type === "application/pdf" && publicUrl) {
     return (
       <iframe
         src={publicUrl}
         className="w-full h-[80vh]"
-        title={document.name}
+        title={name}
       />
     );
   }

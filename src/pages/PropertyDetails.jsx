@@ -7,6 +7,7 @@ import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { calculatePropertyFinance } from "../utils/finance";
 import PropertyDocumentsSection from "../components/PropertyDocumentsSection";
+import { useAccount } from "../context/AccountContext";
 
 /* ======================
    SKELETON
@@ -46,6 +47,7 @@ export default function PropertyDetails({
   const { id } = useParams();
   const navigate = useNavigate();
   const { setTitle } = usePageTitle();
+  const { accountLoading } = useAccount();
 
   /* ---------- PROPERTY ---------- */
   const property = properties.find(
@@ -60,7 +62,7 @@ export default function PropertyDetails({
   }, [property?.address, setTitle]);
 
   /* ---------- LOADING ---------- */
-  if (loading) {
+  if (loading || accountLoading) {
     return <PropertyDetailsSkeleton />;
   }
 

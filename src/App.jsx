@@ -54,11 +54,21 @@ import AddPropertyModal from "./components/AddPropertyModal";
 import AddTenantModal from "./components/AddTenantModal";
 import AddPaymentModal from "./components/AddPaymentModal";
 
+import { useAccount } from "./context/AccountContext";
+
 export default function App() {
   /* ======================
      AUTH
      ====================== */
   const { session, loading: sessionLoading } = useSession();
+
+  /* ======================
+     ACCOUNT (NEW)
+     ====================== */
+  const {
+    activeAccountId,
+    accountLoading,
+  } = useAccount();
 
   /* ======================
      DATA HOOKS
@@ -101,20 +111,33 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (session) {
+    if (session && activeAccountId) {
       loadDocuments();
     }
-  }, [session]);
+  }, [session, activeAccountId]);
 
   /* ======================
      RENDER GATES
      ====================== */
-  if (sessionLoading) {
+  if (sessionLoading || accountLoading) {
     return <div className="p-6">Ładowanie sesji…</div>;
   }
 
   if (!session) {
     return <Login />;
+  }
+
+  if (!activeAccountId) {
+    return (
+      <div className="p-6">
+        <p className="font-medium">
+          Brak przypisanego konta
+        </p>
+        <p className="text-sm text-gray-600 mt-2">
+          Skontaktuj się z administratorem lub zaakceptuj zaproszenie.
+        </p>
+      </div>
+    );
   }
 
   if (propertiesError || paymentsError || tenantsError) {
@@ -133,11 +156,11 @@ export default function App() {
   }
 
   /* ======================
-     OWNER
+     OWNER (LEGACY SHIM)
      ====================== */
   const owners = [
     {
-      id: session.user.id,
+      id: activeAccountId,
       name: session.user.email,
     },
   ];
@@ -237,7 +260,7 @@ export default function App() {
           element={
             <AppLayout
               owners={owners}
-              activeOwnerId={session.user.id}
+              activeOwnerId={activeAccountId}
               setActiveOwnerId={() => {}}
             />
           }
@@ -399,7 +422,7 @@ export default function App() {
                       propertyId: form.propertyId,
                       tenantId: form.tenantId,
                       amount: Number(form.amount),
-                      status: form.status, // Opłacone | Zaległe | Oczekujące
+                      status: form.status,
                       dueDate: form.dueDate,
                       paidAt:
                         form.status === "Opłacone"

@@ -1,27 +1,47 @@
 import { supabase } from "../lib/supabase";
 
-export async function createPayment(data) {
+/* ======================
+   CREATE
+   ====================== */
+
+export async function createPayment({
+  accountId, // ✅ REQUIRED for multi-tenancy
+  propertyId,
+  tenantId,
+  amount,
+  status,
+  dueDate,
+  paidAt = null,
+}) {
+  if (!accountId) {
+    throw new Error("Brak accountId przy tworzeniu płatności");
+  }
+
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
 
+  if (userError) throw userError;
   if (!user) throw new Error("No authenticated user");
 
   const { error } = await supabase.from("payments").insert({
-    owner_id: user.id,                // always from session
-    property_id: data.propertyId,     // camelCase → snake_case
-    tenant_id: data.tenantId,
-    amount: Number(data.amount),
-    status: data.status,
-    due_date: data.dueDate,           // REQUIRED
-    paid_at: data.paidAt ?? null,
+    account_id: accountId,       // ✅ MULTI-TENANT (CRITICAL)
+    owner_id: user.id,           // creator / legacy owner
+    property_id: propertyId,
+    tenant_id: tenantId,
+    amount: Number(amount),
+    status,
+    due_date: dueDate,
+    paid_at: paidAt,
   });
 
   if (error) throw error;
 }
 
-
-
+/* ======================
+   UPDATE
+   ====================== */
 
 export async function updatePayment(id, data) {
   const { error } = await supabase
@@ -35,6 +55,10 @@ export async function updatePayment(id, data) {
 
   if (error) throw error;
 }
+
+/* ======================
+   DELETE
+   ====================== */
 
 export async function deletePayment(id) {
   const { error } = await supabase

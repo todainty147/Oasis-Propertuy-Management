@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Card from "./Card";
+import { useAccount } from "../context/AccountContext"; // ✅ MULTI-TENANT
 
 export default function AddTenantModal({
   isOpen,
@@ -8,6 +9,8 @@ export default function AddTenantModal({
   onSave,
   tenant,
 }) {
+  const { accountLoading } = useAccount(); // ✅ MULTI-TENANT
+
   const [name, setName] = useState(tenant?.name ?? "");
   const [phone, setPhone] = useState(tenant?.phone ?? "");
   const [email, setEmail] = useState(tenant?.email ?? "");
@@ -15,7 +18,8 @@ export default function AddTenantModal({
     tenant?.propertyId ?? ""
   );
 
-  if (!isOpen) return null;
+  // ✅ MULTI-TENANT SAFETY
+  if (!isOpen || accountLoading) return null;
 
   const submit = async (e) => {
     e.preventDefault();

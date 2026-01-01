@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAuth } from "../context/AuthContext";
+import { useAccount } from "../context/AccountContext";
 import {
   searchDocuments,
   downloadDocument,
@@ -41,6 +42,7 @@ function DocumentsSkeleton() {
 export default function Documents() {
   const { setTitle } = usePageTitle();
   const { user, role, loading: authLoading } = useAuth();
+  const { activeAccountId, accountLoading } = useAccount();
   const [searchParams, setSearchParams] = useSearchParams();
 
   /* ---------- URL STATE ---------- */
@@ -74,6 +76,8 @@ export default function Documents() {
 
   /* ---------- LOAD ---------- */
   async function loadDocuments() {
+    if (!activeAccountId) return;
+
     setLoading(true);
     try {
       const data = await searchDocuments({
@@ -87,8 +91,10 @@ export default function Documents() {
   }
 
   useEffect(() => {
-    loadDocuments();
-  }, [query, selectedTags]);
+    if (!authLoading && !accountLoading) {
+      loadDocuments();
+    }
+  }, [query, selectedTags, authLoading, accountLoading, activeAccountId]);
 
   /* ---------- UPDATE URL ---------- */
   function updateUrl(nextQuery, nextTags) {
@@ -132,7 +138,7 @@ export default function Documents() {
      RENDER
      ====================== */
 
-  if (authLoading) {
+  if (authLoading || accountLoading) {
     return <DocumentsSkeleton />;
   }
 

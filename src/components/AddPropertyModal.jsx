@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAccount } from "../context/AccountContext"; // ✅ MULTI-TENANT
 
 export default function AddPropertyModal({
   isOpen,
@@ -8,6 +9,8 @@ export default function AddPropertyModal({
   tenants = [],
   owners = [],
 }) {
+  const { accountLoading } = useAccount(); // ✅ MULTI-TENANT
+
   const [form, setForm] = useState({
     address: "",
     city: "",
@@ -39,7 +42,8 @@ export default function AddPropertyModal({
     }
   }, [property, owners]);
 
-  if (!isOpen) return null;
+  // ✅ MULTI-TENANT SAFETY
+  if (!isOpen || accountLoading) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -49,7 +53,7 @@ export default function AddPropertyModal({
       address: form.address.trim(),
       city: form.city.trim(),
       size: form.size.trim(),
-      rent: Number(form.rent), // ✅ ensure number
+      rent: Number(form.rent),
       tenantId: form.tenantId === "" ? null : Number(form.tenantId),
       ownerId: form.ownerId,
       // ⚠️ status is derived elsewhere (Option A), but keep for safety

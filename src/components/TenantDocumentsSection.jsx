@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Card from "./Card";
 import { useAuth } from "../context/AuthContext";
+import { useAccount } from "../context/AccountContext"; // ✅ MULTI-TENANT
 import {
   fetchDocuments,
   uploadDocument,
@@ -34,6 +35,7 @@ function canPreview(mime) {
 
 export default function TenantDocumentsSection({ tenantId }) {
   const { user, role, loading: authLoading } = useAuth();
+  const { activeAccountId, accountLoading } = useAccount(); // ✅ MULTI-TENANT
   const [searchParams, setSearchParams] = useSearchParams();
 
   /* ---------- URL FILTER STATE ---------- */
@@ -54,7 +56,7 @@ export default function TenantDocumentsSection({ tenantId }) {
 
   /* ---------- LOAD ---------- */
   async function loadAll() {
-    if (!tenantId) return;
+    if (!tenantId || !activeAccountId) return; // ✅ MULTI-TENANT
 
     setLoading(true);
     try {
@@ -70,9 +72,11 @@ export default function TenantDocumentsSection({ tenantId }) {
   }
 
   useEffect(() => {
-    loadAll();
+    if (!authLoading && !accountLoading) {
+      loadAll();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId]);
+  }, [tenantId, authLoading, accountLoading, activeAccountId]);
 
   /* ---------- URL FILTER ---------- */
   function toggleFilterTag(tag) {
@@ -115,14 +119,15 @@ export default function TenantDocumentsSection({ tenantId }) {
     }
   }
 
-  /* ---------- UPLOAD ---------- */
+  /* ---------- UPLOAD (CRITICAL FIX) ---------- */
   async function handleUpload(e) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !activeAccountId) return; // ✅ MULTI-TENANT
 
     try {
       await uploadDocument({
         file,
+        accountId: activeAccountId, // ✅ MULTI-TENANT (REQUIRED)
         tenantId,
         tags: uploadTags,
       });
@@ -143,7 +148,9 @@ export default function TenantDocumentsSection({ tenantId }) {
 
   function toggleEditTag(tag) {
     setEditingTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+      prev.includes(tag)
+        ? prev.filter((t) => t !== tag)
+        : [...prev, tag]
     );
   }
 
@@ -177,10 +184,12 @@ export default function TenantDocumentsSection({ tenantId }) {
      RENDER
      ====================== */
 
-  if (authLoading) {
+  if (authLoading || accountLoading) {
     return (
       <Card className="p-6">
-        <p className="text-sm text-slate-500">Ładowanie uprawnień…</p>
+        <p className="text-sm text-slate-500">
+          Ładowanie uprawnień…
+        </p>
       </Card>
     );
   }
@@ -189,7 +198,9 @@ export default function TenantDocumentsSection({ tenantId }) {
     <Card className="p-6 space-y-6">
       {/* ---------- HEADER ---------- */}
       <div className="flex justify-between items-center">
-        <h3 className="font-semibold text-lg">Dokumenty najemcy</h3>
+        <h3 className="font-semibold text-lg">
+          Dokumenty najemcy
+        </h3>
 
         {canUpload && (
           <label className="px-3 py-2 bg-blue-600 text-white rounded-lg cursor-pointer text-sm">
@@ -232,20 +243,22 @@ export default function TenantDocumentsSection({ tenantId }) {
       {/* ---------- FILTER TAGS ---------- */}
       {documents.some((d) => d.tags?.length) && (
         <div className="flex gap-2 flex-wrap">
-          {[...new Set(documents.flatMap((d) => d.tags || []))].map((tag) => (
-            <button
-              key={tag}
-              type="button"
-              onClick={() => toggleFilterTag(tag)}
-              className={`text-xs px-2 py-1 rounded border ${
-                filterTags.includes(tag)
-                  ? "bg-indigo-600 text-white border-indigo-600"
-                  : "bg-white text-slate-600 border-slate-300"
-              }`}
-            >
-              {tag}
-            </button>
-          ))}
+          {[...new Set(documents.flatMap((d) => d.tags || []))].map(
+            (tag) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => toggleFilterTag(tag)}
+                className={`text-xs px-2 py-1 rounded border ${
+                  filterTags.includes(tag)
+                    ? "bg-indigo-600 text-white border-indigo-600"
+                    : "bg-white text-slate-600 border-slate-300"
+                }`}
+              >
+                {tag}
+              </button>
+            )
+          )}
         </div>
       )}
 
@@ -264,18 +277,19 @@ export default function TenantDocumentsSection({ tenantId }) {
                 </p>
 
                 {/* TAG DISPLAY */}
-                {editingDocId !== doc.id && doc.tags?.length > 0 && (
-                  <div className="flex gap-2 mt-1 flex-wrap">
-                    {doc.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="text-xs px-2 py-0.5 rounded bg-slate-100"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                {editingDocId !== doc.id &&
+                  doc.tags?.length > 0 && (
+                    <div className="flex gap-2 mt-1 flex-wrap">
+                      {doc.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="text-xs px-2 py-0.5 rounded bg-slate-100"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                 {/* TAG EDIT */}
                 {editingDocId === doc.id && (
@@ -289,7 +303,9 @@ export default function TenantDocumentsSection({ tenantId }) {
                           <input
                             type="checkbox"
                             checked={editingTags.includes(tag.value)}
-                            onChange={() => toggleEditTag(tag.value)}
+                            onChange={() =>
+                              toggleEditTag(tag.value)
+                            }
                           />
                           {tag.label}
                         </label>
@@ -344,15 +360,16 @@ export default function TenantDocumentsSection({ tenantId }) {
                   Pobierz
                 </button>
 
-                {canEdit(doc) && editingDocId !== doc.id && (
-                  <button
-                    type="button"
-                    onClick={() => startEditTags(doc)}
-                    className="text-xs text-slate-600 hover:underline"
-                  >
-                    Edytuj tagi
-                  </button>
-                )}
+                {canEdit(doc) &&
+                  editingDocId !== doc.id && (
+                    <button
+                      type="button"
+                      onClick={() => startEditTags(doc)}
+                      className="text-xs text-slate-600 hover:underline"
+                    >
+                      Edytuj tagi
+                    </button>
+                  )}
 
                 {canDelete(doc) && (
                   <button

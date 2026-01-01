@@ -1,6 +1,11 @@
 import { supabase } from "../lib/supabase";
 
+/* ======================
+   CREATE
+   ====================== */
+
 export async function createProperty({
+  accountId, // ✅ REQUIRED for multi-tenancy
   address,
   city,
   size,
@@ -8,10 +13,15 @@ export async function createProperty({
   tenantId = null,
   ownerId,
 }) {
+  if (!accountId) {
+    throw new Error("Brak accountId przy tworzeniu nieruchomości");
+  }
+
   const { error } = await supabase
     .from("properties")
     .insert([
       {
+        account_id: accountId, // ✅ MULTI-TENANT (CRITICAL)
         address,
         city,
         size,
@@ -23,9 +33,11 @@ export async function createProperty({
 
   if (error) throw error;
 }
+
 /* ======================
    UPDATE
    ====================== */
+
 export async function updateProperty(id, data) {
   const { error } = await supabase
     .from("properties")
@@ -42,8 +54,9 @@ export async function updateProperty(id, data) {
 }
 
 /* ======================
-   DELETE (OPTIONAL)
+   DELETE
    ====================== */
+
 export async function deleteProperty(id) {
   const { error } = await supabase
     .from("properties")

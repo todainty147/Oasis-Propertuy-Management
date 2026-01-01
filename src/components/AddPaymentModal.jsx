@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Card from "./Card";
+import { useAccount } from "../context/AccountContext"; // ✅ MULTI-TENANT
 
 export default function AddPaymentModal({
   isOpen,
@@ -9,6 +10,8 @@ export default function AddPaymentModal({
   tenants,
   onSave,
 }) {
+  const { accountLoading } = useAccount(); // ✅ MULTI-TENANT
+
   const [form, setForm] = useState({
     propertyId: "",
     tenantId: "",
@@ -40,7 +43,8 @@ export default function AddPaymentModal({
     }
   }, [payment]);
 
-  if (!isOpen) return null;
+  // ✅ MULTI-TENANT SAFETY
+  if (!isOpen || accountLoading) return null;
 
   /* ======================
      SUBMIT
@@ -70,9 +74,8 @@ export default function AddPaymentModal({
      FILTER TENANTS BY PROPERTY
      ====================== */
   const filteredTenants = tenants.filter(
-  (t) => String(t.propertyId) === String(form.propertyId)
-);
-
+    (t) => String(t.propertyId) === String(form.propertyId)
+  );
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
