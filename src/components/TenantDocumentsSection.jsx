@@ -14,6 +14,13 @@ import {
 import { fetchDocumentAudit } from "../services/documentAuditService";
 import { DOCUMENT_TAGS } from "../constants/documentTags";
 
+import {
+  canUploadDocument,
+  canEditDocument,
+  canDeleteDocument,
+} from "../utils/permissions";
+
+
 /* ======================
    HELPERS
    ====================== */
@@ -87,13 +94,26 @@ export default function TenantDocumentsSection({ tenantId }) {
         );
 
   /* ---------- PERMISSIONS ---------- */
-  const canUpload = role === "admin" || role === "owner";
+  const canUpload = canUploadDocument(role);
 
-  function canEditOrDelete(doc) {
-    if (role === "admin") return true;
-    if (role === "owner" && doc.owner_id === user?.id) return true;
-    return false;
-  }
+ {canEditDocument({ role, userId: user?.id, doc }) && (
+  <button
+    onClick={() => startEditTags(doc)}
+    className="text-xs text-slate-600 hover:underline"
+  >
+    Edytuj tagi
+  </button>
+)}
+
+{canDeleteDocument({ role, userId: user?.id, doc }) && (
+  <button
+    onClick={() => deleteDocument(doc).then(loadAll)}
+    className="text-red-600 hover:underline"
+  >
+    Usuń
+  </button>
+)}
+
 
   /* ---------- PREVIEW ---------- */
   async function handlePreview(doc) {

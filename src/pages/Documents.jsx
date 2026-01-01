@@ -10,6 +10,7 @@ import {
   deleteDocument,
 } from "../services/documentService";
 import { DOCUMENT_TAGS } from "../constants/documentTags";
+import { canDeleteDocument } from "../utils/permissions";
 
 /* ======================
    HELPERS
@@ -89,20 +90,11 @@ export default function Documents() {
     loadDocuments();
   }, [query, selectedTags]);
 
-  /* ---------- PERMISSIONS ---------- */
-  function canDelete(doc) {
-    if (role === "admin") return true;
-    if (role === "owner" && doc.owner_id === user?.id) return true;
-    return false;
-  }
-
   /* ---------- UPDATE URL ---------- */
   function updateUrl(nextQuery, nextTags) {
     const params = new URLSearchParams();
-
     if (nextQuery) params.set("q", nextQuery);
     if (nextTags.length > 0) params.set("tags", nextTags.join(","));
-
     setSearchParams(params, { replace: true });
   }
 
@@ -150,7 +142,6 @@ export default function Documents() {
          SEARCH + FILTERS
          ====================== */}
       <div className="bg-white border rounded-xl p-4 space-y-4">
-        {/* Search */}
         <input
           type="text"
           placeholder="Szukaj dokumentów…"
@@ -159,7 +150,6 @@ export default function Documents() {
           className="w-full border rounded-lg px-3 py-2 text-sm"
         />
 
-        {/* Tags */}
         <div className="flex flex-wrap gap-3">
           {DOCUMENT_TAGS.map((tag) => (
             <label
@@ -251,7 +241,11 @@ export default function Documents() {
                   Pobierz
                 </button>
 
-                {canDelete(doc) && (
+                {canDeleteDocument({
+                  role,
+                  userId: user?.id,
+                  doc,
+                }) && (
                   <button
                     onClick={async () => {
                       if (confirm("Usunąć dokument?")) {
