@@ -95,6 +95,18 @@ export default function TenantDocumentsSection({ tenantId }) {
     return false;
   }
 
+  /* ---------- PREVIEW ---------- */
+  async function handlePreview(doc) {
+    if (!canPreview(doc.mime_type)) return;
+
+    try {
+      const url = await getDocumentPreviewUrl(doc.storage_path);
+      window.open(url, "_blank", "noopener");
+    } catch {
+      alert("Nie udało się otworzyć podglądu");
+    }
+  }
+
   /* ---------- UPLOAD ---------- */
   async function handleUpload(e) {
     const file = e.target.files?.[0];
@@ -220,7 +232,8 @@ export default function TenantDocumentsSection({ tenantId }) {
                   {(doc.size_bytes / 1024).toFixed(1)} KB
                 </p>
 
-                {doc.tags?.length > 0 && (
+                {/* TAG DISPLAY */}
+                {editingDocId !== doc.id && doc.tags?.length > 0 && (
                   <div className="flex gap-2 mt-1 flex-wrap">
                     {doc.tags.map((tag) => (
                       <span
@@ -232,16 +245,52 @@ export default function TenantDocumentsSection({ tenantId }) {
                     ))}
                   </div>
                 )}
+
+                {/* TAG EDIT UI */}
+                {editingDocId === doc.id && (
+                  <div className="mt-2 space-y-2">
+                    <div className="flex gap-3 flex-wrap">
+                      {DOCUMENT_TAGS.map((tag) => (
+                        <label
+                          key={tag.value}
+                          className="flex items-center gap-1 text-xs"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={editingTags.includes(tag.value)}
+                            onChange={() => toggleEditTag(tag.value)}
+                          />
+                          {tag.label}
+                        </label>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-3 text-xs">
+                      <button
+                        onClick={() => saveTags(doc)}
+                        className="text-blue-600 hover:underline"
+                      >
+                        Zapisz
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingDocId(null);
+                          setEditingTags([]);
+                        }}
+                        className="text-gray-500 hover:underline"
+                      >
+                        Anuluj
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
+              {/* ACTIONS */}
               <div className="flex gap-3 text-sm">
                 {canPreview(doc.mime_type) && (
                   <button
-                    onClick={() =>
-                      getDocumentPreviewUrl(doc.storage_path).then((url) =>
-                        window.open(url, "_blank", "noopener")
-                      )
-                    }
+                    onClick={() => handlePreview(doc)}
                     className="text-blue-600 hover:underline"
                   >
                     Podgląd

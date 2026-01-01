@@ -83,7 +83,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
     return false;
   }
 
-  /* ---------- URL FILTER TOGGLE ---------- */
+  /* ---------- URL FILTER ---------- */
   function toggleFilterTag(tag) {
     const next = filterTags.includes(tag)
       ? filterTags.filter((t) => t !== tag)
@@ -94,7 +94,6 @@ export default function PropertyDocumentsSection({ propertyId }) {
     setSearchParams(params, { replace: true });
   }
 
-  /* ---------- FILTERED DOCS ---------- */
   const filteredDocuments =
     filterTags.length === 0
       ? documents
@@ -107,18 +106,15 @@ export default function PropertyDocumentsSection({ propertyId }) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    try {
-      await uploadDocument({
-        file,
-        propertyId,
-        tags: uploadTags,
-      });
-      setUploadTags([]);
-      e.target.value = "";
-      loadAll();
-    } catch (err) {
-      alert(err.message);
-    }
+    await uploadDocument({
+      file,
+      propertyId,
+      tags: uploadTags,
+    });
+
+    setUploadTags([]);
+    e.target.value = "";
+    loadAll();
   }
 
   /* ---------- TAG EDIT ---------- */
@@ -138,12 +134,13 @@ export default function PropertyDocumentsSection({ propertyId }) {
       documentId: doc.id,
       tags: editingTags,
     });
+
     setEditingDocId(null);
     setEditingTags([]);
     loadAll();
   }
 
-  /* ---------- ACTIONS ---------- */
+  /* ---------- PREVIEW ---------- */
   async function handlePreview(doc) {
     if (!canPreview(doc.mime_type)) return;
 
@@ -155,19 +152,6 @@ export default function PropertyDocumentsSection({ propertyId }) {
     } catch {
       setPreviewError("Nie udało się załadować podglądu");
     }
-  }
-
-  async function handleDownload(doc) {
-    await downloadDocument({
-      storagePath: doc.storage_path,
-      filename: doc.name,
-    });
-  }
-
-  async function handleDelete(doc) {
-    if (!confirm("Usunąć dokument?")) return;
-    await deleteDocument(doc);
-    loadAll();
   }
 
   /* ======================
@@ -184,7 +168,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
 
   return (
     <Card className="p-6 space-y-6">
-      {/* ---------- HEADER ---------- */}
+      {/* HEADER */}
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Dokumenty nieruchomości</h3>
 
@@ -206,7 +190,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
         )}
       </div>
 
-      {/* ---------- UPLOAD TAGS ---------- */}
+      {/* UPLOAD TAGS */}
       {canUpload && (
         <div className="flex gap-2 flex-wrap">
           {DOCUMENT_TAGS.map((tag) => (
@@ -231,7 +215,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
         </div>
       )}
 
-      {/* ---------- FILTER TAGS ---------- */}
+      {/* FILTER TAGS */}
       {documents.some((d) => d.tags?.length) && (
         <div className="flex gap-2 flex-wrap">
           {[...new Set(documents.flatMap((d) => d.tags || []))].map((tag) => (
@@ -250,7 +234,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
         </div>
       )}
 
-      {/* ---------- LOADING ---------- */}
+      {/* LOADING */}
       {loading && (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -259,14 +243,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
         </div>
       )}
 
-      {/* ---------- EMPTY FILTER ---------- */}
-      {!loading && filteredDocuments.length === 0 && documents.length > 0 && (
-        <p className="text-sm text-slate-500">
-          Brak dokumentów dla wybranych tagów
-        </p>
-      )}
-
-      {/* ---------- DOCUMENT LIST ---------- */}
+      {/* DOCUMENT LIST */}
       {!loading && filteredDocuments.length > 0 && (
         <div className="divide-y border rounded-lg bg-white">
           {filteredDocuments.map((doc) => (
@@ -276,11 +253,8 @@ export default function PropertyDocumentsSection({ propertyId }) {
             >
               <div>
                 <p className="font-medium">{doc.name}</p>
-                <p className="text-xs text-slate-500">
-                  {(doc.size_bytes / 1024).toFixed(1)} KB
-                </p>
 
-                {doc.tags?.length > 0 && (
+                {editingDocId !== doc.id && doc.tags?.length > 0 && (
                   <div className="flex gap-2 mt-1 flex-wrap">
                     {doc.tags.map((tag) => (
                       <span
@@ -290,6 +264,41 @@ export default function PropertyDocumentsSection({ propertyId }) {
                         {tag}
                       </span>
                     ))}
+                  </div>
+                )}
+
+                {editingDocId === doc.id && (
+                  <div className="mt-2 space-y-2">
+                    <div className="flex gap-3 flex-wrap">
+                      {DOCUMENT_TAGS.map((tag) => (
+                        <label
+                          key={tag.value}
+                          className="flex items-center gap-1 text-xs"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={editingTags.includes(tag.value)}
+                            onChange={() => toggleEditTag(tag.value)}
+                          />
+                          {tag.label}
+                        </label>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-3 text-xs">
+                      <button
+                        onClick={() => saveTags(doc)}
+                        className="text-blue-600 hover:underline"
+                      >
+                        Zapisz
+                      </button>
+                      <button
+                        onClick={() => setEditingDocId(null)}
+                        className="text-gray-500 hover:underline"
+                      >
+                        Anuluj
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -305,7 +314,12 @@ export default function PropertyDocumentsSection({ propertyId }) {
                 )}
 
                 <button
-                  onClick={() => handleDownload(doc)}
+                  onClick={() =>
+                    downloadDocument({
+                      storagePath: doc.storage_path,
+                      filename: doc.name,
+                    })
+                  }
                   className="text-slate-600 hover:underline"
                 >
                   Pobierz
@@ -330,6 +344,52 @@ export default function PropertyDocumentsSection({ propertyId }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* PREVIEW MODAL */}
+      {previewDoc && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
+          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center px-4 py-3 border-b">
+              <p className="font-medium truncate">{previewDoc.name}</p>
+              <button
+                onClick={() => {
+                  setPreviewDoc(null);
+                  setPreviewUrl(null);
+                }}
+                className="text-sm text-gray-600 hover:text-black"
+              >
+                Zamknij ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4">
+              {previewError && (
+                <p className="text-red-600 text-sm">{previewError}</p>
+              )}
+
+              {!previewError && previewUrl && (
+                <>
+                  {previewDoc.mime_type.startsWith("image/") && (
+                    <img
+                      src={previewUrl}
+                      alt={previewDoc.name}
+                      className="max-w-full mx-auto"
+                    />
+                  )}
+
+                  {previewDoc.mime_type === "application/pdf" && (
+                    <iframe
+                      src={previewUrl}
+                      title={previewDoc.name}
+                      className="w-full h-[70vh] border rounded"
+                    />
+                  )}
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </Card>
