@@ -20,7 +20,6 @@ import {
   canDeleteDocument,
 } from "../utils/permissions";
 
-
 /* ======================
    HELPERS
    ====================== */
@@ -49,7 +48,7 @@ export default function TenantDocumentsSection({ tenantId }) {
   /* ---------- UPLOAD TAGS ---------- */
   const [uploadTags, setUploadTags] = useState([]);
 
-  /* ---------- EDIT TAGS ---------- */
+  /* ---------- TAG EDIT ---------- */
   const [editingDocId, setEditingDocId] = useState(null);
   const [editingTags, setEditingTags] = useState([]);
 
@@ -72,9 +71,10 @@ export default function TenantDocumentsSection({ tenantId }) {
 
   useEffect(() => {
     loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId]);
 
-  /* ---------- URL FILTER TOGGLE ---------- */
+  /* ---------- URL FILTER ---------- */
   function toggleFilterTag(tag) {
     const next = filterTags.includes(tag)
       ? filterTags.filter((t) => t !== tag)
@@ -85,7 +85,6 @@ export default function TenantDocumentsSection({ tenantId }) {
     setSearchParams(params, { replace: true });
   }
 
-  /* ---------- FILTERED DOCS ---------- */
   const filteredDocuments =
     filterTags.length === 0
       ? documents
@@ -96,24 +95,13 @@ export default function TenantDocumentsSection({ tenantId }) {
   /* ---------- PERMISSIONS ---------- */
   const canUpload = canUploadDocument(role);
 
- {canEditDocument({ role, userId: user?.id, doc }) && (
-  <button
-    onClick={() => startEditTags(doc)}
-    className="text-xs text-slate-600 hover:underline"
-  >
-    Edytuj tagi
-  </button>
-)}
+  function canEdit(doc) {
+    return canEditDocument({ role, userId: user?.id, doc });
+  }
 
-{canDeleteDocument({ role, userId: user?.id, doc }) && (
-  <button
-    onClick={() => deleteDocument(doc).then(loadAll)}
-    className="text-red-600 hover:underline"
-  >
-    Usuń
-  </button>
-)}
-
+  function canDelete(doc) {
+    return canDeleteDocument({ role, userId: user?.id, doc });
+  }
 
   /* ---------- PREVIEW ---------- */
   async function handlePreview(doc) {
@@ -138,11 +126,12 @@ export default function TenantDocumentsSection({ tenantId }) {
         tenantId,
         tags: uploadTags,
       });
+
       setUploadTags([]);
       e.target.value = "";
-      loadAll();
+      await loadAll();
     } catch (err) {
-      alert(err.message);
+      alert(err?.message ?? "Upload failed");
     }
   }
 
@@ -159,13 +148,29 @@ export default function TenantDocumentsSection({ tenantId }) {
   }
 
   async function saveTags(doc) {
-    await updateDocumentTags({
-      documentId: doc.id,
-      tags: editingTags,
-    });
-    setEditingDocId(null);
-    setEditingTags([]);
-    loadAll();
+    try {
+      await updateDocumentTags({
+        documentId: doc.id,
+        tags: editingTags,
+      });
+      setEditingDocId(null);
+      setEditingTags([]);
+      await loadAll();
+    } catch (err) {
+      alert(err?.message ?? "Nie udało się zapisać tagów");
+    }
+  }
+
+  /* ---------- DELETE ---------- */
+  async function handleDelete(doc) {
+    if (!confirm("Usunąć dokument?")) return;
+
+    try {
+      await deleteDocument(doc);
+      await loadAll();
+    } catch (err) {
+      alert(err?.message ?? "Nie udało się usunąć dokumentu");
+    }
   }
 
   /* ======================
@@ -189,7 +194,11 @@ export default function TenantDocumentsSection({ tenantId }) {
         {canUpload && (
           <label className="px-3 py-2 bg-blue-600 text-white rounded-lg cursor-pointer text-sm">
             Dodaj dokument
-            <input type="file" className="hidden" onChange={handleUpload} />
+            <input
+              type="file"
+              className="hidden"
+              onChange={handleUpload}
+            />
           </label>
         )}
       </div>
@@ -200,6 +209,7 @@ export default function TenantDocumentsSection({ tenantId }) {
           {DOCUMENT_TAGS.map((tag) => (
             <button
               key={tag.value}
+              type="button"
               onClick={() =>
                 setUploadTags((prev) =>
                   prev.includes(tag.value)
@@ -225,6 +235,7 @@ export default function TenantDocumentsSection({ tenantId }) {
           {[...new Set(documents.flatMap((d) => d.tags || []))].map((tag) => (
             <button
               key={tag}
+              type="button"
               onClick={() => toggleFilterTag(tag)}
               className={`text-xs px-2 py-1 rounded border ${
                 filterTags.includes(tag)
@@ -266,7 +277,7 @@ export default function TenantDocumentsSection({ tenantId }) {
                   </div>
                 )}
 
-                {/* TAG EDIT UI */}
+                {/* TAG EDIT */}
                 {editingDocId === doc.id && (
                   <div className="mt-2 space-y-2">
                     <div className="flex gap-3 flex-wrap">
@@ -287,12 +298,14 @@ export default function TenantDocumentsSection({ tenantId }) {
 
                     <div className="flex gap-3 text-xs">
                       <button
+                        type="button"
                         onClick={() => saveTags(doc)}
                         className="text-blue-600 hover:underline"
                       >
                         Zapisz
                       </button>
                       <button
+                        type="button"
                         onClick={() => {
                           setEditingDocId(null);
                           setEditingTags([]);
@@ -310,6 +323,7 @@ export default function TenantDocumentsSection({ tenantId }) {
               <div className="flex gap-3 text-sm">
                 {canPreview(doc.mime_type) && (
                   <button
+                    type="button"
                     onClick={() => handlePreview(doc)}
                     className="text-blue-600 hover:underline"
                   >
@@ -318,6 +332,7 @@ export default function TenantDocumentsSection({ tenantId }) {
                 )}
 
                 <button
+                  type="button"
                   onClick={() =>
                     downloadDocument({
                       storagePath: doc.storage_path,
@@ -329,21 +344,24 @@ export default function TenantDocumentsSection({ tenantId }) {
                   Pobierz
                 </button>
 
-                {canEditOrDelete(doc) && (
-                  <>
-                    <button
-                      onClick={() => startEditTags(doc)}
-                      className="text-xs text-slate-600 hover:underline"
-                    >
-                      Edytuj tagi
-                    </button>
-                    <button
-                      onClick={() => deleteDocument(doc).then(loadAll)}
-                      className="text-red-600 hover:underline"
-                    >
-                      Usuń
-                    </button>
-                  </>
+                {canEdit(doc) && editingDocId !== doc.id && (
+                  <button
+                    type="button"
+                    onClick={() => startEditTags(doc)}
+                    className="text-xs text-slate-600 hover:underline"
+                  >
+                    Edytuj tagi
+                  </button>
+                )}
+
+                {canDelete(doc) && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(doc)}
+                    className="text-red-600 hover:underline"
+                  >
+                    Usuń
+                  </button>
                 )}
               </div>
             </div>
