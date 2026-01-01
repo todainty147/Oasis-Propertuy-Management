@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
+import { useAuth } from "../context/AuthContext";
 import {
   searchDocuments,
   downloadDocument,
@@ -15,10 +16,7 @@ import { DOCUMENT_TAGS } from "../constants/documentTags";
    ====================== */
 
 function canPreview(mime) {
-  if (!mime) return false;
-  if (mime.startsWith("image/")) return true;
-  if (mime === "application/pdf") return true;
-  return false;
+  return mime?.startsWith("image/") || mime === "application/pdf";
 }
 
 /* ======================
@@ -41,6 +39,7 @@ function DocumentsSkeleton() {
 
 export default function Documents() {
   const { setTitle } = usePageTitle();
+  const { user, role, loading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   /* ---------- URL STATE ---------- */
@@ -90,6 +89,13 @@ export default function Documents() {
     loadDocuments();
   }, [query, selectedTags]);
 
+  /* ---------- PERMISSIONS ---------- */
+  function canDelete(doc) {
+    if (role === "admin") return true;
+    if (role === "owner" && doc.owner_id === user?.id) return true;
+    return false;
+  }
+
   /* ---------- UPDATE URL ---------- */
   function updateUrl(nextQuery, nextTags) {
     const params = new URLSearchParams();
@@ -133,6 +139,10 @@ export default function Documents() {
   /* ======================
      RENDER
      ====================== */
+
+  if (authLoading) {
+    return <DocumentsSkeleton />;
+  }
 
   return (
     <div className="space-y-6">
@@ -193,7 +203,6 @@ export default function Documents() {
               <div>
                 <p className="font-medium flex items-center gap-2">
                   {doc.name}
-
                   {doc.tenant_id && doc.property_id && (
                     <span className="text-xs px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">
                       Wspólny
@@ -242,17 +251,19 @@ export default function Documents() {
                   Pobierz
                 </button>
 
-                <button
-                  onClick={async () => {
-                    if (confirm("Usunąć dokument?")) {
-                      await deleteDocument(doc);
-                      loadDocuments();
-                    }
-                  }}
-                  className="text-red-600 hover:underline"
-                >
-                  Usuń
-                </button>
+                {canDelete(doc) && (
+                  <button
+                    onClick={async () => {
+                      if (confirm("Usunąć dokument?")) {
+                        await deleteDocument(doc);
+                        loadDocuments();
+                      }
+                    }}
+                    className="text-red-600 hover:underline"
+                  >
+                    Usuń
+                  </button>
+                )}
               </div>
             </div>
           ))}

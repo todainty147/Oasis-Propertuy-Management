@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Card from "./Card";
+import { useAuth } from "../context/AuthContext";
 import {
   fetchDocuments,
   uploadDocument,
@@ -11,7 +12,6 @@ import {
   downloadDocument,
 } from "../services/documentService";
 import { fetchDocumentAudit } from "../services/documentAuditService";
-import { supabase } from "../lib/supabase";
 import { DOCUMENT_TAGS } from "../constants/documentTags";
 
 /* ======================
@@ -27,6 +27,7 @@ function canPreview(mime) {
    ====================== */
 
 export default function TenantDocumentsSection({ tenantId }) {
+  const { user, role, loading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   /* ---------- URL FILTER STATE ---------- */
@@ -38,22 +39,12 @@ export default function TenantDocumentsSection({ tenantId }) {
   const [audit, setAudit] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  /* ---------- USER ---------- */
-  const [currentUserId, setCurrentUserId] = useState(null);
-
   /* ---------- UPLOAD TAGS ---------- */
   const [uploadTags, setUploadTags] = useState([]);
 
   /* ---------- EDIT TAGS ---------- */
   const [editingDocId, setEditingDocId] = useState(null);
   const [editingTags, setEditingTags] = useState([]);
-
-  /* ---------- SESSION ---------- */
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setCurrentUserId(data?.user?.id ?? null);
-    });
-  }, []);
 
   /* ---------- LOAD ---------- */
   async function loadAll() {
@@ -78,10 +69,9 @@ export default function TenantDocumentsSection({ tenantId }) {
 
   /* ---------- URL FILTER TOGGLE ---------- */
   function toggleFilterTag(tag) {
-    const next =
-      filterTags.includes(tag)
-        ? filterTags.filter((t) => t !== tag)
-        : [...filterTags, tag];
+    const next = filterTags.includes(tag)
+      ? filterTags.filter((t) => t !== tag)
+      : [...filterTags, tag];
 
     const params = new URLSearchParams(searchParams);
     next.length ? params.set("tags", next.join(",")) : params.delete("tags");
@@ -95,6 +85,15 @@ export default function TenantDocumentsSection({ tenantId }) {
       : documents.filter((doc) =>
           doc.tags?.some((t) => filterTags.includes(t))
         );
+
+  /* ---------- PERMISSIONS ---------- */
+  const canUpload = role === "admin" || role === "owner";
+
+  function canEditOrDelete(doc) {
+    if (role === "admin") return true;
+    if (role === "owner" && doc.owner_id === user?.id) return true;
+    return false;
+  }
 
   /* ---------- UPLOAD ---------- */
   async function handleUpload(e) {
@@ -141,40 +140,52 @@ export default function TenantDocumentsSection({ tenantId }) {
      RENDER
      ====================== */
 
+  if (authLoading) {
+    return (
+      <Card className="p-6">
+        <p className="text-sm text-slate-500">Ładowanie uprawnień…</p>
+      </Card>
+    );
+  }
+
   return (
     <Card className="p-6 space-y-6">
       {/* ---------- HEADER ---------- */}
       <div className="flex justify-between items-center">
         <h3 className="font-semibold text-lg">Dokumenty najemcy</h3>
 
-        <label className="px-3 py-2 bg-blue-600 text-white rounded-lg cursor-pointer text-sm">
-          Dodaj dokument
-          <input type="file" className="hidden" onChange={handleUpload} />
-        </label>
+        {canUpload && (
+          <label className="px-3 py-2 bg-blue-600 text-white rounded-lg cursor-pointer text-sm">
+            Dodaj dokument
+            <input type="file" className="hidden" onChange={handleUpload} />
+          </label>
+        )}
       </div>
 
       {/* ---------- UPLOAD TAGS ---------- */}
-      <div className="flex gap-2 flex-wrap">
-        {DOCUMENT_TAGS.map((tag) => (
-          <button
-            key={tag.value}
-            onClick={() =>
-              setUploadTags((prev) =>
-                prev.includes(tag.value)
-                  ? prev.filter((t) => t !== tag.value)
-                  : [...prev, tag.value]
-              )
-            }
-            className={`text-xs px-2 py-1 rounded border ${
-              uploadTags.includes(tag.value)
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-slate-600 border-slate-300"
-            }`}
-          >
-            {tag.label}
-          </button>
-        ))}
-      </div>
+      {canUpload && (
+        <div className="flex gap-2 flex-wrap">
+          {DOCUMENT_TAGS.map((tag) => (
+            <button
+              key={tag.value}
+              onClick={() =>
+                setUploadTags((prev) =>
+                  prev.includes(tag.value)
+                    ? prev.filter((t) => t !== tag.value)
+                    : [...prev, tag.value]
+                )
+              }
+              className={`text-xs px-2 py-1 rounded border ${
+                uploadTags.includes(tag.value)
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-slate-600 border-slate-300"
+              }`}
+            >
+              {tag.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ---------- FILTER TAGS ---------- */}
       {documents.some((d) => d.tags?.length) && (
@@ -228,7 +239,7 @@ export default function TenantDocumentsSection({ tenantId }) {
                   <button
                     onClick={() =>
                       getDocumentPreviewUrl(doc.storage_path).then((url) =>
-                        window.open(url, "_blank")
+                        window.open(url, "_blank", "noopener")
                       )
                     }
                     className="text-blue-600 hover:underline"
@@ -249,13 +260,21 @@ export default function TenantDocumentsSection({ tenantId }) {
                   Pobierz
                 </button>
 
-                {currentUserId === doc.owner_id && (
-                  <button
-                    onClick={() => handleDelete(doc)}
-                    className="text-red-600 hover:underline"
-                  >
-                    Usuń
-                  </button>
+                {canEditOrDelete(doc) && (
+                  <>
+                    <button
+                      onClick={() => startEditTags(doc)}
+                      className="text-xs text-slate-600 hover:underline"
+                    >
+                      Edytuj tagi
+                    </button>
+                    <button
+                      onClick={() => deleteDocument(doc).then(loadAll)}
+                      className="text-red-600 hover:underline"
+                    >
+                      Usuń
+                    </button>
+                  </>
                 )}
               </div>
             </div>

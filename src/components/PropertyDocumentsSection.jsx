@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
+import { useAuth } from "../context/AuthContext";
 import {
   fetchDocuments,
   uploadDocument,
@@ -12,7 +13,6 @@ import {
   downloadDocument,
 } from "../services/documentService";
 import { fetchDocumentAudit } from "../services/documentAuditService";
-import { supabase } from "../lib/supabase";
 import { DOCUMENT_TAGS } from "../constants/documentTags";
 
 /* ======================
@@ -23,10 +23,6 @@ function canPreview(mime) {
   return mime?.startsWith("image/") || mime === "application/pdf";
 }
 
-function shortId(id) {
-  return id ? id.slice(0, 8) : "—";
-}
-
 /* ======================
    COMPONENT
    ====================== */
@@ -34,6 +30,7 @@ function shortId(id) {
 export default function PropertyDocumentsSection({ propertyId }) {
   const fileInputRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user, role, loading: authLoading } = useAuth();
 
   /* ---------- URL FILTER STATE ---------- */
   const filterTags =
@@ -43,9 +40,6 @@ export default function PropertyDocumentsSection({ propertyId }) {
   const [documents, setDocuments] = useState([]);
   const [audit, setAudit] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  /* ---------- USER ---------- */
-  const [currentUserId, setCurrentUserId] = useState(null);
 
   /* ---------- UPLOAD TAGS ---------- */
   const [uploadTags, setUploadTags] = useState([]);
@@ -58,13 +52,6 @@ export default function PropertyDocumentsSection({ propertyId }) {
   const [previewDoc, setPreviewDoc] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewError, setPreviewError] = useState(null);
-
-  /* ---------- SESSION ---------- */
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setCurrentUserId(data?.user?.id ?? null);
-    });
-  }, []);
 
   /* ---------- LOAD ---------- */
   async function loadAll() {
@@ -87,12 +74,20 @@ export default function PropertyDocumentsSection({ propertyId }) {
     loadAll();
   }, [propertyId]);
 
+  /* ---------- PERMISSIONS ---------- */
+  const canUpload = role === "admin" || role === "owner";
+
+  function canEditOrDelete(doc) {
+    if (role === "admin") return true;
+    if (role === "owner" && doc.owner_id === user?.id) return true;
+    return false;
+  }
+
   /* ---------- URL FILTER TOGGLE ---------- */
   function toggleFilterTag(tag) {
-    const next =
-      filterTags.includes(tag)
-        ? filterTags.filter((t) => t !== tag)
-        : [...filterTags, tag];
+    const next = filterTags.includes(tag)
+      ? filterTags.filter((t) => t !== tag)
+      : [...filterTags, tag];
 
     const params = new URLSearchParams(searchParams);
     next.length ? params.set("tags", next.join(",")) : params.delete("tags");
@@ -179,51 +174,62 @@ export default function PropertyDocumentsSection({ propertyId }) {
      RENDER
      ====================== */
 
+  if (authLoading) {
+    return (
+      <Card className="p-6">
+        <p className="text-sm text-slate-500">Ładowanie uprawnień…</p>
+      </Card>
+    );
+  }
+
   return (
     <Card className="p-6 space-y-6">
       {/* ---------- HEADER ---------- */}
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">
-          Dokumenty nieruchomości
-        </h3>
+        <h3 className="text-lg font-semibold">Dokumenty nieruchomości</h3>
 
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg"
-        >
-          Dodaj dokument
-        </button>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          onChange={handleUpload}
-        />
+        {canUpload && (
+          <>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg"
+            >
+              Dodaj dokument
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={handleUpload}
+            />
+          </>
+        )}
       </div>
 
       {/* ---------- UPLOAD TAGS ---------- */}
-      <div className="flex gap-2 flex-wrap">
-        {DOCUMENT_TAGS.map((tag) => (
-          <button
-            key={tag.value}
-            onClick={() =>
-              setUploadTags((prev) =>
-                prev.includes(tag.value)
-                  ? prev.filter((t) => t !== tag.value)
-                  : [...prev, tag.value]
-              )
-            }
-            className={`text-xs px-2 py-1 rounded border ${
-              uploadTags.includes(tag.value)
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-slate-600 border-slate-300"
-            }`}
-          >
-            {tag.label}
-          </button>
-        ))}
-      </div>
+      {canUpload && (
+        <div className="flex gap-2 flex-wrap">
+          {DOCUMENT_TAGS.map((tag) => (
+            <button
+              key={tag.value}
+              onClick={() =>
+                setUploadTags((prev) =>
+                  prev.includes(tag.value)
+                    ? prev.filter((t) => t !== tag.value)
+                    : [...prev, tag.value]
+                )
+              }
+              className={`text-xs px-2 py-1 rounded border ${
+                uploadTags.includes(tag.value)
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-slate-600 border-slate-300"
+              }`}
+            >
+              {tag.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ---------- FILTER TAGS ---------- */}
       {documents.some((d) => d.tags?.length) && (
@@ -297,6 +303,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
                     Podgląd
                   </button>
                 )}
+
                 <button
                   onClick={() => handleDownload(doc)}
                   className="text-slate-600 hover:underline"
@@ -304,7 +311,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
                   Pobierz
                 </button>
 
-                {currentUserId === doc.owner_id && (
+                {canEditOrDelete(doc) && (
                   <>
                     <button
                       onClick={() => startEditTags(doc)}
