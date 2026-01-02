@@ -1,4 +1,10 @@
-import { createContext, useContext, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import { useSearchParams } from "react-router-dom";
 
 const TenantContext = createContext(null);
 
@@ -7,8 +13,33 @@ const TenantContext = createContext(null);
    ====================== */
 
 export function TenantProvider({ children }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // tenant from URL (?tenant=...)
+  const tenantFromUrl = searchParams.get("tenant");
+
   // null = all tenants
-  const [activeTenantId, setActiveTenantId] = useState(null);
+  const [activeTenantId, setActiveTenantIdState] = useState(
+    tenantFromUrl ?? null
+  );
+
+  /* ---------- URL → STATE ---------- */
+  useEffect(() => {
+    setActiveTenantIdState(tenantFromUrl ?? null);
+  }, [tenantFromUrl]);
+
+  /* ---------- STATE → URL ---------- */
+  function setActiveTenantId(id) {
+    const params = new URLSearchParams(searchParams);
+
+    if (id) {
+      params.set("tenant", id);
+    } else {
+      params.delete("tenant");
+    }
+
+    setSearchParams(params, { replace: true });
+  }
 
   function clearTenant() {
     setActiveTenantId(null);

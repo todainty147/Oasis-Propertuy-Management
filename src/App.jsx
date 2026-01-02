@@ -1,6 +1,6 @@
 // src/App.jsx
+import { Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./pages/Login";
 import { useSession } from "./hooks/useSession";
@@ -235,7 +235,7 @@ export default function App() {
      ROUTES
      ====================== */
   return (
-    <BrowserRouter>
+    
       <Routes>
         <Route
           element={
@@ -448,6 +448,6 @@ export default function App() {
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Route>
       </Routes>
-    </BrowserRouter>
+    
   );
 }
