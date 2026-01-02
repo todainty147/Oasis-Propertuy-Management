@@ -1,20 +1,23 @@
+// src/hooks/useProperties.js
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { useAccount } from "../context/AccountContext";
+import { useTenant } from "../context/TenantContext";
 
 /* ======================
    PROPERTIES HOOK
    ====================== */
 
-export function useProperties({
-  enabled = true,
-  accountId = null, // ✅ PASSED IN
-} = {}) {
+export function useProperties({ enabled = true } = {}) {
+  const { activeAccountId } = useAccount();
+  const { activeTenantId } = useTenant();
+
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!enabled || !accountId) {
+    if (!enabled || !activeAccountId) {
       setLoading(false);
       return;
     }
@@ -25,37 +28,77 @@ export function useProperties({
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase
-        .from("properties")
-        .select(`
-          id,
-          address,
-          city,
-          status,
-          tenant_id,
-          created_at,
-          rent
-        `)
-        .eq("account_id", accountId)
-        .order("created_at", { ascending: false });
+      try {
+        // 🔹 TENANT SELECTED → resolve tenant.property_id first
+        if (activeTenantId) {
+          const { data: tenant, error: tenantError } = await supabase
+            .from("tenants")
+            .select("property_id")
+            .eq("id", activeTenantId)
+            .single();
 
-      if (error) {
-        setError(error);
-      } else {
-        setProperties(
-          (data ?? []).map((p) => ({
-            id: p.id,
-            address: p.address,
-            city: p.city,
-            status: p.status,
-            tenantId: p.tenant_id,
-            rent: Number(p.rent ?? 0),
-            createdAt: p.created_at,
-          }))
-        );
+          if (tenantError || !tenant?.property_id) {
+            setProperties([]);
+            setLoading(false);
+            return;
+          }
+
+          const { data, error } = await supabase
+            .from("properties")
+            .select(`
+              id,
+              address,
+              city,
+              rent,
+              created_at
+            `)
+            .eq("id", tenant.property_id);
+
+          if (error) throw error;
+
+          setProperties(
+            (data ?? []).map((p) => ({
+              id: p.id,
+              address: p.address,
+              city: p.city,
+              rent: Number(p.rent ?? 0),
+              createdAt: p.created_at,
+            }))
+          );
+        }
+
+        // 🔹 NO TENANT → all properties for account
+        else {
+          const { data, error } = await supabase
+            .from("properties")
+            .select(`
+              id,
+              address,
+              city,
+              rent,
+              created_at
+            `)
+            .eq("account_id", activeAccountId)
+            .order("created_at", { ascending: false });
+
+          if (error) throw error;
+
+          setProperties(
+            (data ?? []).map((p) => ({
+              id: p.id,
+              address: p.address,
+              city: p.city,
+              rent: Number(p.rent ?? 0),
+              createdAt: p.created_at,
+            }))
+          );
+        }
+      } catch (err) {
+        setError(err);
+        setProperties([]);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     }
 
     loadProperties();
@@ -68,7 +111,7 @@ export function useProperties({
           event: "*",
           schema: "public",
           table: "properties",
-          filter: `account_id=eq.${accountId}`,
+          filter: `account_id=eq.${activeAccountId}`,
         },
         loadProperties
       )
@@ -77,7 +120,7 @@ export function useProperties({
     return () => {
       if (channel) supabase.removeChannel(channel);
     };
-  }, [enabled, accountId]);
+  }, [enabled, activeAccountId, activeTenantId]);
 
   return { properties, loading, error };
 }

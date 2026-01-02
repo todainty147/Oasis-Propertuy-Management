@@ -34,7 +34,7 @@ import Documents from "./pages/Documents";
 import AddPropertyModal from "./components/AddPropertyModal";
 import AddTenantModal from "./components/AddTenantModal";
 import AddPaymentModal from "./components/AddPaymentModal";
-
+import FinancePage from "./pages/FinancePage";
 import { useAccount } from "./context/AccountContext";
 
 export default function App() {
@@ -446,6 +446,10 @@ export default function App() {
           />
 
           <Route path="*" element={<Navigate to="dashboard" replace />} />
+
+          
+          <Route path="/finance" element={<FinancePage />} />     
+          
         </Route>
       </Routes>
     

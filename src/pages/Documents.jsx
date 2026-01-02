@@ -128,9 +128,10 @@ export default function Documents({
       query || selectedTags.length > 0
         ? await searchDocuments({
             accountId: activeAccountId,
-            tenantId: activeTenantId ?? null, // ✅ HERE
+             // ✅ HERE
             query,
             tags: selectedTags,
+            tenantId: activeTenantId ?? null,
           })
         : await fetchDocuments({
             accountId: activeAccountId,

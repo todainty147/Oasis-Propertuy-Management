@@ -14,7 +14,6 @@ export function usePayments({ enabled = true } = {}) {
 
   useEffect(() => {
     if (!enabled || !activeAccountId) {
-      setPayments([]);
       setLoading(false);
       return;
     }
@@ -25,7 +24,7 @@ export function usePayments({ enabled = true } = {}) {
       setLoading(true);
       setError(null);
 
-      let query = supabase
+      const { data, error } = await supabase
         .from("payments")
         .select(`
           id,
@@ -35,34 +34,33 @@ export function usePayments({ enabled = true } = {}) {
           paid_at,
           tenant_id,
           property_id,
-          tenants ( id, name ),
-          properties ( id, address )
+          tenants ( name ),
+          properties ( address )
         `)
         .eq("account_id", activeAccountId)
         .order("due_date", { ascending: false });
 
-      // ✅ TENANT FILTER
-      if (activeTenantId) {
-        query = query.eq("tenant_id", activeTenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) {
         setError(error);
+        setPayments([]);
       } else {
+        const mapped = data.map((p) => ({
+          id: p.id,
+          amount: Number(p.amount),
+          status: p.status,
+          dueDate: p.due_date,
+          paidAt: p.paid_at,
+          tenantId: p.tenant_id,
+          propertyId: p.property_id,
+          tenantName: p.tenants?.name ?? "—",
+          propertyAddress: p.properties?.address ?? "—",
+        }));
+
+        // ✅ TENANT SWITCH FILTER
         setPayments(
-          (data ?? []).map((p) => ({
-            id: p.id,
-            amount: Number(p.amount),
-            status: p.status,
-            dueDate: p.due_date,
-            paidAt: p.paid_at,
-            tenantId: p.tenant_id,
-            propertyId: p.property_id,
-            tenantName: p.tenants?.name ?? "—",
-            propertyAddress: p.properties?.address ?? "—",
-          }))
+          activeTenantId
+            ? mapped.filter((p) => p.tenantId === activeTenantId)
+            : mapped
         );
       }
 
@@ -72,7 +70,7 @@ export function usePayments({ enabled = true } = {}) {
     loadPayments();
 
     channel = supabase
-      .channel(`payments-${activeAccountId}`)
+      .channel("payments-realtime")
       .on(
         "postgres_changes",
         {
@@ -88,7 +86,7 @@ export function usePayments({ enabled = true } = {}) {
     return () => {
       if (channel) supabase.removeChannel(channel);
     };
-  }, [enabled, activeAccountId, activeTenantId]); // ✅ DEPENDENCY
+  }, [enabled, activeAccountId, activeTenantId]);
 
   return { payments, loading, error };
 }
