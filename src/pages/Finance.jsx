@@ -1,5 +1,6 @@
-import Skeleton from "../components/ui/Skeleton";
+// src/pages/Finance.jsx
 import { useEffect } from "react";
+import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 
@@ -10,7 +11,6 @@ import { useAccount } from "../context/AccountContext";
 function FinanceSkeleton() {
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <Skeleton className="h-8 w-32" />
@@ -19,14 +19,12 @@ function FinanceSkeleton() {
         <Skeleton className="h-10 w-40" />
       </div>
 
-      {/* Summary cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {Array.from({ length: 3 }).map((_, i) => (
           <Skeleton key={i} className="h-[96px]" />
         ))}
       </div>
 
-      {/* Property finance table */}
       <div className="bg-white rounded-xl border overflow-hidden">
         <div className="px-6 py-4 border-b">
           <Skeleton className="h-5 w-48" />
@@ -44,7 +42,6 @@ function FinanceSkeleton() {
         </div>
       </div>
 
-      {/* Payments table */}
       <div className="bg-white rounded-xl border overflow-hidden">
         <div className="px-6 py-4 border-b">
           <Skeleton className="h-5 w-32" />
@@ -77,31 +74,25 @@ function FinanceSkeleton() {
 export default function Finance({
   loading = false,
   summary,
-  payments,
-  propertyFinance,
+  payments = [],
+  propertyFinance = [],
   onAddPayment,
   onDeletePayment,
 }) {
-  /* ---------- ACCOUNT ---------- */
   const { accountLoading } = useAccount();
-
-  /* ---------- PAGE TITLE ---------- */
   const { setTitle } = usePageTitle();
 
   useEffect(() => {
     setTitle("Finanse");
   }, [setTitle]);
 
-  /* ---------- LOADING ---------- */
   if (loading || accountLoading) {
     return <FinanceSkeleton />;
   }
 
   return (
     <div className="space-y-8">
-      {/* ======================
-          PAGE HEADER + ADD
-         ====================== */}
+      {/* HEADER */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-semibold">Finanse</h1>
@@ -118,9 +109,7 @@ export default function Finance({
         </button>
       </div>
 
-      {/* ======================
-          SUMMARY CARDS
-         ====================== */}
+      {/* SUMMARY */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <SummaryCard
           label="Otrzymane"
@@ -139,9 +128,7 @@ export default function Finance({
         />
       </div>
 
-      {/* ======================
-          PROPERTY BREAKDOWN
-         ====================== */}
+      {/* PROPERTY FINANCE */}
       <div className="bg-white rounded-xl border overflow-hidden">
         <div className="px-6 py-4 border-b">
           <h2 className="font-semibold">
@@ -193,9 +180,7 @@ export default function Finance({
                   </td>
 
                   <td className="px-6 py-3">
-                    <StatusBadge
-                      status={p.paymentStatus}
-                    />
+                    <StatusBadge status={p.paymentStatus} />
                   </td>
                 </tr>
               ))}
@@ -204,9 +189,7 @@ export default function Finance({
         )}
       </div>
 
-      {/* ======================
-          PAYMENTS TABLE
-         ====================== */}
+      {/* PAYMENTS */}
       <div className="bg-white rounded-xl border overflow-hidden">
         <div className="px-6 py-4 border-b">
           <h2 className="font-semibold">Płatności</h2>
@@ -214,7 +197,7 @@ export default function Finance({
 
         {payments.length === 0 ? (
           <p className="p-6 text-sm text-gray-500">
-            Brak płatności dla wybranego właściciela.
+            Brak płatności dla tego konta.
           </p>
         ) : (
           <table className="w-full text-sm">
@@ -227,7 +210,7 @@ export default function Finance({
                 </th>
                 <th className="px-6 py-3">Status</th>
                 <th className="px-6 py-3">Termin</th>
-                <th className="px-6 py-3 text-right"></th>
+                <th className="px-6 py-3"></th>
               </tr>
             </thead>
 
@@ -238,10 +221,10 @@ export default function Finance({
                   className="border-t hover:bg-gray-50"
                 >
                   <td className="px-6 py-3">
-                    {p.tenantName}
+                    {p.tenantName ?? "—"}
                   </td>
                   <td className="px-6 py-3">
-                    {p.propertyAddress}
+                    {p.propertyAddress ?? "—"}
                   </td>
 
                   <td className="px-6 py-3 text-right">
@@ -259,9 +242,7 @@ export default function Finance({
                   <td className="px-6 py-3 text-right">
                     <button
                       onClick={() => {
-                        if (
-                          confirm("Usunąć tę płatność?")
-                        ) {
+                        if (confirm("Usunąć tę płatność?")) {
                           onDeletePayment(p.id);
                         }
                       }}

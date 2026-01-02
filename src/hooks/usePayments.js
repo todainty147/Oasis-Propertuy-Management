@@ -1,17 +1,14 @@
+// src/hooks/usePayments.js
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
-export function usePayments({
-  enabled = true,
-  accountId = null, // ✅ REQUIRED
-} = {}) {
+export function usePayments({ enabled = true } = {}) {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!enabled || !accountId) {
-      setPayments([]);
+    if (!enabled) {
       setLoading(false);
       return;
     }
@@ -26,21 +23,41 @@ export function usePayments({
         .from("payments")
         .select(`
           id,
-          property_id,
-          tenant_id,
           amount,
           status,
           due_date,
           paid_at,
-          created_at
+          tenant_id,
+          property_id,
+          tenants (
+            id,
+            name
+          ),
+          properties (
+            id,
+            address
+          )
         `)
-        .eq("account_id", accountId) // ✅ MULTI-TENANT FILTER
         .order("due_date", { ascending: false });
 
       if (error) {
         setError(error);
       } else {
-        setPayments(mapPayments(data));
+        setPayments(
+          data.map((p) => ({
+            id: p.id,
+            amount: Number(p.amount),
+            status: p.status,
+            dueDate: p.due_date,
+            paidAt: p.paid_at,
+            tenantId: p.tenant_id,
+            propertyId: p.property_id,
+
+            // ✅ DISPLAY FIELDS (THIS FIXES YOUR ISSUE)
+            tenantName: p.tenants?.name ?? "—",
+            propertyAddress: p.properties?.address ?? "—",
+          }))
+        );
       }
 
       setLoading(false);
@@ -48,19 +65,11 @@ export function usePayments({
 
     loadPayments();
 
-    /* ======================
-       REALTIME (ACCOUNT-SCOPED)
-       ====================== */
     channel = supabase
-      .channel(`payments:${accountId}`)
+      .channel("payments-realtime")
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "payments",
-          filter: `account_id=eq.${accountId}`, // ✅ CRITICAL
-        },
+        { event: "*", schema: "public", table: "payments" },
         loadPayments
       )
       .subscribe();
@@ -68,24 +77,7 @@ export function usePayments({
     return () => {
       if (channel) supabase.removeChannel(channel);
     };
-  }, [enabled, accountId]); // ✅ STABLE DEP ARRAY
+  }, [enabled]);
 
   return { payments, loading, error };
-}
-
-/* ======================
-   MAPPER
-   ====================== */
-
-function mapPayments(rows = []) {
-  return rows.map((p) => ({
-    id: p.id,
-    propertyId: p.property_id,
-    tenantId: p.tenant_id,
-    amount: Number(p.amount ?? 0),
-    status: p.status,
-    dueDate: p.due_date,
-    paidAt: p.paid_at,
-    createdAt: p.created_at,
-  }));
 }

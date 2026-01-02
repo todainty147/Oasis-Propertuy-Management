@@ -1,3 +1,4 @@
+// src/services/paymentService.js
 import { supabase } from "../lib/supabase";
 
 /* ======================
@@ -17,12 +18,21 @@ export async function createPayment({
     throw new Error("Brak accountId przy tworzeniu płatności");
   }
 
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError) throw userError;
+  if (!user) throw new Error("Brak sesji użytkownika");
+
   const { error } = await supabase
     .from("payments")
     .insert({
-      account_id: accountId,     // ✅ MULTI-TENANT ROOT
-      property_id: propertyId,
-      tenant_id: tenantId,
+      account_id: accountId,   // ✅ MULTI-TENANT ROOT
+      owner_id: user.id,       // ✅ REQUIRED BY SCHEMA
+      property_id: propertyId ?? null,
+      tenant_id: tenantId ?? null,
       amount: Number(amount),
       status,
       due_date: dueDate,
