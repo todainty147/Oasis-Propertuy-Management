@@ -436,11 +436,11 @@ export default function App() {
 
           <Route
             path="documents"
-            element={
-              <Documents
-                loading={documentsLoading}
-                documents={documents}
-                onRefetch={loadDocuments}
+  element={
+    <Documents
+    element={<Documents tenants={tenants} properties={properties} />}
+      tenants={tenants}          // ✅ REQUIRED
+      properties={properties} 
               />
             }
           />

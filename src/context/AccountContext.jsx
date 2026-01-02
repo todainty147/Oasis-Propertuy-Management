@@ -100,7 +100,10 @@ const role = activeAccount?.role ?? null;
 
   return (
     <AccountContext.Provider
-      value={{ accounts, activeAccountId, setActiveAccountId, accountLoading, role, }}
+      value={{ accounts, activeAccountId, setActiveAccountId, accountLoading, role, 
+              activeRole: accounts.find(a => a.id === activeAccountId)?.role ?? null,
+
+            }}
     >
       {children}
     </AccountContext.Provider>

@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
+/* ======================
+   TENANTS HOOK
+   ====================== */
+
 export function useTenants({
   enabled = true,
-  accountId = null, // ✅ REQUIRED
+  accountId = null, // ✅ REQUIRED (passed from App)
 } = {}) {
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(enabled);
@@ -11,7 +15,6 @@ export function useTenants({
 
   useEffect(() => {
     if (!enabled || !accountId) {
-      setTenants([]);
       setLoading(false);
       return;
     }
@@ -32,13 +35,22 @@ export function useTenants({
           property_id,
           created_at
         `)
-        .eq("account_id", accountId) // ✅ MULTI-TENANT FILTER
+        .eq("account_id", accountId)
         .order("created_at", { ascending: false });
 
       if (error) {
         setError(error);
       } else {
-        setTenants(mapTenants(data));
+        setTenants(
+          (data ?? []).map((t) => ({
+            id: t.id,
+            name: t.name,
+            email: t.email,
+            phone: t.phone,
+            propertyId: t.property_id,
+            createdAt: t.created_at,
+          }))
+        );
       }
 
       setLoading(false);
@@ -47,17 +59,17 @@ export function useTenants({
     loadTenants();
 
     /* ======================
-       REALTIME (ACCOUNT-SCOPED)
+       REALTIME (SCOPED)
        ====================== */
     channel = supabase
-      .channel(`tenants:${accountId}`)
+      .channel(`tenants-realtime-${accountId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "tenants",
-          filter: `account_id=eq.${accountId}`, // ✅ CRITICAL
+          filter: `account_id=eq.${accountId}`,
         },
         loadTenants
       )
@@ -66,22 +78,7 @@ export function useTenants({
     return () => {
       if (channel) supabase.removeChannel(channel);
     };
-  }, [enabled, accountId]); // ✅ STABLE DEP ARRAY
+  }, [enabled, accountId]);
 
   return { tenants, loading, error };
-}
-
-/* ======================
-   MAPPER
-   ====================== */
-
-function mapTenants(rows = []) {
-  return rows.map((t) => ({
-    id: t.id,
-    name: t.name,
-    email: t.email,
-    phone: t.phone,
-    propertyId: t.property_id,
-    createdAt: t.created_at,
-  }));
 }

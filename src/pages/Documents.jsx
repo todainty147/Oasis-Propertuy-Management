@@ -1,20 +1,27 @@
-import { useEffect, useState } from "react";
+// src/pages/Documents.jsx
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Skeleton from "../components/ui/Skeleton";
+import Card from "../components/Card";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAuth } from "../context/AuthContext";
 import { useAccount } from "../context/AccountContext";
 
 import {
-  fetchDocuments,           // ✅ REQUIRED
+  fetchDocuments,
   searchDocuments,
+  uploadDocument,
   downloadDocument,
   getDocumentPreviewUrl,
   deleteDocument,
 } from "../services/documentService";
 
 import { DOCUMENT_TAGS } from "../constants/documentTags";
-import { canDeleteDocument } from "../utils/permissions";
+import { canUploadDocument, canDeleteDocument } from "../utils/permissions";
+
+// Optional fallback if you forget to pass props from App.jsx
+import { useProperties } from "../hooks/useProperties";
+import { useTenants } from "../hooks/useTenants";
 
 /* ======================
    HELPERS
@@ -23,10 +30,6 @@ import { canDeleteDocument } from "../utils/permissions";
 function canPreview(mime) {
   return mime?.startsWith("image/") || mime === "application/pdf";
 }
-
-/* ======================
-   SKELETON
-   ====================== */
 
 function DocumentsSkeleton() {
   return (
@@ -42,16 +45,42 @@ function DocumentsSkeleton() {
    DOCUMENTS (GLOBAL)
    ====================== */
 
-export default function Documents() {
+export default function Documents({
+  tenants: tenantsProp = null,
+  properties: propertiesProp = null,
+} = {}) {
   const { setTitle } = usePageTitle();
-  const { user, role, loading: authLoading } = useAuth();
-  const { activeAccountId, accountLoading } = useAccount();
+  const { user, loading: authLoading } = useAuth();
+  const { accounts, activeAccountId, accountLoading } = useAccount();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Resolve account role from membership
+  const activeAccount = useMemo(
+    () => accounts?.find((a) => a.id === activeAccountId),
+    [accounts, activeAccountId]
+  );
+  const accountRole = activeAccount?.role ?? null;
+
+  // Fallback hooks (only used if props not provided)
+  const useFallback = !tenantsProp || !propertiesProp;
+
+  const { properties: propertiesHook, loading: propertiesLoadingHook } =
+    useProperties({
+      enabled: !!activeAccountId && useFallback,
+      accountId: activeAccountId,
+    });
+
+  const { tenants: tenantsHook, loading: tenantsLoadingHook } = useTenants({
+    enabled: !!activeAccountId && useFallback,
+    accountId: activeAccountId,
+  });
+
+  const properties = propertiesProp ?? propertiesHook ?? [];
+  const tenants = tenantsProp ?? tenantsHook ?? [];
 
   /* ---------- URL STATE ---------- */
   const queryParam = searchParams.get("q") ?? "";
-  const tagsParam =
-    searchParams.get("tags")?.split(",").filter(Boolean) ?? [];
+  const tagsParam = searchParams.get("tags")?.split(",").filter(Boolean) ?? [];
 
   const [query, setQuery] = useState(queryParam);
   const [selectedTags, setSelectedTags] = useState(tagsParam);
@@ -59,6 +88,12 @@ export default function Documents() {
   /* ---------- DATA ---------- */
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  /* ---------- UPLOAD STATE (SCOPED) ---------- */
+  const [uploadPropertyId, setUploadPropertyId] = useState("");
+  const [uploadTenantId, setUploadTenantId] = useState("");
+  const [uploadTags, setUploadTags] = useState([]);
+  const [uploading, setUploading] = useState(false);
 
   /* ---------- PREVIEW ---------- */
   const [previewDoc, setPreviewDoc] = useState(null);
@@ -96,16 +131,17 @@ export default function Documents() {
               accountId: activeAccountId,
             });
 
-      setDocuments(data);
+      setDocuments(data ?? []);
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (!authLoading && !accountLoading) {
+    if (!authLoading && !accountLoading && activeAccountId) {
       loadDocuments();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, selectedTags, authLoading, accountLoading, activeAccountId]);
 
   /* ---------- UPDATE URL ---------- */
@@ -122,7 +158,7 @@ export default function Documents() {
     updateUrl(value, selectedTags);
   }
 
-  /* ---------- TAG TOGGLE ---------- */
+  /* ---------- TAG TOGGLE (FILTER) ---------- */
   function toggleTag(tag) {
     const nextTags = selectedTags.includes(tag)
       ? selectedTags.filter((t) => t !== tag)
@@ -130,6 +166,56 @@ export default function Documents() {
 
     setSelectedTags(nextTags);
     updateUrl(query, nextTags);
+  }
+
+  /* ---------- UPLOAD TAG TOGGLE ---------- */
+  function toggleUploadTag(tag) {
+    setUploadTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  }
+
+  /* ---------- UPLOAD (SCOPED to tenant OR property) ---------- */
+  async function handleUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!activeAccountId) {
+      alert("Brak aktywnego konta");
+      e.target.value = "";
+      return;
+    }
+
+    // Must choose either tenant OR property
+    if (!uploadPropertyId && !uploadTenantId) {
+      alert("Wybierz nieruchomość lub najemcę");
+      e.target.value = "";
+      return;
+    }
+
+    setUploading(true);
+    try {
+      await uploadDocument({
+        accountId: activeAccountId,
+        file,
+        propertyId: uploadPropertyId || null,
+        tenantId: uploadTenantId || null,
+        tags: uploadTags,
+      });
+
+      // reset UI
+      setUploadTags([]);
+      setUploadPropertyId("");
+      setUploadTenantId("");
+      e.target.value = "";
+
+      await loadDocuments();
+    } catch (err) {
+      alert(err?.message ?? "Błąd uploadu");
+      e.target.value = "";
+    } finally {
+      setUploading(false);
+    }
   }
 
   /* ---------- PREVIEW ---------- */
@@ -146,16 +232,108 @@ export default function Documents() {
     }
   }
 
+  const tenantsLoading = useFallback ? tenantsLoadingHook : false;
+  const propertiesLoading = useFallback ? propertiesLoadingHook : false;
+
   /* ======================
      RENDER
      ====================== */
 
-  if (authLoading || accountLoading) {
+  if (authLoading || accountLoading || tenantsLoading || propertiesLoading) {
     return <DocumentsSkeleton />;
   }
 
   return (
     <div className="space-y-6">
+      {/* ======================
+         UPLOAD (GLOBAL, SCOPED)
+         ====================== */}
+      {canUploadDocument(accountRole) && (
+        <Card className="p-4 space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="font-medium">Dodaj dokument</p>
+              <p className="text-xs text-slate-500">
+                Wybierz <b>najemcę</b> lub <b>nieruchomość</b>, aby przypisać
+                dokument.
+              </p>
+            </div>
+
+            <label
+              className={`px-3 py-2 rounded-lg cursor-pointer text-sm text-white ${
+                uploading ? "bg-slate-400" : "bg-blue-600"
+              }`}
+            >
+              {uploading ? "Wysyłanie…" : "Dodaj dokument"}
+              <input
+                type="file"
+                className="hidden"
+                accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+                onChange={handleUpload}
+                disabled={uploading}
+              />
+            </label>
+          </div>
+
+          {/* Scope selects */}
+          <div className="flex gap-4 flex-wrap">
+            <select
+              value={uploadPropertyId}
+              onChange={(e) => {
+                const v = e.target.value;
+                setUploadPropertyId(v);
+                if (v) setUploadTenantId("");
+              }}
+              className="border rounded px-3 py-2 text-sm"
+            >
+              <option value="">— Wybierz nieruchomość —</option>
+              {properties.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.address} ({p.city})
+                </option>
+              ))}
+            </select>
+
+            <span className="text-sm text-slate-400 self-center">lub</span>
+
+            <select
+              value={uploadTenantId}
+              onChange={(e) => {
+                const v = e.target.value;
+                setUploadTenantId(v);
+                if (v) setUploadPropertyId("");
+              }}
+              className="border rounded px-3 py-2 text-sm"
+            >
+              <option value="">— Wybierz najemcę —</option>
+              {tenants.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Upload tags */}
+          <div className="flex gap-2 flex-wrap">
+            {DOCUMENT_TAGS.map((tag) => (
+              <button
+                key={tag.value}
+                type="button"
+                onClick={() => toggleUploadTag(tag.value)}
+                className={`text-xs px-2 py-1 rounded border ${
+                  uploadTags.includes(tag.value)
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-600 border-slate-300"
+                }`}
+              >
+                {tag.label}
+              </button>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* ======================
          SEARCH + FILTERS
          ====================== */}
@@ -219,12 +397,12 @@ export default function Documents() {
                 </p>
 
                 <p className="text-sm text-slate-500">
-                  {doc.mime_type} •{" "}
+                  {doc.mime_type ?? "—"} •{" "}
                   {(doc.size_bytes / 1024).toFixed(1)} KB
                 </p>
 
                 {doc.tags?.length > 0 && (
-                  <div className="flex gap-2 mt-1">
+                  <div className="flex gap-2 mt-1 flex-wrap">
                     {doc.tags.map((tag) => (
                       <span
                         key={tag}
@@ -260,7 +438,7 @@ export default function Documents() {
                 </button>
 
                 {canDeleteDocument({
-                  role,
+                  role: accountRole,
                   userId: user?.id,
                   doc,
                 }) && (
@@ -268,7 +446,7 @@ export default function Documents() {
                     onClick={async () => {
                       if (confirm("Usunąć dokument?")) {
                         await deleteDocument(doc);
-                        loadDocuments();
+                        await loadDocuments();
                       }
                     }}
                     className="text-red-600 hover:underline"
@@ -294,6 +472,7 @@ export default function Documents() {
                 onClick={() => {
                   setPreviewDoc(null);
                   setPreviewUrl(null);
+                  setPreviewError(null);
                 }}
                 className="text-sm text-gray-600 hover:text-black"
               >
@@ -308,7 +487,7 @@ export default function Documents() {
 
               {!previewError && previewUrl && (
                 <>
-                  {previewDoc.mime_type.startsWith("image/") && (
+                  {previewDoc.mime_type?.startsWith("image/") && (
                     <img
                       src={previewUrl}
                       alt={previewDoc.name}

@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
+/* ======================
+   PROPERTIES HOOK
+   ====================== */
+
 export function useProperties({
   enabled = true,
-  accountId = null, // ✅ REQUIRED
+  accountId = null, // ✅ PASSED IN
 } = {}) {
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(enabled);
@@ -11,7 +15,6 @@ export function useProperties({
 
   useEffect(() => {
     if (!enabled || !accountId) {
-      setProperties([]);
       setLoading(false);
       return;
     }
@@ -33,13 +36,23 @@ export function useProperties({
           created_at,
           rent
         `)
-        .eq("account_id", accountId) // ✅ MULTI-TENANT FILTER
+        .eq("account_id", accountId)
         .order("created_at", { ascending: false });
 
       if (error) {
         setError(error);
       } else {
-        setProperties(mapProperties(data));
+        setProperties(
+          (data ?? []).map((p) => ({
+            id: p.id,
+            address: p.address,
+            city: p.city,
+            status: p.status,
+            tenantId: p.tenant_id,
+            rent: Number(p.rent ?? 0),
+            createdAt: p.created_at,
+          }))
+        );
       }
 
       setLoading(false);
@@ -47,18 +60,15 @@ export function useProperties({
 
     loadProperties();
 
-    /* ======================
-       REALTIME (ACCOUNT-SCOPED)
-       ====================== */
     channel = supabase
-      .channel(`properties:${accountId}`)
+      .channel("properties-realtime")
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "properties",
-          filter: `account_id=eq.${accountId}`, // ✅ IMPORTANT
+          filter: `account_id=eq.${accountId}`,
         },
         loadProperties
       )
@@ -67,23 +77,7 @@ export function useProperties({
     return () => {
       if (channel) supabase.removeChannel(channel);
     };
-  }, [enabled, accountId]); // ✅ STABLE DEP ARRAY
+  }, [enabled, accountId]);
 
   return { properties, loading, error };
-}
-
-/* ======================
-   MAPPER
-   ====================== */
-
-function mapProperties(rows = []) {
-  return rows.map((p) => ({
-    id: p.id,
-    address: p.address,
-    city: p.city,
-    status: p.status,          // derived later if needed
-    tenantId: p.tenant_id,
-    rent: Number(p.rent ?? 0),
-    createdAt: p.created_at,
-  }));
 }
