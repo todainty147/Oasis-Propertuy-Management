@@ -4,6 +4,10 @@ import { useAuth } from "./AuthContext";
 
 const AccountContext = createContext(null);
 
+/* ======================
+   PROVIDER
+   ====================== */
+
 export function AccountProvider({ children }) {
   const { user, loading: authLoading } = useAuth();
 
@@ -11,18 +15,25 @@ export function AccountProvider({ children }) {
   const [activeAccountId, setActiveAccountId] = useState(null);
   const [accountLoading, setAccountLoading] = useState(true);
 
+  /* ======================
+     LOAD ACCOUNTS
+     ====================== */
+
   useEffect(() => {
     if (authLoading) return;
+
+    // 🔒 Logout / unauthenticated
     if (!user) {
       setAccounts([]);
       setActiveAccountId(null);
       setAccountLoading(false);
+      localStorage.removeItem("activeAccountId");
       return;
     }
 
     let cancelled = false;
 
-    async function loadOrCreateAccount() {
+    async function loadAccounts() {
       setAccountLoading(true);
 
       const { data: memberships, error } = await supabase
@@ -39,11 +50,12 @@ export function AccountProvider({ children }) {
         .eq("user_id", user.id);
 
       if (error) {
-        console.error(error);
+        console.error("Account membership load failed:", error);
         setAccountLoading(false);
         return;
       }
 
+      // ✅ USER HAS ACCOUNTS
       if (memberships.length > 0) {
         if (cancelled) return;
 
@@ -54,21 +66,31 @@ export function AccountProvider({ children }) {
         }));
 
         setAccounts(accs);
-        setActiveAccountId(accs[0].id);
+
+        // ✅ RESTORE LAST ACTIVE ACCOUNT IF VALID
+        const stored = localStorage.getItem("activeAccountId");
+        const validStored =
+          stored && accs.some((a) => a.id === stored);
+
+        setActiveAccountId(
+          validStored ? stored : accs[0].id
+        );
+
         setAccountLoading(false);
         return;
       }
-const { data: account, error: accountError } = await supabase
-  .from("accounts")
-  .insert({
-    name: user.email ?? "Moje konto",
-  })
-  .select()
-  .single();
 
+      // ✅ FIRST ACCOUNT CREATION (edge case)
+      const { data: account, error: accountError } = await supabase
+        .from("accounts")
+        .insert({
+          name: user.email ?? "Moje konto",
+        })
+        .select()
+        .single();
 
       if (accountError) {
-        console.error(accountError);
+        console.error("Account creation failed:", accountError);
         setAccountLoading(false);
         return;
       }
@@ -81,39 +103,78 @@ const { data: account, error: accountError } = await supabase
 
       if (cancelled) return;
 
-      setAccounts([{ id: account.id, name: account.name, role: "owner" }]);
+      setAccounts([
+        { id: account.id, name: account.name, role: "owner" },
+      ]);
       setActiveAccountId(account.id);
+      localStorage.setItem("activeAccountId", account.id);
       setAccountLoading(false);
     }
 
-    loadOrCreateAccount();
+    loadAccounts();
+
     return () => {
       cancelled = true;
     };
   }, [user, authLoading]);
 
-  const activeAccount = accounts.find(
-  (a) => a.id === activeAccountId
-);
+  /* ======================
+     PERSIST ACTIVE ACCOUNT
+     ====================== */
 
-const role = activeAccount?.role ?? null;
+  useEffect(() => {
+    if (activeAccountId) {
+      localStorage.setItem("activeAccountId", activeAccountId);
+    }
+  }, [activeAccountId]);
+
+  /* ======================
+     DERIVED
+     ====================== */
+
+  const activeAccount = accounts.find(
+    (a) => a.id === activeAccountId
+  );
+
+  const activeRole = activeAccount?.role ?? null;
+
+  /* ======================
+     ACTIONS
+     ====================== */
+
+  function switchAccount(accountId) {
+    setActiveAccountId(accountId);
+  }
+
+  /* ======================
+     CONTEXT VALUE
+     ====================== */
 
   return (
     <AccountContext.Provider
-      value={{ accounts, activeAccountId, setActiveAccountId, accountLoading, role, 
-              activeRole: accounts.find(a => a.id === activeAccountId)?.role ?? null,
-
-            }}
+      value={{
+        accounts,
+        activeAccountId,
+        switchAccount,
+        accountLoading,
+        activeRole,
+      }}
     >
       {children}
     </AccountContext.Provider>
   );
 }
 
+/* ======================
+   HOOK
+   ====================== */
+
 export function useAccount() {
   const ctx = useContext(AccountContext);
   if (!ctx) {
-    throw new Error("useAccount must be used inside AccountProvider");
+    throw new Error(
+      "useAccount must be used inside <AccountProvider>"
+    );
   }
   return ctx;
 }

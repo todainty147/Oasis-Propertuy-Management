@@ -1,4 +1,10 @@
-import { Bell, Search, Building2, Menu, Users } from "lucide-react";
+import {
+  Bell,
+  Search,
+  Building2,
+  Menu,
+  Users,
+} from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { usePageTitle } from "../layout/PageTitleContext";
 
@@ -17,10 +23,6 @@ export default function Topbar({ onMenuClick }) {
     activeAccountId,
     setActiveAccountId,
   } = useAccount();
-
-  const activeAccount = accounts.find(
-    (a) => a.id === activeAccountId
-  );
 
   /* ======================
      TENANTS
@@ -54,12 +56,17 @@ export default function Topbar({ onMenuClick }) {
 
       {/* RIGHT */}
       <div className="flex items-center gap-3">
-        {/* ACCOUNT SWITCHER */}
+        {/* ======================
+            ACCOUNT SWITCHER
+            ====================== */}
         {accounts.length > 1 && (
           <div className="hidden lg:flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2">
-            <Building2 size={16} className="text-slate-400" />
+            <Building2
+              size={16}
+              className="text-slate-400"
+            />
             <select
-              value={activeAccountId}
+              value={activeAccountId ?? ""}
               onChange={(e) =>
                 setActiveAccountId(e.target.value)
               }
@@ -74,10 +81,15 @@ export default function Topbar({ onMenuClick }) {
           </div>
         )}
 
-        {/* TENANT SWITCHER */}
+        {/* ======================
+            TENANT SWITCHER
+            ====================== */}
         {!tenantsLoading && tenants.length > 0 && (
           <div className="hidden lg:flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2">
-            <Users size={16} className="text-slate-400" />
+            <Users
+              size={16}
+              className="text-slate-400"
+            />
             <select
               value={activeTenantId ?? ""}
               onChange={(e) =>
@@ -87,7 +99,9 @@ export default function Topbar({ onMenuClick }) {
               }
               className="text-sm bg-transparent focus:outline-none"
             >
-              <option value="">Wszyscy najemcy</option>
+              <option value="">
+                Wszyscy najemcy
+              </option>
               {tenants.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}

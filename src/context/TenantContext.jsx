@@ -5,6 +5,7 @@ import {
   useState,
 } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useAccount } from "./AccountContext";
 
 const TenantContext = createContext(null);
 
@@ -13,6 +14,7 @@ const TenantContext = createContext(null);
    ====================== */
 
 export function TenantProvider({ children }) {
+  const { activeAccountId } = useAccount();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // tenant from URL (?tenant=...)
@@ -27,6 +29,18 @@ export function TenantProvider({ children }) {
   useEffect(() => {
     setActiveTenantIdState(tenantFromUrl ?? null);
   }, [tenantFromUrl]);
+
+  /* ---------- ACCOUNT CHANGE → RESET ---------- */
+  useEffect(() => {
+    // when account switches, clear tenant filter
+    const params = new URLSearchParams(searchParams);
+    if (params.has("tenant")) {
+      params.delete("tenant");
+      setSearchParams(params, { replace: true });
+    }
+    setActiveTenantIdState(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAccountId]);
 
   /* ---------- STATE → URL ---------- */
   function setActiveTenantId(id) {
