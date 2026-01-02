@@ -1,9 +1,14 @@
 import { Link } from "react-router-dom";
+import { useEffect } from "react";
+
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Skeleton from "../components/ui/Skeleton";
-import { useEffect } from "react";
+
 import { usePageTitle } from "../layout/PageTitleContext";
+import { useTenants } from "../hooks/useTenants";
+import { useProperties } from "../hooks/useProperties";
+import { useTenant } from "../context/TenantContext";
 
 /* ======================
    SKELETON
@@ -29,19 +34,15 @@ function TenantsSkeleton() {
 }
 
 /* ======================
-   TENANTS
+   TENANTS PAGE
    ====================== */
 
-export default function Tenants({
-  loading = false,
-  tenants,
-  properties,
-  onOpenAddTenant,
-  onEditTenant,
-  onDeleteTenant,
-}) {
-  /* ---------- PAGE TITLE ---------- */
+export default function Tenants() {
   const { setTitle } = usePageTitle();
+  const { activeTenantId } = useTenant();
+
+  const { tenants, loading } = useTenants();
+  const { properties } = useProperties();
 
   useEffect(() => {
     setTitle("Najemcy");
@@ -60,32 +61,24 @@ export default function Tenants({
           Brak najemców
         </h3>
         <p className="text-slate-500 mt-2">
-          Dodaj pierwszego najemcę dla tego właściciela
+          {activeTenantId
+            ? "Wybrany najemca nie istnieje lub został usunięty"
+            : "Dodaj pierwszego najemcę"}
         </p>
-        <button
-          onClick={onOpenAddTenant}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
-        >
-          Dodaj najemcę
-        </button>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-slate-900">
           Najemcy
         </h2>
-        <button
-          onClick={onOpenAddTenant}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg"
-        >
-          Dodaj najemcę
-        </button>
       </div>
 
+      {/* Tenant cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {tenants.map((tenant) => {
           const property = properties.find(
@@ -105,13 +98,11 @@ export default function Tenants({
                       {tenant.name}
                     </h3>
                     <p className="text-sm text-slate-500">
-                      {tenant.email}
+                      {tenant.email ?? "—"}
                     </p>
                   </div>
 
-                  {property && (
-                    <Badge status="Wynajęte" />
-                  )}
+                  {property && <Badge status="Wynajęte" />}
                 </div>
 
                 <div className="mt-3 text-sm text-slate-600">
@@ -120,29 +111,11 @@ export default function Tenants({
                     : "Brak przypisanej nieruchomości"}
                 </div>
 
-                <div className="flex gap-2 mt-3">
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      onEditTenant(tenant);
-                    }}
-                    className="text-sm text-blue-600"
-                  >
-                    Edytuj
-                  </button>
-
-                  <button
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      if (confirm("Usunąć najemcę?")) {
-                        await onDeleteTenant(tenant.id);
-                      }
-                    }}
-                    className="text-sm text-red-600"
-                  >
-                    Usuń
-                  </button>
-                </div>
+                {/* NOTE:
+                   Edit/Delete actions should live in TenantDetails or modal.
+                   We intentionally removed mutation logic from list page
+                   to avoid state desync with tenant switcher.
+                */}
               </Card>
             </Link>
           );

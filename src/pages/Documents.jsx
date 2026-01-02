@@ -22,6 +22,8 @@ import { canUploadDocument, canDeleteDocument } from "../utils/permissions";
 // Optional fallback if you forget to pass props from App.jsx
 import { useProperties } from "../hooks/useProperties";
 import { useTenants } from "../hooks/useTenants";
+import { useTenant } from "../context/TenantContext";
+
 
 /* ======================
    HELPERS
@@ -53,6 +55,8 @@ export default function Documents({
   const { user, loading: authLoading } = useAuth();
   const { accounts, activeAccountId, accountLoading } = useAccount();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { activeTenantId } = useTenant();
+
 
   // Resolve account role from membership
   const activeAccount = useMemo(
@@ -116,33 +120,36 @@ export default function Documents({
      LOAD DOCUMENTS
      ====================== */
   async function loadDocuments() {
-    if (!activeAccountId) return;
+  if (!activeAccountId) return;
 
-    setLoading(true);
-    try {
-      const data =
-        query || selectedTags.length > 0
-          ? await searchDocuments({
-              accountId: activeAccountId,
-              query,
-              tags: selectedTags,
-            })
-          : await fetchDocuments({
-              accountId: activeAccountId,
-            });
+  setLoading(true);
+  try {
+    const data =
+      query || selectedTags.length > 0
+        ? await searchDocuments({
+            accountId: activeAccountId,
+            tenantId: activeTenantId, // ✅ HERE
+            query,
+            tags: selectedTags,
+          })
+        : await fetchDocuments({
+            accountId: activeAccountId,
+            tenantId: activeTenantId, // ✅ HERE
+          });
 
-      setDocuments(data ?? []);
-    } finally {
-      setLoading(false);
-    }
+    setDocuments(data);
+  } finally {
+    setLoading(false);
   }
+}
+
 
   useEffect(() => {
     if (!authLoading && !accountLoading && activeAccountId) {
       loadDocuments();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, selectedTags, authLoading, accountLoading, activeAccountId]);
+  }, [query, selectedTags, authLoading, accountLoading, activeAccountId, activeTenantId]);
 
   /* ---------- UPDATE URL ---------- */
   function updateUrl(nextQuery, nextTags) {

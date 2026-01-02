@@ -8,6 +8,14 @@ import {
   X,
 } from "lucide-react";
 
+import { useAccount } from "../context/AccountContext";
+import { useTenant } from "../context/TenantContext";
+import { useTenants } from "../hooks/useTenants";
+
+/* ======================
+   NAV ITEM
+   ====================== */
+
 function Item({ to, icon: Icon, label, onNavigate }) {
   return (
     <NavLink
@@ -27,9 +35,49 @@ function Item({ to, icon: Icon, label, onNavigate }) {
   );
 }
 
+/* ======================
+   TENANT SWITCHER
+   ====================== */
+
+function TenantSwitcher({ tenants, loading }) {
+  const { activeTenantId, setActiveTenantId, clearTenant } = useTenant();
+
+  return (
+    <select
+      value={activeTenantId ?? ""}
+      disabled={loading}
+      onChange={(e) =>
+        e.target.value
+          ? setActiveTenantId(e.target.value)
+          : clearTenant()
+      }
+      className="w-full border rounded-lg px-3 py-2 text-sm bg-white disabled:bg-slate-100"
+    >
+      <option value="">Wszyscy najemcy</option>
+
+      {tenants.map((t) => (
+        <option key={t.id} value={t.id}>
+          {t.name}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/* ======================
+   SIDEBAR CONTENT
+   ====================== */
+
 function SidebarContent({ onNavigate }) {
+  const { activeAccountId } = useAccount();
+
+  const { tenants, loading } = useTenants({
+    enabled: !!activeAccountId,
+  });
+
   return (
     <>
+      {/* Header */}
       <div className="p-6 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
@@ -45,6 +93,12 @@ function SidebarContent({ onNavigate }) {
         )}
       </div>
 
+      {/* ✅ ALWAYS RENDER TENANT SWITCHER */}
+      <div className="px-4 mb-4">
+        <TenantSwitcher tenants={tenants} loading={loading} />
+      </div>
+
+      {/* Navigation */}
       <nav className="px-4 mt-4 space-y-4 pb-safe">
         <div className="space-y-1">
           <Item to="/dashboard" icon={LayoutDashboard} label="Pulpit" onNavigate={onNavigate} />
@@ -61,8 +115,11 @@ function SidebarContent({ onNavigate }) {
   );
 }
 
+/* ======================
+   SIDEBAR WRAPPER
+   ====================== */
+
 export default function Sidebar({ open, isDesktop, onClose }) {
-  // 🖥 Desktop sidebar
   if (isDesktop) {
     return (
       <aside className="w-64 shrink-0 bg-white border-r">
@@ -71,18 +128,15 @@ export default function Sidebar({ open, isDesktop, onClose }) {
     );
   }
 
-  // 📱 Mobile sidebar (unmounted when closed)
   if (!open) return null;
 
   return (
     <>
-      {/* Backdrop */}
       <div
         className="fixed inset-0 z-40 bg-black/40"
         onClick={onClose}
       />
 
-      {/* Drawer */}
       <aside
         role="dialog"
         aria-modal="true"

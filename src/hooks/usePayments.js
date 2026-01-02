@@ -1,14 +1,20 @@
 // src/hooks/usePayments.js
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { useAccount } from "../context/AccountContext";
+import { useTenant } from "../context/TenantContext";
 
 export function usePayments({ enabled = true } = {}) {
+  const { activeAccountId } = useAccount();
+  const { activeTenantId } = useTenant();
+
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !activeAccountId) {
+      setPayments([]);
       setLoading(false);
       return;
     }
@@ -19,7 +25,7 @@ export function usePayments({ enabled = true } = {}) {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("payments")
         .select(`
           id,
@@ -29,22 +35,24 @@ export function usePayments({ enabled = true } = {}) {
           paid_at,
           tenant_id,
           property_id,
-          tenants (
-            id,
-            name
-          ),
-          properties (
-            id,
-            address
-          )
+          tenants ( id, name ),
+          properties ( id, address )
         `)
+        .eq("account_id", activeAccountId)
         .order("due_date", { ascending: false });
+
+      // ✅ TENANT FILTER
+      if (activeTenantId) {
+        query = query.eq("tenant_id", activeTenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         setError(error);
       } else {
         setPayments(
-          data.map((p) => ({
+          (data ?? []).map((p) => ({
             id: p.id,
             amount: Number(p.amount),
             status: p.status,
@@ -52,8 +60,6 @@ export function usePayments({ enabled = true } = {}) {
             paidAt: p.paid_at,
             tenantId: p.tenant_id,
             propertyId: p.property_id,
-
-            // ✅ DISPLAY FIELDS (THIS FIXES YOUR ISSUE)
             tenantName: p.tenants?.name ?? "—",
             propertyAddress: p.properties?.address ?? "—",
           }))
@@ -66,10 +72,15 @@ export function usePayments({ enabled = true } = {}) {
     loadPayments();
 
     channel = supabase
-      .channel("payments-realtime")
+      .channel(`payments-${activeAccountId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "payments" },
+        {
+          event: "*",
+          schema: "public",
+          table: "payments",
+          filter: `account_id=eq.${activeAccountId}`,
+        },
         loadPayments
       )
       .subscribe();
@@ -77,7 +88,7 @@ export function usePayments({ enabled = true } = {}) {
     return () => {
       if (channel) supabase.removeChannel(channel);
     };
-  }, [enabled]);
+  }, [enabled, activeAccountId, activeTenantId]); // ✅ DEPENDENCY
 
   return { payments, loading, error };
 }

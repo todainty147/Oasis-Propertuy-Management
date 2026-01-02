@@ -1,20 +1,19 @@
+// src/hooks/useTenants.js
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { useAccount } from "../context/AccountContext";
+import { useTenant } from "../context/TenantContext";
 
-/* ======================
-   TENANTS HOOK
-   ====================== */
+export function useTenants({ enabled = true } = {}) {
+  const { activeAccountId } = useAccount();
+  const { activeTenantId } = useTenant();
 
-export function useTenants({
-  enabled = true,
-  accountId = null, // ✅ REQUIRED (passed from App)
-} = {}) {
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!enabled || !accountId) {
+    if (!enabled || !activeAccountId) {
       setLoading(false);
       return;
     }
@@ -35,21 +34,27 @@ export function useTenants({
           property_id,
           created_at
         `)
-        .eq("account_id", accountId)
+        .eq("account_id", activeAccountId)
         .order("created_at", { ascending: false });
 
       if (error) {
         setError(error);
+        setTenants([]);
       } else {
+        const mapped = data.map((t) => ({
+          id: t.id,
+          name: t.name,
+          email: t.email,
+          phone: t.phone,
+          propertyId: t.property_id,
+          createdAt: t.created_at,
+        }));
+
+        // ✅ TENANT SWITCH FILTER (THE MISSING PIECE)
         setTenants(
-          (data ?? []).map((t) => ({
-            id: t.id,
-            name: t.name,
-            email: t.email,
-            phone: t.phone,
-            propertyId: t.property_id,
-            createdAt: t.created_at,
-          }))
+          activeTenantId
+            ? mapped.filter((t) => t.id === activeTenantId)
+            : mapped
         );
       }
 
@@ -58,18 +63,15 @@ export function useTenants({
 
     loadTenants();
 
-    /* ======================
-       REALTIME (SCOPED)
-       ====================== */
     channel = supabase
-      .channel(`tenants-realtime-${accountId}`)
+      .channel("tenants-realtime")
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "tenants",
-          filter: `account_id=eq.${accountId}`,
+          filter: `account_id=eq.${activeAccountId}`,
         },
         loadTenants
       )
@@ -78,7 +80,7 @@ export function useTenants({
     return () => {
       if (channel) supabase.removeChannel(channel);
     };
-  }, [enabled, accountId]);
+  }, [enabled, activeAccountId, activeTenantId]);
 
   return { tenants, loading, error };
 }

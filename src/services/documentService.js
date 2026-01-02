@@ -1,3 +1,4 @@
+// src/services/documentService.js
 import { supabase } from "../lib/supabase";
 
 /* ======================
@@ -35,14 +36,6 @@ function generateUUID() {
    HELPERS
    ====================== */
 
-function assertScope({ propertyId, tenantId }) {
-  if (!propertyId && !tenantId) {
-    throw new Error(
-      "Dokument musi być przypisany do nieruchomości lub najemcy"
-    );
-  }
-}
-
 function sanitizeFilename(name) {
   return String(name || "file")
     .replace(/\s+/g, "_")
@@ -55,16 +48,18 @@ function sanitizeFilename(name) {
 
 export async function uploadDocument({
   file,
-  accountId,       // ✅ REQUIRED
-  propertyId = null,
-  tenantId = null,
+  accountId,           // ✅ REQUIRED
+  propertyId = null,   // optional
+  tenantId = null,     // optional
   tags = [],
 }) {
   if (!accountId) {
     throw new Error("Brak accountId przy uploadzie dokumentu");
   }
 
-  if (!file) throw new Error("Brak pliku");
+  if (!file) {
+    throw new Error("Brak pliku");
+  }
 
   if (!ALLOWED_MIME_TYPES.includes(file.type)) {
     throw new Error("Niedozwolony typ pliku");
@@ -74,11 +69,14 @@ export async function uploadDocument({
     throw new Error("Plik jest za duży (max 10MB)");
   }
 
-  assertScope({ propertyId, tenantId });
-
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    throw new Error("Brak zalogowanego użytkownika");
+  }
 
   const safeName = sanitizeFilename(file.name);
   const storagePath = `${accountId}/${generateUUID()}-${safeName}`;
@@ -92,8 +90,9 @@ export async function uploadDocument({
   const { data, error } = await supabase
     .from("documents")
     .insert({
-      account_id: accountId,     // ✅ MULTI-TENANT ROOT
+      account_id: accountId,     // ✅ multi-tenant root
       uploaded_by: user.id,
+      owner_id: user.id,         // legacy / RLS compatibility
       property_id: propertyId,
       tenant_id: tenantId,
       name: file.name,
@@ -110,9 +109,8 @@ export async function uploadDocument({
   return data;
 }
 
-
 /* ======================
-   LIST DOCUMENTS
+   FETCH DOCUMENTS
    ====================== */
 
 export async function fetchDocuments({
@@ -129,9 +127,20 @@ export async function fetchDocuments({
     .eq("account_id", accountId)
     .order("created_at", { ascending: false });
 
-  if (propertyId) query = query.eq("property_id", propertyId);
-  if (tenantId) query = query.eq("tenant_id", tenantId);
-  if (tag) query = query.contains("tags", [tag]);
+  if (propertyId) {
+    query = query.eq("property_id", propertyId);
+  }
+
+  // ✅ TENANT SWITCHER FIX
+  if (tenantId) {
+    query = query.or(
+      `tenant_id.eq.${tenantId},tenant_id.is.null`
+    );
+  }
+
+  if (tag) {
+    query = query.contains("tags", [tag]);
+  }
 
   const { data, error } = await query;
   if (error) throw error;
@@ -158,10 +167,24 @@ export async function searchDocuments({
     .eq("account_id", accountId)
     .order("created_at", { ascending: false });
 
-  if (query) q = q.ilike("name", `%${query}%`);
-  if (tags.length > 0) q = q.contains("tags", tags);
-  if (tenantId) q = q.eq("tenant_id", tenantId);
-  if (propertyId) q = q.eq("property_id", propertyId);
+  if (query) {
+    q = q.ilike("name", `%${query}%`);
+  }
+
+  if (tags.length > 0) {
+    q = q.contains("tags", tags);
+  }
+
+  if (propertyId) {
+    q = q.eq("property_id", propertyId);
+  }
+
+  // ✅ TENANT SWITCHER FIX
+  if (tenantId) {
+    q = q.or(
+      `tenant_id.eq.${tenantId},tenant_id.is.null`
+    );
+  }
 
   const { data, error } = await q;
   if (error) throw error;
@@ -174,7 +197,9 @@ export async function searchDocuments({
    ====================== */
 
 export async function getDocumentPreviewUrl(storagePath) {
-  if (!storagePath) throw new Error("Brak ścieżki dokumentu");
+  if (!storagePath) {
+    throw new Error("Brak ścieżki dokumentu");
+  }
 
   const { data, error } = await supabase.storage
     .from("documents")
@@ -189,7 +214,9 @@ export async function getDocumentPreviewUrl(storagePath) {
    ====================== */
 
 export async function downloadDocument({ storagePath, filename }) {
-  if (!storagePath) throw new Error("Brak ścieżki dokumentu");
+  if (!storagePath) {
+    throw new Error("Brak ścieżki dokumentu");
+  }
 
   const { data, error } = await supabase.storage
     .from("documents")

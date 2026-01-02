@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import { PageTitleContext } from "./PageTitleContext";
+import TenantSwitcher from "../components/TenantSwitcher";
 
 function useMediaQuery(query) {
   const [matches, setMatches] = useState(() =>
@@ -28,25 +29,22 @@ export default function AppLayout({
   const location = useLocation();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [title, setTitle] = useState(""); // ✅ ADD
+  const [title, setTitle] = useState("");
 
-  // 🔒 Force open on desktop
+  /* 🔒 Force sidebar open on desktop */
   useEffect(() => {
     if (isDesktop) setSidebarOpen(true);
   }, [isDesktop]);
 
-  // 📱 Close sidebar on navigation (mobile failsafe)
+  /* 📱 Close sidebar on navigation (mobile) */
   useEffect(() => {
     if (!isDesktop) setSidebarOpen(false);
   }, [location.pathname, isDesktop]);
 
-  // 🛑 Prevent background scroll when mobile sidebar is open
+  /* 🛑 Prevent background scroll when sidebar open */
   useEffect(() => {
-    if (!isDesktop && sidebarOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
+    document.body.style.overflow =
+      !isDesktop && sidebarOpen ? "hidden" : "";
   }, [isDesktop, sidebarOpen]);
 
   return (
@@ -60,18 +58,19 @@ export default function AppLayout({
 
         <div className="flex-1 flex flex-col">
           <Topbar
-            title={title} // ✅ PASS TITLE
+            title={title}
             owners={owners}
             activeOwnerId={activeOwnerId}
             setActiveOwnerId={setActiveOwnerId}
             onMenuClick={() => setSidebarOpen((v) => !v)}
+            /* ✅ TENANT SWITCHER RENDERED HERE */
+            rightSlot={<TenantSwitcher />}
           />
 
-          
-            <main className="flex-1 overflow-y-auto pt-14 lg:pt-16 px-4 lg:px-8">
-<div className="max-w-7xl mx-auto w-full">
-      <Outlet />
- </div>
+          <main className="flex-1 overflow-y-auto pt-14 lg:pt-16 px-4 lg:px-8">
+            <div className="max-w-7xl mx-auto w-full">
+              <Outlet />
+            </div>
           </main>
         </div>
       </div>
