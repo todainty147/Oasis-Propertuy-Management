@@ -41,8 +41,8 @@ function shortId(id) {
 export default function PropertyDocumentsSection({ propertyId }) {
   const fileInputRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user, role, loading: authLoading } = useAuth();
-  const { activeAccountId, accountLoading } = useAccount(); // ✅ MULTI-TENANT
+  const { user, loading: authLoading } = useAuth();
+  const { activeAccountId, accountLoading,role } = useAccount(); // ✅ MULTI-TENANT
 
   /* ---------- URL FILTER STATE ---------- */
   const filterTags =
@@ -64,23 +64,30 @@ export default function PropertyDocumentsSection({ propertyId }) {
   const [previewDoc, setPreviewDoc] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewError, setPreviewError] = useState(null);
+/* ---------- LOAD ---------- */
+async function loadAll() {
+  if (!propertyId || !activeAccountId) return; // ✅ REQUIRED
 
-  /* ---------- LOAD ---------- */
-  async function loadAll() {
-    if (!propertyId || !activeAccountId) return; // ✅ MULTI-TENANT
+  setLoading(true);
+  try {
+    const [docs, auditLog] = await Promise.all([
+      fetchDocuments({
+        accountId: activeAccountId, // ✅ CRITICAL FIX
+        propertyId,
+      }),
+      fetchDocumentAudit({
+        accountId: activeAccountId, // ✅ if audit is also account-scoped
+        propertyId,
+      }),
+    ]);
 
-    setLoading(true);
-    try {
-      const [docs, auditLog] = await Promise.all([
-        fetchDocuments({ propertyId }),
-        fetchDocumentAudit({ propertyId }),
-      ]);
-      setDocuments(docs);
-      setAudit(auditLog);
-    } finally {
-      setLoading(false);
-    }
+    setDocuments(docs);
+    setAudit(auditLog);
+  } finally {
+    setLoading(false);
   }
+}
+
 
   useEffect(() => {
     if (!authLoading && !accountLoading) {

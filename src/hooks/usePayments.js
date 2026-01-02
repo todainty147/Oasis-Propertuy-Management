@@ -1,36 +1,40 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
-export function usePayments({ enabled = true } = {}) {
+export function usePayments({
+  enabled = true,
+  accountId = null, // ✅ REQUIRED
+} = {}) {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !accountId) {
+      setPayments([]);
+      setLoading(false);
+      return;
+    }
 
     let channel;
 
     async function loadPayments() {
       setLoading(true);
+      setError(null);
 
       const { data, error } = await supabase
         .from("payments")
         .select(`
           id,
+          property_id,
+          tenant_id,
           amount,
           status,
           due_date,
           paid_at,
-          property_id,
-          tenant_id,
-          properties (
-            address
-          ),
-          tenants (
-            name
-          )
+          created_at
         `)
+        .eq("account_id", accountId) // ✅ MULTI-TENANT FILTER
         .order("due_date", { ascending: false });
 
       if (error) {
@@ -44,11 +48,19 @@ export function usePayments({ enabled = true } = {}) {
 
     loadPayments();
 
+    /* ======================
+       REALTIME (ACCOUNT-SCOPED)
+       ====================== */
     channel = supabase
-      .channel("payments-realtime")
+      .channel(`payments:${accountId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "payments" },
+        {
+          event: "*",
+          schema: "public",
+          table: "payments",
+          filter: `account_id=eq.${accountId}`, // ✅ CRITICAL
+        },
         loadPayments
       )
       .subscribe();
@@ -56,21 +68,24 @@ export function usePayments({ enabled = true } = {}) {
     return () => {
       if (channel) supabase.removeChannel(channel);
     };
-  }, [enabled]);
+  }, [enabled, accountId]); // ✅ STABLE DEP ARRAY
 
   return { payments, loading, error };
 }
 
-function mapPayments(rows) {
+/* ======================
+   MAPPER
+   ====================== */
+
+function mapPayments(rows = []) {
   return rows.map((p) => ({
     id: p.id,
-    amount: Number(p.amount),
+    propertyId: p.property_id,
+    tenantId: p.tenant_id,
+    amount: Number(p.amount ?? 0),
     status: p.status,
     dueDate: p.due_date,
     paidAt: p.paid_at,
-    propertyId: p.property_id,
-    tenantId: p.tenant_id,
-    propertyAddress: p.properties?.address ?? "-",
-    tenantName: p.tenants?.name ?? "-",
+    createdAt: p.created_at,
   }));
 }

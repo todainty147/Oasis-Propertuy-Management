@@ -1,21 +1,32 @@
 /* ======================
    DOCUMENT PERMISSIONS
+   ACCOUNT-BASED (FINAL)
    ====================== */
 
+/**
+ * Upload:
+ * - owner
+ * - admin
+ * - staff
+ */
 export function canUploadDocument(role) {
-  return role === "admin" || role === "owner";
+  return role === "owner" || role === "admin" || role === "staff";
 }
 
-export function canEditDocument({ role, userId, doc }) {
-  if (!doc) return false;
-
-  if (role === "admin") return true;
-  if (role === "owner" && doc.owner_id === userId) return true;
-
-  return false;
+/**
+ * Edit metadata (tags, rename):
+ * - owner
+ * - admin
+ */
+export function canEditDocument({ role }) {
+  return role === "owner" || role === "admin";
 }
 
-export function canDeleteDocument({ role, userId, doc }) {
-  // same rules as edit for now
-  return canEditDocument({ role, userId, doc });
+/**
+ * Delete document:
+ * - owner
+ * - admin
+ */
+export function canDeleteDocument({ role }) {
+  return role === "owner" || role === "admin";
 }

@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
-export function useProperties({ enabled = true } = {}) {
+export function useProperties({
+  enabled = true,
+  accountId = null, // ✅ REQUIRED
+} = {}) {
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!enabled) {
-      // ⛔ do nothing when disabled
+    if (!enabled || !accountId) {
+      setProperties([]);
       setLoading(false);
       return;
     }
@@ -30,6 +33,7 @@ export function useProperties({ enabled = true } = {}) {
           created_at,
           rent
         `)
+        .eq("account_id", accountId) // ✅ MULTI-TENANT FILTER
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -44,23 +48,26 @@ export function useProperties({ enabled = true } = {}) {
     loadProperties();
 
     /* ======================
-       REALTIME
+       REALTIME (ACCOUNT-SCOPED)
        ====================== */
     channel = supabase
-      .channel("properties-realtime")
+      .channel(`properties:${accountId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "properties" },
-        () => {
-          loadProperties();
-        }
+        {
+          event: "*",
+          schema: "public",
+          table: "properties",
+          filter: `account_id=eq.${accountId}`, // ✅ IMPORTANT
+        },
+        loadProperties
       )
       .subscribe();
 
     return () => {
       if (channel) supabase.removeChannel(channel);
     };
-  }, [enabled]);
+  }, [enabled, accountId]); // ✅ STABLE DEP ARRAY
 
   return { properties, loading, error };
 }
@@ -69,14 +76,14 @@ export function useProperties({ enabled = true } = {}) {
    MAPPER
    ====================== */
 
-function mapProperties(rows) {
+function mapProperties(rows = []) {
   return rows.map((p) => ({
     id: p.id,
     address: p.address,
     city: p.city,
-    status: p.status,        // still okay (Option A overrides later)
+    status: p.status,          // derived later if needed
     tenantId: p.tenant_id,
-    rent: Number(p.rent ?? 0), // ✅ safe numeric rent
+    rent: Number(p.rent ?? 0),
     createdAt: p.created_at,
   }));
 }

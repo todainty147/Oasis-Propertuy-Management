@@ -1,11 +1,11 @@
 import { supabase } from "../lib/supabase";
 
 /* ======================
-   CREATE
+   CREATE TENANT
    ====================== */
 
 export async function createTenant({
-  accountId, // ✅ REQUIRED for multi-tenancy
+  accountId, // ✅ REQUIRED
   name,
   email,
   phone,
@@ -15,19 +15,10 @@ export async function createTenant({
     throw new Error("Brak accountId przy tworzeniu najemcy");
   }
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError) throw userError;
-  if (!user) throw new Error("Brak sesji użytkownika");
-
   const { data: tenant, error } = await supabase
     .from("tenants")
     .insert({
-      account_id: accountId, // ✅ MULTI-TENANT (CRITICAL)
-      owner_id: user.id,     // creator / legacy owner
+      account_id: accountId,   // ✅ MULTI-TENANT ROOT
       name,
       email,
       phone,
@@ -38,7 +29,7 @@ export async function createTenant({
 
   if (error) throw error;
 
-  // 🔄 keep your property status sync logic (RLS enforces account)
+  // 🔄 property status sync (RLS enforces account ownership)
   if (propertyId) {
     await supabase
       .from("properties")
@@ -50,11 +41,10 @@ export async function createTenant({
 }
 
 /* ======================
-   UPDATE
+   UPDATE TENANT
    ====================== */
 
 export async function updateTenant(id, data) {
-  // fetch current tenant (to detect property change)
   const { data: current, error: currentError } = await supabase
     .from("tenants")
     .select("property_id")
@@ -94,7 +84,7 @@ export async function updateTenant(id, data) {
 }
 
 /* ======================
-   DELETE
+   DELETE TENANT
    ====================== */
 
 export async function deleteTenant(id) {

@@ -4,12 +4,15 @@ import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAuth } from "../context/AuthContext";
 import { useAccount } from "../context/AccountContext";
+
 import {
+  fetchDocuments,           // ✅ REQUIRED
   searchDocuments,
   downloadDocument,
   getDocumentPreviewUrl,
   deleteDocument,
 } from "../services/documentService";
+
 import { DOCUMENT_TAGS } from "../constants/documentTags";
 import { canDeleteDocument } from "../utils/permissions";
 
@@ -74,16 +77,25 @@ export default function Documents() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  /* ---------- LOAD ---------- */
+  /* ======================
+     LOAD DOCUMENTS
+     ====================== */
   async function loadDocuments() {
     if (!activeAccountId) return;
 
     setLoading(true);
     try {
-      const data = await searchDocuments({
-        query,
-        tags: selectedTags,
-      });
+      const data =
+        query || selectedTags.length > 0
+          ? await searchDocuments({
+              accountId: activeAccountId,
+              query,
+              tags: selectedTags,
+            })
+          : await fetchDocuments({
+              accountId: activeAccountId,
+            });
+
       setDocuments(data);
     } finally {
       setLoading(false);

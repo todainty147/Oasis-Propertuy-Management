@@ -1,10 +1,6 @@
+// src/App.jsx
 import { useState, useEffect } from "react";
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./pages/Login";
 import { useSession } from "./hooks/useSession";
@@ -12,27 +8,12 @@ import { useProperties } from "./hooks/useProperties";
 import { usePayments } from "./hooks/usePayments";
 import { useTenants } from "./hooks/useTenants";
 
-import {
-  createTenant,
-  updateTenant,
-  deleteTenant,
-} from "./services/tenantService";
+import { createTenant, updateTenant, deleteTenant } from "./services/tenantService";
+import { createPayment, updatePayment, deletePayment } from "./services/paymentService";
+import { createProperty, updateProperty, deleteProperty } from "./services/propertyService";
 
-import {
-  createPayment,
-  updatePayment,
-  deletePayment,
-} from "./services/paymentService";
-
-import {
-  createProperty,
-  updateProperty,
-  deleteProperty,
-} from "./services/propertyService";
-
-import {
-  fetchDocuments,
-} from "./services/documentService";
+// IMPORTANT: use searchDocuments so we can scope by accountId
+import { searchDocuments } from "./services/documentService";
 
 import {
   calculatePropertyFinance,
@@ -65,22 +46,21 @@ export default function App() {
   /* ======================
      ACCOUNT (NEW)
      ====================== */
-  const {
-    activeAccountId,
-    accountLoading,
-  } = useAccount();
+  const { activeAccountId, accountLoading } = useAccount();
 
   /* ======================
      DATA HOOKS
      ====================== */
+  // NOTE: These hooks should already be scoped by RLS (account_id policies).
+  // If your hooks still fetch by owner_id, we will adjust them later.
   const { properties, loading: propertiesLoading, error: propertiesError } =
-    useProperties({ enabled: !!session });
+    useProperties({ enabled: !!session,accountId: activeAccountId });
 
   const { payments, loading: paymentsLoading, error: paymentsError } =
-    usePayments({ enabled: !!session });
+    usePayments({ enabled: !!session,accountId: activeAccountId });
 
   const { tenants, loading: tenantsLoading, error: tenantsError } =
-    useTenants({ enabled: !!session });
+    useTenants({ enabled: !!session, accountId: activeAccountId });
 
   /* ======================
      UI STATE
@@ -98,13 +78,27 @@ export default function App() {
   const [documentsLoading, setDocumentsLoading] = useState(false);
 
   /* ======================
-     DOCUMENTS
+     DOCUMENTS (ACCOUNT-SCOPED)
      ====================== */
   async function loadDocuments() {
+    if (!activeAccountId) return;
+
     setDocumentsLoading(true);
     try {
-      const data = await fetchDocuments();
+      // ✅ account scoped. Requires your documents RLS to enforce account_id.
+      // Also requires documents table to have account_id populated.
+      const data = await searchDocuments({
+        query: "",
+        tags: [],
+        tenantId: null,
+        propertyId: null,
+        accountId: activeAccountId,
+      });
+
       setDocuments(data);
+    } catch (e) {
+      console.error("loadDocuments failed:", e);
+      setDocuments([]);
     } finally {
       setDocumentsLoading(false);
     }
@@ -114,6 +108,7 @@ export default function App() {
     if (session && activeAccountId) {
       loadDocuments();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, activeAccountId]);
 
   /* ======================
@@ -130,9 +125,7 @@ export default function App() {
   if (!activeAccountId) {
     return (
       <div className="p-6">
-        <p className="font-medium">
-          Brak przypisanego konta
-        </p>
+        <p className="font-medium">Brak przypisanego konta</p>
         <p className="text-sm text-gray-600 mt-2">
           Skontaktuj się z administratorem lub zaakceptuj zaproszenie.
         </p>
@@ -158,6 +151,7 @@ export default function App() {
   /* ======================
      OWNER (LEGACY SHIM)
      ====================== */
+  // Keep AppLayout API unchanged, but represent "owner" as the active account.
   const owners = [
     {
       id: activeAccountId,
@@ -170,7 +164,7 @@ export default function App() {
      ====================== */
 
   const ownerProperties = properties.map((p) => {
-    const isOccupied = tenants.some((t) => t.propertyId === p.id);
+    const isOccupied = tenants.some((t) => String(t.propertyId) === String(p.id));
     return {
       ...p,
       status: isOccupied ? "Wynajęte" : "Wolne",
@@ -184,10 +178,7 @@ export default function App() {
     ownerPropertyIds.includes(p.propertyId)
   );
 
-  const occupiedCount = ownerProperties.filter(
-    (p) => p.status === "Wynajęte"
-  ).length;
-
+  const occupiedCount = ownerProperties.filter((p) => p.status === "Wynajęte").length;
   const vacantCount = ownerProperties.length - occupiedCount;
 
   const occupancyRate =
@@ -202,14 +193,10 @@ export default function App() {
     .filter((p) => p.status === "Wolne")
     .map((property) => {
       const pastTenants = ownerTenants
-        .filter((t) => t.propertyId === property.id)
-        .sort(
-          (a, b) =>
-            new Date(b.created_at) - new Date(a.created_at)
-        );
+        .filter((t) => String(t.propertyId) === String(property.id))
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-      const vacancyStart =
-        pastTenants[0]?.created_at || property.created_at;
+      const vacancyStart = pastTenants[0]?.created_at || property.created_at;
 
       const daysVacant = Math.floor(
         (now - new Date(vacancyStart)) / (1000 * 60 * 60 * 24)
@@ -218,13 +205,9 @@ export default function App() {
       return { ...property, daysVacant };
     });
 
-  const longVacantProperties = vacancyAging.filter(
-    (p) => p.daysVacant > 30
-  );
-
+  const longVacantProperties = vacancyAging.filter((p) => p.daysVacant > 30);
   const longVacantCount = longVacantProperties.length;
-  const shortVacantCount =
-    vacancyAging.length - longVacantCount;
+  const shortVacantCount = vacancyAging.length - longVacantCount;
 
   /* ---------- Finance totals ---------- */
   const financeTotals = {
@@ -237,9 +220,7 @@ export default function App() {
   const propertyFinance = ownerProperties.map((property) => {
     const finance = calculatePropertyFinance({
       property,
-      payments: ownerPayments.filter(
-        (p) => p.propertyId === property.id
-      ),
+      payments: ownerPayments.filter((p) => String(p.propertyId) === String(property.id)),
     });
 
     return {
@@ -271,11 +252,7 @@ export default function App() {
             path="dashboard"
             element={
               <Dashboard
-                loading={
-                  propertiesLoading ||
-                  paymentsLoading ||
-                  tenantsLoading
-                }
+                loading={propertiesLoading || paymentsLoading || tenantsLoading}
                 properties={ownerProperties}
                 payments={payments}
                 occupiedCount={occupiedCount}
@@ -317,9 +294,17 @@ export default function App() {
                     setEditingProperty(null);
                   }}
                   onSave={async (property) => {
-                    property.id
-                      ? await updateProperty(property.id, property)
-                      : await createProperty(property);
+                    const payload = {
+                      ...property,
+                      accountId: activeAccountId, // ✅ CRITICAL
+                    };
+
+                    if (property.id) {
+                      await updateProperty(property.id, payload);
+                    } else {
+                      await createProperty(payload);
+                    }
+
                     setIsAddPropertyOpen(false);
                     setEditingProperty(null);
                   }}
@@ -371,9 +356,16 @@ export default function App() {
                   properties={ownerProperties}
                   tenant={editingTenant}
                   onSave={async (data) => {
-                    data.id
-                      ? await updateTenant(data.id, data)
-                      : await createTenant(data);
+                    const payload = {
+                      ...data,
+                      accountId: activeAccountId, // ✅ CRITICAL
+                    };
+
+                    if (data.id) {
+                      await updateTenant(data.id, payload);
+                    } else {
+                      await createTenant(payload);
+                    }
                   }}
                 />
               </>
@@ -419,6 +411,7 @@ export default function App() {
                   tenants={ownerTenants}
                   onSave={async (form) => {
                     const payload = {
+                      accountId: activeAccountId, // ✅ CRITICAL
                       propertyId: form.propertyId,
                       tenantId: form.tenantId,
                       amount: Number(form.amount),

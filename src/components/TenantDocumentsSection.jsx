@@ -34,9 +34,12 @@ function canPreview(mime) {
    ====================== */
 
 export default function TenantDocumentsSection({ tenantId }) {
-  const { user, role, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { activeAccountId, accountLoading } = useAccount(); // ✅ MULTI-TENANT
+  const { role } = useAccount(); // ✅ SOURCE OF TRUTH
   const [searchParams, setSearchParams] = useSearchParams();
+  
+
 
   /* ---------- URL FILTER STATE ---------- */
   const filterTags =
@@ -56,20 +59,28 @@ export default function TenantDocumentsSection({ tenantId }) {
 
   /* ---------- LOAD ---------- */
   async function loadAll() {
-    if (!tenantId || !activeAccountId) return; // ✅ MULTI-TENANT
+  if (!tenantId || !activeAccountId) return; // ✅ REQUIRED
 
-    setLoading(true);
-    try {
-      const [docs, auditLog] = await Promise.all([
-        fetchDocuments({ tenantId }),
-        fetchDocumentAudit({ tenantId }),
-      ]);
-      setDocuments(docs);
-      setAudit(auditLog);
-    } finally {
-      setLoading(false);
-    }
+  setLoading(true);
+  try {
+    const [docs, auditLog] = await Promise.all([
+      fetchDocuments({
+        accountId: activeAccountId, // ✅ CRITICAL
+        tenantId,
+      }),
+      fetchDocumentAudit({
+        accountId: activeAccountId, // ✅ if audit is account-scoped
+        tenantId,
+      }),
+    ]);
+
+    setDocuments(docs);
+    setAudit(auditLog);
+  } finally {
+    setLoading(false);
   }
+}
+
 
   useEffect(() => {
     if (!authLoading && !accountLoading) {
