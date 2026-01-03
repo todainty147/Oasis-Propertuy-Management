@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
+import { can } from "../utils/permissions";
 
 /* ======================
    SKELETONS
@@ -29,39 +30,6 @@ function FinanceSkeleton() {
         <div className="px-6 py-4 border-b">
           <Skeleton className="h-5 w-48" />
         </div>
-
-        <div className="divide-y">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="px-6 py-4 grid grid-cols-5 gap-4">
-              <Skeleton className="h-4 col-span-2" />
-              <Skeleton className="h-4" />
-              <Skeleton className="h-4" />
-              <Skeleton className="h-4" />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border overflow-hidden">
-        <div className="px-6 py-4 border-b">
-          <Skeleton className="h-5 w-32" />
-        </div>
-
-        <div className="divide-y">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div
-              key={i}
-              className="px-6 py-4 grid grid-cols-6 gap-4"
-            >
-              <Skeleton className="h-4" />
-              <Skeleton className="h-4" />
-              <Skeleton className="h-4" />
-              <Skeleton className="h-4" />
-              <Skeleton className="h-4" />
-              <Skeleton className="h-4" />
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );
@@ -79,15 +47,35 @@ export default function Finance({
   onAddPayment,
   onDeletePayment,
 }) {
-  const { accountLoading } = useAccount();
+  const { accountLoading, activeRole } = useAccount();
   const { setTitle } = usePageTitle();
 
   useEffect(() => {
     setTitle("Finanse");
   }, [setTitle]);
 
+  /* ---------- ACCESS ---------- */
+  const canReadFinance = can(activeRole, "finance", "read");
+  const canCreatePayment = can(activeRole, "finance", "create");
+  const canDeletePayment = can(activeRole, "finance", "delete");
+
+  /* ---------- LOADING ---------- */
   if (loading || accountLoading) {
     return <FinanceSkeleton />;
+  }
+
+  /* ---------- NO ACCESS ---------- */
+  if (!canReadFinance) {
+    return (
+      <div className="p-8 bg-white rounded-xl border text-center">
+        <h2 className="text-xl font-semibold text-slate-900">
+          Brak dostępu
+        </h2>
+        <p className="text-slate-500 mt-2">
+          Nie masz uprawnień do przeglądania finansów.
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -101,12 +89,14 @@ export default function Finance({
           </p>
         </div>
 
-        <button
-          onClick={onAddPayment}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg"
-        >
-          Dodaj płatność
-        </button>
+        {canCreatePayment && (
+          <button
+            onClick={onAddPayment}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+          >
+            Dodaj płatność
+          </button>
+        )}
       </div>
 
       {/* SUMMARY */}
@@ -240,16 +230,18 @@ export default function Finance({
                   </td>
 
                   <td className="px-6 py-3 text-right">
-                    <button
-                      onClick={() => {
-                        if (confirm("Usunąć tę płatność?")) {
-                          onDeletePayment(p.id);
-                        }
-                      }}
-                      className="text-red-600 hover:underline"
-                    >
-                      Usuń
-                    </button>
+                    {canDeletePayment && (
+                      <button
+                        onClick={() => {
+                          if (confirm("Usunąć tę płatność?")) {
+                            onDeletePayment(p.id);
+                          }
+                        }}
+                        className="text-red-600 hover:underline"
+                      >
+                        Usuń
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

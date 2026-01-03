@@ -6,6 +6,7 @@ import Card from "../components/Card";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAuth } from "../context/AuthContext";
 import { useAccount } from "../context/AccountContext";
+import { useTenant } from "../context/TenantContext";
 
 import {
   fetchDocuments,
@@ -22,8 +23,6 @@ import { canUploadDocument, canDeleteDocument } from "../utils/permissions";
 // Optional fallback if you forget to pass props from App.jsx
 import { useProperties } from "../hooks/useProperties";
 import { useTenants } from "../hooks/useTenants";
-import { useTenant } from "../context/TenantContext";
-
 
 /* ======================
    HELPERS
@@ -32,6 +31,10 @@ import { useTenant } from "../context/TenantContext";
 function canPreview(mime) {
   return mime?.startsWith("image/") || mime === "application/pdf";
 }
+
+/* ======================
+   SKELETON
+   ====================== */
 
 function DocumentsSkeleton() {
   return (
@@ -53,30 +56,27 @@ export default function Documents({
 } = {}) {
   const { setTitle } = usePageTitle();
   const { user, loading: authLoading } = useAuth();
-  const { accounts, activeAccountId, accountLoading } = useAccount();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { accounts, activeAccountId, accountLoading, activeRole } = useAccount();
   const { activeTenantId } = useTenant();
+  const [searchParams, setSearchParams] = useSearchParams();
 
+  // If your AccountContext doesn't expose activeRole yet, fallback to membership lookup
+  const activeAccount = useMemo(() => {
+    return accounts?.find((a) => a.id === activeAccountId) ?? null;
+  }, [accounts, activeAccountId]);
 
-  // Resolve account role from membership
-  const activeAccount = useMemo(
-    () => accounts?.find((a) => a.id === activeAccountId),
-    [accounts, activeAccountId]
-  );
-  const accountRole = activeAccount?.role ?? null;
+  const role = activeRole ?? activeAccount?.role ?? null;
 
-  // Fallback hooks (only used if props not provided)
+  /* ---------- FALLBACK HOOKS ---------- */
   const useFallback = !tenantsProp || !propertiesProp;
 
   const { properties: propertiesHook, loading: propertiesLoadingHook } =
     useProperties({
       enabled: !!activeAccountId && useFallback,
-      accountId: activeAccountId,
     });
 
   const { tenants: tenantsHook, loading: tenantsLoadingHook } = useTenants({
     enabled: !!activeAccountId && useFallback,
-    accountId: activeAccountId,
   });
 
   const properties = propertiesProp ?? propertiesHook ?? [];
@@ -119,31 +119,30 @@ export default function Documents({
   /* ======================
      LOAD DOCUMENTS
      ====================== */
+
   async function loadDocuments() {
-  if (!activeAccountId) return;
+    if (!activeAccountId) return;
 
-  setLoading(true);
-  try {
-    const data =
-      query || selectedTags.length > 0
-        ? await searchDocuments({
-            accountId: activeAccountId,
-             // ✅ HERE
-            query,
-            tags: selectedTags,
-            tenantId: activeTenantId ?? null,
-          })
-        : await fetchDocuments({
-            accountId: activeAccountId,
-            tenantId: activeTenantId ?? null, // ✅ HERE
-          });
+    setLoading(true);
+    try {
+      const data =
+        query || selectedTags.length > 0
+          ? await searchDocuments({
+              accountId: activeAccountId,
+              query,
+              tags: selectedTags,
+              tenantId: activeTenantId ?? null, // ✅ tenant switch filter
+            })
+          : await fetchDocuments({
+              accountId: activeAccountId,
+              tenantId: activeTenantId ?? null, // ✅ tenant switch filter
+            });
 
-    setDocuments(data);
-  } finally {
-    setLoading(false);
+      setDocuments(data);
+    } finally {
+      setLoading(false);
+    }
   }
-}
-
 
   useEffect(() => {
     if (!authLoading && !accountLoading && activeAccountId) {
@@ -256,7 +255,7 @@ export default function Documents({
       {/* ======================
          UPLOAD (GLOBAL, SCOPED)
          ====================== */}
-      {canUploadDocument(accountRole) && (
+      {canUploadDocument(role) && (
         <Card className="p-4 space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -445,15 +444,14 @@ export default function Documents({
                   Pobierz
                 </button>
 
-                {canDeleteDocument({
-                  role: accountRole,
-                  userId: user?.id,
-                  doc,
-                }) && (
+                {canDeleteDocument(role) && (
                   <button
                     onClick={async () => {
                       if (confirm("Usunąć dokument?")) {
-                        await deleteDocument(doc);
+                        await deleteDocument({
+                          id: doc.id,
+                          storagePath: doc.storage_path,
+                        });
                         await loadDocuments();
                       }
                     }}

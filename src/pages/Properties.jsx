@@ -1,10 +1,14 @@
 import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Home, Pencil, Trash2 } from "lucide-react";
+
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Skeleton from "../components/ui/Skeleton";
-import { Home, Pencil, Trash2 } from "lucide-react";
-import { useEffect } from "react";
+
 import { usePageTitle } from "../layout/PageTitleContext";
+import { useAccount } from "../context/AccountContext";
+import { can } from "../utils/permissions";
 
 /* ======================
    SKELETON
@@ -35,14 +39,17 @@ function PropertiesSkeleton() {
 
 export default function Properties({
   loading = false,
-  properties,
-  tenants,
+  properties = [],
+  tenants = [],
   onAddProperty,
   onEditProperty,
   onDeleteProperty,
 }) {
   /* ---------- PAGE TITLE ---------- */
   const { setTitle } = usePageTitle();
+
+  /* ---------- ACCOUNT / ROLE ---------- */
+  const { activeRole } = useAccount();
 
   useEffect(() => {
     setTitle("Nieruchomości");
@@ -63,28 +70,36 @@ export default function Properties({
         <p className="text-slate-500 mt-2">
           Dodaj swoją pierwszą nieruchomość
         </p>
-        <button
-          onClick={onAddProperty}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
-        >
-          Dodaj nieruchomość
-        </button>
+
+        {can(activeRole, "properties", "create") && (
+          <button
+            onClick={onAddProperty}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
+          >
+            Dodaj nieruchomość
+          </button>
+        )}
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      {/* HEADER */}
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <h2 className="text-2xl font-bold">Nieruchomości</h2>
-        <button
-          onClick={onAddProperty}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg"
-        >
-          Dodaj nieruchomość
-        </button>
+
+        {can(activeRole, "properties", "create") && (
+          <button
+            onClick={onAddProperty}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+          >
+            Dodaj nieruchomość
+          </button>
+        )}
       </div>
 
+      {/* GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {properties.map((p) => {
           const isOccupied = p.status === "Wynajęte";
@@ -96,10 +111,12 @@ export default function Properties({
               className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-xl"
             >
               <Card className="relative hover:shadow-md transition-shadow">
+                {/* IMAGE */}
                 <div className="h-32 bg-slate-100 flex items-center justify-center">
                   <Home size={40} className="text-slate-300" />
                 </div>
 
+                {/* CONTENT */}
                 <div className="p-5">
                   <h3 className="font-semibold">{p.address}</h3>
                   <p className="text-sm text-slate-500">
@@ -128,37 +145,42 @@ export default function Properties({
 
                 {/* ACTIONS */}
                 <div className="absolute top-3 right-3 flex gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onEditProperty(p);
-                    }}
-                    className="p-1 bg-white rounded hover:bg-slate-100"
-                  >
-                    <Pencil size={16} />
-                  </button>
+                  {can(activeRole, "properties", "update") && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onEditProperty(p);
+                      }}
+                      className="p-1 bg-white rounded hover:bg-slate-100"
+                      title="Edytuj nieruchomość"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                  )}
 
-                  <button
-                    disabled={isOccupied}
-                    title={
-                      isOccupied
-                        ? "Usuń przypisanie najemcy przed usunięciem nieruchomości"
-                        : "Usuń nieruchomość"
-                    }
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onDeleteProperty(p.id);
-                    }}
-                    className={`p-1 rounded ${
-                      isOccupied
-                        ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                        : "bg-white hover:bg-slate-100"
-                    }`}
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  {can(activeRole, "properties", "delete") && (
+                    <button
+                      disabled={isOccupied}
+                      title={
+                        isOccupied
+                          ? "Usuń przypisanie najemcy przed usunięciem nieruchomości"
+                          : "Usuń nieruchomość"
+                      }
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onDeleteProperty(p.id);
+                      }}
+                      className={`p-1 rounded ${
+                        isOccupied
+                          ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                          : "bg-white hover:bg-slate-100"
+                      }`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
               </Card>
             </Link>

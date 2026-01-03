@@ -22,7 +22,7 @@ export function AccountProvider({ children }) {
   useEffect(() => {
     if (authLoading) return;
 
-    // 🔒 Logout / unauthenticated
+    // 🔒 Logged out
     if (!user) {
       setAccounts([]);
       setActiveAccountId(null);
@@ -39,12 +39,10 @@ export function AccountProvider({ children }) {
       const { data: memberships, error } = await supabase
         .from("account_members")
         .select(`
-          account_id,
           role,
           accounts (
             id,
-            name,
-            created_at
+            name
           )
         `)
         .eq("user_id", user.id);
@@ -55,32 +53,28 @@ export function AccountProvider({ children }) {
         return;
       }
 
-      // ✅ USER HAS ACCOUNTS
-      if (memberships.length > 0) {
-        if (cancelled) return;
+      if (cancelled) return;
 
+      // ✅ HAS ACCOUNTS
+      if (memberships.length > 0) {
         const accs = memberships.map((m) => ({
           id: m.accounts.id,
           name: m.accounts.name,
-          role: m.role,
+          role: m.role, // 🔐 SINGLE SOURCE OF TRUTH
         }));
 
         setAccounts(accs);
 
-        // ✅ RESTORE LAST ACTIVE ACCOUNT IF VALID
         const stored = localStorage.getItem("activeAccountId");
         const validStored =
           stored && accs.some((a) => a.id === stored);
 
-        setActiveAccountId(
-          validStored ? stored : accs[0].id
-        );
-
+        setActiveAccountId(validStored ? stored : accs[0].id);
         setAccountLoading(false);
         return;
       }
 
-      // ✅ FIRST ACCOUNT CREATION (edge case)
+      // ✅ FIRST ACCOUNT (edge case)
       const { data: account, error: accountError } = await supabase
         .from("accounts")
         .insert({
@@ -112,7 +106,6 @@ export function AccountProvider({ children }) {
     }
 
     loadAccounts();
-
     return () => {
       cancelled = true;
     };
@@ -147,7 +140,7 @@ export function AccountProvider({ children }) {
   }
 
   /* ======================
-     CONTEXT VALUE
+     CONTEXT
      ====================== */
 
   return (
@@ -157,6 +150,8 @@ export function AccountProvider({ children }) {
         activeAccountId,
         switchAccount,
         accountLoading,
+
+        // 🔐 THIS IS WHAT PERMISSIONS USE
         activeRole,
       }}
     >

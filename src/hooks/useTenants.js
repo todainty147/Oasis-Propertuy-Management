@@ -12,13 +12,15 @@ export function useTenants({ enabled = true } = {}) {
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState(null);
 
+  /* ======================
+     LOAD TENANTS
+     ====================== */
+
   useEffect(() => {
     if (!enabled || !activeAccountId) {
       setLoading(false);
       return;
     }
-
-    let channel;
 
     async function loadTenants() {
       setLoading(true);
@@ -50,7 +52,6 @@ export function useTenants({ enabled = true } = {}) {
           createdAt: t.created_at,
         }));
 
-        // ✅ TENANT SWITCH FILTER (THE MISSING PIECE)
         setTenants(
           activeTenantId
             ? mapped.filter((t) => t.id === activeTenantId)
@@ -62,25 +63,44 @@ export function useTenants({ enabled = true } = {}) {
     }
 
     loadTenants();
-
-    channel = supabase
-      .channel("tenants-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "tenants",
-          filter: `account_id=eq.${activeAccountId}`,
-        },
-        loadTenants
-      )
-      .subscribe();
-
-    return () => {
-      if (channel) supabase.removeChannel(channel);
-    };
   }, [enabled, activeAccountId, activeTenantId]);
 
-  return { tenants, loading, error };
+  /* ======================
+     CREATE TENANT ✅
+     ====================== */
+
+  async function createTenant({
+    name,
+    email,
+    phone,
+    propertyId,
+  }) {
+    if (!activeAccountId) {
+      throw new Error("Brak aktywnego konta");
+    }
+
+    const { error } = await supabase.from("tenants").insert({
+      account_id: activeAccountId,
+      name,
+      email,
+      phone,
+      property_id: propertyId,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    // refresh list
+    setTenants((prev) => prev); // optimistic noop
+  }
+
+  return {
+    tenants,
+    loading,
+    error,
+
+    // ✅ MUTATIONS
+    createTenant,
+  };
 }

@@ -1,27 +1,45 @@
-import { useState } from "react";
+// src/components/AddTenantModal.jsx
+import { useState, useEffect } from "react";
 import Card from "./Card";
-import { useAccount } from "../context/AccountContext"; // ✅ MULTI-TENANT
+import { useAccount } from "../context/AccountContext";
 
 export default function AddTenantModal({
-  isOpen,
+  open,            // ✅ STANDARDIZED
   onClose,
-  properties,
+  properties = [],
   onSave,
   tenant,
 }) {
-  const { accountLoading } = useAccount(); // ✅ MULTI-TENANT
+  const { accountLoading } = useAccount();
 
-  const [name, setName] = useState(tenant?.name ?? "");
-  const [phone, setPhone] = useState(tenant?.phone ?? "");
-  const [email, setEmail] = useState(tenant?.email ?? "");
-  const [propertyId, setPropertyId] = useState(
-    tenant?.propertyId ?? ""
-  );
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [propertyId, setPropertyId] = useState("");
 
-  // ✅ MULTI-TENANT SAFETY
-  if (!isOpen || accountLoading) return null;
+  /* ======================
+     SYNC EDIT MODE
+     ====================== */
+  useEffect(() => {
+    if (tenant) {
+      setName(tenant.name ?? "");
+      setPhone(tenant.phone ?? "");
+      setEmail(tenant.email ?? "");
+      setPropertyId(tenant.propertyId ?? "");
+    } else {
+      setName("");
+      setPhone("");
+      setEmail("");
+      setPropertyId("");
+    }
+  }, [tenant, open]);
 
-  const submit = async (e) => {
+  /* ======================
+     GUARD
+     ====================== */
+  if (!open || accountLoading) return null;
+
+  async function submit(e) {
     e.preventDefault();
     if (!name.trim()) return;
 
@@ -34,7 +52,7 @@ export default function AddTenantModal({
     });
 
     onClose();
-  };
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
@@ -43,6 +61,7 @@ export default function AddTenantModal({
           <h3 className="text-lg font-semibold">
             {tenant ? "Edytuj najemcę" : "Dodaj najemcę"}
           </h3>
+
           <button
             onClick={onClose}
             className="text-slate-500 hover:text-slate-700"
@@ -60,6 +79,7 @@ export default function AddTenantModal({
               className="mt-1 w-full border rounded-lg px-3 py-2"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              required
             />
           </div>
 
@@ -70,6 +90,7 @@ export default function AddTenantModal({
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
+
             <input
               className="border rounded-lg px-3 py-2"
               placeholder="Email"
@@ -99,6 +120,7 @@ export default function AddTenantModal({
             >
               Anuluj
             </button>
+
             <button
               type="submit"
               className="px-4 py-2 bg-blue-600 text-white rounded-lg"
