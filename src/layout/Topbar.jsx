@@ -1,10 +1,5 @@
-import {
-  Bell,
-  Search,
-  Building2,
-  Menu,
-  Users,
-} from "lucide-react";
+// src/layout/Topbar.jsx
+import { Bell, Search, Building2, Menu, Users } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { usePageTitle } from "../layout/PageTitleContext";
 
@@ -21,7 +16,7 @@ export default function Topbar({ onMenuClick }) {
   const {
     accounts,
     activeAccountId,
-    setActiveAccountId,
+    switchAccount, // ✅ CORRECT API
   } = useAccount();
 
   /* ======================
@@ -58,18 +53,13 @@ export default function Topbar({ onMenuClick }) {
       <div className="flex items-center gap-3">
         {/* ======================
             ACCOUNT SWITCHER
-            ====================== */}
+           ====================== */}
         {accounts.length > 1 && (
           <div className="hidden lg:flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2">
-            <Building2
-              size={16}
-              className="text-slate-400"
-            />
+            <Building2 size={16} className="text-slate-400" />
             <select
-              value={activeAccountId ?? ""}
-              onChange={(e) =>
-                setActiveAccountId(e.target.value)
-              }
+              value={activeAccountId}
+              onChange={(e) => switchAccount(e.target.value)} // ✅ FIX
               className="text-sm bg-transparent focus:outline-none"
             >
               {accounts.map((a) => (
@@ -83,13 +73,10 @@ export default function Topbar({ onMenuClick }) {
 
         {/* ======================
             TENANT SWITCHER
-            ====================== */}
+           ====================== */}
         {!tenantsLoading && tenants.length > 0 && (
           <div className="hidden lg:flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2">
-            <Users
-              size={16}
-              className="text-slate-400"
-            />
+            <Users size={16} className="text-slate-400" />
             <select
               value={activeTenantId ?? ""}
               onChange={(e) =>
@@ -99,9 +86,7 @@ export default function Topbar({ onMenuClick }) {
               }
               className="text-sm bg-transparent focus:outline-none"
             >
-              <option value="">
-                Wszyscy najemcy
-              </option>
+              <option value="">Wszyscy najemcy</option>
               {tenants.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}

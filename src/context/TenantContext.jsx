@@ -1,7 +1,9 @@
+// src/context/TenantContext.jsx
 import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -15,6 +17,7 @@ const TenantContext = createContext(null);
 
 export function TenantProvider({ children }) {
   const { activeAccountId } = useAccount();
+
   const [searchParams, setSearchParams] = useSearchParams();
 
   // tenant from URL (?tenant=...)
@@ -25,32 +28,47 @@ export function TenantProvider({ children }) {
     tenantFromUrl ?? null
   );
 
+  // track account changes
+  const prevAccountIdRef = useRef(activeAccountId);
+
+  /* --------------------------------
+     ACCOUNT CHANGE => RESET TENANT
+     -------------------------------- */
+  useEffect(() => {
+    const prev = prevAccountIdRef.current;
+
+    // first render OR no active account yet
+    if (!activeAccountId) {
+      prevAccountIdRef.current = activeAccountId;
+      return;
+    }
+
+    // account switched
+    if (prev && prev !== activeAccountId) {
+      // clear state
+      setActiveTenantIdState(null);
+
+      // clear URL param
+      const params = new URLSearchParams(searchParams);
+      params.delete("tenant");
+      setSearchParams(params, { replace: true });
+    }
+
+    prevAccountIdRef.current = activeAccountId;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAccountId]);
+
   /* ---------- URL → STATE ---------- */
   useEffect(() => {
     setActiveTenantIdState(tenantFromUrl ?? null);
   }, [tenantFromUrl]);
 
-  /* ---------- ACCOUNT CHANGE → RESET ---------- */
-  useEffect(() => {
-    // when account switches, clear tenant filter
-    const params = new URLSearchParams(searchParams);
-    if (params.has("tenant")) {
-      params.delete("tenant");
-      setSearchParams(params, { replace: true });
-    }
-    setActiveTenantIdState(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeAccountId]);
-
   /* ---------- STATE → URL ---------- */
   function setActiveTenantId(id) {
     const params = new URLSearchParams(searchParams);
 
-    if (id) {
-      params.set("tenant", id);
-    } else {
-      params.delete("tenant");
-    }
+    if (id) params.set("tenant", id);
+    else params.delete("tenant");
 
     setSearchParams(params, { replace: true });
   }
@@ -79,9 +97,7 @@ export function TenantProvider({ children }) {
 export function useTenant() {
   const ctx = useContext(TenantContext);
   if (!ctx) {
-    throw new Error(
-      "useTenant must be used inside <TenantProvider>"
-    );
+    throw new Error("useTenant must be used inside <TenantProvider>");
   }
   return ctx;
 }
