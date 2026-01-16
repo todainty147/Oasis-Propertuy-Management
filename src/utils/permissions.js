@@ -1,13 +1,13 @@
-/* ============================================================
-   ROLE → RESOURCE → ACTION CAPABILITIES (SOURCE OF TRUTH)
-   ============================================================ */
+/* ======================
+   ROLE CAPABILITIES
+   ====================== */
 
 export const ROLE_CAPABILITIES = {
   owner: {
     properties: ["read", "create", "update", "delete"],
     tenants: ["read", "create", "update", "delete"],
     documents: ["read", "upload", "tag", "delete"],
-    finance: ["read", "create", "delete"],
+    finance: ["read", "create", "update", "delete"],
     users: ["invite", "role"],
   },
 
@@ -15,52 +15,47 @@ export const ROLE_CAPABILITIES = {
     properties: ["read", "create", "update"],
     tenants: ["read", "create", "update"],
     documents: ["read", "upload", "tag"],
-    finance: ["read", "create"],
+    finance: ["read", "create", "update"], // ✅ read-only delete for admin (if you want owner-only delete)
     users: [],
   },
 
   staff: {
     properties: ["read"],
     tenants: ["read"],
-    documents: ["read"], // upload intentionally blocked here
-    finance: [],
+    documents: ["read"], // (upload handled by legacy helper below, if you still want)
+    finance: ["read"], // ✅ STAFF READ-ONLY FINANCE
     users: [],
   },
 };
 
-/* ============================================================
-   GENERIC PERMISSION CHECK (USE THIS EVERYWHERE GOING FORWARD)
-   ============================================================ */
+/* ======================
+   GENERIC PERMISSION CHECK
+   ====================== */
 
 export function can(role, resource, action) {
   if (!role) return false;
-
-  return (
-    ROLE_CAPABILITIES[role]?.[resource]?.includes(action) ?? false
-  );
+  return ROLE_CAPABILITIES[role]?.[resource]?.includes(action) ?? false;
 }
 
 /* ============================================================
-   🔒 LEGACY HELPERS (BACKWARD COMPATIBLE WRAPPERS)
-   DO NOT REMOVE — USED IN EXISTING PAGES
+   LEGACY HELPERS (BACKWARD COMPATIBLE)
+   Keep these because they are used around the app.
+   They now delegate to can() so logic isn't duplicated.
    ============================================================ */
 
-/* ---------- DOCUMENTS ---------- */
-
 export function canUploadDocument(role) {
-  // staff upload intentionally allowed (current app behavior)
+  // If you still want staff to upload docs, keep this:
   return can(role, "documents", "upload") || role === "staff";
 }
 
 export function canEditDocument({ role }) {
+  // "tag" is your metadata/edit permission in the matrix
   return can(role, "documents", "tag");
 }
 
 export function canDeleteDocument({ role }) {
   return can(role, "documents", "delete");
 }
-
-/* ---------- TENANTS ---------- */
 
 export function canCreateTenant(role) {
   return can(role, "tenants", "create");

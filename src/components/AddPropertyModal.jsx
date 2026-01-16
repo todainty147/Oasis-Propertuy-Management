@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useAccount } from "../context/AccountContext"; // ✅ MULTI-TENANT
+import { useAccount } from "../context/AccountContext";
+import Card from "./Card";
 
 export default function AddPropertyModal({
   isOpen,
@@ -9,7 +10,7 @@ export default function AddPropertyModal({
   tenants = [],
   owners = [],
 }) {
-  const { accountLoading } = useAccount(); // ✅ MULTI-TENANT
+  const { accountLoading } = useAccount();
 
   const [form, setForm] = useState({
     address: "",
@@ -20,6 +21,9 @@ export default function AddPropertyModal({
     ownerId: "",
   });
 
+  /* ======================
+     INIT FORM
+     ====================== */
   useEffect(() => {
     if (property) {
       setForm({
@@ -42,10 +46,15 @@ export default function AddPropertyModal({
     }
   }, [property, owners]);
 
-  // ✅ MULTI-TENANT SAFETY
+  /* ======================
+     SAFETY
+     ====================== */
   if (!isOpen || accountLoading) return null;
 
-  const handleSubmit = (e) => {
+  /* ======================
+     SUBMIT
+     ====================== */
+  function handleSubmit(e) {
     e.preventDefault();
 
     onSave({
@@ -54,24 +63,39 @@ export default function AddPropertyModal({
       city: form.city.trim(),
       size: form.size.trim(),
       rent: Number(form.rent),
-      tenantId: form.tenantId === "" ? null : Number(form.tenantId),
+      tenantId: form.tenantId || null,
       ownerId: form.ownerId,
-      // ⚠️ status is derived elsewhere (Option A), but keep for safety
       status: form.tenantId ? "Wynajęte" : "Wolne",
     });
 
     onClose();
-  };
+  }
 
+  /* ======================
+     TENANT SELECT RULES
+     ====================== */
+  function isTenantDisabled(tenant) {
+    // Tenant is already assigned to another property
+    if (!tenant.propertyId) return false;
+
+    // Allow if editing AND tenant is already assigned to THIS property
+    if (property && tenant.propertyId === property.id) return false;
+
+    return true;
+  }
+
+  /* ======================
+     RENDER
+     ====================== */
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-        <h2 className="text-xl font-bold text-slate-900 mb-4">
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md p-6">
+        <h2 className="text-xl font-bold mb-4">
           {property ? "Edytuj nieruchomość" : "Dodaj nieruchomość"}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* OWNER */}
+          {/* OWNER (legacy but preserved) */}
           <div>
             <label className="block text-sm font-medium mb-1">
               Właściciel
@@ -134,7 +158,7 @@ export default function AddPropertyModal({
             }
           />
 
-          {/* TENANT — only when editing */}
+          {/* TENANT (EDIT MODE ONLY) */}
           {property && (
             <div>
               <label className="block text-sm font-medium mb-1">
@@ -142,16 +166,15 @@ export default function AddPropertyModal({
               </label>
               <select
                 className="w-full border rounded-lg px-3 py-2"
-                value={form.tenantId}
+                value={form.tenantId ?? ""}
                 onChange={(e) =>
                   setForm({ ...form, tenantId: e.target.value })
                 }
               >
                 <option value="">— Brak najemcy —</option>
+
                 {tenants.map((t) => {
-                  const disabled =
-                    t.ownerId !== form.ownerId ||
-                    (t.propertyId && t.propertyId !== property.id);
+                  const disabled = isTenantDisabled(t);
 
                   return (
                     <option
@@ -161,9 +184,7 @@ export default function AddPropertyModal({
                     >
                       {t.name}
                       {disabled
-                        ? t.ownerId !== form.ownerId
-                          ? " (inny właściciel)"
-                          : " (wynajmuje inną nieruchomość)"
+                        ? " (wynajmuje inną nieruchomość)"
                         : ""}
                     </option>
                   );
@@ -188,7 +209,7 @@ export default function AddPropertyModal({
             </button>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

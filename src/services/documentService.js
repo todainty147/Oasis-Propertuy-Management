@@ -17,22 +17,6 @@ export const ALLOWED_MIME_TYPES = [
 ];
 
 /* ======================
-   UUID (SAFE FALLBACK)
-   ====================== */
-
-function generateUUID() {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
-/* ======================
    HELPERS
    ====================== */
 
@@ -43,14 +27,22 @@ function sanitizeFilename(name) {
 }
 
 /* ======================
-   UPLOAD DOCUMENT
+   UPLOAD DOCUMENT (AUTHORITATIVE)
    ====================== */
 
+/**
+ * Uploads a document using the ONLY allowed flow:
+ * 1) create_document_stub() RPC
+ * 2) upload file to storage using returned storage_path
+ * 3) update metadata (property, tenant, tags, mime, size)
+ *
+ * Public API intentionally unchanged.
+ */
 export async function uploadDocument({
   file,
   accountId,           // ✅ REQUIRED
-  propertyId = null,   // optional
-  tenantId = null,     // optional
+  propertyId = null,
+  tenantId = null,
   tags = [],
 }) {
   if (!accountId) {
@@ -69,44 +61,63 @@ export async function uploadDocument({
     throw new Error("Plik jest za duży (max 10MB)");
   }
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  const safeFilename = sanitizeFilename(file.name);
 
-  if (userError || !user) {
-    throw new Error("Brak zalogowanego użytkownika");
+  /* ======================
+     1️⃣ CREATE DOCUMENT STUB (RPC)
+     ====================== */
+
+  const { data: stubData, error: stubError } =
+    await supabase.rpc("create_document_stub", {
+      p_account_id: accountId,
+      p_filename: safeFilename,
+    });
+
+  if (stubError || !stubData?.length) {
+    throw new Error(
+      stubError?.message ?? "Nie udało się utworzyć dokumentu"
+    );
   }
 
-  const safeName = sanitizeFilename(file.name);
-  const storagePath = `${accountId}/${generateUUID()}-${safeName}`;
+  const { document_id, storage_path } = stubData[0];
+
+  /* ======================
+     2️⃣ UPLOAD FILE TO STORAGE
+     ====================== */
 
   const { error: uploadError } = await supabase.storage
     .from("documents")
-    .upload(storagePath, file);
+    .upload(storage_path, file);
 
-  if (uploadError) throw uploadError;
+  if (uploadError) {
+    // Important: if upload fails, the stub remains.
+    // This is acceptable and auditable; cleanup can be added later.
+    throw uploadError;
+  }
 
-  const { data, error } = await supabase
+  /* ======================
+     3️⃣ UPDATE METADATA
+     ====================== */
+
+  const { data: updatedDoc, error: updateError } = await supabase
     .from("documents")
-    .insert({
-      account_id: accountId,     // ✅ multi-tenant root
-      uploaded_by: user.id,
-      owner_id: user.id,         // legacy / RLS compatibility
+    .update({
       property_id: propertyId,
       tenant_id: tenantId,
       name: file.name,
-      storage_path: storagePath,
       mime_type: file.type,
       size_bytes: file.size,
       tags,
     })
+    .eq("id", document_id)
     .select()
     .single();
 
-  if (error) throw error;
+  if (updateError) {
+    throw updateError;
+  }
 
-  return data;
+  return updatedDoc;
 }
 
 /* ======================
@@ -131,11 +142,9 @@ export async function fetchDocuments({
     query = query.eq("property_id", propertyId);
   }
 
-  // ✅ TENANT SWITCHER FIX
+  // Tenant switcher logic (intentional)
   if (tenantId) {
-    query = query.or(
-      `tenant_id.eq.${tenantId},tenant_id.is.null`
-    );
+    query = query.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
   }
 
   if (tag) {
@@ -179,11 +188,8 @@ export async function searchDocuments({
     q = q.eq("property_id", propertyId);
   }
 
-  // ✅ TENANT SWITCHER FIX
   if (tenantId) {
-    q = q.or(
-      `tenant_id.eq.${tenantId},tenant_id.is.null`
-    );
+    q = q.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
   }
 
   const { data, error } = await q;
@@ -263,12 +269,14 @@ export async function deleteDocument({ id, storagePath }) {
     throw new Error("Nieprawidłowy dokument");
   }
 
+  // Storage first (RLS-enforced)
   const { error: storageError } = await supabase.storage
     .from("documents")
     .remove([storagePath]);
 
   if (storageError) throw storageError;
 
+  // Then DB
   const { error: dbError } = await supabase
     .from("documents")
     .delete()

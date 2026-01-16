@@ -126,6 +126,12 @@ async function loadAll() {
         );
 
   /* ---------- UPLOAD ---------- */
+   // IMPORTANT:
+  // uploadDocument() MUST:
+ // 1) create document stub via RPC
+// 2) upload file to storage using returned storage_path
+// Do NOT bypass this flow.
+
   async function handleUpload(e) {
     const file = e.target.files?.[0];
     if (!file || !activeAccountId) return; // ✅ MULTI-TENANT

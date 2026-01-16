@@ -1,11 +1,9 @@
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
-import { Home, Pencil, Trash2 } from "lucide-react";
-
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Skeleton from "../components/ui/Skeleton";
-
+import { Home, Pencil, Trash2 } from "lucide-react";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { can } from "../utils/permissions";
@@ -17,13 +15,11 @@ import { can } from "../utils/permissions";
 function PropertiesSkeleton() {
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-10 w-40" />
       </div>
 
-      {/* Cards grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {Array.from({ length: 6 }).map((_, i) => (
           <Skeleton key={i} className="h-[280px]" />
@@ -45,22 +41,35 @@ export default function Properties({
   onEditProperty,
   onDeleteProperty,
 }) {
-  /* ---------- PAGE TITLE ---------- */
   const { setTitle } = usePageTitle();
-
-  /* ---------- ACCOUNT / ROLE ---------- */
-  const { activeRole } = useAccount();
+  const { accountLoading, activeRole } = useAccount();
 
   useEffect(() => {
     setTitle("Nieruchomości");
   }, [setTitle]);
 
-  /* ---------- LOADING ---------- */
-  if (loading) {
+  if (loading || accountLoading) {
     return <PropertiesSkeleton />;
   }
 
-  /* ---------- EMPTY ---------- */
+  /* 🔒 READ ACCESS */
+  if (!can(activeRole, "properties", "read")) {
+    return (
+      <div className="bg-white border rounded-xl p-6">
+        <h2 className="text-lg font-semibold text-slate-900">
+          Brak dostępu
+        </h2>
+        <p className="text-sm text-slate-600 mt-1">
+          Nie masz uprawnień do przeglądania nieruchomości.
+        </p>
+      </div>
+    );
+  }
+
+  const canCreate = can(activeRole, "properties", "create");
+  const canUpdate = can(activeRole, "properties", "update");
+  const canDelete = can(activeRole, "properties", "delete");
+
   if (properties.length === 0) {
     return (
       <div className="text-center py-20">
@@ -71,7 +80,7 @@ export default function Properties({
           Dodaj swoją pierwszą nieruchomość
         </p>
 
-        {can(activeRole, "properties", "create") && (
+        {canCreate && (
           <button
             onClick={onAddProperty}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
@@ -89,7 +98,7 @@ export default function Properties({
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <h2 className="text-2xl font-bold">Nieruchomości</h2>
 
-        {can(activeRole, "properties", "create") && (
+        {canCreate && (
           <button
             onClick={onAddProperty}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg"
@@ -102,7 +111,13 @@ export default function Properties({
       {/* GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {properties.map((p) => {
-          const isOccupied = p.status === "Wynajęte";
+          // ✅ SINGLE SOURCE OF TRUTH
+          const tenant = tenants.find(
+            (t) => t.propertyId === p.id
+          );
+
+          const isOccupied = Boolean(tenant);
+          const statusLabel = isOccupied ? "Wynajęte" : "Wolne";
 
           return (
             <Link
@@ -111,12 +126,10 @@ export default function Properties({
               className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-xl"
             >
               <Card className="relative hover:shadow-md transition-shadow">
-                {/* IMAGE */}
                 <div className="h-32 bg-slate-100 flex items-center justify-center">
                   <Home size={40} className="text-slate-300" />
                 </div>
 
-                {/* CONTENT */}
                 <div className="p-5">
                   <h3 className="font-semibold">{p.address}</h3>
                   <p className="text-sm text-slate-500">
@@ -132,61 +145,66 @@ export default function Properties({
 
                   <div className="mt-2 flex justify-between text-sm">
                     <span>Najemca</span>
-                    <span>
-                      {p.status === "Wynajęte" ? "Wynajęte" : "Brak"}
-                    </span>
+                    <span>{tenant ? tenant.name : "Brak"}</span>
                   </div>
                 </div>
 
                 {/* STATUS */}
                 <div className="absolute top-3 left-3">
-                  <Badge status={p.status} />
+                  <Badge status={statusLabel} />
                 </div>
 
                 {/* ACTIONS */}
-                <div className="absolute top-3 right-3 flex gap-2">
-                  {can(activeRole, "properties", "update") && (
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onEditProperty(p);
-                      }}
-                      className="p-1 bg-white rounded hover:bg-slate-100"
-                      title="Edytuj nieruchomość"
-                    >
-                      <Pencil size={16} />
-                    </button>
-                  )}
+                {(canUpdate || canDelete) && (
+                  <div className="absolute top-3 right-3 flex gap-2">
+                    {canUpdate && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onEditProperty(p);
+                        }}
+                        className="p-1 bg-white rounded hover:bg-slate-100"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                    )}
 
-                  {can(activeRole, "properties", "delete") && (
-                    <button
-                      disabled={isOccupied}
-                      title={
-                        isOccupied
-                          ? "Usuń przypisanie najemcy przed usunięciem nieruchomości"
-                          : "Usuń nieruchomość"
-                      }
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onDeleteProperty(p.id);
-                      }}
-                      className={`p-1 rounded ${
-                        isOccupied
-                          ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                          : "bg-white hover:bg-slate-100"
-                      }`}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  )}
-                </div>
+                    {canDelete && (
+                      <button
+                        disabled={isOccupied}
+                        title={
+                          isOccupied
+                            ? "Usuń przypisanie najemcy przed usunięciem nieruchomości"
+                            : "Usuń nieruchomość"
+                        }
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onDeleteProperty(p.id);
+                        }}
+                        className={`p-1 rounded ${
+                          isOccupied
+                            ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                            : "bg-white hover:bg-slate-100"
+                        }`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                )}
               </Card>
             </Link>
           );
         })}
       </div>
+
+      {!canCreate && (
+        <p className="text-xs text-slate-500">
+          Tryb tylko do odczytu
+        </p>
+      )}
     </div>
   );
 }

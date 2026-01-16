@@ -4,7 +4,7 @@ import Card from "./Card";
 import { useAccount } from "../context/AccountContext";
 
 export default function AddTenantModal({
-  open,            // ✅ STANDARDIZED
+  open,
   onClose,
   properties = [],
   onSave,
@@ -38,6 +38,20 @@ export default function AddTenantModal({
      GUARD
      ====================== */
   if (!open || accountLoading) return null;
+
+  /* ======================
+     PROPERTY RULES
+     ====================== */
+  function isPropertyDisabled(property) {
+    // Free property
+    if (!property.tenant_id) return false;
+
+    // Editing: allow if already assigned to THIS tenant
+    if (tenant && property.tenant_id === tenant.id) return false;
+
+    // Otherwise: occupied
+    return true;
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -99,18 +113,35 @@ export default function AddTenantModal({
             />
           </div>
 
-          <select
-            className="border rounded-lg px-3 py-2 w-full"
-            value={propertyId}
-            onChange={(e) => setPropertyId(e.target.value)}
-          >
-            <option value="">Brak przypisania</option>
-            {properties.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.address} ({p.city})
-              </option>
-            ))}
-          </select>
+          {/* PROPERTY SELECT */}
+          <div>
+            <label className="text-sm text-slate-600">
+              Przypisana nieruchomość
+            </label>
+
+            <select
+              className="mt-1 w-full border rounded-lg px-3 py-2"
+              value={propertyId}
+              onChange={(e) => setPropertyId(e.target.value)}
+            >
+              <option value="">Brak przypisania</option>
+
+              {properties.map((p) => {
+                const disabled = isPropertyDisabled(p);
+
+                return (
+                  <option
+                    key={p.id}
+                    value={p.id}
+                    disabled={disabled}
+                  >
+                    {p.address} ({p.city})
+                    {disabled ? " (wynajęta)" : ""}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <button
