@@ -2,23 +2,64 @@
    AGGREGATES (used by Finance dashboard)
    ====================================================== */
 
+function toDate(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * We treat "paid" as:
+ * - paidAt is set (most reliable), OR
+ * - status is one of: 'paid' or legacy 'Opłacone'
+ */
+function isPaid(p) {
+  if (!p) return false;
+  if (p.paidAt) return true;
+  const s = String(p.status ?? "").toLowerCase();
+  return s === "paid" || p.status === "Opłacone";
+}
+
+/**
+ * Overdue:
+ * - not paid
+ * - dueDate exists and is before today
+ * - OR status is 'overdue' / legacy 'Zaległe'
+ */
+function isOverdue(p) {
+  if (!p) return false;
+  if (isPaid(p)) return false;
+
+  const s = String(p.status ?? "").toLowerCase();
+  if (s === "overdue" || p.status === "Zaległe") return true;
+
+  const due = toDate(p.dueDate);
+  if (!due) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+
+  return due < today;
+}
+
 export function sumPaid(payments = []) {
   return payments
-    .filter((p) => p.status === "Opłacone")
+    .filter(isPaid)
     .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 }
 
 export function sumOverdue(payments = []) {
   return payments
-    .filter((p) => p.status === "Zaległe")
+    .filter(isOverdue)
     .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 }
 
 export function sumExpected(payments = []) {
-  return payments.reduce(
-    (sum, p) => sum + Number(p.amount || 0),
-    0
-  );
+  // Expected = unpaid (includes due + overdue)
+  return payments
+    .filter((p) => !isPaid(p))
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 }
 
 /* ======================================================
@@ -32,17 +73,17 @@ export function calculateMonthlyBalance({
   month, // 0-based (JS Date)
 }) {
   const paid = payments
-    .filter(
-      (p) =>
-        p.status === "Opłacone" &&
-        p.paidAt &&
-        new Date(p.paidAt).getFullYear() === year &&
-        new Date(p.paidAt).getMonth() === month
-    )
+    .filter((p) => {
+      if (!isPaid(p)) return false;
+      const paidAt = toDate(p.paidAt);
+      if (!paidAt) return false;
+      return paidAt.getFullYear() === year && paidAt.getMonth() === month;
+    })
     .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-  const remaining = Math.max(rent - paid, 0);
+  const remaining = Math.max(Number(rent || 0) - paid, 0);
 
+  // Keep your existing Polish labels (so UI doesn’t change)
   let status = "Zaległe";
   if (paid === 0) status = "Zaległe";
   else if (paid < rent) status = "Częściowo";
@@ -66,13 +107,12 @@ export function calculatePropertyFinance({
 }) {
   const rent = Number(property?.rent) || 0;
 
-  const { paid, remaining, status } =
-    calculateMonthlyBalance({
-      rent,
-      payments,
-      year: date.getFullYear(),
-      month: date.getMonth(),
-    });
+  const { paid, remaining, status } = calculateMonthlyBalance({
+    rent,
+    payments,
+    year: date.getFullYear(),
+    month: date.getMonth(),
+  });
 
   return {
     propertyId: property.id,

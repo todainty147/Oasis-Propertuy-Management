@@ -26,7 +26,8 @@ export function usePayments({ enabled = true } = {}) {
 
       const { data, error } = await supabase
         .from("payments")
-        .select(`
+        .select(
+          `
           id,
           amount,
           status,
@@ -36,33 +37,34 @@ export function usePayments({ enabled = true } = {}) {
           property_id,
           tenants ( name ),
           properties ( address )
-        `)
+        `
+        )
         .eq("account_id", activeAccountId)
         .order("due_date", { ascending: false });
 
       if (error) {
         setError(error);
         setPayments([]);
-      } else {
-        const mapped = data.map((p) => ({
-          id: p.id,
-          amount: Number(p.amount),
-          status: p.status,
-          dueDate: p.due_date,
-          paidAt: p.paid_at,
-          tenantId: p.tenant_id,
-          propertyId: p.property_id,
-          tenantName: p.tenants?.name ?? "—",
-          propertyAddress: p.properties?.address ?? "—",
-        }));
-
-        // ✅ TENANT SWITCH FILTER
-        setPayments(
-          activeTenantId
-            ? mapped.filter((p) => p.tenantId === activeTenantId)
-            : mapped
-        );
+        setLoading(false);
+        return;
       }
+
+      const mapped = (data ?? []).map((p) => ({
+        id: p.id,
+        amount: Number(p.amount ?? 0),
+        status: p.status, // DB status (paid/due/overdue/void) OR legacy labels
+        dueDate: p.due_date, // keep as ISO string/date
+        paidAt: p.paid_at, // keep as ISO string/date
+        tenantId: p.tenant_id,
+        propertyId: p.property_id,
+        tenantName: p.tenants?.name ?? "—",
+        propertyAddress: p.properties?.address ?? "—",
+      }));
+
+      // ✅ TENANT SWITCH FILTER (unchanged behavior)
+      setPayments(
+        activeTenantId ? mapped.filter((p) => p.tenantId === activeTenantId) : mapped
+      );
 
       setLoading(false);
     }

@@ -7,10 +7,23 @@ import { useSession } from "./hooks/useSession";
 import { useProperties } from "./hooks/useProperties";
 import { usePayments } from "./hooks/usePayments";
 import { useTenants } from "./hooks/useTenants";
+import TenantPayments from "./pages/TenantPayments";
 
-import { createTenant, updateTenant, deleteTenant } from "./services/tenantService";
-import { createPayment, updatePayment, deletePayment } from "./services/paymentService";
-import { createProperty, updateProperty, deleteProperty } from "./services/propertyService";
+import {
+  createTenant,
+  updateTenant,
+  deleteTenant,
+} from "./services/tenantService";
+import {
+  createPayment,
+  updatePayment,
+  deletePayment,
+} from "./services/paymentService";
+import {
+  createProperty,
+  updateProperty,
+  deleteProperty,
+} from "./services/propertyService";
 
 // IMPORTANT: use searchDocuments so we can scope by accountId
 import { searchDocuments } from "./services/documentService";
@@ -34,7 +47,10 @@ import Documents from "./pages/Documents";
 import AddPropertyModal from "./components/AddPropertyModal";
 import AddTenantModal from "./components/AddTenantModal";
 import AddPaymentModal from "./components/AddPaymentModal";
+
+// NOTE: FinancePage route was duplicated/conflicting with "finance"
 import FinancePage from "./pages/FinancePage";
+
 import { useAccount } from "./context/AccountContext";
 
 export default function App() {
@@ -53,14 +69,22 @@ export default function App() {
      ====================== */
   // NOTE: These hooks should already be scoped by RLS (account_id policies).
   // If your hooks still fetch by owner_id, we will adjust them later.
-  const { properties, loading: propertiesLoading, error: propertiesError } =
-    useProperties({ enabled: !!session,accountId: activeAccountId });
+  const {
+    properties,
+    loading: propertiesLoading,
+    error: propertiesError,
+  } = useProperties({ enabled: !!session, accountId: activeAccountId });
 
-  const { payments, loading: paymentsLoading, error: paymentsError } =
-    usePayments({ enabled: !!session,accountId: activeAccountId });
+  const {
+    payments,
+    loading: paymentsLoading,
+    error: paymentsError,
+  } = usePayments({ enabled: !!session, accountId: activeAccountId });
 
-  const { tenants, loading: tenantsLoading, error: tenantsError } =
-    useTenants({ enabled: !!session, accountId: activeAccountId });
+  const { tenants, loading: tenantsLoading, error: tenantsError } = useTenants({
+    enabled: !!session,
+    accountId: activeAccountId,
+  });
 
   /* ======================
      UI STATE
@@ -85,14 +109,13 @@ export default function App() {
 
     setDocumentsLoading(true);
     try {
-      // ✅ account scoped. Requires your documents RLS to enforce account_id.
-      // Also requires documents table to have account_id populated.
       const data = await searchDocuments({
         query: "",
         tags: [],
         tenantId: null,
         propertyId: null,
         accountId: activeAccountId,
+        // onlyUploaded defaults to true in your newer service
       });
 
       setDocuments(data);
@@ -164,7 +187,9 @@ export default function App() {
      ====================== */
 
   const ownerProperties = properties.map((p) => {
-    const isOccupied = tenants.some((t) => String(t.propertyId) === String(p.id));
+    const isOccupied = tenants.some(
+      (t) => String(t.propertyId) === String(p.id)
+    );
     return {
       ...p,
       status: isOccupied ? "Wynajęte" : "Wolne",
@@ -178,7 +203,9 @@ export default function App() {
     ownerPropertyIds.includes(p.propertyId)
   );
 
-  const occupiedCount = ownerProperties.filter((p) => p.status === "Wynajęte").length;
+  const occupiedCount = ownerProperties.filter(
+    (p) => p.status === "Wynajęte"
+  ).length;
   const vacantCount = ownerProperties.length - occupiedCount;
 
   const occupancyRate =
@@ -220,7 +247,9 @@ export default function App() {
   const propertyFinance = ownerProperties.map((property) => {
     const finance = calculatePropertyFinance({
       property,
-      payments: ownerPayments.filter((p) => String(p.propertyId) === String(property.id)),
+      payments: ownerPayments.filter(
+        (p) => String(p.propertyId) === String(property.id)
+      ),
     });
 
     return {
@@ -235,223 +264,223 @@ export default function App() {
      ROUTES
      ====================== */
   return (
-    
-      <Routes>
+    <Routes>
+      <Route
+        element={
+          <AppLayout
+            owners={owners}
+            activeOwnerId={activeAccountId}
+            setActiveOwnerId={() => {}}
+          />
+        }
+      >
+        <Route index element={<Navigate to="dashboard" replace />} />
+
         <Route
+          path="dashboard"
           element={
-            <AppLayout
-              owners={owners}
-              activeOwnerId={activeAccountId}
-              setActiveOwnerId={() => {}}
+            <Dashboard
+              loading={propertiesLoading || paymentsLoading || tenantsLoading}
+              properties={ownerProperties}
+              payments={payments}
+              occupiedCount={occupiedCount}
+              vacantCount={vacantCount}
+              occupancyRate={occupancyRate}
+              longVacantCount={longVacantCount}
+              shortVacantCount={shortVacantCount}
+              longVacantProperties={longVacantProperties}
             />
           }
-        >
-          <Route index element={<Navigate to="dashboard" replace />} />
+        />
 
-          <Route
-            path="dashboard"
-            element={
-              <Dashboard
-                loading={propertiesLoading || paymentsLoading || tenantsLoading}
-                properties={ownerProperties}
-                payments={payments}
-                occupiedCount={occupiedCount}
-                vacantCount={vacantCount}
-                occupancyRate={occupancyRate}
-                longVacantCount={longVacantCount}
-                shortVacantCount={shortVacantCount}
-                longVacantProperties={longVacantProperties}
-              />
-            }
-          />
-
-          <Route
-            path="properties"
-            element={
-              <>
-                <Properties
-                  loading={propertiesLoading}
-                  properties={ownerProperties}
-                  tenants={ownerTenants}
-                  onAddProperty={() => {
-                    setEditingProperty(null);
-                    setIsAddPropertyOpen(true);
-                  }}
-                  onEditProperty={(p) => {
-                    setEditingProperty(p);
-                    setIsAddPropertyOpen(true);
-                  }}
-                  onDeleteProperty={async (propertyId) => {
-                    if (!confirm("Usunąć nieruchomość?")) return;
-                    await deleteProperty(propertyId);
-                  }}
-                />
-
-                <AddPropertyModal
-                  isOpen={isAddPropertyOpen}
-                  onClose={() => {
-                    setIsAddPropertyOpen(false);
-                    setEditingProperty(null);
-                  }}
-                  onSave={async (property) => {
-                    const payload = {
-                      ...property,
-                      accountId: activeAccountId, // ✅ CRITICAL
-                    };
-
-                    if (property.id) {
-                      await updateProperty(property.id, payload);
-                    } else {
-                      await createProperty(payload);
-                    }
-
-                    setIsAddPropertyOpen(false);
-                    setEditingProperty(null);
-                  }}
-                  property={editingProperty}
-                  tenants={ownerTenants}
-                  owners={owners}
-                />
-              </>
-            }
-          />
-
-          <Route
-            path="properties/:id"
-            element={
-              <PropertyDetails
-                loading={propertiesLoading || tenantsLoading}
+        <Route
+          path="properties"
+          element={
+            <>
+              <Properties
+                loading={propertiesLoading}
                 properties={ownerProperties}
                 tenants={ownerTenants}
+                onAddProperty={() => {
+                  setEditingProperty(null);
+                  setIsAddPropertyOpen(true);
+                }}
+                onEditProperty={(p) => {
+                  setEditingProperty(p);
+                  setIsAddPropertyOpen(true);
+                }}
+                onDeleteProperty={async (propertyId) => {
+                  if (!confirm("Usunąć nieruchomość?")) return;
+                  await deleteProperty(propertyId);
+                }}
+              />
+
+              <AddPropertyModal
+                isOpen={isAddPropertyOpen}
+                onClose={() => {
+                  setIsAddPropertyOpen(false);
+                  setEditingProperty(null);
+                }}
+                onSave={async (property) => {
+                  const payload = {
+                    ...property,
+                    accountId: activeAccountId, // ✅ CRITICAL
+                  };
+
+                  if (property.id) {
+                    await updateProperty(property.id, payload);
+                  } else {
+                    await createProperty(payload);
+                  }
+
+                  setIsAddPropertyOpen(false);
+                  setEditingProperty(null);
+                }}
+                property={editingProperty}
+                tenants={ownerTenants}
+                owners={owners}
+              />
+            </>
+          }
+        />
+
+        <Route
+          path="properties/:id"
+          element={
+            <PropertyDetails
+              loading={propertiesLoading || tenantsLoading}
+              properties={ownerProperties}
+              tenants={ownerTenants}
+              payments={ownerPayments}
+            />
+          }
+        />
+
+        <Route
+          path="tenants"
+          element={
+            <>
+              <Tenants
+                loading={tenantsLoading}
+                tenants={ownerTenants}
+                properties={ownerProperties}
+                onOpenAddTenant={() => {
+                  setEditingTenant(null);
+                  setIsAddTenantOpen(true);
+                }}
+                onEditTenant={(tenant) => {
+                  setEditingTenant(tenant);
+                  setIsAddTenantOpen(true);
+                }}
+                onDeleteTenant={deleteTenant}
+              />
+
+              <AddTenantModal
+                isOpen={isAddTenantOpen}
+                onClose={() => {
+                  setIsAddTenantOpen(false);
+                  setEditingTenant(null);
+                }}
+                properties={ownerProperties}
+                tenant={editingTenant}
+                onSave={async (data) => {
+                  const payload = {
+                    ...data,
+                    accountId: activeAccountId, // ✅ CRITICAL
+                  };
+
+                  if (data.id) {
+                    await updateTenant(data.id, payload);
+                  } else {
+                    await createTenant(payload);
+                  }
+                }}
+              />
+            </>
+          }
+        />
+
+        <Route
+          path="tenants/:id"
+          element={
+            <TenantDetails
+              loading={tenantsLoading || paymentsLoading}
+              tenants={ownerTenants}
+              properties={ownerProperties}
+              payments={payments}
+            />
+          }
+        />
+
+        {/* ✅ A) Tenant Payments */}
+        <Route path="tenant/payments" element={<TenantPayments />} />
+
+        <Route
+          path="finance"
+          element={
+            <>
+              <Finance
+                loading={paymentsLoading}
+                summary={financeTotals}
                 payments={ownerPayments}
+                propertyFinance={propertyFinance}
+                onAddPayment={() => {
+                  setEditingPayment(null);
+                  setIsAddPaymentOpen(true);
+                }}
+                onDeletePayment={deletePayment}
               />
-            }
-          />
 
-          <Route
-            path="tenants"
-            element={
-              <>
-                <Tenants
-                  loading={tenantsLoading}
-                  tenants={ownerTenants}
-                  properties={ownerProperties}
-                  onOpenAddTenant={() => {
-                    setEditingTenant(null);
-                    setIsAddTenantOpen(true);
-                  }}
-                  onEditTenant={(tenant) => {
-                    setEditingTenant(tenant);
-                    setIsAddTenantOpen(true);
-                  }}
-                  onDeleteTenant={deleteTenant}
-                />
-
-                <AddTenantModal
-                  isOpen={isAddTenantOpen}
-                  onClose={() => {
-                    setIsAddTenantOpen(false);
-                    setEditingTenant(null);
-                  }}
-                  properties={ownerProperties}
-                  tenant={editingTenant}
-                  onSave={async (data) => {
-                    const payload = {
-                      ...data,
-                      accountId: activeAccountId, // ✅ CRITICAL
-                    };
-
-                    if (data.id) {
-                      await updateTenant(data.id, payload);
-                    } else {
-                      await createTenant(payload);
-                    }
-                  }}
-                />
-              </>
-            }
-          />
-
-          <Route
-            path="tenants/:id"
-            element={
-              <TenantDetails
-                loading={tenantsLoading || paymentsLoading}
-                tenants={ownerTenants}
+              <AddPaymentModal
+                isOpen={isAddPaymentOpen}
+                onClose={() => {
+                  setIsAddPaymentOpen(false);
+                  setEditingPayment(null);
+                }}
+                payment={editingPayment}
                 properties={ownerProperties}
-                payments={payments}
+                tenants={ownerTenants}
+                onSave={async (form) => {
+                  // ✅ Align with DB rules:
+                  // - do NOT send status (trigger derives it)
+                  // - paidAt drives "paid"
+                  const paidAt =
+                    form.status === "Opłacone"
+                      ? new Date().toISOString().slice(0, 10)
+                      : null;
+
+                  const payload = {
+                    accountId: activeAccountId, // ✅ CRITICAL
+                    propertyId: form.propertyId,
+                    tenantId: form.tenantId,
+                    amount: Number(form.amount),
+                    dueDate: form.dueDate,
+                    paidAt,
+                  };
+
+                  if (form.id) {
+                    await updatePayment(form.id, payload);
+                  } else {
+                    await createPayment(payload);
+                  }
+                }}
               />
-            }
-          />
+            </>
+          }
+        />
 
-          <Route
-            path="finance"
-            element={
-              <>
-                <Finance
-                  loading={paymentsLoading}
-                  summary={financeTotals}
-                  payments={ownerPayments}
-                  propertyFinance={propertyFinance}
-                  onAddPayment={() => {
-                    setEditingPayment(null);
-                    setIsAddPaymentOpen(true);
-                  }}
-                  onDeletePayment={deletePayment}
-                />
+        {/* ✅ Fix: Documents route was nested incorrectly */}
+        <Route
+          path="documents"
+          element={<Documents tenants={tenants} properties={properties} />}
+        />
 
-                <AddPaymentModal
-                  isOpen={isAddPaymentOpen}
-                  onClose={() => {
-                    setIsAddPaymentOpen(false);
-                    setEditingPayment(null);
-                  }}
-                  payment={editingPayment}
-                  properties={ownerProperties}
-                  tenants={ownerTenants}
-                  onSave={async (form) => {
-                    const payload = {
-                      accountId: activeAccountId, // ✅ CRITICAL
-                      propertyId: form.propertyId,
-                      tenantId: form.tenantId,
-                      amount: Number(form.amount),
-                      status: form.status,
-                      dueDate: form.dueDate,
-                      paidAt:
-                        form.status === "Opłacone"
-                          ? new Date().toISOString().slice(0, 10)
-                          : null,
-                    };
+        <Route path="*" element={<Navigate to="dashboard" replace />} />
 
-                    if (form.id) {
-                      await updatePayment(form.id, payload);
-                    } else {
-                      await createPayment(payload);
-                    }
-                  }}
-                />
-              </>
-            }
-          />
-
-          <Route
-            path="documents"
-  element={
-    <Documents
-    element={<Documents tenants={tenants} properties={properties} />}
-      tenants={tenants}          // ✅ REQUIRED
-      properties={properties} 
-              />
-            }
-          />
-
-          <Route path="*" element={<Navigate to="dashboard" replace />} />
-
-          
-          <Route path="/finance" element={<FinancePage />} />     
-          
-        </Route>
-      </Routes>
-    
+        {/* ✅ Avoid conflict with /finance inside nested routes.
+            Keep FinancePage available but under a different path. */}
+        <Route path="finance-page" element={<FinancePage />} />
+      </Route>
+    </Routes>
   );
 }
