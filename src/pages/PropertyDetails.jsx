@@ -7,6 +7,8 @@ import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { calculatePropertyFinance } from "../utils/finance";
 import PropertyDocumentsSection from "../components/PropertyDocumentsSection";
+import MaintenanceRequestsSection from "../components/MaintenanceRequestsSection"; // ✅ ADDED
+import WorkOrdersSection from "../components/WorkOrdersSection";
 import { useAccount } from "../context/AccountContext";
 
 /* ======================
@@ -50,9 +52,7 @@ export default function PropertyDetails({
   const { accountLoading } = useAccount();
 
   /* ---------- PROPERTY ---------- */
-  const property = properties.find(
-    (p) => String(p.id) === String(id)
-  );
+  const property = properties.find((p) => String(p.id) === String(id));
 
   /* ---------- PAGE TITLE (HOOK ALWAYS RUNS) ---------- */
   useEffect(() => {
@@ -115,9 +115,7 @@ export default function PropertyDetails({
             <h2 className="text-2xl font-bold text-slate-900">
               {property.address}
             </h2>
-            <p className="text-slate-600 mt-1">
-              {property.city}
-            </p>
+            <p className="text-slate-600 mt-1">{property.city}</p>
           </div>
 
           <Badge status={isOccupied ? "Wynajęte" : "Wolne"} />
@@ -149,6 +147,13 @@ export default function PropertyDetails({
 
         {/* ---------- DOCUMENTS ---------- */}
         <PropertyDocumentsSection propertyId={property.id} />
+
+        {/* ✅ NEW: MAINTENANCE REQUESTS (DB-backed) */}
+        <MaintenanceRequestsSection propertyId={property.id} />
+        
+        {/* ✅ NEW: WORK ORDERS (DB-backed) */}
+        <WorkOrdersSection propertyId={property.id} />
+
       </Card>
     </div>
   );
