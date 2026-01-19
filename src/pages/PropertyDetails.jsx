@@ -7,7 +7,7 @@ import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { calculatePropertyFinance } from "../utils/finance";
 import PropertyDocumentsSection from "../components/PropertyDocumentsSection";
-import MaintenanceRequestsSection from "../components/MaintenanceRequestsSection"; // ✅ ADDED
+import MaintenanceRequestsSection from "../components/MaintenanceRequestsSection";
 import WorkOrdersSection from "../components/WorkOrdersSection";
 import { useAccount } from "../context/AccountContext";
 
@@ -49,22 +49,18 @@ export default function PropertyDetails({
   const { id } = useParams();
   const navigate = useNavigate();
   const { setTitle } = usePageTitle();
-  const { accountLoading } = useAccount();
+  const { accountLoading, activeAccountId } = useAccount();
 
   /* ---------- PROPERTY ---------- */
   const property = properties.find((p) => String(p.id) === String(id));
 
   /* ---------- PAGE TITLE (HOOK ALWAYS RUNS) ---------- */
   useEffect(() => {
-    if (property?.address) {
-      setTitle(property.address);
-    }
+    if (property?.address) setTitle(property.address);
   }, [property?.address, setTitle]);
 
   /* ---------- LOADING ---------- */
-  if (loading || accountLoading) {
-    return <PropertyDetailsSkeleton />;
-  }
+  if (loading || accountLoading) return <PropertyDetailsSkeleton />;
 
   /* ---------- NOT FOUND ---------- */
   if (!property) {
@@ -85,7 +81,6 @@ export default function PropertyDetails({
   const propertyTenants = tenants.filter(
     (t) => String(t.propertyId) === String(property.id)
   );
-
   const isOccupied = propertyTenants.length > 0;
 
   /* ---------- PAYMENTS ---------- */
@@ -125,9 +120,7 @@ export default function PropertyDetails({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="p-4 bg-slate-50">
             <p className="text-xs text-slate-500">Czynsz</p>
-            <p className="text-xl font-bold">
-              {finance.rent.toLocaleString()} zł
-            </p>
+            <p className="text-xl font-bold">{finance.rent.toLocaleString()} zł</p>
           </Card>
 
           <Card className="p-4 bg-slate-50">
@@ -146,14 +139,25 @@ export default function PropertyDetails({
         </div>
 
         {/* ---------- DOCUMENTS ---------- */}
-        <PropertyDocumentsSection propertyId={property.id} />
+        <div className="pt-2">
+          <PropertyDocumentsSection propertyId={property.id} />
+        </div>
 
-        {/* ✅ NEW: MAINTENANCE REQUESTS (DB-backed) */}
-        <MaintenanceRequestsSection propertyId={property.id} />
-        
-        {/* ✅ NEW: WORK ORDERS (DB-backed) */}
-        <WorkOrdersSection propertyId={property.id} />
+        {/* ---------- MAINTENANCE ---------- */}
+        <div className="pt-2">
+          <MaintenanceRequestsSection
+            propertyId={property.id}
+            accountId={activeAccountId} // safe optional prop (component may ignore)
+          />
+        </div>
 
+        {/* ---------- WORK ORDERS ---------- */}
+        <div className="pt-2">
+          <WorkOrdersSection
+            propertyId={property.id}
+            accountId={activeAccountId} // safe optional prop (component may ignore)
+          />
+        </div>
       </Card>
     </div>
   );

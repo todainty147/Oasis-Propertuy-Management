@@ -1,5 +1,5 @@
 // src/hooks/useMaintenanceRequests.js
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAccount } from "../context/AccountContext";
 
@@ -7,23 +7,18 @@ export function useMaintenanceRequests({
   enabled = true,
   propertyId = null,
   limit = 50,
+  accountId = null, // ✅ optional override (future-proof)
 } = {}) {
   const { activeAccountId } = useAccount();
+
+  const effectiveAccountId = accountId ?? activeAccountId;
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(Boolean(enabled));
   const [error, setError] = useState(null);
 
-  const filters = useMemo(() => {
-    return {
-      accountId: activeAccountId,
-      propertyId,
-      limit,
-    };
-  }, [activeAccountId, propertyId, limit]);
-
   useEffect(() => {
-    if (!enabled || !filters.accountId) {
+    if (!enabled || !effectiveAccountId) {
       setLoading(false);
       return;
     }
@@ -38,24 +33,24 @@ export function useMaintenanceRequests({
         .from("maintenance_requests")
         .select(
           `
-          id,
-          account_id,
-          property_id,
-          reported_by_tenant_id,
-          title,
-          description,
-          priority,
-          status,
-          created_at,
-          updated_at
-        `
+            id,
+            account_id,
+            property_id,
+            reported_by_tenant_id,
+            title,
+            description,
+            priority,
+            status,
+            created_at,
+            updated_at
+          `
         )
-        .eq("account_id", filters.accountId)
+        .eq("account_id", effectiveAccountId)
         .order("created_at", { ascending: false })
-        .limit(filters.limit);
+        .limit(limit);
 
-      if (filters.propertyId) {
-        q = q.eq("property_id", filters.propertyId);
+      if (propertyId) {
+        q = q.eq("property_id", propertyId);
       }
 
       const { data, error } = await q;
@@ -72,25 +67,31 @@ export function useMaintenanceRequests({
 
     load();
 
-    // Realtime: keep list in sync
+    // ✅ Realtime: narrow scope when propertyId is provided
+    const channelName = `maintenance-requests:${effectiveAccountId}:${propertyId ?? "all"}`;
+
+    const filter = propertyId
+      ? `account_id=eq.${effectiveAccountId}&property_id=eq.${propertyId}`
+      : `account_id=eq.${effectiveAccountId}`;
+
     channel = supabase
-      .channel("maintenance-requests-realtime")
+      .channel(channelName)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "maintenance_requests",
-          filter: `account_id=eq.${filters.accountId}`,
+          filter,
         },
-        () => load()
+        load
       )
       .subscribe();
 
     return () => {
       if (channel) supabase.removeChannel(channel);
     };
-  }, [enabled, filters]);
+  }, [enabled, effectiveAccountId, propertyId, limit]);
 
   return { requests: items, loading, error };
 }

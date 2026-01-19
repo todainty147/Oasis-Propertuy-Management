@@ -37,20 +37,25 @@ function priorityLabel(priority) {
   }
 }
 
-export default function MaintenanceRequestsSection({ propertyId }) {
+export default function MaintenanceRequestsSection({ propertyId, accountId = null }) {
   const { activeAccountId, activeRole } = useAccount();
 
+  // ✅ Prefer prop if provided (useful for debugging / explicit wiring)
+  const effectiveAccountId = accountId ?? activeAccountId;
+
   const { requests, loading, error } = useMaintenanceRequests({
-    enabled: !!activeAccountId && !!propertyId,
+    enabled: !!effectiveAccountId && !!propertyId,
     propertyId,
     limit: 50,
   });
 
-  // Your current DB policy: staff/admin/owner can write
-  const canWrite = useMemo(
-    () => ["owner", "admin", "staff"].includes(String(activeRole || "")),
-    [activeRole]
-  );
+  // ✅ case-insensitive + safe
+  const canWrite = useMemo(() => {
+    const role = String(activeRole ?? "").toLowerCase();
+    return ["owner", "admin", "staff"].includes(role);
+  }, [activeRole]);
+
+  const safeRequests = Array.isArray(requests) ? requests : [];
 
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
@@ -58,17 +63,23 @@ export default function MaintenanceRequestsSection({ propertyId }) {
   const [priority, setPriority] = useState("normal");
 
   async function handleCreate() {
-    if (!activeAccountId || !propertyId) return;
+    if (!effectiveAccountId || !propertyId) return;
+
+    const cleanTitle = title.trim();
+    const cleanDescription = String(description ?? "").trim();
+
+    if (!cleanTitle) return;
 
     try {
       setCreating(true);
       await createMaintenanceRequest({
-        accountId: activeAccountId,
+        accountId: effectiveAccountId,
         propertyId,
-        title,
-        description,
+        title: cleanTitle,
+        description: cleanDescription || null,
         priority,
       });
+
       setTitle("");
       setDescription("");
       setPriority("normal");
@@ -97,9 +108,8 @@ export default function MaintenanceRequestsSection({ propertyId }) {
           </p>
         </div>
 
-        {/* Simple count badge */}
         <div className="text-sm text-slate-600">
-          {requests?.length ?? 0} zgłoszeń
+          {safeRequests.length} zgłoszeń
         </div>
       </div>
 
@@ -111,7 +121,6 @@ export default function MaintenanceRequestsSection({ propertyId }) {
         </div>
       )}
 
-      {/* Create form (staff/admin/owner only for now) */}
       {canWrite && (
         <div className="border rounded-xl bg-white p-4 space-y-3">
           <p className="text-sm font-medium">Dodaj zgłoszenie</p>
@@ -165,7 +174,6 @@ export default function MaintenanceRequestsSection({ propertyId }) {
         </div>
       )}
 
-      {/* List */}
       {loading && (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -174,18 +182,19 @@ export default function MaintenanceRequestsSection({ propertyId }) {
         </div>
       )}
 
-      {!loading && requests.length === 0 && (
+      {!loading && safeRequests.length === 0 && (
         <p className="text-sm text-slate-500">
           Brak zgłoszeń dla tej nieruchomości.
         </p>
       )}
 
-      {!loading && requests.length > 0 && (
+      {!loading && safeRequests.length > 0 && (
         <div className="divide-y border rounded-lg bg-white">
-          {requests.map((r) => (
+          {safeRequests.map((r) => (
             <div key={r.id} className="px-4 py-3 flex gap-4 justify-between">
               <div className="min-w-0">
                 <p className="font-medium truncate">{r.title}</p>
+
                 {r.description && (
                   <p className="text-sm text-slate-600 mt-1 line-clamp-2">
                     {r.description}
@@ -202,7 +211,6 @@ export default function MaintenanceRequestsSection({ propertyId }) {
                 </div>
               </div>
 
-              {/* Quick actions (write roles only) */}
               {canWrite && (
                 <div className="flex flex-col gap-2 text-xs shrink-0">
                   <button
