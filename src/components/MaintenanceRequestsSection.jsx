@@ -4,10 +4,7 @@ import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
 import { useAccount } from "../context/AccountContext";
 import { useMaintenanceRequests } from "../hooks/useMaintenanceRequests";
-import {
-  createMaintenanceRequest,
-  updateMaintenanceRequest,
-} from "../services/maintenanceService";
+import { createMaintenanceRequest, updateMaintenanceRequest } from "../services/maintenanceService";
 
 function statusLabel(status) {
   switch (status) {
@@ -15,7 +12,11 @@ function statusLabel(status) {
       return "Otwarte";
     case "in_progress":
       return "W trakcie";
-    case "done":
+    case "waiting":
+      return "Oczekuje";
+    case "resolved":
+      return "Rozwiązane";
+    case "closed":
       return "Zamknięte";
     default:
       return status ?? "—";
@@ -37,25 +38,19 @@ function priorityLabel(priority) {
   }
 }
 
-export default function MaintenanceRequestsSection({ propertyId, accountId = null }) {
+export default function MaintenanceRequestsSection({ propertyId }) {
   const { activeAccountId, activeRole } = useAccount();
 
-  // ✅ Prefer prop if provided (useful for debugging / explicit wiring)
-  const effectiveAccountId = accountId ?? activeAccountId;
-
   const { requests, loading, error } = useMaintenanceRequests({
-    enabled: !!effectiveAccountId && !!propertyId,
+    enabled: !!activeAccountId && !!propertyId,
     propertyId,
     limit: 50,
   });
 
-  // ✅ case-insensitive + safe
   const canWrite = useMemo(() => {
-    const role = String(activeRole ?? "").toLowerCase();
-    return ["owner", "admin", "staff"].includes(role);
+    const r = String(activeRole ?? "").toLowerCase();
+    return ["owner", "admin", "staff"].includes(r);
   }, [activeRole]);
-
-  const safeRequests = Array.isArray(requests) ? requests : [];
 
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
@@ -63,39 +58,117 @@ export default function MaintenanceRequestsSection({ propertyId, accountId = nul
   const [priority, setPriority] = useState("normal");
 
   async function handleCreate() {
-    if (!effectiveAccountId || !propertyId) return;
-
-    const cleanTitle = title.trim();
-    const cleanDescription = String(description ?? "").trim();
-
-    if (!cleanTitle) return;
+    if (!activeAccountId || !propertyId) return;
 
     try {
       setCreating(true);
       await createMaintenanceRequest({
-        accountId: effectiveAccountId,
+        accountId: activeAccountId,
         propertyId,
-        title: cleanTitle,
-        description: cleanDescription || null,
+        title,
+        description,
         priority,
       });
-
       setTitle("");
       setDescription("");
       setPriority("normal");
     } catch (e) {
+      console.error(e);
       alert(e?.message ?? "Nie udało się utworzyć zgłoszenia");
     } finally {
       setCreating(false);
     }
   }
 
-  async function quickSetStatus(id, nextStatus) {
+  async function setStatus(id, nextStatus) {
     try {
       await updateMaintenanceRequest(id, { status: nextStatus });
     } catch (e) {
+      console.error(e);
       alert(e?.message ?? "Nie udało się zmienić statusu");
     }
+  }
+
+  function renderActions(r) {
+    if (!canWrite) return null;
+
+    const s = String(r.status ?? "").toLowerCase();
+
+    // When resolved/closed, do NOT show "Rozwiąż"
+    if (s === "resolved" || s === "closed") {
+      return (
+        <div className="flex flex-col gap-2 text-xs shrink-0">
+          <button
+            type="button"
+            onClick={() => setStatus(r.id, "open")}
+            className="text-slate-600 hover:underline text-right"
+          >
+            Otwórz ponownie
+          </button>
+          {s !== "closed" && (
+            <button
+              type="button"
+              onClick={() => setStatus(r.id, "closed")}
+              className="text-slate-600 hover:underline text-right"
+            >
+              Zamknij
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    // Default actions for active tickets
+    return (
+      <div className="flex flex-col gap-2 text-xs shrink-0">
+        {s !== "open" && (
+          <button
+            type="button"
+            onClick={() => setStatus(r.id, "open")}
+            className="text-slate-600 hover:underline text-right"
+          >
+            Otwórz
+          </button>
+        )}
+
+        {s !== "in_progress" && (
+          <button
+            type="button"
+            onClick={() => setStatus(r.id, "in_progress")}
+            className="text-blue-600 hover:underline text-right"
+          >
+            W trakcie
+          </button>
+        )}
+
+        {s !== "waiting" && (
+          <button
+            type="button"
+            onClick={() => setStatus(r.id, "waiting")}
+            className="text-slate-600 hover:underline text-right"
+          >
+            Oczekuje
+          </button>
+        )}
+
+        {/* This is the "resolve" action */}
+        <button
+          type="button"
+          onClick={() => setStatus(r.id, "resolved")}
+          className="text-green-700 hover:underline text-right"
+        >
+          Rozwiąż
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setStatus(r.id, "closed")}
+          className="text-slate-600 hover:underline text-right"
+        >
+          Zamknij
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -103,21 +176,14 @@ export default function MaintenanceRequestsSection({ propertyId, accountId = nul
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="text-lg font-semibold">Usterki / Zgłoszenia</h3>
-          <p className="text-sm text-slate-500">
-            Zgłoszenia serwisowe dla tej nieruchomości
-          </p>
+          <p className="text-sm text-slate-500">Zgłoszenia serwisowe dla tej nieruchomości</p>
         </div>
-
-        <div className="text-sm text-slate-600">
-          {safeRequests.length} zgłoszeń
-        </div>
+        <div className="text-sm text-slate-600">{requests?.length ?? 0} zgłoszeń</div>
       </div>
 
       {error && (
         <div className="p-3 rounded-lg border bg-white">
-          <p className="text-sm text-rose-600">
-            Błąd: {String(error.message ?? error)}
-          </p>
+          <p className="text-sm text-rose-600">Błąd: {String(error.message ?? error)}</p>
         </div>
       )}
 
@@ -182,60 +248,31 @@ export default function MaintenanceRequestsSection({ propertyId, accountId = nul
         </div>
       )}
 
-      {!loading && safeRequests.length === 0 && (
-        <p className="text-sm text-slate-500">
-          Brak zgłoszeń dla tej nieruchomości.
-        </p>
+      {!loading && requests.length === 0 && (
+        <p className="text-sm text-slate-500">Brak zgłoszeń dla tej nieruchomości.</p>
       )}
 
-      {!loading && safeRequests.length > 0 && (
+      {!loading && requests.length > 0 && (
         <div className="divide-y border rounded-lg bg-white">
-          {safeRequests.map((r) => (
+          {requests.map((r) => (
             <div key={r.id} className="px-4 py-3 flex gap-4 justify-between">
               <div className="min-w-0">
                 <p className="font-medium truncate">{r.title}</p>
 
                 {r.description && (
-                  <p className="text-sm text-slate-600 mt-1 line-clamp-2">
-                    {r.description}
-                  </p>
+                  <p className="text-sm text-slate-600 mt-1 line-clamp-2">{r.description}</p>
                 )}
 
                 <div className="text-xs text-slate-500 mt-2 flex gap-3 flex-wrap">
                   <span>Status: {statusLabel(r.status)}</span>
                   <span>Priorytet: {priorityLabel(r.priority)}</span>
                   <span>
-                    Utworzono:{" "}
-                    {r.created_at ? new Date(r.created_at).toLocaleString() : "—"}
+                    Utworzono: {r.created_at ? new Date(r.created_at).toLocaleString() : "—"}
                   </span>
                 </div>
               </div>
 
-              {canWrite && (
-                <div className="flex flex-col gap-2 text-xs shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => quickSetStatus(r.id, "open")}
-                    className="text-slate-600 hover:underline text-right"
-                  >
-                    Otwórz
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => quickSetStatus(r.id, "in_progress")}
-                    className="text-slate-600 hover:underline text-right"
-                  >
-                    W trakcie
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => quickSetStatus(r.id, "done")}
-                    className="text-green-700 hover:underline text-right"
-                  >
-                    Zamknij
-                  </button>
-                </div>
-              )}
+              {renderActions(r)}
             </div>
           ))}
         </div>
