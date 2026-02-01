@@ -86,7 +86,10 @@ function Modal({ open, onClose, title, children }) {
 export default function WorkOrdersSection({ propertyId }) {
   const { activeAccountId, activeRole } = useAccount();
 
-  const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
+  const role = useMemo(
+    () => String(activeRole ?? "").toLowerCase(),
+    [activeRole]
+  );
 
   const isTenant = useMemo(() => role === "tenant", [role]);
 
@@ -113,27 +116,62 @@ export default function WorkOrdersSection({ propertyId }) {
   const [audit, setAudit] = useState([]);
   const [auditLoading, setAuditLoading] = useState(false);
 
-  //------------------------------
-  //Allowed actions and handlers
-  //------------------------------
-
+  // ------------------------------
+  // Allowed actions cache (performance)
+  // ------------------------------
   const [allowedActionsById, setAllowedActionsById] = useState({});
 
+  async function loadAllowedActionsForRows(rows) {
+    // Only managers need member actions buttons
+    if (!canManage) {
+      setAllowedActionsById({});
+      return;
+    }
 
-  async function loadAllowedActionsForWorkOrder(workOrderId) {
-  const { data, error } = await supabase.rpc("work_order_allowed_actions", {
-    p_work_order_id: workOrderId,
-  });
+    try {
+      const ids = (rows ?? []).map((r) => r.id).filter(Boolean);
+      if (ids.length === 0) {
+        setAllowedActionsById({});
+        return;
+      }
 
-  if (error) {
-    console.error(error);
-    return [];
+      const { data, error } = await supabase.rpc(
+        "work_order_allowed_actions_bulk",
+        { p_work_order_ids: ids }
+      );
+
+      if (error) throw error;
+
+      const map = {};
+      for (const r of data ?? []) {
+        map[r.work_order_id] = r.actions ?? [];
+      }
+
+      setAllowedActionsById(map);
+    } catch {
+      // Fail soft: show minimal UI, not a crash
+      setAllowedActionsById({});
+    }
   }
 
-  // data should be an array of strings (text[])
-  return Array.isArray(data) ? data : [];
-}
+  // Optional fallback: fetch actions for ONE work order if needed (e.g. opened from inbox)
+  async function ensureAllowedActionsLoaded(workOrderId) {
+    if (!canManage) return;
+    if (!workOrderId) return;
+    if (allowedActionsById?.[workOrderId]) return;
 
+    try {
+      const { data, error } = await supabase.rpc("work_order_allowed_actions", {
+        p_work_order_id: workOrderId,
+      });
+      if (error) throw error;
+
+      const actions = Array.isArray(data) ? data : [];
+      setAllowedActionsById((prev) => ({ ...(prev || {}), [workOrderId]: actions }));
+    } catch {
+      // ignore
+    }
+  }
 
   async function loadAudit(workOrderId) {
     setAuditLoading(true);
@@ -157,6 +195,7 @@ export default function WorkOrdersSection({ propertyId }) {
     setSelectedWO(wo);
     setDetailOpen(true);
     loadAudit(wo.id);
+    ensureAllowedActionsLoaded(wo.id);
   }
 
   function closeDetails() {
@@ -208,18 +247,8 @@ export default function WorkOrdersSection({ propertyId }) {
       const rows = data ?? [];
       setWorkOrders(rows);
 
-      // Fetch allowed actions for each row (managers only)
-if (canManage && rows.length) {
-  const pairs = await Promise.all(
-    rows.map(async (wo) => {
-      const actions = await loadAllowedActionsForWorkOrder(wo.id);
-      return [wo.id, actions];
-    })
-  );
-
-  setAllowedActionsById(Object.fromEntries(pairs));
-}
-
+      // ✅ ONE call for all actions (performance)
+      await loadAllowedActionsForRows(rows);
 
       if (detailOpen && selectedWO?.id) {
         const refreshed = rows.find((r) => r.id === selectedWO.id);
@@ -430,9 +459,12 @@ if (canManage && rows.length) {
   async function approveCancellation(id) {
     setActionBusyId(id);
     try {
-      const { error } = await supabase.rpc("work_order_approve_tenant_cancellation", {
-        p_work_order_id: id,
-      });
+      const { error } = await supabase.rpc(
+        "work_order_approve_tenant_cancellation",
+        {
+          p_work_order_id: id,
+        }
+      );
       if (error) throw error;
 
       await reload();
@@ -474,8 +506,6 @@ if (canManage && rows.length) {
   // -----------------------------
   // UX helpers (DB still enforces)
   // -----------------------------
- 
-
   function tenantCancelState(wo) {
     if (!isTenant) return { show: false, disabled: true, reason: "" };
 
@@ -552,7 +582,10 @@ if (canManage && rows.length) {
               {pendingInbox.map((wo) => {
                 const isBusy = actionBusyId === wo.id;
                 return (
-                  <div key={wo.id} className="p-3 flex items-start justify-between gap-3">
+                  <div
+                    key={wo.id}
+                    className="p-3 flex items-start justify-between gap-3"
+                  >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <StatusPill status={wo.status} />
@@ -560,7 +593,9 @@ if (canManage && rows.length) {
                           {wo.contractor_name || "Zlecenie"}
                         </span>
                         {wo.contractor_phone && (
-                          <span className="text-xs text-slate-500">{wo.contractor_phone}</span>
+                          <span className="text-xs text-slate-500">
+                            {wo.contractor_phone}
+                          </span>
                         )}
                       </div>
 
@@ -583,7 +618,9 @@ if (canManage && rows.length) {
                         disabled={isBusy}
                         onClick={() => approveCancellation(wo.id)}
                         className={`hover:underline ${
-                          isBusy ? "text-slate-400 cursor-not-allowed" : "text-emerald-700"
+                          isBusy
+                            ? "text-slate-400 cursor-not-allowed"
+                            : "text-emerald-700"
                         }`}
                       >
                         {isBusy ? "Przetwarzanie…" : "Zatwierdź"}
@@ -593,11 +630,14 @@ if (canManage && rows.length) {
                         type="button"
                         disabled={isBusy}
                         onClick={() => {
-                          const full = workOrders.find((x) => x.id === wo.id) || wo;
+                          const full =
+                            workOrders.find((x) => x.id === wo.id) || wo;
                           openDetails(full);
                         }}
                         className={`hover:underline ${
-                          isBusy ? "text-slate-400 cursor-not-allowed" : "text-slate-700"
+                          isBusy
+                            ? "text-slate-400 cursor-not-allowed"
+                            : "text-slate-700"
                         }`}
                       >
                         Szczegóły
@@ -734,12 +774,14 @@ if (canManage && rows.length) {
             const lastReqAt = formatDateTime(wo.last_cancel_request_at);
             const allowedMemberActions = allowedActionsById[wo.id] ?? [];
 
-
             const tenantState = tenantCancelState(wo);
             const isBusy = actionBusyId === wo.id;
 
             return (
-              <div key={wo.id} className="px-4 py-3 flex justify-between items-start gap-4">
+              <div
+                key={wo.id}
+                className="px-4 py-3 flex justify-between items-start gap-4"
+              >
                 <button
                   type="button"
                   onClick={() => openDetails(wo)}
@@ -761,7 +803,9 @@ if (canManage && rows.length) {
                       </span>
                     )}
                     {wo.contractor_phone && (
-                      <span className="text-xs text-slate-500">{wo.contractor_phone}</span>
+                      <span className="text-xs text-slate-500">
+                        {wo.contractor_phone}
+                      </span>
                     )}
                   </div>
 
@@ -776,7 +820,9 @@ if (canManage && rows.length) {
                   )}
 
                   {wo.notes && (
-                    <p className="text-xs text-slate-600 mt-2 whitespace-pre-wrap">{wo.notes}</p>
+                    <p className="text-xs text-slate-600 mt-2 whitespace-pre-wrap">
+                      {wo.notes}
+                    </p>
                   )}
                 </button>
 
@@ -798,7 +844,9 @@ if (canManage && rows.length) {
                       </button>
 
                       {(tenantState.reason || wo?.pending_cancel_request) && (
-                        <span className="text-xs text-slate-500">{tenantState.reason}</span>
+                        <span className="text-xs text-slate-500">
+                          {tenantState.reason}
+                        </span>
                       )}
                     </div>
                   )}
@@ -811,7 +859,9 @@ if (canManage && rows.length) {
                           disabled={isBusy}
                           onClick={() => approveCancellation(wo.id)}
                           className={`hover:underline ${
-                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-emerald-700"
+                            isBusy
+                              ? "text-slate-400 cursor-not-allowed"
+                              : "text-emerald-700"
                           }`}
                         >
                           {isBusy ? "Przetwarzanie…" : "Zatwierdź anulowanie"}
@@ -821,7 +871,9 @@ if (canManage && rows.length) {
                           disabled={isBusy}
                           onClick={() => denyCancellation(wo.id)}
                           className={`hover:underline ${
-                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-rose-700"
+                            isBusy
+                              ? "text-slate-400 cursor-not-allowed"
+                              : "text-rose-700"
                           }`}
                         >
                           {isBusy ? "Przetwarzanie…" : "Odrzuć"}
@@ -832,7 +884,10 @@ if (canManage && rows.length) {
                         disabled={isBusy}
                         value={denyReasonById[wo.id] ?? ""}
                         onChange={(e) =>
-                          setDenyReasonById((prev) => ({ ...prev, [wo.id]: e.target.value }))
+                          setDenyReasonById((prev) => ({
+                            ...prev,
+                            [wo.id]: e.target.value,
+                          }))
                         }
                         className="border rounded-lg px-2 py-1 text-xs w-56 disabled:bg-slate-50"
                         placeholder="Powód (opcjonalnie)"
@@ -848,7 +903,9 @@ if (canManage && rows.length) {
                           disabled={isBusy}
                           onClick={() => setStatus(wo.id, "in_progress")}
                           className={`hover:underline ${
-                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-blue-600"
+                            isBusy
+                              ? "text-slate-400 cursor-not-allowed"
+                              : "text-blue-600"
                           }`}
                         >
                           W trakcie
@@ -861,7 +918,9 @@ if (canManage && rows.length) {
                           disabled={isBusy}
                           onClick={() => setStatus(wo.id, "cancelled")}
                           className={`hover:underline ${
-                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-slate-600"
+                            isBusy
+                              ? "text-slate-400 cursor-not-allowed"
+                              : "text-slate-600"
                           }`}
                         >
                           Anuluj
@@ -874,7 +933,9 @@ if (canManage && rows.length) {
                           disabled={isBusy}
                           onClick={() => setStatus(wo.id, "completed")}
                           className={`hover:underline ${
-                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-green-700"
+                            isBusy
+                              ? "text-slate-400 cursor-not-allowed"
+                              : "text-green-700"
                           }`}
                         >
                           Zakończ
@@ -886,7 +947,9 @@ if (canManage && rows.length) {
                         disabled={isBusy}
                         onClick={() => handleDelete(wo.id)}
                         className={`hover:underline ${
-                          isBusy ? "text-slate-400 cursor-not-allowed" : "text-rose-600"
+                          isBusy
+                            ? "text-slate-400 cursor-not-allowed"
+                            : "text-rose-600"
                         }`}
                       >
                         Usuń
@@ -941,10 +1004,14 @@ if (canManage && rows.length) {
                       disabled={actionBusyId === selectedWO.id}
                       onClick={() => approveCancellation(selectedWO.id)}
                       className={`px-3 py-2 text-sm rounded-lg text-white ${
-                        actionBusyId === selectedWO.id ? "bg-slate-400" : "bg-emerald-600"
+                        actionBusyId === selectedWO.id
+                          ? "bg-slate-400"
+                          : "bg-emerald-600"
                       }`}
                     >
-                      {actionBusyId === selectedWO.id ? "Przetwarzanie…" : "Zatwierdź anulowanie"}
+                      {actionBusyId === selectedWO.id
+                        ? "Przetwarzanie…"
+                        : "Zatwierdź anulowanie"}
                     </button>
 
                     <div className="space-y-2">
@@ -952,7 +1019,10 @@ if (canManage && rows.length) {
                         disabled={actionBusyId === selectedWO.id}
                         value={denyReasonById[selectedWO.id] ?? ""}
                         onChange={(e) =>
-                          setDenyReasonById((prev) => ({ ...prev, [selectedWO.id]: e.target.value }))
+                          setDenyReasonById((prev) => ({
+                            ...prev,
+                            [selectedWO.id]: e.target.value,
+                          }))
                         }
                         className="border rounded-lg px-2 py-2 text-sm w-64 disabled:bg-slate-50"
                         placeholder="Powód (opcjonalnie)"
@@ -962,10 +1032,14 @@ if (canManage && rows.length) {
                         disabled={actionBusyId === selectedWO.id}
                         onClick={() => denyCancellation(selectedWO.id)}
                         className={`px-3 py-2 text-sm rounded-lg text-white w-full ${
-                          actionBusyId === selectedWO.id ? "bg-slate-400" : "bg-rose-600"
+                          actionBusyId === selectedWO.id
+                            ? "bg-slate-400"
+                            : "bg-rose-600"
                         }`}
                       >
-                        {actionBusyId === selectedWO.id ? "Przetwarzanie…" : "Odrzuć anulowanie"}
+                        {actionBusyId === selectedWO.id
+                          ? "Przetwarzanie…"
+                          : "Odrzuć anulowanie"}
                       </button>
                     </div>
                   </>
