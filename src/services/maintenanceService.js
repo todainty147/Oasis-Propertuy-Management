@@ -33,9 +33,9 @@ function assertStatus(status) {
    ====================== */
 
 export async function createMaintenanceRequest({
-  accountId, // ✅ REQUIRED
-  propertyId, // ✅ REQUIRED
-  reportedByTenantId = null, // optional (tenant portal later)
+  accountId,
+  propertyId,
+  reportedByTenantId, // 👈 remove default = null (important)
   title,
   description = null,
   priority = "normal",
@@ -46,23 +46,30 @@ export async function createMaintenanceRequest({
 
   assertPriority(priority);
 
+  const payload = {
+    account_id: accountId,
+    property_id: propertyId,
+    title: title.trim(),
+    description: description?.trim() || null,
+    priority,
+    status: "open",
+  };
+
+  // ✅ only set it if we actually have a value
+  if (reportedByTenantId) {
+    payload.reported_by_tenant_id = reportedByTenantId;
+  }
+
   const { data, error } = await supabase
     .from("maintenance_requests")
-    .insert({
-      account_id: accountId,
-      property_id: propertyId,
-      reported_by_tenant_id: reportedByTenantId,
-      title: title.trim(),
-      description: description?.trim() || null,
-      priority,
-      status: "open",
-    })
+    .insert(payload)
     .select()
     .single();
 
   if (error) throw friendlyError(error, "Nie udało się utworzyć zgłoszenia");
   return data;
 }
+
 
 /* ======================
    UPDATE (validated + safe patch)

@@ -10,6 +10,7 @@ import PropertyDocumentsSection from "../components/PropertyDocumentsSection";
 import MaintenanceRequestsSection from "../components/MaintenanceRequestsSection";
 import WorkOrdersSection from "../components/WorkOrdersSection";
 import { useAccount } from "../context/AccountContext";
+import ActivityLogSection from "../components/ActivityLogSection";
 
 /* ======================
    SKELETON
@@ -158,6 +159,14 @@ export default function PropertyDetails({
             accountId={activeAccountId} // safe optional prop (component may ignore)
           />
         </div>
+
+        {/* ✅ NEW: ACTIVITY LOG (read-only, minimal) */}
+<ActivityLogSection
+  propertyId={property.id}
+  limit={25}
+  defaultOpen={false}
+/>
+
       </Card>
     </div>
   );

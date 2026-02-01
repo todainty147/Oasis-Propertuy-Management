@@ -3,13 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
 import { useAccount } from "../context/AccountContext";
-import { useWorkOrders } from "../hooks/useWorkOrders";
-import {
-  createWorkOrder,
-  deleteWorkOrder,
-  updateWorkOrder,
-} from "../services/workOrderService";
+import { createWorkOrder, deleteWorkOrder } from "../services/workOrderService";
 import { supabase } from "../lib/supabase";
+
+/* -----------------------------
+   UI helpers
+----------------------------- */
 
 function StatusPill({ status }) {
   const base = "text-xs px-2 py-0.5 rounded border";
@@ -21,12 +20,14 @@ function StatusPill({ status }) {
         Zakończone
       </span>
     );
+
   if (s === "in_progress")
     return (
       <span className={`${base} bg-blue-50 border-blue-200 text-blue-700`}>
         W trakcie
       </span>
     );
+
   if (s === "cancelled")
     return (
       <span className={`${base} bg-slate-50 border-slate-200 text-slate-600`}>
@@ -34,7 +35,13 @@ function StatusPill({ status }) {
       </span>
     );
 
-  // default: assigned / unknown
+  if (s === "assigned")
+    return (
+      <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>
+        Przypisane
+      </span>
+    );
+
   return (
     <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>
       {status || "assigned"}
@@ -49,21 +56,237 @@ function formatDateTime(ts) {
   return d.toLocaleString();
 }
 
+function Modal({ open, onClose, title, children }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="absolute left-1/2 top-1/2 w-[95vw] max-w-3xl -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-xl border">
+        <div className="p-4 border-b flex items-center justify-between">
+          <div className="font-semibold text-slate-900">{title}</div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm px-2 py-1 rounded hover:bg-slate-100"
+          >
+            Zamknij
+          </button>
+        </div>
+        <div className="p-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/* -----------------------------
+   Component
+----------------------------- */
+
 export default function WorkOrdersSection({ propertyId }) {
   const { activeAccountId, activeRole } = useAccount();
 
-  const canManage = useMemo(() => {
-    return ["owner", "admin", "staff"].includes(
-      String(activeRole ?? "").toLowerCase()
-    );
-  }, [activeRole]);
+  const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
 
-  const { workOrders, loading, error, reload } = useWorkOrders({
-    enabled: !!activeAccountId && !!propertyId,
-    propertyId,
+  const isTenant = useMemo(() => role === "tenant", [role]);
+
+  const canManage = useMemo(() => {
+    return ["owner", "admin", "staff"].includes(role);
+  }, [role]);
+
+  // ✅ per-row busy state (prevents double-click + shows feedback)
+  const [actionBusyId, setActionBusyId] = useState(null);
+
+  // -----------------------------
+  // Work orders state (from view)
+  // -----------------------------
+  const [workOrders, setWorkOrders] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // -----------------------------
+  // Modal + Audit timeline
+  // -----------------------------
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedWO, setSelectedWO] = useState(null);
+
+  const [audit, setAudit] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+
+  //------------------------------
+  //Allowed actions and handlers
+  //------------------------------
+
+  const [allowedActionsById, setAllowedActionsById] = useState({});
+
+
+  async function loadAllowedActionsForWorkOrder(workOrderId) {
+  const { data, error } = await supabase.rpc("work_order_allowed_actions", {
+    p_work_order_id: workOrderId,
   });
 
-  // Load maintenance requests for dropdown (Option A)
+  if (error) {
+    console.error(error);
+    return [];
+  }
+
+  // data should be an array of strings (text[])
+  return Array.isArray(data) ? data : [];
+}
+
+
+  async function loadAudit(workOrderId) {
+    setAuditLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("work_order_audit_log")
+        .select("id, action, actor_user_id, old_value, new_value, created_at")
+        .eq("work_order_id", workOrderId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setAudit(data ?? []);
+    } catch {
+      setAudit([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  function openDetails(wo) {
+    setSelectedWO(wo);
+    setDetailOpen(true);
+    loadAudit(wo.id);
+  }
+
+  function closeDetails() {
+    setDetailOpen(false);
+    setSelectedWO(null);
+    setAudit([]);
+  }
+
+  async function reload() {
+    if (!activeAccountId || !propertyId) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data, error } = await supabase
+        .from("work_orders_with_flags")
+        .select(
+          `
+          id,
+          account_id,
+          property_id,
+          maintenance_request_id,
+          contractor_user_id,
+          contractor_name,
+          contractor_phone,
+          status,
+          scheduled_at,
+          notes,
+          quote_amount,
+          invoice_amount,
+          created_by,
+          created_at,
+          updated_at,
+          pending_cancel_request,
+          last_cancel_request_at,
+          last_cancel_request_by,
+          last_cancel_resolution_at,
+          last_cancel_resolution_action,
+          last_cancel_resolution_by,
+          maintenance_requests:maintenance_request_id ( id, title, status, priority )
+        `
+        )
+        .eq("account_id", activeAccountId)
+        .eq("property_id", propertyId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const rows = data ?? [];
+      setWorkOrders(rows);
+
+      // Fetch allowed actions for each row (managers only)
+if (canManage && rows.length) {
+  const pairs = await Promise.all(
+    rows.map(async (wo) => {
+      const actions = await loadAllowedActionsForWorkOrder(wo.id);
+      return [wo.id, actions];
+    })
+  );
+
+  setAllowedActionsById(Object.fromEntries(pairs));
+}
+
+
+      if (detailOpen && selectedWO?.id) {
+        const refreshed = rows.find((r) => r.id === selectedWO.id);
+        if (refreshed) setSelectedWO(refreshed);
+      }
+    } catch (e) {
+      setWorkOrders([]);
+      setError(e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // -----------------------------------------
+  // Pending cancellation inbox (Action Required)
+  // -----------------------------------------
+  const [pendingInbox, setPendingInbox] = useState([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+
+  async function loadPendingInbox() {
+    if (!activeAccountId || !canManage) return;
+    setPendingLoading(true);
+
+    try {
+      let q = supabase
+        .from("work_orders_pending_cancellation")
+        .select(
+          `
+          id,
+          account_id,
+          property_id,
+          status,
+          contractor_name,
+          contractor_phone,
+          scheduled_at,
+          last_cancel_request_at,
+          last_cancel_request_by
+        `
+        )
+        .eq("account_id", activeAccountId)
+        .order("last_cancel_request_at", { ascending: false })
+        .limit(20);
+
+      if (propertyId) q = q.eq("property_id", propertyId);
+
+      const { data, error } = await q;
+      if (error) throw error;
+
+      setPendingInbox(data ?? []);
+    } catch {
+      setPendingInbox([]);
+    } finally {
+      setPendingLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!activeAccountId || !propertyId) return;
+    reload();
+    if (canManage) loadPendingInbox();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAccountId, propertyId, canManage]);
+
+  // -----------------------------------------
+  // Load maintenance requests for dropdown
+  // (only for managers)
+  // -----------------------------------------
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requests, setRequests] = useState([]);
 
@@ -85,7 +308,7 @@ export default function WorkOrdersSection({ propertyId }) {
 
         if (error) throw error;
         if (!cancelled) setRequests(data ?? []);
-      } catch (e) {
+      } catch {
         if (!cancelled) setRequests([]);
       } finally {
         if (!cancelled) setRequestsLoading(false);
@@ -104,6 +327,9 @@ export default function WorkOrdersSection({ propertyId }) {
     );
   }, [requests]);
 
+  // -----------------------------
+  // Create form
+  // -----------------------------
   const [open, setOpen] = useState(false);
   const [maintenanceRequestId, setMaintenanceRequestId] = useState("");
   const [contractorName, setContractorName] = useState("");
@@ -128,7 +354,6 @@ export default function WorkOrdersSection({ propertyId }) {
         status: "assigned",
       });
 
-      // reset
       setOpen(false);
       setMaintenanceRequestId("");
       setContractorName("");
@@ -137,6 +362,7 @@ export default function WorkOrdersSection({ propertyId }) {
       setNotes("");
 
       await reload();
+      if (canManage) await loadPendingInbox();
     } catch (e) {
       alert(e?.message ?? "Nie udało się utworzyć zlecenia");
     } finally {
@@ -149,28 +375,139 @@ export default function WorkOrdersSection({ propertyId }) {
     try {
       await deleteWorkOrder(id);
       await reload();
+      if (canManage) await loadPendingInbox();
     } catch (e) {
       alert(e?.message ?? "Nie udało się usunąć zlecenia");
     }
   }
 
+  // -----------------------------
+  // DB-driven actions
+  // -----------------------------
   async function setStatus(id, nextStatus) {
+    setActionBusyId(id);
     try {
-      await updateWorkOrder(id, { status: nextStatus });
+      const { error } = await supabase.rpc("work_order_set_status", {
+        p_work_order_id: id,
+        p_new_status: nextStatus,
+        p_apply_if_tenant_allowed: false,
+      });
+
+      if (error) throw error;
+
       await reload();
+      if (canManage) await loadPendingInbox();
+      if (detailOpen && selectedWO?.id === id) await loadAudit(id);
     } catch (e) {
       alert(e?.message ?? "Nie udało się zmienić statusu");
+    } finally {
+      setActionBusyId(null);
     }
   }
 
+  async function requestCancellation(id) {
+    setActionBusyId(id);
+    try {
+      const { error } = await supabase.rpc("work_order_set_status", {
+        p_work_order_id: id,
+        p_new_status: "cancelled",
+        p_apply_if_tenant_allowed: true,
+      });
+
+      if (error) throw error;
+
+      await reload();
+      if (detailOpen && selectedWO?.id === id) await loadAudit(id);
+    } catch (e) {
+      alert(e?.message ?? "Nie udało się wysłać prośby o anulowanie");
+    } finally {
+      setActionBusyId(null);
+    }
+  }
+
+  const [denyReasonById, setDenyReasonById] = useState({});
+
+  async function approveCancellation(id) {
+    setActionBusyId(id);
+    try {
+      const { error } = await supabase.rpc("work_order_approve_tenant_cancellation", {
+        p_work_order_id: id,
+      });
+      if (error) throw error;
+
+      await reload();
+      if (canManage) await loadPendingInbox();
+      if (detailOpen && selectedWO?.id === id) await loadAudit(id);
+    } catch (e) {
+      alert(e?.message ?? "Nie udało się zatwierdzić anulowania");
+    } finally {
+      setActionBusyId(null);
+    }
+  }
+
+  async function denyCancellation(id) {
+    setActionBusyId(id);
+    try {
+      const reason = denyReasonById[id] || null;
+      const { error } = await supabase.rpc("work_order_deny_tenant_cancellation", {
+        p_work_order_id: id,
+        p_reason: reason,
+      });
+      if (error) throw error;
+
+      setDenyReasonById((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
+
+      await reload();
+      if (canManage) await loadPendingInbox();
+      if (detailOpen && selectedWO?.id === id) await loadAudit(id);
+    } catch (e) {
+      alert(e?.message ?? "Nie udało się odrzucić anulowania");
+    } finally {
+      setActionBusyId(null);
+    }
+  }
+
+  // -----------------------------
+  // UX helpers (DB still enforces)
+  // -----------------------------
+ 
+
+  function tenantCancelState(wo) {
+    if (!isTenant) return { show: false, disabled: true, reason: "" };
+
+    const s = String(wo?.status ?? "").toLowerCase();
+    const pending = !!wo?.pending_cancel_request;
+
+    if (["completed", "cancelled"].includes(s)) {
+      return { show: false, disabled: true, reason: "" };
+    }
+
+    if (pending) {
+      return {
+        show: true,
+        disabled: true,
+        reason: "⏳ Oczekuje na decyzję właściciela",
+      };
+    }
+
+    return { show: true, disabled: false, reason: "" };
+  }
+
+  // -----------------------------
+  // Render
+  // -----------------------------
   return (
     <Card className="p-6 space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="text-lg font-semibold">Zlecenia (Work Orders)</h3>
           <p className="text-xs text-slate-500 mt-1">
-           Zlecenia dla tej nieruchomości. W przyszłości dodamy przypisanie do
-            kontraktorów + portal wykonawcy. 
+            Zlecenia dla tej nieruchomości. W przyszłości dodamy przypisanie do
+            kontraktorów + portal wykonawcy.
           </p>
         </div>
 
@@ -184,6 +521,95 @@ export default function WorkOrdersSection({ propertyId }) {
           </button>
         )}
       </div>
+
+      {canManage && (
+        <div className="border rounded-xl bg-white p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h4 className="font-semibold text-slate-900">Wymaga działania</h4>
+              <p className="text-xs text-slate-500">
+                Prośby najemców o anulowanie zleceń.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={loadPendingInbox}
+              className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
+            >
+              Odśwież
+            </button>
+          </div>
+
+          {pendingLoading ? (
+            <div className="mt-3 space-y-2">
+              <Skeleton className="h-12" />
+              <Skeleton className="h-12" />
+            </div>
+          ) : pendingInbox.length === 0 ? (
+            <p className="text-sm text-slate-500 mt-3">Brak oczekujących próśb.</p>
+          ) : (
+            <div className="mt-3 divide-y border rounded-lg">
+              {pendingInbox.map((wo) => {
+                const isBusy = actionBusyId === wo.id;
+                return (
+                  <div key={wo.id} className="p-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <StatusPill status={wo.status} />
+                        <span className="text-sm font-medium text-slate-900">
+                          {wo.contractor_name || "Zlecenie"}
+                        </span>
+                        {wo.contractor_phone && (
+                          <span className="text-xs text-slate-500">{wo.contractor_phone}</span>
+                        )}
+                      </div>
+
+                      {wo.last_cancel_request_at && (
+                        <p className="text-xs text-slate-500 mt-1">
+                          Prośba: {formatDateTime(wo.last_cancel_request_at)}
+                        </p>
+                      )}
+
+                      {wo.scheduled_at && (
+                        <p className="text-xs text-slate-500 mt-1">
+                          Termin: {formatDateTime(wo.scheduled_at)}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex gap-3 shrink-0">
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => approveCancellation(wo.id)}
+                        className={`hover:underline ${
+                          isBusy ? "text-slate-400 cursor-not-allowed" : "text-emerald-700"
+                        }`}
+                      >
+                        {isBusy ? "Przetwarzanie…" : "Zatwierdź"}
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => {
+                          const full = workOrders.find((x) => x.id === wo.id) || wo;
+                          openDetails(full);
+                        }}
+                        className={`hover:underline ${
+                          isBusy ? "text-slate-400 cursor-not-allowed" : "text-slate-700"
+                        }`}
+                      >
+                        Szczegóły
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {open && canManage && (
         <div className="bg-white border rounded-xl p-4 space-y-3">
@@ -297,85 +723,298 @@ export default function WorkOrdersSection({ propertyId }) {
       )}
 
       {!loading && workOrders.length === 0 && (
-        <p className="text-sm text-slate-500">
-          Brak zleceń dla tej nieruchomości.
-        </p>
+        <p className="text-sm text-slate-500">Brak zleceń dla tej nieruchomości.</p>
       )}
 
       {!loading && workOrders.length > 0 && (
         <div className="divide-y border rounded-lg bg-white">
           {workOrders.map((wo) => {
             const scheduled = formatDateTime(wo.scheduled_at);
+            const pending = !!wo.pending_cancel_request;
+            const lastReqAt = formatDateTime(wo.last_cancel_request_at);
+            const allowedMemberActions = allowedActionsById[wo.id] ?? [];
+
+
+            const tenantState = tenantCancelState(wo);
+            const isBusy = actionBusyId === wo.id;
+
             return (
-              <div
-                key={wo.id}
-                className="px-4 py-3 flex justify-between items-start gap-4"
-              >
-                <div className="min-w-0">
+              <div key={wo.id} className="px-4 py-3 flex justify-between items-start gap-4">
+                <button
+                  type="button"
+                  onClick={() => openDetails(wo)}
+                  className="min-w-0 text-left"
+                  disabled={isBusy}
+                >
                   <div className="flex items-center gap-2 flex-wrap">
                     <StatusPill status={wo.status} />
+
+                    {pending && (
+                      <span className="text-xs px-2 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-800">
+                        Prośba o anulowanie{lastReqAt ? ` • ${lastReqAt}` : ""}
+                      </span>
+                    )}
+
                     {wo.contractor_name && (
                       <span className="text-sm font-medium text-slate-900">
                         {wo.contractor_name}
                       </span>
                     )}
                     {wo.contractor_phone && (
-                      <span className="text-xs text-slate-500">
-                        {wo.contractor_phone}
-                      </span>
+                      <span className="text-xs text-slate-500">{wo.contractor_phone}</span>
                     )}
                   </div>
 
                   {wo.maintenance_requests?.title && (
                     <p className="text-sm text-slate-700 mt-1">
-                      Powiązane zgłoszenie:{" "}
-                      <b>{wo.maintenance_requests.title}</b>
+                      Powiązane zgłoszenie: <b>{wo.maintenance_requests.title}</b>
                     </p>
                   )}
 
                   {scheduled && (
-                    <p className="text-xs text-slate-500 mt-1">
-                      Termin: {scheduled}
-                    </p>
+                    <p className="text-xs text-slate-500 mt-1">Termin: {scheduled}</p>
                   )}
 
                   {wo.notes && (
-                    <p className="text-xs text-slate-600 mt-2 whitespace-pre-wrap">
-                      {wo.notes}
-                    </p>
+                    <p className="text-xs text-slate-600 mt-2 whitespace-pre-wrap">{wo.notes}</p>
+                  )}
+                </button>
+
+                <div className="flex flex-col gap-2 text-sm shrink-0 items-end">
+                  {tenantState.show && (
+                    <div className="flex flex-col items-end gap-1">
+                      <button
+                        type="button"
+                        disabled={tenantState.disabled || isBusy}
+                        onClick={() => requestCancellation(wo.id)}
+                        className={`hover:underline ${
+                          tenantState.disabled || isBusy
+                            ? "text-slate-400 cursor-not-allowed"
+                            : "text-amber-700"
+                        }`}
+                        title={tenantState.reason || ""}
+                      >
+                        {isBusy ? "Wysyłanie…" : "Poproś o anulowanie"}
+                      </button>
+
+                      {(tenantState.reason || wo?.pending_cancel_request) && (
+                        <span className="text-xs text-slate-500">{tenantState.reason}</span>
+                      )}
+                    </div>
+                  )}
+
+                  {canManage && pending && (
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => approveCancellation(wo.id)}
+                          className={`hover:underline ${
+                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-emerald-700"
+                          }`}
+                        >
+                          {isBusy ? "Przetwarzanie…" : "Zatwierdź anulowanie"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => denyCancellation(wo.id)}
+                          className={`hover:underline ${
+                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-rose-700"
+                          }`}
+                        >
+                          {isBusy ? "Przetwarzanie…" : "Odrzuć"}
+                        </button>
+                      </div>
+
+                      <input
+                        disabled={isBusy}
+                        value={denyReasonById[wo.id] ?? ""}
+                        onChange={(e) =>
+                          setDenyReasonById((prev) => ({ ...prev, [wo.id]: e.target.value }))
+                        }
+                        className="border rounded-lg px-2 py-1 text-xs w-56 disabled:bg-slate-50"
+                        placeholder="Powód (opcjonalnie)"
+                      />
+                    </div>
+                  )}
+
+                  {canManage && !pending && (
+                    <div className="flex gap-3">
+                      {allowedMemberActions.includes("in_progress") && (
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => setStatus(wo.id, "in_progress")}
+                          className={`hover:underline ${
+                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-blue-600"
+                          }`}
+                        >
+                          W trakcie
+                        </button>
+                      )}
+
+                      {allowedMemberActions.includes("cancelled") && (
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => setStatus(wo.id, "cancelled")}
+                          className={`hover:underline ${
+                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-slate-600"
+                          }`}
+                        >
+                          Anuluj
+                        </button>
+                      )}
+
+                      {allowedMemberActions.includes("completed") && (
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => setStatus(wo.id, "completed")}
+                          className={`hover:underline ${
+                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-green-700"
+                          }`}
+                        >
+                          Zakończ
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => handleDelete(wo.id)}
+                        className={`hover:underline ${
+                          isBusy ? "text-slate-400 cursor-not-allowed" : "text-rose-600"
+                        }`}
+                      >
+                        Usuń
+                      </button>
+                    </div>
                   )}
                 </div>
-
-                {canManage && (
-                  <div className="flex gap-3 text-sm shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setStatus(wo.id, "in_progress")}
-                      className="text-blue-600 hover:underline"
-                    >
-                      W trakcie
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setStatus(wo.id, "completed")}
-                      className="text-green-700 hover:underline"
-                    >
-                      Zakończ
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(wo.id)}
-                      className="text-rose-600 hover:underline"
-                    >
-                      Usuń
-                    </button>
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
       )}
+
+      <Modal open={detailOpen} onClose={closeDetails} title="Szczegóły zlecenia">
+        {!selectedWO ? (
+          <p className="text-sm text-slate-500">Brak danych.</p>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <StatusPill status={selectedWO.status} />
+                  {selectedWO.pending_cancel_request && (
+                    <span className="text-xs px-2 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-800">
+                      Prośba o anulowanie
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-sm text-slate-900 mt-2 font-medium">
+                  {selectedWO.contractor_name || "Zlecenie"}
+                </p>
+
+                {selectedWO.contractor_phone && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    Telefon: {selectedWO.contractor_phone}
+                  </p>
+                )}
+
+                {selectedWO.scheduled_at && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    Termin: {formatDateTime(selectedWO.scheduled_at)}
+                  </p>
+                )}
+              </div>
+
+              <div className="text-right space-y-2 shrink-0">
+                {canManage && selectedWO.pending_cancel_request && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={actionBusyId === selectedWO.id}
+                      onClick={() => approveCancellation(selectedWO.id)}
+                      className={`px-3 py-2 text-sm rounded-lg text-white ${
+                        actionBusyId === selectedWO.id ? "bg-slate-400" : "bg-emerald-600"
+                      }`}
+                    >
+                      {actionBusyId === selectedWO.id ? "Przetwarzanie…" : "Zatwierdź anulowanie"}
+                    </button>
+
+                    <div className="space-y-2">
+                      <input
+                        disabled={actionBusyId === selectedWO.id}
+                        value={denyReasonById[selectedWO.id] ?? ""}
+                        onChange={(e) =>
+                          setDenyReasonById((prev) => ({ ...prev, [selectedWO.id]: e.target.value }))
+                        }
+                        className="border rounded-lg px-2 py-2 text-sm w-64 disabled:bg-slate-50"
+                        placeholder="Powód (opcjonalnie)"
+                      />
+                      <button
+                        type="button"
+                        disabled={actionBusyId === selectedWO.id}
+                        onClick={() => denyCancellation(selectedWO.id)}
+                        className={`px-3 py-2 text-sm rounded-lg text-white w-full ${
+                          actionBusyId === selectedWO.id ? "bg-slate-400" : "bg-rose-600"
+                        }`}
+                      >
+                        {actionBusyId === selectedWO.id ? "Przetwarzanie…" : "Odrzuć anulowanie"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {selectedWO.notes && (
+              <div className="bg-slate-50 border rounded-lg p-3 text-sm text-slate-700 whitespace-pre-wrap">
+                {selectedWO.notes}
+              </div>
+            )}
+
+            <div>
+              <h4 className="font-semibold text-slate-900">Aktywność</h4>
+
+              {auditLoading ? (
+                <div className="mt-2 space-y-2">
+                  <Skeleton className="h-10" />
+                  <Skeleton className="h-10" />
+                </div>
+              ) : audit.length === 0 ? (
+                <p className="text-sm text-slate-500 mt-2">Brak wpisów.</p>
+              ) : (
+                <div className="mt-2 space-y-2">
+                  {audit.map((e) => (
+                    <div key={e.id} className="border rounded-lg p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-medium text-slate-900">
+                          {String(e.action || "").replaceAll("_", " ")}
+                        </div>
+                        <div className="text-xs text-slate-500 shrink-0">
+                          {formatDateTime(e.created_at)}
+                        </div>
+                      </div>
+
+                      {(e.old_value || e.new_value) && (
+                        <pre className="mt-2 text-xs bg-slate-50 p-2 rounded overflow-auto">
+{JSON.stringify({ old: e.old_value, new: e.new_value }, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
     </Card>
   );
 }

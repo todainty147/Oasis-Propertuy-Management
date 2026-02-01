@@ -26,6 +26,15 @@ export const ROLE_CAPABILITIES = {
     finance: ["read"], // ✅ STAFF READ-ONLY FINANCE
     users: [],
   },
+
+  // ✅ NEW: tenant portal permissions (RLS will restrict scope)
+  tenant: {
+    properties: ["read"],     // tenant can view their linked property
+    documents: ["read"],      // optional (keep read; upload can be added later)
+    finance: ["read"],        // optional (rent/payment visibility via RLS)
+    tenants: [],              // tenant must NOT browse tenant list
+    users: [],                // tenant cannot invite/manage users
+  },
 };
 
 /* ======================
@@ -33,8 +42,9 @@ export const ROLE_CAPABILITIES = {
    ====================== */
 
 export function can(role, resource, action) {
-  if (!role) return false;
-  return ROLE_CAPABILITIES[role]?.[resource]?.includes(action) ?? false;
+  const r = String(role ?? "").toLowerCase();
+  if (!r) return false;
+  return ROLE_CAPABILITIES[r]?.[resource]?.includes(action) ?? false;
 }
 
 /* ============================================================
@@ -45,7 +55,7 @@ export function can(role, resource, action) {
 
 export function canUploadDocument(role) {
   // If you still want staff to upload docs, keep this:
-  return can(role, "documents", "upload") || role === "staff";
+  return can(role, "documents", "upload") || String(role ?? "").toLowerCase() === "staff";
 }
 
 export function canEditDocument({ role }) {
