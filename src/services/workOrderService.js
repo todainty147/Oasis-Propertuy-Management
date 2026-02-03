@@ -61,48 +61,82 @@ export async function fetchWorkOrders({
 }
 
 /* ======================
-   CREATE
+   CREATE (RPC-driven, matches your DB function)
    ====================== */
 
 export async function createWorkOrder({
   accountId,
   propertyId,
   maintenanceRequestId = null,
+
+  // ✅ preferred: contractors directory
+  contractorId = null, // <-- public.contractors.id
+
+  // ✅ legacy/manual fallback (only used when contractorId is null)
   contractorName = null,
   contractorPhone = null,
-  contractorUserId = null,
-  status = "assigned",
+
   scheduledAt = null,
   notes = null,
-  quoteAmount = null,
-  invoiceAmount = null,
 } = {}) {
   if (!accountId) throw new Error("Brak accountId");
   if (!propertyId) throw new Error("Brak propertyId");
 
-  const payload = {
-    account_id: accountId,
-    property_id: propertyId,
-    maintenance_request_id: maintenanceRequestId,
-    contractor_name: contractorName,
-    contractor_phone: contractorPhone,
-    contractor_user_id: contractorUserId,
-    status,
-    scheduled_at: scheduledAt,
-    notes,
-    quote_amount: quoteAmount,
-    invoice_amount: invoiceAmount,
-  };
+  // 1) Create via RPC (single source of truth)
+  const { data: newId, error: createErr } = await supabase.rpc("work_order_create", {
+    p_account_id: accountId,
+    p_property_id: propertyId,
+    p_maintenance_request_id: maintenanceRequestId,
+    p_contractor_id: contractorId,
+    p_contractor_name: contractorName,
+    p_contractor_phone: contractorPhone,
+    p_scheduled_at: scheduledAt,
+    p_notes: notes,
+  });
 
-  const { data, error } = await supabase
-    .from("work_orders")
-    .insert(payload)
-    .select()
+  if (createErr) throw friendlyError(createErr, "Nie udało się utworzyć zlecenia");
+
+  if (!newId || typeof newId !== "string") {
+    throw new Error("RPC work_order_create nie zwrócił poprawnego UUID.");
+  }
+
+  // 2) Return a fresh row for UI (consistent with WorkOrdersSection)
+  const { data: row, error: fetchErr } = await supabase
+    .from("work_orders_with_flags")
+    .select(
+      `
+      id,
+      account_id,
+      property_id,
+      maintenance_request_id,
+      contractor_user_id,
+      contractor_name,
+      contractor_phone,
+      status,
+      scheduled_at,
+      notes,
+      quote_amount,
+      invoice_amount,
+      created_by,
+      created_at,
+      updated_at,
+      pending_cancel_request,
+      last_cancel_request_at,
+      last_cancel_request_by,
+      last_cancel_resolution_at,
+      last_cancel_resolution_action,
+      last_cancel_resolution_by,
+      maintenance_requests:maintenance_request_id ( id, title, status, priority )
+    `
+    )
+    .eq("id", newId)
     .single();
 
-  if (error) throw friendlyError(error, "Nie udało się utworzyć zlecenia");
+  if (fetchErr) {
+    throw friendlyError(fetchErr, "Zlecenie utworzono, ale nie udało się odświeżyć danych");
+  }
 
-  return data;
+  return row;
 }
 
 /* ======================

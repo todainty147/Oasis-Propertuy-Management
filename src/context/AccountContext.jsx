@@ -16,12 +16,16 @@ export function AccountProvider({ children }) {
   const [activeAccountId, setActiveAccountId] = useState(null);
   const [accountLoading, setAccountLoading] = useState(true);
 
-  // ✅ NEW: allow tenant portal path (no account_members required)
+  // ✅ Tenant portal path (no account_members required)
   const [tenantContext, setTenantContext] = useState(null); // { account_id, tenant_id, status }
+
+  // ✅ Contractor portal path (no account_members required)
+  const [contractorContext, setContractorContext] = useState(null); // { account_id }
+
   const [authzError, setAuthzError] = useState(null);
 
   /* ======================
-     LOAD ACCOUNTS / TENANT CONTEXT
+     LOAD ACCOUNTS / TENANT / CONTRACTOR CONTEXT
      ====================== */
 
   useEffect(() => {
@@ -32,6 +36,7 @@ export function AccountProvider({ children }) {
       setAccounts([]);
       setActiveAccountId(null);
       setTenantContext(null);
+      setContractorContext(null);
       setAuthzError(null);
       setAccountLoading(false);
       localStorage.removeItem("activeAccountId");
@@ -44,11 +49,12 @@ export function AccountProvider({ children }) {
       setAccountLoading(true);
       setAuthzError(null);
       setTenantContext(null);
+      setContractorContext(null);
 
       /* ======================
          1) NORMAL PATH: account_members
          ====================== */
-      const { data: memberships, error } = await supabase
+      const { data: memberships, error: membershipErr } = await supabase
         .from("account_members")
         .select(
           `
@@ -61,8 +67,8 @@ export function AccountProvider({ children }) {
         )
         .eq("user_id", user.id);
 
-      if (error) {
-        console.error("Account membership load failed:", error);
+      if (membershipErr) {
+        console.error("Account membership load failed:", membershipErr);
         if (!cancelled) {
           setAccountLoading(false);
           setAuthzError("Nie udało się załadować kont.");
@@ -87,15 +93,22 @@ export function AccountProvider({ children }) {
         const stored = localStorage.getItem("activeAccountId");
         const validStored = stored && accs.some((a) => a.id === stored);
 
-        setActiveAccountId(validStored ? stored : accs[0]?.id ?? null);
+        const nextId = validStored ? stored : accs[0]?.id ?? null;
+        setActiveAccountId(nextId);
+
+        if (nextId) localStorage.setItem("activeAccountId", nextId);
+
         setAccountLoading(false);
         return;
       }
 
       /* ======================
          2) TENANT PATH: tenants.user_id mapping
+         IMPORTANT: tenantErr MUST NOT block contractor path
          ====================== */
-      const { data: tenantRow, error: tenantErr } = await supabase
+      let tenantRow = null;
+
+      const { data: tRow, error: tenantErr } = await supabase
         .from("tenants")
         .select("id, account_id, status, archived_at")
         .eq("user_id", user.id)
@@ -105,13 +118,10 @@ export function AccountProvider({ children }) {
         .maybeSingle();
 
       if (tenantErr) {
-        console.error("Tenant context lookup failed:", tenantErr);
-        if (!cancelled) {
-          setAccountLoading(false);
-          // Keep the existing UX message (matches your Polish string usage elsewhere)
-          setAuthzError("Skontaktuj się z administratorem lub zaakceptuj zaproszenie.");
-        }
-        return;
+        // Non-fatal: contractors can hit tenant RLS errors
+        console.warn("Tenant context lookup failed (non-fatal):", tenantErr);
+      } else {
+        tenantRow = tRow;
       }
 
       if (cancelled) return;
@@ -124,15 +134,57 @@ export function AccountProvider({ children }) {
           status: tenantRow.status,
         });
 
-        // For tenant users, we don’t rely on accounts list/switcher yet.
+        // Tenant users: no membership list / no switching (for now)
         setAccounts([]);
 
-        // Prefer stored activeAccountId ONLY if it matches tenant account
         const stored = localStorage.getItem("activeAccountId");
         const useStored = stored && stored === tenantRow.account_id;
 
-        setActiveAccountId(useStored ? stored : tenantRow.account_id);
-        localStorage.setItem("activeAccountId", tenantRow.account_id);
+        const nextId = useStored ? stored : tenantRow.account_id;
+        setActiveAccountId(nextId);
+        localStorage.setItem("activeAccountId", nextId);
+
+        setAccountLoading(false);
+        return;
+      }
+
+      /* ======================
+         2B) CONTRACTOR PATH: work_orders.contractor_user_id mapping
+         IMPORTANT: contractorErr MUST NOT block landlord account creation
+         ====================== */
+      let contractorRow = null;
+
+      const { data: cRow, error: contractorErr } = await supabase
+        .from("work_orders")
+        .select("id, account_id")
+        .eq("contractor_user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (contractorErr) {
+        // Non-fatal: if RLS blocks this, we still allow owner creation path
+        console.warn("Contractor context lookup failed (non-fatal):", contractorErr);
+      } else {
+        contractorRow = cRow;
+      }
+
+      if (cancelled) return;
+
+      // ✅ Contractor found -> allow contractor portal
+      if (contractorRow?.account_id) {
+        setContractorContext({
+          account_id: contractorRow.account_id,
+        });
+
+        setAccounts([]);
+
+        const stored = localStorage.getItem("activeAccountId");
+        const useStored = stored && stored === contractorRow.account_id;
+
+        const nextId = useStored ? stored : contractorRow.account_id;
+        setActiveAccountId(nextId);
+        localStorage.setItem("activeAccountId", nextId);
 
         setAccountLoading(false);
         return;
@@ -141,8 +193,6 @@ export function AccountProvider({ children }) {
       /* ======================
          3) FIRST ACCOUNT CREATION (landlord-only edge case)
          ====================== */
-      // IMPORTANT: This can be undesirable for tenant users.
-      // We only reach here if user is NOT a tenant and has NO memberships.
       const { data: account, error: accountError } = await supabase
         .from("accounts")
         .insert({
@@ -174,7 +224,14 @@ export function AccountProvider({ children }) {
       setAccountLoading(false);
     }
 
-    loadAccounts();
+    loadAccounts().catch((e) => {
+      console.error("AccountContext loadAccounts unhandled error:", e);
+      if (!cancelled) {
+        setAccountLoading(false);
+        setAuthzError("Skontaktuj się z administratorem lub zaakceptuj zaproszenie.");
+      }
+    });
+
     return () => {
       cancelled = true;
     };
@@ -199,25 +256,27 @@ export function AccountProvider({ children }) {
     [accounts, activeAccountId]
   );
 
-  // ✅ Role resolution:
-  // - If member: use membership role
-  // - If tenantContext matches activeAccountId: role = 'tenant'
-  // - Else null
   const activeRole = useMemo(() => {
     if (activeAccount?.role) return activeAccount.role;
+
     if (tenantContext?.account_id && tenantContext.account_id === activeAccountId) {
       return "tenant";
     }
+
+    if (contractorContext?.account_id && contractorContext.account_id === activeAccountId) {
+      return "contractor";
+    }
+
     return null;
-  }, [activeAccount, tenantContext, activeAccountId]);
+  }, [activeAccount, tenantContext, contractorContext, activeAccountId]);
 
   /* ======================
      ACTIONS
      ====================== */
 
   function switchAccount(accountId) {
-    // For tenant users, switching is not supported unless you later add a tenant-visible accounts list.
-    // For now, keep the function for existing UI use.
+    // Tenant/contractor mode: no membership accounts to switch
+    if (!accounts?.length) return;
     setActiveAccountId(accountId);
   }
 
@@ -233,13 +292,11 @@ export function AccountProvider({ children }) {
         switchAccount,
         accountLoading,
 
-        // 🔐 THIS IS WHAT PERMISSIONS USE
         activeRole,
 
-        // ✅ NEW: tenant portal metadata (for later UI use)
         tenantContext,
+        contractorContext,
 
-        // ✅ NEW: if you want to show the existing message in a consistent place
         authzError,
       }}
     >

@@ -1,3 +1,4 @@
+// src/components/Sidebar.jsx
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -6,8 +7,10 @@ import {
   Wallet,
   FileText,
   X,
+  Wrench,
 } from "lucide-react";
 
+import { useMemo } from "react";
 import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
 import { useTenants } from "../hooks/useTenants";
@@ -40,12 +43,7 @@ function Item({ to, icon: Icon, label, onNavigate }) {
    ====================== */
 
 function AccountSwitcher() {
-  const {
-    accounts,
-    activeAccountId,
-    switchAccount,
-    accountLoading,
-  } = useAccount();
+  const { accounts, activeAccountId, switchAccount, accountLoading } = useAccount();
 
   if (accountLoading || accounts.length <= 1) return null;
 
@@ -70,8 +68,7 @@ function AccountSwitcher() {
 
 function TenantSwitcher() {
   const { activeAccountId } = useAccount();
-  const { activeTenantId, setActiveTenantId, clearTenant } =
-    useTenant();
+  const { activeTenantId, setActiveTenantId, clearTenant } = useTenant();
 
   const { tenants, loading } = useTenants({
     enabled: !!activeAccountId,
@@ -84,9 +81,7 @@ function TenantSwitcher() {
       value={activeTenantId ?? ""}
       disabled={loading}
       onChange={(e) =>
-        e.target.value
-          ? setActiveTenantId(e.target.value)
-          : clearTenant()
+        e.target.value ? setActiveTenantId(e.target.value) : clearTenant()
       }
       className="w-full border rounded-lg px-3 py-2 text-sm bg-white disabled:bg-slate-100"
     >
@@ -105,6 +100,13 @@ function TenantSwitcher() {
    ====================== */
 
 function SidebarContent({ onNavigate }) {
+  const { activeRole } = useAccount();
+
+  const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
+  const isContractor = role === "contractor";
+  const isTenant = role === "tenant";
+  const canManage = ["owner", "admin", "staff"].includes(role);
+
   return (
     <>
       {/* Header */}
@@ -123,28 +125,52 @@ function SidebarContent({ onNavigate }) {
         )}
       </div>
 
-      {/* Account switcher */}
-      <div className="px-4 mb-3">
-        <AccountSwitcher />
-      </div>
+      {/* Account switcher (hide for contractor) */}
+      {!isContractor && (
+        <div className="px-4 mb-3">
+          <AccountSwitcher />
+        </div>
+      )}
 
-      {/* Tenant switcher */}
-      <div className="px-4 mb-4">
-        <TenantSwitcher />
-      </div>
+      {/* Tenant switcher (only owner/admin/staff) */}
+      {canManage && (
+        <div className="px-4 mb-4">
+          <TenantSwitcher />
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="px-4 mt-4 space-y-4 pb-safe">
-        <div className="space-y-1">
-          <Item to="/dashboard" icon={LayoutDashboard} label="Pulpit" onNavigate={onNavigate} />
-          <Item to="/properties" icon={Home} label="Nieruchomości" onNavigate={onNavigate} />
-          <Item to="/tenants" icon={Users} label="Najemcy" onNavigate={onNavigate} />
-          <Item to="/finance" icon={Wallet} label="Finanse" onNavigate={onNavigate} />
-        </div>
+        {/* CONTRACTOR MENU */}
+        {isContractor ? (
+          <div className="space-y-1">
+            <Item
+              to="/contractor"
+              icon={Wrench}
+              label="Portal wykonawcy"
+              onNavigate={onNavigate}
+            />
+          </div>
+        ) : (
+          <>
+            {/* TENANT + MANAGER MENU */}
+            <div className="space-y-1">
+              <Item to="/dashboard" icon={LayoutDashboard} label="Pulpit" onNavigate={onNavigate} />
+              <Item to="/properties" icon={Home} label="Nieruchomości" onNavigate={onNavigate} />
 
-        <div className="border-t pt-4 space-y-1">
-          <Item to="/documents" icon={FileText} label="Dokumenty" onNavigate={onNavigate} />
-        </div>
+              {/* Only managers see Najemcy */}
+              {!isTenant && (
+                <Item to="/tenants" icon={Users} label="Najemcy" onNavigate={onNavigate} />
+              )}
+
+              <Item to="/finance" icon={Wallet} label="Finanse" onNavigate={onNavigate} />
+            </div>
+
+            <div className="border-t pt-4 space-y-1">
+              <Item to="/documents" icon={FileText} label="Dokumenty" onNavigate={onNavigate} />
+            </div>
+          </>
+        )}
       </nav>
     </>
   );
@@ -167,10 +193,7 @@ export default function Sidebar({ open, isDesktop, onClose }) {
 
   return (
     <>
-      <div
-        className="fixed inset-0 z-40 bg-black/40"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
 
       <aside
         role="dialog"

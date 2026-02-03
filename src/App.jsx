@@ -43,6 +43,7 @@ import Tenants from "./pages/Tenants";
 import PropertyDetails from "./pages/PropertyDetails";
 import TenantDetails from "./pages/TenantDetails";
 import Documents from "./pages/Documents";
+import ContractorPortal from "./pages/ContractorPortal";
 
 import AddPropertyModal from "./components/AddPropertyModal";
 import AddTenantModal from "./components/AddTenantModal";
@@ -480,6 +481,9 @@ export default function App() {
         {/* ✅ Avoid conflict with /finance inside nested routes.
             Keep FinancePage available but under a different path. */}
         <Route path="finance-page" element={<FinancePage />} />
+
+        // ...
+<Route path="/contractor" element={<ContractorPortal />} />
       </Route>
     </Routes>
   );

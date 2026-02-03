@@ -86,10 +86,7 @@ function Modal({ open, onClose, title, children }) {
 export default function WorkOrdersSection({ propertyId }) {
   const { activeAccountId, activeRole } = useAccount();
 
-  const role = useMemo(
-    () => String(activeRole ?? "").toLowerCase(),
-    [activeRole]
-  );
+  const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
 
   const isTenant = useMemo(() => role === "tenant", [role]);
 
@@ -135,10 +132,9 @@ export default function WorkOrdersSection({ propertyId }) {
         return;
       }
 
-      const { data, error } = await supabase.rpc(
-        "work_order_allowed_actions_bulk",
-        { p_work_order_ids: ids }
-      );
+      const { data, error } = await supabase.rpc("work_order_allowed_actions_bulk", {
+        p_work_order_ids: ids,
+      });
 
       if (error) throw error;
 
@@ -167,7 +163,10 @@ export default function WorkOrdersSection({ propertyId }) {
       if (error) throw error;
 
       const actions = Array.isArray(data) ? data : [];
-      setAllowedActionsById((prev) => ({ ...(prev || {}), [workOrderId]: actions }));
+      setAllowedActionsById((prev) => ({
+        ...(prev || {}),
+        [workOrderId]: actions,
+      }));
     } catch {
       // ignore
     }
@@ -188,6 +187,36 @@ export default function WorkOrdersSection({ propertyId }) {
       setAudit([]);
     } finally {
       setAuditLoading(false);
+    }
+  }
+
+  // -----------------------------------------
+  // Contractors directory (manager-only)
+  // -----------------------------------------
+  const [contractors, setContractors] = useState([]);
+  const [contractorsLoading, setContractorsLoading] = useState(false);
+
+  async function loadContractors() {
+    if (!activeAccountId || !canManage) {
+      setContractors([]);
+      return;
+    }
+
+    setContractorsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("contractors")
+        .select("id, name, phone, email, user_id, active")
+        .eq("account_id", activeAccountId)
+        .eq("active", true)
+        .order("name", { ascending: true });
+
+      if (error) throw error;
+      setContractors(data ?? []);
+    } catch {
+      setContractors([]);
+    } finally {
+      setContractorsLoading(false);
     }
   }
 
@@ -263,6 +292,91 @@ export default function WorkOrdersSection({ propertyId }) {
   }
 
   // -----------------------------------------
+  // NEXT-2: refresh just ONE row + its actions
+  // -----------------------------------------
+  async function refreshWorkOrderRow(workOrderId) {
+    if (!activeAccountId || !propertyId || !workOrderId) return null;
+
+    const { data, error } = await supabase
+      .from("work_orders_with_flags")
+      .select(
+        `
+        id,
+        account_id,
+        property_id,
+        maintenance_request_id,
+        contractor_user_id,
+        contractor_name,
+        contractor_phone,
+        status,
+        scheduled_at,
+        notes,
+        quote_amount,
+        invoice_amount,
+        created_by,
+        created_at,
+        updated_at,
+        pending_cancel_request,
+        last_cancel_request_at,
+        last_cancel_request_by,
+        last_cancel_resolution_at,
+        last_cancel_resolution_action,
+        last_cancel_resolution_by,
+        maintenance_requests:maintenance_request_id ( id, title, status, priority )
+      `
+      )
+      .eq("id", workOrderId)
+      .eq("account_id", activeAccountId)
+      .eq("property_id", propertyId)
+      .single();
+
+    if (error) throw error;
+
+    // upsert into list
+    setWorkOrders((prev) => {
+      const arr = prev ?? [];
+      const idx = arr.findIndex((x) => x.id === workOrderId);
+      if (idx === -1) return [data, ...arr];
+      const copy = [...arr];
+      copy[idx] = data;
+      return copy;
+    });
+
+    // keep modal selection fresh if it's open
+    setSelectedWO((prev) => (prev?.id === workOrderId ? data : prev));
+
+    return data;
+  }
+
+  async function refreshAllowedActionsForOne(workOrderId) {
+    if (!canManage || !workOrderId) return;
+
+    const { data, error } = await supabase.rpc("work_order_allowed_actions", {
+      p_work_order_id: workOrderId,
+    });
+
+    if (error) throw error;
+
+    const actions = Array.isArray(data) ? data : [];
+    setAllowedActionsById((prev) => ({
+      ...(prev || {}),
+      [workOrderId]: actions,
+    }));
+  }
+
+  async function refreshAfterStatusAction(workOrderId, opts = {}) {
+    const { refreshInbox = false, refreshAuditLog = false } = opts;
+
+    await refreshWorkOrderRow(workOrderId);
+    await refreshAllowedActionsForOne(workOrderId);
+
+    if (refreshInbox && canManage) await loadPendingInbox();
+    if (refreshAuditLog && detailOpen && selectedWO?.id === workOrderId) {
+      await loadAudit(workOrderId);
+    }
+  }
+
+  // -----------------------------------------
   // Pending cancellation inbox (Action Required)
   // -----------------------------------------
   const [pendingInbox, setPendingInbox] = useState([]);
@@ -308,7 +422,10 @@ export default function WorkOrdersSection({ propertyId }) {
   useEffect(() => {
     if (!activeAccountId || !propertyId) return;
     reload();
-    if (canManage) loadPendingInbox();
+    if (canManage) {
+      loadPendingInbox();
+      loadContractors();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAccountId, propertyId, canManage]);
 
@@ -363,9 +480,22 @@ export default function WorkOrdersSection({ propertyId }) {
   const [maintenanceRequestId, setMaintenanceRequestId] = useState("");
   const [contractorName, setContractorName] = useState("");
   const [contractorPhone, setContractorPhone] = useState("");
+  const [selectedContractorId, setSelectedContractorId] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+
+  function onSelectContractor(contractorId) {
+    setSelectedContractorId(contractorId);
+    if (!contractorId) return;
+
+    const c = contractors.find((x) => x.id === contractorId);
+    if (!c) return;
+
+    // ✅ keep current createWorkOrder flow: autofill the existing text fields
+    setContractorName(c.name ?? "");
+    setContractorPhone(c.phone ?? "");
+  }
 
   async function handleCreate() {
     if (!activeAccountId || !propertyId) return;
@@ -387,6 +517,7 @@ export default function WorkOrdersSection({ propertyId }) {
       setMaintenanceRequestId("");
       setContractorName("");
       setContractorPhone("");
+      setSelectedContractorId("");
       setScheduledAt("");
       setNotes("");
 
@@ -411,6 +542,33 @@ export default function WorkOrdersSection({ propertyId }) {
   }
 
   // -----------------------------
+  // Contractor assignment (RPC)
+  // -----------------------------
+  const [assigningContractor, setAssigningContractor] = useState(false);
+  const [assignContractorId, setAssignContractorId] = useState("");
+
+  async function assignContractorToWorkOrder(workOrderId, contractorId) {
+    if (!canManage) return;
+    if (!workOrderId || !contractorId) return;
+
+    setAssigningContractor(true);
+    try {
+      const { error } = await supabase.rpc("work_order_assign_contractor", {
+        p_work_order_id: workOrderId,
+        p_contractor_id: contractorId,
+      });
+      if (error) throw error;
+
+      // ✅ refresh this row + audit + actions
+      await refreshAfterStatusAction(workOrderId, { refreshAuditLog: true });
+    } catch (e) {
+      alert(e?.message ?? "Nie udało się przypisać wykonawcy");
+    } finally {
+      setAssigningContractor(false);
+    }
+  }
+
+  // -----------------------------
   // DB-driven actions
   // -----------------------------
   async function setStatus(id, nextStatus) {
@@ -424,9 +582,8 @@ export default function WorkOrdersSection({ propertyId }) {
 
       if (error) throw error;
 
-      await reload();
-      if (canManage) await loadPendingInbox();
-      if (detailOpen && selectedWO?.id === id) await loadAudit(id);
+      // ✅ NEXT-2: refresh only this row + its allowed actions
+      await refreshAfterStatusAction(id, { refreshAuditLog: true });
     } catch (e) {
       alert(e?.message ?? "Nie udało się zmienić statusu");
     } finally {
@@ -445,8 +602,11 @@ export default function WorkOrdersSection({ propertyId }) {
 
       if (error) throw error;
 
-      await reload();
-      if (detailOpen && selectedWO?.id === id) await loadAudit(id);
+      // ✅ no duplicate audit call here
+      await refreshAfterStatusAction(id, {
+        refreshAuditLog: true,
+        refreshInbox: false, // tenant can't manage inbox anyway
+      });
     } catch (e) {
       alert(e?.message ?? "Nie udało się wysłać prośby o anulowanie");
     } finally {
@@ -459,17 +619,16 @@ export default function WorkOrdersSection({ propertyId }) {
   async function approveCancellation(id) {
     setActionBusyId(id);
     try {
-      const { error } = await supabase.rpc(
-        "work_order_approve_tenant_cancellation",
-        {
-          p_work_order_id: id,
-        }
-      );
+      const { error } = await supabase.rpc("work_order_approve_tenant_cancellation", {
+        p_work_order_id: id,
+      });
       if (error) throw error;
 
-      await reload();
-      if (canManage) await loadPendingInbox();
-      if (detailOpen && selectedWO?.id === id) await loadAudit(id);
+      // ✅ refresh inbox+audit via helper (no extra calls)
+      await refreshAfterStatusAction(id, {
+        refreshAuditLog: true,
+        refreshInbox: true,
+      });
     } catch (e) {
       alert(e?.message ?? "Nie udało się zatwierdzić anulowania");
     } finally {
@@ -481,6 +640,7 @@ export default function WorkOrdersSection({ propertyId }) {
     setActionBusyId(id);
     try {
       const reason = denyReasonById[id] || null;
+
       const { error } = await supabase.rpc("work_order_deny_tenant_cancellation", {
         p_work_order_id: id,
         p_reason: reason,
@@ -493,9 +653,11 @@ export default function WorkOrdersSection({ propertyId }) {
         return copy;
       });
 
-      await reload();
-      if (canManage) await loadPendingInbox();
-      if (detailOpen && selectedWO?.id === id) await loadAudit(id);
+      // ✅ refresh inbox+audit via helper (no extra calls)
+      await refreshAfterStatusAction(id, {
+        refreshAuditLog: true,
+        refreshInbox: true,
+      });
     } catch (e) {
       alert(e?.message ?? "Nie udało się odrzucić anulowania");
     } finally {
@@ -582,10 +744,7 @@ export default function WorkOrdersSection({ propertyId }) {
               {pendingInbox.map((wo) => {
                 const isBusy = actionBusyId === wo.id;
                 return (
-                  <div
-                    key={wo.id}
-                    className="p-3 flex items-start justify-between gap-3"
-                  >
+                  <div key={wo.id} className="p-3 flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <StatusPill status={wo.status} />
@@ -593,9 +752,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           {wo.contractor_name || "Zlecenie"}
                         </span>
                         {wo.contractor_phone && (
-                          <span className="text-xs text-slate-500">
-                            {wo.contractor_phone}
-                          </span>
+                          <span className="text-xs text-slate-500">{wo.contractor_phone}</span>
                         )}
                       </div>
 
@@ -618,9 +775,7 @@ export default function WorkOrdersSection({ propertyId }) {
                         disabled={isBusy}
                         onClick={() => approveCancellation(wo.id)}
                         className={`hover:underline ${
-                          isBusy
-                            ? "text-slate-400 cursor-not-allowed"
-                            : "text-emerald-700"
+                          isBusy ? "text-slate-400 cursor-not-allowed" : "text-emerald-700"
                         }`}
                       >
                         {isBusy ? "Przetwarzanie…" : "Zatwierdź"}
@@ -630,14 +785,11 @@ export default function WorkOrdersSection({ propertyId }) {
                         type="button"
                         disabled={isBusy}
                         onClick={() => {
-                          const full =
-                            workOrders.find((x) => x.id === wo.id) || wo;
+                          const full = workOrders.find((x) => x.id === wo.id) || wo;
                           openDetails(full);
                         }}
                         className={`hover:underline ${
-                          isBusy
-                            ? "text-slate-400 cursor-not-allowed"
-                            : "text-slate-700"
+                          isBusy ? "text-slate-400 cursor-not-allowed" : "text-slate-700"
                         }`}
                       >
                         Szczegóły
@@ -655,9 +807,7 @@ export default function WorkOrdersSection({ propertyId }) {
         <div className="bg-white border rounded-xl p-4 space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-slate-500">
-                Powiązane zgłoszenie (opcjonalnie)
-              </label>
+              <label className="text-xs text-slate-500">Powiązane zgłoszenie (opcjonalnie)</label>
 
               {requestsLoading ? (
                 <div className="mt-2">
@@ -695,6 +845,38 @@ export default function WorkOrdersSection({ propertyId }) {
               />
             </div>
 
+            {/* ✅ NEW: Contractor picker */}
+            <div>
+              <label className="text-xs text-slate-500">Wykonawca (z listy)</label>
+
+              {contractorsLoading ? (
+                <div className="mt-2">
+                  <Skeleton className="h-9" />
+                </div>
+              ) : (
+                <select
+                  value={selectedContractorId}
+                  onChange={(e) => onSelectContractor(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="">— wybierz (opcjonalnie) —</option>
+                  {(contractors ?? []).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                      {c.phone ? ` • ${c.phone}` : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {!contractorsLoading && (contractors?.length ?? 0) === 0 && (
+                <p className="text-xs text-slate-500 mt-2">
+                  Brak wykonawców na liście. Dodaj wykonawcę w tabeli contractors.
+                </p>
+              )}
+            </div>
+
+            {/* Keep your existing manual fields (still useful) */}
             <div>
               <label className="text-xs text-slate-500">Wykonawca (nazwa)</label>
               <input
@@ -778,10 +960,7 @@ export default function WorkOrdersSection({ propertyId }) {
             const isBusy = actionBusyId === wo.id;
 
             return (
-              <div
-                key={wo.id}
-                className="px-4 py-3 flex justify-between items-start gap-4"
-              >
+              <div key={wo.id} className="px-4 py-3 flex justify-between items-start gap-4">
                 <button
                   type="button"
                   onClick={() => openDetails(wo)}
@@ -798,14 +977,10 @@ export default function WorkOrdersSection({ propertyId }) {
                     )}
 
                     {wo.contractor_name && (
-                      <span className="text-sm font-medium text-slate-900">
-                        {wo.contractor_name}
-                      </span>
+                      <span className="text-sm font-medium text-slate-900">{wo.contractor_name}</span>
                     )}
                     {wo.contractor_phone && (
-                      <span className="text-xs text-slate-500">
-                        {wo.contractor_phone}
-                      </span>
+                      <span className="text-xs text-slate-500">{wo.contractor_phone}</span>
                     )}
                   </div>
 
@@ -815,14 +990,10 @@ export default function WorkOrdersSection({ propertyId }) {
                     </p>
                   )}
 
-                  {scheduled && (
-                    <p className="text-xs text-slate-500 mt-1">Termin: {scheduled}</p>
-                  )}
+                  {scheduled && <p className="text-xs text-slate-500 mt-1">Termin: {scheduled}</p>}
 
                   {wo.notes && (
-                    <p className="text-xs text-slate-600 mt-2 whitespace-pre-wrap">
-                      {wo.notes}
-                    </p>
+                    <p className="text-xs text-slate-600 mt-2 whitespace-pre-wrap">{wo.notes}</p>
                   )}
                 </button>
 
@@ -844,9 +1015,7 @@ export default function WorkOrdersSection({ propertyId }) {
                       </button>
 
                       {(tenantState.reason || wo?.pending_cancel_request) && (
-                        <span className="text-xs text-slate-500">
-                          {tenantState.reason}
-                        </span>
+                        <span className="text-xs text-slate-500">{tenantState.reason}</span>
                       )}
                     </div>
                   )}
@@ -859,9 +1028,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           disabled={isBusy}
                           onClick={() => approveCancellation(wo.id)}
                           className={`hover:underline ${
-                            isBusy
-                              ? "text-slate-400 cursor-not-allowed"
-                              : "text-emerald-700"
+                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-emerald-700"
                           }`}
                         >
                           {isBusy ? "Przetwarzanie…" : "Zatwierdź anulowanie"}
@@ -871,9 +1038,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           disabled={isBusy}
                           onClick={() => denyCancellation(wo.id)}
                           className={`hover:underline ${
-                            isBusy
-                              ? "text-slate-400 cursor-not-allowed"
-                              : "text-rose-700"
+                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-rose-700"
                           }`}
                         >
                           {isBusy ? "Przetwarzanie…" : "Odrzuć"}
@@ -884,10 +1049,7 @@ export default function WorkOrdersSection({ propertyId }) {
                         disabled={isBusy}
                         value={denyReasonById[wo.id] ?? ""}
                         onChange={(e) =>
-                          setDenyReasonById((prev) => ({
-                            ...prev,
-                            [wo.id]: e.target.value,
-                          }))
+                          setDenyReasonById((prev) => ({ ...prev, [wo.id]: e.target.value }))
                         }
                         className="border rounded-lg px-2 py-1 text-xs w-56 disabled:bg-slate-50"
                         placeholder="Powód (opcjonalnie)"
@@ -903,9 +1065,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           disabled={isBusy}
                           onClick={() => setStatus(wo.id, "in_progress")}
                           className={`hover:underline ${
-                            isBusy
-                              ? "text-slate-400 cursor-not-allowed"
-                              : "text-blue-600"
+                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-blue-600"
                           }`}
                         >
                           W trakcie
@@ -918,9 +1078,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           disabled={isBusy}
                           onClick={() => setStatus(wo.id, "cancelled")}
                           className={`hover:underline ${
-                            isBusy
-                              ? "text-slate-400 cursor-not-allowed"
-                              : "text-slate-600"
+                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-slate-600"
                           }`}
                         >
                           Anuluj
@@ -933,9 +1091,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           disabled={isBusy}
                           onClick={() => setStatus(wo.id, "completed")}
                           className={`hover:underline ${
-                            isBusy
-                              ? "text-slate-400 cursor-not-allowed"
-                              : "text-green-700"
+                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-green-700"
                           }`}
                         >
                           Zakończ
@@ -947,9 +1103,7 @@ export default function WorkOrdersSection({ propertyId }) {
                         disabled={isBusy}
                         onClick={() => handleDelete(wo.id)}
                         className={`hover:underline ${
-                          isBusy
-                            ? "text-slate-400 cursor-not-allowed"
-                            : "text-rose-600"
+                          isBusy ? "text-slate-400 cursor-not-allowed" : "text-rose-600"
                         }`}
                       >
                         Usuń
@@ -997,6 +1151,38 @@ export default function WorkOrdersSection({ propertyId }) {
               </div>
 
               <div className="text-right space-y-2 shrink-0">
+                {canManage && selectedWO?.id && (
+                  <div className="space-y-2">
+                    <div className="text-xs text-slate-500">Przypisz wykonawcę</div>
+
+                    <select
+                      value={assignContractorId}
+                      disabled={assigningContractor || contractorsLoading}
+                      onChange={(e) => setAssignContractorId(e.target.value)}
+                      className="w-64 border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
+                    >
+                      <option value="">— wybierz —</option>
+                      {(contractors ?? []).map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                          {c.phone ? ` • ${c.phone}` : ""}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      disabled={!assignContractorId || assigningContractor}
+                      onClick={() => assignContractorToWorkOrder(selectedWO.id, assignContractorId)}
+                      className={`px-3 py-2 text-sm rounded-lg text-white w-full ${
+                        !assignContractorId || assigningContractor ? "bg-slate-400" : "bg-blue-600"
+                      }`}
+                    >
+                      {assigningContractor ? "Przypisywanie…" : "Przypisz"}
+                    </button>
+                  </div>
+                )}
+
                 {canManage && selectedWO.pending_cancel_request && (
                   <>
                     <button
@@ -1004,14 +1190,10 @@ export default function WorkOrdersSection({ propertyId }) {
                       disabled={actionBusyId === selectedWO.id}
                       onClick={() => approveCancellation(selectedWO.id)}
                       className={`px-3 py-2 text-sm rounded-lg text-white ${
-                        actionBusyId === selectedWO.id
-                          ? "bg-slate-400"
-                          : "bg-emerald-600"
+                        actionBusyId === selectedWO.id ? "bg-slate-400" : "bg-emerald-600"
                       }`}
                     >
-                      {actionBusyId === selectedWO.id
-                        ? "Przetwarzanie…"
-                        : "Zatwierdź anulowanie"}
+                      {actionBusyId === selectedWO.id ? "Przetwarzanie…" : "Zatwierdź anulowanie"}
                     </button>
 
                     <div className="space-y-2">
@@ -1032,14 +1214,10 @@ export default function WorkOrdersSection({ propertyId }) {
                         disabled={actionBusyId === selectedWO.id}
                         onClick={() => denyCancellation(selectedWO.id)}
                         className={`px-3 py-2 text-sm rounded-lg text-white w-full ${
-                          actionBusyId === selectedWO.id
-                            ? "bg-slate-400"
-                            : "bg-rose-600"
+                          actionBusyId === selectedWO.id ? "bg-slate-400" : "bg-rose-600"
                         }`}
                       >
-                        {actionBusyId === selectedWO.id
-                          ? "Przetwarzanie…"
-                          : "Odrzuć anulowanie"}
+                        {actionBusyId === selectedWO.id ? "Przetwarzanie…" : "Odrzuć anulowanie"}
                       </button>
                     </div>
                   </>

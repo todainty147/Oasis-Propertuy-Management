@@ -1,13 +1,11 @@
+// src/pages/Dashboard.jsx
 import Card from "../components/Card";
 import Skeleton from "../components/ui/Skeleton";
-import {
-  Wallet,
-  TrendingUp,
-  AlertCircle,
-  Home,
-} from "lucide-react";
-import { useEffect } from "react";
+import { Wallet, TrendingUp, AlertCircle, Home } from "lucide-react";
+import { useEffect, useMemo } from "react";
 import { usePageTitle } from "../layout/PageTitleContext";
+import { useAccount } from "../context/AccountContext";
+import TenantMyIssuesDashboard from "../components/TenantMyIssuesDashboard";
 
 /* ======================
    SKELETON
@@ -40,14 +38,14 @@ function DashboardSkeleton() {
 
 export default function Dashboard({
   loading = false,
-  properties,
-  payments,
-  occupiedCount,
-  vacantCount,
-  occupancyRate,
-  longVacantCount,
-  shortVacantCount,
-  longVacantProperties,
+  properties = [],
+  payments = [],
+  occupiedCount = 0,
+  vacantCount = 0,
+  occupancyRate = 0,
+  longVacantCount = 0,
+  shortVacantCount = 0,
+  longVacantProperties = [],
 }) {
   /* ---------- PAGE TITLE ---------- */
   const { setTitle } = usePageTitle();
@@ -55,6 +53,12 @@ export default function Dashboard({
   useEffect(() => {
     setTitle("Pulpit");
   }, [setTitle]);
+
+  /* ---------- ROLE ---------- */
+  const { activeRole } = useAccount();
+
+  const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
+  const isTenant = useMemo(() => role === "tenant", [role]);
 
   /* ---------- LOADING ---------- */
   if (loading) {
@@ -64,25 +68,35 @@ export default function Dashboard({
   /* ---------- DERIVED DATA ---------- */
   const totalRevenue = payments
     .filter((p) => p.status === "Opłacone")
-    .reduce((s, p) => s + p.amount, 0);
+    .reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
   const pendingRevenue = payments
-    .filter(
-      (p) => p.status === "Oczekujące" || p.status === "Zaległe"
-    )
-    .reduce((s, p) => s + p.amount, 0);
+    .filter((p) => p.status === "Oczekujące" || p.status === "Zaległe")
+    .reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
   return (
     <div className="space-y-6">
-      {/* KPI GRID */}
+      {/* ✅ NEXT-2: Tenant “My Issues” mini-dashboard */}
+      {isTenant && (
+        <TenantMyIssuesDashboard
+          // Keep it global for tenant (across their allowed properties)
+          // If you later want to scope to a chosen property, pass propertyId.
+          propertyId={null}
+          onOpenIssue={(row) => {
+            // Optional: later we can navigate/open a modal.
+            // For now: no-op to avoid breaking your flow.
+            console.log("Tenant issue row:", row);
+          }}
+        />
+      )}
+
+      {/* KPI GRID (kept unchanged for all roles) */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         {/* REVENUE */}
         <Card className="p-5">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-medium text-slate-500">
-                Miesięczny Przychód
-              </p>
+              <p className="text-sm font-medium text-slate-500">Miesięczny Przychód</p>
               <h3 className="text-2xl font-bold text-slate-900 mt-1">
                 {totalRevenue.toLocaleString()} PLN
               </h3>
@@ -101,9 +115,7 @@ export default function Dashboard({
         <Card className="p-5">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-medium text-slate-500">
-                Oczekujące i Zaległe
-              </p>
+              <p className="text-sm font-medium text-slate-500">Oczekujące i Zaległe</p>
               <h3 className="text-2xl font-bold text-slate-900 mt-1">
                 {pendingRevenue.toLocaleString()} PLN
               </h3>
@@ -114,11 +126,8 @@ export default function Dashboard({
           </div>
           <div className="mt-4 text-sm text-slate-500">
             {
-              payments.filter(
-                (p) =>
-                  p.status === "Oczekujące" ||
-                  p.status === "Zaległe"
-              ).length
+              payments.filter((p) => p.status === "Oczekujące" || p.status === "Zaległe")
+                .length
             }{" "}
             płatności do weryfikacji
           </div>
@@ -128,60 +137,42 @@ export default function Dashboard({
         <Card className="p-5">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-medium text-slate-500">
-                Wynajęte Lokale
-              </p>
-              <h3 className="text-2xl font-bold text-green-600 mt-1">
-                {occupiedCount}
-              </h3>
+              <p className="text-sm font-medium text-slate-500">Wynajęte Lokale</p>
+              <h3 className="text-2xl font-bold text-green-600 mt-1">{occupiedCount}</h3>
             </div>
             <div className="p-2 bg-green-100 rounded-lg text-green-600">
               <Home size={20} />
             </div>
           </div>
-          <div className="mt-4 text-sm text-slate-500">
-            z {properties.length} lokali
-          </div>
+          <div className="mt-4 text-sm text-slate-500">z {properties.length} lokali</div>
         </Card>
 
         {/* OCCUPANCY */}
         <Card className="p-5">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-medium text-slate-500">
-                Obłożenie Lokali
-              </p>
-              <h3 className="text-2xl font-bold text-blue-600 mt-1">
-                {occupancyRate}%
-              </h3>
+              <p className="text-sm font-medium text-slate-500">Obłożenie Lokali</p>
+              <h3 className="text-2xl font-bold text-blue-600 mt-1">{occupancyRate}%</h3>
             </div>
             <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
               <Home size={20} />
             </div>
           </div>
-          <div className="mt-4 text-sm text-slate-500">
-            {vacantCount} wolnych lokali
-          </div>
+          <div className="mt-4 text-sm text-slate-500">{vacantCount} wolnych lokali</div>
         </Card>
 
         {/* LONG VACANT */}
         <Card className="p-5">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-medium text-slate-500">
-                Długotrwale Puste
-              </p>
-              <h3 className="text-2xl font-bold text-red-600 mt-1">
-                {longVacantCount}
-              </h3>
+              <p className="text-sm font-medium text-slate-500">Długotrwale Puste</p>
+              <h3 className="text-2xl font-bold text-red-600 mt-1">{longVacantCount}</h3>
             </div>
             <div className="p-2 bg-red-100 rounded-lg text-red-600">
               <AlertCircle size={20} />
             </div>
           </div>
-          <div className="mt-4 text-sm text-slate-500">
-            {shortVacantCount} wolne ≤ 30 dni
-          </div>
+          <div className="mt-4 text-sm text-slate-500">{shortVacantCount} wolne ≤ 30 dni</div>
         </Card>
       </div>
 
@@ -194,20 +185,13 @@ export default function Dashboard({
 
           <div className="divide-y">
             {longVacantProperties.map((p) => (
-              <div
-                key={p.id}
-                className="py-3 flex justify-between items-center"
-              >
+              <div key={p.id} className="py-3 flex justify-between items-center">
                 <div>
                   <p className="font-medium">{p.address}</p>
-                  <p className="text-sm text-slate-500">
-                    {p.city}
-                  </p>
+                  <p className="text-sm text-slate-500">{p.city}</p>
                 </div>
 
-                <span className="text-sm font-semibold text-red-600">
-                  {p.daysVacant} dni
-                </span>
+                <span className="text-sm font-semibold text-red-600">{p.daysVacant} dni</span>
               </div>
             ))}
           </div>
