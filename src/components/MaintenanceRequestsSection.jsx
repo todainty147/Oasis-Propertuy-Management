@@ -1,13 +1,11 @@
 // src/components/MaintenanceRequestsSection.jsx
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
 import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
-import {
-  createMaintenanceRequest,
-  updateMaintenanceRequest,
-} from "../services/maintenanceService";
+import { createMaintenanceRequest, updateMaintenanceRequest } from "../services/maintenanceService";
 import { createWorkOrder } from "../services/workOrderService";
 
 /* -----------------------------
@@ -146,6 +144,7 @@ function Modal({ open, onClose, title, children }) {
 
 export default function MaintenanceRequestsSection({ propertyId }) {
   const { activeAccountId, activeRole } = useAccount();
+  const navigate = useNavigate();
 
   const isTenant = useMemo(
     () => String(activeRole ?? "").toLowerCase() === "tenant",
@@ -157,15 +156,13 @@ export default function MaintenanceRequestsSection({ propertyId }) {
     return ["owner", "admin", "staff"].includes(r);
   }, [activeRole]);
 
-  // Tenants can create requests; members can create/manage.
   const canCreate = canManage || isTenant;
 
   // -----------------------------
   // Data: requests + linked work orders
   // -----------------------------
   const [requests, setRequests] = useState([]);
-  const [workOrdersByRequestId, setWorkOrdersByRequestId] = useState({}); // { [requestId]: wo[] }
-
+  const [workOrdersByRequestId, setWorkOrdersByRequestId] = useState({});
   const [loading, setLoading] = useState(false);
   const [woLoading, setWoLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -179,7 +176,9 @@ export default function MaintenanceRequestsSection({ propertyId }) {
     try {
       const { data, error } = await supabase
         .from("maintenance_requests")
-        .select("id, account_id, property_id, reported_by_tenant_id, title, description, priority, status, created_at, updated_at")
+        .select(
+          "id, account_id, property_id, reported_by_tenant_id, title, description, priority, status, created_at, updated_at"
+        )
         .eq("account_id", activeAccountId)
         .eq("property_id", propertyId)
         .order("created_at", { ascending: false })
@@ -206,8 +205,6 @@ export default function MaintenanceRequestsSection({ propertyId }) {
 
     setWoLoading(true);
     try {
-      // Single query: get work orders for these maintenance requests
-      // Uses your view that also provides pending_cancel_request
       const { data, error } = await supabase
         .from("work_orders_with_flags")
         .select(
@@ -242,8 +239,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
         grouped[k].push(wo);
       }
       setWorkOrdersByRequestId(grouped);
-    } catch (e) {
-      // Don’t block the whole section if WO lookup fails
+    } catch {
       setWorkOrdersByRequestId({});
     } finally {
       setWoLoading(false);
@@ -314,7 +310,6 @@ export default function MaintenanceRequestsSection({ propertyId }) {
 
     const s = String(r.status ?? "").toLowerCase();
 
-    // When resolved/closed, do NOT show "Rozwiąż"
     if (s === "resolved" || s === "closed") {
       return (
         <div className="flex flex-col gap-2 text-xs shrink-0">
@@ -338,7 +333,6 @@ export default function MaintenanceRequestsSection({ propertyId }) {
       );
     }
 
-    // Default actions for active tickets
     return (
       <div className="flex flex-col gap-2 text-xs shrink-0">
         {s !== "open" && (
@@ -391,7 +385,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
   }
 
   // -----------------------------
-  // Create work order from request (members only)
+  // Option A: KEEP modal WO creation (authoritative)
   // -----------------------------
   const [woModalOpen, setWoModalOpen] = useState(false);
   const [woForRequest, setWoForRequest] = useState(null);
@@ -433,8 +427,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
         status: "assigned",
       });
 
-      // UX sync: if ticket is still "open/waiting", move to in_progress.
-      // (Later you can move this to a DB trigger; this keeps UI truthful right now.)
+      // UX sync: move ticket to in_progress if still open/waiting
       const current = String(woForRequest.status ?? "").toLowerCase();
       if (["open", "waiting"].includes(current)) {
         await updateMaintenanceRequest(woForRequest.id, { status: "in_progress" });
@@ -442,12 +435,21 @@ export default function MaintenanceRequestsSection({ propertyId }) {
 
       closeCreateWO();
       await reloadRequests();
-      // work orders map refresh will follow via effect
     } catch (e) {
       alert(e?.message ?? "Nie udało się utworzyć zlecenia");
     } finally {
       setWoSaving(false);
     }
+  }
+
+  // -----------------------------
+  // Option A: ALSO offer deep-link (suggested)
+  // -----------------------------
+  function goCreateWorkOrderForRequest(req) {
+    if (!canManage) return;
+    if (!propertyId || !req?.id) return;
+
+    navigate(`/properties/${propertyId}?createWO=1&mrId=${req.id}&seedNotes=1`);
   }
 
   // -----------------------------
@@ -477,9 +479,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="text-lg font-semibold">Usterki / Zgłoszenia</h3>
-          <p className="text-sm text-slate-500">
-            Zgłoszenia serwisowe dla tej nieruchomości
-          </p>
+          <p className="text-sm text-slate-500">Zgłoszenia serwisowe dla tej nieruchomości</p>
         </div>
 
         <div className="flex items-center gap-3 text-sm text-slate-600">
@@ -496,18 +496,13 @@ export default function MaintenanceRequestsSection({ propertyId }) {
 
       {error && (
         <div className="p-3 rounded-lg border bg-white">
-          <p className="text-sm text-rose-600">
-            Błąd: {String(error.message ?? error)}
-          </p>
+          <p className="text-sm text-rose-600">Błąd: {String(error.message ?? error)}</p>
         </div>
       )}
 
-      {/* Tenant + Members: Create request */}
       {canCreate && (
         <div className="border rounded-xl bg-white p-4 space-y-3">
-          <p className="text-sm font-medium">
-            {isTenant ? "Zgłoś usterkę" : "Dodaj zgłoszenie"}
-          </p>
+          <p className="text-sm font-medium">{isTenant ? "Zgłoś usterkę" : "Dodaj zgłoszenie"}</p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="md:col-span-2">
@@ -574,9 +569,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
       )}
 
       {!loading && requests.length === 0 && (
-        <p className="text-sm text-slate-500">
-          Brak zgłoszeń dla tej nieruchomości.
-        </p>
+        <p className="text-sm text-slate-500">Brak zgłoszeń dla tej nieruchomości.</p>
       )}
 
       {!loading && requests.length > 0 && (
@@ -587,11 +580,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
 
             return (
               <div key={r.id} className="px-4 py-3 flex gap-4 justify-between">
-                <button
-                  type="button"
-                  onClick={() => openDetails(r)}
-                  className="min-w-0 text-left"
-                >
+                <button type="button" onClick={() => openDetails(r)} className="min-w-0 text-left">
                   <div className="flex items-center gap-2 flex-wrap">
                     <StatusPill status={r.status} />
                     <p className="font-medium truncate">{r.title}</p>
@@ -609,9 +598,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
                   </div>
 
                   {r.description && (
-                    <p className="text-sm text-slate-600 mt-1 line-clamp-2">
-                      {r.description}
-                    </p>
+                    <p className="text-sm text-slate-600 mt-1 line-clamp-2">{r.description}</p>
                   )}
 
                   <div className="text-xs text-slate-500 mt-2 flex gap-3 flex-wrap">
@@ -621,27 +608,34 @@ export default function MaintenanceRequestsSection({ propertyId }) {
                     {primaryWO?.scheduled_at && (
                       <span>Termin zlecenia: {formatDateTime(primaryWO.scheduled_at)}</span>
                     )}
-                    {linked.length > 1 && (
-                      <span>Zlecenia: {linked.length}</span>
-                    )}
+                    {linked.length > 1 && <span>Zlecenia: {linked.length}</span>}
                     {woLoading && <span>Ładowanie zleceń…</span>}
                   </div>
                 </button>
 
-                {/* Right-side actions */}
                 <div className="flex flex-col items-end gap-2 shrink-0">
-                  {/* Members: create WO if none */}
+                  {/* ✅ Option A: modal is primary (keeps full functionality) */}
                   {canManage && linked.length === 0 && (
-                    <button
-                      type="button"
-                      onClick={() => openCreateWO(r)}
-                      className="text-sm text-blue-600 hover:underline"
-                    >
-                      Utwórz zlecenie
-                    </button>
+                    <div className="flex flex-col items-end gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openCreateWO(r)}
+                        className="text-sm text-blue-600 hover:underline"
+                      >
+                        Utwórz zlecenie
+                      </button>
+
+                      {/* ✅ Secondary: “suggest” deep link */}
+                      <button
+                        type="button"
+                        onClick={() => goCreateWorkOrderForRequest(r)}
+                        className="text-xs text-slate-600 hover:underline"
+                      >
+                        Sugeruj w „Zleceniach”
+                      </button>
+                    </div>
                   )}
 
-                  {/* Members: manage request status (existing behavior) */}
                   {renderActions(r)}
                 </div>
               </div>
@@ -651,11 +645,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
       )}
 
       {/* Request details modal */}
-      <Modal
-        open={detailOpen}
-        onClose={closeDetails}
-        title="Szczegóły zgłoszenia"
-      >
+      <Modal open={detailOpen} onClose={closeDetails} title="Szczegóły zgłoszenia">
         {!selectedReq ? (
           <p className="text-sm text-slate-500">Brak danych.</p>
         ) : (
@@ -663,9 +653,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <StatusPill status={selectedReq.status} />
-                <div className="text-lg font-semibold text-slate-900">
-                  {selectedReq.title}
-                </div>
+                <div className="text-lg font-semibold text-slate-900">{selectedReq.title}</div>
               </div>
 
               <div className="text-xs text-slate-500 mt-2 flex gap-3 flex-wrap">
@@ -711,18 +699,11 @@ export default function MaintenanceRequestsSection({ propertyId }) {
                           </div>
 
                           <div className="text-xs text-slate-500 mt-2 flex gap-3 flex-wrap">
-                            {wo.contractor_name && (
-                              <span>Wykonawca: {wo.contractor_name}</span>
-                            )}
-                            {wo.contractor_phone && (
-                              <span>Tel: {wo.contractor_phone}</span>
-                            )}
-                            {wo.scheduled_at && (
-                              <span>Termin: {formatDateTime(wo.scheduled_at)}</span>
-                            )}
+                            {wo.contractor_name && <span>Wykonawca: {wo.contractor_name}</span>}
+                            {wo.contractor_phone && <span>Tel: {wo.contractor_phone}</span>}
+                            {wo.scheduled_at && <span>Termin: {formatDateTime(wo.scheduled_at)}</span>}
                           </div>
 
-                          {/* Tenant-friendly decision feedback */}
                           {wo.last_cancel_resolution_action && (
                             <p className="text-xs text-slate-500 mt-2">
                               Decyzja dot. anulowania:{" "}
@@ -733,22 +714,28 @@ export default function MaintenanceRequestsSection({ propertyId }) {
                             </p>
                           )}
                         </div>
-
-                        {/* Members can create WO from modal if none exist (handled above), so no extra actions here */}
                       </div>
                     </div>
                   ))}
                 </div>
               )}
 
+              {/* ✅ Option A: modal primary + deep-link secondary */}
               {canManage && selectedReqWorkOrders.length === 0 && (
-                <div className="mt-3">
+                <div className="mt-3 flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => openCreateWO(selectedReq)}
                     className="px-3 py-2 text-sm rounded-lg bg-blue-600 text-white"
                   >
                     Utwórz zlecenie z tego zgłoszenia
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => goCreateWorkOrderForRequest(selectedReq)}
+                    className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50"
+                  >
+                    Sugeruj w „Zleceniach”
                   </button>
                 </div>
               )}
@@ -757,23 +744,16 @@ export default function MaintenanceRequestsSection({ propertyId }) {
         )}
       </Modal>
 
-      {/* Create Work Order modal (members only) */}
-      <Modal
-        open={woModalOpen}
-        onClose={closeCreateWO}
-        title="Utwórz zlecenie (Work Order)"
-      >
+      {/* ✅ Option A: Create Work Order modal (members only) */}
+      <Modal open={woModalOpen} onClose={closeCreateWO} title="Utwórz zlecenie (Work Order)">
         {!woForRequest ? (
           <p className="text-sm text-slate-500">Brak danych.</p>
         ) : (
           <div className="space-y-4">
             <div className="bg-slate-50 border rounded-lg p-3">
-              <div className="text-sm font-medium text-slate-900">
-                Zgłoszenie: {woForRequest.title}
-              </div>
+              <div className="text-sm font-medium text-slate-900">Zgłoszenie: {woForRequest.title}</div>
               <div className="text-xs text-slate-500 mt-1">
-                Priorytet: {priorityLabel(woForRequest.priority)} • Status:{" "}
-                {statusLabel(woForRequest.status)}
+                Priorytet: {priorityLabel(woForRequest.priority)} • Status: {statusLabel(woForRequest.status)}
               </div>
             </div>
 
@@ -842,7 +822,6 @@ export default function MaintenanceRequestsSection({ propertyId }) {
 
             <p className="text-xs text-slate-500">
               Uwaga: status zgłoszenia zostanie ustawiony na „W trakcie”, jeśli było „Otwarte” lub „Oczekuje”.
-              (Docelowo możemy przenieść to do triggera w DB.)
             </p>
           </div>
         )}

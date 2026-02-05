@@ -1,5 +1,6 @@
 // src/components/WorkOrdersSection.jsx
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
 import { useAccount } from "../context/AccountContext";
@@ -86,8 +87,13 @@ function Modal({ open, onClose, title, children }) {
 export default function WorkOrdersSection({ propertyId }) {
   const { activeAccountId, activeRole } = useAccount();
 
-  const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
+  // ✅ NEXT-4: allow deep-link from Maintenance Requests list
+  const [searchParams, setSearchParams] = useSearchParams();
+  const createWOFromUrl = searchParams.get("createWO") === "1";
+  const mrIdFromUrl = searchParams.get("mrId") || "";
+  const seedNotesFromUrl = searchParams.get("seedNotes") === "1";
 
+  const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
   const isTenant = useMemo(() => role === "tenant", [role]);
 
   const canManage = useMemo(() => {
@@ -119,7 +125,6 @@ export default function WorkOrdersSection({ propertyId }) {
   const [allowedActionsById, setAllowedActionsById] = useState({});
 
   async function loadAllowedActionsForRows(rows) {
-    // Only managers need member actions buttons
     if (!canManage) {
       setAllowedActionsById({});
       return;
@@ -139,18 +144,13 @@ export default function WorkOrdersSection({ propertyId }) {
       if (error) throw error;
 
       const map = {};
-      for (const r of data ?? []) {
-        map[r.work_order_id] = r.actions ?? [];
-      }
-
+      for (const r of data ?? []) map[r.work_order_id] = r.actions ?? [];
       setAllowedActionsById(map);
     } catch {
-      // Fail soft: show minimal UI, not a crash
       setAllowedActionsById({});
     }
   }
 
-  // Optional fallback: fetch actions for ONE work order if needed (e.g. opened from inbox)
   async function ensureAllowedActionsLoaded(workOrderId) {
     if (!canManage) return;
     if (!workOrderId) return;
@@ -163,10 +163,7 @@ export default function WorkOrdersSection({ propertyId }) {
       if (error) throw error;
 
       const actions = Array.isArray(data) ? data : [];
-      setAllowedActionsById((prev) => ({
-        ...(prev || {}),
-        [workOrderId]: actions,
-      }));
+      setAllowedActionsById((prev) => ({ ...(prev || {}), [workOrderId]: actions }));
     } catch {
       // ignore
     }
@@ -231,6 +228,7 @@ export default function WorkOrdersSection({ propertyId }) {
     setDetailOpen(false);
     setSelectedWO(null);
     setAudit([]);
+    setAssignContractorId("");
   }
 
   async function reload() {
@@ -276,7 +274,6 @@ export default function WorkOrdersSection({ propertyId }) {
       const rows = data ?? [];
       setWorkOrders(rows);
 
-      // ✅ ONE call for all actions (performance)
       await loadAllowedActionsForRows(rows);
 
       if (detailOpen && selectedWO?.id) {
@@ -332,7 +329,6 @@ export default function WorkOrdersSection({ propertyId }) {
 
     if (error) throw error;
 
-    // upsert into list
     setWorkOrders((prev) => {
       const arr = prev ?? [];
       const idx = arr.findIndex((x) => x.id === workOrderId);
@@ -342,7 +338,6 @@ export default function WorkOrdersSection({ propertyId }) {
       return copy;
     });
 
-    // keep modal selection fresh if it's open
     setSelectedWO((prev) => (prev?.id === workOrderId ? data : prev));
 
     return data;
@@ -358,10 +353,7 @@ export default function WorkOrdersSection({ propertyId }) {
     if (error) throw error;
 
     const actions = Array.isArray(data) ? data : [];
-    setAllowedActionsById((prev) => ({
-      ...(prev || {}),
-      [workOrderId]: actions,
-    }));
+    setAllowedActionsById((prev) => ({ ...(prev || {}), [workOrderId]: actions }));
   }
 
   async function refreshAfterStatusAction(workOrderId, opts = {}) {
@@ -430,8 +422,7 @@ export default function WorkOrdersSection({ propertyId }) {
   }, [activeAccountId, propertyId, canManage]);
 
   // -----------------------------------------
-  // Load maintenance requests for dropdown
-  // (only for managers)
+  // Load maintenance requests for dropdown (manager-only)
   // -----------------------------------------
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requests, setRequests] = useState([]);
@@ -492,10 +483,44 @@ export default function WorkOrdersSection({ propertyId }) {
     const c = contractors.find((x) => x.id === contractorId);
     if (!c) return;
 
-    // ✅ keep current createWorkOrder flow: autofill the existing text fields
     setContractorName(c.name ?? "");
     setContractorPhone(c.phone ?? "");
   }
+
+  // ✅ NEXT-4: handle deep-link from Maintenance Requests list
+  useEffect(() => {
+    if (!canManage) return;
+    if (!createWOFromUrl || !mrIdFromUrl) return;
+
+    setOpen(true);
+    setMaintenanceRequestId(mrIdFromUrl);
+
+    if (seedNotesFromUrl) {
+      const mr = (requests ?? []).find((r) => r.id === mrIdFromUrl);
+      if (mr) {
+        setNotes((prev) => {
+          if (String(prev || "").trim().length > 0) return prev;
+          return `Zgłoszenie: ${mr.title}\nPriorytet: ${mr.priority || "normal"}\nStatus: ${
+            mr.status || ""
+          }\n\n`;
+        });
+      }
+    }
+
+    // clean URL so it doesn't reopen on refresh/back
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        p.delete("createWO");
+        p.delete("mrId");
+        p.delete("seedNotes");
+        return p;
+      },
+      { replace: true }
+    );
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManage, createWOFromUrl, mrIdFromUrl, seedNotesFromUrl, requests]);
 
   async function handleCreate() {
     if (!activeAccountId || !propertyId) return;
@@ -506,11 +531,12 @@ export default function WorkOrdersSection({ propertyId }) {
         accountId: activeAccountId,
         propertyId,
         maintenanceRequestId: maintenanceRequestId || null,
+        contractorId: selectedContractorId || null,
         contractorName: contractorName || null,
         contractorPhone: contractorPhone || null,
         scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
         notes: notes || null,
-        status: "assigned",
+        
       });
 
       setOpen(false);
@@ -559,7 +585,6 @@ export default function WorkOrdersSection({ propertyId }) {
       });
       if (error) throw error;
 
-      // ✅ refresh this row + audit + actions
       await refreshAfterStatusAction(workOrderId, { refreshAuditLog: true });
     } catch (e) {
       alert(e?.message ?? "Nie udało się przypisać wykonawcy");
@@ -582,7 +607,6 @@ export default function WorkOrdersSection({ propertyId }) {
 
       if (error) throw error;
 
-      // ✅ NEXT-2: refresh only this row + its allowed actions
       await refreshAfterStatusAction(id, { refreshAuditLog: true });
     } catch (e) {
       alert(e?.message ?? "Nie udało się zmienić statusu");
@@ -602,10 +626,9 @@ export default function WorkOrdersSection({ propertyId }) {
 
       if (error) throw error;
 
-      // ✅ no duplicate audit call here
       await refreshAfterStatusAction(id, {
         refreshAuditLog: true,
-        refreshInbox: false, // tenant can't manage inbox anyway
+        refreshInbox: false,
       });
     } catch (e) {
       alert(e?.message ?? "Nie udało się wysłać prośby o anulowanie");
@@ -624,7 +647,6 @@ export default function WorkOrdersSection({ propertyId }) {
       });
       if (error) throw error;
 
-      // ✅ refresh inbox+audit via helper (no extra calls)
       await refreshAfterStatusAction(id, {
         refreshAuditLog: true,
         refreshInbox: true,
@@ -653,7 +675,6 @@ export default function WorkOrdersSection({ propertyId }) {
         return copy;
       });
 
-      // ✅ refresh inbox+audit via helper (no extra calls)
       await refreshAfterStatusAction(id, {
         refreshAuditLog: true,
         refreshInbox: true,
@@ -679,11 +700,7 @@ export default function WorkOrdersSection({ propertyId }) {
     }
 
     if (pending) {
-      return {
-        show: true,
-        disabled: true,
-        reason: "⏳ Oczekuje na decyzję właściciela",
-      };
+      return { show: true, disabled: true, reason: "⏳ Oczekuje na decyzję właściciela" };
     }
 
     return { show: true, disabled: false, reason: "" };
@@ -698,8 +715,8 @@ export default function WorkOrdersSection({ propertyId }) {
         <div>
           <h3 className="text-lg font-semibold">Zlecenia (Work Orders)</h3>
           <p className="text-xs text-slate-500 mt-1">
-            Zlecenia dla tej nieruchomości. W przyszłości dodamy przypisanie do
-            kontraktorów + portal wykonawcy.
+            Zlecenia dla tej nieruchomości. W przyszłości dodamy przypisanie do kontraktorów +
+            portal wykonawcy.
           </p>
         </div>
 
@@ -719,9 +736,7 @@ export default function WorkOrdersSection({ propertyId }) {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h4 className="font-semibold text-slate-900">Wymaga działania</h4>
-              <p className="text-xs text-slate-500">
-                Prośby najemców o anulowanie zleceń.
-              </p>
+              <p className="text-xs text-slate-500">Prośby najemców o anulowanie zleceń.</p>
             </div>
             <button
               type="button"
@@ -845,7 +860,6 @@ export default function WorkOrdersSection({ propertyId }) {
               />
             </div>
 
-            {/* ✅ NEW: Contractor picker */}
             <div>
               <label className="text-xs text-slate-500">Wykonawca (z listy)</label>
 
@@ -876,7 +890,6 @@ export default function WorkOrdersSection({ propertyId }) {
               )}
             </div>
 
-            {/* Keep your existing manual fields (still useful) */}
             <div>
               <label className="text-xs text-slate-500">Wykonawca (nazwa)</label>
               <input
@@ -977,7 +990,9 @@ export default function WorkOrdersSection({ propertyId }) {
                     )}
 
                     {wo.contractor_name && (
-                      <span className="text-sm font-medium text-slate-900">{wo.contractor_name}</span>
+                      <span className="text-sm font-medium text-slate-900">
+                        {wo.contractor_name}
+                      </span>
                     )}
                     {wo.contractor_phone && (
                       <span className="text-xs text-slate-500">{wo.contractor_phone}</span>
@@ -1201,10 +1216,7 @@ export default function WorkOrdersSection({ propertyId }) {
                         disabled={actionBusyId === selectedWO.id}
                         value={denyReasonById[selectedWO.id] ?? ""}
                         onChange={(e) =>
-                          setDenyReasonById((prev) => ({
-                            ...prev,
-                            [selectedWO.id]: e.target.value,
-                          }))
+                          setDenyReasonById((prev) => ({ ...prev, [selectedWO.id]: e.target.value }))
                         }
                         className="border rounded-lg px-2 py-2 text-sm w-64 disabled:bg-slate-50"
                         placeholder="Powód (opcjonalnie)"
