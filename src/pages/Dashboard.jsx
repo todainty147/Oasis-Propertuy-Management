@@ -1,11 +1,14 @@
 // src/pages/Dashboard.jsx
+import { useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import Card from "../components/Card";
 import Skeleton from "../components/ui/Skeleton";
-import { Wallet, TrendingUp, AlertCircle, Home } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { Wallet, TrendingUp, AlertCircle, Home, FileText } from "lucide-react";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
-import TenantMyIssuesDashboard from "../components/TenantMyIssuesDashboard";
+
+// ✅ Tenant dashboard widget
+import TenantMaintenanceDashboard from "../components/TenantMaintenanceDashboard";
 
 /* ======================
    SKELETON
@@ -14,14 +17,12 @@ import TenantMyIssuesDashboard from "../components/TenantMyIssuesDashboard";
 function DashboardSkeleton() {
   return (
     <div className="space-y-6">
-      {/* KPI GRID */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         {Array.from({ length: 5 }).map((_, i) => (
           <Skeleton key={i} className="h-[120px]" />
         ))}
       </div>
 
-      {/* VACANCY TABLE */}
       <div className="space-y-3">
         <Skeleton className="h-6 w-64" />
         <Skeleton className="h-14" />
@@ -47,52 +48,162 @@ export default function Dashboard({
   shortVacantCount = 0,
   longVacantProperties = [],
 }) {
+  const navigate = useNavigate();
+
   /* ---------- PAGE TITLE ---------- */
   const { setTitle } = usePageTitle();
-
   useEffect(() => {
     setTitle("Pulpit");
   }, [setTitle]);
 
   /* ---------- ROLE ---------- */
   const { activeRole } = useAccount();
-
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
   const isTenant = useMemo(() => role === "tenant", [role]);
 
   /* ---------- LOADING ---------- */
-  if (loading) {
-    return <DashboardSkeleton />;
+  if (loading) return <DashboardSkeleton />;
+
+  /* =========================================================
+     TENANT VIEW
+     ========================================================= */
+  if (isTenant) {
+    // Payments schema: status is due/paid/overdue/void
+    const paidTotal = (payments ?? [])
+      .filter((p) => String(p.status ?? "").toLowerCase() === "paid")
+      .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+
+    const dueTotal = (payments ?? [])
+      .filter((p) => String(p.status ?? "").toLowerCase() === "due")
+      .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+
+    const overdueTotal = (payments ?? [])
+      .filter((p) => String(p.status ?? "").toLowerCase() === "overdue")
+      .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+
+    const dueOrOverdueCount = (payments ?? []).filter((p) =>
+      ["due", "overdue"].includes(String(p.status ?? "").toLowerCase())
+    ).length;
+
+    const propertyIds = (properties ?? []).map((p) => p.id).filter(Boolean);
+    const fallbackPropertyId = propertyIds[0] ?? null;
+
+    // ✅ Wire the buttons: go to property page (tenant can see maintenance/work orders there)
+    function openTenantRequests() {
+      if (!fallbackPropertyId) return;
+      // If you add anchors later, you can switch to:
+      // navigate(`/properties/${fallbackPropertyId}#maintenance-requests`);
+      navigate(`/properties/${fallbackPropertyId}`);
+    }
+
+    function openTenantWorkOrders() {
+      if (!fallbackPropertyId) return;
+      // If you add anchors later, you can switch to:
+      // navigate(`/properties/${fallbackPropertyId}#work-orders`);
+      navigate(`/properties/${fallbackPropertyId}`);
+    }
+
+    return (
+      <div className="space-y-6">
+        <TenantMaintenanceDashboard
+          // Your component currently requires a propertyId to query.
+          // For tenant dashboard, we’ll use the first property as “home base”.
+          propertyId={fallbackPropertyId}
+          onOpenRequests={openTenantRequests}
+          onOpenWorkOrders={openTenantWorkOrders}
+        />
+
+        {/* Tenant Finance summary */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="p-5">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm font-medium text-slate-500">Opłacone</p>
+                <h3 className="text-2xl font-bold text-slate-900 mt-1">
+                  {paidTotal.toLocaleString()} PLN
+                </h3>
+              </div>
+              <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600">
+                <Wallet size={20} />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center text-sm text-emerald-600">
+              <TrendingUp size={16} className="mr-1" />
+              <span>Historia płatności (najemca)</span>
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm font-medium text-slate-500">Do zapłaty</p>
+                <h3 className="text-2xl font-bold text-slate-900 mt-1">
+                  {dueTotal.toLocaleString()} PLN
+                </h3>
+              </div>
+              <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
+                <AlertCircle size={20} />
+              </div>
+            </div>
+            <div className="mt-4 text-sm text-slate-500">
+              {dueOrOverdueCount} płatności (due/overdue)
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm font-medium text-slate-500">Zaległe</p>
+                <h3 className="text-2xl font-bold text-rose-600 mt-1">
+                  {overdueTotal.toLocaleString()} PLN
+                </h3>
+              </div>
+              <div className="p-2 bg-rose-100 rounded-lg text-rose-600">
+                <AlertCircle size={20} />
+              </div>
+            </div>
+            <div className="mt-4 text-sm text-slate-500">
+              Jeśli widzisz zaległości, skontaktuj się z właścicielem.
+            </div>
+          </Card>
+        </div>
+
+        {/* Documents requiring attention (placeholder) */}
+        <Card className="p-6">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-slate-100 rounded-lg text-slate-700">
+              <FileText size={18} />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900">
+              Dokumenty wymagające uwagi
+            </h3>
+          </div>
+
+          <p className="text-sm text-slate-500 mt-2">
+            Tutaj pokażemy dokumenty do podpisu / potwierdzenia (np. umowa, aneksy,
+            protokoły). Na razie: sekcja przygotowana pod kolejną iterację.
+          </p>
+        </Card>
+      </div>
+    );
   }
 
-  /* ---------- DERIVED DATA ---------- */
-  const totalRevenue = payments
+  /* =========================================================
+     NON-TENANT VIEW (UNCHANGED)
+     ========================================================= */
+
+  // Existing calculations (Polish labels)
+  const totalRevenue = (payments ?? [])
     .filter((p) => p.status === "Opłacone")
     .reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
-  const pendingRevenue = payments
+  const pendingRevenue = (payments ?? [])
     .filter((p) => p.status === "Oczekujące" || p.status === "Zaległe")
     .reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
   return (
     <div className="space-y-6">
-      {/* ✅ NEXT-2: Tenant “My Issues” mini-dashboard */}
-      {isTenant && (
-        <TenantMyIssuesDashboard
-          // Keep it global for tenant (across their allowed properties)
-          // If you later want to scope to a chosen property, pass propertyId.
-          propertyId={null}
-          onOpenIssue={(row) => {
-            // Optional: later we can navigate/open a modal.
-            // For now: no-op to avoid breaking your flow.
-            console.log("Tenant issue row:", row);
-          }}
-        />
-      )}
-
-      {/* KPI GRID (kept unchanged for all roles) */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        {/* REVENUE */}
         <Card className="p-5">
           <div className="flex justify-between items-start">
             <div>
@@ -111,7 +222,6 @@ export default function Dashboard({
           </div>
         </Card>
 
-        {/* PENDING */}
         <Card className="p-5">
           <div className="flex justify-between items-start">
             <div>
@@ -126,14 +236,14 @@ export default function Dashboard({
           </div>
           <div className="mt-4 text-sm text-slate-500">
             {
-              payments.filter((p) => p.status === "Oczekujące" || p.status === "Zaległe")
-                .length
+              (payments ?? []).filter(
+                (p) => p.status === "Oczekujące" || p.status === "Zaległe"
+              ).length
             }{" "}
             płatności do weryfikacji
           </div>
         </Card>
 
-        {/* OCCUPIED */}
         <Card className="p-5">
           <div className="flex justify-between items-start">
             <div>
@@ -147,7 +257,6 @@ export default function Dashboard({
           <div className="mt-4 text-sm text-slate-500">z {properties.length} lokali</div>
         </Card>
 
-        {/* OCCUPANCY */}
         <Card className="p-5">
           <div className="flex justify-between items-start">
             <div>
@@ -161,7 +270,6 @@ export default function Dashboard({
           <div className="mt-4 text-sm text-slate-500">{vacantCount} wolnych lokali</div>
         </Card>
 
-        {/* LONG VACANT */}
         <Card className="p-5">
           <div className="flex justify-between items-start">
             <div>
@@ -176,7 +284,6 @@ export default function Dashboard({
         </Card>
       </div>
 
-      {/* VACANCY AGING TABLE */}
       {longVacantProperties.length > 0 && (
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4 text-red-600">
