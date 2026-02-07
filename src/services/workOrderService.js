@@ -58,16 +58,22 @@ export async function fetchWorkOrders({
 
   return data ?? [];
 }
-/* ======================
-   CREATE (RPC-driven, matches your DB function)
-   ====================== */
 
+/* ======================
+   CREATE (RPC-driven)
+   ====================== */
+/**
+ * IMPORTANT:
+ * Notifications are DB-driven (authoritative).
+ * - work_order_create() does the creation
+ * - DB triggers/functions create notifications reliably (even if client disconnects)
+ */
 export async function createWorkOrder({
   accountId,
   propertyId,
   maintenanceRequestId = null,
 
-  // NEW: contractorId from `contractors.id` (not auth.users.id)
+  // contractorId from `contractors.id` (not auth.users.id)
   contractorId = null,
 
   contractorName = null,
@@ -78,12 +84,11 @@ export async function createWorkOrder({
   if (!accountId) throw new Error("Brak accountId");
   if (!propertyId) throw new Error("Brak propertyId");
 
-  // Use RPC so DB assigns contractor_user_id properly when contractorId is provided
   const { data: workOrderId, error: rpcError } = await supabase.rpc("work_order_create", {
     p_account_id: accountId,
     p_property_id: propertyId,
     p_maintenance_request_id: maintenanceRequestId,
-    p_contractor_id: contractorId, // ✅ important
+    p_contractor_id: contractorId,
     p_contractor_name: contractorName,
     p_contractor_phone: contractorPhone,
     p_scheduled_at: scheduledAt,
@@ -92,7 +97,7 @@ export async function createWorkOrder({
 
   if (rpcError) throw friendlyError(rpcError, "Nie udało się utworzyć zlecenia");
 
-  // Optional: return the created row (nice for immediate UI refresh without full reload)
+  // Optional read-back for immediate UI refresh
   const { data: row, error: readErr } = await supabase
     .from("work_orders_with_flags")
     .select(
@@ -124,16 +129,18 @@ export async function createWorkOrder({
     .eq("id", workOrderId)
     .single();
 
-  // If the read fails due to RLS/view timing, still return id so caller can reload
   if (readErr) return { id: workOrderId };
-
   return row;
 }
 
 /* ======================
    UPDATE
    ====================== */
-
+/**
+ * IMPORTANT:
+ * If you also have DB notifications for status/assignment changes,
+ * DO NOT send notifications from the client here (avoids duplicates/loops).
+ */
 export async function updateWorkOrder(id, patch = {}) {
   if (!id) throw new Error("Brak ID zlecenia");
 
@@ -147,7 +154,6 @@ export async function updateWorkOrder(id, patch = {}) {
   if (error) throw friendlyError(error, "Nie udało się zaktualizować zlecenia");
   return data;
 }
-
 
 /* ======================
    DELETE

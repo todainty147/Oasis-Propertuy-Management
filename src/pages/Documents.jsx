@@ -1,5 +1,5 @@
 // src/pages/Documents.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import Skeleton from "../components/ui/Skeleton";
 import Card from "../components/Card";
@@ -55,7 +55,7 @@ export default function Documents({
   properties: propertiesProp = null,
 } = {}) {
   const { setTitle } = usePageTitle();
-  const { user, loading: authLoading } = useAuth();
+  const { loading: authLoading } = useAuth();
   const { accounts, activeAccountId, accountLoading, activeRole } = useAccount();
   const { activeTenantId } = useTenant();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -85,6 +85,7 @@ export default function Documents({
   /* ---------- URL STATE ---------- */
   const queryParam = searchParams.get("q") ?? "";
   const tagsParam = searchParams.get("tags")?.split(",").filter(Boolean) ?? [];
+  const docParam = searchParams.get("doc") ?? null;
 
   const [query, setQuery] = useState(queryParam);
   const [selectedTags, setSelectedTags] = useState(tagsParam);
@@ -104,12 +105,15 @@ export default function Documents({
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewError, setPreviewError] = useState(null);
 
+  // ✅ prevents infinite deep-link loop
+  const lastAutoOpenedDocRef = useRef(null);
+
   /* ---------- PAGE TITLE ---------- */
   useEffect(() => {
     setTitle("Dokumenty");
   }, [setTitle]);
 
-  /* ---------- SYNC URL → STATE ---------- */
+  /* ---------- SYNC URL → STATE (q/tags only) ---------- */
   useEffect(() => {
     setQuery(queryParam);
     setSelectedTags(tagsParam);
@@ -120,7 +124,7 @@ export default function Documents({
      LOAD DOCUMENTS
      ====================== */
 
-  async function loadDocuments() {
+  const loadDocuments = useCallback(async () => {
     if (!activeAccountId) return;
 
     setLoading(true);
@@ -131,31 +135,31 @@ export default function Documents({
               accountId: activeAccountId,
               query,
               tags: selectedTags,
-              tenantId: activeTenantId ?? null, // ✅ tenant switch filter
+              tenantId: activeTenantId ?? null,
             })
           : await fetchDocuments({
               accountId: activeAccountId,
-              tenantId: activeTenantId ?? null, // ✅ tenant switch filter
+              tenantId: activeTenantId ?? null,
             });
 
-      setDocuments(data);
+      setDocuments(data ?? []);
     } finally {
       setLoading(false);
     }
-  }
+  }, [activeAccountId, query, selectedTags, activeTenantId]);
 
   useEffect(() => {
     if (!authLoading && !accountLoading && activeAccountId) {
       loadDocuments();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, selectedTags, authLoading, accountLoading, activeAccountId, activeTenantId]);
+  }, [loadDocuments, authLoading, accountLoading, activeAccountId]);
 
-  /* ---------- UPDATE URL ---------- */
+  /* ---------- UPDATE URL (preserve doc param if present) ---------- */
   function updateUrl(nextQuery, nextTags) {
     const params = new URLSearchParams();
     if (nextQuery) params.set("q", nextQuery);
     if (nextTags.length > 0) params.set("tags", nextTags.join(","));
+    if (docParam) params.set("doc", docParam);
     setSearchParams(params, { replace: true });
   }
 
@@ -193,7 +197,6 @@ export default function Documents({
       return;
     }
 
-    // Must choose either tenant OR property
     if (!uploadPropertyId && !uploadTenantId) {
       alert("Wybierz nieruchomość lub najemcę");
       e.target.value = "";
@@ -210,7 +213,6 @@ export default function Documents({
         tags: uploadTags,
       });
 
-      // reset UI
       setUploadTags([]);
       setUploadPropertyId("");
       setUploadTenantId("");
@@ -239,6 +241,36 @@ export default function Documents({
     }
   }
 
+  // ✅ Open preview by id (deep-link). Important: do NOT depend on preview state.
+  const openPreviewById = useCallback(
+    async (docId) => {
+      if (!docId) return;
+
+      const found = documents.find((d) => String(d.id) === String(docId));
+      if (!found) return;
+      if (!canPreview(found.mime_type)) return;
+
+      await handlePreview(found);
+    },
+    [documents]
+  );
+
+  // ✅ Deep-link: /documents?doc=<uuid> opens preview once after list loads
+  useEffect(() => {
+    if (!docParam) return;
+    if (loading) return;
+
+    // already auto-opened this doc param
+    if (lastAutoOpenedDocRef.current === docParam) return;
+
+    // if user manually opened something, don't fight them
+    if (previewDoc?.id) return;
+
+    lastAutoOpenedDocRef.current = docParam;
+    openPreviewById(docParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docParam, loading, openPreviewById]);
+
   const tenantsLoading = useFallback ? tenantsLoadingHook : false;
   const propertiesLoading = useFallback ? propertiesLoadingHook : false;
 
@@ -252,9 +284,6 @@ export default function Documents({
 
   return (
     <div className="space-y-6">
-      {/* ======================
-         UPLOAD (GLOBAL, SCOPED)
-         ====================== */}
       {canUploadDocument(role) && (
         <Card className="p-4 space-y-4">
           <div className="flex items-start justify-between gap-4">
@@ -282,7 +311,6 @@ export default function Documents({
             </label>
           </div>
 
-          {/* Scope selects */}
           <div className="flex gap-4 flex-wrap">
             <select
               value={uploadPropertyId}
@@ -321,7 +349,6 @@ export default function Documents({
             </select>
           </div>
 
-          {/* Upload tags */}
           <div className="flex gap-2 flex-wrap">
             {DOCUMENT_TAGS.map((tag) => (
               <button
@@ -341,9 +368,6 @@ export default function Documents({
         </Card>
       )}
 
-      {/* ======================
-         SEARCH + FILTERS
-         ====================== */}
       <div className="bg-white border rounded-xl p-4 space-y-4">
         <input
           type="text"
@@ -370,16 +394,11 @@ export default function Documents({
         </div>
       </div>
 
-      {/* ======================
-         RESULTS
-         ====================== */}
       {loading && <DocumentsSkeleton />}
 
       {!loading && documents.length === 0 && (
         <div className="text-center py-20">
-          <h3 className="text-xl font-semibold text-slate-900">
-            Brak dokumentów
-          </h3>
+          <h3 className="text-xl font-semibold text-slate-900">Brak dokumentów</h3>
           <p className="text-slate-500 mt-2">
             Spróbuj zmienić kryteria wyszukiwania
           </p>
@@ -404,8 +423,7 @@ export default function Documents({
                 </p>
 
                 <p className="text-sm text-slate-500">
-                  {doc.mime_type ?? "—"} •{" "}
-                  {(doc.size_bytes / 1024).toFixed(1)} KB
+                  {doc.mime_type ?? "—"} • {(doc.size_bytes / 1024).toFixed(1)} KB
                 </p>
 
                 {doc.tags?.length > 0 && (
@@ -466,9 +484,6 @@ export default function Documents({
         </div>
       )}
 
-      {/* ======================
-         PREVIEW MODAL
-         ====================== */}
       {previewDoc && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
           <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -479,6 +494,15 @@ export default function Documents({
                   setPreviewDoc(null);
                   setPreviewUrl(null);
                   setPreviewError(null);
+
+                  lastAutoOpenedDocRef.current = null;
+
+                  // remove doc=... but keep q/tags
+                  const params = new URLSearchParams();
+                  if (query) params.set("q", query);
+                  if (selectedTags.length > 0)
+                    params.set("tags", selectedTags.join(","));
+                  setSearchParams(params, { replace: true });
                 }}
                 className="text-sm text-gray-600 hover:text-black"
               >

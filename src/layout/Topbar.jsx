@@ -1,7 +1,8 @@
 // src/layout/Topbar.jsx
-import { Bell, Search, Building2, Menu, Users } from "lucide-react";
+import { Search, Building2, Menu, Users } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { usePageTitle } from "../layout/PageTitleContext";
+import NotificationsBell from "../components/NotificationsBell";
 
 import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
@@ -50,6 +51,10 @@ export default function Topbar({ onMenuClick }) {
       </div>
 
       {/* RIGHT */}
+      
+ <div className="flex items-center gap-2">
+    <NotificationsBell />
+</div>
       <div className="flex items-center gap-3">
         {/* ======================
             ACCOUNT SWITCHER
@@ -109,12 +114,7 @@ export default function Topbar({ onMenuClick }) {
           />
         </div>
 
-        {/* NOTIFICATIONS */}
-        <button className="p-2 relative border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50">
-          <Bell size={18} />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border border-white" />
-        </button>
-
+        
         {/* LOGOUT */}
         <button
           onClick={() => supabase.auth.signOut()}

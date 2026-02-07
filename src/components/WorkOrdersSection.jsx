@@ -1,5 +1,4 @@
-// src/components/WorkOrdersSection.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
@@ -10,45 +9,6 @@ import { supabase } from "../lib/supabase";
 /* -----------------------------
    UI helpers
 ----------------------------- */
-
-function StatusPill({ status }) {
-  const base = "text-xs px-2 py-0.5 rounded border";
-  const s = String(status ?? "").toLowerCase();
-
-  if (s === "completed")
-    return (
-      <span className={`${base} bg-green-50 border-green-200 text-green-700`}>
-        Zakończone
-      </span>
-    );
-
-  if (s === "in_progress")
-    return (
-      <span className={`${base} bg-blue-50 border-blue-200 text-blue-700`}>
-        W trakcie
-      </span>
-    );
-
-  if (s === "cancelled")
-    return (
-      <span className={`${base} bg-slate-50 border-slate-200 text-slate-600`}>
-        Anulowane
-      </span>
-    );
-
-  if (s === "assigned")
-    return (
-      <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>
-        Przypisane
-      </span>
-    );
-
-  return (
-    <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>
-      {status || "assigned"}
-    </span>
-  );
-}
 
 function formatDateTime(ts) {
   if (!ts) return null;
@@ -93,7 +53,10 @@ export default function WorkOrdersSection({ propertyId }) {
   const mrIdFromUrl = searchParams.get("mrId") || "";
   const seedNotesFromUrl = searchParams.get("seedNotes") === "1";
 
-  const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
+  const role = useMemo(
+    () => String(activeRole ?? "").toLowerCase(),
+    [activeRole]
+  );
   const isTenant = useMemo(() => role === "tenant", [role]);
 
   const canManage = useMemo(() => {
@@ -124,6 +87,69 @@ export default function WorkOrdersSection({ propertyId }) {
   // ------------------------------
   const [allowedActionsById, setAllowedActionsById] = useState({});
 
+  // ------------------------------
+  // Status labels (Polish) from DB
+  // ------------------------------
+  const [statusLabelByKey, setStatusLabelByKey] = useState({});
+  const statusLabelsLoadedRef = useRef(false);
+
+  function getStatusLabel(status) {
+    const s = String(status ?? "").toLowerCase();
+    return statusLabelByKey?.[s] || null;
+  }
+
+  function StatusPill({ status }) {
+    const base = "text-xs px-2 py-0.5 rounded border";
+    const s = String(status ?? "").toLowerCase();
+    const label = getStatusLabel(s) || status || "assigned";
+
+    // Keep your colors as-is (no breaking UI)
+    if (s === "completed")
+      return (
+        <span className={`${base} bg-green-50 border-green-200 text-green-700`}>
+          {label}
+        </span>
+      );
+
+    if (s === "in_progress")
+      return (
+        <span className={`${base} bg-blue-50 border-blue-200 text-blue-700`}>
+          {label}
+        </span>
+      );
+
+    if (s === "cancelled")
+      return (
+        <span className={`${base} bg-slate-50 border-slate-200 text-slate-600`}>
+          {label}
+        </span>
+      );
+
+    if (s === "assigned")
+      return (
+        <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>
+          {label}
+        </span>
+      );
+
+    return (
+      <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>
+        {label}
+      </span>
+    );
+  }
+
+  // -----------------------------
+  // Mounted guard (prevents setState after unmount)
+  // -----------------------------
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   async function loadAllowedActionsForRows(rows) {
     if (!canManage) {
       setAllowedActionsById({});
@@ -137,17 +163,20 @@ export default function WorkOrdersSection({ propertyId }) {
         return;
       }
 
-      const { data, error } = await supabase.rpc("work_order_allowed_actions_bulk", {
-        p_work_order_ids: ids,
-      });
+      const { data, error } = await supabase.rpc(
+        "work_order_allowed_actions_bulk",
+        {
+          p_work_order_ids: ids,
+        }
+      );
 
       if (error) throw error;
 
       const map = {};
       for (const r of data ?? []) map[r.work_order_id] = r.actions ?? [];
-      setAllowedActionsById(map);
+      if (mountedRef.current) setAllowedActionsById(map);
     } catch {
-      setAllowedActionsById({});
+      if (mountedRef.current) setAllowedActionsById({});
     }
   }
 
@@ -163,7 +192,12 @@ export default function WorkOrdersSection({ propertyId }) {
       if (error) throw error;
 
       const actions = Array.isArray(data) ? data : [];
-      setAllowedActionsById((prev) => ({ ...(prev || {}), [workOrderId]: actions }));
+      if (mountedRef.current) {
+        setAllowedActionsById((prev) => ({
+          ...(prev || {}),
+          [workOrderId]: actions,
+        }));
+      }
     } catch {
       // ignore
     }
@@ -179,11 +213,11 @@ export default function WorkOrdersSection({ propertyId }) {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setAudit(data ?? []);
+      if (mountedRef.current) setAudit(data ?? []);
     } catch {
-      setAudit([]);
+      if (mountedRef.current) setAudit([]);
     } finally {
-      setAuditLoading(false);
+      if (mountedRef.current) setAuditLoading(false);
     }
   }
 
@@ -209,11 +243,11 @@ export default function WorkOrdersSection({ propertyId }) {
         .order("name", { ascending: true });
 
       if (error) throw error;
-      setContractors(data ?? []);
+      if (mountedRef.current) setContractors(data ?? []);
     } catch {
-      setContractors([]);
+      if (mountedRef.current) setContractors([]);
     } finally {
-      setContractorsLoading(false);
+      if (mountedRef.current) setContractorsLoading(false);
     }
   }
 
@@ -272,19 +306,21 @@ export default function WorkOrdersSection({ propertyId }) {
       if (error) throw error;
 
       const rows = data ?? [];
-      setWorkOrders(rows);
+      if (mountedRef.current) setWorkOrders(rows);
 
       await loadAllowedActionsForRows(rows);
 
       if (detailOpen && selectedWO?.id) {
         const refreshed = rows.find((r) => r.id === selectedWO.id);
-        if (refreshed) setSelectedWO(refreshed);
+        if (refreshed && mountedRef.current) setSelectedWO(refreshed);
       }
     } catch (e) {
-      setWorkOrders([]);
-      setError(e);
+      if (mountedRef.current) {
+        setWorkOrders([]);
+        setError(e);
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }
 
@@ -329,16 +365,18 @@ export default function WorkOrdersSection({ propertyId }) {
 
     if (error) throw error;
 
-    setWorkOrders((prev) => {
-      const arr = prev ?? [];
-      const idx = arr.findIndex((x) => x.id === workOrderId);
-      if (idx === -1) return [data, ...arr];
-      const copy = [...arr];
-      copy[idx] = data;
-      return copy;
-    });
+    if (mountedRef.current) {
+      setWorkOrders((prev) => {
+        const arr = prev ?? [];
+        const idx = arr.findIndex((x) => x.id === workOrderId);
+        if (idx === -1) return [data, ...arr];
+        const copy = [...arr];
+        copy[idx] = data;
+        return copy;
+      });
 
-    setSelectedWO((prev) => (prev?.id === workOrderId ? data : prev));
+      setSelectedWO((prev) => (prev?.id === workOrderId ? data : prev));
+    }
 
     return data;
   }
@@ -353,7 +391,12 @@ export default function WorkOrdersSection({ propertyId }) {
     if (error) throw error;
 
     const actions = Array.isArray(data) ? data : [];
-    setAllowedActionsById((prev) => ({ ...(prev || {}), [workOrderId]: actions }));
+    if (mountedRef.current) {
+      setAllowedActionsById((prev) => ({
+        ...(prev || {}),
+        [workOrderId]: actions,
+      }));
+    }
   }
 
   async function refreshAfterStatusAction(workOrderId, opts = {}) {
@@ -403,13 +446,51 @@ export default function WorkOrdersSection({ propertyId }) {
       const { data, error } = await q;
       if (error) throw error;
 
-      setPendingInbox(data ?? []);
+      if (mountedRef.current) setPendingInbox(data ?? []);
     } catch {
-      setPendingInbox([]);
+      if (mountedRef.current) setPendingInbox([]);
     } finally {
-      setPendingLoading(false);
+      if (mountedRef.current) setPendingLoading(false);
     }
   }
+
+  // -----------------------------------------
+  // Load status definitions ONCE per session
+  // -----------------------------------------
+  useEffect(() => {
+    if (statusLabelsLoadedRef.current) return;
+
+    let cancelled = false;
+
+    async function loadStatusDefs() {
+      try {
+        const { data, error } = await supabase
+          .from("work_order_status_definitions")
+          .select("status,label");
+
+        if (error) throw error;
+
+        if (cancelled || !mountedRef.current) return;
+
+        const map = {};
+        for (const r of data ?? []) {
+          const key = String(r.status ?? "").toLowerCase();
+          if (key) map[key] = r.label ?? r.status;
+        }
+        setStatusLabelByKey(map);
+        statusLabelsLoadedRef.current = true;
+      } catch {
+        // keep existing hardcoded labels fallback
+        statusLabelsLoadedRef.current = true;
+      }
+    }
+
+    loadStatusDefs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!activeAccountId || !propertyId) return;
@@ -444,11 +525,11 @@ export default function WorkOrdersSection({ propertyId }) {
           .limit(100);
 
         if (error) throw error;
-        if (!cancelled) setRequests(data ?? []);
+        if (!cancelled && mountedRef.current) setRequests(data ?? []);
       } catch {
-        if (!cancelled) setRequests([]);
+        if (!cancelled && mountedRef.current) setRequests([]);
       } finally {
-        if (!cancelled) setRequestsLoading(false);
+        if (!cancelled && mountedRef.current) setRequestsLoading(false);
       }
     }
 
@@ -487,10 +568,14 @@ export default function WorkOrdersSection({ propertyId }) {
     setContractorPhone(c.phone ?? "");
   }
 
-  // ✅ NEXT-4: handle deep-link from Maintenance Requests list
+  // ✅ Deep-link handler (surgical fix): run once, and only if params exist
+  const deepLinkHandledRef = useRef(false);
   useEffect(() => {
     if (!canManage) return;
+    if (deepLinkHandledRef.current) return;
     if (!createWOFromUrl || !mrIdFromUrl) return;
+
+    deepLinkHandledRef.current = true;
 
     setOpen(true);
     setMaintenanceRequestId(mrIdFromUrl);
@@ -500,27 +585,41 @@ export default function WorkOrdersSection({ propertyId }) {
       if (mr) {
         setNotes((prev) => {
           if (String(prev || "").trim().length > 0) return prev;
-          return `Zgłoszenie: ${mr.title}\nPriorytet: ${mr.priority || "normal"}\nStatus: ${
-            mr.status || ""
-          }\n\n`;
+          return `Zgłoszenie: ${mr.title}\nPriorytet: ${
+            mr.priority || "normal"
+          }\nStatus: ${mr.status || ""}\n\n`;
         });
       }
     }
 
-    // clean URL so it doesn't reopen on refresh/back
-    setSearchParams(
-      (prev) => {
-        const p = new URLSearchParams(prev);
-        p.delete("createWO");
-        p.delete("mrId");
-        p.delete("seedNotes");
-        return p;
-      },
-      { replace: true }
-    );
+    // Clean URL only if needed (prevents location-update loop)
+    const hasAny =
+      searchParams.has("createWO") ||
+      searchParams.has("mrId") ||
+      searchParams.has("seedNotes");
+
+    if (hasAny) {
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev);
+          p.delete("createWO");
+          p.delete("mrId");
+          p.delete("seedNotes");
+          return p;
+        },
+        { replace: true }
+      );
+    }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, createWOFromUrl, mrIdFromUrl, seedNotesFromUrl, requests]);
+  }, [
+    canManage,
+    createWOFromUrl,
+    mrIdFromUrl,
+    seedNotesFromUrl,
+    requests,
+    searchParams,
+  ]);
 
   async function handleCreate() {
     if (!activeAccountId || !propertyId) return;
@@ -536,7 +635,6 @@ export default function WorkOrdersSection({ propertyId }) {
         contractorPhone: contractorPhone || null,
         scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
         notes: notes || null,
-        
       });
 
       setOpen(false);
@@ -642,9 +740,12 @@ export default function WorkOrdersSection({ propertyId }) {
   async function approveCancellation(id) {
     setActionBusyId(id);
     try {
-      const { error } = await supabase.rpc("work_order_approve_tenant_cancellation", {
-        p_work_order_id: id,
-      });
+      const { error } = await supabase.rpc(
+        "work_order_approve_tenant_cancellation",
+        {
+          p_work_order_id: id,
+        }
+      );
       if (error) throw error;
 
       await refreshAfterStatusAction(id, {
@@ -700,7 +801,11 @@ export default function WorkOrdersSection({ propertyId }) {
     }
 
     if (pending) {
-      return { show: true, disabled: true, reason: "⏳ Oczekuje na decyzję właściciela" };
+      return {
+        show: true,
+        disabled: true,
+        reason: "⏳ Oczekuje na decyzję właściciela",
+      };
     }
 
     return { show: true, disabled: false, reason: "" };
@@ -1064,7 +1169,10 @@ export default function WorkOrdersSection({ propertyId }) {
                         disabled={isBusy}
                         value={denyReasonById[wo.id] ?? ""}
                         onChange={(e) =>
-                          setDenyReasonById((prev) => ({ ...prev, [wo.id]: e.target.value }))
+                          setDenyReasonById((prev) => ({
+                            ...prev,
+                            [wo.id]: e.target.value,
+                          }))
                         }
                         className="border rounded-lg px-2 py-1 text-xs w-56 disabled:bg-slate-50"
                         placeholder="Powód (opcjonalnie)"
@@ -1216,7 +1324,10 @@ export default function WorkOrdersSection({ propertyId }) {
                         disabled={actionBusyId === selectedWO.id}
                         value={denyReasonById[selectedWO.id] ?? ""}
                         onChange={(e) =>
-                          setDenyReasonById((prev) => ({ ...prev, [selectedWO.id]: e.target.value }))
+                          setDenyReasonById((prev) => ({
+                            ...prev,
+                            [selectedWO.id]: e.target.value,
+                          }))
                         }
                         className="border rounded-lg px-2 py-2 text-sm w-64 disabled:bg-slate-50"
                         placeholder="Powód (opcjonalnie)"

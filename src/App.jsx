@@ -9,6 +9,7 @@ import { usePayments } from "./hooks/usePayments";
 import { useTenants } from "./hooks/useTenants";
 import TenantPayments from "./pages/TenantPayments";
 
+
 import {
   createTenant,
   updateTenant,
@@ -44,10 +45,12 @@ import PropertyDetails from "./pages/PropertyDetails";
 import TenantDetails from "./pages/TenantDetails";
 import Documents from "./pages/Documents";
 import ContractorPortal from "./pages/ContractorPortal";
-
+import ContractorJobDetails from "./pages/ContractorJobDetails";  
 import AddPropertyModal from "./components/AddPropertyModal";
 import AddTenantModal from "./components/AddTenantModal";
 import AddPaymentModal from "./components/AddPaymentModal";
+import WorkOrderDetails from "./pages/WorkOrderDetails";
+
 
 // NOTE: FinancePage route was duplicated/conflicting with "finance"
 import FinancePage from "./pages/FinancePage";
@@ -275,7 +278,8 @@ export default function App() {
           />
         }
       >
-        <Route index element={<Navigate to="dashboard" replace />} />
+        {/* ✅ Absolute redirect avoids /dashboard/dashboard loops */}
+        <Route index element={<Navigate to="/dashboard" replace />} />
 
         <Route
           path="dashboard"
@@ -442,9 +446,6 @@ export default function App() {
                 properties={ownerProperties}
                 tenants={ownerTenants}
                 onSave={async (form) => {
-                  // ✅ Align with DB rules:
-                  // - do NOT send status (trigger derives it)
-                  // - paidAt drives "paid"
                   const paidAt =
                     form.status === "Opłacone"
                       ? new Date().toISOString().slice(0, 10)
@@ -470,21 +471,25 @@ export default function App() {
           }
         />
 
-        {/* ✅ Fix: Documents route was nested incorrectly */}
+        {/* ✅ Documents route */}
         <Route
           path="documents"
           element={<Documents tenants={tenants} properties={properties} />}
         />
 
-        <Route path="*" element={<Navigate to="dashboard" replace />} />
-
-        {/* ✅ Avoid conflict with /finance inside nested routes.
-            Keep FinancePage available but under a different path. */}
+        {/* Optional: Keep FinancePage available but under a different path */}
         <Route path="finance-page" element={<FinancePage />} />
 
-        // ...
-<Route path="/contractor" element={<ContractorPortal />} />
+        {/* ✅ Contractor routes (relative paths because they are inside AppLayout wrapper) */}
+        <Route path="contractor" element={<ContractorPortal />} />
+        <Route path="contractor/jobs/:id" element={<ContractorJobDetails />} />
+        <Route path="work-orders/:id" element={<WorkOrderDetails />} />
+
+
+        {/* ✅ Catch-all MUST be absolute to avoid /dashboard/dashboard loops */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>
   );
 }
+
