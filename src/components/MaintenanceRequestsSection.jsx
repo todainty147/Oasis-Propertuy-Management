@@ -138,6 +138,63 @@ function Modal({ open, onClose, title, children }) {
   );
 }
 
+function PaginationFooter({
+  page,
+  totalPages,
+  totalCount,
+  pageSize,
+  onPrev,
+  onNext,
+  onPageSizeChange,
+}) {
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-3">
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-slate-500">Na stronę</span>
+        <select
+          value={pageSize}
+          onChange={(e) => onPageSizeChange(Number(e.target.value))}
+          className="border rounded-lg px-2 py-1 text-sm bg-white"
+        >
+          {[10, 20, 30, 50, 100].map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex items-center justify-between md:justify-end gap-3">
+        <button
+          className="px-3 py-2 rounded-lg border text-sm disabled:opacity-50"
+          onClick={onPrev}
+          disabled={page <= 1}
+        >
+          Prev
+        </button>
+
+        <div className="text-sm text-slate-600">
+          Page <span className="font-medium text-slate-900">{page}</span> of{" "}
+          <span className="font-medium text-slate-900">{totalPages}</span>
+          {typeof totalCount === "number" ? (
+            <span className="ml-2 text-xs text-slate-500">({totalCount} total)</span>
+          ) : null}
+        </div>
+
+        <button
+          className="px-3 py-2 rounded-lg border text-sm disabled:opacity-50"
+          onClick={onNext}
+          disabled={page >= totalPages}
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* -----------------------------
    Component
 ----------------------------- */
@@ -167,6 +224,27 @@ export default function MaintenanceRequestsSection({ propertyId }) {
   const [woLoading, setWoLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // ✅ Pagination (V1) + page-size selector
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
+
+  const totalPages = useMemo(() => {
+    return Math.max(1, Math.ceil((totalCount || 0) / (pageSize || 1)));
+  }, [totalCount, pageSize]);
+
+  // Keep page in bounds after deletes / data changes
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+    if (page < 1) setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalPages]);
+
+  // Reset to page 1 when changing property/account
+  useEffect(() => {
+    setPage(1);
+  }, [activeAccountId, propertyId]);
+
   async function reloadRequests() {
     if (!activeAccountId || !propertyId) return;
 
@@ -174,20 +252,26 @@ export default function MaintenanceRequestsSection({ propertyId }) {
     setError(null);
 
     try {
-      const { data, error } = await supabase
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data, error, count } = await supabase
         .from("maintenance_requests")
         .select(
-          "id, account_id, property_id, reported_by_tenant_id, title, description, priority, status, created_at, updated_at"
+          "id, account_id, property_id, reported_by_tenant_id, title, description, priority, status, created_at, updated_at",
+          { count: "exact" }
         )
         .eq("account_id", activeAccountId)
         .eq("property_id", propertyId)
         .order("created_at", { ascending: false })
-        .limit(50);
+        .range(from, to);
 
       if (error) throw error;
       setRequests(data ?? []);
+      setTotalCount(count ?? 0);
     } catch (e) {
       setRequests([]);
+      setTotalCount(0);
       setError(e);
     } finally {
       setLoading(false);
@@ -250,7 +334,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
     if (!activeAccountId || !propertyId) return;
     reloadRequests();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeAccountId, propertyId]);
+  }, [activeAccountId, propertyId, page, pageSize]);
 
   useEffect(() => {
     if (!activeAccountId || !propertyId) return;
@@ -283,6 +367,8 @@ export default function MaintenanceRequestsSection({ propertyId }) {
       setDescription("");
       setPriority("normal");
 
+      // ✅ ensure newest item appears immediately
+      setPage(1);
       await reloadRequests();
     } catch (e) {
       console.error(e);
@@ -298,6 +384,8 @@ export default function MaintenanceRequestsSection({ propertyId }) {
   async function setStatus(id, nextStatus) {
     try {
       await updateMaintenanceRequest(id, { status: nextStatus });
+
+      // counts/totals can change across pages, safest is to refresh current page
       await reloadRequests();
     } catch (e) {
       console.error(e);
@@ -434,6 +522,9 @@ export default function MaintenanceRequestsSection({ propertyId }) {
       }
 
       closeCreateWO();
+
+      // ✅ show newest changes at top
+      setPage(1);
       await reloadRequests();
     } catch (e) {
       alert(e?.message ?? "Nie udało się utworzyć zlecenia");
@@ -483,7 +574,28 @@ export default function MaintenanceRequestsSection({ propertyId }) {
         </div>
 
         <div className="flex items-center gap-3 text-sm text-slate-600">
-          <span>{requests?.length ?? 0} zgłoszeń</span>
+          <span>{totalCount ?? requests?.length ?? 0} zgłoszeń</span>
+
+          {/* ✅ Page size selector (header convenience) */}
+          <div className="hidden md:flex items-center gap-2">
+            <span className="text-xs text-slate-500">Na stronę</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setPage(1);
+                setPageSize(Number.isFinite(n) && n > 0 ? n : 20);
+              }}
+              className="border rounded-lg px-2 py-2 text-sm bg-white"
+            >
+              {[10, 20, 30, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <button
             type="button"
             onClick={reloadRequests}
@@ -644,6 +756,23 @@ export default function MaintenanceRequestsSection({ propertyId }) {
         </div>
       )}
 
+      {/* ✅ Pagination footer */}
+      {!loading && totalPages > 1 && (
+        <PaginationFooter
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPrev={() => setPage((p) => Math.max(1, p - 1))}
+          onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+          onPageSizeChange={(n) => {
+            const next = Number.isFinite(n) && n > 0 ? n : 20;
+            setPage(1);
+            setPageSize(next);
+          }}
+        />
+      )}
+
       {/* Request details modal */}
       <Modal open={detailOpen} onClose={closeDetails} title="Szczegóły zgłoszenia">
         {!selectedReq ? (
@@ -751,9 +880,12 @@ export default function MaintenanceRequestsSection({ propertyId }) {
         ) : (
           <div className="space-y-4">
             <div className="bg-slate-50 border rounded-lg p-3">
-              <div className="text-sm font-medium text-slate-900">Zgłoszenie: {woForRequest.title}</div>
+              <div className="text-sm font-medium text-slate-900">
+                Zgłoszenie: {woForRequest.title}
+              </div>
               <div className="text-xs text-slate-500 mt-1">
-                Priorytet: {priorityLabel(woForRequest.priority)} • Status: {statusLabel(woForRequest.status)}
+                Priorytet: {priorityLabel(woForRequest.priority)} • Status:{" "}
+                {statusLabel(woForRequest.status)}
               </div>
             </div>
 
@@ -821,7 +953,8 @@ export default function MaintenanceRequestsSection({ propertyId }) {
             </div>
 
             <p className="text-xs text-slate-500">
-              Uwaga: status zgłoszenia zostanie ustawiony na „W trakcie”, jeśli było „Otwarte” lub „Oczekuje”.
+              Uwaga: status zgłoszenia zostanie ustawiony na „W trakcie”, jeśli było „Otwarte” lub
+              „Oczekuje”.
             </p>
           </div>
         )}

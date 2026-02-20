@@ -1,3 +1,4 @@
+// src/components/WorkOrdersSection.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Card from "./Card";
@@ -40,6 +41,61 @@ function Modal({ open, onClose, title, children }) {
   );
 }
 
+function PaginationFooter({
+  page,
+  totalPages,
+  totalCount,
+  pageSize,
+  onPrev,
+  onNext,
+  onPageSizeChange,
+}) {
+  return (
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-3">
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-slate-500">Na stronę</span>
+        <select
+          value={pageSize}
+          onChange={(e) => onPageSizeChange(Number(e.target.value))}
+          className="border rounded-lg px-2 py-1 text-sm bg-white"
+        >
+          {[10, 20, 30, 50, 100].map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex items-center justify-between md:justify-end gap-3">
+        <button
+          className="px-3 py-2 rounded-lg border text-sm disabled:opacity-50"
+          onClick={onPrev}
+          disabled={page <= 1}
+        >
+          Prev
+        </button>
+
+        <div className="text-sm text-slate-600">
+          Page <span className="font-medium text-slate-900">{page}</span> of{" "}
+          <span className="font-medium text-slate-900">{totalPages}</span>
+          {typeof totalCount === "number" ? (
+            <span className="ml-2 text-xs text-slate-500">({totalCount} total)</span>
+          ) : null}
+        </div>
+
+        <button
+          className="px-3 py-2 rounded-lg border text-sm disabled:opacity-50"
+          onClick={onNext}
+          disabled={page >= totalPages}
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* -----------------------------
    Component
 ----------------------------- */
@@ -53,10 +109,7 @@ export default function WorkOrdersSection({ propertyId }) {
   const mrIdFromUrl = searchParams.get("mrId") || "";
   const seedNotesFromUrl = searchParams.get("seedNotes") === "1";
 
-  const role = useMemo(
-    () => String(activeRole ?? "").toLowerCase(),
-    [activeRole]
-  );
+  const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
   const isTenant = useMemo(() => role === "tenant", [role]);
 
   const canManage = useMemo(() => {
@@ -72,6 +125,27 @@ export default function WorkOrdersSection({ propertyId }) {
   const [workOrders, setWorkOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // ✅ Pagination (V1) + page-size selector
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
+
+  const totalPages = useMemo(() => {
+    return Math.max(1, Math.ceil((totalCount || 0) / (pageSize || 1)));
+  }, [totalCount, pageSize]);
+
+  // Keep page in bounds after deletes / data changes
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+    if (page < 1) setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalPages]);
+
+  // Reset to page 1 when changing property/account
+  useEffect(() => {
+    setPage(1);
+  }, [activeAccountId, propertyId]);
 
   // -----------------------------
   // Modal + Audit timeline
@@ -163,12 +237,9 @@ export default function WorkOrdersSection({ propertyId }) {
         return;
       }
 
-      const { data, error } = await supabase.rpc(
-        "work_order_allowed_actions_bulk",
-        {
-          p_work_order_ids: ids,
-        }
-      );
+      const { data, error } = await supabase.rpc("work_order_allowed_actions_bulk", {
+        p_work_order_ids: ids,
+      });
 
       if (error) throw error;
 
@@ -271,7 +342,10 @@ export default function WorkOrdersSection({ propertyId }) {
     setError(null);
 
     try {
-      const { data, error } = await supabase
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data, error, count } = await supabase
         .from("work_orders_with_flags")
         .select(
           `
@@ -297,16 +371,21 @@ export default function WorkOrdersSection({ propertyId }) {
           last_cancel_resolution_action,
           last_cancel_resolution_by,
           maintenance_requests:maintenance_request_id ( id, title, status, priority )
-        `
+        `,
+          { count: "exact" }
         )
         .eq("account_id", activeAccountId)
         .eq("property_id", propertyId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
 
       const rows = data ?? [];
-      if (mountedRef.current) setWorkOrders(rows);
+      if (mountedRef.current) {
+        setWorkOrders(rows);
+        setTotalCount(count ?? 0);
+      }
 
       await loadAllowedActionsForRows(rows);
 
@@ -317,6 +396,7 @@ export default function WorkOrdersSection({ propertyId }) {
     } catch (e) {
       if (mountedRef.current) {
         setWorkOrders([]);
+        setTotalCount(0);
         setError(e);
       }
     } finally {
@@ -492,9 +572,16 @@ export default function WorkOrdersSection({ propertyId }) {
     };
   }, []);
 
+  // ✅ Reload work orders when page/pageSize changes (and on property/account change)
   useEffect(() => {
     if (!activeAccountId || !propertyId) return;
     reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAccountId, propertyId, page, pageSize]);
+
+  // ✅ Load manager-only supporting data (NOT tied to page, keeps behavior stable + avoids spam)
+  useEffect(() => {
+    if (!activeAccountId || !propertyId) return;
     if (canManage) {
       loadPendingInbox();
       loadContractors();
@@ -612,14 +699,7 @@ export default function WorkOrdersSection({ propertyId }) {
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    canManage,
-    createWOFromUrl,
-    mrIdFromUrl,
-    seedNotesFromUrl,
-    requests,
-    searchParams,
-  ]);
+  }, [canManage, createWOFromUrl, mrIdFromUrl, seedNotesFromUrl, requests, searchParams]);
 
   async function handleCreate() {
     if (!activeAccountId || !propertyId) return;
@@ -645,6 +725,8 @@ export default function WorkOrdersSection({ propertyId }) {
       setScheduledAt("");
       setNotes("");
 
+      // ✅ ensure you see the newest item (top of list)
+      setPage(1);
       await reload();
       if (canManage) await loadPendingInbox();
     } catch (e) {
@@ -660,6 +742,7 @@ export default function WorkOrdersSection({ propertyId }) {
       await deleteWorkOrder(id);
       await reload();
       if (canManage) await loadPendingInbox();
+      // page clamp effect will handle if last item on last page was deleted
     } catch (e) {
       alert(e?.message ?? "Nie udało się usunąć zlecenia");
     }
@@ -740,12 +823,9 @@ export default function WorkOrdersSection({ propertyId }) {
   async function approveCancellation(id) {
     setActionBusyId(id);
     try {
-      const { error } = await supabase.rpc(
-        "work_order_approve_tenant_cancellation",
-        {
-          p_work_order_id: id,
-        }
-      );
+      const { error } = await supabase.rpc("work_order_approve_tenant_cancellation", {
+        p_work_order_id: id,
+      });
       if (error) throw error;
 
       await refreshAfterStatusAction(id, {
@@ -825,15 +905,37 @@ export default function WorkOrdersSection({ propertyId }) {
           </p>
         </div>
 
-        {canManage && (
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg"
-          >
-            {open ? "Zamknij" : "Dodaj zlecenie"}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* ✅ Page size selector in header (optional convenience) */}
+          <div className="hidden md:flex items-center gap-2">
+            <span className="text-xs text-slate-500">Na stronę</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setPage(1);
+                setPageSize(Number.isFinite(n) && n > 0 ? n : 20);
+              }}
+              className="border rounded-lg px-2 py-2 text-sm bg-white"
+            >
+              {[10, 20, 30, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg"
+            >
+              {open ? "Zamknij" : "Dodaj zlecenie"}
+            </button>
+          )}
+        </div>
       </div>
 
       {canManage && (
@@ -1238,6 +1340,23 @@ export default function WorkOrdersSection({ propertyId }) {
             );
           })}
         </div>
+      )}
+
+      {/* ✅ Pagination footer */}
+      {!loading && totalPages > 1 && (
+        <PaginationFooter
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPrev={() => setPage((p) => Math.max(1, p - 1))}
+          onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+          onPageSizeChange={(n) => {
+            const next = Number.isFinite(n) && n > 0 ? n : 20;
+            setPage(1);
+            setPageSize(next);
+          }}
+        />
       )}
 
       <Modal open={detailOpen} onClose={closeDetails} title="Szczegóły zlecenia">
