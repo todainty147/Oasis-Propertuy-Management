@@ -6,6 +6,12 @@ import Skeleton from "./ui/Skeleton";
 import { useAccount } from "../context/AccountContext";
 import { createWorkOrder, deleteWorkOrder } from "../services/workOrderService";
 import { supabase } from "../lib/supabase";
+import {
+  listWorkOrderAttachments,
+  uploadWorkOrderAttachments,
+  createAttachmentSignedUrl,
+  deleteWorkOrderAttachment,
+} from "../services/workOrderAttachmentsService";
 
 /* -----------------------------
    UI helpers
@@ -16,6 +22,19 @@ function formatDateTime(ts) {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return null;
   return d.toLocaleString();
+}
+
+function formatBytes(bytes) {
+  const n = Number(bytes);
+  if (!Number.isFinite(n) || n <= 0) return "—";
+  const units = ["B", "KB", "MB", "GB"];
+  let idx = 0;
+  let val = n;
+  while (val >= 1024 && idx < units.length - 1) {
+    val /= 1024;
+    idx += 1;
+  }
+  return `${val.toFixed(val >= 10 || idx === 0 ? 0 : 1)} ${units[idx]}`;
 }
 
 function Modal({ open, onClose, title, children }) {
@@ -177,7 +196,6 @@ export default function WorkOrdersSection({ propertyId }) {
     const s = String(status ?? "").toLowerCase();
     const label = getStatusLabel(s) || status || "assigned";
 
-    // Keep your colors as-is (no breaking UI)
     if (s === "completed")
       return (
         <span className={`${base} bg-green-50 border-green-200 text-green-700`}>
@@ -214,7 +232,7 @@ export default function WorkOrdersSection({ propertyId }) {
   }
 
   // -----------------------------
-  // Mounted guard (prevents setState after unmount)
+  // Mounted guard
   // -----------------------------
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -293,6 +311,97 @@ export default function WorkOrdersSection({ propertyId }) {
   }
 
   // -----------------------------------------
+  // A4: Attachments (photos/docs) ✅ fixed signatures
+  // -----------------------------------------
+  const [attachments, setAttachments] = useState([]);
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+  const [attachmentsUploading, setAttachmentsUploading] = useState(false);
+  const [signedUrlByPath, setSignedUrlByPath] = useState({}); // storage_path -> signedUrl
+
+  async function loadAttachments(workOrderId) {
+    if (!activeAccountId || !workOrderId) return;
+
+    setAttachmentsLoading(true);
+    try {
+      const rows = await listWorkOrderAttachments({
+        accountId: activeAccountId,
+        workOrderId,
+      });
+
+      if (!mountedRef.current) return;
+
+      setAttachments(rows ?? []);
+
+      const nextMap = {};
+      for (const a of rows ?? []) {
+        const isImage = String(a?.mime_type || "").startsWith("image/");
+        if (!isImage) continue;
+
+        try {
+          const url = await createAttachmentSignedUrl(
+            a.storage_bucket,
+            a.storage_path,
+            120
+          );
+          if (url) nextMap[a.storage_path] = url;
+        } catch {
+          // ignore
+        }
+      }
+
+      if (mountedRef.current) setSignedUrlByPath(nextMap);
+    } catch {
+      if (mountedRef.current) {
+        setAttachments([]);
+        setSignedUrlByPath({});
+      }
+    } finally {
+      if (mountedRef.current) setAttachmentsLoading(false);
+    }
+  }
+
+  async function handleUploadAttachments(workOrderId, files) {
+    if (!activeAccountId || !workOrderId) return;
+    const list = Array.from(files || []).filter(Boolean);
+    if (list.length === 0) return;
+
+    setAttachmentsUploading(true);
+    try {
+      await uploadWorkOrderAttachments({
+        accountId: activeAccountId,
+        workOrderId,
+        files: list,
+      });
+
+      await loadAttachments(workOrderId);
+    } catch (e) {
+      alert(e?.message ?? "Nie udało się wgrać załączników");
+    } finally {
+      setAttachmentsUploading(false);
+    }
+  }
+
+  async function handleDownloadAttachment(a) {
+    try {
+      const url = await createAttachmentSignedUrl(a.storage_bucket, a.storage_path, 60);
+      if (!url) throw new Error("Brak linku");
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      alert(e?.message ?? "Nie udało się pobrać pliku");
+    }
+  }
+
+  async function handleDeleteAttachment(a) {
+    if (!confirm("Usunąć załącznik?")) return;
+    try {
+      await deleteWorkOrderAttachment({ attachmentRow: a });
+      await loadAttachments(a.work_order_id);
+    } catch (e) {
+      alert(e?.message ?? "Nie udało się usunąć załącznika");
+    }
+  }
+
+  // -----------------------------------------
   // Contractors directory (manager-only)
   // -----------------------------------------
   const [contractors, setContractors] = useState([]);
@@ -327,6 +436,7 @@ export default function WorkOrdersSection({ propertyId }) {
     setDetailOpen(true);
     loadAudit(wo.id);
     ensureAllowedActionsLoaded(wo.id);
+    loadAttachments(wo.id); // ✅ A4 load
   }
 
   function closeDetails() {
@@ -334,6 +444,10 @@ export default function WorkOrdersSection({ propertyId }) {
     setSelectedWO(null);
     setAudit([]);
     setAssignContractorId("");
+
+    // ✅ A4 reset
+    setAttachments([]);
+    setSignedUrlByPath({});
   }
 
   async function reload() {
@@ -560,7 +674,6 @@ export default function WorkOrdersSection({ propertyId }) {
         setStatusLabelByKey(map);
         statusLabelsLoadedRef.current = true;
       } catch {
-        // keep existing hardcoded labels fallback
         statusLabelsLoadedRef.current = true;
       }
     }
@@ -579,7 +692,7 @@ export default function WorkOrdersSection({ propertyId }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAccountId, propertyId, page, pageSize]);
 
-  // ✅ Load manager-only supporting data (NOT tied to page, keeps behavior stable + avoids spam)
+  // ✅ Load manager-only supporting data
   useEffect(() => {
     if (!activeAccountId || !propertyId) return;
     if (canManage) {
@@ -655,7 +768,7 @@ export default function WorkOrdersSection({ propertyId }) {
     setContractorPhone(c.phone ?? "");
   }
 
-  // ✅ Deep-link handler (surgical fix): run once, and only if params exist
+  // ✅ Deep-link handler
   const deepLinkHandledRef = useRef(false);
   useEffect(() => {
     if (!canManage) return;
@@ -672,18 +785,15 @@ export default function WorkOrdersSection({ propertyId }) {
       if (mr) {
         setNotes((prev) => {
           if (String(prev || "").trim().length > 0) return prev;
-          return `Zgłoszenie: ${mr.title}\nPriorytet: ${
-            mr.priority || "normal"
-          }\nStatus: ${mr.status || ""}\n\n`;
+          return `Zgłoszenie: ${mr.title}\nPriorytet: ${mr.priority || "normal"}\nStatus: ${
+            mr.status || ""
+          }\n\n`;
         });
       }
     }
 
-    // Clean URL only if needed (prevents location-update loop)
     const hasAny =
-      searchParams.has("createWO") ||
-      searchParams.has("mrId") ||
-      searchParams.has("seedNotes");
+      searchParams.has("createWO") || searchParams.has("mrId") || searchParams.has("seedNotes");
 
     if (hasAny) {
       setSearchParams(
@@ -725,7 +835,6 @@ export default function WorkOrdersSection({ propertyId }) {
       setScheduledAt("");
       setNotes("");
 
-      // ✅ ensure you see the newest item (top of list)
       setPage(1);
       await reload();
       if (canManage) await loadPendingInbox();
@@ -742,7 +851,6 @@ export default function WorkOrdersSection({ propertyId }) {
       await deleteWorkOrder(id);
       await reload();
       if (canManage) await loadPendingInbox();
-      // page clamp effect will handle if last item on last page was deleted
     } catch (e) {
       alert(e?.message ?? "Nie udało się usunąć zlecenia");
     }
@@ -868,7 +976,7 @@ export default function WorkOrdersSection({ propertyId }) {
   }
 
   // -----------------------------
-  // UX helpers (DB still enforces)
+  // UX helpers
   // -----------------------------
   function tenantCancelState(wo) {
     if (!isTenant) return { show: false, disabled: true, reason: "" };
@@ -906,7 +1014,6 @@ export default function WorkOrdersSection({ propertyId }) {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* ✅ Page size selector in header (optional convenience) */}
           <div className="hidden md:flex items-center gap-2">
             <span className="text-xs text-slate-500">Na stronę</span>
             <select
@@ -1342,7 +1449,6 @@ export default function WorkOrdersSection({ propertyId }) {
         </div>
       )}
 
-      {/* ✅ Pagination footer */}
       {!loading && totalPages > 1 && (
         <PaginationFooter
           page={page}
@@ -1380,9 +1486,7 @@ export default function WorkOrdersSection({ propertyId }) {
                 </p>
 
                 {selectedWO.contractor_phone && (
-                  <p className="text-xs text-slate-500 mt-1">
-                    Telefon: {selectedWO.contractor_phone}
-                  </p>
+                  <p className="text-xs text-slate-500 mt-1">Telefon: {selectedWO.contractor_phone}</p>
                 )}
 
                 {selectedWO.scheduled_at && (
@@ -1472,6 +1576,100 @@ export default function WorkOrdersSection({ propertyId }) {
                 {selectedWO.notes}
               </div>
             )}
+
+            {/* ✅ A4 Attachments section */}
+            <div>
+              <h4 className="font-semibold text-slate-900">Załączniki</h4>
+
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <p className="text-xs text-slate-500">Zdjęcia i dokumenty dla tego zlecenia.</p>
+
+                <label
+                  className={`text-sm px-3 py-2 rounded-lg border hover:bg-slate-50 cursor-pointer ${
+                    attachmentsUploading ? "opacity-70" : ""
+                  }`}
+                  title="Dodaj zdjęcia lub dokumenty"
+                >
+                  {attachmentsUploading ? "Wgrywanie…" : "Dodaj pliki"}
+                  <input
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      e.target.value = "";
+                      handleUploadAttachments(selectedWO.id, files);
+                    }}
+                    disabled={attachmentsUploading}
+                  />
+                </label>
+              </div>
+
+              {attachmentsLoading ? (
+                <div className="mt-3 space-y-2">
+                  <Skeleton className="h-12" />
+                  <Skeleton className="h-12" />
+                </div>
+              ) : attachments.length === 0 ? (
+                <p className="text-sm text-slate-500 mt-3">Brak załączników.</p>
+              ) : (
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {attachments.map((a) => {
+                    const isImage = String(a?.mime_type || "").startsWith("image/");
+                    const previewUrl = isImage ? signedUrlByPath[a.storage_path] : null;
+
+                    return (
+                      <div key={a.id} className="border rounded-lg p-3 flex gap-3">
+                        <div className="w-20 h-20 rounded-lg border bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center">
+                          {isImage && previewUrl ? (
+                            <img
+                              src={previewUrl}
+                              alt={a.file_name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-xs text-slate-500 text-center px-2">
+                              {a.kind === "photo" ? "Zdjęcie" : "Dokument"}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium text-slate-900 truncate">
+                            {a.file_name}
+                          </div>
+
+                          <div className="text-xs text-slate-500 mt-1">
+                            {a.mime_type || "—"} • {formatBytes(a.file_size)} •{" "}
+                            {formatDateTime(a.created_at)}
+                          </div>
+
+                          <div className="mt-2 flex gap-3">
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadAttachment(a)}
+                              className="text-sm text-blue-600 hover:underline"
+                            >
+                              Otwórz / Pobierz
+                            </button>
+
+                            {canManage && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteAttachment(a)}
+                                className="text-sm text-rose-600 hover:underline"
+                              >
+                                Usuń
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             <div>
               <h4 className="font-semibold text-slate-900">Aktywność</h4>
