@@ -9,6 +9,12 @@ import { updateMaintenanceRequest } from "../services/maintenanceService";
 import { createWorkOrder } from "../services/workOrderService";
 
 const STATUS_ORDER = ["open", "in_progress", "waiting", "resolved", "closed"];
+const WAITING_REASON_OPTIONS = [
+  { value: "tenant_response", label: "waiting for tenant" },
+  { value: "contractor_schedule", label: "waiting for contractor" },
+  { value: "parts_ordered", label: "waiting for materials" },
+  { value: "landlord_approval", label: "waiting for decision" },
+];
 
 function timestampForNote() {
   return new Date().toLocaleString();
@@ -46,6 +52,10 @@ export default function MaintenanceInboxPage() {
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [noteRequest, setNoteRequest] = useState(null);
   const [noteText, setNoteText] = useState("");
+  const [waitingModalOpen, setWaitingModalOpen] = useState(false);
+  const [waitingRequest, setWaitingRequest] = useState(null);
+  const [waitingReason, setWaitingReason] = useState("");
+  const [waitingSaving, setWaitingSaving] = useState(false);
   const totalPages = useMemo(() => {
     const pages = STATUS_ORDER.map((s) => Math.ceil((statusTotals[s] || 0) / (pageSize || 1)));
     const maxPages = Math.max(1, ...pages);
@@ -68,7 +78,7 @@ export default function MaintenanceInboxPage() {
           supabase
             .from("maintenance_requests")
             .select(
-              "id, account_id, property_id, reported_by_tenant_id, title, description, priority, status, created_at, updated_at"
+              "id, account_id, property_id, reported_by_tenant_id, title, description, priority, status, waiting_reason, created_at, updated_at"
             )
             .eq("account_id", activeAccountId)
             .order("created_at", { ascending: false }),
@@ -205,6 +215,32 @@ export default function MaintenanceInboxPage() {
       alert(e?.message || "Nie udało się dodać notatki.");
     } finally {
       setBusyRequestId("");
+    }
+  }
+
+  function handleOpenWaitingReason(request) {
+    if (!canManage || !request?.id) return;
+    setWaitingRequest(request);
+    setWaitingReason(request.waiting_reason || "");
+    setWaitingModalOpen(true);
+  }
+
+  async function handleSaveWaitingReason() {
+    if (!canManage || !waitingRequest?.id) return;
+    setWaitingSaving(true);
+    try {
+      await updateMaintenanceRequest(waitingRequest.id, {
+        status: "waiting",
+        waiting_reason: waitingReason || null,
+      });
+      setWaitingModalOpen(false);
+      setWaitingRequest(null);
+      setWaitingReason("");
+      await loadAll();
+    } catch (e) {
+      alert(e?.message || "Nie udało się zapisać waiting_reason.");
+    } finally {
+      setWaitingSaving(false);
     }
   }
 
@@ -350,6 +386,7 @@ export default function MaintenanceInboxPage() {
           {STATUS_ORDER.map((status) => (
             <MaintenanceColumn
               key={status}
+              accountId={activeAccountId}
               status={status}
               items={pagedGrouped[status] || []}
               totalForStatus={statusTotals[status] || 0}
@@ -360,6 +397,7 @@ export default function MaintenanceInboxPage() {
               onCreateWorkOrder={openCreateWorkOrder}
               onCloseRequest={handleCloseRequest}
               onAddNote={handleAddNote}
+              onSetWaitingReason={handleOpenWaitingReason}
             />
           ))}
         </div>
@@ -417,6 +455,60 @@ export default function MaintenanceInboxPage() {
                   }`}
                 >
                   {busyRequestId === noteRequest?.id ? "Zapisywanie…" : "Zapisz notatkę"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {waitingModalOpen && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/30" onClick={() => !waitingSaving && setWaitingModalOpen(false)} />
+          <div className="absolute left-1/2 top-1/2 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-xl border">
+            <div className="p-4 border-b flex items-center justify-between">
+              <div className="font-semibold text-slate-900">Ustaw powód oczekiwania</div>
+              <button
+                type="button"
+                onClick={() => !waitingSaving && setWaitingModalOpen(false)}
+                className="text-sm px-2 py-1 rounded hover:bg-slate-100"
+              >
+                Zamknij
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <p className="text-sm text-slate-600">{waitingRequest?.title || "Zgłoszenie"}</p>
+              <select
+                value={waitingReason}
+                onChange={(e) => setWaitingReason(e.target.value)}
+                disabled={waitingSaving}
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-white disabled:bg-slate-50"
+              >
+                <option value="">Brak powodu</option>
+                {WAITING_REASON_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setWaitingModalOpen(false)}
+                  disabled={waitingSaving}
+                  className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Anuluj
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveWaitingReason}
+                  disabled={waitingSaving}
+                  className={`px-3 py-2 text-sm rounded-lg text-white ${
+                    waitingSaving ? "bg-slate-400" : "bg-blue-600"
+                  }`}
+                >
+                  {waitingSaving ? "Zapisywanie…" : "Zapisz"}
                 </button>
               </div>
             </div>

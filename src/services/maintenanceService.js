@@ -13,6 +13,12 @@ const PRIORITIES = new Set(["low", "normal", "high", "urgent"]);
 
 // ✅ Must match DB constraint maintenance_status_check
 const STATUSES = new Set(["open", "in_progress", "waiting", "resolved", "closed"]);
+const WAITING_REASONS = new Set([
+  "tenant_response",
+  "contractor_schedule",
+  "parts_ordered",
+  "landlord_approval",
+]);
 
 function assertPriority(priority) {
   if (priority === undefined) return;
@@ -25,6 +31,14 @@ function assertStatus(status) {
   if (status === undefined) return;
   if (!STATUSES.has(status)) {
     throw new Error(`Nieprawidłowy status: ${status}`);
+  }
+}
+
+function assertWaitingReason(waitingReason) {
+  if (waitingReason === undefined) return;
+  if (waitingReason === null) return;
+  if (!WAITING_REASONS.has(waitingReason)) {
+    throw new Error(`Nieprawidłowy waiting_reason: ${waitingReason}`);
   }
 }
 
@@ -82,6 +96,7 @@ export async function updateMaintenanceRequest(id, patch = {}) {
   // ✅ Validate before send
   assertPriority(patch.priority);
   assertStatus(patch.status);
+  assertWaitingReason(patch.waiting_reason);
 
   // ✅ Only include fields that were actually provided (prevents accidental nulling)
   const allowed = {};
@@ -91,6 +106,7 @@ export async function updateMaintenanceRequest(id, patch = {}) {
     allowed.description = patch.description?.trim() || null;
   if (patch.priority !== undefined) allowed.priority = patch.priority;
   if (patch.status !== undefined) allowed.status = patch.status;
+  if (patch.waiting_reason !== undefined) allowed.waiting_reason = patch.waiting_reason;
 
   // If nothing to update
   if (Object.keys(allowed).length === 0) {

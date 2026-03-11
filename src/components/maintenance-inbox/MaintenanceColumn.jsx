@@ -2,15 +2,16 @@ import MaintenanceRequestCard from "./MaintenanceRequestCard";
 
 function titleForStatus(status) {
   const s = String(status ?? "").toLowerCase();
-  if (s === "open") return "Otwarte";
+  if (s === "open") return "Nowe";
   if (s === "in_progress") return "W trakcie";
   if (s === "waiting") return "Oczekuje";
-  if (s === "resolved") return "Rozwiązane";
+  if (s === "resolved") return "Zakończone";
   if (s === "closed") return "Zamknięte";
   return status || "Inne";
 }
 
 export default function MaintenanceColumn({
+  accountId,
   status,
   items = [],
   totalForStatus = 0,
@@ -21,6 +22,7 @@ export default function MaintenanceColumn({
   onCreateWorkOrder,
   onCloseRequest,
   onAddNote,
+  onSetWaitingReason,
 }) {
   return (
     <div className="rounded-2xl border-2 border-slate-300 bg-slate-100 p-3 space-y-3 min-h-[240px]">
@@ -41,6 +43,7 @@ export default function MaintenanceColumn({
           {items.map((request) => (
             <div key={request.id} className="p-2">
               <MaintenanceRequestCard
+                accountId={accountId}
                 request={request}
                 linkedWorkOrder={workOrderByRequestId[request.id] || null}
                 propertyLabel={propertyLabelById[request.property_id] || ""}
@@ -49,6 +52,7 @@ export default function MaintenanceColumn({
                 onCreateWorkOrder={onCreateWorkOrder}
                 onCloseRequest={onCloseRequest}
                 onAddNote={onAddNote}
+                onSetWaitingReason={onSetWaitingReason}
               />
             </div>
           ))}

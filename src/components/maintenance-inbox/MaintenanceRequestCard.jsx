@@ -1,13 +1,24 @@
 import { Link } from "react-router-dom";
+import { useState } from "react";
+import MaintenanceTimeline from "./MaintenanceTimeline";
 
 function statusLabel(status) {
   const s = String(status ?? "").toLowerCase();
-  if (s === "open") return "Otwarte";
+  if (s === "open") return "Nowe";
   if (s === "in_progress") return "W trakcie";
   if (s === "waiting") return "Oczekuje";
-  if (s === "resolved") return "Rozwiązane";
+  if (s === "resolved") return "Zakończone";
   if (s === "closed") return "Zamknięte";
   return status || "—";
+}
+
+function waitingReasonLabel(waitingReason) {
+  const r = String(waitingReason ?? "").toLowerCase();
+  if (r === "tenant_response") return "waiting for tenant";
+  if (r === "contractor_schedule") return "waiting for contractor";
+  if (r === "parts_ordered") return "waiting for materials";
+  if (r === "landlord_approval") return "waiting for decision";
+  return waitingReason || "";
 }
 
 function priorityLabel(priority) {
@@ -54,6 +65,7 @@ function formatAge(createdAt) {
 }
 
 export default function MaintenanceRequestCard({
+  accountId,
   request,
   linkedWorkOrder,
   propertyLabel = "",
@@ -62,12 +74,18 @@ export default function MaintenanceRequestCard({
   onCreateWorkOrder,
   onCloseRequest,
   onAddNote,
+  onSetWaitingReason,
 }) {
+  const [timelineOpen, setTimelineOpen] = useState(false);
   const hasAssignedContractor = Boolean(
     linkedWorkOrder?.contractor_user_id ||
       linkedWorkOrder?.contractor_name ||
       linkedWorkOrder?.contractor_phone
   );
+  const waitingCtx =
+    String(request.status || "").toLowerCase() === "waiting"
+      ? waitingReasonLabel(request.waiting_reason)
+      : "";
 
   return (
     <div className={`rounded-xl border-2 p-3 space-y-3 ${priorityCardTone(request.priority)}`}>
@@ -93,6 +111,7 @@ export default function MaintenanceRequestCard({
       <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
         <span className="px-2 py-0.5 rounded border border-slate-200 bg-slate-50">
           Status: {statusLabel(request.status)}
+          {waitingCtx ? ` — ${waitingCtx}` : ""}
         </span>
         {linkedWorkOrder ? (
           <span className="px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700">
@@ -153,7 +172,34 @@ export default function MaintenanceRequestCard({
           >
             Dodaj notatkę
           </button>
+
+          <button
+            type="button"
+            onClick={() => onSetWaitingReason(request)}
+            disabled={busy}
+            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {String(request.status || "").toLowerCase() === "waiting"
+              ? "Edytuj oczekiwanie"
+              : "Ustaw oczekiwanie"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTimelineOpen((v) => !v)}
+            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
+          >
+            {timelineOpen ? "Ukryj timeline" : "Pokaż timeline"}
+          </button>
         </div>
+      )}
+
+      {timelineOpen && (
+        <MaintenanceTimeline
+          accountId={accountId}
+          request={request}
+          linkedWorkOrder={linkedWorkOrder}
+        />
       )}
     </div>
   );
