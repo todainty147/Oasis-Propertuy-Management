@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
+import ContractorAttachmentsPanel from "./work-orders/ContractorAttachmentsPanel";
 import { useAccount } from "../context/AccountContext";
 import { createWorkOrder, deleteWorkOrder } from "../services/workOrderService";
 import { supabase } from "../lib/supabase";
@@ -1703,91 +1704,100 @@ export default function WorkOrdersSection({ propertyId }) {
             </div>
 
             {/* ✅ A4 Attachments */}
-            <div>
-              <h4 className="font-semibold text-slate-900">Załączniki</h4>
+            {isContractor ? (
+              <ContractorAttachmentsPanel
+                accountId={activeAccountId}
+                workOrderId={selectedWO.id}
+                canUpload={isContractor}
+              />
+            ) : (
+              <div>
+                <h4 className="font-semibold text-slate-900">Załączniki</h4>
 
-              <div className="mt-2 flex items-center justify-between gap-3">
-                <p className="text-xs text-slate-500">Zdjęcia i dokumenty dla tego zlecenia.</p>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <p className="text-xs text-slate-500">Zdjęcia i dokumenty dla tego zlecenia.</p>
 
-                <label
-                  className={`text-sm px-3 py-2 rounded-lg border hover:bg-slate-50 cursor-pointer ${
-                    attachmentsUploading ? "opacity-70" : ""
-                  }`}
-                  title="Dodaj zdjęcia lub dokumenty"
-                >
-                  {attachmentsUploading ? "Wgrywanie…" : "Dodaj pliki"}
-                  <input
-                    type="file"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files || []);
-                      e.target.value = "";
-                      handleUploadAttachments(selectedWO.id, files);
-                    }}
-                    disabled={attachmentsUploading}
-                  />
-                </label>
-              </div>
-
-              {attachmentsLoading ? (
-                <div className="mt-3 space-y-2">
-                  <Skeleton className="h-12" />
-                  <Skeleton className="h-12" />
+                  <label
+                    className={`text-sm px-3 py-2 rounded-lg border hover:bg-slate-50 cursor-pointer ${
+                      attachmentsUploading ? "opacity-70" : ""
+                    }`}
+                    title="Dodaj zdjęcia lub dokumenty"
+                  >
+                    {attachmentsUploading ? "Wgrywanie…" : "Dodaj pliki"}
+                    <input
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        e.target.value = "";
+                        handleUploadAttachments(selectedWO.id, files);
+                      }}
+                      disabled={attachmentsUploading}
+                    />
+                  </label>
                 </div>
-              ) : attachments.length === 0 ? (
-                <p className="text-sm text-slate-500 mt-3">Brak załączników.</p>
-              ) : (
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {attachments.map((a) => {
-                    const isImage = String(a?.mime_type || "").startsWith("image/");
-                    const previewUrl = isImage ? signedUrlByPath[a.storage_path] : null;
 
-                    return (
-                      <div key={a.id} className="border rounded-lg p-3 flex gap-3">
-                        <div className="w-20 h-20 rounded-lg border bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center">
-                          {isImage && previewUrl ? (
-                            <img src={previewUrl} alt={a.file_name} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-xs text-slate-500 text-center px-2">
-                              {a.kind === "photo" ? "Zdjęcie" : "Dokument"}
-                            </span>
-                          )}
-                        </div>
+                {attachmentsLoading ? (
+                  <div className="mt-3 space-y-2">
+                    <Skeleton className="h-12" />
+                    <Skeleton className="h-12" />
+                  </div>
+                ) : attachments.length === 0 ? (
+                  <p className="text-sm text-slate-500 mt-3">Brak załączników.</p>
+                ) : (
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {attachments.map((a) => {
+                      const isImage = String(a?.mime_type || "").startsWith("image/");
+                      const previewUrl = isImage ? signedUrlByPath[a.storage_path] : null;
 
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium text-slate-900 truncate">{a.file_name}</div>
-
-                          <div className="text-xs text-slate-500 mt-1">
-                            {a.mime_type || "—"} {" • "} {formatBytes(a.file_size)} {" • "} {formatDateTime(a.created_at)}
-                          </div>
-
-                          <div className="mt-2 flex gap-3">
-                            <button
-                              type="button"
-                              onClick={() => handleDownloadAttachment(a)}
-                              className="text-sm text-blue-600 hover:underline"
-                            >
-                              Otwórz / Pobierz
-                            </button>
-
-                            {canManage && (
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteAttachment(a)}
-                                className="text-sm text-rose-600 hover:underline"
-                              >
-                                Usuń
-                              </button>
+                      return (
+                        <div key={a.id} className="border rounded-lg p-3 flex gap-3">
+                          <div className="w-20 h-20 rounded-lg border bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center">
+                            {isImage && previewUrl ? (
+                              <img src={previewUrl} alt={a.file_name} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-xs text-slate-500 text-center px-2">
+                                {a.kind === "photo" ? "Zdjęcie" : "Dokument"}
+                              </span>
                             )}
                           </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium text-slate-900 truncate">{a.file_name}</div>
+
+                            <div className="text-xs text-slate-500 mt-1">
+                              {a.mime_type || "—"} {" • "} {formatBytes(a.file_size)} {" • "}{" "}
+                              {formatDateTime(a.created_at)}
+                            </div>
+
+                            <div className="mt-2 flex gap-3">
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadAttachment(a)}
+                                className="text-sm text-blue-600 hover:underline"
+                              >
+                                Otwórz / Pobierz
+                              </button>
+
+                              {canManage && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteAttachment(a)}
+                                  className="text-sm text-rose-600 hover:underline"
+                                >
+                                  Usuń
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Activity */}
             <div>
