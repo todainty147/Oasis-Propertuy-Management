@@ -161,8 +161,14 @@ export default function MaintenanceInboxPage() {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
-  async function handleCloseRequest(request) {
+  async function handleCloseRequest(request, linkedWorkOrder = null) {
     if (!canManage || !request?.id) return;
+
+    if (linkedWorkOrder && String(linkedWorkOrder.status || "").toLowerCase() !== "completed") {
+      alert("Work order must be completed before closing.");
+      return;
+    }
+
     setBusyRequestId(request.id);
     try {
       await updateMaintenanceRequest(request.id, { status: "closed" });

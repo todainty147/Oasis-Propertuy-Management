@@ -15,16 +15,24 @@ function priorityLabel(priority) {
   if (p === "low") return "Niski";
   if (p === "normal") return "Normalny";
   if (p === "high") return "Wysoki";
+  if (p === "critical") return "Krytyczny";
   if (p === "urgent") return "Pilny";
   return priority || "—";
 }
 
 function priorityTone(priority) {
   const p = String(priority ?? "").toLowerCase();
-  if (p === "urgent") return "bg-rose-50 border-rose-200 text-rose-700";
-  if (p === "high") return "bg-amber-50 border-amber-200 text-amber-700";
-  if (p === "low") return "bg-slate-50 border-slate-200 text-slate-600";
-  return "bg-blue-50 border-blue-200 text-blue-700";
+  if (p === "urgent" || p === "critical") return "bg-red-100 border-red-300 text-red-700";
+  if (p === "high") return "bg-orange-100 border-orange-200 text-orange-700";
+  if (p === "low") return "bg-slate-100 border-slate-200 text-slate-600";
+  return "bg-slate-100 border-slate-200 text-slate-700";
+}
+
+function priorityCardTone(priority) {
+  const p = String(priority ?? "").toLowerCase();
+  if (p === "urgent" || p === "critical") return "border-red-300 bg-red-50/40";
+  if (p === "high") return "border-amber-300 bg-amber-50/30";
+  return "border-slate-300 bg-white";
 }
 
 function formatDateTime(ts) {
@@ -32,6 +40,17 @@ function formatDateTime(ts) {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleString();
+}
+
+function formatAge(createdAt) {
+  if (!createdAt) return "—";
+  const t = new Date(createdAt).getTime();
+  if (!Number.isFinite(t)) return "—";
+  const diffMs = Math.max(0, Date.now() - t);
+  const days = Math.floor(diffMs / 86400000);
+  const hours = Math.floor((diffMs % 86400000) / 3600000);
+  if (days > 0) return `${days}d ${hours}h`;
+  return `${hours}h`;
 }
 
 export default function MaintenanceRequestCard({
@@ -51,13 +70,14 @@ export default function MaintenanceRequestCard({
   );
 
   return (
-    <div className="rounded-xl border-2 border-slate-300 bg-white p-3 space-y-3">
+    <div className={`rounded-xl border-2 p-3 space-y-3 ${priorityCardTone(request.priority)}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900 truncate">{request.title || "Bez tytułu"}</p>
           <p className="text-xs text-slate-500 mt-0.5">
             {propertyLabel ? `${propertyLabel} • ` : ""}Zgłoszono: {formatDateTime(request.created_at)}
           </p>
+          <p className="text-xs text-slate-500 mt-0.5">Otwarte: {formatAge(request.created_at)}</p>
         </div>
         <span className={`text-[11px] px-2 py-0.5 rounded border ${priorityTone(request.priority)}`}>
           {priorityLabel(request.priority)}
@@ -117,7 +137,7 @@ export default function MaintenanceRequestCard({
           {String(request.status || "").toLowerCase() !== "closed" && (
             <button
               type="button"
-              onClick={() => onCloseRequest(request)}
+              onClick={() => onCloseRequest(request, linkedWorkOrder || null)}
               disabled={busy}
               className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
             >
