@@ -26,6 +26,10 @@ export const routesConfig = [
         path: "finance",
         handle: { title: "Finanse" },
       },
+      {
+        path: "maintenance-inbox",
+        handle: { title: "Maintenance Inbox" },
+      },
     ],
   },
 ];

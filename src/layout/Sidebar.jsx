@@ -157,6 +157,9 @@ function SidebarContent({ onNavigate }) {
             <div className="space-y-1">
               <Item to="/dashboard" icon={LayoutDashboard} label="Pulpit" onNavigate={onNavigate} />
               <Item to="/properties" icon={Home} label="Nieruchomości" onNavigate={onNavigate} />
+              {canManage && (
+                <Item to="/maintenance-inbox" icon={Wrench} label="Maintenance Inbox" onNavigate={onNavigate} />
+              )}
 
               {/* Only managers see Najemcy */}
               {!isTenant && (

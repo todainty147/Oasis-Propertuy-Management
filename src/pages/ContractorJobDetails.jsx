@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import Card from "../components/Card";
 import Skeleton from "../components/ui/Skeleton";
+import ContractorAttachmentsPanel from "../components/work-orders/ContractorAttachmentsPanel";
 import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
 
@@ -27,7 +28,7 @@ function toIsoOrNullFromLocalInput(v) {
 
 export default function ContractorJobDetails() {
   const { id } = useParams();
-  const { activeRole } = useAccount();
+  const { activeRole, activeAccountId } = useAccount();
 
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
   const isContractor = useMemo(() => role === "contractor", [role]);
@@ -452,6 +453,12 @@ export default function ContractorJobDetails() {
               </div>
             )}
           </Card>
+
+          <ContractorAttachmentsPanel
+            accountId={activeAccountId}
+            workOrderId={id}
+            canUpload={isContractor}
+          />
         </>
       )}
     </div>

@@ -50,6 +50,7 @@ import AddPropertyModal from "./components/AddPropertyModal";
 import AddTenantModal from "./components/AddTenantModal";
 import AddPaymentModal from "./components/AddPaymentModal";
 import WorkOrderDetails from "./pages/WorkOrderDetails";
+import MaintenanceInboxPage from "./pages/MaintenanceInboxPage";
 
 
 // NOTE: FinancePage route was duplicated/conflicting with "finance"
@@ -476,6 +477,7 @@ export default function App() {
           path="documents"
           element={<Documents tenants={tenants} properties={properties} />}
         />
+        <Route path="maintenance-inbox" element={<MaintenanceInboxPage />} />
 
         {/* Optional: Keep FinancePage available but under a different path */}
         <Route path="finance-page" element={<FinancePage />} />
@@ -492,4 +494,3 @@ export default function App() {
     </Routes>
   );
 }
-

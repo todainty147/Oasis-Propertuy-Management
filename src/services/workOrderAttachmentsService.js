@@ -30,6 +30,40 @@ function friendlyError(err, fallback) {
   return new Error(err?.message ?? fallback);
 }
 
+function uniq(list = []) {
+  return Array.from(new Set(list.filter(Boolean)));
+}
+
+function normalizeStoragePath(bucket, rawPath) {
+  const b = String(bucket || "").trim();
+  let p = String(rawPath || "").trim().replaceAll("\\", "/");
+  if (!p) return "";
+
+  // full URL => extract object key for this bucket
+  if (/^https?:\/\//i.test(p)) {
+    try {
+      const u = new URL(p);
+      const pathname = decodeURIComponent(u.pathname || "");
+      const signPrefix = `/storage/v1/object/sign/${b}/`;
+      const publicPrefix = `/storage/v1/object/public/${b}/`;
+      const objectPrefix = `/storage/v1/object/${b}/`;
+
+      if (pathname.includes(signPrefix)) p = pathname.split(signPrefix)[1] || "";
+      else if (pathname.includes(publicPrefix)) p = pathname.split(publicPrefix)[1] || "";
+      else if (pathname.includes(objectPrefix)) p = pathname.split(objectPrefix)[1] || "";
+      else p = pathname.replace(/^\/+/, "");
+    } catch {
+      // keep original fallback
+    }
+  }
+
+  // drop leading slash and accidental bucket prefix in key
+  p = p.replace(/^\/+/, "");
+  if (b && p.startsWith(`${b}/`)) p = p.slice(b.length + 1);
+
+  return p;
+}
+
 /**
  * ✅ Policy-friendly path:
  * account/<accountId>/work_orders/<workOrderId>/<ts>_<safeFileName>
@@ -103,10 +137,26 @@ export async function createAttachmentSignedUrl(bucket, path, expiresIn = 60) {
   if (!bucket) throw new Error("Brak bucket");
   if (!path) throw new Error("Brak path");
 
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn);
-  if (error) throw friendlyError(error, "Nie udało się utworzyć linku do pliku");
+  const normalized = normalizeStoragePath(bucket, path);
 
-  return data?.signedUrl || null;
+  const variants = uniq([
+    normalized,
+    decodeURIComponent(normalized),
+    encodeURI(normalized),
+    // back-compat fallback: legacy DB rows sometimes keep unsanitized names
+    normalized.replace(/\s+/g, "_"),
+  ]);
+
+  let lastErr = null;
+  for (const candidate of variants) {
+    // skip obviously invalid values
+    if (!candidate || candidate === "." || candidate === "/") continue;
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(candidate, expiresIn);
+    if (!error) return data?.signedUrl || null;
+    lastErr = error;
+  }
+
+  throw friendlyError(lastErr, "Nie udało się utworzyć linku do pliku");
 }
 
 /* ======================
