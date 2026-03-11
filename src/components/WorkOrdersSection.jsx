@@ -11,8 +11,16 @@ import {
   uploadWorkOrderAttachments,
   createAttachmentSignedUrl,
   deleteWorkOrderAttachment,
+  BUCKET as ATTACHMENTS_BUCKET,
 } from "../services/workOrderAttachmentsService";
-
+import {
+  getWorkOrderFinancials,
+  upsertQuoteDraft,
+  submitQuote,
+  approveQuote,
+  rejectQuote,
+  upsertInvoice,
+} from "../services/workOrderFinancialsService";
 /* -----------------------------
    UI helpers
 ----------------------------- */
@@ -35,6 +43,12 @@ function formatBytes(bytes) {
     idx += 1;
   }
   return `${val.toFixed(val >= 10 || idx === 0 ? 0 : 1)} ${units[idx]}`;
+}
+
+function formatMoney(val, currency = "PLN") {
+  const n = Number(val);
+  if (!Number.isFinite(n)) return "—";
+  return `${n.toFixed(2)} ${currency || "PLN"}`;
 }
 
 function Modal({ open, onClose, title, children }) {
@@ -60,15 +74,7 @@ function Modal({ open, onClose, title, children }) {
   );
 }
 
-function PaginationFooter({
-  page,
-  totalPages,
-  totalCount,
-  pageSize,
-  onPrev,
-  onNext,
-  onPageSizeChange,
-}) {
+function PaginationFooter({ page, totalPages, totalCount, pageSize, onPrev, onNext, onPageSizeChange }) {
   return (
     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-3">
       <div className="flex items-center gap-2">
@@ -129,11 +135,10 @@ export default function WorkOrdersSection({ propertyId }) {
   const seedNotesFromUrl = searchParams.get("seedNotes") === "1";
 
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
+  const isContractor = useMemo(() => role === "contractor", [role]);
   const isTenant = useMemo(() => role === "tenant", [role]);
 
-  const canManage = useMemo(() => {
-    return ["owner", "admin", "staff"].includes(role);
-  }, [role]);
+  const canManage = useMemo(() => ["owner", "admin", "staff"].includes(role), [role]);
 
   // ✅ per-row busy state (prevents double-click + shows feedback)
   const [actionBusyId, setActionBusyId] = useState(null);
@@ -150,9 +155,10 @@ export default function WorkOrdersSection({ propertyId }) {
   const [pageSize, setPageSize] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
 
-  const totalPages = useMemo(() => {
-    return Math.max(1, Math.ceil((totalCount || 0) / (pageSize || 1)));
-  }, [totalCount, pageSize]);
+  const totalPages = useMemo(() => Math.max(1, Math.ceil((totalCount || 0) / (pageSize || 1))), [
+    totalCount,
+    pageSize,
+  ]);
 
   // Keep page in bounds after deletes / data changes
   useEffect(() => {
@@ -197,38 +203,15 @@ export default function WorkOrdersSection({ propertyId }) {
     const label = getStatusLabel(s) || status || "assigned";
 
     if (s === "completed")
-      return (
-        <span className={`${base} bg-green-50 border-green-200 text-green-700`}>
-          {label}
-        </span>
-      );
+      return <span className={`${base} bg-green-50 border-green-200 text-green-700`}>{label}</span>;
 
     if (s === "in_progress")
-      return (
-        <span className={`${base} bg-blue-50 border-blue-200 text-blue-700`}>
-          {label}
-        </span>
-      );
+      return <span className={`${base} bg-blue-50 border-blue-200 text-blue-700`}>{label}</span>;
 
     if (s === "cancelled")
-      return (
-        <span className={`${base} bg-slate-50 border-slate-200 text-slate-600`}>
-          {label}
-        </span>
-      );
+      return <span className={`${base} bg-slate-50 border-slate-200 text-slate-600`}>{label}</span>;
 
-    if (s === "assigned")
-      return (
-        <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>
-          {label}
-        </span>
-      );
-
-    return (
-      <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>
-        {label}
-      </span>
-    );
+    return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>{label}</span>;
   }
 
   // -----------------------------
@@ -311,7 +294,7 @@ export default function WorkOrdersSection({ propertyId }) {
   }
 
   // -----------------------------------------
-  // A4: Attachments (photos/docs) ✅ fixed signatures
+  // A4: Attachments
   // -----------------------------------------
   const [attachments, setAttachments] = useState([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
@@ -320,32 +303,24 @@ export default function WorkOrdersSection({ propertyId }) {
 
   async function loadAttachments(workOrderId) {
     if (!activeAccountId || !workOrderId) return;
-
     setAttachmentsLoading(true);
-    try {
-      const rows = await listWorkOrderAttachments({
-        accountId: activeAccountId,
-        workOrderId,
-      });
 
+    try {
+      const rows = await listWorkOrderAttachments({ accountId: activeAccountId, workOrderId });
       if (!mountedRef.current) return;
 
-      setAttachments(rows ?? []);
+      setAttachments(rows);
 
       const nextMap = {};
       for (const a of rows ?? []) {
         const isImage = String(a?.mime_type || "").startsWith("image/");
         if (!isImage) continue;
-
         try {
-          const url = await createAttachmentSignedUrl(
-            a.storage_bucket,
-            a.storage_path,
-            120
-          );
+          const bucket = a.storage_bucket || ATTACHMENTS_BUCKET;
+          const url = await createAttachmentSignedUrl(bucket, a.storage_path, 120);
           if (url) nextMap[a.storage_path] = url;
         } catch {
-          // ignore
+          // ignore per-item
         }
       }
 
@@ -362,15 +337,14 @@ export default function WorkOrdersSection({ propertyId }) {
 
   async function handleUploadAttachments(workOrderId, files) {
     if (!activeAccountId || !workOrderId) return;
-    const list = Array.from(files || []).filter(Boolean);
-    if (list.length === 0) return;
+    if (!files || files.length === 0) return;
 
     setAttachmentsUploading(true);
     try {
       await uploadWorkOrderAttachments({
         accountId: activeAccountId,
         workOrderId,
-        files: list,
+        files,
       });
 
       await loadAttachments(workOrderId);
@@ -383,7 +357,8 @@ export default function WorkOrdersSection({ propertyId }) {
 
   async function handleDownloadAttachment(a) {
     try {
-      const url = await createAttachmentSignedUrl(a.storage_bucket, a.storage_path, 60);
+      const bucket = a.storage_bucket || ATTACHMENTS_BUCKET;
+      const url = await createAttachmentSignedUrl(bucket, a.storage_path, 60);
       if (!url) throw new Error("Brak linku");
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (e) {
@@ -394,10 +369,180 @@ export default function WorkOrdersSection({ propertyId }) {
   async function handleDeleteAttachment(a) {
     if (!confirm("Usunąć załącznik?")) return;
     try {
-      await deleteWorkOrderAttachment({ attachmentRow: a });
+      await deleteWorkOrderAttachment({
+        attachmentId: a.id,
+        attachmentRow: a,
+      });
       await loadAttachments(a.work_order_id);
     } catch (e) {
       alert(e?.message ?? "Nie udało się usunąć załącznika");
+    }
+  }
+
+  // -----------------------------------------
+  // B3: Financials (RPC-only writes)
+  // -----------------------------------------
+  const [financials, setFinancials] = useState(null);
+  const [finLoading, setFinLoading] = useState(false);
+  const [finSaving, setFinSaving] = useState(false);
+
+  // editable fields (draft + invoice details)
+  const [finQuoteAmount, setFinQuoteAmount] = useState("");
+  const [finQuoteCurrency, setFinQuoteCurrency] = useState("PLN");
+  const [finQuoteNotes, setFinQuoteNotes] = useState("");
+  const [finRejectReason, setFinRejectReason] = useState("");
+
+  const [finInvoiceAmount, setFinInvoiceAmount] = useState("");
+  const [finInvoiceCurrency, setFinInvoiceCurrency] = useState("PLN");
+  const [finInvoiceIssuedAt, setFinInvoiceIssuedAt] = useState("");
+  const [finInvoiceDueAt, setFinInvoiceDueAt] = useState("");
+
+  function syncFinInputs(row) {
+    const qAmt = row?.quote_amount;
+    const iAmt = row?.invoice_amount;
+
+    setFinQuoteAmount(typeof qAmt === "number" || typeof qAmt === "string" ? String(qAmt) : "");
+    setFinQuoteCurrency(row?.quote_currency || "PLN");
+    setFinQuoteNotes(row?.quote_notes || "");
+
+    setFinInvoiceAmount(typeof iAmt === "number" || typeof iAmt === "string" ? String(iAmt) : "");
+    setFinInvoiceCurrency(row?.invoice_currency || "PLN");
+
+    // datetime-local expects "YYYY-MM-DDTHH:mm"
+    const toLocalInput = (ts) => {
+      if (!ts) return "";
+      const d = new Date(ts);
+      if (Number.isNaN(d.getTime())) return "";
+      const pad = (n) => String(n).padStart(2, "0");
+      const yyyy = d.getFullYear();
+      const mm = pad(d.getMonth() + 1);
+      const dd = pad(d.getDate());
+      const hh = pad(d.getHours());
+      const mi = pad(d.getMinutes());
+      return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+    };
+
+    setFinInvoiceIssuedAt(toLocalInput(row?.invoice_issued_at));
+    setFinInvoiceDueAt(toLocalInput(row?.invoice_due_at));
+    setFinRejectReason(row?.rejection_reason || "");
+  }
+
+  async function loadFinancials(workOrderId) {
+    if (!activeAccountId || !workOrderId) return;
+
+    setFinLoading(true);
+    try {
+      const row = await getWorkOrderFinancials({ accountId: activeAccountId, workOrderId });
+      if (!mountedRef.current) return;
+      setFinancials(row);
+      syncFinInputs(row);
+    } catch {
+      if (mountedRef.current) {
+        setFinancials(null);
+      }
+    } finally {
+      if (mountedRef.current) setFinLoading(false);
+    }
+  }
+
+  async function finCreateOrSaveDraft(workOrderId) {
+    const n = Number(finQuoteAmount);
+    if (!Number.isFinite(n)) {
+      alert("Podaj poprawną kwotę wyceny");
+      return;
+    }
+
+    setFinSaving(true);
+    try {
+      await upsertQuoteDraft({
+        workOrderId,
+        quoteAmount: n,
+        quoteCurrency: finQuoteCurrency || "PLN",
+        quoteNotes: finQuoteNotes || null,
+      });
+
+      await loadFinancials(workOrderId);
+    } catch (e) {
+      alert(e?.message ?? "Nie udało się zapisać wyceny (draft)");
+    } finally {
+      setFinSaving(false);
+    }
+  }
+
+  async function finSubmit(workOrderId) {
+    setFinSaving(true);
+    try {
+      const { error } = await supabase.rpc("wo_fin_submit_quote", {
+        p_work_order_id: workOrderId,
+      });
+      if (error) throw error;
+
+      await loadFinancials(workOrderId);
+    } catch (e) {
+      alert(e?.message ?? "Nie udało się wysłać wyceny");
+    } finally {
+      setFinSaving(false);
+    }
+  }
+
+  async function finApprove(workOrderId) {
+    if (!canManage) return;
+
+    setFinSaving(true);
+    try {
+      const { error } = await supabase.rpc("wo_fin_approve_quote", {
+        p_work_order_id: workOrderId,
+      });
+      if (error) throw error;
+
+      await loadFinancials(workOrderId);
+    } catch (e) {
+      alert(e?.message ?? "Nie udało się zatwierdzić wyceny");
+    } finally {
+      setFinSaving(false);
+    }
+  }
+
+  async function finReject(workOrderId) {
+    if (!canManage) return;
+
+    setFinSaving(true);
+    try {
+      await rejectQuote({ workOrderId, reason: finRejectReason || null });
+      await loadFinancials(workOrderId);
+    } catch (e) {
+      alert(e?.message ?? "Nie udało się odrzucić wyceny");
+    } finally {
+      setFinSaving(false);
+    }
+  }
+
+  async function finSaveInvoice(workOrderId) {
+    if (!isContractor) return;
+
+    const amt = finInvoiceAmount === "" ? null : Number(finInvoiceAmount);
+    if (amt !== null && !Number.isFinite(amt)) {
+      alert("Podaj poprawną kwotę faktury");
+      return;
+    }
+
+    const toIsoOrNull = (v) => (v ? new Date(v).toISOString() : null);
+
+    setFinSaving(true);
+    try {
+      await upsertInvoice({
+        workOrderId,
+        invoiceAmount: amt,
+        invoiceCurrency: finInvoiceCurrency || "PLN",
+        invoiceIssuedAt: toIsoOrNull(finInvoiceIssuedAt),
+        invoiceDueAt: toIsoOrNull(finInvoiceDueAt),
+      });
+
+      await loadFinancials(workOrderId);
+    } catch (e) {
+      alert(e?.message ?? "Nie udało się zapisać danych faktury");
+    } finally {
+      setFinSaving(false);
     }
   }
 
@@ -436,7 +581,12 @@ export default function WorkOrdersSection({ propertyId }) {
     setDetailOpen(true);
     loadAudit(wo.id);
     ensureAllowedActionsLoaded(wo.id);
-    loadAttachments(wo.id); // ✅ A4 load
+
+    // ✅ A4
+    loadAttachments(wo.id);
+
+    // ✅ B3
+    loadFinancials(wo.id);
   }
 
   function closeDetails() {
@@ -445,9 +595,20 @@ export default function WorkOrdersSection({ propertyId }) {
     setAudit([]);
     setAssignContractorId("");
 
-    // ✅ A4 reset
+    // ✅ A4
     setAttachments([]);
     setSignedUrlByPath({});
+
+    // ✅ B3
+    setFinancials(null);
+    setFinQuoteAmount("");
+    setFinQuoteCurrency("PLN");
+    setFinQuoteNotes("");
+    setFinRejectReason("");
+    setFinInvoiceAmount("");
+    setFinInvoiceCurrency("PLN");
+    setFinInvoiceIssuedAt("");
+    setFinInvoiceDueAt("");
   }
 
   async function reload() {
@@ -519,94 +680,7 @@ export default function WorkOrdersSection({ propertyId }) {
   }
 
   // -----------------------------------------
-  // NEXT-2: refresh just ONE row + its actions
-  // -----------------------------------------
-  async function refreshWorkOrderRow(workOrderId) {
-    if (!activeAccountId || !propertyId || !workOrderId) return null;
-
-    const { data, error } = await supabase
-      .from("work_orders_with_flags")
-      .select(
-        `
-        id,
-        account_id,
-        property_id,
-        maintenance_request_id,
-        contractor_user_id,
-        contractor_name,
-        contractor_phone,
-        status,
-        scheduled_at,
-        notes,
-        quote_amount,
-        invoice_amount,
-        created_by,
-        created_at,
-        updated_at,
-        pending_cancel_request,
-        last_cancel_request_at,
-        last_cancel_request_by,
-        last_cancel_resolution_at,
-        last_cancel_resolution_action,
-        last_cancel_resolution_by,
-        maintenance_requests:maintenance_request_id ( id, title, status, priority )
-      `
-      )
-      .eq("id", workOrderId)
-      .eq("account_id", activeAccountId)
-      .eq("property_id", propertyId)
-      .single();
-
-    if (error) throw error;
-
-    if (mountedRef.current) {
-      setWorkOrders((prev) => {
-        const arr = prev ?? [];
-        const idx = arr.findIndex((x) => x.id === workOrderId);
-        if (idx === -1) return [data, ...arr];
-        const copy = [...arr];
-        copy[idx] = data;
-        return copy;
-      });
-
-      setSelectedWO((prev) => (prev?.id === workOrderId ? data : prev));
-    }
-
-    return data;
-  }
-
-  async function refreshAllowedActionsForOne(workOrderId) {
-    if (!canManage || !workOrderId) return;
-
-    const { data, error } = await supabase.rpc("work_order_allowed_actions", {
-      p_work_order_id: workOrderId,
-    });
-
-    if (error) throw error;
-
-    const actions = Array.isArray(data) ? data : [];
-    if (mountedRef.current) {
-      setAllowedActionsById((prev) => ({
-        ...(prev || {}),
-        [workOrderId]: actions,
-      }));
-    }
-  }
-
-  async function refreshAfterStatusAction(workOrderId, opts = {}) {
-    const { refreshInbox = false, refreshAuditLog = false } = opts;
-
-    await refreshWorkOrderRow(workOrderId);
-    await refreshAllowedActionsForOne(workOrderId);
-
-    if (refreshInbox && canManage) await loadPendingInbox();
-    if (refreshAuditLog && detailOpen && selectedWO?.id === workOrderId) {
-      await loadAudit(workOrderId);
-    }
-  }
-
-  // -----------------------------------------
-  // Pending cancellation inbox (Action Required)
+  // Pending cancellation inbox
   // -----------------------------------------
   const [pendingInbox, setPendingInbox] = useState([]);
   const [pendingLoading, setPendingLoading] = useState(false);
@@ -649,7 +723,7 @@ export default function WorkOrdersSection({ propertyId }) {
   }
 
   // -----------------------------------------
-  // Load status definitions ONCE per session
+  // Load status defs once
   // -----------------------------------------
   useEffect(() => {
     if (statusLabelsLoadedRef.current) return;
@@ -685,7 +759,7 @@ export default function WorkOrdersSection({ propertyId }) {
     };
   }, []);
 
-  // ✅ Reload work orders when page/pageSize changes (and on property/account change)
+  // ✅ Reload work orders when page/pageSize changes
   useEffect(() => {
     if (!activeAccountId || !propertyId) return;
     reload();
@@ -703,7 +777,7 @@ export default function WorkOrdersSection({ propertyId }) {
   }, [activeAccountId, propertyId, canManage]);
 
   // -----------------------------------------
-  // Load maintenance requests for dropdown (manager-only)
+  // Load maintenance requests for dropdown
   // -----------------------------------------
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requests, setRequests] = useState([]);
@@ -740,9 +814,7 @@ export default function WorkOrdersSection({ propertyId }) {
   }, [activeAccountId, propertyId, canManage]);
 
   const openRequests = useMemo(() => {
-    return (requests ?? []).filter((r) =>
-      ["open", "new"].includes(String(r.status ?? "").toLowerCase())
-    );
+    return (requests ?? []).filter((r) => ["open", "new"].includes(String(r.status ?? "").toLowerCase()));
   }, [requests]);
 
   // -----------------------------
@@ -785,15 +857,12 @@ export default function WorkOrdersSection({ propertyId }) {
       if (mr) {
         setNotes((prev) => {
           if (String(prev || "").trim().length > 0) return prev;
-          return `Zgłoszenie: ${mr.title}\nPriorytet: ${mr.priority || "normal"}\nStatus: ${
-            mr.status || ""
-          }\n\n`;
+          return `Zgłoszenie: ${mr.title}\nPriorytet: ${mr.priority || "normal"}\nStatus: ${mr.status || ""}\n\n`;
         });
       }
     }
 
-    const hasAny =
-      searchParams.has("createWO") || searchParams.has("mrId") || searchParams.has("seedNotes");
+    const hasAny = searchParams.has("createWO") || searchParams.has("mrId") || searchParams.has("seedNotes");
 
     if (hasAny) {
       setSearchParams(
@@ -874,7 +943,11 @@ export default function WorkOrdersSection({ propertyId }) {
       });
       if (error) throw error;
 
-      await refreshAfterStatusAction(workOrderId, { refreshAuditLog: true });
+      // refresh row + actions + audit
+      await reload();
+      if (detailOpen && selectedWO?.id === workOrderId) {
+        await loadAudit(workOrderId);
+      }
     } catch (e) {
       alert(e?.message ?? "Nie udało się przypisać wykonawcy");
     } finally {
@@ -896,7 +969,10 @@ export default function WorkOrdersSection({ propertyId }) {
 
       if (error) throw error;
 
-      await refreshAfterStatusAction(id, { refreshAuditLog: true });
+      await reload();
+      if (detailOpen && selectedWO?.id === id) {
+        await loadAudit(id);
+      }
     } catch (e) {
       alert(e?.message ?? "Nie udało się zmienić statusu");
     } finally {
@@ -915,10 +991,10 @@ export default function WorkOrdersSection({ propertyId }) {
 
       if (error) throw error;
 
-      await refreshAfterStatusAction(id, {
-        refreshAuditLog: true,
-        refreshInbox: false,
-      });
+      await reload();
+      if (detailOpen && selectedWO?.id === id) {
+        await loadAudit(id);
+      }
     } catch (e) {
       alert(e?.message ?? "Nie udało się wysłać prośby o anulowanie");
     } finally {
@@ -936,10 +1012,11 @@ export default function WorkOrdersSection({ propertyId }) {
       });
       if (error) throw error;
 
-      await refreshAfterStatusAction(id, {
-        refreshAuditLog: true,
-        refreshInbox: true,
-      });
+      await reload();
+      if (canManage) await loadPendingInbox();
+      if (detailOpen && selectedWO?.id === id) {
+        await loadAudit(id);
+      }
     } catch (e) {
       alert(e?.message ?? "Nie udało się zatwierdzić anulowania");
     } finally {
@@ -964,10 +1041,11 @@ export default function WorkOrdersSection({ propertyId }) {
         return copy;
       });
 
-      await refreshAfterStatusAction(id, {
-        refreshAuditLog: true,
-        refreshInbox: true,
-      });
+      await reload();
+      if (canManage) await loadPendingInbox();
+      if (detailOpen && selectedWO?.id === id) {
+        await loadAudit(id);
+      }
     } catch (e) {
       alert(e?.message ?? "Nie udało się odrzucić anulowania");
     } finally {
@@ -989,11 +1067,7 @@ export default function WorkOrdersSection({ propertyId }) {
     }
 
     if (pending) {
-      return {
-        show: true,
-        disabled: true,
-        reason: "⏳ Oczekuje na decyzję właściciela",
-      };
+      return { show: true, disabled: true, reason: "⏳ Oczekuje na decyzję właściciela" };
     }
 
     return { show: true, disabled: false, reason: "" };
@@ -1008,8 +1082,7 @@ export default function WorkOrdersSection({ propertyId }) {
         <div>
           <h3 className="text-lg font-semibold">Zlecenia (Work Orders)</h3>
           <p className="text-xs text-slate-500 mt-1">
-            Zlecenia dla tej nieruchomości. W przyszłości dodamy przypisanie do kontraktorów +
-            portal wykonawcy.
+            Zlecenia dla tej nieruchomości. W przyszłości dodamy przypisanie do kontraktorów + portal wykonawcy.
           </p>
         </div>
 
@@ -1045,213 +1118,134 @@ export default function WorkOrdersSection({ propertyId }) {
         </div>
       </div>
 
-      {canManage && (
-        <div className="border rounded-xl bg-white p-4">
-          <div className="flex items-center justify-between gap-3">
+      {/* ✅ CREATE FORM (WAS MISSING) */}
+      {canManage && open && (
+        <div className="border rounded-xl p-4 bg-white space-y-4">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <h4 className="font-semibold text-slate-900">Wymaga działania</h4>
-              <p className="text-xs text-slate-500">Prośby najemców o anulowanie zleceń.</p>
+              <div className="font-semibold text-slate-900">Nowe zlecenie</div>
+              <div className="text-xs text-slate-500 mt-1">
+                Utwórz zlecenie ręcznie lub powiąż ze zgłoszeniem (maintenance request).
+              </div>
             </div>
+
             <button
               type="button"
-              onClick={loadPendingInbox}
+              onClick={() => {
+                setOpen(false);
+              }}
               className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
             >
-              Odśwież
+              Ukryj
             </button>
           </div>
 
-          {pendingLoading ? (
-            <div className="mt-3 space-y-2">
-              <Skeleton className="h-12" />
-              <Skeleton className="h-12" />
-            </div>
-          ) : pendingInbox.length === 0 ? (
-            <p className="text-sm text-slate-500 mt-3">Brak oczekujących próśb.</p>
-          ) : (
-            <div className="mt-3 divide-y border rounded-lg">
-              {pendingInbox.map((wo) => {
-                const isBusy = actionBusyId === wo.id;
-                return (
-                  <div key={wo.id} className="p-3 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <StatusPill status={wo.status} />
-                        <span className="text-sm font-medium text-slate-900">
-                          {wo.contractor_name || "Zlecenie"}
-                        </span>
-                        {wo.contractor_phone && (
-                          <span className="text-xs text-slate-500">{wo.contractor_phone}</span>
-                        )}
-                      </div>
-
-                      {wo.last_cancel_request_at && (
-                        <p className="text-xs text-slate-500 mt-1">
-                          Prośba: {formatDateTime(wo.last_cancel_request_at)}
-                        </p>
-                      )}
-
-                      {wo.scheduled_at && (
-                        <p className="text-xs text-slate-500 mt-1">
-                          Termin: {formatDateTime(wo.scheduled_at)}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex gap-3 shrink-0">
-                      <button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() => approveCancellation(wo.id)}
-                        className={`hover:underline ${
-                          isBusy ? "text-slate-400 cursor-not-allowed" : "text-emerald-700"
-                        }`}
-                      >
-                        {isBusy ? "Przetwarzanie…" : "Zatwierdź"}
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() => {
-                          const full = workOrders.find((x) => x.id === wo.id) || wo;
-                          openDetails(full);
-                        }}
-                        className={`hover:underline ${
-                          isBusy ? "text-slate-400 cursor-not-allowed" : "text-slate-700"
-                        }`}
-                      >
-                        Szczegóły
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {open && canManage && (
-        <div className="bg-white border rounded-xl p-4 space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-slate-500">Powiązane zgłoszenie (opcjonalnie)</label>
-
-              {requestsLoading ? (
-                <div className="mt-2">
-                  <Skeleton className="h-9" />
-                </div>
-              ) : (
-                <select
-                  value={maintenanceRequestId}
-                  onChange={(e) => setMaintenanceRequestId(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="">— brak (zlecenie ad-hoc) —</option>
-                  {openRequests.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.title} ({r.priority || "normal"})
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              {openRequests.length === 0 && !requestsLoading && (
-                <p className="text-xs text-slate-500 mt-2">
-                  Brak otwartych zgłoszeń dla tej nieruchomości.
-                </p>
-              )}
+              <select
+                value={maintenanceRequestId}
+                onChange={(e) => setMaintenanceRequestId(e.target.value)}
+                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm bg-white disabled:bg-slate-50"
+                disabled={requestsLoading || saving}
+              >
+                <option value="">— Brak —</option>
+                {(openRequests ?? []).map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.title} • {r.priority || "normal"} • {r.status}
+                  </option>
+                ))}
+              </select>
+              {requestsLoading && <div className="text-[11px] text-slate-400 mt-1">Ładowanie zgłoszeń…</div>}
             </div>
 
             <div>
+              <label className="text-xs text-slate-500">Wykonawca (opcjonalnie)</label>
+              <select
+                value={selectedContractorId}
+                onChange={(e) => onSelectContractor(e.target.value)}
+                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm bg-white disabled:bg-slate-50"
+                disabled={contractorsLoading || saving}
+              >
+                <option value="">— Ręcznie / później —</option>
+                {(contractors ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {c.phone ? `• ${c.phone}` : ""}
+                  </option>
+                ))}
+              </select>
+              {contractorsLoading && <div className="text-[11px] text-slate-400 mt-1">Ładowanie wykonawców…</div>}
+            </div>
+
+            <div>
+              <label className="text-xs text-slate-500">Nazwa wykonawcy</label>
+              <input
+                value={contractorName}
+                onChange={(e) => setContractorName(e.target.value)}
+                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
+                placeholder="np. Jan Kowalski / Firma XYZ"
+                disabled={saving}
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-slate-500">Telefon wykonawcy</label>
+              <input
+                value={contractorPhone}
+                onChange={(e) => setContractorPhone(e.target.value)}
+                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
+                placeholder="np. +48 123 456 789"
+                disabled={saving}
+              />
+            </div>
+
+            <div className="md:col-span-2">
               <label className="text-xs text-slate-500">Termin (opcjonalnie)</label>
               <input
                 type="datetime-local"
                 value={scheduledAt}
                 onChange={(e) => setScheduledAt(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
+                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
+                disabled={saving}
               />
             </div>
 
-            <div>
-              <label className="text-xs text-slate-500">Wykonawca (z listy)</label>
-
-              {contractorsLoading ? (
-                <div className="mt-2">
-                  <Skeleton className="h-9" />
-                </div>
-              ) : (
-                <select
-                  value={selectedContractorId}
-                  onChange={(e) => onSelectContractor(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="">— wybierz (opcjonalnie) —</option>
-                  {(contractors ?? []).map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                      {c.phone ? ` • ${c.phone}` : ""}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              {!contractorsLoading && (contractors?.length ?? 0) === 0 && (
-                <p className="text-xs text-slate-500 mt-2">
-                  Brak wykonawców na liście. Dodaj wykonawcę w tabeli contractors.
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="text-xs text-slate-500">Wykonawca (nazwa)</label>
-              <input
-                value={contractorName}
-                onChange={(e) => setContractorName(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-                placeholder="Np. HydroFix"
+            <div className="md:col-span-2">
+              <label className="text-xs text-slate-500">Notatki</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm min-h-[110px] disabled:bg-slate-50"
+                placeholder="Opis prac / wskazówki / dostęp do lokalu..."
+                disabled={saving}
               />
             </div>
-
-            <div>
-              <label className="text-xs text-slate-500">Telefon</label>
-              <input
-                value={contractorPhone}
-                onChange={(e) => setContractorPhone(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-                placeholder="+48…"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs text-slate-500">Notatki</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 text-sm min-h-[90px]"
-              placeholder="Opis prac / instrukcje"
-            />
           </div>
 
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={() => setOpen(false)}
-              className="px-3 py-2 text-sm rounded-lg border"
+              onClick={() => {
+                setMaintenanceRequestId("");
+                setSelectedContractorId("");
+                setContractorName("");
+                setContractorPhone("");
+                setScheduledAt("");
+                setNotes("");
+              }}
+              className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50"
+              disabled={saving}
             >
-              Anuluj
+              Wyczyść
             </button>
+
             <button
               type="button"
               onClick={handleCreate}
+              className={`px-4 py-2 text-sm rounded-lg text-white ${saving ? "bg-slate-400" : "bg-blue-600"}`}
               disabled={saving}
-              className={`px-3 py-2 text-sm rounded-lg text-white ${
-                saving ? "bg-slate-400" : "bg-blue-600"
-              }`}
             >
-              {saving ? "Zapisywanie…" : "Utwórz"}
+              {saving ? "Zapisywanie…" : "Utwórz zlecenie"}
             </button>
           </div>
         </div>
@@ -1271,9 +1265,7 @@ export default function WorkOrdersSection({ propertyId }) {
         </div>
       )}
 
-      {!loading && workOrders.length === 0 && (
-        <p className="text-sm text-slate-500">Brak zleceń dla tej nieruchomości.</p>
-      )}
+      {!loading && workOrders.length === 0 && <p className="text-sm text-slate-500">Brak zleceń dla tej nieruchomości.</p>}
 
       {!loading && workOrders.length > 0 && (
         <div className="divide-y border rounded-lg bg-white">
@@ -1288,12 +1280,7 @@ export default function WorkOrdersSection({ propertyId }) {
 
             return (
               <div key={wo.id} className="px-4 py-3 flex justify-between items-start gap-4">
-                <button
-                  type="button"
-                  onClick={() => openDetails(wo)}
-                  className="min-w-0 text-left"
-                  disabled={isBusy}
-                >
+                <button type="button" onClick={() => openDetails(wo)} className="min-w-0 text-left" disabled={isBusy}>
                   <div className="flex items-center gap-2 flex-wrap">
                     <StatusPill status={wo.status} />
 
@@ -1303,14 +1290,8 @@ export default function WorkOrdersSection({ propertyId }) {
                       </span>
                     )}
 
-                    {wo.contractor_name && (
-                      <span className="text-sm font-medium text-slate-900">
-                        {wo.contractor_name}
-                      </span>
-                    )}
-                    {wo.contractor_phone && (
-                      <span className="text-xs text-slate-500">{wo.contractor_phone}</span>
-                    )}
+                    {wo.contractor_name && <span className="text-sm font-medium text-slate-900">{wo.contractor_name}</span>}
+                    {wo.contractor_phone && <span className="text-xs text-slate-500">{wo.contractor_phone}</span>}
                   </div>
 
                   {wo.maintenance_requests?.title && (
@@ -1321,9 +1302,7 @@ export default function WorkOrdersSection({ propertyId }) {
 
                   {scheduled && <p className="text-xs text-slate-500 mt-1">Termin: {scheduled}</p>}
 
-                  {wo.notes && (
-                    <p className="text-xs text-slate-600 mt-2 whitespace-pre-wrap">{wo.notes}</p>
-                  )}
+                  {wo.notes && <p className="text-xs text-slate-600 mt-2 whitespace-pre-wrap">{wo.notes}</p>}
                 </button>
 
                 <div className="flex flex-col gap-2 text-sm shrink-0 items-end">
@@ -1334,9 +1313,7 @@ export default function WorkOrdersSection({ propertyId }) {
                         disabled={tenantState.disabled || isBusy}
                         onClick={() => requestCancellation(wo.id)}
                         className={`hover:underline ${
-                          tenantState.disabled || isBusy
-                            ? "text-slate-400 cursor-not-allowed"
-                            : "text-amber-700"
+                          tenantState.disabled || isBusy ? "text-slate-400 cursor-not-allowed" : "text-amber-700"
                         }`}
                         title={tenantState.reason || ""}
                       >
@@ -1356,9 +1333,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           type="button"
                           disabled={isBusy}
                           onClick={() => approveCancellation(wo.id)}
-                          className={`hover:underline ${
-                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-emerald-700"
-                          }`}
+                          className={`hover:underline ${isBusy ? "text-slate-400 cursor-not-allowed" : "text-emerald-700"}`}
                         >
                           {isBusy ? "Przetwarzanie…" : "Zatwierdź anulowanie"}
                         </button>
@@ -1366,9 +1341,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           type="button"
                           disabled={isBusy}
                           onClick={() => denyCancellation(wo.id)}
-                          className={`hover:underline ${
-                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-rose-700"
-                          }`}
+                          className={`hover:underline ${isBusy ? "text-slate-400 cursor-not-allowed" : "text-rose-700"}`}
                         >
                           {isBusy ? "Przetwarzanie…" : "Odrzuć"}
                         </button>
@@ -1396,9 +1369,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           type="button"
                           disabled={isBusy}
                           onClick={() => setStatus(wo.id, "in_progress")}
-                          className={`hover:underline ${
-                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-blue-600"
-                          }`}
+                          className={`hover:underline ${isBusy ? "text-slate-400 cursor-not-allowed" : "text-blue-600"}`}
                         >
                           W trakcie
                         </button>
@@ -1409,9 +1380,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           type="button"
                           disabled={isBusy}
                           onClick={() => setStatus(wo.id, "cancelled")}
-                          className={`hover:underline ${
-                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-slate-600"
-                          }`}
+                          className={`hover:underline ${isBusy ? "text-slate-400 cursor-not-allowed" : "text-slate-600"}`}
                         >
                           Anuluj
                         </button>
@@ -1422,9 +1391,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           type="button"
                           disabled={isBusy}
                           onClick={() => setStatus(wo.id, "completed")}
-                          className={`hover:underline ${
-                            isBusy ? "text-slate-400 cursor-not-allowed" : "text-green-700"
-                          }`}
+                          className={`hover:underline ${isBusy ? "text-slate-400 cursor-not-allowed" : "text-green-700"}`}
                         >
                           Zakończ
                         </button>
@@ -1434,9 +1401,7 @@ export default function WorkOrdersSection({ propertyId }) {
                         type="button"
                         disabled={isBusy}
                         onClick={() => handleDelete(wo.id)}
-                        className={`hover:underline ${
-                          isBusy ? "text-slate-400 cursor-not-allowed" : "text-rose-600"
-                        }`}
+                        className={`hover:underline ${isBusy ? "text-slate-400 cursor-not-allowed" : "text-rose-600"}`}
                       >
                         Usuń
                       </button>
@@ -1469,7 +1434,8 @@ export default function WorkOrdersSection({ propertyId }) {
         {!selectedWO ? (
           <p className="text-sm text-slate-500">Brak danych.</p>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* header summary */}
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1481,103 +1447,262 @@ export default function WorkOrdersSection({ propertyId }) {
                   )}
                 </div>
 
-                <p className="text-sm text-slate-900 mt-2 font-medium">
-                  {selectedWO.contractor_name || "Zlecenie"}
-                </p>
+                <p className="text-sm text-slate-900 mt-2 font-medium">{selectedWO.contractor_name || "Zlecenie"}</p>
 
-                {selectedWO.contractor_phone && (
-                  <p className="text-xs text-slate-500 mt-1">Telefon: {selectedWO.contractor_phone}</p>
-                )}
+                {selectedWO.contractor_phone && <p className="text-xs text-slate-500 mt-1">Telefon: {selectedWO.contractor_phone}</p>}
 
                 {selectedWO.scheduled_at && (
-                  <p className="text-xs text-slate-500 mt-1">
-                    Termin: {formatDateTime(selectedWO.scheduled_at)}
-                  </p>
-                )}
-              </div>
-
-              <div className="text-right space-y-2 shrink-0">
-                {canManage && selectedWO?.id && (
-                  <div className="space-y-2">
-                    <div className="text-xs text-slate-500">Przypisz wykonawcę</div>
-
-                    <select
-                      value={assignContractorId}
-                      disabled={assigningContractor || contractorsLoading}
-                      onChange={(e) => setAssignContractorId(e.target.value)}
-                      className="w-64 border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
-                    >
-                      <option value="">— wybierz —</option>
-                      {(contractors ?? []).map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                          {c.phone ? ` • ${c.phone}` : ""}
-                        </option>
-                      ))}
-                    </select>
-
-                    <button
-                      type="button"
-                      disabled={!assignContractorId || assigningContractor}
-                      onClick={() => assignContractorToWorkOrder(selectedWO.id, assignContractorId)}
-                      className={`px-3 py-2 text-sm rounded-lg text-white w-full ${
-                        !assignContractorId || assigningContractor ? "bg-slate-400" : "bg-blue-600"
-                      }`}
-                    >
-                      {assigningContractor ? "Przypisywanie…" : "Przypisz"}
-                    </button>
-                  </div>
-                )}
-
-                {canManage && selectedWO.pending_cancel_request && (
-                  <>
-                    <button
-                      type="button"
-                      disabled={actionBusyId === selectedWO.id}
-                      onClick={() => approveCancellation(selectedWO.id)}
-                      className={`px-3 py-2 text-sm rounded-lg text-white ${
-                        actionBusyId === selectedWO.id ? "bg-slate-400" : "bg-emerald-600"
-                      }`}
-                    >
-                      {actionBusyId === selectedWO.id ? "Przetwarzanie…" : "Zatwierdź anulowanie"}
-                    </button>
-
-                    <div className="space-y-2">
-                      <input
-                        disabled={actionBusyId === selectedWO.id}
-                        value={denyReasonById[selectedWO.id] ?? ""}
-                        onChange={(e) =>
-                          setDenyReasonById((prev) => ({
-                            ...prev,
-                            [selectedWO.id]: e.target.value,
-                          }))
-                        }
-                        className="border rounded-lg px-2 py-2 text-sm w-64 disabled:bg-slate-50"
-                        placeholder="Powód (opcjonalnie)"
-                      />
-                      <button
-                        type="button"
-                        disabled={actionBusyId === selectedWO.id}
-                        onClick={() => denyCancellation(selectedWO.id)}
-                        className={`px-3 py-2 text-sm rounded-lg text-white w-full ${
-                          actionBusyId === selectedWO.id ? "bg-slate-400" : "bg-rose-600"
-                        }`}
-                      >
-                        {actionBusyId === selectedWO.id ? "Przetwarzanie…" : "Odrzuć anulowanie"}
-                      </button>
-                    </div>
-                  </>
+                  <p className="text-xs text-slate-500 mt-1">Termin: {formatDateTime(selectedWO.scheduled_at)}</p>
                 )}
               </div>
             </div>
 
             {selectedWO.notes && (
-              <div className="bg-slate-50 border rounded-lg p-3 text-sm text-slate-700 whitespace-pre-wrap">
-                {selectedWO.notes}
-              </div>
+              <div className="bg-slate-50 border rounded-lg p-3 text-sm text-slate-700 whitespace-pre-wrap">{selectedWO.notes}</div>
             )}
 
-            {/* ✅ A4 Attachments section */}
+            {/* ✅ B3 Financials */}
+            <div className="border rounded-xl p-4 bg-white">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h4 className="font-semibold text-slate-900">Finanse</h4>
+                  <p className="text-xs text-slate-500 mt-1">Wycena i faktura dla tego zlecenia.</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => loadFinancials(selectedWO.id)}
+                  className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
+                  disabled={finLoading || finSaving}
+                >
+                  Odśwież
+                </button>
+              </div>
+
+              {finLoading ? (
+                <div className="mt-3 space-y-2">
+                  <Skeleton className="h-10" />
+                  <Skeleton className="h-10" />
+                </div>
+              ) : !financials ? (
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <p className="text-sm text-slate-500">Brak rekordu finansów (jeszcze nie utworzono wyceny).</p>
+                  <button
+                    type="button"
+                    onClick={() => finCreateOrSaveDraft(selectedWO.id)}
+                    className={`px-3 py-2 text-sm rounded-lg text-white ${finSaving ? "bg-slate-400" : "bg-blue-600"}`}
+                    disabled={finSaving}
+                    title="Utworzy rekord finansów poprzez zapis draft wyceny (RPC)"
+                  >
+                    {finSaving ? "Zapisywanie…" : "Utwórz draft wyceny"}
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-4 space-y-4">
+                  {/* Quote */}
+                  <div className="border rounded-lg p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-semibold text-slate-900">Wycena</div>
+                      <div className="text-xs text-slate-500">
+                        Status: <span className="font-medium">{financials.quote_status}</span>
+                        {financials.quote_submitted_at ? ` • wysłano: ${formatDateTime(financials.quote_submitted_at)}` : ""}
+                        {financials.approved_at ? ` • zatw.: ${formatDateTime(financials.approved_at)}` : ""}
+                        {financials.rejected_at ? ` • odrz.: ${formatDateTime(financials.rejected_at)}` : ""}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="text-xs text-slate-500">Kwota</label>
+                        <input
+                          value={finQuoteAmount}
+                          onChange={(e) => setFinQuoteAmount(e.target.value)}
+                          className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
+                          disabled={finSaving}
+                          placeholder="np. 250.00"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-500">Waluta</label>
+                        <select
+                          value={finQuoteCurrency}
+                          onChange={(e) => setFinQuoteCurrency(e.target.value)}
+                          className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
+                          disabled={finSaving}
+                        >
+                          {["PLN", "GBP", "EUR", "USD"].map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="md:col-span-1">
+                        <label className="text-xs text-slate-500">Podgląd</label>
+                        <div className="mt-1 border rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-700">
+                          {formatMoney(financials.quote_amount, financials.quote_currency)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3">
+                      <label className="text-xs text-slate-500">Notatki do wyceny</label>
+                      <textarea
+                        value={finQuoteNotes}
+                        onChange={(e) => setFinQuoteNotes(e.target.value)}
+                        className="mt-1 w-full border rounded-lg px-3 py-2 text-sm min-h-[90px] disabled:bg-slate-50"
+                        disabled={finSaving}
+                        placeholder="Opcjonalnie"
+                      />
+                    </div>
+
+                    {financials.quote_status === "rejected" && financials.rejection_reason && (
+                      <div className="mt-3 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-3">
+                        Odrzucono: {financials.rejection_reason}
+                      </div>
+                    )}
+
+                    <div className="mt-3 flex flex-wrap gap-2 justify-end">
+                      <button
+                        type="button"
+                        onClick={() => finCreateOrSaveDraft(selectedWO.id)}
+                        disabled={finSaving || !isContractor}
+                        title={!isContractor ? "Dostępne tylko dla wykonawcy" : ""}
+                        className={`px-3 py-2 text-sm rounded-lg text-white ${
+                          finSaving || !isContractor ? "bg-slate-400 cursor-not-allowed" : "bg-blue-600"
+                        }`}
+                      >
+                        {finSaving ? "Zapisywanie…" : "Zapisz draft"}
+                      </button>
+
+                      {financials.quote_status === "draft" && (
+                        <button
+                          type="button"
+                          onClick={() => finSubmit(selectedWO.id)}
+                          disabled={finSaving || !isContractor}
+                          title={!isContractor ? "Dostępne tylko dla wykonawcy" : ""}
+                          className={`px-3 py-2 text-sm rounded-lg text-white ${
+                            finSaving || !isContractor ? "bg-slate-400 cursor-not-allowed" : "bg-slate-900"
+                          }`}
+                        >
+                          Wyślij wycenę
+                        </button>
+                      )}
+
+                      {financials.quote_status === "submitted" && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => finApprove(selectedWO.id)}
+                            disabled={finSaving}
+                            className={`px-3 py-2 text-sm rounded-lg text-white ${finSaving ? "bg-slate-400" : "bg-emerald-600"}`}
+                          >
+                            Zatwierdź
+                          </button>
+
+                          <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+                            <input
+                              value={finRejectReason}
+                              onChange={(e) => setFinRejectReason(e.target.value)}
+                              disabled={finSaving}
+                              className="border rounded-lg px-3 py-2 text-sm w-full md:w-72 disabled:bg-slate-50"
+                              placeholder="Powód odrzucenia (opcjonalnie)"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => finReject(selectedWO.id)}
+                              disabled={finSaving}
+                              className={`px-3 py-2 text-sm rounded-lg text-white ${finSaving ? "bg-slate-400" : "bg-rose-600"}`}
+                            >
+                              Odrzuć
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Invoice */}
+                  <div className="border rounded-lg p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-semibold text-slate-900">Faktura</div>
+                      <div className="text-xs text-slate-500">
+                        {financials.invoice_amount != null
+                          ? `Kwota: ${formatMoney(financials.invoice_amount, financials.invoice_currency)}`
+                          : "Brak kwoty"}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-slate-500">Kwota faktury</label>
+                        <input
+                          value={finInvoiceAmount}
+                          onChange={(e) => setFinInvoiceAmount(e.target.value)}
+                          className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
+                          disabled={finSaving}
+                          placeholder="np. 300.00"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-slate-500">Waluta</label>
+                        <select
+                          value={finInvoiceCurrency}
+                          onChange={(e) => setFinInvoiceCurrency(e.target.value)}
+                          className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
+                          disabled={finSaving}
+                        >
+                          {["PLN", "GBP", "EUR", "USD"].map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-slate-500">Data wystawienia</label>
+                        <input
+                          type="datetime-local"
+                          value={finInvoiceIssuedAt}
+                          onChange={(e) => setFinInvoiceIssuedAt(e.target.value)}
+                          className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
+                          disabled={finSaving}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-slate-500">Termin płatności</label>
+                        <input
+                          type="datetime-local"
+                          value={finInvoiceDueAt}
+                          onChange={(e) => setFinInvoiceDueAt(e.target.value)}
+                          className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
+                          disabled={finSaving}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => finSaveInvoice(selectedWO.id)}
+                        disabled={finSaving || !isContractor}
+                        title={!isContractor ? "Dostępne tylko dla wykonawcy" : ""}
+                        className={`px-3 py-2 text-sm rounded-lg text-white ${
+                          finSaving || !isContractor ? "bg-slate-400 cursor-not-allowed" : "bg-blue-600"
+                        }`}
+                      >
+                        {finSaving ? "Zapisywanie…" : "Zapisz fakturę"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ✅ A4 Attachments */}
             <div>
               <h4 className="font-semibold text-slate-900">Załączniki</h4>
 
@@ -1622,11 +1747,7 @@ export default function WorkOrdersSection({ propertyId }) {
                       <div key={a.id} className="border rounded-lg p-3 flex gap-3">
                         <div className="w-20 h-20 rounded-lg border bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center">
                           {isImage && previewUrl ? (
-                            <img
-                              src={previewUrl}
-                              alt={a.file_name}
-                              className="w-full h-full object-cover"
-                            />
+                            <img src={previewUrl} alt={a.file_name} className="w-full h-full object-cover" />
                           ) : (
                             <span className="text-xs text-slate-500 text-center px-2">
                               {a.kind === "photo" ? "Zdjęcie" : "Dokument"}
@@ -1635,13 +1756,10 @@ export default function WorkOrdersSection({ propertyId }) {
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium text-slate-900 truncate">
-                            {a.file_name}
-                          </div>
+                          <div className="text-sm font-medium text-slate-900 truncate">{a.file_name}</div>
 
                           <div className="text-xs text-slate-500 mt-1">
-                            {a.mime_type || "—"} • {formatBytes(a.file_size)} •{" "}
-                            {formatDateTime(a.created_at)}
+                            {a.mime_type || "—"} {" • "} {formatBytes(a.file_size)} {" • "} {formatDateTime(a.created_at)}
                           </div>
 
                           <div className="mt-2 flex gap-3">
@@ -1671,6 +1789,7 @@ export default function WorkOrdersSection({ propertyId }) {
               )}
             </div>
 
+            {/* Activity */}
             <div>
               <h4 className="font-semibold text-slate-900">Aktywność</h4>
 
@@ -1689,9 +1808,7 @@ export default function WorkOrdersSection({ propertyId }) {
                         <div className="text-sm font-medium text-slate-900">
                           {String(e.action || "").replaceAll("_", " ")}
                         </div>
-                        <div className="text-xs text-slate-500 shrink-0">
-                          {formatDateTime(e.created_at)}
-                        </div>
+                        <div className="text-xs text-slate-500 shrink-0">{formatDateTime(e.created_at)}</div>
                       </div>
 
                       {(e.old_value || e.new_value) && (
