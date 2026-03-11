@@ -23,8 +23,18 @@ export default function MaintenanceInboxPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+  const [totalCount, setTotalCount] = useState(0);
 
   const [requests, setRequests] = useState([]);
+  const [statusTotals, setStatusTotals] = useState({
+    open: 0,
+    in_progress: 0,
+    waiting: 0,
+    resolved: 0,
+    closed: 0,
+  });
   const [workOrderByRequestId, setWorkOrderByRequestId] = useState({});
   const [propertyLabelById, setPropertyLabelById] = useState({});
   const [contractors, setContractors] = useState([]);
@@ -33,6 +43,14 @@ export default function MaintenanceInboxPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [drawerSaving, setDrawerSaving] = useState(false);
+  const [noteModalOpen, setNoteModalOpen] = useState(false);
+  const [noteRequest, setNoteRequest] = useState(null);
+  const [noteText, setNoteText] = useState("");
+  const totalPages = useMemo(() => {
+    const pages = STATUS_ORDER.map((s) => Math.ceil((statusTotals[s] || 0) / (pageSize || 1)));
+    const maxPages = Math.max(1, ...pages);
+    return maxPages;
+  }, [statusTotals, pageSize]);
 
   useEffect(() => {
     setTitle("Maintenance Inbox");
@@ -64,6 +82,22 @@ export default function MaintenanceInboxPage() {
 
       const rows = reqRows ?? [];
       setRequests(rows);
+      setTotalCount(rows.length);
+
+      const nextTotals = {
+        open: 0,
+        in_progress: 0,
+        waiting: 0,
+        resolved: 0,
+        closed: 0,
+      };
+      for (const r of rows) {
+        const s = String(r?.status || "").toLowerCase();
+        if (Object.prototype.hasOwnProperty.call(nextTotals, s)) {
+          nextTotals[s] += 1;
+        }
+      }
+      setStatusTotals(nextTotals);
 
       const propMap = {};
       for (const p of propsRows ?? []) {
@@ -81,7 +115,7 @@ export default function MaintenanceInboxPage() {
 
       const { data: woRows, error: woErr } = await supabase
         .from("work_orders_with_flags")
-        .select("id, maintenance_request_id, status, contractor_name, contractor_phone, created_at")
+        .select("id, maintenance_request_id, status, contractor_user_id, contractor_name, contractor_phone, created_at")
         .eq("account_id", activeAccountId)
         .in("maintenance_request_id", requestIds)
         .order("created_at", { ascending: false });
@@ -98,6 +132,14 @@ export default function MaintenanceInboxPage() {
     } catch (e) {
       setError(e?.message || "Nie udało się wczytać Maintenance Inbox.");
       setRequests([]);
+      setTotalCount(0);
+      setStatusTotals({
+        open: 0,
+        in_progress: 0,
+        waiting: 0,
+        resolved: 0,
+        closed: 0,
+      });
       setWorkOrderByRequestId({});
       setPropertyLabelById({});
     } finally {
@@ -110,6 +152,14 @@ export default function MaintenanceInboxPage() {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAccountId]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeAccountId]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   async function handleCloseRequest(request) {
     if (!canManage || !request?.id) return;
@@ -126,15 +176,24 @@ export default function MaintenanceInboxPage() {
 
   async function handleAddNote(request) {
     if (!canManage || !request?.id) return;
-    const note = window.prompt("Dodaj notatkę do zgłoszenia:");
-    if (!note || !note.trim()) return;
+    setNoteRequest(request);
+    setNoteText("");
+    setNoteModalOpen(true);
+  }
 
-    const current = request.description ? `${request.description}\n\n` : "";
-    const merged = `${current}[Notatka ${timestampForNote()}]\n${note.trim()}`;
+  async function handleSaveNote() {
+    if (!canManage || !noteRequest?.id) return;
+    if (!noteText?.trim()) return;
 
-    setBusyRequestId(request.id);
+    const current = noteRequest.description ? `${noteRequest.description}\n\n` : "";
+    const merged = `${current}[Notatka ${timestampForNote()}]\n${noteText.trim()}`;
+
+    setBusyRequestId(noteRequest.id);
     try {
-      await updateMaintenanceRequest(request.id, { description: merged });
+      await updateMaintenanceRequest(noteRequest.id, { description: merged });
+      setNoteModalOpen(false);
+      setNoteRequest(null);
+      setNoteText("");
       await loadAll();
     } catch (e) {
       alert(e?.message || "Nie udało się dodać notatki.");
@@ -191,6 +250,16 @@ export default function MaintenanceInboxPage() {
     return map;
   }, [requests]);
 
+  const pagedGrouped = useMemo(() => {
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize;
+    const map = {};
+    for (const s of STATUS_ORDER) {
+      map[s] = (grouped[s] || []).slice(from, to);
+    }
+    return map;
+  }, [grouped, page, pageSize]);
+
   if (!canManage) {
     return (
       <div className="rounded-xl border bg-white p-6">
@@ -208,14 +277,56 @@ export default function MaintenanceInboxPage() {
           <h2 className="text-lg font-semibold text-slate-900">Maintenance Inbox / Triage Board</h2>
           <p className="text-sm text-slate-500 mt-1">Przegląd zgłoszeń serwisowych grupowanych po statusie.</p>
         </div>
-        <button
-          type="button"
-          onClick={loadAll}
-          disabled={loading}
-          className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50 disabled:opacity-50"
-        >
-          Odśwież
-        </button>
+        <div className="flex items-center gap-2">
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              setPage(1);
+              setPageSize(Number.isFinite(n) && n > 0 ? n : 5);
+            }}
+            className="px-2 py-2 text-sm rounded-lg border bg-white"
+            disabled={loading}
+            title="Na stronę"
+          >
+            {[5].map((n) => (
+              <option key={n} value={n}>
+                {n}/str
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={loading || page <= 1}
+            className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50 disabled:opacity-50"
+          >
+            Prev
+          </button>
+          <div className="text-xs text-slate-600 min-w-[84px] text-center">
+            {page}/{totalPages}
+          </div>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={loading || page >= totalPages}
+            className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50 disabled:opacity-50"
+          >
+            Next
+          </button>
+          <button
+            type="button"
+            onClick={loadAll}
+            disabled={loading}
+            className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50 disabled:opacity-50"
+          >
+            Odśwież
+          </button>
+        </div>
+      </div>
+
+      <div className="text-sm text-slate-600 px-1">
+        Łącznie zgłoszeń: <span className="font-medium text-slate-900">{totalCount}</span>
       </div>
 
       {error ? (
@@ -234,7 +345,8 @@ export default function MaintenanceInboxPage() {
             <MaintenanceColumn
               key={status}
               status={status}
-              items={grouped[status] || []}
+              items={pagedGrouped[status] || []}
+              totalForStatus={statusTotals[status] || 0}
               workOrderByRequestId={workOrderByRequestId}
               propertyLabelById={propertyLabelById}
               canManage={canManage}
@@ -259,6 +371,52 @@ export default function MaintenanceInboxPage() {
         }}
         onSubmit={handleCreateWorkOrder}
       />
+
+      {noteModalOpen && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setNoteModalOpen(false)} />
+          <div className="absolute left-1/2 top-1/2 w-[95vw] max-w-xl -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-xl border">
+            <div className="p-4 border-b flex items-center justify-between">
+              <div className="font-semibold text-slate-900">Dodaj notatkę</div>
+              <button
+                type="button"
+                onClick={() => setNoteModalOpen(false)}
+                className="text-sm px-2 py-1 rounded hover:bg-slate-100"
+              >
+                Zamknij
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <p className="text-sm text-slate-600">{noteRequest?.title || "Zgłoszenie"}</p>
+              <textarea
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm min-h-[150px]"
+                placeholder="Wpisz notatkę..."
+              />
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNoteModalOpen(false)}
+                  className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50"
+                >
+                  Anuluj
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveNote}
+                  disabled={!noteText.trim() || busyRequestId === noteRequest?.id}
+                  className={`px-3 py-2 text-sm rounded-lg text-white ${
+                    !noteText.trim() || busyRequestId === noteRequest?.id ? "bg-slate-400" : "bg-blue-600"
+                  }`}
+                >
+                  {busyRequestId === noteRequest?.id ? "Zapisywanie…" : "Zapisz notatkę"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

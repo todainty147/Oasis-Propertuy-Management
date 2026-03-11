@@ -34,6 +34,19 @@ function uniq(list = []) {
   return Array.from(new Set(list.filter(Boolean)));
 }
 
+function safeBaseName(fileName = "") {
+  const base = String(fileName || "")
+    .replaceAll("\\", "/")
+    .split("/")
+    .pop();
+
+  return base
+    .replace(/\s+/g, "_")
+    .replace(/[^\w.\-]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
 function normalizeStoragePath(bucket, rawPath) {
   const b = String(bucket || "").trim();
   let p = String(rawPath || "").trim().replaceAll("\\", "/");
@@ -159,6 +172,61 @@ export async function createAttachmentSignedUrl(bucket, path, expiresIn = 60) {
   throw friendlyError(lastErr, "Nie udało się utworzyć linku do pliku");
 }
 
+/**
+ * Robust signed URL resolution for an attachment row.
+ * Fallback strategy:
+ * 1) Try row.storage_path directly
+ * 2) If not found, list account/<accountId>/work_orders/<workOrderId>/ and match by filename tail
+ */
+export async function createAttachmentSignedUrlForRow({
+  attachmentRow,
+  accountId,
+  workOrderId,
+  expiresIn = 60,
+} = {}) {
+  if (!attachmentRow) throw new Error("Brak attachmentRow");
+
+  const bucket = attachmentRow.storage_bucket || BUCKET;
+  const directPath = attachmentRow.storage_path;
+
+  try {
+    return await createAttachmentSignedUrl(bucket, directPath, expiresIn);
+  } catch (directErr) {
+    const acct = accountId || attachmentRow.account_id;
+    const woId = workOrderId || attachmentRow.work_order_id;
+    if (!acct || !woId) throw directErr;
+
+    const folder = `account/${acct}/work_orders/${woId}`;
+    const { data: objects, error: listErr } = await supabase.storage.from(bucket).list(folder, {
+      limit: 200,
+      sortBy: { column: "name", order: "desc" },
+    });
+    if (listErr) throw friendlyError(listErr, directErr?.message || "Nie udało się odnaleźć pliku");
+
+    const list = objects ?? [];
+    if (list.length === 0) throw directErr;
+
+    const rawName = String(attachmentRow.file_name || "").trim();
+    const safeName = safeBaseName(rawName);
+    const tailCandidates = uniq([
+      rawName,
+      safeName,
+      rawName.replace(/\s+/g, "_"),
+      safeName && `_${safeName}`,
+      rawName && `_${rawName}`,
+    ]);
+
+    const match =
+      list.find((o) => tailCandidates.some((t) => t && String(o?.name || "") === t)) ||
+      list.find((o) => tailCandidates.some((t) => t && String(o?.name || "").endsWith(t)));
+
+    if (!match?.name) throw directErr;
+
+    const recoveredPath = `${folder}/${match.name}`;
+    return await createAttachmentSignedUrl(bucket, recoveredPath, expiresIn);
+  }
+}
+
 /* ======================
    UPLOAD
    ====================== */
@@ -236,6 +304,31 @@ export async function uploadWorkOrderAttachments({ accountId, workOrderId, files
 }
 
 /* ======================
+   ORPHAN CLEANUP (manual)
+   ====================== */
+
+/**
+ * Manual cleanup helper for orphan storage objects.
+ * Pass exact object keys from SQL audit output.
+ */
+export async function cleanupOrphanAttachmentPaths(orphanPaths = []) {
+  const paths = Array.from(orphanPaths || [])
+    .map((p) => String(p || "").trim())
+    .filter(Boolean);
+
+  if (paths.length === 0) {
+    return { data: [], error: null };
+  }
+
+  const { data, error } = await supabase.storage.from(BUCKET).remove(paths);
+
+  console.log("cleanup data:", data);
+  console.log("cleanup error:", error);
+
+  return { data, error };
+}
+
+/* ======================
    DELETE
    ====================== */
 
@@ -265,21 +358,27 @@ export async function deleteWorkOrderAttachment({ attachmentId, attachmentRow, s
   const bucket = resolved?.storage_bucket || BUCKET;
   const path = resolved?.storage_path;
 
-  // 1) delete DB row first (authoritative)
-  let del = supabase.from("work_order_attachments").delete().eq("id", resolved.id);
+  if (!bucket || !path) {
+    throw new Error("Brak storage path");
+  }
+
+  const { error: storageErr } = await supabase.storage
+    .from(bucket)
+    .remove([path]);
+
+  if (storageErr) {
+    throw friendlyError(storageErr, "Nie udało się usunąć pliku ze storage");
+  }
+
+  let del = supabase
+    .from("work_order_attachments")
+    .delete()
+    .eq("id", resolved.id);
+
   if (signal) del = del.abortSignal(signal);
 
   const { error: delErr } = await del;
   if (delErr) throw friendlyError(delErr, "Nie udało się usunąć załącznika");
-
-  // 2) best-effort delete storage object
-  if (bucket && path) {
-    try {
-      await supabase.storage.from(bucket).remove([path]);
-    } catch {
-      // ignore storage delete errors (row already deleted)
-    }
-  }
 
   return true;
 }

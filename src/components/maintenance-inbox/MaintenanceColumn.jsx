@@ -13,6 +13,7 @@ function titleForStatus(status) {
 export default function MaintenanceColumn({
   status,
   items = [],
+  totalForStatus = 0,
   workOrderByRequestId = {},
   propertyLabelById = {},
   canManage = false,
@@ -22,10 +23,13 @@ export default function MaintenanceColumn({
   onAddNote,
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3 min-h-[240px]">
-      <div className="flex items-center justify-between">
+    <div className="rounded-2xl border-2 border-slate-300 bg-slate-100 p-3 space-y-3 min-h-[240px]">
+      <div className="flex items-center justify-between border-b border-slate-300 pb-2">
         <h3 className="text-sm font-semibold text-slate-900">{titleForStatus(status)}</h3>
-        <span className="text-xs text-slate-500">{items.length}</span>
+        <div className="text-right">
+          <div className="text-xs text-slate-700 font-medium">{totalForStatus}</div>
+          <div className="text-[10px] text-slate-500">{items.length} na stronie</div>
+        </div>
       </div>
 
       {items.length === 0 ? (
@@ -33,19 +37,20 @@ export default function MaintenanceColumn({
           Brak zgłoszeń w tej kolumnie.
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="divide-y divide-slate-300 rounded-xl border border-slate-300 bg-white">
           {items.map((request) => (
-            <MaintenanceRequestCard
-              key={request.id}
-              request={request}
-              linkedWorkOrder={workOrderByRequestId[request.id] || null}
-              propertyLabel={propertyLabelById[request.property_id] || ""}
-              busy={busyRequestId === request.id}
-              canManage={canManage}
-              onCreateWorkOrder={onCreateWorkOrder}
-              onCloseRequest={onCloseRequest}
-              onAddNote={onAddNote}
-            />
+            <div key={request.id} className="p-2">
+              <MaintenanceRequestCard
+                request={request}
+                linkedWorkOrder={workOrderByRequestId[request.id] || null}
+                propertyLabel={propertyLabelById[request.property_id] || ""}
+                busy={busyRequestId === request.id}
+                canManage={canManage}
+                onCreateWorkOrder={onCreateWorkOrder}
+                onCloseRequest={onCloseRequest}
+                onAddNote={onAddNote}
+              />
+            </div>
           ))}
         </div>
       )}

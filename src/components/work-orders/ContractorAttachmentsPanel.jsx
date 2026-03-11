@@ -2,10 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import Card from "../Card";
 import Skeleton from "../ui/Skeleton";
 import {
-  BUCKET as ATTACHMENTS_BUCKET,
   listWorkOrderAttachments,
   uploadWorkOrderAttachments,
-  createAttachmentSignedUrl,
+  createAttachmentSignedUrlForRow,
   deleteWorkOrderAttachment,
 } from "../../services/workOrderAttachmentsService";
 
@@ -68,10 +67,11 @@ export default function ContractorAttachmentsPanel({ accountId, workOrderId, can
   async function onPreview(item) {
     try {
       setBusyPath(item.storage_path);
-      const signedUrl = await createAttachmentSignedUrl(
-        item.storage_bucket || ATTACHMENTS_BUCKET,
-        item.storage_path
-      );
+      const signedUrl = await createAttachmentSignedUrlForRow({
+        attachmentRow: item,
+        accountId,
+        workOrderId,
+      });
       setPreviewUrl(signedUrl);
     } catch (e) {
       setError(e?.message || "Nie udało się otworzyć podglądu.");
@@ -83,10 +83,11 @@ export default function ContractorAttachmentsPanel({ accountId, workOrderId, can
   async function onDownload(item) {
     try {
       setBusyPath(item.storage_path);
-      const signedUrl = await createAttachmentSignedUrl(
-        item.storage_bucket || ATTACHMENTS_BUCKET,
-        item.storage_path
-      );
+      const signedUrl = await createAttachmentSignedUrlForRow({
+        attachmentRow: item,
+        accountId,
+        workOrderId,
+      });
       window.open(signedUrl, "_blank", "noopener,noreferrer");
     } catch (e) {
       setError(e?.message || "Nie udało się pobrać pliku.");

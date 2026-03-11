@@ -44,8 +44,14 @@ export default function MaintenanceRequestCard({
   onCloseRequest,
   onAddNote,
 }) {
+  const hasAssignedContractor = Boolean(
+    linkedWorkOrder?.contractor_user_id ||
+      linkedWorkOrder?.contractor_name ||
+      linkedWorkOrder?.contractor_phone
+  );
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-3">
+    <div className="rounded-xl border-2 border-slate-300 bg-white p-3 space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900 truncate">{request.title || "Bez tytułu"}</p>
@@ -90,12 +96,21 @@ export default function MaintenanceRequestCard({
             </button>
           )}
 
-          {linkedWorkOrder ? (
+          {linkedWorkOrder && !hasAssignedContractor ? (
             <Link
               to={`/work-orders/${linkedWorkOrder.id}`}
               className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
             >
               Przypisz wykonawcę
+            </Link>
+          ) : null}
+
+          {linkedWorkOrder && hasAssignedContractor ? (
+            <Link
+              to={`/work-orders/${linkedWorkOrder.id}`}
+              className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
+            >
+              Zobacz zlecenie
             </Link>
           ) : null}
 
