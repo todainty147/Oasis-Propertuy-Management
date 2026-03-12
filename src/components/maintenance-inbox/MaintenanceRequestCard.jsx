@@ -82,6 +82,10 @@ export default function MaintenanceRequestCard({
       linkedWorkOrder?.contractor_name ||
       linkedWorkOrder?.contractor_phone
   );
+  const workOrderNotCompleted = Boolean(
+    linkedWorkOrder &&
+      String(linkedWorkOrder.status || "").toLowerCase() !== "completed"
+  );
   const waitingCtx =
     String(request.status || "").toLowerCase() === "waiting"
       ? waitingReasonLabel(request.waiting_reason)
@@ -157,7 +161,8 @@ export default function MaintenanceRequestCard({
             <button
               type="button"
               onClick={() => onCloseRequest(request, linkedWorkOrder || null)}
-              disabled={busy}
+              disabled={busy || workOrderNotCompleted}
+              title={workOrderNotCompleted ? "Najpierw zakończ zlecenie (status completed)." : ""}
               className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
             >
               Zamknij
@@ -173,16 +178,18 @@ export default function MaintenanceRequestCard({
             Dodaj notatkę
           </button>
 
-          <button
-            type="button"
-            onClick={() => onSetWaitingReason(request)}
-            disabled={busy}
-            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-          >
-            {String(request.status || "").toLowerCase() === "waiting"
-              ? "Edytuj oczekiwanie"
-              : "Ustaw oczekiwanie"}
-          </button>
+          {String(request.status || "").toLowerCase() !== "closed" && (
+            <button
+              type="button"
+              onClick={() => onSetWaitingReason(request)}
+              disabled={busy}
+              className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {String(request.status || "").toLowerCase() === "waiting"
+                ? "Edytuj oczekiwanie"
+                : "Ustaw oczekiwanie"}
+            </button>
+          )}
 
           <button
             type="button"
