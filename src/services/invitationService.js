@@ -10,14 +10,16 @@ const ROLE_ALIASES = {
 };
 
 const INVITE_ROLES_BY_INVITER = {
-  owner: ["owner", "admin", "staff", "tenant", "contractor"],
+  owner: ["admin", "staff", "tenant", "contractor"],
   admin: ["admin", "staff", "tenant", "contractor"],
   staff: ["staff", "tenant", "contractor"],
 };
 
-export function getAllowedInviteRoles(inviterRole) {
+export function getAllowedInviteRoles(inviterRole, isRootAccount = false) {
   const key = String(inviterRole || "").toLowerCase();
-  return INVITE_ROLES_BY_INVITER[key] ?? [];
+  const base = INVITE_ROLES_BY_INVITER[key] ?? [];
+  if (isRootAccount && ["owner", "admin", "staff"].includes(key)) return ["owner", ...base];
+  return base;
 }
 
 export function normalizeInviteRole(role) {
@@ -43,6 +45,8 @@ export async function createAccountInvitation({
   email,
   role,
   inviterRole,
+  isRootAccount = false,
+  accountName = "",
   redirectPath = "/invite",
 } = {}) {
   if (!accountId) throw new Error("Missing accountId");
@@ -51,9 +55,35 @@ export async function createAccountInvitation({
 
   const normalizedRole = normalizeInviteRole(role);
   if (!normalizedRole) throw new Error("Missing role");
-  const allowed = getAllowedInviteRoles(inviterRole);
+  const allowed = getAllowedInviteRoles(inviterRole, isRootAccount);
   if (!allowed.includes(normalizedRole)) {
     throw new Error("You are not allowed to invite this role");
+  }
+
+  // Root account inviting landlord(owner): create isolated account via RPC.
+  if (normalizedRole === "owner") {
+    if (!isRootAccount) {
+      throw new Error("Only root account can invite landlords");
+    }
+
+    const fallbackName = cleanEmail.split("@")[0] || cleanEmail;
+    const { data, error } = await supabase.rpc("create_landlord_invitation", {
+      p_root_account_id: accountId,
+      p_email: cleanEmail,
+      p_account_name: String(accountName || "").trim() || fallbackName,
+    });
+
+    if (error) throw friendly(error, "Failed to create landlord invitation");
+    const invite = Array.isArray(data) ? data[0] : data;
+    if (!invite?.token) throw new Error("Landlord invitation token missing");
+
+    const redirectUrl = `${window.location.origin}${redirectPath}?token=${invite.token}`;
+    const { error: otpErr } = await supabase.auth.signInWithOtp({
+      email: cleanEmail,
+      options: { emailRedirectTo: redirectUrl },
+    });
+    if (otpErr) throw friendly(otpErr, "Landlord invitation created but failed to send email link");
+    return invite;
   }
 
   const token = crypto.randomUUID();
@@ -84,6 +114,27 @@ export async function createAccountInvitation({
   }
 
   return data;
+}
+
+export async function checkAccountInvitationEligibility({
+  accountId,
+  email,
+  role,
+} = {}) {
+  if (!accountId) return { ok: false, code: "missing_account", message: "Missing account id" };
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  const normalizedRole = normalizeInviteRole(role);
+  if (!cleanEmail) return { ok: false, code: "missing_email", message: "Missing email" };
+  if (!normalizedRole) return { ok: false, code: "missing_role", message: "Missing role" };
+
+  const { data, error } = await supabase.rpc("check_account_invitation_eligibility", {
+    p_account_id: accountId,
+    p_email: cleanEmail,
+    p_role: normalizedRole,
+  });
+
+  if (error) throw friendly(error, "Failed to validate invitation");
+  return data ?? { ok: false, code: "unknown", message: "Validation returned empty response" };
 }
 
 export async function resendInvitationEmail(invitation, redirectPath = "/invite") {

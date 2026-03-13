@@ -18,7 +18,9 @@ export default function Topbar({ onMenuClick }) {
      ====================== */
   const {
     accounts,
+    activeAccount,
     activeAccountId,
+    isRootOperator,
     switchAccount, // ✅ CORRECT API
   } = useAccount();
 
@@ -61,7 +63,7 @@ export default function Topbar({ onMenuClick }) {
         {/* ======================
             ACCOUNT SWITCHER
            ====================== */}
-        {accounts.length > 1 && (
+        {isRootOperator && accounts.length > 1 && (
           <div className="hidden lg:flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2">
             <Building2 size={16} className="text-slate-400" />
             <select
@@ -71,10 +73,21 @@ export default function Topbar({ onMenuClick }) {
             >
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.name}
+                  {a.name}{a.is_disabled ? " (disabled)" : ""}
                 </option>
               ))}
             </select>
+          </div>
+        )}
+        {activeAccountId && (
+          <div className="hidden xl:flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-slate-50">
+            <Building2 size={14} className="text-slate-500" />
+            <div className="leading-tight">
+              <p className="text-xs text-slate-700 font-medium">{activeAccount?.name || "Account"}</p>
+              <p className="text-[11px] text-slate-500" title={String(activeAccountId)}>
+                ID: {String(activeAccountId)}
+              </p>
+            </div>
           </div>
         )}
 

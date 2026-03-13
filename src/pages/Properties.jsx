@@ -43,7 +43,7 @@ export default function Properties({
   onDeleteProperty,
 }) {
   const { setTitle } = usePageTitle();
-  const { accountLoading, activeRole } = useAccount();
+  const { accountLoading, activeRole, isRootOperator } = useAccount();
   const { t } = useI18n();
   const [searchParams] = useSearchParams();
 
@@ -67,9 +67,9 @@ export default function Properties({
     );
   }
 
-  const canCreate = can(activeRole, "properties", "create");
-  const canUpdate = can(activeRole, "properties", "update");
-  const canDelete = can(activeRole, "properties", "delete");
+  const canCreate = isRootOperator || can(activeRole, "properties", "create");
+  const canUpdate = isRootOperator || can(activeRole, "properties", "update");
+  const canDelete = isRootOperator || can(activeRole, "properties", "delete");
 
   const statusFilter = useMemo(() => {
     const raw = String(searchParams.get("status") || "").toLowerCase();

@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
+import { rootListAccounts } from "../services/rootAccountService";
 
 const AccountContext = createContext(null);
 
@@ -15,6 +16,7 @@ export function AccountProvider({ children }) {
   const [accounts, setAccounts] = useState([]);
   const [activeAccountId, setActiveAccountId] = useState(null);
   const [accountLoading, setAccountLoading] = useState(true);
+  const [isRootOperator, setIsRootOperator] = useState(false);
 
   // ✅ Tenant portal path (no account_members required)
   const [tenantContext, setTenantContext] = useState(null); // { account_id, tenant_id, status }
@@ -35,6 +37,7 @@ export function AccountProvider({ children }) {
     if (!user) {
       setAccounts([]);
       setActiveAccountId(null);
+      setIsRootOperator(false);
       setTenantContext(null);
       setContractorContext(null);
       setAuthzError(null);
@@ -50,22 +53,35 @@ export function AccountProvider({ children }) {
       setAuthzError(null);
       setTenantContext(null);
       setContractorContext(null);
+      setIsRootOperator(false);
 
       /* ======================
          1) NORMAL PATH: account_members
          ====================== */
-      const { data: memberships, error: membershipErr } = await supabase
-        .from("account_members")
-        .select(
+      async function queryMemberships(fields) {
+        return supabase
+          .from("account_members")
+          .select(
+            `
+            role,
+            accounts (
+              ${fields}
+            )
           `
-          role,
-          accounts (
-            id,
-            name
           )
-        `
-        )
-        .eq("user_id", user.id);
+          .eq("user_id", user.id);
+      }
+
+      let memberships = null;
+      let membershipErr = null;
+      const fieldsPriority = ["id,name,is_root,is_disabled", "id,name,is_root", "id,name"];
+      for (const fields of fieldsPriority) {
+        const res = await queryMemberships(fields);
+        memberships = res.data;
+        membershipErr = res.error;
+        if (!membershipErr) break;
+        if (membershipErr.code !== "42703") break;
+      }
 
       if (membershipErr) {
         console.error("Account membership load failed:", membershipErr);
@@ -80,20 +96,51 @@ export function AccountProvider({ children }) {
 
       // ✅ HAS ACCOUNTS (owner/admin/staff)
       if (memberships?.length > 0) {
-        const accs = memberships
+        const membershipAccounts = memberships
           .filter((m) => m.accounts?.id)
           .map((m) => ({
             id: m.accounts.id,
             name: m.accounts.name,
+            is_root: Boolean(m.accounts.is_root),
+            is_disabled: Boolean(m.accounts.is_disabled),
             role: m.role, // 🔐 SINGLE SOURCE OF TRUTH
           }));
+        const rootMembership = membershipAccounts.find((a) => a.is_root);
+        const rootOperator = Boolean(rootMembership);
+        setIsRootOperator(rootOperator);
+        const membershipById = new Map(membershipAccounts.map((a) => [a.id, a]));
+
+        let accs = membershipAccounts;
+        if (rootOperator && rootMembership?.id) {
+          try {
+            const rootRows = await rootListAccounts(rootMembership.id);
+            accs = (rootRows ?? []).map((r) => {
+              const existing = membershipById.get(r.id);
+              return {
+                id: r.id,
+                name: r.name,
+                is_root: Boolean(r.is_root),
+                is_disabled: Boolean(r.is_disabled),
+                // Root operator can switch into any account; treat as owner-level in UI permissions.
+                role: "owner",
+              };
+            });
+          } catch (e) {
+            console.warn("root_list_accounts failed, using membership-only accounts:", e);
+          }
+        }
+
+        if (!rootOperator) {
+          accs = accs.filter((a) => !a.is_disabled);
+        }
 
         setAccounts(accs);
 
         const stored = localStorage.getItem("activeAccountId");
         const validStored = stored && accs.some((a) => a.id === stored);
-
-        const nextId = validStored ? stored : accs[0]?.id ?? null;
+        const nextId = rootOperator
+          ? (validStored ? stored : accs[0]?.id ?? null)
+          : (accs[0]?.id ?? null);
         setActiveAccountId(nextId);
 
         if (nextId) localStorage.setItem("activeAccountId", nextId);
@@ -191,8 +238,18 @@ export function AccountProvider({ children }) {
       }
 
       /* ======================
-         3) FIRST ACCOUNT CREATION (landlord-only edge case)
+         3) NO CONTEXT FOUND
+         In SaaS mode accounts are invite-driven and should not be auto-created
+         by client inserts (RLS-safe default).
          ====================== */
+      const autoBootstrapEnabled = String(import.meta.env.VITE_ENABLE_AUTO_ACCOUNT_BOOTSTRAP || "").toLowerCase() === "true";
+      if (!autoBootstrapEnabled) {
+        setAccountLoading(false);
+        setAuthzError("Skontaktuj się z administratorem lub zaakceptuj zaproszenie.");
+        return;
+      }
+
+      // Optional legacy/dev fallback only when explicitly enabled.
       const { data: account, error: accountError } = await supabase
         .from("accounts")
         .insert({
@@ -205,20 +262,29 @@ export function AccountProvider({ children }) {
         console.error("Account creation failed:", accountError);
         if (!cancelled) {
           setAccountLoading(false);
-          setAuthzError("Nie udało się utworzyć konta.");
+          setAuthzError("Skontaktuj się z administratorem lub zaakceptuj zaproszenie.");
         }
         return;
       }
 
-      await supabase.from("account_members").insert({
+      const { error: memberError } = await supabase.from("account_members").insert({
         account_id: account.id,
         user_id: user.id,
         role: "owner",
       });
 
+      if (memberError) {
+        console.error("Account member bootstrap failed:", memberError);
+        if (!cancelled) {
+          setAccountLoading(false);
+          setAuthzError("Skontaktuj się z administratorem lub zaakceptuj zaproszenie.");
+        }
+        return;
+      }
+
       if (cancelled) return;
 
-      setAccounts([{ id: account.id, name: account.name, role: "owner" }]);
+      setAccounts([{ id: account.id, name: account.name, is_root: false, role: "owner" }]);
       setActiveAccountId(account.id);
       localStorage.setItem("activeAccountId", account.id);
       setAccountLoading(false);
@@ -275,8 +341,9 @@ export function AccountProvider({ children }) {
      ====================== */
 
   function switchAccount(accountId) {
-    // Tenant/contractor mode: no membership accounts to switch
     if (!accounts?.length) return;
+    if (!isRootOperator) return;
+    if (!accounts.some((a) => a.id === accountId)) return;
     setActiveAccountId(accountId);
   }
 
@@ -288,6 +355,8 @@ export function AccountProvider({ children }) {
     <AccountContext.Provider
       value={{
         accounts,
+        isRootOperator,
+        activeAccount,
         activeAccountId,
         switchAccount,
         accountLoading,

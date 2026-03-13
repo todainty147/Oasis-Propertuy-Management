@@ -23,6 +23,13 @@ alter table public.account_invitations
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now();
 
+-- Mark account as platform-root to allow cross-account landlord provisioning
+alter table public.accounts
+  add column if not exists is_root boolean not null default false;
+alter table public.accounts
+  add column if not exists is_disabled boolean not null default false,
+  add column if not exists disabled_at timestamptz null;
+
 -- Ensure enum supports all SaaS roles when account_role exists.
 do $$
 begin
@@ -64,6 +71,9 @@ $$;
 create index if not exists account_invitations_account_idx on public.account_invitations(account_id);
 create index if not exists account_invitations_email_idx on public.account_invitations(lower(email));
 create unique index if not exists account_invitations_token_uidx on public.account_invitations(token);
+create unique index if not exists account_invitations_active_account_email_uidx
+  on public.account_invitations(account_id, lower(email))
+  where accepted_at is null and revoked_at is null;
 
 create or replace function public.can_invite_account_role(p_account_id uuid, p_target_role text)
 returns boolean
@@ -74,10 +84,22 @@ as $$
 declare
   v_inviter_role text;
   v_target_role text := lower(coalesce(p_target_role, ''));
+  v_has_admin boolean := false;
 begin
   if auth.uid() is null then
     return false;
   end if;
+
+  select exists (
+    select 1
+    from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    join pg_enum e on e.enumtypid = t.oid
+    where n.nspname = 'public'
+      and t.typname = 'account_role'
+      and e.enumlabel = 'admin'
+  )
+  into v_has_admin;
 
   select lower(am.role::text)
   into v_inviter_role
@@ -86,8 +108,16 @@ begin
     and am.user_id = auth.uid()
   limit 1;
 
+  if v_target_role = 'owner' then
+    return false;
+  end if;
+
+  if v_target_role = 'admin' and not v_has_admin then
+    v_target_role := 'staff';
+  end if;
+
   if v_inviter_role = 'owner' then
-    return v_target_role in ('owner', 'admin', 'staff', 'tenant', 'contractor');
+    return v_target_role in ('admin', 'staff', 'tenant', 'contractor');
   end if;
 
   if v_inviter_role = 'admin' then
@@ -115,11 +145,204 @@ begin
 end;
 $$;
 
+create or replace function public.account_invitations_validate()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_email text := lower(trim(coalesce(new.email, '')));
+  v_existing_user_id uuid;
+  v_is_owner_invite boolean := lower(coalesce(new.role::text, '')) = 'owner';
+begin
+  if v_email = '' then
+    raise exception 'Missing email';
+  end if;
+  new.email := v_email;
+
+  -- Only validate active invitations. Accepted/revoked rows are archival.
+  if new.accepted_at is not null or new.revoked_at is not null then
+    return new;
+  end if;
+
+  -- Per-account guard: do not invite the same email twice while invite is active.
+  if exists (
+    select 1
+    from public.account_invitations ai
+    where ai.account_id = new.account_id
+      and lower(ai.email) = v_email
+      and ai.accepted_at is null
+      and ai.revoked_at is null
+      and (tg_op = 'INSERT' or ai.id <> new.id)
+  ) then
+    raise exception 'This email already has an active invitation in this account';
+  end if;
+
+  -- Per-account guard: do not invite someone who is already a member in this account.
+  select u.id
+  into v_existing_user_id
+  from auth.users u
+  where lower(u.email) = v_email
+  limit 1;
+
+  if v_existing_user_id is not null and exists (
+    select 1
+    from public.account_members am
+    where am.account_id = new.account_id
+      and am.user_id = v_existing_user_id
+  ) then
+    raise exception 'This email already belongs to a member of this account';
+  end if;
+
+  -- Global landlord(owner) guard: one owner account per email.
+  if v_is_owner_invite then
+    if v_existing_user_id is not null and exists (
+      select 1
+      from public.account_members am
+      where am.user_id = v_existing_user_id
+        and lower(am.role::text) = 'owner'
+    ) then
+      raise exception 'This email is already used by an existing landlord account';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop function if exists public.check_account_invitation_eligibility(uuid, text, text);
+create or replace function public.check_account_invitation_eligibility(
+  p_account_id uuid,
+  p_email text,
+  p_role text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_email text := lower(trim(coalesce(p_email, '')));
+  v_role text := lower(trim(coalesce(p_role, '')));
+  v_member_role text;
+  v_is_root boolean := false;
+  v_has_admin boolean := false;
+  v_existing_user_id uuid;
+begin
+  if v_uid is null then
+    return jsonb_build_object('ok', false, 'code', 'not_authenticated', 'message', 'Not authenticated');
+  end if;
+
+  if p_account_id is null then
+    return jsonb_build_object('ok', false, 'code', 'missing_account', 'message', 'Missing account id');
+  end if;
+
+  if v_email = '' then
+    return jsonb_build_object('ok', false, 'code', 'missing_email', 'message', 'Missing email');
+  end if;
+
+  if v_role = '' then
+    return jsonb_build_object('ok', false, 'code', 'missing_role', 'message', 'Missing role');
+  end if;
+
+  select exists (
+    select 1
+    from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    join pg_enum e on e.enumtypid = t.oid
+    where n.nspname = 'public'
+      and t.typname = 'account_role'
+      and e.enumlabel = 'admin'
+  )
+  into v_has_admin;
+
+  if v_role = 'admin' and not v_has_admin then
+    v_role := 'staff';
+  end if;
+
+  select lower(am.role::text)
+  into v_member_role
+  from public.account_members am
+  where am.account_id = p_account_id
+    and am.user_id = v_uid
+  limit 1;
+
+  if v_member_role is null then
+    return jsonb_build_object('ok', false, 'code', 'not_member', 'message', 'Not a member of this account');
+  end if;
+
+  select coalesce(a.is_root, false)
+  into v_is_root
+  from public.accounts a
+  where a.id = p_account_id
+  limit 1;
+
+  if v_role = 'owner' then
+    if not v_is_root then
+      return jsonb_build_object('ok', false, 'code', 'owner_root_only', 'message', 'Only root account can invite landlords');
+    end if;
+    if v_member_role not in ('owner', 'admin', 'staff') then
+      return jsonb_build_object('ok', false, 'code', 'role_forbidden', 'message', 'Insufficient role for landlord invite');
+    end if;
+  else
+    if not public.can_invite_account_role(p_account_id, v_role) then
+      return jsonb_build_object('ok', false, 'code', 'role_forbidden', 'message', 'You are not allowed to invite this role');
+    end if;
+  end if;
+
+  -- Active invite duplicate in the same account
+  if exists (
+    select 1
+    from public.account_invitations ai
+    where ai.account_id = p_account_id
+      and lower(ai.email) = v_email
+      and ai.accepted_at is null
+      and ai.revoked_at is null
+  ) then
+    return jsonb_build_object('ok', false, 'code', 'active_invite_exists', 'message', 'This email already has an active invitation in this account');
+  end if;
+
+  select u.id
+  into v_existing_user_id
+  from auth.users u
+  where lower(u.email) = v_email
+  limit 1;
+
+  if v_existing_user_id is not null and exists (
+    select 1
+    from public.account_members am
+    where am.account_id = p_account_id
+      and am.user_id = v_existing_user_id
+  ) then
+    return jsonb_build_object('ok', false, 'code', 'already_member', 'message', 'This email already belongs to a member of this account');
+  end if;
+
+  if v_role = 'owner' and v_existing_user_id is not null and exists (
+    select 1
+    from public.account_members am
+    where am.user_id = v_existing_user_id
+      and lower(am.role::text) = 'owner'
+  ) then
+    return jsonb_build_object('ok', false, 'code', 'owner_email_taken', 'message', 'This email is already used by an existing landlord account');
+  end if;
+
+  return jsonb_build_object('ok', true, 'code', 'ok', 'message', 'Eligible', 'normalized_email', v_email, 'normalized_role', v_role);
+end;
+$$;
+
 drop trigger if exists trg_account_invitations_set_updated_at on public.account_invitations;
 create trigger trg_account_invitations_set_updated_at
 before insert or update on public.account_invitations
 for each row
 execute function public.account_invitations_set_updated_at();
+
+drop trigger if exists trg_account_invitations_validate on public.account_invitations;
+create trigger trg_account_invitations_validate
+before insert or update on public.account_invitations
+for each row
+execute function public.account_invitations_validate();
 
 alter table public.account_invitations enable row level security;
 
@@ -170,6 +393,361 @@ using (
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on table public.account_invitations to authenticated;
 
+drop function if exists public.create_landlord_invitation(uuid, text, text);
+create or replace function public.create_landlord_invitation(
+  p_root_account_id uuid,
+  p_email text,
+  p_account_name text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_root_member_role text;
+  v_is_root boolean := false;
+  v_support_role_text text := 'staff';
+  v_support_role public.account_members.role%type;
+  v_email text := lower(trim(coalesce(p_email, '')));
+  v_name text := trim(coalesce(p_account_name, ''));
+  v_existing_user_id uuid;
+  v_owner_membership_exists boolean := false;
+  v_owner_invite_exists boolean := false;
+  v_new_account_id uuid;
+  v_token text;
+  v_now timestamptz := now();
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_root_account_id is null then
+    raise exception 'Missing root account id';
+  end if;
+
+  select lower(am.role::text)
+  into v_root_member_role
+  from public.account_members am
+  where am.account_id = p_root_account_id
+    and am.user_id = v_uid
+  limit 1;
+
+  if v_root_member_role is null then
+    raise exception 'Not a member of root account';
+  end if;
+
+  select coalesce(a.is_root, false)
+  into v_is_root
+  from public.accounts a
+  where a.id = p_root_account_id
+  limit 1;
+
+  if not v_is_root then
+    raise exception 'Only root account can invite landlords';
+  end if;
+
+  if v_root_member_role not in ('owner', 'admin', 'staff') then
+    raise exception 'Insufficient role for landlord invite';
+  end if;
+
+  if exists (
+    select 1
+    from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    join pg_enum e on e.enumtypid = t.oid
+    where n.nspname = 'public'
+      and t.typname = 'account_role'
+      and e.enumlabel = 'admin'
+  ) then
+    v_support_role_text := 'admin';
+  elsif exists (
+    select 1
+    from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    join pg_enum e on e.enumtypid = t.oid
+    where n.nspname = 'public'
+      and t.typname = 'account_role'
+      and e.enumlabel = 'staff'
+  ) then
+    v_support_role_text := 'staff';
+  else
+    v_support_role_text := 'owner';
+  end if;
+  v_support_role := v_support_role_text;
+
+  if v_email = '' then
+    raise exception 'Missing email';
+  end if;
+
+  -- Guard: one landlord account per email.
+  select u.id
+  into v_existing_user_id
+  from auth.users u
+  where lower(u.email) = v_email
+  limit 1;
+
+  if v_existing_user_id is not null then
+    select exists (
+      select 1
+      from public.account_members am
+      where am.user_id = v_existing_user_id
+        and lower(am.role::text) = 'owner'
+    )
+    into v_owner_membership_exists;
+  end if;
+
+  if v_owner_membership_exists then
+    raise exception 'This email is already used by an existing landlord account';
+  end if;
+
+  select exists (
+    select 1
+    from public.account_invitations ai
+    where lower(ai.email) = v_email
+      and lower(ai.role::text) = 'owner'
+      and ai.revoked_at is null
+  )
+  into v_owner_invite_exists;
+
+  if v_owner_invite_exists then
+    raise exception 'This email already has an active landlord invitation';
+  end if;
+
+  if v_name = '' then
+    v_name := split_part(v_email, '@', 1);
+  end if;
+
+  insert into public.accounts(name)
+  values (v_name)
+  returning id into v_new_account_id;
+
+  -- Root operator is attached as admin for support/switching workflows.
+  insert into public.account_members(account_id, user_id, role)
+  values (v_new_account_id, v_uid, v_support_role)
+  on conflict (account_id, user_id) do nothing;
+
+  v_token := gen_random_uuid()::text;
+
+  insert into public.account_invitations(
+    account_id,
+    email,
+    role,
+    token,
+    invited_by,
+    created_at,
+    updated_at
+  )
+  values (
+    v_new_account_id,
+    v_email,
+    'owner',
+    v_token,
+    v_uid,
+    v_now,
+    v_now
+  );
+
+  return jsonb_build_object(
+    'account_id', v_new_account_id,
+    'account_name', v_name,
+    'email', v_email,
+    'role', 'owner',
+    'token', v_token
+  );
+end;
+$$;
+
+drop function if exists public.root_list_accounts(uuid);
+create or replace function public.root_list_accounts(p_root_account_id uuid)
+returns table (
+  id uuid,
+  name text,
+  is_root boolean,
+  is_disabled boolean,
+  disabled_at timestamptz,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_member_role text;
+  v_is_root boolean := false;
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select lower(am.role::text)
+  into v_member_role
+  from public.account_members am
+  where am.account_id = p_root_account_id
+    and am.user_id = v_uid
+  limit 1;
+
+  if v_member_role is null then
+    raise exception 'Not a member of root account';
+  end if;
+
+  select coalesce(a.is_root, false)
+  into v_is_root
+  from public.accounts a
+  where a.id = p_root_account_id
+  limit 1;
+
+  if not v_is_root then
+    raise exception 'Account is not root';
+  end if;
+
+  return query
+  select
+    a.id,
+    a.name,
+    coalesce(a.is_root, false) as is_root,
+    coalesce(a.is_disabled, false) as is_disabled,
+    a.disabled_at,
+    a.created_at
+  from public.accounts a
+  order by a.created_at desc nulls last, a.id;
+end;
+$$;
+
+drop function if exists public.root_set_account_disabled(uuid, uuid, boolean);
+create or replace function public.root_set_account_disabled(
+  p_root_account_id uuid,
+  p_target_account_id uuid,
+  p_disabled boolean
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_member_role text;
+  v_is_root boolean := false;
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_target_account_id is null then
+    raise exception 'Missing target account';
+  end if;
+
+  select lower(am.role::text)
+  into v_member_role
+  from public.account_members am
+  where am.account_id = p_root_account_id
+    and am.user_id = v_uid
+  limit 1;
+
+  if v_member_role is null then
+    raise exception 'Not a member of root account';
+  end if;
+
+  select coalesce(a.is_root, false)
+  into v_is_root
+  from public.accounts a
+  where a.id = p_root_account_id
+  limit 1;
+
+  if not v_is_root then
+    raise exception 'Account is not root';
+  end if;
+
+  if p_target_account_id = p_root_account_id then
+    raise exception 'Cannot disable root account';
+  end if;
+
+  update public.accounts a
+  set
+    is_disabled = coalesce(p_disabled, false),
+    disabled_at = case when coalesce(p_disabled, false) then now() else null end
+  where a.id = p_target_account_id;
+
+  if not found then
+    raise exception 'Target account not found';
+  end if;
+
+  return jsonb_build_object(
+    'ok', true,
+    'account_id', p_target_account_id,
+    'is_disabled', coalesce(p_disabled, false)
+  );
+end;
+$$;
+
+drop function if exists public.root_delete_account(uuid, uuid);
+create or replace function public.root_delete_account(
+  p_root_account_id uuid,
+  p_target_account_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_member_role text;
+  v_is_root boolean := false;
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_target_account_id is null then
+    raise exception 'Missing target account';
+  end if;
+
+  select lower(am.role::text)
+  into v_member_role
+  from public.account_members am
+  where am.account_id = p_root_account_id
+    and am.user_id = v_uid
+  limit 1;
+
+  if v_member_role is null then
+    raise exception 'Not a member of root account';
+  end if;
+
+  select coalesce(a.is_root, false)
+  into v_is_root
+  from public.accounts a
+  where a.id = p_root_account_id
+  limit 1;
+
+  if not v_is_root then
+    raise exception 'Account is not root';
+  end if;
+
+  if p_target_account_id = p_root_account_id then
+    raise exception 'Cannot delete root account';
+  end if;
+
+  delete from public.accounts a
+  where a.id = p_target_account_id;
+
+  if not found then
+    raise exception 'Target account not found';
+  end if;
+
+  return jsonb_build_object(
+    'ok', true,
+    'account_id', p_target_account_id
+  );
+exception
+  when foreign_key_violation then
+    raise exception 'Cannot delete account with related data; disable it instead';
+end;
+$$;
+
 -- Invite acceptance: bind invite to signed-in user and membership for invite.account_id
 drop function if exists public.accept_account_invite(text);
 create or replace function public.accept_account_invite(invite_token text)
@@ -183,6 +761,8 @@ declare
   v_email text := lower(coalesce(auth.jwt()->>'email', ''));
   v_inv public.account_invitations%rowtype;
   v_role text;
+  v_has_admin boolean := false;
+  v_member_role public.account_members.role%type;
 begin
   if v_uid is null then
     raise exception 'Not authenticated';
@@ -211,12 +791,26 @@ begin
   end if;
 
   v_role := lower(coalesce(v_inv.role::text, 'staff'));
+  select exists (
+    select 1
+    from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    join pg_enum e on e.enumtypid = t.oid
+    where n.nspname = 'public'
+      and t.typname = 'account_role'
+      and e.enumlabel = 'admin'
+  )
+  into v_has_admin;
+  if v_role = 'admin' and not v_has_admin then
+    v_role := 'staff';
+  end if;
   if v_role not in ('owner', 'admin', 'staff', 'tenant', 'contractor') then
     v_role := 'staff';
   end if;
+  v_member_role := v_role;
 
   insert into public.account_members(account_id, user_id, role)
-  values (v_inv.account_id, v_uid, v_role)
+  values (v_inv.account_id, v_uid, v_member_role)
   on conflict (account_id, user_id) do update set role = excluded.role;
 
   update public.account_invitations
@@ -230,3 +824,8 @@ $$;
 
 grant execute on function public.accept_account_invite(text) to authenticated;
 grant execute on function public.can_invite_account_role(uuid, text) to authenticated;
+grant execute on function public.create_landlord_invitation(uuid, text, text) to authenticated;
+grant execute on function public.root_list_accounts(uuid) to authenticated;
+grant execute on function public.root_set_account_disabled(uuid, uuid, boolean) to authenticated;
+grant execute on function public.root_delete_account(uuid, uuid) to authenticated;
+grant execute on function public.check_account_invitation_eligibility(uuid, text, text) to authenticated;
