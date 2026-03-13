@@ -6,8 +6,8 @@ function isMissingRatingsTableError(err) {
   return (
     code === "42P01" ||
     code === "PGRST205" ||
-    msg.includes("could not find the table") ||
-    msg.includes("contractor_ratings")
+    msg.includes("could not find the table 'public.contractor_ratings'") ||
+    msg.includes("relation \"contractor_ratings\" does not exist")
   );
 }
 

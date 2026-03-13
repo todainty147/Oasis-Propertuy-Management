@@ -60,7 +60,11 @@ function formatMoney(val, currency = "PLN") {
 
 function isRatingsUnavailableError(err) {
   const msg = String(err?.message || "").toLowerCase();
-  return msg.includes("contractor_ratings") && (msg.includes("schema") || msg.includes("table"));
+  return (
+    msg.includes("could not find the table 'public.contractor_ratings'") ||
+    msg.includes('relation "contractor_ratings" does not exist') ||
+    msg.includes("missing contractor_ratings table")
+  );
 }
 
 function StatusPill({ status, labels }) {

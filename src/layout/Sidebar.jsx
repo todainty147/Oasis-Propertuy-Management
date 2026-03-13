@@ -9,6 +9,7 @@ import {
   X,
   Wrench,
   BarChart3,
+  LineChart,
 } from "lucide-react";
 
 import { useMemo } from "react";
@@ -181,6 +182,9 @@ function SidebarContent({ onNavigate }) {
               )}
               {canManage && (
                 <Item to="/maintenance-kpi" icon={BarChart3} label={t("sidebar.maintenanceKpi")} onNavigate={onNavigate} />
+              )}
+              {canManage && (
+                <Item to="/portfolio-health" icon={LineChart} label={t("sidebar.portfolioHealth")} onNavigate={onNavigate} />
               )}
 
               {/* Only managers see Najemcy */}

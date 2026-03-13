@@ -52,6 +52,7 @@ const TenantPayments = lazy(() => import("./pages/TenantPayments"));
 const WorkOrderDetails = lazy(() => import("./pages/WorkOrderDetails"));
 const MaintenanceInboxPage = lazy(() => import("./pages/MaintenanceInboxPage"));
 const MaintenanceKPIDashboardPage = lazy(() => import("./pages/MaintenanceKPIDashboardPage"));
+const PortfolioHealthDashboardPage = lazy(() => import("./pages/PortfolioHealthDashboardPage"));
 const FinancePage = lazy(() => import("./pages/FinancePage"));
 const AddPropertyModal = lazy(() => import("./components/AddPropertyModal"));
 const AddTenantModal = lazy(() => import("./components/AddTenantModal"));
@@ -480,6 +481,19 @@ export default function App() {
         />
         <Route path="maintenance-inbox" element={<MaintenanceInboxPage />} />
         <Route path="maintenance-kpi" element={<MaintenanceKPIDashboardPage />} />
+        <Route
+          path="portfolio-health"
+          element={
+            <PortfolioHealthDashboardPage
+              properties={ownerProperties}
+              payments={ownerPayments}
+              occupiedCount={occupiedCount}
+              vacantCount={vacantCount}
+              occupancyRate={occupancyRate}
+              longVacantProperties={longVacantProperties}
+            />
+          }
+        />
 
         {/* Optional: Keep FinancePage available but under a different path */}
         <Route path="finance-page" element={<FinancePage />} />

@@ -11,6 +11,9 @@ create table if not exists public.contractor_ratings (
   unique (work_order_id)
 );
 
+grant usage on schema public to authenticated;
+grant select, insert, update on table public.contractor_ratings to authenticated;
+
 create index if not exists contractor_ratings_account_idx on public.contractor_ratings(account_id);
 create index if not exists contractor_ratings_work_order_idx on public.contractor_ratings(work_order_id);
 

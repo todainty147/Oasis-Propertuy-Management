@@ -34,6 +34,10 @@ export const routesConfig = [
         path: "maintenance-kpi",
         handle: { titleKey: "sidebar.maintenanceKpi" },
       },
+      {
+        path: "portfolio-health",
+        handle: { titleKey: "sidebar.portfolioHealth" },
+      },
     ],
   },
 ];
