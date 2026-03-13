@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import Card from "../components/Card";
 import Skeleton from "../components/ui/Skeleton";
 import ContractorAttachmentsPanel from "../components/work-orders/ContractorAttachmentsPanel";
+import MaintenanceRequestAttachmentsPanel from "../components/maintenance/MaintenanceRequestAttachmentsPanel";
 import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
+import { createNotifications } from "../services/notificationService";
 
 function formatDateTime(ts) {
   if (!ts) return "—";
@@ -24,6 +26,16 @@ function toIsoOrNullFromLocalInput(v) {
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString();
+}
+
+function StatusPill({ status }) {
+  const s = String(status || "").toLowerCase();
+  const base = "text-xs px-2 py-0.5 rounded-full border";
+  if (s === "completed") return <span className={`${base} bg-green-50 border-green-200 text-green-700`}>Zakończone</span>;
+  if (s === "in_progress") return <span className={`${base} bg-blue-50 border-blue-200 text-blue-700`}>W trakcie</span>;
+  if (s === "cancelled") return <span className={`${base} bg-slate-50 border-slate-200 text-slate-600`}>Anulowane</span>;
+  if (s === "blocked") return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>Zablokowane</span>;
+  return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>Przypisane</span>;
 }
 
 export default function ContractorJobDetails() {
@@ -46,6 +58,61 @@ export default function ContractorJobDetails() {
   const [invoiceCurrency, setInvoiceCurrency] = useState("PLN");
   const [invoiceIssuedAt, setInvoiceIssuedAt] = useState("");
   const [invoiceDueAt, setInvoiceDueAt] = useState("");
+  const [allowedActions, setAllowedActions] = useState([]);
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineRows, setTimelineRows] = useState([]);
+  const [requestRow, setRequestRow] = useState(null);
+  const [propertyLabel, setPropertyLabel] = useState("");
+  const attachmentsRef = useRef(null);
+  const financialsRef = useRef(null);
+  const timelineRef = useRef(null);
+
+  async function getManagerRecipients() {
+    if (!activeAccountId) return [];
+    const { data: members, error } = await supabase
+      .from("account_members")
+      .select("user_id, role")
+      .eq("account_id", activeAccountId);
+    if (error) throw error;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const actorId = user?.id || null;
+    const blockedRoles = new Set(["tenant", "contractor"]);
+    return Array.from(
+      new Set(
+        (members || [])
+          .filter((m) => !blockedRoles.has(String(m?.role || "").toLowerCase()))
+          .map((m) => m.user_id)
+          .filter((uid) => uid && uid !== actorId)
+      )
+    );
+  }
+
+  async function notifyManagers({ type, title, body, metadata = {} }) {
+    if (!activeAccountId || !id) return;
+    try {
+      const recipients = await getManagerRecipients();
+      await createNotifications({
+        accountId: activeAccountId,
+        recipientUserIds: recipients,
+        type,
+        title,
+        body,
+        entityType: "work_order",
+        entityId: id,
+        linkPath: `/work-orders/${id}`,
+        metadata: {
+          work_order_id: id,
+          ...metadata,
+        },
+      });
+    } catch (notifyErr) {
+      console.warn("[notifications] work_order_financial notify failed", notifyErr);
+    }
+  }
 
   function syncFinInputs(f) {
     setQuoteAmount(f?.quote_amount != null ? String(f.quote_amount) : "");
@@ -74,7 +141,9 @@ export default function ContractorJobDetails() {
     try {
       const { data, error } = await supabase
         .from("work_orders")
-        .select("id, status, scheduled_at, notes, contractor_name, contractor_phone, created_at, updated_at")
+        .select(
+          "id, maintenance_request_id, property_id, status, scheduled_at, notes, contractor_name, contractor_phone, created_at, updated_at"
+        )
         .eq("id", id)
         .maybeSingle();
 
@@ -96,10 +165,83 @@ export default function ContractorJobDetails() {
       } else {
         setFin(null);
       }
+
+      let resolvedRequest = null;
+      let resolvedPropertyLabel = "";
+
+      if (data?.maintenance_request_id) {
+        const { data: req } = await supabase
+          .from("maintenance_requests")
+          .select("id, title, description, priority, property_id")
+          .eq("id", data.maintenance_request_id)
+          .maybeSingle();
+        resolvedRequest = req || null;
+        setRequestRow(resolvedRequest);
+
+        const propertyId = req?.property_id || data?.property_id;
+        if (propertyId) {
+          const { data: prop } = await supabase
+            .from("properties")
+            .select("id, address, city")
+            .eq("id", propertyId)
+            .maybeSingle();
+          if (prop) {
+            resolvedPropertyLabel = `${prop.address || "Nieruchomość"}${prop.city ? `, ${prop.city}` : ""}`;
+            setPropertyLabel(resolvedPropertyLabel);
+          } else {
+            setPropertyLabel("");
+          }
+        } else {
+          setPropertyLabel("");
+        }
+      } else {
+        setRequestRow(null);
+        setPropertyLabel("");
+      }
+
+      if ((!resolvedPropertyLabel || !resolvedRequest?.title) && data?.id) {
+        try {
+          const { data: cardRows, error: cardErr } = await supabase.rpc("contractor_work_order_cards", {
+            p_work_order_ids: [data.id],
+          });
+          if (!cardErr && Array.isArray(cardRows) && cardRows[0]) {
+            const c = cardRows[0];
+            if (!String(resolvedPropertyLabel || "").trim() && String(c.property_label || "").trim()) {
+              setPropertyLabel(String(c.property_label).trim());
+            }
+            setRequestRow((prev) => ({
+              ...(prev || {}),
+              id: prev?.id || data?.maintenance_request_id || null,
+              title: String(prev?.title || "").trim() || String(c.issue_title || "").trim() || prev?.title || "",
+              description:
+                String(prev?.description || "").trim() ||
+                String(c.issue_description || "").trim() ||
+                prev?.description ||
+                "",
+              priority:
+                String(prev?.priority || "").trim() ||
+                String(c.issue_priority || "").trim() ||
+                prev?.priority ||
+                "normal",
+            }));
+          }
+        } catch {
+          // Optional fallback RPC; ignore if not deployed yet.
+        }
+      }
+
+      const { data: acts, error: aErr } = await supabase.rpc("contractor_allowed_actions", {
+        p_work_order_id: id,
+      });
+      if (!aErr) setAllowedActions(Array.isArray(acts) ? acts : []);
+      else setAllowedActions([]);
     } catch (e) {
       console.error(e);
       setRow(null);
       setFin(null);
+      setAllowedActions([]);
+      setRequestRow(null);
+      setPropertyLabel("");
     } finally {
       setLoading(false);
     }
@@ -136,6 +278,13 @@ export default function ContractorJobDetails() {
 
       setFin(data ?? null);
       syncFinInputs(data ?? null);
+      await notifyManagers({
+        type: "work_order_quote_draft_saved",
+        title: "Wykonawca zapisał draft wyceny",
+        body: row?.contractor_name
+          ? `Wykonawca: ${row.contractor_name}`
+          : "Zapisano draft wyceny",
+      });
     } catch (e) {
       alert(e?.message ?? "Nie udało się zapisać draftu wyceny");
     } finally {
@@ -179,12 +328,62 @@ export default function ContractorJobDetails() {
 
       setFin(data ?? null);
       syncFinInputs(data ?? null);
+      await notifyManagers({
+        type: "work_order_invoice_saved",
+        title: "Wykonawca zapisał dane faktury",
+        body: row?.contractor_name
+          ? `Wykonawca: ${row.contractor_name}`
+          : "Zapisano dane faktury",
+      });
     } catch (e) {
       alert(e?.message ?? "Nie udało się zapisać faktury");
     } finally {
       setSaving(false);
     }
   }
+
+  async function setStatus(nextStatus) {
+    setSaving(true);
+    try {
+      const { error } = await supabase.rpc("contractor_update_work_order", {
+        p_work_order_id: id,
+        p_status: nextStatus,
+        p_notes: null,
+        p_scheduled_at: null,
+      });
+      if (error) throw error;
+      await loadAll();
+    } catch (e) {
+      alert(e?.message ?? "Nie udało się zmienić statusu zlecenia");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function loadTimeline() {
+    if (!id) return;
+    setTimelineLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("work_order_audit_log")
+        .select("id, action, old_value, new_value, created_at")
+        .eq("work_order_id", id)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      setTimelineRows(data || []);
+    } catch {
+      setTimelineRows([]);
+    } finally {
+      setTimelineLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!timelineOpen) return;
+    loadTimeline();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timelineOpen, id]);
 
   if (!isContractor) {
     return (
@@ -197,12 +396,17 @@ export default function ContractorJobDetails() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-24">
       <Card className="p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Szczegóły zlecenia</h2>
             <p className="text-xs text-slate-500 mt-1">ID: {id}</p>
+            {row ? (
+              <div className="mt-2 flex items-center gap-2">
+                <StatusPill status={row.status} />
+              </div>
+            ) : null}
           </div>
           <div className="flex gap-2">
             <button
@@ -234,7 +438,78 @@ export default function ContractorJobDetails() {
         </Card>
       ) : (
         <>
-          <Card className="p-6 space-y-2">
+          <Card className="p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-base font-semibold text-slate-900">Szybkie akcje</h3>
+              {requestRow?.priority ? (
+                <span
+                  className={`text-xs px-2 py-0.5 rounded border ${
+                    String(requestRow.priority).toLowerCase() === "critical"
+                      ? "bg-rose-100 border-rose-300 text-rose-700"
+                      : String(requestRow.priority).toLowerCase() === "high"
+                        ? "bg-orange-100 border-orange-300 text-orange-700"
+                        : "bg-slate-100 border-slate-200 text-slate-700"
+                  }`}
+                >
+                  Priorytet: {String(requestRow.priority).toLowerCase() === "critical"
+                    ? "krytyczny"
+                    : String(requestRow.priority).toLowerCase() === "high"
+                      ? "wysoki"
+                      : "normalny"}
+                </span>
+              ) : null}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {allowedActions.includes("in_progress") ? (
+                <button
+                  type="button"
+                  onClick={() => setStatus("in_progress")}
+                  disabled={saving}
+                  className={`min-h-[44px] px-3 py-2 rounded-lg text-sm text-white ${
+                    saving ? "bg-slate-400" : "bg-blue-600"
+                  }`}
+                >
+                  Rozpocznij
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => attachmentsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                className="min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-slate-50"
+              >
+                Dodaj zdjęcie
+              </button>
+              <button
+                type="button"
+                onClick={() => financialsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                className="min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-slate-50"
+              >
+                Dodaj wycenę
+              </button>
+              {allowedActions.includes("completed") ? (
+                <button
+                  type="button"
+                  onClick={() => setStatus("completed")}
+                  disabled={saving}
+                  className={`min-h-[44px] px-3 py-2 rounded-lg text-sm text-white ${
+                    saving ? "bg-slate-400" : "bg-green-600"
+                  }`}
+                >
+                  Zakończ pracę
+                </button>
+              ) : null}
+            </div>
+          </Card>
+
+          <Card className="p-4 space-y-2">
+            {requestRow?.title ? (
+              <div className="text-base font-semibold text-slate-900">{requestRow.title}</div>
+            ) : null}
+            {propertyLabel ? (
+              <div className="text-sm text-slate-700">
+                <span className="text-slate-500">Nieruchomość:</span> {propertyLabel}
+              </div>
+            ) : null}
             <div className="text-sm">
               <span className="text-slate-500">Status:</span>{" "}
               <span className="font-medium text-slate-900">{row.status}</span>
@@ -255,9 +530,15 @@ export default function ContractorJobDetails() {
               <span className="text-slate-500">Notatki (zlecenie):</span>{" "}
               <span className="text-slate-900">{row.notes || "—"}</span>
             </div>
+            {requestRow?.description ? (
+              <div className="text-sm">
+                <span className="text-slate-500">Opis problemu:</span>{" "}
+                <span className="text-slate-900">{requestRow.description}</span>
+              </div>
+            ) : null}
           </Card>
 
-          <Card className="p-6 space-y-4">
+          <Card ref={financialsRef} className="p-4 space-y-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-base font-semibold text-slate-900">Finanse</h3>
@@ -454,13 +735,110 @@ export default function ContractorJobDetails() {
             )}
           </Card>
 
-          <ContractorAttachmentsPanel
-            accountId={activeAccountId}
-            workOrderId={id}
-            canUpload={isContractor}
-          />
+          <div ref={attachmentsRef}>
+            <ContractorAttachmentsPanel
+              accountId={activeAccountId}
+              workOrderId={id}
+              canUpload={isContractor}
+            />
+          </div>
+
+          {row.maintenance_request_id ? (
+            <MaintenanceRequestAttachmentsPanel
+              accountId={activeAccountId}
+              maintenanceRequestId={row.maintenance_request_id}
+              canUpload={false}
+              allowDelete={false}
+            />
+          ) : null}
+
+          <Card ref={timelineRef} className="p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-900">Timeline</h3>
+              <button
+                type="button"
+                onClick={() => setTimelineOpen((v) => !v)}
+                className="px-3 py-1.5 text-xs rounded-lg border hover:bg-slate-50"
+              >
+                {timelineOpen ? "Ukryj" : "Pokaż"}
+              </button>
+            </div>
+            {timelineOpen ? (
+              timelineLoading ? (
+                <div className="mt-3 space-y-2">
+                  <Skeleton className="h-10" />
+                  <Skeleton className="h-10" />
+                </div>
+              ) : timelineRows.length === 0 ? (
+                <p className="mt-3 text-sm text-slate-500">Brak zdarzeń.</p>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {timelineRows.map((t) => (
+                    <div key={t.id} className="rounded-lg border border-slate-200 px-3 py-2">
+                      <p className="text-sm text-slate-900">{t.action || "update"}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{formatDateTime(t.created_at)}</p>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : (
+              <p className="mt-3 text-sm text-slate-500">Ukryte. Rozwiń, aby zobaczyć ostatnie zdarzenia.</p>
+            )}
+          </Card>
         </>
       )}
+
+      {!loading && row ? (
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 md:hidden">
+          <div className="max-w-5xl mx-auto px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex items-center gap-2 overflow-x-auto">
+            {allowedActions.includes("in_progress") ? (
+              <button
+                type="button"
+                onClick={() => setStatus("in_progress")}
+                disabled={saving}
+                className={`whitespace-nowrap min-h-[44px] px-3 py-2 rounded-lg text-sm text-white ${
+                  saving ? "bg-slate-400" : "bg-blue-600"
+                }`}
+              >
+                Rozpocznij
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => attachmentsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              className="whitespace-nowrap min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-slate-50"
+            >
+              Dodaj zdjęcie
+            </button>
+            <button
+              type="button"
+              onClick={() => financialsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              className="whitespace-nowrap min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-slate-50"
+            >
+              Dodaj wycenę
+            </button>
+            {allowedActions.includes("completed") ? (
+              <button
+                type="button"
+                onClick={() => setStatus("completed")}
+                disabled={saving}
+                className={`whitespace-nowrap min-h-[44px] px-3 py-2 rounded-lg text-sm text-white ${
+                  saving ? "bg-slate-400" : "bg-green-600"
+                }`}
+              >
+                Zakończ pracę
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => timelineRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              className="whitespace-nowrap min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-slate-50"
+            >
+              Timeline
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

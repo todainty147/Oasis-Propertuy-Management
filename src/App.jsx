@@ -1,13 +1,12 @@
 // src/App.jsx
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 
 import Login from "./pages/Login";
 import { useSession } from "./hooks/useSession";
 import { useProperties } from "./hooks/useProperties";
 import { usePayments } from "./hooks/usePayments";
 import { useTenants } from "./hooks/useTenants";
-import TenantPayments from "./pages/TenantPayments";
 
 
 import {
@@ -37,26 +36,25 @@ import {
 } from "./utils/finance";
 
 import AppLayout from "./layout/AppLayout";
-import Dashboard from "./pages/Dashboard";
-import Properties from "./pages/Properties";
-import Finance from "./pages/Finance";
-import Tenants from "./pages/Tenants";
-import PropertyDetails from "./pages/PropertyDetails";
-import TenantDetails from "./pages/TenantDetails";
-import Documents from "./pages/Documents";
-import ContractorPortal from "./pages/ContractorPortal";
-import ContractorJobDetails from "./pages/ContractorJobDetails";  
-import AddPropertyModal from "./components/AddPropertyModal";
-import AddTenantModal from "./components/AddTenantModal";
-import AddPaymentModal from "./components/AddPaymentModal";
-import WorkOrderDetails from "./pages/WorkOrderDetails";
-import MaintenanceInboxPage from "./pages/MaintenanceInboxPage";
-
-
-// NOTE: FinancePage route was duplicated/conflicting with "finance"
-import FinancePage from "./pages/FinancePage";
-
 import { useAccount } from "./context/AccountContext";
+
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Properties = lazy(() => import("./pages/Properties"));
+const Finance = lazy(() => import("./pages/Finance"));
+const Tenants = lazy(() => import("./pages/Tenants"));
+const PropertyDetails = lazy(() => import("./pages/PropertyDetails"));
+const TenantDetails = lazy(() => import("./pages/TenantDetails"));
+const Documents = lazy(() => import("./pages/Documents"));
+const ContractorPortal = lazy(() => import("./pages/ContractorPortal"));
+const ContractorJobDetails = lazy(() => import("./pages/ContractorJobDetails"));
+const TenantPayments = lazy(() => import("./pages/TenantPayments"));
+const WorkOrderDetails = lazy(() => import("./pages/WorkOrderDetails"));
+const MaintenanceInboxPage = lazy(() => import("./pages/MaintenanceInboxPage"));
+const MaintenanceKPIDashboardPage = lazy(() => import("./pages/MaintenanceKPIDashboardPage"));
+const FinancePage = lazy(() => import("./pages/FinancePage"));
+const AddPropertyModal = lazy(() => import("./components/AddPropertyModal"));
+const AddTenantModal = lazy(() => import("./components/AddTenantModal"));
+const AddPaymentModal = lazy(() => import("./components/AddPaymentModal"));
 
 export default function App() {
   /* ======================
@@ -269,16 +267,17 @@ export default function App() {
      ROUTES
      ====================== */
   return (
-    <Routes>
-      <Route
-        element={
-          <AppLayout
-            owners={owners}
-            activeOwnerId={activeAccountId}
-            setActiveOwnerId={() => {}}
-          />
-        }
-      >
+    <Suspense fallback={<div className="p-6">Ładowanie…</div>}>
+      <Routes>
+        <Route
+          element={
+            <AppLayout
+              owners={owners}
+              activeOwnerId={activeAccountId}
+              setActiveOwnerId={() => {}}
+            />
+          }
+        >
         {/* ✅ Absolute redirect avoids /dashboard/dashboard loops */}
         <Route index element={<Navigate to="/dashboard" replace />} />
 
@@ -478,6 +477,7 @@ export default function App() {
           element={<Documents tenants={tenants} properties={properties} />}
         />
         <Route path="maintenance-inbox" element={<MaintenanceInboxPage />} />
+        <Route path="maintenance-kpi" element={<MaintenanceKPIDashboardPage />} />
 
         {/* Optional: Keep FinancePage available but under a different path */}
         <Route path="finance-page" element={<FinancePage />} />
@@ -490,7 +490,8 @@ export default function App() {
 
         {/* ✅ Catch-all MUST be absolute to avoid /dashboard/dashboard loops */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Route>
-    </Routes>
+        </Route>
+      </Routes>
+    </Suspense>
   );
 }

@@ -1,5 +1,6 @@
 // src/services/maintenanceService.js
 import { supabase } from "../lib/supabase";
+import { createNotifications } from "./notificationService";
 
 function friendlyError(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -42,6 +43,42 @@ function assertWaitingReason(waitingReason) {
   }
 }
 
+async function getCurrentUserId() {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) return null;
+  return data?.user?.id || null;
+}
+
+async function getManagerUserIds(accountId, { excludeUserId } = {}) {
+  if (!accountId) return [];
+  const { data, error } = await supabase
+    .from("account_members")
+    .select("user_id, role")
+    .eq("account_id", accountId);
+  if (error) throw error;
+
+  const blockedRoles = new Set(["tenant", "contractor"]);
+  return Array.from(
+    new Set(
+      (data || [])
+        .filter((r) => !blockedRoles.has(String(r?.role || "").toLowerCase()))
+        .map((r) => r.user_id)
+        .filter((id) => id && id !== excludeUserId)
+    )
+  );
+}
+
+async function getTenantUserIdByTenantRowId(tenantRowId) {
+  if (!tenantRowId) return null;
+  const { data, error } = await supabase
+    .from("tenants")
+    .select("user_id")
+    .eq("id", tenantRowId)
+    .maybeSingle();
+  if (error) return null;
+  return data?.user_id || null;
+}
+
 /* ======================
    CREATE
    ====================== */
@@ -81,6 +118,28 @@ export async function createMaintenanceRequest({
     .single();
 
   if (error) throw friendlyError(error, "Nie udało się utworzyć zgłoszenia");
+
+  try {
+    const actorId = await getCurrentUserId();
+    const recipients = await getManagerUserIds(accountId, { excludeUserId: actorId });
+    await createNotifications({
+      accountId,
+      recipientUserIds: recipients,
+      type: "maintenance_request_created",
+      title: "Nowe zgłoszenie serwisowe",
+      body: data?.title ? `Zgłoszenie: ${data.title}` : "Utworzono nowe zgłoszenie",
+      entityType: "maintenance_request",
+      entityId: data?.id || null,
+      linkPath: "/maintenance-inbox",
+      metadata: {
+        maintenance_request_id: data?.id || null,
+        property_id: propertyId,
+      },
+    });
+  } catch (notifyErr) {
+    console.warn("[notifications] maintenance_request_created failed", notifyErr);
+  }
+
   return data;
 }
 
@@ -92,6 +151,13 @@ export async function createMaintenanceRequest({
 export async function updateMaintenanceRequest(id, patch = {}) {
   if (!id) throw new Error("Brak ID zgłoszenia");
   if (!patch || typeof patch !== "object") throw new Error("Nieprawidłowy patch");
+
+  const { data: beforeRow, error: beforeErr } = await supabase
+    .from("maintenance_requests")
+    .select("id, account_id, title, status, reported_by_tenant_id")
+    .eq("id", id)
+    .single();
+  if (beforeErr) throw friendlyError(beforeErr, "Nie udało się odczytać zgłoszenia");
 
   // ✅ Validate before send
   assertPriority(patch.priority);
@@ -121,6 +187,43 @@ export async function updateMaintenanceRequest(id, patch = {}) {
     .single();
 
   if (error) throw friendlyError(error, "Nie udało się zaktualizować zgłoszenia");
+
+  try {
+    const prev = String(beforeRow?.status || "").toLowerCase();
+    const next = String(data?.status || beforeRow?.status || "").toLowerCase();
+    const actorId = await getCurrentUserId();
+    const accountId = beforeRow?.account_id || data?.account_id;
+    if (accountId && prev !== next) {
+      const managerRecipients = await getManagerUserIds(accountId, { excludeUserId: actorId });
+      const tenantUserId = await getTenantUserIdByTenantRowId(beforeRow?.reported_by_tenant_id);
+      const tenantRecipients = tenantUserId && tenantUserId !== actorId ? [tenantUserId] : [];
+
+      const body = beforeRow?.title
+        ? `${beforeRow.title}: ${prev || "—"} → ${next || "—"}`
+        : `Status: ${prev || "—"} → ${next || "—"}`;
+
+      if (next === "in_progress" || next === "waiting" || next === "resolved" || next === "closed") {
+        await createNotifications({
+          accountId,
+          recipientUserIds: Array.from(new Set([...managerRecipients, ...tenantRecipients])),
+          type: "maintenance_status_changed",
+          title: "Zmiana statusu zgłoszenia",
+          body,
+          entityType: "maintenance_request",
+          entityId: id,
+          linkPath: "/maintenance-inbox",
+          metadata: {
+            maintenance_request_id: id,
+            from_status: prev,
+            to_status: next,
+          },
+        });
+      }
+    }
+  } catch (notifyErr) {
+    console.warn("[notifications] maintenance_status_changed failed", notifyErr);
+  }
+
   return data;
 }
 

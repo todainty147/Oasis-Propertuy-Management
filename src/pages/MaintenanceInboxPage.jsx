@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
@@ -23,6 +24,7 @@ function timestampForNote() {
 export default function MaintenanceInboxPage() {
   const { setTitle } = usePageTitle();
   const { activeAccountId, activeRole } = useAccount();
+  const [searchParams] = useSearchParams();
 
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
   const canManage = useMemo(() => ["owner", "admin", "staff"].includes(role), [role]);
@@ -41,7 +43,7 @@ export default function MaintenanceInboxPage() {
     resolved: 0,
     closed: 0,
   });
-  const [workOrderByRequestId, setWorkOrderByRequestId] = useState({});
+  const [workOrdersByRequestId, setWorkOrdersByRequestId] = useState({});
   const [propertyLabelById, setPropertyLabelById] = useState({});
   const [contractors, setContractors] = useState([]);
 
@@ -56,11 +58,22 @@ export default function MaintenanceInboxPage() {
   const [waitingRequest, setWaitingRequest] = useState(null);
   const [waitingReason, setWaitingReason] = useState("");
   const [waitingSaving, setWaitingSaving] = useState(false);
+
+  const statusFilter = useMemo(() => {
+    const s = String(searchParams.get("status") || "").toLowerCase();
+    return STATUS_ORDER.includes(s) ? s : "";
+  }, [searchParams]);
+
+  const visibleStatuses = useMemo(() => {
+    if (!statusFilter) return STATUS_ORDER;
+    return [statusFilter];
+  }, [statusFilter]);
+
   const totalPages = useMemo(() => {
-    const pages = STATUS_ORDER.map((s) => Math.ceil((statusTotals[s] || 0) / (pageSize || 1)));
+    const pages = visibleStatuses.map((s) => Math.ceil((statusTotals[s] || 0) / (pageSize || 1)));
     const maxPages = Math.max(1, ...pages);
     return maxPages;
-  }, [statusTotals, pageSize]);
+  }, [statusTotals, pageSize, visibleStatuses]);
 
   useEffect(() => {
     setTitle("Maintenance Inbox");
@@ -119,7 +132,7 @@ export default function MaintenanceInboxPage() {
 
       const requestIds = rows.map((r) => r.id).filter(Boolean);
       if (requestIds.length === 0) {
-        setWorkOrderByRequestId({});
+        setWorkOrdersByRequestId({});
         return;
       }
 
@@ -135,10 +148,11 @@ export default function MaintenanceInboxPage() {
       const woMap = {};
       for (const wo of woRows ?? []) {
         const k = wo.maintenance_request_id;
-        if (!k || woMap[k]) continue;
-        woMap[k] = wo;
+        if (!k) continue;
+        if (!woMap[k]) woMap[k] = [];
+        woMap[k].push(wo);
       }
-      setWorkOrderByRequestId(woMap);
+      setWorkOrdersByRequestId(woMap);
     } catch (e) {
       setError(e?.message || "Nie udało się wczytać Maintenance Inbox.");
       setRequests([]);
@@ -150,7 +164,7 @@ export default function MaintenanceInboxPage() {
         resolved: 0,
         closed: 0,
       });
-      setWorkOrderByRequestId({});
+      setWorkOrdersByRequestId({});
       setPropertyLabelById({});
     } finally {
       setLoading(false);
@@ -171,11 +185,15 @@ export default function MaintenanceInboxPage() {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
-  async function handleCloseRequest(request, linkedWorkOrder = null) {
+  async function handleCloseRequest(request, linkedWorkOrders = []) {
     if (!canManage || !request?.id) return;
 
-    if (linkedWorkOrder && String(linkedWorkOrder.status || "").toLowerCase() !== "completed") {
-      alert("Work order must be completed before closing.");
+    const finalStatuses = new Set(["completed", "cancelled"]);
+    const hasOpenWorkOrders = (linkedWorkOrders || []).some(
+      (wo) => !finalStatuses.has(String(wo?.status || "").toLowerCase())
+    );
+    if (hasOpenWorkOrders) {
+      alert("All linked work orders must be completed or cancelled before closing.");
       return;
     }
 
@@ -383,14 +401,14 @@ export default function MaintenanceInboxPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-3">
-          {STATUS_ORDER.map((status) => (
+          {visibleStatuses.map((status) => (
             <MaintenanceColumn
               key={status}
               accountId={activeAccountId}
               status={status}
               items={pagedGrouped[status] || []}
               totalForStatus={statusTotals[status] || 0}
-              workOrderByRequestId={workOrderByRequestId}
+              workOrdersByRequestId={workOrdersByRequestId}
               propertyLabelById={propertyLabelById}
               canManage={canManage}
               busyRequestId={busyRequestId}

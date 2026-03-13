@@ -25,11 +25,44 @@ function StatusPill({ status }) {
   return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>{status || "assigned"}</span>;
 }
 
+function statusAccentClass(status) {
+  const s = String(status ?? "").toLowerCase();
+  if (s === "completed") return "border-l-green-500";
+  if (s === "in_progress") return "border-l-blue-500";
+  if (s === "cancelled") return "border-l-slate-400";
+  if (s === "blocked") return "border-l-amber-500";
+  return "border-l-indigo-500";
+}
+
 function formatDateTime(ts) {
   if (!ts) return "—";
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleString();
+}
+
+function PriorityPill({ priority }) {
+  const p = String(priority || "normal").toLowerCase();
+  const base = "text-[11px] px-2 py-0.5 rounded border";
+  if (p === "critical") return <span className={`${base} bg-rose-100 border-rose-300 text-rose-700`}>Krytyczny</span>;
+  if (p === "high") return <span className={`${base} bg-orange-100 border-orange-300 text-orange-700`}>Wysoki</span>;
+  return <span className={`${base} bg-slate-100 border-slate-200 text-slate-700`}>Normalny</span>;
+}
+
+function shortText(v, max = 120) {
+  const txt = String(v || "").trim();
+  if (!txt) return "";
+  if (txt.length <= max) return txt;
+  return `${txt.slice(0, max - 1)}…`;
+}
+
+function deriveJobTitle(wo) {
+  const t = String(wo?.issueTitle || "").trim();
+  if (t) return t;
+  const fromNotes = String(wo?.issueDescription || wo?.notes || "").trim();
+  if (!fromNotes) return "Zlecenie serwisowe";
+  const firstLine = fromNotes.split("\n").find((x) => String(x || "").trim());
+  return shortText(firstLine || fromNotes, 56);
 }
 
 /* -----------------------------
@@ -48,6 +81,7 @@ export default function ContractorPortal() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
   const [allowedById, setAllowedById] = useState({});
+  const [statusFilter, setStatusFilter] = useState("all");
 
   useEffect(() => {
     setTitle("Portal wykonawcy");
@@ -56,29 +90,124 @@ export default function ContractorPortal() {
   async function load() {
     setLoading(true);
     try {
-      // Requires: contractor_select_own_work_orders (or equivalent)
-      const { data, error } = await supabase
-        .from("work_orders")
-        .select(
-          `
-          id,
-          account_id,
-          property_id,
-          contractor_user_id,
-          contractor_name,
-          contractor_phone,
-          status,
-          scheduled_at,
-          notes,
-          created_at,
-          updated_at
-        `
-        )
+      // Prefer richer view first (may include related data depending on RLS/view grants)
+      let list = [];
+      const baseSelect = `
+        id,
+        account_id,
+        property_id,
+        maintenance_request_id,
+        contractor_user_id,
+        contractor_name,
+        contractor_phone,
+        status,
+        scheduled_at,
+        notes,
+        created_at,
+        updated_at,
+        maintenance_requests:maintenance_request_id ( id, title, description, priority ),
+        properties:property_id ( id, address, city )
+      `;
+
+      const { data: fromView, error: fromViewErr } = await supabase
+        .from("work_orders_with_flags")
+        .select(baseSelect)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      const list = data ?? [];
-      setRows(list);
+      if (fromViewErr) {
+        const { data: fallbackRows, error: fallbackErr } = await supabase
+          .from("work_orders")
+          .select(
+            `
+            id,
+            account_id,
+            property_id,
+            maintenance_request_id,
+            contractor_user_id,
+            contractor_name,
+            contractor_phone,
+            status,
+            scheduled_at,
+            notes,
+            created_at,
+            updated_at
+          `
+          )
+          .order("created_at", { ascending: false });
+        if (fallbackErr) throw fallbackErr;
+        list = fallbackRows ?? [];
+      } else {
+        list = fromView ?? [];
+      }
+
+      const requestIds = list.map((x) => x.maintenance_request_id).filter(Boolean);
+      const propertyIds = list.map((x) => x.property_id).filter(Boolean);
+
+      let reqById = {};
+      let propById = {};
+
+      if (requestIds.length > 0) {
+        const { data: reqRows } = await supabase
+          .from("maintenance_requests")
+          .select("id, property_id, title, description, priority")
+          .in("id", requestIds);
+        reqById = Object.fromEntries((reqRows || []).map((r) => [r.id, r]));
+      }
+
+      if (propertyIds.length > 0) {
+        const { data: propRows } = await supabase
+          .from("properties")
+          .select("id, address, city")
+          .in("id", propertyIds);
+        propById = Object.fromEntries((propRows || []).map((p) => [p.id, p]));
+      }
+
+      const hydrated = list.map((wo) => {
+        const req = wo.maintenance_requests || reqById[wo.maintenance_request_id] || null;
+        const prop = wo.properties || propById[wo.property_id] || null;
+        return {
+          ...wo,
+          issueTitle: req?.title || "",
+          issueDescription: req?.description || "",
+          issuePriority: req?.priority || "normal",
+          propertyLabel: prop ? `${prop.address || "Nieruchomość"}${prop.city ? `, ${prop.city}` : ""}` : "Nieruchomość",
+        };
+      });
+
+      let merged = hydrated;
+      const missing = hydrated.some(
+        (x) =>
+          !String(x.propertyLabel || "").trim() ||
+          String(x.propertyLabel || "").trim().toLowerCase() === "nieruchomość" ||
+          !String(x.issueTitle || "").trim()
+      );
+
+      if (missing) {
+        try {
+          const { data: cardRows, error: cardErr } = await supabase.rpc("contractor_work_order_cards", {
+            p_work_order_ids: hydrated.map((x) => x.id).filter(Boolean),
+          });
+          if (!cardErr && Array.isArray(cardRows)) {
+            const byId = Object.fromEntries(cardRows.map((r) => [r.work_order_id, r]));
+            merged = hydrated.map((wo) => {
+              const extra = byId[wo.id];
+              if (!extra) return wo;
+              return {
+                ...wo,
+                issueTitle: String(extra.issue_title || "").trim() || wo.issueTitle,
+                issueDescription:
+                  String(extra.issue_description || "").trim() || wo.issueDescription,
+                issuePriority: String(extra.issue_priority || "").trim() || wo.issuePriority,
+                propertyLabel: String(extra.property_label || "").trim() || wo.propertyLabel,
+              };
+            });
+          }
+        } catch {
+          // Optional fallback RPC; ignore when not deployed yet.
+        }
+      }
+
+      setRows(merged);
 
       // Optional: allowed actions per row
       const ids = list.map((x) => x.id).filter(Boolean);
@@ -159,6 +288,28 @@ export default function ContractorPortal() {
             Odśwież
           </button>
         </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {[
+            { key: "all", label: "Wszystkie" },
+            { key: "assigned", label: "Przypisane" },
+            { key: "in_progress", label: "W trakcie" },
+            { key: "completed", label: "Zakończone" },
+          ].map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setStatusFilter(f.key)}
+              className={`px-3 py-1.5 text-xs rounded-full border ${
+                statusFilter === f.key
+                  ? "bg-slate-900 text-white border-slate-900"
+                  : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
       </Card>
 
       {loading ? (
@@ -167,20 +318,23 @@ export default function ContractorPortal() {
           <Skeleton className="h-14" />
           <Skeleton className="h-14" />
         </div>
-      ) : rows.length === 0 ? (
+      ) : rows.filter((wo) => statusFilter === "all" || String(wo.status || "").toLowerCase() === statusFilter).length === 0 ? (
         <Card className="p-6">
           <p className="text-sm text-slate-600">Brak przypisanych zleceń.</p>
         </Card>
       ) : (
-        <div className="divide-y border rounded-lg bg-white">
-          {rows.map((wo) => {
+        <div className="space-y-3">
+          {rows
+            .filter((wo) => statusFilter === "all" || String(wo.status || "").toLowerCase() === statusFilter)
+            .map((wo) => {
             const isBusy = savingId === wo.id;
             const allowed = allowedById[wo.id] ?? [];
+            const accent = statusAccentClass(wo.status);
 
             return (
               <div
                 key={wo.id}
-                className="p-4 flex items-start justify-between gap-4 hover:bg-slate-50 cursor-pointer"
+                className={`p-4 border rounded-xl border-l-4 ${accent} bg-white hover:bg-slate-50 cursor-pointer`}
                 role="button"
                 tabIndex={0}
                 onClick={() => openDetails(wo.id)}
@@ -190,42 +344,33 @@ export default function ContractorPortal() {
                 }}
               >
                 <div className="min-w-0" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <StatusPill status={wo.status} />
-                    <span className="text-sm font-medium text-slate-900">
-                      {wo.contractor_name || "Zlecenie"}
-                    </span>
-                    {wo.contractor_phone && (
-                      <span className="text-xs text-slate-500">{wo.contractor_phone}</span>
-                    )}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900 truncate">
+                        {deriveJobTitle(wo)}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-700 font-medium truncate">
+                        {wo.propertyLabel || "Nieruchomość"}
+                      </p>
+                    </div>
+                    <div className="shrink-0 flex flex-col items-end gap-1">
+                      <StatusPill status={wo.status} />
+                      <PriorityPill priority={wo.issuePriority} />
+                    </div>
                   </div>
 
+                  {wo.contractor_phone && (
+                    <div className="mt-2 text-xs text-slate-500">Tel: {wo.contractor_phone}</div>
+                  )}
                   <div className="mt-2 text-xs text-slate-500">
                     Termin: {formatDateTime(wo.scheduled_at)} • Utworzono: {formatDateTime(wo.created_at)}
                   </div>
 
-                  <div className="mt-3">
-                    <label className="text-xs text-slate-500">Notatki wykonawcy</label>
-                    <textarea
-                      defaultValue={wo.notes || ""}
-                      disabled={isBusy}
-                      onBlur={(e) => {
-                        const next = e.target.value;
-                        if ((wo.notes || "") !== next) updateWorkOrder(wo.id, { notes: next });
-                      }}
-                      className="w-full border rounded-lg px-3 py-2 text-sm min-h-[90px] disabled:bg-slate-50"
-                      placeholder="Dodaj notatkę (zapis po wyjściu z pola)"
-                    />
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      Zapis: automatycznie po kliknięciu poza polem.
-                    </p>
+                  <div className="mt-3 text-sm text-slate-700 line-clamp-2">
+                    {shortText(wo.issueDescription || wo.notes, 160) || "Brak opisu problemu."}
                   </div>
-                </div>
 
-                <div className="shrink-0 flex flex-col items-end gap-2">
-                  <div className="text-xs text-slate-500">Akcje</div>
-
-                  <div className="flex flex-col gap-2 items-end">
+                  <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                     {allowed.includes("in_progress") && (
                       <button
                         type="button"
@@ -234,8 +379,10 @@ export default function ContractorPortal() {
                           e.stopPropagation();
                           updateWorkOrder(wo.id, { status: "in_progress" });
                         }}
-                        className={`text-sm hover:underline ${
-                          isBusy ? "text-slate-400 cursor-not-allowed" : "text-blue-600"
+                        className={`min-h-[42px] px-3 rounded-lg text-sm border ${
+                          isBusy
+                            ? "text-slate-400 border-slate-200 cursor-not-allowed"
+                            : "text-blue-700 border-blue-200 hover:bg-blue-50"
                         }`}
                       >
                         W trakcie
@@ -250,8 +397,10 @@ export default function ContractorPortal() {
                           e.stopPropagation();
                           updateWorkOrder(wo.id, { status: "blocked" });
                         }}
-                        className={`text-sm hover:underline ${
-                          isBusy ? "text-slate-400 cursor-not-allowed" : "text-amber-700"
+                        className={`min-h-[42px] px-3 rounded-lg text-sm border ${
+                          isBusy
+                            ? "text-slate-400 border-slate-200 cursor-not-allowed"
+                            : "text-amber-700 border-amber-200 hover:bg-amber-50"
                         }`}
                       >
                         Zablokowane
@@ -266,8 +415,10 @@ export default function ContractorPortal() {
                           e.stopPropagation();
                           updateWorkOrder(wo.id, { status: "completed" });
                         }}
-                        className={`text-sm hover:underline ${
-                          isBusy ? "text-slate-400 cursor-not-allowed" : "text-green-700"
+                        className={`min-h-[42px] px-3 rounded-lg text-sm border ${
+                          isBusy
+                            ? "text-slate-400 border-slate-200 cursor-not-allowed"
+                            : "text-green-700 border-green-200 hover:bg-green-50"
                         }`}
                       >
                         Zakończ
@@ -282,8 +433,10 @@ export default function ContractorPortal() {
                           e.stopPropagation();
                           updateWorkOrder(wo.id, { status: "cancelled" });
                         }}
-                        className={`text-sm hover:underline ${
-                          isBusy ? "text-slate-400 cursor-not-allowed" : "text-slate-600"
+                        className={`min-h-[42px] px-3 rounded-lg text-sm border ${
+                          isBusy
+                            ? "text-slate-400 border-slate-200 cursor-not-allowed"
+                            : "text-slate-700 border-slate-300 hover:bg-slate-50"
                         }`}
                       >
                         Anuluj
@@ -296,9 +449,9 @@ export default function ContractorPortal() {
                         e.stopPropagation();
                         openDetails(wo.id);
                       }}
-                      className="text-sm text-slate-900 hover:underline"
+                      className="col-span-2 min-h-[44px] text-sm px-3 rounded-lg border border-slate-900 bg-slate-900 text-white hover:bg-slate-800 sm:col-span-1 sm:bg-white sm:text-slate-900 sm:hover:bg-slate-50"
                     >
-                      Szczegóły →
+                      Otwórz
                     </button>
 
                     {allowed.length === 0 && (

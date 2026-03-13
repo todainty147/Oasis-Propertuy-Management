@@ -30,6 +30,10 @@ export const routesConfig = [
         path: "maintenance-inbox",
         handle: { title: "Maintenance Inbox" },
       },
+      {
+        path: "maintenance-kpi",
+        handle: { title: "Maintenance KPI" },
+      },
     ],
   },
 ];

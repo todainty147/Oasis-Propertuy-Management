@@ -1,6 +1,9 @@
-export default function Card({ children, className = "" }) {
+import { forwardRef } from "react";
+
+const Card = forwardRef(function Card({ children, className = "" }, ref) {
   return (
     <div
+      ref={ref}
       className={`
         bg-white rounded-xl border border-slate-200 shadow-sm
         transition-transform transition-shadow duration-200
@@ -12,4 +15,6 @@ export default function Card({ children, className = "" }) {
       {children}
     </div>
   );
-}
+});
+
+export default Card;

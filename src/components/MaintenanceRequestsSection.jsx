@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
+import MaintenanceRequestAttachmentsPanel from "./maintenance/MaintenanceRequestAttachmentsPanel";
 import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
 import { createMaintenanceRequest, updateMaintenanceRequest } from "../services/maintenanceService";
@@ -355,9 +356,27 @@ export default function MaintenanceRequestsSection({ propertyId }) {
 
     try {
       setCreating(true);
+      let reportedByTenantId = null;
+      if (isTenant) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user?.id) {
+          const { data: tenantRow } = await supabase
+            .from("tenants")
+            .select("id")
+            .eq("account_id", activeAccountId)
+            .eq("property_id", propertyId)
+            .eq("user_id", user.id)
+            .maybeSingle();
+          reportedByTenantId = tenantRow?.id || null;
+        }
+      }
+
       await createMaintenanceRequest({
         accountId: activeAccountId,
         propertyId,
+        reportedByTenantId,
         title,
         description,
         priority,
@@ -727,7 +746,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
 
                 <div className="flex flex-col items-end gap-2 shrink-0">
                   {/* ✅ Option A: modal is primary (keeps full functionality) */}
-                  {canManage && linked.length === 0 && (
+                  {canManage && (
                     <div className="flex flex-col items-end gap-1">
                       <button
                         type="button"
@@ -850,7 +869,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
               )}
 
               {/* ✅ Option A: modal primary + deep-link secondary */}
-              {canManage && selectedReqWorkOrders.length === 0 && (
+              {canManage && (
                 <div className="mt-3 flex justify-end gap-2">
                   <button
                     type="button"
@@ -869,6 +888,14 @@ export default function MaintenanceRequestsSection({ propertyId }) {
                 </div>
               )}
             </div>
+
+            <MaintenanceRequestAttachmentsPanel
+              accountId={activeAccountId}
+              maintenanceRequestId={selectedReq.id}
+              canUpload={isTenant}
+              allowDelete={isTenant}
+              requestStatus={selectedReq.status}
+            />
           </div>
         )}
       </Modal>

@@ -15,7 +15,7 @@ export default function MaintenanceColumn({
   status,
   items = [],
   totalForStatus = 0,
-  workOrderByRequestId = {},
+  workOrdersByRequestId = {},
   propertyLabelById = {},
   canManage = false,
   busyRequestId = "",
@@ -45,7 +45,7 @@ export default function MaintenanceColumn({
               <MaintenanceRequestCard
                 accountId={accountId}
                 request={request}
-                linkedWorkOrder={workOrderByRequestId[request.id] || null}
+                linkedWorkOrders={workOrdersByRequestId[request.id] || []}
                 propertyLabel={propertyLabelById[request.property_id] || ""}
                 busy={busyRequestId === request.id}
                 canManage={canManage}

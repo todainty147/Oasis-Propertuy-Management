@@ -8,6 +8,7 @@ import {
   FileText,
   X,
   Wrench,
+  BarChart3,
 } from "lucide-react";
 
 import { useMemo } from "react";
@@ -159,6 +160,9 @@ function SidebarContent({ onNavigate }) {
               <Item to="/properties" icon={Home} label="Nieruchomości" onNavigate={onNavigate} />
               {canManage && (
                 <Item to="/maintenance-inbox" icon={Wrench} label="Maintenance Inbox" onNavigate={onNavigate} />
+              )}
+              {canManage && (
+                <Item to="/maintenance-kpi" icon={BarChart3} label="Maintenance KPI" onNavigate={onNavigate} />
               )}
 
               {/* Only managers see Najemcy */}

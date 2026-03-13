@@ -1,6 +1,6 @@
-import { Link } from "react-router-dom";
 import { useState } from "react";
 import MaintenanceTimeline from "./MaintenanceTimeline";
+import MaintenanceRequestWorkOrders from "./MaintenanceRequestWorkOrders";
 
 function statusLabel(status) {
   const s = String(status ?? "").toLowerCase();
@@ -67,7 +67,7 @@ function formatAge(createdAt) {
 export default function MaintenanceRequestCard({
   accountId,
   request,
-  linkedWorkOrder,
+  linkedWorkOrders = [],
   propertyLabel = "",
   busy = false,
   canManage = false,
@@ -77,15 +77,15 @@ export default function MaintenanceRequestCard({
   onSetWaitingReason,
 }) {
   const [timelineOpen, setTimelineOpen] = useState(false);
-  const hasAssignedContractor = Boolean(
-    linkedWorkOrder?.contractor_user_id ||
-      linkedWorkOrder?.contractor_name ||
-      linkedWorkOrder?.contractor_phone
+  const primaryWorkOrder = linkedWorkOrders[0] || null;
+  const finalStatuses = new Set(["completed", "cancelled"]);
+  const hasOpenWorkOrders = linkedWorkOrders.some(
+    (wo) => !finalStatuses.has(String(wo?.status || "").toLowerCase())
   );
-  const workOrderNotCompleted = Boolean(
-    linkedWorkOrder &&
-      String(linkedWorkOrder.status || "").toLowerCase() !== "completed"
-  );
+  const closedWorkOrdersCount = linkedWorkOrders.filter((wo) =>
+    finalStatuses.has(String(wo?.status || "").toLowerCase())
+  ).length;
+  const openWorkOrdersCount = linkedWorkOrders.length - closedWorkOrdersCount;
   const waitingCtx =
     String(request.status || "").toLowerCase() === "waiting"
       ? waitingReasonLabel(request.waiting_reason)
@@ -117,52 +117,40 @@ export default function MaintenanceRequestCard({
           Status: {statusLabel(request.status)}
           {waitingCtx ? ` — ${waitingCtx}` : ""}
         </span>
-        {linkedWorkOrder ? (
-          <span className="px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700">
-            Zlecenie: {String(linkedWorkOrder.status || "assigned").replaceAll("_", " ")}
-          </span>
+        {linkedWorkOrders.length > 0 ? (
+          linkedWorkOrders.length === 1 ? (
+            <span className="px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700">
+              Zlecenie: {String(primaryWorkOrder?.status || "assigned").replaceAll("_", " ")}
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700">
+              Zlecenia: {linkedWorkOrders.length} ({closedWorkOrdersCount} zakończone, {openWorkOrdersCount} otwarte)
+            </span>
+          )
         ) : (
-          <span className="px-2 py-0.5 rounded border border-slate-200 bg-slate-50">Brak zlecenia</span>
+          <span className="px-2 py-0.5 rounded border border-slate-200 bg-slate-50">Brak zleceń</span>
         )}
       </div>
 
+      <MaintenanceRequestWorkOrders
+        workOrders={linkedWorkOrders}
+        canManage={canManage}
+        busy={busy}
+        onCreateWorkOrder={() => onCreateWorkOrder(request)}
+      />
+
       {canManage && (
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          {!linkedWorkOrder && (
-            <button
-              type="button"
-              onClick={() => onCreateWorkOrder(request)}
-              disabled={busy}
-              className="px-2.5 py-1.5 text-xs rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 disabled:opacity-50"
-            >
-              Utwórz zlecenie
-            </button>
-          )}
-
-          {linkedWorkOrder && !hasAssignedContractor ? (
-            <Link
-              to={`/work-orders/${linkedWorkOrder.id}`}
-              className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
-            >
-              Przypisz wykonawcę
-            </Link>
-          ) : null}
-
-          {linkedWorkOrder && hasAssignedContractor ? (
-            <Link
-              to={`/work-orders/${linkedWorkOrder.id}`}
-              className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
-            >
-              Zobacz zlecenie
-            </Link>
-          ) : null}
-
           {String(request.status || "").toLowerCase() !== "closed" && (
             <button
               type="button"
-              onClick={() => onCloseRequest(request, linkedWorkOrder || null)}
-              disabled={busy || workOrderNotCompleted}
-              title={workOrderNotCompleted ? "Najpierw zakończ zlecenie (status completed)." : ""}
+              onClick={() => onCloseRequest(request, linkedWorkOrders)}
+              disabled={busy || hasOpenWorkOrders}
+              title={
+                hasOpenWorkOrders
+                  ? "Nie można zamknąć zgłoszenia, dopóki powiązane zlecenia nie są zakończone lub anulowane."
+                  : ""
+              }
               className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
             >
               Zamknij
@@ -201,11 +189,17 @@ export default function MaintenanceRequestCard({
         </div>
       )}
 
+      {canManage && String(request.status || "").toLowerCase() !== "closed" && hasOpenWorkOrders ? (
+        <p className="text-[11px] text-amber-700">
+          Nie można zamknąć zgłoszenia, dopóki powiązane zlecenia nie są zakończone lub anulowane.
+        </p>
+      ) : null}
+
       {timelineOpen && (
         <MaintenanceTimeline
           accountId={accountId}
           request={request}
-          linkedWorkOrder={linkedWorkOrder}
+          linkedWorkOrders={linkedWorkOrders}
         />
       )}
     </div>
