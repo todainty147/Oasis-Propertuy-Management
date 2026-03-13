@@ -38,6 +38,10 @@ export const routesConfig = [
         path: "portfolio-health",
         handle: { titleKey: "sidebar.portfolioHealth" },
       },
+      {
+        path: "invitations",
+        handle: { titleKey: "sidebar.invitations" },
+      },
     ],
   },
 ];

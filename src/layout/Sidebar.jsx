@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Home,
   Users,
+  UserPlus,
   Wallet,
   FileText,
   X,
@@ -185,6 +186,9 @@ function SidebarContent({ onNavigate }) {
               )}
               {canManage && (
                 <Item to="/portfolio-health" icon={LineChart} label={t("sidebar.portfolioHealth")} onNavigate={onNavigate} />
+              )}
+              {canManage && (
+                <Item to="/invitations" icon={UserPlus} label={t("sidebar.invitations")} onNavigate={onNavigate} />
               )}
 
               {/* Only managers see Najemcy */}

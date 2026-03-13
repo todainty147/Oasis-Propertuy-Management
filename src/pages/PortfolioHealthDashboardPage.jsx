@@ -7,6 +7,11 @@ import { useTenant } from "../context/TenantContext";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useI18n } from "../context/I18nContext";
 import { supabase } from "../lib/supabase";
+import {
+  getAccountReportSettings,
+  sendWeeklySummaryNow,
+  upsertAccountReportSettings,
+} from "../services/reportingService";
 
 function normalizePaymentStatus(status) {
   const s = String(status || "").toLowerCase();
@@ -177,6 +182,9 @@ export default function PortfolioHealthDashboardPage({
   const [error, setError] = useState("");
   const [reqRows, setReqRows] = useState([]);
   const [woRows, setWoRows] = useState([]);
+  const [reporting, setReporting] = useState(null);
+  const [reportSaving, setReportSaving] = useState(false);
+  const [reportSending, setReportSending] = useState(false);
 
   useEffect(() => {
     setTitle(t("portfolio.pageTitle"));
@@ -223,6 +231,65 @@ export default function PortfolioHealthDashboardPage({
       dead = true;
     };
   }, [activeAccountId, canManage, t]);
+
+  useEffect(() => {
+    if (!activeAccountId || !canManage) return;
+    let dead = false;
+    async function loadSettings() {
+      try {
+        const row = await getAccountReportSettings(activeAccountId);
+        if (!dead) setReporting(row);
+      } catch {
+        if (!dead) setReporting(null);
+      }
+    }
+    loadSettings();
+    return () => {
+      dead = true;
+    };
+  }, [activeAccountId, canManage]);
+
+  async function saveReporting(nextPatch = {}) {
+    if (!activeAccountId) return;
+    const base = reporting || {
+      weekly_summary_enabled: false,
+      weekly_summary_day: 1,
+      weekly_summary_hour: 8,
+      timezone: "Europe/Warsaw",
+    };
+    const payload = {
+      accountId: activeAccountId,
+      weeklySummaryEnabled:
+        nextPatch.weekly_summary_enabled ?? base.weekly_summary_enabled,
+      weeklySummaryDay:
+        nextPatch.weekly_summary_day ?? base.weekly_summary_day,
+      weeklySummaryHour:
+        nextPatch.weekly_summary_hour ?? base.weekly_summary_hour,
+      timezone: nextPatch.timezone ?? base.timezone,
+    };
+    setReportSaving(true);
+    try {
+      const row = await upsertAccountReportSettings(payload);
+      setReporting(row);
+    } catch (e) {
+      alert(e?.message || t("portfolio.reporting.saveError"));
+    } finally {
+      setReportSaving(false);
+    }
+  }
+
+  async function handleSendSummaryNow() {
+    if (!activeAccountId) return;
+    setReportSending(true);
+    try {
+      const res = await sendWeeklySummaryNow(activeAccountId);
+      alert(t("portfolio.reporting.sent", { count: res?.sent ?? 0 }));
+    } catch (e) {
+      alert(e?.message || t("portfolio.reporting.sendError"));
+    } finally {
+      setReportSending(false);
+    }
+  }
 
   const paymentStats = useMemo(() => {
     let paid = 0;
@@ -537,6 +604,83 @@ export default function PortfolioHealthDashboardPage({
           />
         </div>
       )}
+
+      <Card className="p-4 border shadow-sm">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">{t("portfolio.reporting.title")}</h3>
+            <p className="text-xs text-slate-500 mt-1">{t("portfolio.reporting.subtitle")}</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSendSummaryNow}
+            disabled={reportSending}
+            className={`px-3 py-2 text-sm rounded-lg text-white ${
+              reportSending ? "bg-slate-400" : "bg-slate-900 hover:bg-slate-800"
+            }`}
+          >
+            {reportSending ? t("common.sending") : t("portfolio.reporting.sendNow")}
+          </button>
+        </div>
+
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-3">
+          <label className="rounded-lg border border-slate-200 p-3 bg-white text-sm">
+            <span className="text-xs text-slate-500">{t("portfolio.reporting.enabled")}</span>
+            <div className="mt-2">
+              <input
+                type="checkbox"
+                checked={Boolean(reporting?.weekly_summary_enabled)}
+                onChange={(e) => saveReporting({ weekly_summary_enabled: e.target.checked })}
+                disabled={reportSaving}
+              />
+            </div>
+          </label>
+          <label className="rounded-lg border border-slate-200 p-3 bg-white text-sm">
+            <span className="text-xs text-slate-500">{t("portfolio.reporting.day")}</span>
+            <select
+              className="mt-2 w-full border rounded-lg px-2 py-1.5 text-sm"
+              value={Number(reporting?.weekly_summary_day ?? 1)}
+              onChange={(e) => saveReporting({ weekly_summary_day: Number(e.target.value) })}
+              disabled={reportSaving}
+            >
+              <option value={1}>{t("portfolio.reporting.days.mon")}</option>
+              <option value={2}>{t("portfolio.reporting.days.tue")}</option>
+              <option value={3}>{t("portfolio.reporting.days.wed")}</option>
+              <option value={4}>{t("portfolio.reporting.days.thu")}</option>
+              <option value={5}>{t("portfolio.reporting.days.fri")}</option>
+              <option value={6}>{t("portfolio.reporting.days.sat")}</option>
+              <option value={0}>{t("portfolio.reporting.days.sun")}</option>
+            </select>
+          </label>
+          <label className="rounded-lg border border-slate-200 p-3 bg-white text-sm">
+            <span className="text-xs text-slate-500">{t("portfolio.reporting.hour")}</span>
+            <select
+              className="mt-2 w-full border rounded-lg px-2 py-1.5 text-sm"
+              value={Number(reporting?.weekly_summary_hour ?? 8)}
+              onChange={(e) => saveReporting({ weekly_summary_hour: Number(e.target.value) })}
+              disabled={reportSaving}
+            >
+              {Array.from({ length: 24 }).map((_, h) => (
+                <option key={h} value={h}>
+                  {String(h).padStart(2, "0")}:00
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="rounded-lg border border-slate-200 p-3 bg-white text-sm">
+            <span className="text-xs text-slate-500">{t("portfolio.reporting.timezone")}</span>
+            <input
+              value={String(reporting?.timezone || "Europe/Warsaw")}
+              onChange={(e) => setReporting((prev) => ({ ...(prev || {}), timezone: e.target.value }))}
+              onBlur={(e) => saveReporting({ timezone: e.target.value })}
+              className="mt-2 w-full border rounded-lg px-2 py-1.5 text-sm"
+              disabled={reportSaving}
+            />
+          </label>
+        </div>
+
+        <p className="text-xs text-slate-500 mt-3">{t("portfolio.reporting.note")}</p>
+      </Card>
 
       <Card className="p-4 border shadow-sm">
         <h3 className="text-sm font-semibold text-slate-900">{t("portfolio.attention.title")}</h3>

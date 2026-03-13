@@ -1,13 +1,13 @@
 // src/pages/Dashboard.jsx
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Card from "../components/Card";
 import Skeleton from "../components/ui/Skeleton";
 import { Wallet, TrendingUp, AlertCircle, Home, FileText } from "lucide-react";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
-import { getMaintenanceAttention } from "../services/maintenanceDashboardService";
+import { getMaintenanceAttention, getMaintenanceStats } from "../services/maintenanceDashboardService";
 
 // ✅ Tenant dashboard widget
 import TenantMaintenanceDashboard from "../components/TenantMaintenanceDashboard";
@@ -50,6 +50,7 @@ export default function Dashboard({
 }) {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   /* ---------- PAGE TITLE ---------- */
   const { setTitle } = usePageTitle();
@@ -63,20 +64,49 @@ export default function Dashboard({
   const isTenant = useMemo(() => role === "tenant", [role]);
   const canManage = useMemo(() => ["owner", "admin", "staff"].includes(role), [role]);
   const [attentionRows, setAttentionRows] = useState([]);
-  const [hubHorizon, setHubHorizon] = useState("today");
+  const [maintenanceStats, setMaintenanceStats] = useState(null);
+  const hubHorizon = useMemo(() => {
+    const h = String(searchParams.get("horizon") || "").toLowerCase();
+    return h === "week" ? "week" : "today";
+  }, [searchParams]);
+
+  function setHubHorizon(next) {
+    const normalized = String(next || "").toLowerCase() === "week" ? "week" : "today";
+    const params = new URLSearchParams(searchParams);
+    params.set("horizon", normalized);
+    setSearchParams(params, { replace: true });
+  }
+
+  useEffect(() => {
+    const h = String(searchParams.get("horizon") || "").toLowerCase();
+    if (h === "today" || h === "week") return;
+    const params = new URLSearchParams(searchParams);
+    params.set("horizon", "today");
+    setSearchParams(params, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     let dead = false;
     async function loadAttention() {
       if (!canManage || !activeAccountId || isTenant) {
         setAttentionRows([]);
+        setMaintenanceStats(null);
         return;
       }
       try {
-        const rows = await getMaintenanceAttention(activeAccountId);
-        if (!dead) setAttentionRows(Array.isArray(rows) ? rows : []);
+        const [rows, stats] = await Promise.all([
+          getMaintenanceAttention(activeAccountId),
+          getMaintenanceStats(activeAccountId),
+        ]);
+        if (!dead) {
+          setAttentionRows(Array.isArray(rows) ? rows : []);
+          setMaintenanceStats(stats || null);
+        }
       } catch {
-        if (!dead) setAttentionRows([]);
+        if (!dead) {
+          setAttentionRows([]);
+          setMaintenanceStats(null);
+        }
       }
     }
     loadAttention();
@@ -227,6 +257,45 @@ export default function Dashboard({
     .filter((p) => normalizePayStatus(p.status) === "overdue")
     .reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
+  const unassignedWorkOrdersCount = (attentionRows || []).filter(
+    (r) => String(r?.item_type || "").toLowerCase() === "work_order_without_contractor"
+  ).length;
+
+  const waiting48hCount = (attentionRows || []).filter(
+    (r) => String(r?.item_type || "").toLowerCase() === "stuck_waiting_over_48h"
+  ).length;
+
+  const overdueTrend = (() => {
+    const now = Date.now();
+    const oneWeek = 7 * 24 * 3600000;
+    let currentWindow = 0;
+    let prevWindow = 0;
+    for (const p of payments || []) {
+      const s = normalizePayStatus(p.status);
+      if (s === "paid") continue;
+      const due = p?.dueDate ? new Date(p.dueDate).getTime() : NaN;
+      if (!Number.isFinite(due) || due > now) continue;
+      const age = now - due;
+      const amount = Number(p.amount || 0);
+      if (age <= oneWeek) currentWindow += amount;
+      else if (age <= 2 * oneWeek) prevWindow += amount;
+    }
+    return deltaMeta(currentWindow, prevWindow);
+  })();
+
+  const overdueTrendLabel = (() => {
+    if (!Number.isFinite(overdueTrend.delta) || overdueTrend.delta === 0) return t("dashboard.hub.trend.flat");
+    const up = overdueTrend.delta > 0;
+    if (overdueTrend.pct == null) {
+      return up
+        ? t("dashboard.hub.trend.upAmount", { value: Math.abs(overdueTrend.delta).toLocaleString() })
+        : t("dashboard.hub.trend.downAmount", { value: Math.abs(overdueTrend.delta).toLocaleString() });
+    }
+    return up
+      ? t("dashboard.hub.trend.upPct", { value: Math.abs(overdueTrend.pct) })
+      : t("dashboard.hub.trend.downPct", { value: Math.abs(overdueTrend.pct) });
+  })();
+
   const dueSoonCount = (payments ?? []).filter((p) => {
     const s = normalizePayStatus(p.status);
     if (s === "paid") return false;
@@ -251,6 +320,10 @@ export default function Dashboard({
       id: `${r.item_type}-${r.maintenance_request_id || r.work_order_id || Math.random()}`,
       title: t(`maintenance.attention.${r.item_type}`),
       subtitle: r.title || r.property_label || "—",
+      meta:
+        r.property_label && Number.isFinite(Number(r.age_hours))
+          ? `${r.property_label} • ${Math.floor(Number(r.age_hours) / 24)}d ago`
+          : r.property_label || "",
       to: "/maintenance-inbox",
       }));
 
@@ -259,6 +332,7 @@ export default function Dashboard({
         id: "vacant-long",
         title: t("dashboard.hub.longVacant"),
         subtitle: `${longVacantProperties[0]?.address || "—"} (${longVacantProperties[0]?.daysVacant || 0}d)`,
+        meta: longVacantProperties[0]?.city || "",
         to: "/properties?status=vacant&aging=14d",
       });
     }
@@ -267,6 +341,7 @@ export default function Dashboard({
         id: "due-soon",
         title: t("dashboard.hub.dueSoon"),
         subtitle: t("dashboard.hub.dueSoonCount", { count: dueSoonCount }),
+        meta: hubHorizon === "today" ? t("dashboard.hub.range.today") : t("dashboard.hub.range.week"),
         to: `/finance?status=due&range=${hubHorizon === "today" ? "1d" : "7d"}`,
       });
     }
@@ -331,7 +406,7 @@ export default function Dashboard({
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-5">
+        <Card className="p-5 border border-emerald-200 bg-emerald-50/40">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium text-slate-500">{t("dashboard.occupiedUnits")}</p>
@@ -344,7 +419,7 @@ export default function Dashboard({
           <div className="mt-4 text-sm text-slate-500">{t("dashboard.ofUnits", { count: properties.length })}</div>
         </Card>
 
-        <Card className="p-5">
+        <Card className="p-5 border border-blue-200 bg-blue-50/40">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium text-slate-500">{t("dashboard.occupancyRate")}</p>
@@ -357,7 +432,7 @@ export default function Dashboard({
           <div className="mt-4 text-sm text-slate-500">{vacantCount} {t("status.vacant").toLowerCase()}</div>
         </Card>
 
-        <Card className="p-5">
+        <Card className="p-5 border border-rose-200 bg-rose-50/40">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium text-slate-500">{t("dashboard.hub.overdueAmount")}</p>
@@ -368,9 +443,16 @@ export default function Dashboard({
             </div>
           </div>
           <div className="mt-4 text-sm text-slate-500">{t("dashboard.hub.overdueHint")}</div>
+          <div
+            className={`mt-1 text-xs font-medium ${
+              overdueTrend.delta > 0 ? "text-rose-700" : overdueTrend.delta < 0 ? "text-emerald-700" : "text-slate-500"
+            }`}
+          >
+            {overdueTrendLabel}
+          </div>
         </Card>
 
-        <Card className="p-5">
+        <Card className="p-5 border border-amber-200 bg-amber-50/40">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium text-slate-500">{t("dashboard.hub.dueSoon")}</p>
@@ -385,6 +467,49 @@ export default function Dashboard({
           </div>
         </Card>
       </div>
+
+      <Card className="p-5 border shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-slate-900">{t("dashboard.hub.maintenanceLoad")}</h3>
+          <span className="text-xs text-slate-500">{t("dashboard.hub.live")}</span>
+        </div>
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="rounded-lg border border-slate-200 p-3 bg-white">
+            <p className="text-xs text-slate-500">{t("portfolio.labels.openRequests")}</p>
+            <p className="text-xl font-semibold text-slate-900 mt-1">{Number(maintenanceStats?.open_requests || 0)}</p>
+          </div>
+          <div className="rounded-lg border border-rose-200 p-3 bg-rose-50/40">
+            <p className="text-xs text-slate-500">{t("portfolio.labels.highPriority")}</p>
+            <p className="text-xl font-semibold text-rose-700 mt-1">{Number(maintenanceStats?.open_high_priority || 0)}</p>
+          </div>
+          <div className="rounded-lg border border-amber-200 p-3 bg-amber-50/40">
+            <p className="text-xs text-slate-500">{t("portfolio.labels.waiting48h")}</p>
+            <p className="text-xl font-semibold text-amber-700 mt-1">{waiting48hCount}</p>
+          </div>
+          <div className="rounded-lg border border-violet-200 p-3 bg-violet-50/40">
+            <p className="text-xs text-slate-500">{t("dashboard.hub.unassignedWo")}</p>
+            <p className="text-xl font-semibold text-violet-700 mt-1">{unassignedWorkOrdersCount}</p>
+          </div>
+        </div>
+        <div className="mt-3 h-2 rounded-full bg-slate-100 overflow-hidden">
+          {(() => {
+            const open = Number(maintenanceStats?.open_requests || 0);
+            const high = Number(maintenanceStats?.open_high_priority || 0);
+            const wait = Number(waiting48hCount || 0);
+            const total = Math.max(1, open + high + wait);
+            const wOpen = Math.max(3, Math.round((open / total) * 100));
+            const wHigh = Math.max(3, Math.round((high / total) * 100));
+            const wWait = Math.max(3, 100 - wOpen - wHigh);
+            return (
+              <div className="h-full w-full flex">
+                <div className="h-full bg-slate-500" style={{ width: `${wOpen}%` }} />
+                <div className="h-full bg-rose-500" style={{ width: `${wHigh}%` }} />
+                <div className="h-full bg-amber-500" style={{ width: `${wWait}%` }} />
+              </div>
+            );
+          })()}
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="p-6">
@@ -402,6 +527,7 @@ export default function Dashboard({
                 >
                   <p className="text-sm font-medium text-slate-900">{item.title}</p>
                   <p className="text-xs text-slate-500 mt-1">{item.subtitle}</p>
+                  {item.meta ? <p className="text-[11px] text-slate-400 mt-1">{item.meta}</p> : null}
                 </button>
               ))}
             </div>
@@ -434,4 +560,12 @@ export default function Dashboard({
       </div>
     </div>
   );
+}
+
+function deltaMeta(current = 0, previous = 0) {
+  const c = Number(current || 0);
+  const p = Number(previous || 0);
+  const delta = c - p;
+  const pct = p === 0 ? null : Math.round((delta / p) * 100);
+  return { delta, pct };
 }

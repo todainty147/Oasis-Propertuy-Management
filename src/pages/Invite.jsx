@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
 
@@ -13,12 +13,17 @@ export default function Invite() {
   const [email, setEmail] = useState("");
 
   async function acceptInvite() {
-    const { error } = await supabase.rpc(
+    const { data, error } = await supabase.rpc(
       "accept_account_invite",
       { invite_token: token }
     );
 
-    if (!error) navigate("/dashboard");
+    if (!error) {
+      if (data?.account_id) {
+        localStorage.setItem("activeAccountId", data.account_id);
+      }
+      navigate("/dashboard", { replace: true });
+    }
     else alert(error.message);
   }
 

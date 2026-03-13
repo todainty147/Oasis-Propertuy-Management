@@ -1,6 +1,6 @@
 // src/components/InviteStaffForm.jsx
 import { useState } from "react";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../lib/supabase";
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
 

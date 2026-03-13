@@ -1,8 +1,9 @@
 // src/App.jsx
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useState, useEffect, lazy, Suspense } from "react";
 
 import Login from "./pages/Login";
+import Invite from "./pages/Invite";
 import { useSession } from "./hooks/useSession";
 import { useProperties } from "./hooks/useProperties";
 import { usePayments } from "./hooks/usePayments";
@@ -53,6 +54,7 @@ const WorkOrderDetails = lazy(() => import("./pages/WorkOrderDetails"));
 const MaintenanceInboxPage = lazy(() => import("./pages/MaintenanceInboxPage"));
 const MaintenanceKPIDashboardPage = lazy(() => import("./pages/MaintenanceKPIDashboardPage"));
 const PortfolioHealthDashboardPage = lazy(() => import("./pages/PortfolioHealthDashboardPage"));
+const InvitationsPage = lazy(() => import("./pages/InvitationsPage"));
 const FinancePage = lazy(() => import("./pages/FinancePage"));
 const AddPropertyModal = lazy(() => import("./components/AddPropertyModal"));
 const AddTenantModal = lazy(() => import("./components/AddTenantModal"));
@@ -60,6 +62,7 @@ const AddPaymentModal = lazy(() => import("./components/AddPaymentModal"));
 
 export default function App() {
   const { t } = useI18n();
+  const location = useLocation();
   /* ======================
      AUTH
      ====================== */
@@ -145,6 +148,10 @@ export default function App() {
      ====================== */
   if (sessionLoading || accountLoading) {
     return <div className="p-6">{t("common.loading")}</div>;
+  }
+
+  if (location.pathname === "/invite") {
+    return <Invite />;
   }
 
   if (!session) {
@@ -481,6 +488,7 @@ export default function App() {
         />
         <Route path="maintenance-inbox" element={<MaintenanceInboxPage />} />
         <Route path="maintenance-kpi" element={<MaintenanceKPIDashboardPage />} />
+        <Route path="invitations" element={<InvitationsPage />} />
         <Route
           path="portfolio-health"
           element={
