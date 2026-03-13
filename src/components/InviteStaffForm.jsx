@@ -2,9 +2,11 @@
 import { useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useAccount } from "../context/AccountContext";
+import { useI18n } from "../context/I18nContext";
 
 export default function InviteStaffForm() {
   const { activeAccountId } = useAccount();
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -26,7 +28,7 @@ export default function InviteStaffForm() {
     if (error) {
       alert(error.message);
     } else {
-      alert("Invitation sent");
+      alert(t("inviteStaff.sent"));
       setEmail("");
     }
   }
@@ -34,7 +36,7 @@ export default function InviteStaffForm() {
   return (
     <form onSubmit={handleInvite} className="space-y-4">
       <label className="block text-sm font-medium">
-        Staff email
+        {t("inviteStaff.staffEmail")}
       </label>
 
       <input
@@ -46,7 +48,7 @@ export default function InviteStaffForm() {
       />
 
       <button className="btn" disabled={loading}>
-        Send invite
+        {t("inviteStaff.sendInvite")}
       </button>
     </form>
   );

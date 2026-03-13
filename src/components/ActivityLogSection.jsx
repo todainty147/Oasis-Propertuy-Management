@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
+import { useI18n } from "../context/I18nContext";
 import { useActivityLog } from "../hooks/useActivityLog";
 
 /* ======================
@@ -22,27 +23,27 @@ function prettyValue(v) {
   return String(v);
 }
 
-function actionLabel(action) {
+function actionLabel(action, t) {
   const a = String(action || "").toLowerCase();
-  if (a === "create" || a === "insert") return "Utworzono";
-  if (a === "update") return "Zmieniono";
-  if (a === "delete" || a === "deleted") return "Usunięto";
-  if (a === "status_change") return "Zmieniono status";
-  if (a === "assign") return "Przypisano";
-  if (a === "unassign") return "Odpięto";
-  if (a === "upload") return "Dodano plik";
-  if (a === "download") return "Pobrano plik";
+  if (a === "create" || a === "insert") return t("activity.action.created");
+  if (a === "update") return t("activity.action.updated");
+  if (a === "delete" || a === "deleted") return t("activity.action.deleted");
+  if (a === "status_change") return t("activity.action.statusChanged");
+  if (a === "assign") return t("activity.action.assigned");
+  if (a === "unassign") return t("activity.action.unassigned");
+  if (a === "upload") return t("activity.action.fileAdded");
+  if (a === "download") return t("activity.action.fileDownloaded");
   return action || "—";
 }
 
-function entityLabel(entityType) {
+function entityLabel(entityType, t) {
   const e = String(entityType || "").toLowerCase();
-  if (e === "maintenance_request" || e === "maintenance_requests") return "Zgłoszenie";
-  if (e === "work_order" || e === "work_orders") return "Zlecenie";
-  if (e === "document" || e === "documents") return "Dokument";
-  if (e === "payment" || e === "payments") return "Płatność";
-  if (e === "property" || e === "properties") return "Nieruchomość";
-  if (e === "tenant" || e === "tenants") return "Najemca";
+  if (e === "maintenance_request" || e === "maintenance_requests") return t("activity.entity.request");
+  if (e === "work_order" || e === "work_orders") return t("activity.entity.workOrder");
+  if (e === "document" || e === "documents") return t("activity.entity.document");
+  if (e === "payment" || e === "payments") return t("activity.entity.payment");
+  if (e === "property" || e === "properties") return t("activity.entity.property");
+  if (e === "tenant" || e === "tenants") return t("activity.entity.tenant");
   return entityType || "—";
 }
 
@@ -54,10 +55,10 @@ function pillTone(action) {
   return "bg-slate-50 border-slate-200 text-slate-700";
 }
 
-function ActivityPill({ action }) {
+function ActivityPill({ action, t }) {
   return (
     <span className={`text-xs px-2 py-0.5 rounded border ${pillTone(action)}`}>
-      {actionLabel(action)}
+      {actionLabel(action, t)}
     </span>
   );
 }
@@ -76,9 +77,10 @@ export default function ActivityLogSection({
 
   limit = 20,
   defaultOpen = false,
-  title = "Aktywność (ostatnie zmiany)",
-  subtitle = "Kto i co zmienił w obrębie tej nieruchomości / zgłoszeń / zleceń.",
+  title,
+  subtitle,
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(defaultOpen);
 
   const { items, loading, error } = useActivityLog({
@@ -91,12 +93,15 @@ export default function ActivityLogSection({
 
   const rows = useMemo(() => items ?? [], [items]);
 
+  const resolvedTitle = title || t("activity.title");
+  const resolvedSubtitle = subtitle || t("activity.subtitle");
+
   return (
     <Card className="p-6 space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h3 className="text-lg font-semibold">{title}</h3>
-          <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
+          <h3 className="text-lg font-semibold">{resolvedTitle}</h3>
+          <p className="text-sm text-slate-500 mt-1">{resolvedSubtitle}</p>
         </div>
 
         <button
@@ -104,7 +109,7 @@ export default function ActivityLogSection({
           onClick={() => setOpen((v) => !v)}
           className="px-3 py-2 text-sm rounded-lg border bg-white hover:bg-slate-50"
         >
-          {open ? "Ukryj" : "Pokaż"}
+          {open ? t("common.hide") : t("common.show")}
         </button>
       </div>
 
@@ -125,7 +130,7 @@ export default function ActivityLogSection({
           )}
 
           {!loading && rows.length === 0 && (
-            <p className="text-sm text-slate-500">Brak wpisów audytu.</p>
+            <p className="text-sm text-slate-500">{t("activity.empty")}</p>
           )}
 
           {!loading && rows.length > 0 && (
@@ -141,18 +146,18 @@ export default function ActivityLogSection({
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <ActivityPill action={r.action} />
+                        <ActivityPill action={r.action} t={t} />
                         <span className="text-sm font-medium text-slate-900">
-                          {entityLabel(r.entity_type)}
+                          {entityLabel(r.entity_type, t)}
                         </span>
                         {r.field && (
                           <span className="text-xs text-slate-500">
-                            • pole: <b>{r.field}</b>
+                            • {t("common.field")}: <b>{r.field}</b>
                           </span>
                         )}
                         {r.actor_role && (
                           <span className="text-xs text-slate-500">
-                            • rola: {r.actor_role}
+                            • {t("common.role")}: {r.actor_role}
                           </span>
                         )}
                       </div>
@@ -161,13 +166,13 @@ export default function ActivityLogSection({
                         <p className="text-sm text-slate-700 mt-1">
                           {hasOld ? (
                             <>
-                              <span className="text-slate-500">z:</span>{" "}
+                              <span className="text-slate-500">{t("activity.from")}:</span>{" "}
                               <b>{prettyValue(r.old_value)}</b>{" "}
                             </>
                           ) : null}
                           {hasNew ? (
                             <>
-                              <span className="text-slate-500">→ do:</span>{" "}
+                              <span className="text-slate-500">→ {t("activity.to")}:</span>{" "}
                               <b>{prettyValue(r.new_value)}</b>
                             </>
                           ) : null}
@@ -176,7 +181,7 @@ export default function ActivityLogSection({
 
                       {r.meta && Object.keys(r.meta || {}).length > 0 && (
                         <p className="text-xs text-slate-500 mt-2 whitespace-pre-wrap">
-                          meta: {prettyValue(r.meta)}
+                          {t("common.meta")}: {prettyValue(r.meta)}
                         </p>
                       )}
                     </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAccount } from "../context/AccountContext";
 import Card from "./Card";
+import { useI18n } from "../context/I18nContext";
 
 export default function AddPropertyModal({
   isOpen,
@@ -11,6 +12,7 @@ export default function AddPropertyModal({
   owners = [],
 }) {
   const { accountLoading } = useAccount();
+  const { t } = useI18n();
 
   const [form, setForm] = useState({
     address: "",
@@ -91,14 +93,14 @@ export default function AddPropertyModal({
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
       <Card className="w-full max-w-md p-6">
         <h2 className="text-xl font-bold mb-4">
-          {property ? "Edytuj nieruchomość" : "Dodaj nieruchomość"}
+          {property ? t("properties.edit") : t("properties.add")}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* OWNER (legacy but preserved) */}
           <div>
             <label className="block text-sm font-medium mb-1">
-              Właściciel
+              {t("properties.owner")}
             </label>
             <select
               required
@@ -118,7 +120,7 @@ export default function AddPropertyModal({
 
           <input
             required
-            placeholder="Adres"
+            placeholder={t("finance.table.address")}
             className="w-full border rounded-lg px-3 py-2"
             value={form.address}
             onChange={(e) =>
@@ -128,7 +130,7 @@ export default function AddPropertyModal({
 
           <input
             required
-            placeholder="Miasto"
+            placeholder={t("properties.city")}
             className="w-full border rounded-lg px-3 py-2"
             value={form.city}
             onChange={(e) =>
@@ -138,7 +140,7 @@ export default function AddPropertyModal({
 
           <input
             required
-            placeholder="Metraż (np. 45 m²)"
+            placeholder={t("properties.sizePlaceholder")}
             className="w-full border rounded-lg px-3 py-2"
             value={form.size}
             onChange={(e) =>
@@ -150,7 +152,7 @@ export default function AddPropertyModal({
             required
             type="number"
             min="0"
-            placeholder="Czynsz (PLN)"
+            placeholder={t("payments.amountPln")}
             className="w-full border rounded-lg px-3 py-2"
             value={form.rent}
             onChange={(e) =>
@@ -162,7 +164,7 @@ export default function AddPropertyModal({
           {property && (
             <div>
               <label className="block text-sm font-medium mb-1">
-                Przypisz najemcę
+                {t("properties.assignTenant")}
               </label>
               <select
                 className="w-full border rounded-lg px-3 py-2"
@@ -171,7 +173,7 @@ export default function AddPropertyModal({
                   setForm({ ...form, tenantId: e.target.value })
                 }
               >
-                <option value="">— Brak najemcy —</option>
+                <option value="">{t("properties.noTenant")}</option>
 
                 {tenants.map((t) => {
                   const disabled = isTenantDisabled(t);
@@ -184,7 +186,7 @@ export default function AddPropertyModal({
                     >
                       {t.name}
                       {disabled
-                        ? " (wynajmuje inną nieruchomość)"
+                        ? ` (${t("properties.rentsOther")})`
                         : ""}
                     </option>
                   );
@@ -199,13 +201,13 @@ export default function AddPropertyModal({
               onClick={onClose}
               className="px-4 py-2 text-slate-600"
             >
-              Anuluj
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
               className="px-4 py-2 bg-blue-600 text-white rounded-lg"
             >
-              Zapisz
+              {t("common.save")}
             </button>
           </div>
         </form>

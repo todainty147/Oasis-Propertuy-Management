@@ -7,6 +7,7 @@ import MaintenanceRequestAttachmentsPanel from "../components/maintenance/Mainte
 import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
 import { createNotifications } from "../services/notificationService";
+import { useI18n } from "../context/I18nContext";
 
 function formatDateTime(ts) {
   if (!ts) return "—";
@@ -28,19 +29,20 @@ function toIsoOrNullFromLocalInput(v) {
   return d.toISOString();
 }
 
-function StatusPill({ status }) {
+function StatusPill({ status, t }) {
   const s = String(status || "").toLowerCase();
   const base = "text-xs px-2 py-0.5 rounded-full border";
-  if (s === "completed") return <span className={`${base} bg-green-50 border-green-200 text-green-700`}>Zakończone</span>;
-  if (s === "in_progress") return <span className={`${base} bg-blue-50 border-blue-200 text-blue-700`}>W trakcie</span>;
-  if (s === "cancelled") return <span className={`${base} bg-slate-50 border-slate-200 text-slate-600`}>Anulowane</span>;
-  if (s === "blocked") return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>Zablokowane</span>;
-  return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>Przypisane</span>;
+  if (s === "completed") return <span className={`${base} bg-green-50 border-green-200 text-green-700`}>{t("status.wo.completed")}</span>;
+  if (s === "in_progress") return <span className={`${base} bg-blue-50 border-blue-200 text-blue-700`}>{t("status.wo.in_progress")}</span>;
+  if (s === "cancelled") return <span className={`${base} bg-slate-50 border-slate-200 text-slate-600`}>{t("status.wo.cancelled")}</span>;
+  if (s === "blocked") return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>{t("workOrder.blocked")}</span>;
+  return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>{t("status.wo.assigned")}</span>;
 }
 
 export default function ContractorJobDetails() {
   const { id } = useParams();
   const { activeRole, activeAccountId } = useAccount();
+  const { t } = useI18n();
 
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
   const isContractor = useMemo(() => role === "contractor", [role]);
@@ -186,7 +188,7 @@ export default function ContractorJobDetails() {
             .eq("id", propertyId)
             .maybeSingle();
           if (prop) {
-            resolvedPropertyLabel = `${prop.address || "Nieruchomość"}${prop.city ? `, ${prop.city}` : ""}`;
+            resolvedPropertyLabel = `${prop.address || t("common.property")}${prop.city ? `, ${prop.city}` : ""}`;
             setPropertyLabel(resolvedPropertyLabel);
           } else {
             setPropertyLabel("");
@@ -262,7 +264,7 @@ export default function ContractorJobDetails() {
   async function saveQuoteDraft() {
     const amt = Number(quoteAmount);
     if (!Number.isFinite(amt)) {
-      alert("Podaj poprawną kwotę wyceny");
+      alert(t("workOrders.quoteAmountInvalid"));
       return;
     }
 
@@ -280,13 +282,13 @@ export default function ContractorJobDetails() {
       syncFinInputs(data ?? null);
       await notifyManagers({
         type: "work_order_quote_draft_saved",
-        title: "Wykonawca zapisał draft wyceny",
+        title: t("contractor.quoteDraftSavedTitle"),
         body: row?.contractor_name
           ? `Wykonawca: ${row.contractor_name}`
-          : "Zapisano draft wyceny",
+          : t("contractor.quoteDraftSavedBody"),
       });
     } catch (e) {
-      alert(e?.message ?? "Nie udało się zapisać draftu wyceny");
+      alert(e?.message ?? t("workOrders.quoteDraftSaveError"));
     } finally {
       setSaving(false);
     }
@@ -302,7 +304,7 @@ export default function ContractorJobDetails() {
       setFin(data ?? null);
       syncFinInputs(data ?? null);
     } catch (e) {
-      alert(e?.message ?? "Nie udało się wysłać wyceny");
+      alert(e?.message ?? t("workOrders.quoteSubmitError"));
     } finally {
       setSaving(false);
     }
@@ -311,7 +313,7 @@ export default function ContractorJobDetails() {
   async function saveInvoice() {
     const amt = invoiceAmount === "" ? null : Number(invoiceAmount);
     if (amt !== null && !Number.isFinite(amt)) {
-      alert("Podaj poprawną kwotę faktury");
+      alert(t("workOrders.invoiceAmountInvalid"));
       return;
     }
 
@@ -330,13 +332,13 @@ export default function ContractorJobDetails() {
       syncFinInputs(data ?? null);
       await notifyManagers({
         type: "work_order_invoice_saved",
-        title: "Wykonawca zapisał dane faktury",
+        title: t("contractor.invoiceSavedTitle"),
         body: row?.contractor_name
           ? `Wykonawca: ${row.contractor_name}`
-          : "Zapisano dane faktury",
+          : t("contractor.invoiceSavedBody"),
       });
     } catch (e) {
-      alert(e?.message ?? "Nie udało się zapisać faktury");
+      alert(e?.message ?? t("workOrders.invoiceSaveError"));
     } finally {
       setSaving(false);
     }
@@ -354,7 +356,7 @@ export default function ContractorJobDetails() {
       if (error) throw error;
       await loadAll();
     } catch (e) {
-      alert(e?.message ?? "Nie udało się zmienić statusu zlecenia");
+      alert(e?.message ?? t("workOrders.statusChangeError"));
     } finally {
       setSaving(false);
     }
@@ -389,7 +391,7 @@ export default function ContractorJobDetails() {
     return (
       <Card className="p-6">
         <p className="text-sm text-slate-600">
-          Ten ekran jest dostępny tylko dla kont wykonawców (contractor).
+          {t("contractor.onlyAccess")}
         </p>
       </Card>
     );
@@ -400,11 +402,11 @@ export default function ContractorJobDetails() {
       <Card className="p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Szczegóły zlecenia</h2>
-            <p className="text-xs text-slate-500 mt-1">ID: {id}</p>
+            <h2 className="text-lg font-semibold text-slate-900">{t("contractor.detailsTitle")}</h2>
+            <p className="text-xs text-slate-500 mt-1">{t("common.id")}: {id}</p>
             {row ? (
               <div className="mt-2 flex items-center gap-2">
-                <StatusPill status={row.status} />
+                <StatusPill status={row.status} t={t} />
               </div>
             ) : null}
           </div>
@@ -415,13 +417,13 @@ export default function ContractorJobDetails() {
               className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
               disabled={loading || saving}
             >
-              Odśwież
+              {t("common.refresh")}
             </button>
             <Link
               to="/contractor"
               className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
             >
-              Wróć
+              {t("common.back")}
             </Link>
           </div>
         </div>
@@ -434,13 +436,13 @@ export default function ContractorJobDetails() {
         </div>
       ) : !row ? (
         <Card className="p-6">
-          <p className="text-sm text-slate-600">Nie znaleziono zlecenia (lub brak dostępu).</p>
+          <p className="text-sm text-slate-600">{t("workOrder.notFound")}</p>
         </Card>
       ) : (
         <>
           <Card className="p-4 space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-base font-semibold text-slate-900">Szybkie akcje</h3>
+              <h3 className="text-base font-semibold text-slate-900">{t("contractor.quickActions")}</h3>
               {requestRow?.priority ? (
                 <span
                   className={`text-xs px-2 py-0.5 rounded border ${
@@ -451,11 +453,11 @@ export default function ContractorJobDetails() {
                         : "bg-slate-100 border-slate-200 text-slate-700"
                   }`}
                 >
-                  Priorytet: {String(requestRow.priority).toLowerCase() === "critical"
-                    ? "krytyczny"
+                  {t("common.priority")}: {String(requestRow.priority).toLowerCase() === "critical"
+                    ? t("priority.critical")
                     : String(requestRow.priority).toLowerCase() === "high"
-                      ? "wysoki"
-                      : "normalny"}
+                      ? t("priority.high")
+                      : t("priority.normal")}
                 </span>
               ) : null}
             </div>
@@ -469,7 +471,7 @@ export default function ContractorJobDetails() {
                     saving ? "bg-slate-400" : "bg-blue-600"
                   }`}
                 >
-                  Rozpocznij
+                  {t("workOrders.startWork")}
                 </button>
               ) : null}
               <button
@@ -477,14 +479,14 @@ export default function ContractorJobDetails() {
                 onClick={() => attachmentsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
                 className="min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-slate-50"
               >
-                Dodaj zdjęcie
+                {t("attachments.addPhoto")}
               </button>
               <button
                 type="button"
                 onClick={() => financialsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
                 className="min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-slate-50"
               >
-                Dodaj wycenę
+                {t("workOrders.addQuote")}
               </button>
               {allowedActions.includes("completed") ? (
                 <button
@@ -495,7 +497,7 @@ export default function ContractorJobDetails() {
                     saving ? "bg-slate-400" : "bg-green-600"
                   }`}
                 >
-                  Zakończ pracę
+                  {t("workOrders.completeWork")}
                 </button>
               ) : null}
             </div>
@@ -507,32 +509,32 @@ export default function ContractorJobDetails() {
             ) : null}
             {propertyLabel ? (
               <div className="text-sm text-slate-700">
-                <span className="text-slate-500">Nieruchomość:</span> {propertyLabel}
+                <span className="text-slate-500">{t("finance.table.property")}:</span> {propertyLabel}
               </div>
             ) : null}
             <div className="text-sm">
-              <span className="text-slate-500">Status:</span>{" "}
+              <span className="text-slate-500">{t("maintenance.card.status")}:</span>{" "}
               <span className="font-medium text-slate-900">{row.status}</span>
             </div>
             <div className="text-sm">
-              <span className="text-slate-500">Termin:</span>{" "}
+              <span className="text-slate-500">{t("common.dueDate")}:</span>{" "}
               <span className="text-slate-900">{formatDateTime(row.scheduled_at)}</span>
             </div>
             <div className="text-sm">
-              <span className="text-slate-500">Wykonawca:</span>{" "}
+              <span className="text-slate-500">{t("common.contractor")}:</span>{" "}
               <span className="text-slate-900">{row.contractor_name || "—"}</span>
             </div>
             <div className="text-sm">
-              <span className="text-slate-500">Telefon:</span>{" "}
+              <span className="text-slate-500">{t("common.phone")}:</span>{" "}
               <span className="text-slate-900">{row.contractor_phone || "—"}</span>
             </div>
             <div className="text-sm">
-              <span className="text-slate-500">Notatki (zlecenie):</span>{" "}
+              <span className="text-slate-500">{t("maintenance.drawer.notes")}:</span>{" "}
               <span className="text-slate-900">{row.notes || "—"}</span>
             </div>
             {requestRow?.description ? (
               <div className="text-sm">
-                <span className="text-slate-500">Opis problemu:</span>{" "}
+                <span className="text-slate-500">{t("common.description")}:</span>{" "}
                 <span className="text-slate-900">{requestRow.description}</span>
               </div>
             ) : null}
@@ -541,32 +543,32 @@ export default function ContractorJobDetails() {
           <Card ref={financialsRef} className="p-4 space-y-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-base font-semibold text-slate-900">Finanse</h3>
+                <h3 className="text-base font-semibold text-slate-900">{t("finance.title")}</h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  Wykonawca tworzy draft wyceny → wysyła → po zatwierdzeniu może dodać fakturę.
+                  {t("workOrders.financeSubtitle")}
                 </p>
               </div>
             </div>
 
             {!fin ? (
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-slate-600">Brak rekordu finansów. Zapisz draft wyceny, aby utworzyć.</p>
+                <p className="text-sm text-slate-600">{t("workOrders.financeEmpty")}</p>
                 <button
                   type="button"
                   onClick={saveQuoteDraft}
                   disabled={saving}
                   className={`px-3 py-2 text-sm rounded-lg text-white ${saving ? "bg-slate-400" : "bg-blue-600"}`}
                 >
-                  {saving ? "Zapisywanie…" : "Utwórz draft"}
+                  {saving ? t("common.saving") : t("workOrders.createDraft")}
                 </button>
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="border rounded-lg p-3">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm font-semibold text-slate-900">Wycena</div>
+                    <div className="text-sm font-semibold text-slate-900">{t("workOrders.quote")}</div>
                     <div className="text-xs text-slate-500">
-                      Status: <span className="font-medium">{fin.quote_status}</span>
+                      {t("common.status")}: <span className="font-medium">{fin.quote_status}</span>
                       {fin.quote_submitted_at ? ` • wysłano: ${formatDateTime(fin.quote_submitted_at)}` : ""}
                       {fin.approved_at ? ` • zatw.: ${formatDateTime(fin.approved_at)}` : ""}
                       {fin.rejected_at ? ` • odrz.: ${formatDateTime(fin.rejected_at)}` : ""}
@@ -575,17 +577,17 @@ export default function ContractorJobDetails() {
 
                   <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                      <label className="text-xs text-slate-500">Kwota</label>
+                      <label className="text-xs text-slate-500">{t("payments.amount")}</label>
                       <input
                         value={quoteAmount}
                         onChange={(e) => setQuoteAmount(e.target.value)}
                         className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
                         disabled={saving || fin.quote_status === "submitted" || fin.quote_status === "approved"}
-                        placeholder="np. 250.00"
+                        placeholder={t("workOrders.amountExample250")}
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-slate-500">Waluta</label>
+                      <label className="text-xs text-slate-500">{t("common.currency")}</label>
                       <select
                         value={quoteCurrency}
                         onChange={(e) => setQuoteCurrency(e.target.value)}
@@ -600,7 +602,7 @@ export default function ContractorJobDetails() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs text-slate-500">Podgląd</label>
+                      <label className="text-xs text-slate-500">{t("attachments.preview")}</label>
                       <div className="mt-1 border rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-700">
                         {formatMoney(fin.quote_amount, fin.quote_currency)}
                       </div>
@@ -608,19 +610,19 @@ export default function ContractorJobDetails() {
                   </div>
 
                   <div className="mt-3">
-                    <label className="text-xs text-slate-500">Notatki do wyceny</label>
+                    <label className="text-xs text-slate-500">{t("workOrders.quoteNotes")}</label>
                     <textarea
                       value={quoteNotes}
                       onChange={(e) => setQuoteNotes(e.target.value)}
                       className="mt-1 w-full border rounded-lg px-3 py-2 text-sm min-h-[90px] disabled:bg-slate-50"
                       disabled={saving || fin.quote_status === "submitted" || fin.quote_status === "approved"}
-                      placeholder="Opcjonalnie"
+                      placeholder={t("maintenance.drawer.optional")}
                     />
                   </div>
 
                   {fin.quote_status === "rejected" && fin.rejection_reason && (
                     <div className="mt-3 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-3">
-                      Odrzucono: {fin.rejection_reason}
+                      {t("workOrders.rejected")}: {fin.rejection_reason}
                     </div>
                   )}
 
@@ -635,7 +637,7 @@ export default function ContractorJobDetails() {
                           : "bg-blue-600"
                       }`}
                     >
-                      {saving ? "Zapisywanie…" : "Zapisz draft"}
+                      {saving ? t("common.saving") : t("workOrders.saveDraft")}
                     </button>
 
                     {(fin.quote_status === "draft" || fin.quote_status === "rejected") && (
@@ -645,7 +647,7 @@ export default function ContractorJobDetails() {
                         disabled={saving}
                         className={`px-3 py-2 text-sm rounded-lg text-white ${saving ? "bg-slate-400" : "bg-slate-900"}`}
                       >
-                        Wyślij wycenę
+                        {t("workOrders.submitQuote")}
                       </button>
                     )}
                   </div>
@@ -653,34 +655,34 @@ export default function ContractorJobDetails() {
 
                 <div className="border rounded-lg p-3">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm font-semibold text-slate-900">Faktura</div>
+                    <div className="text-sm font-semibold text-slate-900">{t("workOrders.invoice")}</div>
                     <div className="text-xs text-slate-500">
                       {fin.invoice_amount != null
-                        ? `Kwota: ${formatMoney(fin.invoice_amount, fin.invoice_currency)}`
-                        : "Brak kwoty"}
+                        ? `${t("workOrders.amount")}: ${formatMoney(fin.invoice_amount, fin.invoice_currency)}`
+                        : t("workOrders.noAmount")}
                     </div>
                   </div>
 
                   {fin.quote_status !== "approved" ? (
                     <p className="text-sm text-slate-600 mt-3">
-                      Fakturę można dodać dopiero po zatwierdzeniu wyceny przez właściciela.
+                      {t("workOrders.invoiceAfterApprovalOnly")}
                     </p>
                   ) : (
                     <>
                       <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                          <label className="text-xs text-slate-500">Kwota faktury</label>
+                          <label className="text-xs text-slate-500">{t("workOrders.invoiceAmount")}</label>
                           <input
                             value={invoiceAmount}
                             onChange={(e) => setInvoiceAmount(e.target.value)}
                             className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
                             disabled={saving}
-                            placeholder="np. 300.00"
+                            placeholder={t("workOrders.amountExample300")}
                           />
                         </div>
 
                         <div>
-                          <label className="text-xs text-slate-500">Waluta</label>
+                          <label className="text-xs text-slate-500">{t("common.currency")}</label>
                           <select
                             value={invoiceCurrency}
                             onChange={(e) => setInvoiceCurrency(e.target.value)}
@@ -696,7 +698,7 @@ export default function ContractorJobDetails() {
                         </div>
 
                         <div>
-                          <label className="text-xs text-slate-500">Data wystawienia</label>
+                          <label className="text-xs text-slate-500">{t("workOrders.invoiceIssuedAt")}</label>
                           <input
                             type="datetime-local"
                             value={invoiceIssuedAt}
@@ -707,7 +709,7 @@ export default function ContractorJobDetails() {
                         </div>
 
                         <div>
-                          <label className="text-xs text-slate-500">Termin płatności</label>
+                          <label className="text-xs text-slate-500">{t("workOrders.invoiceDueAt")}</label>
                           <input
                             type="datetime-local"
                             value={invoiceDueAt}
@@ -725,7 +727,7 @@ export default function ContractorJobDetails() {
                           disabled={saving}
                           className={`px-3 py-2 text-sm rounded-lg text-white ${saving ? "bg-slate-400" : "bg-blue-600"}`}
                         >
-                          {saving ? "Zapisywanie…" : "Zapisz fakturę"}
+                          {saving ? t("common.saving") : t("workOrders.saveInvoice")}
                         </button>
                       </div>
                     </>
@@ -754,13 +756,13 @@ export default function ContractorJobDetails() {
 
           <Card ref={timelineRef} className="p-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-slate-900">Timeline</h3>
+              <h3 className="text-base font-semibold text-slate-900">{t("common.timeline")}</h3>
               <button
                 type="button"
                 onClick={() => setTimelineOpen((v) => !v)}
                 className="px-3 py-1.5 text-xs rounded-lg border hover:bg-slate-50"
               >
-                {timelineOpen ? "Ukryj" : "Pokaż"}
+                {timelineOpen ? t("common.hide") : t("common.show")}
               </button>
             </div>
             {timelineOpen ? (
@@ -770,7 +772,7 @@ export default function ContractorJobDetails() {
                   <Skeleton className="h-10" />
                 </div>
               ) : timelineRows.length === 0 ? (
-                <p className="mt-3 text-sm text-slate-500">Brak zdarzeń.</p>
+                <p className="mt-3 text-sm text-slate-500">{t("workOrder.noEntries")}</p>
               ) : (
                 <div className="mt-3 space-y-2">
                   {timelineRows.map((t) => (
@@ -782,7 +784,7 @@ export default function ContractorJobDetails() {
                 </div>
               )
             ) : (
-              <p className="mt-3 text-sm text-slate-500">Ukryte. Rozwiń, aby zobaczyć ostatnie zdarzenia.</p>
+              <p className="mt-3 text-sm text-slate-500">{t("contractor.timelineCollapsed")}</p>
             )}
           </Card>
         </>
@@ -800,7 +802,7 @@ export default function ContractorJobDetails() {
                   saving ? "bg-slate-400" : "bg-blue-600"
                 }`}
               >
-                Rozpocznij
+                {t("workOrders.startWork")}
               </button>
             ) : null}
             <button
@@ -808,14 +810,14 @@ export default function ContractorJobDetails() {
               onClick={() => attachmentsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
               className="whitespace-nowrap min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-slate-50"
             >
-              Dodaj zdjęcie
+              {t("attachments.addPhoto")}
             </button>
             <button
               type="button"
               onClick={() => financialsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
               className="whitespace-nowrap min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-slate-50"
             >
-              Dodaj wycenę
+              {t("workOrders.addQuote")}
             </button>
             {allowedActions.includes("completed") ? (
               <button
@@ -834,7 +836,7 @@ export default function ContractorJobDetails() {
               onClick={() => timelineRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
               className="whitespace-nowrap min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-slate-50"
             >
-              Timeline
+              {t("common.timeline")}
             </button>
           </div>
         </div>

@@ -1,33 +1,34 @@
 import { useState } from "react";
 import MaintenanceTimeline from "./MaintenanceTimeline";
 import MaintenanceRequestWorkOrders from "./MaintenanceRequestWorkOrders";
+import { useI18n } from "../../context/I18nContext";
 
-function statusLabel(status) {
+function statusLabel(status, t) {
   const s = String(status ?? "").toLowerCase();
-  if (s === "open") return "Nowe";
-  if (s === "in_progress") return "W trakcie";
-  if (s === "waiting") return "Oczekuje";
-  if (s === "resolved") return "Zakończone";
-  if (s === "closed") return "Zamknięte";
+  if (s === "open") return t("status.req.open");
+  if (s === "in_progress") return t("status.req.in_progress");
+  if (s === "waiting") return t("status.req.waiting");
+  if (s === "resolved") return t("status.req.resolved");
+  if (s === "closed") return t("status.req.closed");
   return status || "—";
 }
 
-function waitingReasonLabel(waitingReason) {
+function waitingReasonLabel(waitingReason, t) {
   const r = String(waitingReason ?? "").toLowerCase();
-  if (r === "tenant_response") return "waiting for tenant";
-  if (r === "contractor_schedule") return "waiting for contractor";
-  if (r === "parts_ordered") return "waiting for materials";
-  if (r === "landlord_approval") return "waiting for decision";
+  if (r === "tenant_response") return t("maintenance.waiting.tenant_response");
+  if (r === "contractor_schedule") return t("maintenance.waiting.contractor_schedule");
+  if (r === "parts_ordered") return t("maintenance.waiting.parts_ordered");
+  if (r === "landlord_approval") return t("maintenance.waiting.landlord_approval");
   return waitingReason || "";
 }
 
-function priorityLabel(priority) {
+function priorityLabel(priority, t) {
   const p = String(priority ?? "").toLowerCase();
-  if (p === "low") return "Niski";
-  if (p === "normal") return "Normalny";
-  if (p === "high") return "Wysoki";
-  if (p === "critical") return "Krytyczny";
-  if (p === "urgent") return "Pilny";
+  if (p === "low") return t("priority.low");
+  if (p === "normal") return t("priority.normal");
+  if (p === "high") return t("priority.high");
+  if (p === "critical") return t("priority.critical");
+  if (p === "urgent") return t("priority.urgent");
   return priority || "—";
 }
 
@@ -76,6 +77,7 @@ export default function MaintenanceRequestCard({
   onAddNote,
   onSetWaitingReason,
 }) {
+  const { t } = useI18n();
   const [timelineOpen, setTimelineOpen] = useState(false);
   const primaryWorkOrder = linkedWorkOrders[0] || null;
   const finalStatuses = new Set(["completed", "cancelled"]);
@@ -88,47 +90,47 @@ export default function MaintenanceRequestCard({
   const openWorkOrdersCount = linkedWorkOrders.length - closedWorkOrdersCount;
   const waitingCtx =
     String(request.status || "").toLowerCase() === "waiting"
-      ? waitingReasonLabel(request.waiting_reason)
+      ? waitingReasonLabel(request.waiting_reason, t)
       : "";
 
   return (
     <div className={`rounded-xl border-2 p-3 space-y-3 ${priorityCardTone(request.priority)}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-900 truncate">{request.title || "Bez tytułu"}</p>
+          <p className="text-sm font-semibold text-slate-900 truncate">{request.title || t("maintenance.card.noTitle")}</p>
           <p className="text-xs text-slate-500 mt-0.5">
-            {propertyLabel ? `${propertyLabel} • ` : ""}Zgłoszono: {formatDateTime(request.created_at)}
+          {propertyLabel ? `${propertyLabel} • ` : ""}{t("maintenance.card.reportedAt")}: {formatDateTime(request.created_at)}
           </p>
-          <p className="text-xs text-slate-500 mt-0.5">Otwarte: {formatAge(request.created_at)}</p>
+          <p className="text-xs text-slate-500 mt-0.5">{t("maintenance.card.openFor")}: {formatAge(request.created_at)}</p>
         </div>
         <span className={`text-[11px] px-2 py-0.5 rounded border ${priorityTone(request.priority)}`}>
-          {priorityLabel(request.priority)}
+          {priorityLabel(request.priority, t)}
         </span>
       </div>
 
       {request.description ? (
         <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">{request.description}</p>
       ) : (
-        <p className="text-sm text-slate-400">Brak opisu.</p>
+        <p className="text-sm text-slate-400">{t("maintenance.card.noDescription")}</p>
       )}
 
       <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
         <span className="px-2 py-0.5 rounded border border-slate-200 bg-slate-50">
-          Status: {statusLabel(request.status)}
+          {t("maintenance.card.status")}: {statusLabel(request.status, t)}
           {waitingCtx ? ` — ${waitingCtx}` : ""}
         </span>
         {linkedWorkOrders.length > 0 ? (
           linkedWorkOrders.length === 1 ? (
             <span className="px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700">
-              Zlecenie: {String(primaryWorkOrder?.status || "assigned").replaceAll("_", " ")}
+              {t("maintenance.card.workOrder")}: {String(primaryWorkOrder?.status || "assigned").replaceAll("_", " ")}
             </span>
           ) : (
             <span className="px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700">
-              Zlecenia: {linkedWorkOrders.length} ({closedWorkOrdersCount} zakończone, {openWorkOrdersCount} otwarte)
+              {t("maintenance.card.workOrders")}: {linkedWorkOrders.length} ({closedWorkOrdersCount} {t("maintenance.card.closed")}, {openWorkOrdersCount} {t("maintenance.card.open")})
             </span>
           )
         ) : (
-          <span className="px-2 py-0.5 rounded border border-slate-200 bg-slate-50">Brak zleceń</span>
+          <span className="px-2 py-0.5 rounded border border-slate-200 bg-slate-50">{t("maintenance.card.noWorkOrders")}</span>
         )}
       </div>
 
@@ -148,12 +150,12 @@ export default function MaintenanceRequestCard({
               disabled={busy || hasOpenWorkOrders}
               title={
                 hasOpenWorkOrders
-                  ? "Nie można zamknąć zgłoszenia, dopóki powiązane zlecenia nie są zakończone lub anulowane."
+                  ? t("maintenance.inbox.closeGuard")
                   : ""
               }
               className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
             >
-              Zamknij
+              {t("maintenance.card.close")}
             </button>
           )}
 
@@ -163,7 +165,7 @@ export default function MaintenanceRequestCard({
             disabled={busy}
             className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
-            Dodaj notatkę
+            {t("maintenance.card.addNote")}
           </button>
 
           {String(request.status || "").toLowerCase() !== "closed" && (
@@ -174,8 +176,8 @@ export default function MaintenanceRequestCard({
               className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
             >
               {String(request.status || "").toLowerCase() === "waiting"
-                ? "Edytuj oczekiwanie"
-                : "Ustaw oczekiwanie"}
+                ? t("maintenance.card.editWaiting")
+                : t("maintenance.card.setWaiting")}
             </button>
           )}
 
@@ -184,14 +186,14 @@ export default function MaintenanceRequestCard({
             onClick={() => setTimelineOpen((v) => !v)}
             className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
           >
-            {timelineOpen ? "Ukryj timeline" : "Pokaż timeline"}
+            {timelineOpen ? t("maintenance.card.hideTimeline") : t("maintenance.card.showTimeline")}
           </button>
         </div>
       )}
 
       {canManage && String(request.status || "").toLowerCase() !== "closed" && hasOpenWorkOrders ? (
         <p className="text-[11px] text-amber-700">
-          Nie można zamknąć zgłoszenia, dopóki powiązane zlecenia nie są zakończone lub anulowane.
+          {t("maintenance.inbox.closeGuard")}
         </p>
       ) : null}
 

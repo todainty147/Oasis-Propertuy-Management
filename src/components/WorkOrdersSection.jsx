@@ -22,6 +22,7 @@ import {
   rejectQuote,
   upsertInvoice,
 } from "../services/workOrderFinancialsService";
+import { useI18n } from "../context/I18nContext";
 /* -----------------------------
    UI helpers
 ----------------------------- */
@@ -75,11 +76,11 @@ function Modal({ open, onClose, title, children }) {
   );
 }
 
-function PaginationFooter({ page, totalPages, totalCount, pageSize, onPrev, onNext, onPageSizeChange }) {
+function PaginationFooter({ page, totalPages, totalCount, pageSize, onPrev, onNext, onPageSizeChange, t }) {
   return (
     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-3">
       <div className="flex items-center gap-2">
-        <span className="text-xs text-slate-500">Na stronę</span>
+        <span className="text-xs text-slate-500">{t("common.perPage")}</span>
         <select
           value={pageSize}
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
@@ -99,14 +100,14 @@ function PaginationFooter({ page, totalPages, totalCount, pageSize, onPrev, onNe
           onClick={onPrev}
           disabled={page <= 1}
         >
-          Prev
+          {t("common.prev")}
         </button>
 
         <div className="text-sm text-slate-600">
-          Page <span className="font-medium text-slate-900">{page}</span> of{" "}
+          {t("common.page")} <span className="font-medium text-slate-900">{page}</span> {t("common.of")}{" "}
           <span className="font-medium text-slate-900">{totalPages}</span>
           {typeof totalCount === "number" ? (
-            <span className="ml-2 text-xs text-slate-500">({totalCount} total)</span>
+            <span className="ml-2 text-xs text-slate-500">({totalCount} {t("common.total").toLowerCase()})</span>
           ) : null}
         </div>
 
@@ -115,7 +116,7 @@ function PaginationFooter({ page, totalPages, totalCount, pageSize, onPrev, onNe
           onClick={onNext}
           disabled={page >= totalPages}
         >
-          Next
+          {t("common.next")}
         </button>
       </div>
     </div>
@@ -128,6 +129,7 @@ function PaginationFooter({ page, totalPages, totalCount, pageSize, onPrev, onNe
 
 export default function WorkOrdersSection({ propertyId }) {
   const { activeAccountId, activeRole } = useAccount();
+  const { t } = useI18n();
 
   // ✅ NEXT-4: allow deep-link from Maintenance Requests list
   const [searchParams, setSearchParams] = useSearchParams();
@@ -350,7 +352,7 @@ export default function WorkOrdersSection({ propertyId }) {
 
       await loadAttachments(workOrderId);
     } catch (e) {
-      alert(e?.message ?? "Nie udało się wgrać załączników");
+      alert(e?.message ?? t("attachments.uploadError"));
     } finally {
       setAttachmentsUploading(false);
     }
@@ -363,12 +365,12 @@ export default function WorkOrdersSection({ propertyId }) {
       if (!url) throw new Error("Brak linku");
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (e) {
-      alert(e?.message ?? "Nie udało się pobrać pliku");
+      alert(e?.message ?? t("attachments.downloadError"));
     }
   }
 
   async function handleDeleteAttachment(a) {
-    if (!confirm("Usunąć załącznik?")) return;
+    if (!confirm(t("attachments.confirmDeleteGeneric"))) return;
     try {
       await deleteWorkOrderAttachment({
         attachmentId: a.id,
@@ -376,7 +378,7 @@ export default function WorkOrdersSection({ propertyId }) {
       });
       await loadAttachments(a.work_order_id);
     } catch (e) {
-      alert(e?.message ?? "Nie udało się usunąć załącznika");
+      alert(e?.message ?? t("attachments.deleteError"));
     }
   }
 
@@ -449,7 +451,7 @@ export default function WorkOrdersSection({ propertyId }) {
   async function finCreateOrSaveDraft(workOrderId) {
     const n = Number(finQuoteAmount);
     if (!Number.isFinite(n)) {
-      alert("Podaj poprawną kwotę wyceny");
+      alert(t("workOrders.quoteAmountInvalid"));
       return;
     }
 
@@ -464,7 +466,7 @@ export default function WorkOrdersSection({ propertyId }) {
 
       await loadFinancials(workOrderId);
     } catch (e) {
-      alert(e?.message ?? "Nie udało się zapisać wyceny (draft)");
+      alert(e?.message ?? t("workOrders.quoteDraftSaveError"));
     } finally {
       setFinSaving(false);
     }
@@ -480,7 +482,7 @@ export default function WorkOrdersSection({ propertyId }) {
 
       await loadFinancials(workOrderId);
     } catch (e) {
-      alert(e?.message ?? "Nie udało się wysłać wyceny");
+      alert(e?.message ?? t("workOrders.quoteSubmitError"));
     } finally {
       setFinSaving(false);
     }
@@ -498,7 +500,7 @@ export default function WorkOrdersSection({ propertyId }) {
 
       await loadFinancials(workOrderId);
     } catch (e) {
-      alert(e?.message ?? "Nie udało się zatwierdzić wyceny");
+      alert(e?.message ?? t("workOrders.quoteApproveError"));
     } finally {
       setFinSaving(false);
     }
@@ -512,7 +514,7 @@ export default function WorkOrdersSection({ propertyId }) {
       await rejectQuote({ workOrderId, reason: finRejectReason || null });
       await loadFinancials(workOrderId);
     } catch (e) {
-      alert(e?.message ?? "Nie udało się odrzucić wyceny");
+      alert(e?.message ?? t("workOrders.quoteRejectError"));
     } finally {
       setFinSaving(false);
     }
@@ -523,7 +525,7 @@ export default function WorkOrdersSection({ propertyId }) {
 
     const amt = finInvoiceAmount === "" ? null : Number(finInvoiceAmount);
     if (amt !== null && !Number.isFinite(amt)) {
-      alert("Podaj poprawną kwotę faktury");
+      alert(t("workOrders.invoiceAmountInvalid"));
       return;
     }
 
@@ -541,7 +543,7 @@ export default function WorkOrdersSection({ propertyId }) {
 
       await loadFinancials(workOrderId);
     } catch (e) {
-      alert(e?.message ?? "Nie udało się zapisać danych faktury");
+      alert(e?.message ?? t("workOrders.invoiceSaveError"));
     } finally {
       setFinSaving(false);
     }
@@ -909,20 +911,20 @@ export default function WorkOrdersSection({ propertyId }) {
       await reload();
       if (canManage) await loadPendingInbox();
     } catch (e) {
-      alert(e?.message ?? "Nie udało się utworzyć zlecenia");
+      alert(e?.message ?? t("workOrders.createError"));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(id) {
-    if (!confirm("Usunąć zlecenie?")) return;
+    if (!confirm(t("workOrders.confirmDeleteWorkOrder"))) return;
     try {
       await deleteWorkOrder(id);
       await reload();
       if (canManage) await loadPendingInbox();
     } catch (e) {
-      alert(e?.message ?? "Nie udało się usunąć zlecenia");
+      alert(e?.message ?? t("workOrders.deleteError"));
     }
   }
 
@@ -950,7 +952,7 @@ export default function WorkOrdersSection({ propertyId }) {
         await loadAudit(workOrderId);
       }
     } catch (e) {
-      alert(e?.message ?? "Nie udało się przypisać wykonawcy");
+      alert(e?.message ?? t("workOrders.assignError"));
     } finally {
       setAssigningContractor(false);
     }
@@ -975,7 +977,7 @@ export default function WorkOrdersSection({ propertyId }) {
         await loadAudit(id);
       }
     } catch (e) {
-      alert(e?.message ?? "Nie udało się zmienić statusu");
+      alert(e?.message ?? t("workOrders.statusChangeError"));
     } finally {
       setActionBusyId(null);
     }
@@ -997,7 +999,7 @@ export default function WorkOrdersSection({ propertyId }) {
         await loadAudit(id);
       }
     } catch (e) {
-      alert(e?.message ?? "Nie udało się wysłać prośby o anulowanie");
+      alert(e?.message ?? t("workOrders.cancelRequestError"));
     } finally {
       setActionBusyId(null);
     }
@@ -1019,7 +1021,7 @@ export default function WorkOrdersSection({ propertyId }) {
         await loadAudit(id);
       }
     } catch (e) {
-      alert(e?.message ?? "Nie udało się zatwierdzić anulowania");
+      alert(e?.message ?? t("workOrders.cancelApproveError"));
     } finally {
       setActionBusyId(null);
     }
@@ -1048,7 +1050,7 @@ export default function WorkOrdersSection({ propertyId }) {
         await loadAudit(id);
       }
     } catch (e) {
-      alert(e?.message ?? "Nie udało się odrzucić anulowania");
+      alert(e?.message ?? t("workOrders.cancelRejectError"));
     } finally {
       setActionBusyId(null);
     }
@@ -1068,7 +1070,7 @@ export default function WorkOrdersSection({ propertyId }) {
     }
 
     if (pending) {
-      return { show: true, disabled: true, reason: "⏳ Oczekuje na decyzję właściciela" };
+      return { show: true, disabled: true, reason: t("workOrders.waitingOwnerDecision") };
     }
 
     return { show: true, disabled: false, reason: "" };
@@ -1081,7 +1083,7 @@ export default function WorkOrdersSection({ propertyId }) {
     <Card className="p-6 space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-lg font-semibold">Zlecenia (Work Orders)</h3>
+          <h3 className="text-lg font-semibold">{t("workOrders.title")}</h3>
           <p className="text-xs text-slate-500 mt-1">
             Zlecenia dla tej nieruchomości. W przyszłości dodamy przypisanie do kontraktorów + portal wykonawcy.
           </p>
@@ -1089,7 +1091,7 @@ export default function WorkOrdersSection({ propertyId }) {
 
         <div className="flex items-center gap-2">
           <div className="hidden md:flex items-center gap-2">
-            <span className="text-xs text-slate-500">Na stronę</span>
+            <span className="text-xs text-slate-500">{t("common.perPage")}</span>
             <select
               value={pageSize}
               onChange={(e) => {
@@ -1124,7 +1126,7 @@ export default function WorkOrdersSection({ propertyId }) {
         <div className="border rounded-xl p-4 bg-white space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="font-semibold text-slate-900">Nowe zlecenie</div>
+              <div className="font-semibold text-slate-900">{t("workOrders.new")}</div>
               <div className="text-xs text-slate-500 mt-1">
                 Utwórz zlecenie ręcznie lub powiąż ze zgłoszeniem (maintenance request).
               </div>
@@ -1143,7 +1145,7 @@ export default function WorkOrdersSection({ propertyId }) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-slate-500">Powiązane zgłoszenie (opcjonalnie)</label>
+              <label className="text-xs text-slate-500">{t("workOrders.linkedRequestOptional")}</label>
               <select
                 value={maintenanceRequestId}
                 onChange={(e) => setMaintenanceRequestId(e.target.value)}
@@ -1157,11 +1159,11 @@ export default function WorkOrdersSection({ propertyId }) {
                   </option>
                 ))}
               </select>
-              {requestsLoading && <div className="text-[11px] text-slate-400 mt-1">Ładowanie zgłoszeń…</div>}
+              {requestsLoading && <div className="text-[11px] text-slate-400 mt-1">{t("workOrders.loadingRequests")}</div>}
             </div>
 
             <div>
-              <label className="text-xs text-slate-500">Wykonawca (opcjonalnie)</label>
+              <label className="text-xs text-slate-500">{t("workOrders.contractorOptional")}</label>
               <select
                 value={selectedContractorId}
                 onChange={(e) => onSelectContractor(e.target.value)}
@@ -1175,33 +1177,33 @@ export default function WorkOrdersSection({ propertyId }) {
                   </option>
                 ))}
               </select>
-              {contractorsLoading && <div className="text-[11px] text-slate-400 mt-1">Ładowanie wykonawców…</div>}
+              {contractorsLoading && <div className="text-[11px] text-slate-400 mt-1">{t("workOrders.loadingContractors")}</div>}
             </div>
 
             <div>
-              <label className="text-xs text-slate-500">Nazwa wykonawcy</label>
+              <label className="text-xs text-slate-500">{t("maintenance.drawer.contractorName")}</label>
               <input
                 value={contractorName}
                 onChange={(e) => setContractorName(e.target.value)}
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
-                placeholder="np. Jan Kowalski / Firma XYZ"
+                placeholder={t("workOrders.contractorNameExample")}
                 disabled={saving}
               />
             </div>
 
             <div>
-              <label className="text-xs text-slate-500">Telefon wykonawcy</label>
+              <label className="text-xs text-slate-500">{t("maintenance.drawer.contractorPhone")}</label>
               <input
                 value={contractorPhone}
                 onChange={(e) => setContractorPhone(e.target.value)}
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
-                placeholder="np. +48 123 456 789"
+                placeholder={t("workOrders.contractorPhoneExample")}
                 disabled={saving}
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="text-xs text-slate-500">Termin (opcjonalnie)</label>
+              <label className="text-xs text-slate-500">{t("maintenance.drawer.scheduleOptional")}</label>
               <input
                 type="datetime-local"
                 value={scheduledAt}
@@ -1212,12 +1214,12 @@ export default function WorkOrdersSection({ propertyId }) {
             </div>
 
             <div className="md:col-span-2">
-              <label className="text-xs text-slate-500">Notatki</label>
+              <label className="text-xs text-slate-500">{t("maintenance.drawer.notes")}</label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm min-h-[110px] disabled:bg-slate-50"
-                placeholder="Opis prac / wskazówki / dostęp do lokalu..."
+                placeholder={t("workOrders.notesPlaceholder")}
                 disabled={saving}
               />
             </div>
@@ -1246,7 +1248,7 @@ export default function WorkOrdersSection({ propertyId }) {
               className={`px-4 py-2 text-sm rounded-lg text-white ${saving ? "bg-slate-400" : "bg-blue-600"}`}
               disabled={saving}
             >
-              {saving ? "Zapisywanie…" : "Utwórz zlecenie"}
+              {saving ? t("common.saving") : t("workOrders.create")}
             </button>
           </div>
         </div>
@@ -1266,7 +1268,7 @@ export default function WorkOrdersSection({ propertyId }) {
         </div>
       )}
 
-      {!loading && workOrders.length === 0 && <p className="text-sm text-slate-500">Brak zleceń dla tej nieruchomości.</p>}
+      {!loading && workOrders.length === 0 && <p className="text-sm text-slate-500">{t("workOrders.empty")}</p>}
 
       {!loading && workOrders.length > 0 && (
         <div className="divide-y border rounded-lg bg-white">
@@ -1301,7 +1303,7 @@ export default function WorkOrdersSection({ propertyId }) {
                     </p>
                   )}
 
-                  {scheduled && <p className="text-xs text-slate-500 mt-1">Termin: {scheduled}</p>}
+                  {scheduled && <p className="text-xs text-slate-500 mt-1">{t("common.dueDate")}: {scheduled}</p>}
 
                   {wo.notes && <p className="text-xs text-slate-600 mt-2 whitespace-pre-wrap">{wo.notes}</p>}
                 </button>
@@ -1318,7 +1320,7 @@ export default function WorkOrdersSection({ propertyId }) {
                         }`}
                         title={tenantState.reason || ""}
                       >
-                        {isBusy ? "Wysyłanie…" : "Poproś o anulowanie"}
+                        {isBusy ? t("common.sending") : t("workOrders.requestCancellation")}
                       </button>
 
                       {(tenantState.reason || wo?.pending_cancel_request) && (
@@ -1336,7 +1338,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           onClick={() => approveCancellation(wo.id)}
                           className={`hover:underline ${isBusy ? "text-slate-400 cursor-not-allowed" : "text-emerald-700"}`}
                         >
-                          {isBusy ? "Przetwarzanie…" : "Zatwierdź anulowanie"}
+                          {isBusy ? t("common.processing") : t("workOrders.approveCancellation")}
                         </button>
                         <button
                           type="button"
@@ -1344,7 +1346,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           onClick={() => denyCancellation(wo.id)}
                           className={`hover:underline ${isBusy ? "text-slate-400 cursor-not-allowed" : "text-rose-700"}`}
                         >
-                          {isBusy ? "Przetwarzanie…" : "Odrzuć"}
+                          {isBusy ? t("common.processing") : t("workOrders.reject")}
                         </button>
                       </div>
 
@@ -1358,7 +1360,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           }))
                         }
                         className="border rounded-lg px-2 py-1 text-xs w-56 disabled:bg-slate-50"
-                        placeholder="Powód (opcjonalnie)"
+                        placeholder={t("workOrders.reasonOptional")}
                       />
                     </div>
                   )}
@@ -1428,12 +1430,13 @@ export default function WorkOrdersSection({ propertyId }) {
             setPage(1);
             setPageSize(next);
           }}
+          t={t}
         />
       )}
 
-      <Modal open={detailOpen} onClose={closeDetails} title="Szczegóły zlecenia">
+      <Modal open={detailOpen} onClose={closeDetails} title={t("workOrders.detailsTitle")}>
         {!selectedWO ? (
-          <p className="text-sm text-slate-500">Brak danych.</p>
+          <p className="text-sm text-slate-500">{t("common.noData")}</p>
         ) : (
           <div className="space-y-6">
             {/* header summary */}
@@ -1450,10 +1453,10 @@ export default function WorkOrdersSection({ propertyId }) {
 
                 <p className="text-sm text-slate-900 mt-2 font-medium">{selectedWO.contractor_name || "Zlecenie"}</p>
 
-                {selectedWO.contractor_phone && <p className="text-xs text-slate-500 mt-1">Telefon: {selectedWO.contractor_phone}</p>}
+                {selectedWO.contractor_phone && <p className="text-xs text-slate-500 mt-1">{t("common.phone")}: {selectedWO.contractor_phone}</p>}
 
                 {selectedWO.scheduled_at && (
-                  <p className="text-xs text-slate-500 mt-1">Termin: {formatDateTime(selectedWO.scheduled_at)}</p>
+                  <p className="text-xs text-slate-500 mt-1">{t("common.dueDate")}: {formatDateTime(selectedWO.scheduled_at)}</p>
                 )}
               </div>
             </div>
@@ -1466,8 +1469,8 @@ export default function WorkOrdersSection({ propertyId }) {
             <div className="border rounded-xl p-4 bg-white">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h4 className="font-semibold text-slate-900">Finanse</h4>
-                  <p className="text-xs text-slate-500 mt-1">Wycena i faktura dla tego zlecenia.</p>
+                  <h4 className="font-semibold text-slate-900">{t("finance.title")}</h4>
+                  <p className="text-xs text-slate-500 mt-1">{t("workOrders.financeSubtitle")}</p>
                 </div>
 
                 <button
@@ -1487,15 +1490,15 @@ export default function WorkOrdersSection({ propertyId }) {
                 </div>
               ) : !financials ? (
                 <div className="mt-3 flex items-center justify-between gap-3">
-                  <p className="text-sm text-slate-500">Brak rekordu finansów (jeszcze nie utworzono wyceny).</p>
+                  <p className="text-sm text-slate-500">{t("workOrders.financeEmpty")}</p>
                   <button
                     type="button"
                     onClick={() => finCreateOrSaveDraft(selectedWO.id)}
                     className={`px-3 py-2 text-sm rounded-lg text-white ${finSaving ? "bg-slate-400" : "bg-blue-600"}`}
                     disabled={finSaving}
-                    title="Utworzy rekord finansów poprzez zapis draft wyceny (RPC)"
+                    title={t("workOrders.createFinanceRecordTitle")}
                   >
-                    {finSaving ? "Zapisywanie…" : "Utwórz draft wyceny"}
+                    {finSaving ? t("common.saving") : t("workOrders.createQuoteDraft")}
                   </button>
                 </div>
               ) : (
@@ -1503,7 +1506,7 @@ export default function WorkOrdersSection({ propertyId }) {
                   {/* Quote */}
                   <div className="border rounded-lg p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="text-sm font-semibold text-slate-900">Wycena</div>
+                      <div className="text-sm font-semibold text-slate-900">{t("workOrders.quote")}</div>
                       <div className="text-xs text-slate-500">
                         Status: <span className="font-medium">{financials.quote_status}</span>
                         {financials.quote_submitted_at ? ` • wysłano: ${formatDateTime(financials.quote_submitted_at)}` : ""}
@@ -1514,17 +1517,17 @@ export default function WorkOrdersSection({ propertyId }) {
 
                     <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div>
-                        <label className="text-xs text-slate-500">Kwota</label>
+                        <label className="text-xs text-slate-500">{t("payments.amount")}</label>
                         <input
                           value={finQuoteAmount}
                           onChange={(e) => setFinQuoteAmount(e.target.value)}
                           className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
                           disabled={finSaving}
-                          placeholder="np. 250.00"
+                          placeholder={t("workOrders.amountExample250")}
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-slate-500">Waluta</label>
+                        <label className="text-xs text-slate-500">{t("common.currency")}</label>
                         <select
                           value={finQuoteCurrency}
                           onChange={(e) => setFinQuoteCurrency(e.target.value)}
@@ -1539,7 +1542,7 @@ export default function WorkOrdersSection({ propertyId }) {
                         </select>
                       </div>
                       <div className="md:col-span-1">
-                        <label className="text-xs text-slate-500">Podgląd</label>
+                        <label className="text-xs text-slate-500">{t("attachments.preview")}</label>
                         <div className="mt-1 border rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-700">
                           {formatMoney(financials.quote_amount, financials.quote_currency)}
                         </div>
@@ -1547,13 +1550,13 @@ export default function WorkOrdersSection({ propertyId }) {
                     </div>
 
                     <div className="mt-3">
-                      <label className="text-xs text-slate-500">Notatki do wyceny</label>
+                      <label className="text-xs text-slate-500">{t("workOrders.quoteNotes")}</label>
                       <textarea
                         value={finQuoteNotes}
                         onChange={(e) => setFinQuoteNotes(e.target.value)}
                         className="mt-1 w-full border rounded-lg px-3 py-2 text-sm min-h-[90px] disabled:bg-slate-50"
                         disabled={finSaving}
-                        placeholder="Opcjonalnie"
+                        placeholder={t("maintenance.drawer.optional")}
                       />
                     </div>
 
@@ -1568,7 +1571,7 @@ export default function WorkOrdersSection({ propertyId }) {
                         type="button"
                         onClick={() => finCreateOrSaveDraft(selectedWO.id)}
                         disabled={finSaving || !isContractor}
-                        title={!isContractor ? "Dostępne tylko dla wykonawcy" : ""}
+                        title={!isContractor ? t("workOrders.contractorOnly") : ""}
                         className={`px-3 py-2 text-sm rounded-lg text-white ${
                           finSaving || !isContractor ? "bg-slate-400 cursor-not-allowed" : "bg-blue-600"
                         }`}
@@ -1581,7 +1584,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           type="button"
                           onClick={() => finSubmit(selectedWO.id)}
                           disabled={finSaving || !isContractor}
-                          title={!isContractor ? "Dostępne tylko dla wykonawcy" : ""}
+                          title={!isContractor ? t("workOrders.contractorOnly") : ""}
                           className={`px-3 py-2 text-sm rounded-lg text-white ${
                             finSaving || !isContractor ? "bg-slate-400 cursor-not-allowed" : "bg-slate-900"
                           }`}
@@ -1607,7 +1610,7 @@ export default function WorkOrdersSection({ propertyId }) {
                               onChange={(e) => setFinRejectReason(e.target.value)}
                               disabled={finSaving}
                               className="border rounded-lg px-3 py-2 text-sm w-full md:w-72 disabled:bg-slate-50"
-                              placeholder="Powód odrzucenia (opcjonalnie)"
+                              placeholder={t("workOrders.rejectReasonOptional")}
                             />
                             <button
                               type="button"
@@ -1626,7 +1629,7 @@ export default function WorkOrdersSection({ propertyId }) {
                   {/* Invoice */}
                   <div className="border rounded-lg p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="text-sm font-semibold text-slate-900">Faktura</div>
+                      <div className="text-sm font-semibold text-slate-900">{t("workOrders.invoice")}</div>
                       <div className="text-xs text-slate-500">
                         {financials.invoice_amount != null
                           ? `Kwota: ${formatMoney(financials.invoice_amount, financials.invoice_currency)}`
@@ -1636,18 +1639,18 @@ export default function WorkOrdersSection({ propertyId }) {
 
                     <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <label className="text-xs text-slate-500">Kwota faktury</label>
+                        <label className="text-xs text-slate-500">{t("workOrders.invoiceAmount")}</label>
                         <input
                           value={finInvoiceAmount}
                           onChange={(e) => setFinInvoiceAmount(e.target.value)}
                           className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
                           disabled={finSaving}
-                          placeholder="np. 300.00"
+                          placeholder={t("workOrders.amountExample300")}
                         />
                       </div>
 
                       <div>
-                        <label className="text-xs text-slate-500">Waluta</label>
+                        <label className="text-xs text-slate-500">{t("common.currency")}</label>
                         <select
                           value={finInvoiceCurrency}
                           onChange={(e) => setFinInvoiceCurrency(e.target.value)}
@@ -1663,7 +1666,7 @@ export default function WorkOrdersSection({ propertyId }) {
                       </div>
 
                       <div>
-                        <label className="text-xs text-slate-500">Data wystawienia</label>
+                        <label className="text-xs text-slate-500">{t("workOrders.invoiceIssuedAt")}</label>
                         <input
                           type="datetime-local"
                           value={finInvoiceIssuedAt}
@@ -1674,7 +1677,7 @@ export default function WorkOrdersSection({ propertyId }) {
                       </div>
 
                       <div>
-                        <label className="text-xs text-slate-500">Termin płatności</label>
+                        <label className="text-xs text-slate-500">{t("workOrders.invoiceDueAt")}</label>
                         <input
                           type="datetime-local"
                           value={finInvoiceDueAt}
@@ -1690,12 +1693,12 @@ export default function WorkOrdersSection({ propertyId }) {
                         type="button"
                         onClick={() => finSaveInvoice(selectedWO.id)}
                         disabled={finSaving || !isContractor}
-                        title={!isContractor ? "Dostępne tylko dla wykonawcy" : ""}
+                        title={!isContractor ? t("workOrders.contractorOnly") : ""}
                         className={`px-3 py-2 text-sm rounded-lg text-white ${
                           finSaving || !isContractor ? "bg-slate-400 cursor-not-allowed" : "bg-blue-600"
                         }`}
                       >
-                        {finSaving ? "Zapisywanie…" : "Zapisz fakturę"}
+                        {finSaving ? t("common.saving") : t("workOrders.saveInvoice")}
                       </button>
                     </div>
                   </div>
@@ -1712,16 +1715,16 @@ export default function WorkOrdersSection({ propertyId }) {
               />
             ) : (
               <div>
-                <h4 className="font-semibold text-slate-900">Załączniki</h4>
+                <h4 className="font-semibold text-slate-900">{t("attachments.workOrderTitle")}</h4>
 
                 <div className="mt-2 flex items-center justify-between gap-3">
-                  <p className="text-xs text-slate-500">Zdjęcia i dokumenty dla tego zlecenia.</p>
+                  <p className="text-xs text-slate-500">{t("attachments.workOrderSubtitle")}</p>
 
                   <label
                     className={`text-sm px-3 py-2 rounded-lg border hover:bg-slate-50 cursor-pointer ${
                       attachmentsUploading ? "opacity-70" : ""
                     }`}
-                    title="Dodaj zdjęcia lub dokumenty"
+                    title={t("attachments.addFiles")}
                   >
                     {attachmentsUploading ? "Wgrywanie…" : "Dodaj pliki"}
                     <input
@@ -1744,7 +1747,7 @@ export default function WorkOrdersSection({ propertyId }) {
                     <Skeleton className="h-12" />
                   </div>
                 ) : attachments.length === 0 ? (
-                  <p className="text-sm text-slate-500 mt-3">Brak załączników.</p>
+                  <p className="text-sm text-slate-500 mt-3">{t("attachments.emptyWorkOrder")}</p>
                 ) : (
                   <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                     {attachments.map((a) => {
@@ -1758,7 +1761,7 @@ export default function WorkOrdersSection({ propertyId }) {
                               <img src={previewUrl} alt={a.file_name} className="w-full h-full object-cover" />
                             ) : (
                               <span className="text-xs text-slate-500 text-center px-2">
-                                {a.kind === "photo" ? "Zdjęcie" : "Dokument"}
+                                {a.kind === "photo" ? t("attachments.photo") : t("attachments.document")}
                               </span>
                             )}
                           </div>
@@ -1801,7 +1804,7 @@ export default function WorkOrdersSection({ propertyId }) {
 
             {/* Activity */}
             <div>
-              <h4 className="font-semibold text-slate-900">Aktywność</h4>
+              <h4 className="font-semibold text-slate-900">{t("workOrder.activity")}</h4>
 
               {auditLoading ? (
                 <div className="mt-2 space-y-2">
@@ -1809,7 +1812,7 @@ export default function WorkOrdersSection({ propertyId }) {
                   <Skeleton className="h-10" />
                 </div>
               ) : audit.length === 0 ? (
-                <p className="text-sm text-slate-500 mt-2">Brak wpisów.</p>
+                <p className="text-sm text-slate-500 mt-2">{t("workOrder.noEntries")}</p>
               ) : (
                 <div className="mt-2 space-y-2">
                   {audit.map((e) => (

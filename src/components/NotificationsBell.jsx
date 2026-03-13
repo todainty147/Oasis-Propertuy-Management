@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Bell } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useNotifications } from "../hooks/useNotifications";
+import { useI18n } from "../context/I18nContext";
 
 /**
  * Minimal bell dropdown
@@ -13,6 +14,7 @@ import { useNotifications } from "../hooks/useNotifications";
  */
 export default function NotificationsBell({ limit = 20 }) {
   const navigate = useNavigate();
+  const { t, lang } = useI18n();
   const { items, loading, unreadCount, markRead, markAllRead } =
     useNotifications({ limit });
 
@@ -52,7 +54,7 @@ export default function NotificationsBell({ limit = 20 }) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="relative inline-flex items-center justify-center w-10 h-10 rounded-lg hover:bg-slate-50 transition-colors"
-        aria-label="Notifications"
+        aria-label={t("notifications.label")}
       >
         <Bell className="w-5 h-5 text-slate-700" />
         {unreadCount > 0 && (
@@ -67,11 +69,11 @@ export default function NotificationsBell({ limit = 20 }) {
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <p className="text-sm font-semibold text-slate-900">
-                Notifications
+                {t("notifications.title")}
               </p>
               {unreadCount > 0 && (
                 <span className="text-xs text-slate-500">
-                  ({unreadCount} unread)
+                  ({t("notifications.unread", { count: unreadCount })})
                 </span>
               )}
             </div>
@@ -92,16 +94,16 @@ export default function NotificationsBell({ limit = 20 }) {
                   : "text-blue-600 hover:bg-blue-50"
               }`}
             >
-              Mark all read
+              {t("notifications.markAllRead")}
             </button>
           </div>
 
           <div className="max-h-[420px] overflow-auto">
             {loading ? (
-              <div className="p-4 text-sm text-slate-500">Loading…</div>
+              <div className="p-4 text-sm text-slate-500">{t("notifications.loading")}</div>
             ) : items.length === 0 ? (
               <div className="p-4 text-sm text-slate-500">
-                No notifications yet.
+                {t("notifications.empty")}
               </div>
             ) : (
               <ul className="divide-y divide-slate-100">
@@ -131,7 +133,7 @@ export default function NotificationsBell({ limit = 20 }) {
                             </p>
                           )}
                           <p className="text-[11px] text-slate-400 mt-1">
-                            {formatTime(n.created_at)}
+                            {formatTime(n.created_at, lang)}
                           </p>
                         </div>
 
@@ -152,7 +154,7 @@ export default function NotificationsBell({ limit = 20 }) {
               onClick={() => setOpen(false)}
               className="w-full text-xs font-medium text-slate-700 hover:text-slate-900"
             >
-              Close
+              {t("common.close")}
             </button>
           </div>
         </div>
@@ -161,10 +163,10 @@ export default function NotificationsBell({ limit = 20 }) {
   );
 }
 
-function formatTime(iso) {
+function formatTime(iso, lang = "pl") {
   if (!iso) return "";
   const d = new Date(iso);
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString(lang === "pl" ? "pl-PL" : "en-GB", {
     year: "numeric",
     month: "short",
     day: "2-digit",

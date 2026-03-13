@@ -15,6 +15,7 @@ import {
 } from "../services/documentService";
 import { fetchDocumentAudit } from "../services/documentAuditService";
 import { DOCUMENT_TAGS } from "../constants/documentTags";
+import { useI18n } from "../context/I18nContext";
 
 import {
   canUploadDocument,
@@ -39,6 +40,7 @@ function shortId(id) {
    ====================== */
 
 export default function PropertyDocumentsSection({ propertyId }) {
+  const { t } = useI18n();
   const fileInputRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
@@ -148,7 +150,7 @@ async function loadAll() {
       e.target.value = "";
       await loadAll();
     } catch (err) {
-      alert(err?.message ?? "Upload failed");
+      alert(err?.message ?? t("documents.uploadError"));
     }
   }
 
@@ -174,7 +176,7 @@ async function loadAll() {
       setEditingTags([]);
       await loadAll();
     } catch (err) {
-      alert(err?.message ?? "Nie udało się zapisać tagów");
+      alert(err?.message ?? t("documents.saveTagsError"));
     }
   }
 
@@ -188,7 +190,7 @@ async function loadAll() {
       setPreviewDoc(doc);
       setPreviewUrl(url);
     } catch {
-      setPreviewError("Nie udało się załadować podglądu");
+      setPreviewError(t("documents.previewError"));
     }
   }
 
@@ -200,19 +202,19 @@ async function loadAll() {
         filename: doc.name,
       });
     } catch (err) {
-      alert(err?.message ?? "Nie udało się pobrać pliku");
+      alert(err?.message ?? t("documents.downloadError"));
     }
   }
 
   /* ---------- DELETE ---------- */
   async function handleDelete(doc) {
-    if (!confirm("Usunąć dokument?")) return;
+    if (!confirm(t("documents.confirmDelete"))) return;
 
     try {
       await deleteDocument(doc);
       await loadAll();
     } catch (err) {
-      alert(err?.message ?? "Nie udało się usunąć dokumentu");
+      alert(err?.message ?? t("documents.deleteError"));
     }
   }
 
@@ -224,7 +226,7 @@ async function loadAll() {
     return (
       <Card className="p-6">
         <p className="text-sm text-slate-500">
-          Ładowanie uprawnień…
+          {t("common.loadingPermissions")}
         </p>
       </Card>
     );
@@ -234,7 +236,7 @@ async function loadAll() {
     <Card className="p-6 space-y-6">
       {/* ---------- HEADER ---------- */}
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Dokumenty nieruchomości</h3>
+        <h3 className="text-lg font-semibold">{t("documents.propertyTitle")}</h3>
 
         {canUpload && (
           <>
@@ -242,7 +244,7 @@ async function loadAll() {
               onClick={() => fileInputRef.current?.click()}
               className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg"
             >
-              Dodaj dokument
+              {t("documents.add")}
             </button>
             <input
               ref={fileInputRef}
@@ -313,14 +315,14 @@ async function loadAll() {
       {/* ---------- EMPTY ---------- */}
       {!loading && documents.length === 0 && (
         <p className="text-sm text-slate-500">
-          Brak dokumentów dla tej nieruchomości
+          {t("documents.emptyForProperty")}
         </p>
       )}
 
       {/* ---------- EMPTY FILTER ---------- */}
       {!loading && filteredDocuments.length === 0 && documents.length > 0 && (
         <p className="text-sm text-slate-500">
-          Brak dokumentów dla wybranych tagów
+          {t("documents.emptyForTags")}
         </p>
       )}
 
@@ -379,7 +381,7 @@ async function loadAll() {
                         onClick={() => saveTags(doc)}
                         className="text-blue-600 hover:underline"
                       >
-                        Zapisz
+                        {t("common.save")}
                       </button>
                       <button
                         type="button"
@@ -389,7 +391,7 @@ async function loadAll() {
                         }}
                         className="text-gray-500 hover:underline"
                       >
-                        Anuluj
+                        {t("common.cancel")}
                       </button>
                     </div>
                   </div>
@@ -403,7 +405,7 @@ async function loadAll() {
                     onClick={() => handlePreview(doc)}
                     className="text-blue-600 hover:underline"
                   >
-                    Podgląd
+                    {t("attachments.preview")}
                   </button>
                 )}
 
@@ -412,7 +414,7 @@ async function loadAll() {
                   onClick={() => handleDownload(doc)}
                   className="text-slate-600 hover:underline"
                 >
-                  Pobierz
+                  {t("attachments.download")}
                 </button>
 
                 {canEdit(doc) && editingDocId !== doc.id && (
@@ -421,7 +423,7 @@ async function loadAll() {
                     onClick={() => startEditTags(doc)}
                     className="text-xs text-slate-600 hover:underline"
                   >
-                    Edytuj tagi
+                    {t("documents.editTags")}
                   </button>
                 )}
 
@@ -431,7 +433,7 @@ async function loadAll() {
                     onClick={() => handleDelete(doc)}
                     className="text-red-600 hover:underline"
                   >
-                    Usuń
+                    {t("attachments.delete")}
                   </button>
                 )}
               </div>
@@ -446,7 +448,7 @@ async function loadAll() {
       {audit.length > 0 && (
         <div>
           <h4 className="text-sm font-semibold text-slate-700 mb-2">
-            Historia dokumentów
+            {t("documents.history")}
           </h4>
 
           <div className="divide-y border rounded-lg text-sm">
@@ -454,13 +456,13 @@ async function loadAll() {
               <div key={a.id} className="px-4 py-2 flex justify-between">
                 <div>
                   <p className="font-medium">
-                    {a.action === "UPLOAD" ? "Dodano dokument" : "Usunięto dokument"}
+                    {a.action === "UPLOAD" ? t("documents.audit.uploaded") : t("documents.audit.deleted")}
                   </p>
                   <p className="text-xs text-slate-500">{a.name}</p>
                 </div>
 
                 <div className="text-right text-xs text-slate-500">
-                  <p>{a.actor_id ? `Użytkownik ${shortId(a.actor_id)}` : "—"}</p>
+                  <p>{a.actor_id ? t("documents.userShort", { id: shortId(a.actor_id) }) : "—"}</p>
                   <p>{a.created_at ? new Date(a.created_at).toLocaleString() : "—"}</p>
                 </div>
               </div>
@@ -486,7 +488,7 @@ async function loadAll() {
                 }}
                 className="text-sm text-gray-600 hover:text-black"
               >
-                Zamknij ✕
+                {t("common.close")} ✕
               </button>
             </div>
 

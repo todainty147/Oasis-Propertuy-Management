@@ -5,6 +5,7 @@ import Skeleton from "../components/ui/Skeleton";
 import { useAccount } from "../context/AccountContext";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { supabase } from "../lib/supabase";
+import { useI18n } from "../context/I18nContext";
 
 function fmtDate(ts) {
   if (!ts) return "—";
@@ -20,26 +21,7 @@ function daysSince(ts) {
   return Math.max(0, Math.floor((Date.now() - t) / 86400000));
 }
 
-function reqStatusLabel(status) {
-  const s = String(status || "").toLowerCase();
-  if (s === "open") return "Otwarte";
-  if (s === "in_progress") return "W trakcie";
-  if (s === "waiting") return "Oczekuje";
-  if (s === "resolved") return "Rozwiązane";
-  if (s === "closed") return "Zamknięte";
-  return status || "—";
-}
-
-function woStatusLabel(status) {
-  const s = String(status || "").toLowerCase();
-  if (s === "assigned") return "Przypisane";
-  if (s === "in_progress") return "W trakcie";
-  if (s === "completed") return "Zakończone";
-  if (s === "cancelled") return "Anulowane";
-  return status || "—";
-}
-
-function KPIStatCard({ label, value, hint = "", to = "" }) {
+function KPIStatCard({ label, value, hint = "", to = "", tone = "blue" }) {
   const themes = {
     blue: "from-blue-600/10 to-cyan-500/10 border-blue-200",
     amber: "from-amber-500/10 to-orange-500/10 border-amber-200",
@@ -47,9 +29,9 @@ function KPIStatCard({ label, value, hint = "", to = "" }) {
     rose: "from-rose-500/10 to-red-500/10 border-rose-200",
     violet: "from-violet-500/10 to-indigo-500/10 border-violet-200",
   };
-  const tone = themes[label.includes("High") ? "rose" : label.includes("Awaiting") ? "amber" : label.includes("Resolved") ? "emerald" : label.includes("Active") ? "violet" : "blue"];
+  const toneClass = themes[tone] || themes.blue;
   const content = (
-    <Card className={`p-4 border bg-gradient-to-br ${tone} shadow-sm hover:shadow-md transition-shadow`}>
+    <Card className={`p-4 border bg-gradient-to-br ${toneClass} shadow-sm hover:shadow-md transition-shadow`}>
       <div className="text-xs text-slate-500">{label}</div>
       <div className="text-2xl font-bold text-slate-900 mt-1">
         <AnimatedNumber value={value} />
@@ -135,7 +117,7 @@ function AnimatedNumber({ value = 0, durationMs = 550 }) {
   return <>{display}</>;
 }
 
-function DonutChart({ title, rows = [], labels = {} }) {
+function DonutChart({ title, rows = [], labels = {}, totalLabel = "Total" }) {
   const total = rows.reduce((a, b) => a + b.value, 0);
   const palette = ["#0ea5e9", "#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#64748b"];
   let start = 0;
@@ -166,7 +148,7 @@ function DonutChart({ title, rows = [], labels = {} }) {
           <div className="w-36 h-36 rounded-full border border-slate-200" style={{ background: gradient }} />
           <div className="absolute inset-5 rounded-full bg-white border border-slate-200 flex items-center justify-center">
             <div className="text-center">
-              <div className="text-xs text-slate-500">Łącznie</div>
+              <div className="text-xs text-slate-500">{totalLabel}</div>
               <div className="text-xl font-bold text-slate-900">{total}</div>
             </div>
           </div>
@@ -192,6 +174,7 @@ function DonutChart({ title, rows = [], labels = {} }) {
 export default function MaintenanceKPIDashboardPage() {
   const { setTitle } = usePageTitle();
   const { activeAccountId, activeRole } = useAccount();
+  const { t } = useI18n();
 
   const role = useMemo(() => String(activeRole || "").toLowerCase(), [activeRole]);
   const canManage = useMemo(() => ["owner", "admin", "staff"].includes(role), [role]);
@@ -205,8 +188,8 @@ export default function MaintenanceKPIDashboardPage() {
   const [serverStats, setServerStats] = useState(null);
 
   useEffect(() => {
-    setTitle("Maintenance KPI");
-  }, [setTitle]);
+    setTitle(t("maintenance.kpi.pageTitle"));
+  }, [setTitle, t]);
 
   async function loadAll() {
     if (!activeAccountId) return;
@@ -257,7 +240,7 @@ export default function MaintenanceKPIDashboardPage() {
 
       const labels = {};
       for (const p of propRows || []) {
-        labels[p.id] = `${p.address || "Nieruchomość"}${p.city ? `, ${p.city}` : ""}`;
+        labels[p.id] = `${p.address || t("common.property")}${p.city ? `, ${p.city}` : ""}`;
       }
       setPropertyLabelById(labels);
 
@@ -291,7 +274,7 @@ export default function MaintenanceKPIDashboardPage() {
         feedRows.push({
           key: `act-${a.id}`,
           at: a.created_at,
-          title: isWO ? "Zmiana zlecenia" : "Zmiana zgłoszenia",
+          title: isWO ? t("maintenance.kpi.feed.workOrderChange") : t("maintenance.kpi.feed.requestChange"),
           detail: a.field ? `${a.action || "update"} • ${a.field}` : a.action || "update",
           linkPath: isWO && a.entity_id ? `/work-orders/${a.entity_id}` : "/maintenance-inbox",
         });
@@ -300,7 +283,7 @@ export default function MaintenanceKPIDashboardPage() {
         feedRows.push({
           key: `woa-${a.id}`,
           at: a.created_at,
-          title: "Audit zlecenia",
+          title: t("maintenance.kpi.feed.workOrderAudit"),
           detail: a.action || "update",
           linkPath: a.work_order_id ? `/work-orders/${a.work_order_id}` : "/maintenance-inbox",
         });
@@ -308,7 +291,7 @@ export default function MaintenanceKPIDashboardPage() {
       feedRows.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
       setFeed(feedRows.slice(0, 10));
     } catch (e) {
-      setError(e?.message || "Nie udało się wczytać dashboardu KPI.");
+      setError(e?.message || t("maintenance.kpi.error"));
       setRequests([]);
       setWorkOrders([]);
       setFeed([]);
@@ -405,8 +388,8 @@ export default function MaintenanceKPIDashboardPage() {
         items.push({
           key: `wait-${r.id}`,
           severity: "high",
-          title: "Zgłoszenie oczekuje ponad 48h",
-          detail: r.title || "Zgłoszenie",
+          title: t("maintenance.kpi.attention.waiting48h"),
+          detail: r.title || t("maintenance.requestFallbackTitle"),
           property: propertyLabelById[r.property_id] || "",
           timestamp: `Utworzono ${daysSince(r.created_at)} dni temu`,
           linkPath: "/maintenance-inbox",
@@ -417,8 +400,8 @@ export default function MaintenanceKPIDashboardPage() {
         items.push({
           key: `prio-${r.id}`,
           severity: "critical",
-          title: "Wysoki priorytet nierozwiązany",
-          detail: r.title || "Zgłoszenie",
+          title: t("maintenance.kpi.attention.highPriorityOpen"),
+          detail: r.title || t("maintenance.requestFallbackTitle"),
           property: propertyLabelById[r.property_id] || "",
           timestamp: `Utworzono ${daysSince(r.created_at)} dni temu`,
           linkPath: "/maintenance-inbox",
@@ -429,8 +412,8 @@ export default function MaintenanceKPIDashboardPage() {
         items.push({
           key: `no-wo-${r.id}`,
           severity: "medium",
-          title: "Brak zlecenia dla zgłoszenia",
-          detail: r.title || "Zgłoszenie",
+          title: t("maintenance.kpi.attention.noWorkOrder"),
+          detail: r.title || t("maintenance.requestFallbackTitle"),
           property: propertyLabelById[r.property_id] || "",
           timestamp: `Utworzono ${daysSince(r.created_at)} dni temu`,
           linkPath: "/maintenance-inbox",
@@ -473,7 +456,7 @@ export default function MaintenanceKPIDashboardPage() {
   if (!canManage) {
     return (
       <Card className="p-6">
-        <p className="text-sm text-slate-600">Ten ekran jest dostępny tylko dla ról owner/admin/staff.</p>
+        <p className="text-sm text-slate-600">{t("maintenance.kpi.accessDenied")}</p>
       </Card>
     );
   }
@@ -484,8 +467,8 @@ export default function MaintenanceKPIDashboardPage() {
         <div className="absolute -top-10 -right-8 h-36 w-36 rounded-full bg-cyan-400/20 blur-2xl" />
         <div className="absolute -bottom-10 -left-8 h-36 w-36 rounded-full bg-blue-500/20 blur-2xl" />
         <div>
-          <h2 className="text-lg font-semibold text-white">Landlord Maintenance KPI Dashboard</h2>
-          <p className="text-sm text-slate-200 mt-1">Bieżący obraz zgłoszeń, zleceń i spraw wymagających reakcji.</p>
+          <h2 className="text-lg font-semibold text-white">{t("maintenance.kpi.title")}</h2>
+          <p className="text-sm text-slate-200 mt-1">{t("maintenance.kpi.heroSubtitle")}</p>
         </div>
         <button
           type="button"
@@ -493,7 +476,7 @@ export default function MaintenanceKPIDashboardPage() {
           disabled={loading}
           className="relative z-10 px-3 py-2 text-sm rounded-lg border border-white/30 text-white hover:bg-white/10 disabled:opacity-50"
         >
-          Odśwież
+          {t("common.refresh")}
         </button>
       </div>
 
@@ -510,47 +493,49 @@ export default function MaintenanceKPIDashboardPage() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
-            <KPIStatCard label="Open Requests" value={kpi.openRequests} to="/maintenance-inbox" />
-            <KPIStatCard label="Active Work Orders" value={kpi.activeWorkOrders} to="/maintenance-inbox?status=in_progress" />
-            <KPIStatCard label="Awaiting Action" value={kpi.awaitingAction} to="/maintenance-inbox?status=waiting" />
+            <KPIStatCard label={t("maintenance.kpi.kpi.openRequests")} value={kpi.openRequests} to="/maintenance-inbox" tone="blue" />
+            <KPIStatCard label={t("maintenance.kpi.kpi.activeWorkOrders")} value={kpi.activeWorkOrders} to="/maintenance-inbox?status=in_progress" tone="violet" />
+            <KPIStatCard label={t("maintenance.kpi.kpi.awaitingAction")} value={kpi.awaitingAction} to="/maintenance-inbox?status=waiting" tone="amber" />
             <KPIStatCard
-              label="Resolved Pending Closure"
+              label={t("maintenance.kpi.kpi.resolvedPending")}
               value={kpi.resolvedPendingClosure}
               to="/maintenance-inbox?status=resolved"
+              tone="emerald"
             />
-            <KPIStatCard label="Open High Priority" value={kpi.openHighPriority} to="/maintenance-inbox" />
+            <KPIStatCard label={t("maintenance.kpi.kpi.openHighPriority")} value={kpi.openHighPriority} to="/maintenance-inbox" tone="rose" />
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
             <StatusBarChart
-              title="Requests by Status"
+              title={t("maintenance.kpi.requestsByStatus")}
               rows={Object.entries(kpi.reqByStatus).map(([key, value]) => ({ key, value }))}
               labels={{
-                open: reqStatusLabel("open"),
-                in_progress: reqStatusLabel("in_progress"),
-                waiting: reqStatusLabel("waiting"),
-                resolved: reqStatusLabel("resolved"),
-                closed: reqStatusLabel("closed"),
+                open: t("status.req.open"),
+                in_progress: t("status.req.in_progress"),
+                waiting: t("status.req.waiting"),
+                resolved: t("status.req.resolved"),
+                closed: t("status.req.closed"),
               }}
             />
 
             <DonutChart
-              title="Work Orders by Status"
+              title={t("maintenance.kpi.workOrdersByStatus")}
               rows={Object.entries(kpi.woByStatus).map(([key, value]) => ({ key, value }))}
+              totalLabel={t("common.total")}
               labels={{
-                assigned: woStatusLabel("assigned"),
-                in_progress: woStatusLabel("in_progress"),
-                completed: woStatusLabel("completed"),
-                cancelled: woStatusLabel("cancelled"),
+                assigned: t("status.wo.assigned"),
+                in_progress: t("status.wo.in_progress"),
+                completed: t("status.wo.completed"),
+                cancelled: t("status.wo.cancelled"),
               }}
             />
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
             <Card className="p-4">
-              <h3 className="text-sm font-semibold text-slate-900">Attention Needed</h3>
+              <h3 className="text-sm font-semibold text-slate-900">{t("maintenance.kpi.attentionNeeded")}</h3>
               {attentionItems.length === 0 ? (
-                <p className="text-sm text-slate-500 mt-3">Brak pilnych pozycji.</p>
+                <p className="text-sm text-slate-500 mt-3">{t("maintenance.kpi.noUrgent")}</p>
               ) : (
                 <div className="mt-3 space-y-2">
                   {attentionItems.map((i) => (
@@ -570,9 +555,9 @@ export default function MaintenanceKPIDashboardPage() {
             </Card>
 
             <Card className="p-4">
-              <h3 className="text-sm font-semibold text-slate-900">Recent Maintenance Activity</h3>
+              <h3 className="text-sm font-semibold text-slate-900">{t("maintenance.kpi.recentActivity")}</h3>
               {feed.length === 0 ? (
-                <p className="text-sm text-slate-500 mt-3">Brak zdarzeń.</p>
+                <p className="text-sm text-slate-500 mt-3">{t("maintenance.kpi.noEvents")}</p>
               ) : (
                 <div className="mt-3 space-y-2">
                   {feed.map((f) => (

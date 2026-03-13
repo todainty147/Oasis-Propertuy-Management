@@ -7,6 +7,7 @@ import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import TenantDocumentsSection from "../components/TenantDocumentsSection";
 import { useAccount } from "../context/AccountContext";
+import { useI18n } from "../context/I18nContext";
 
 /* ======================
    SKELETON
@@ -42,6 +43,7 @@ export default function TenantDetails({
 
   /* ---------- ACCOUNT ---------- */
   const { accountLoading } = useAccount();
+  const { t } = useI18n();
 
   /* ---------- PAGE TITLE ---------- */
   const { setTitle } = usePageTitle();
@@ -67,12 +69,12 @@ export default function TenantDetails({
   if (!tenant) {
     return (
       <div className="p-6 bg-white rounded-xl border">
-        <p>Nie znaleziono najemcy.</p>
+        <p>{t("tenantDetails.notFound")}</p>
         <button
           className="mt-4 text-blue-600"
           onClick={() => navigate("/tenants")}
         >
-          ← Wróć
+          {t("common.back")}
         </button>
       </div>
     );
@@ -92,9 +94,9 @@ export default function TenantDetails({
   ).length;
 
   /* ---------- TENANT STATUS ---------- */
-  let tenantStatus = "Zaległe";
-  if (overdueCount === 0 && paidCount > 0) tenantStatus = "Opłacone";
-  else if (paidCount > 0 && overdueCount > 0) tenantStatus = "Częściowo";
+  let tenantStatus = t("payments.status.overdue");
+  if (overdueCount === 0 && paidCount > 0) tenantStatus = t("payments.status.paid");
+  else if (paidCount > 0 && overdueCount > 0) tenantStatus = t("payments.status.partial");
 
   /* ======================
      RENDER
@@ -104,7 +106,7 @@ export default function TenantDetails({
     <div className="space-y-6">
       <Breadcrumbs
         items={[
-          { label: "Najemcy", to: "/tenants" },
+          { label: t("sidebar.tenants"), to: "/tenants" },
           { label: tenant.name },
         ]}
       />
@@ -125,7 +127,7 @@ export default function TenantDetails({
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="p-4 bg-slate-50">
-            <p className="text-xs text-slate-500">Lokal</p>
+            <p className="text-xs text-slate-500">{t("tenantDetails.unit")}</p>
             <p className="font-semibold">{property?.address || "—"}</p>
             <p className="text-sm text-slate-500">
               {property?.city || ""}
@@ -133,12 +135,12 @@ export default function TenantDetails({
           </Card>
 
           <Card className="p-4 bg-slate-50">
-            <p className="text-xs text-slate-500">Opłacone</p>
+            <p className="text-xs text-slate-500">{t("finance.table.paid")}</p>
             <p className="text-xl font-bold">{paidCount}</p>
           </Card>
 
           <Card className="p-4 bg-slate-50">
-            <p className="text-xs text-slate-500">Zaległe</p>
+            <p className="text-xs text-slate-500">{t("finance.summary.overdue")}</p>
             <p className="text-xl font-bold text-rose-600">
               {overdueCount}
             </p>

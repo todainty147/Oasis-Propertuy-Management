@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
+import { useI18n } from "../../context/I18nContext";
 
-function workOrderStatusLabel(status) {
+function workOrderStatusLabel(status, t) {
   const s = String(status ?? "").toLowerCase();
-  if (s === "assigned") return "Przypisane";
-  if (s === "in_progress") return "W trakcie";
-  if (s === "completed") return "Zakończone";
-  if (s === "cancelled") return "Anulowane";
+  if (s === "assigned") return t("status.wo.assigned");
+  if (s === "in_progress") return t("status.wo.in_progress");
+  if (s === "completed") return t("status.wo.completed");
+  if (s === "cancelled") return t("status.wo.cancelled");
   return status || "—";
 }
 
@@ -26,9 +27,10 @@ function fmt(ts) {
 }
 
 export default function WorkOrderMiniCard({ workOrder }) {
+  const { t } = useI18n();
   const wo = workOrder || {};
-  const contractor = wo.contractor_name || "Nie przypisano";
-  const title = wo.title || `Zlecenie ${String(wo.id || "").slice(0, 8)}`;
+  const contractor = wo.contractor_name || t("maintenance.workOrders.unassigned");
+  const title = wo.title || `${t("workOrder.shortLabel")} ${String(wo.id || "").slice(0, 8)}`;
 
   return (
     <div className="rounded-lg border border-slate-200 p-3 flex items-start justify-between gap-3">
@@ -36,13 +38,13 @@ export default function WorkOrderMiniCard({ workOrder }) {
         <p className="text-sm font-medium text-slate-900 truncate">{title}</p>
         <div className="flex flex-wrap gap-2 text-[11px]">
           <span className={`px-2 py-0.5 rounded border ${workOrderStatusTone(wo.status)}`}>
-            {workOrderStatusLabel(wo.status)}
+            {workOrderStatusLabel(wo.status, t)}
           </span>
           <span className="px-2 py-0.5 rounded border border-slate-200 bg-slate-50 text-slate-600">
-            Wykonawca: {contractor}
+            {t("common.contractor")}: {contractor}
           </span>
           <span className="px-2 py-0.5 rounded border border-slate-200 bg-slate-50 text-slate-600">
-            Utworzono: {fmt(wo.created_at)}
+            {t("common.createdAt")}: {fmt(wo.created_at)}
           </span>
         </div>
       </div>
@@ -52,7 +54,7 @@ export default function WorkOrderMiniCard({ workOrder }) {
           to={`/work-orders/${wo.id}`}
           className="shrink-0 px-3 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
         >
-          Otwórz zlecenie
+          {t("workOrder.open")}
         </Link>
       ) : null}
     </div>

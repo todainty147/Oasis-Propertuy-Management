@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Card from "./Card";
 import { useAccount } from "../context/AccountContext"; // ✅ MULTI-TENANT
+import { useI18n } from "../context/I18nContext";
 
 export default function AddPaymentModal({
   isOpen,
@@ -11,6 +12,7 @@ export default function AddPaymentModal({
   onSave,
 }) {
   const { accountLoading } = useAccount(); // ✅ MULTI-TENANT
+  const { t } = useI18n();
 
   const [form, setForm] = useState({
     propertyId: "",
@@ -58,7 +60,7 @@ export default function AddPaymentModal({
       !form.amount ||
       !form.dueDate
     ) {
-      alert("Uzupełnij nieruchomość, najemcę, kwotę i termin");
+      alert(t("payments.fillRequired"));
       return;
     }
 
@@ -81,7 +83,7 @@ export default function AddPaymentModal({
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
       <Card className="p-6 w-full max-w-lg">
         <h3 className="text-lg font-semibold mb-4">
-          {payment ? "Edytuj płatność" : "Dodaj płatność"}
+          {payment ? t("payments.edit") : t("payments.add")}
         </h3>
 
         <form onSubmit={submit} className="space-y-4">
@@ -98,7 +100,7 @@ export default function AddPaymentModal({
             }
             className="w-full border rounded px-3 py-2"
           >
-            <option value="">Wybierz nieruchomość</option>
+            <option value="">{t("payments.selectProperty")}</option>
             {properties.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.address}
@@ -116,7 +118,7 @@ export default function AddPaymentModal({
             className="w-full border rounded px-3 py-2"
             disabled={!form.propertyId}
           >
-            <option value="">Wybierz najemcę</option>
+            <option value="">{t("payments.selectTenant")}</option>
             {filteredTenants.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
@@ -128,7 +130,7 @@ export default function AddPaymentModal({
           <input
             required
             type="number"
-            placeholder="Kwota (PLN)"
+            placeholder={t("payments.amountPln")}
             value={form.amount}
             onChange={(e) =>
               setForm({ ...form, amount: e.target.value })
@@ -144,9 +146,9 @@ export default function AddPaymentModal({
             }
             className="w-full border rounded px-3 py-2"
           >
-            <option value="Oczekujące">Oczekujące</option>
-            <option value="Opłacone">Opłacone</option>
-            <option value="Zaległe">Zaległe</option>
+            <option value="Oczekujące">{t("payments.status.pending")}</option>
+            <option value="Opłacone">{t("payments.status.paid")}</option>
+            <option value="Zaległe">{t("payments.status.overdue")}</option>
           </select>
 
           {/* DUE DATE (REQUIRED) */}
@@ -166,13 +168,13 @@ export default function AddPaymentModal({
               onClick={onClose}
               className="px-4 py-2 border rounded"
             >
-              Anuluj
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
               className="px-4 py-2 bg-blue-600 text-white rounded"
             >
-              Zapisz
+              {t("common.save")}
             </button>
           </div>
         </form>

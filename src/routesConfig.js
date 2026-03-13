@@ -4,35 +4,35 @@ export const routesConfig = [
     children: [
       {
         path: "dashboard",
-        handle: { title: "Pulpit" },
+        handle: { titleKey: "sidebar.dashboard" },
       },
       {
         path: "properties",
-        handle: { title: "Nieruchomości" },
+        handle: { titleKey: "sidebar.properties" },
       },
       {
         path: "properties/:id",
-        handle: { title: "Szczegóły nieruchomości" },
+        handle: { titleKey: "propertyDetails.title" },
       },
       {
         path: "tenants",
-        handle: { title: "Najemcy" },
+        handle: { titleKey: "sidebar.tenants" },
       },
       {
         path: "tenants/:id",
-        handle: { title: "Szczegóły najemcy" },
+        handle: { titleKey: "tenantDetails.title" },
       },
       {
         path: "finance",
-        handle: { title: "Finanse" },
+        handle: { titleKey: "sidebar.finance" },
       },
       {
         path: "maintenance-inbox",
-        handle: { title: "Maintenance Inbox" },
+        handle: { titleKey: "sidebar.maintenanceInbox" },
       },
       {
         path: "maintenance-kpi",
-        handle: { title: "Maintenance KPI" },
+        handle: { titleKey: "sidebar.maintenanceKpi" },
       },
     ],
   },

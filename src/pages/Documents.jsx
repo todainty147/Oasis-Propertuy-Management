@@ -7,6 +7,7 @@ import { usePageTitle } from "../layout/PageTitleContext";
 import { useAuth } from "../context/AuthContext";
 import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
+import { useI18n } from "../context/I18nContext";
 
 import {
   fetchDocuments,
@@ -55,6 +56,7 @@ export default function Documents({
   properties: propertiesProp = null,
 } = {}) {
   const { setTitle } = usePageTitle();
+  const { t } = useI18n();
   const { loading: authLoading } = useAuth();
   const { accounts, activeAccountId, accountLoading, activeRole } = useAccount();
   const { activeTenantId } = useTenant();
@@ -110,8 +112,8 @@ export default function Documents({
 
   /* ---------- PAGE TITLE ---------- */
   useEffect(() => {
-    setTitle("Dokumenty");
-  }, [setTitle]);
+    setTitle(t("sidebar.documents"));
+  }, [setTitle, t]);
 
   /* ---------- SYNC URL → STATE (q/tags only) ---------- */
   useEffect(() => {
@@ -192,13 +194,13 @@ export default function Documents({
     if (!file) return;
 
     if (!activeAccountId) {
-      alert("Brak aktywnego konta");
+      alert(t("documents.noActiveAccount"));
       e.target.value = "";
       return;
     }
 
     if (!uploadPropertyId && !uploadTenantId) {
-      alert("Wybierz nieruchomość lub najemcę");
+      alert(t("documents.pickPropertyOrTenant"));
       e.target.value = "";
       return;
     }
@@ -220,7 +222,7 @@ export default function Documents({
 
       await loadDocuments();
     } catch (err) {
-      alert(err?.message ?? "Błąd uploadu");
+      alert(err?.message ?? t("attachments.uploadError"));
       e.target.value = "";
     } finally {
       setUploading(false);
@@ -237,7 +239,7 @@ export default function Documents({
       setPreviewDoc(doc);
       setPreviewUrl(url);
     } catch {
-      setPreviewError("Nie udało się załadować podglądu");
+      setPreviewError(t("attachments.previewError"));
     }
   }
 
@@ -288,9 +290,9 @@ export default function Documents({
         <Card className="p-4 space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="font-medium">Dodaj dokument</p>
+              <p className="font-medium">{t("documents.add")}</p>
               <p className="text-xs text-slate-500">
-                Wybierz <b>najemcę</b> lub <b>nieruchomość</b>, aby przypisać
+                {t("documents.pickTenantOrPropertyIntro")} <b>{t("finance.table.tenant").toLowerCase()}</b> {t("common.or")} <b>{t("finance.table.property").toLowerCase()}</b>, {t("documents.assignSuffix")}
                 dokument.
               </p>
             </div>
@@ -300,7 +302,7 @@ export default function Documents({
                 uploading ? "bg-slate-400" : "bg-blue-600"
               }`}
             >
-              {uploading ? "Wysyłanie…" : "Dodaj dokument"}
+              {uploading ? t("attachments.uploading") : t("documents.add")}
               <input
                 type="file"
                 className="hidden"
@@ -321,7 +323,7 @@ export default function Documents({
               }}
               className="border rounded px-3 py-2 text-sm"
             >
-              <option value="">— Wybierz nieruchomość —</option>
+              <option value="">{t("documents.selectProperty")}</option>
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.address} ({p.city})
@@ -329,7 +331,7 @@ export default function Documents({
               ))}
             </select>
 
-            <span className="text-sm text-slate-400 self-center">lub</span>
+            <span className="text-sm text-slate-400 self-center">{t("common.or")}</span>
 
             <select
               value={uploadTenantId}
@@ -340,7 +342,7 @@ export default function Documents({
               }}
               className="border rounded px-3 py-2 text-sm"
             >
-              <option value="">— Wybierz najemcę —</option>
+              <option value="">{t("documents.selectTenant")}</option>
               {tenants.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -371,7 +373,7 @@ export default function Documents({
       <div className="bg-white border rounded-xl p-4 space-y-4">
         <input
           type="text"
-          placeholder="Szukaj dokumentów…"
+          placeholder={t("documents.search")}
           value={query}
           onChange={(e) => handleSearch(e.target.value)}
           className="w-full border rounded-lg px-3 py-2 text-sm"
@@ -398,7 +400,7 @@ export default function Documents({
 
       {!loading && documents.length === 0 && (
         <div className="text-center py-20">
-          <h3 className="text-xl font-semibold text-slate-900">Brak dokumentów</h3>
+          <h3 className="text-xl font-semibold text-slate-900">{t("documents.emptyTitle")}</h3>
           <p className="text-slate-500 mt-2">
             Spróbuj zmienić kryteria wyszukiwania
           </p>
@@ -465,7 +467,7 @@ export default function Documents({
                 {canDeleteDocument(role) && (
                   <button
                     onClick={async () => {
-                      if (confirm("Usunąć dokument?")) {
+                      if (confirm(t("documents.confirmDelete"))) {
                         await deleteDocument({
                           id: doc.id,
                           storagePath: doc.storage_path,

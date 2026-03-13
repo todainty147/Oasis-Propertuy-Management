@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Card from "./Card";
 import { useAccount } from "../context/AccountContext";
+import { useI18n } from "../context/I18nContext";
 
 export default function AddTenantModal({
   open,
@@ -11,6 +12,7 @@ export default function AddTenantModal({
   tenant,
 }) {
   const { accountLoading } = useAccount();
+  const { t } = useI18n();
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -73,7 +75,7 @@ export default function AddTenantModal({
       <Card className="w-full max-w-lg p-6">
         <div className="flex items-start justify-between">
           <h3 className="text-lg font-semibold">
-            {tenant ? "Edytuj najemcę" : "Dodaj najemcę"}
+            {tenant ? t("tenant.edit") : t("tenant.add")}
           </h3>
 
           <button
@@ -87,7 +89,7 @@ export default function AddTenantModal({
         <form onSubmit={submit} className="mt-4 space-y-4">
           <div>
             <label className="text-sm text-slate-600">
-              Imię i nazwisko
+              {t("tenant.fullName")}
             </label>
             <input
               className="mt-1 w-full border rounded-lg px-3 py-2"
@@ -100,14 +102,14 @@ export default function AddTenantModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <input
               className="border rounded-lg px-3 py-2"
-              placeholder="Telefon"
+              placeholder={t("tenant.phone")}
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
 
             <input
               className="border rounded-lg px-3 py-2"
-              placeholder="Email"
+              placeholder={t("tenant.email")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -116,7 +118,7 @@ export default function AddTenantModal({
           {/* PROPERTY SELECT */}
           <div>
             <label className="text-sm text-slate-600">
-              Przypisana nieruchomość
+              {t("tenant.assignedProperty")}
             </label>
 
             <select
@@ -124,7 +126,7 @@ export default function AddTenantModal({
               value={propertyId}
               onChange={(e) => setPropertyId(e.target.value)}
             >
-              <option value="">Brak przypisania</option>
+              <option value="">{t("tenant.noAssignment")}</option>
 
               {properties.map((p) => {
                 const disabled = isPropertyDisabled(p);
@@ -136,7 +138,7 @@ export default function AddTenantModal({
                     disabled={disabled}
                   >
                     {p.address} ({p.city})
-                    {disabled ? " (wynajęta)" : ""}
+                    {disabled ? ` (${t("tenant.occupied")})` : ""}
                   </option>
                 );
               })}
@@ -149,14 +151,14 @@ export default function AddTenantModal({
               onClick={onClose}
               className="px-4 py-2 border rounded-lg"
             >
-              Anuluj
+              {t("common.cancel")}
             </button>
 
             <button
               type="submit"
               className="px-4 py-2 bg-blue-600 text-white rounded-lg"
             >
-              {tenant ? "Zapisz" : "Dodaj"}
+              {tenant ? t("common.save") : t("common.add")}
             </button>
           </div>
         </form>

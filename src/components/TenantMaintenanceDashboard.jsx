@@ -4,6 +4,7 @@ import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
 import { supabase } from "../lib/supabase";
 import { useAccount } from "../context/AccountContext";
+import { useI18n } from "../context/I18nContext";
 
 function pillClass(kind) {
   const base = "text-xs px-2 py-0.5 rounded border";
@@ -13,24 +14,24 @@ function pillClass(kind) {
   return `${base} bg-slate-50 border-slate-200 text-slate-600`;
 }
 
-function mrStatusLabel(status) {
+function mrStatusLabel(status, t) {
   const s = String(status ?? "").toLowerCase();
-  if (s === "open") return { text: "Otwarte", kind: "warn" };
-  if (s === "in_progress") return { text: "W trakcie", kind: "info" };
-  if (s === "waiting") return { text: "Oczekuje", kind: "muted" };
-  if (s === "resolved") return { text: "Rozwiązane", kind: "ok" };
-  if (s === "closed") return { text: "Zamknięte", kind: "ok" };
+  if (s === "open") return { text: t("status.req.open"), kind: "warn" };
+  if (s === "in_progress") return { text: t("status.req.in_progress"), kind: "info" };
+  if (s === "waiting") return { text: t("status.req.waiting"), kind: "muted" };
+  if (s === "resolved") return { text: t("status.req.resolved"), kind: "ok" };
+  if (s === "closed") return { text: t("status.req.closed"), kind: "ok" };
   return { text: status ?? "—", kind: "muted" };
 }
 
-function woStatusLabel(status) {
+function woStatusLabel(status, t) {
   const s = String(status ?? "").toLowerCase();
-  if (s === "assigned") return { text: "Zlecenie: Przypisane", kind: "warn" };
-  if (s === "in_progress") return { text: "Zlecenie: W trakcie", kind: "info" };
-  if (s === "completed") return { text: "Zlecenie: Zakończone", kind: "ok" };
-  if (s === "blocked") return { text: "Zlecenie: Zablokowane", kind: "muted" };
-  if (s === "cancelled") return { text: "Zlecenie: Anulowane", kind: "muted" };
-  return { text: `Zlecenie: ${status ?? "—"}`, kind: "muted" };
+  if (s === "assigned") return { text: t("maintenance.workOrderStatus.assigned"), kind: "warn" };
+  if (s === "in_progress") return { text: t("maintenance.workOrderStatus.inProgress"), kind: "info" };
+  if (s === "completed") return { text: t("maintenance.workOrderStatus.completed"), kind: "ok" };
+  if (s === "blocked") return { text: t("workOrder.blocked"), kind: "muted" };
+  if (s === "cancelled") return { text: t("maintenance.workOrderStatus.cancelled"), kind: "muted" };
+  return { text: `${t("workOrder.shortLabel")}: ${status ?? "—"}`, kind: "muted" };
 }
 
 function formatDateTime(ts) {
@@ -52,6 +53,7 @@ export default function TenantMaintenanceDashboard({
   limit = 5,
 }) {
   const { activeAccountId, activeRole } = useAccount();
+  const { t } = useI18n();
 
   const isTenant = useMemo(
     () => String(activeRole ?? "").toLowerCase() === "tenant",
@@ -79,7 +81,7 @@ export default function TenantMaintenanceDashboard({
         } = await supabase.auth.getUser();
 
         if (userErr) throw userErr;
-        if (!user?.id) throw new Error("Brak użytkownika (auth)");
+        if (!user?.id) throw new Error(t("auth.noUser"));
 
         // 2) Find tenant row for this user+account (assumes tenants.user_id exists)
         const tenantRes = await supabase
@@ -168,7 +170,7 @@ export default function TenantMaintenanceDashboard({
     <Card className="p-6 space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-lg font-semibold">Twoje zgłoszenia i zlecenia</h3>
+          <h3 className="text-lg font-semibold">{t("tenantDashboard.title")}</h3>
           <p className="text-sm text-slate-500">
             Szybki podgląd ostatnich zgłoszeń oraz statusów zleceń.
           </p>
@@ -203,14 +205,14 @@ export default function TenantMaintenanceDashboard({
           {/* Requests */}
           <div className="border rounded-xl bg-white">
             <div className="p-3 border-b">
-              <div className="font-semibold text-slate-900 text-sm">Ostatnie zgłoszenia</div>
+              <div className="font-semibold text-slate-900 text-sm">{t("tenantDashboard.latestRequests")}</div>
             </div>
             <div className="p-3 space-y-3">
               {requests.length === 0 ? (
-                <p className="text-sm text-slate-500">Brak zgłoszeń.</p>
+                <p className="text-sm text-slate-500">{t("maintenance.requests.empty")}</p>
               ) : (
                 requests.map((r) => {
-                  const st = mrStatusLabel(r.status);
+                  const st = mrStatusLabel(r.status, t);
                   return (
                     <div key={r.id} className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -234,26 +236,26 @@ export default function TenantMaintenanceDashboard({
           {/* Work orders */}
           <div className="border rounded-xl bg-white">
             <div className="p-3 border-b">
-              <div className="font-semibold text-slate-900 text-sm">Ostatnie zlecenia</div>
+              <div className="font-semibold text-slate-900 text-sm">{t("tenantDashboard.latestWorkOrders")}</div>
             </div>
             <div className="p-3 space-y-3">
               {workOrders.length === 0 ? (
-                <p className="text-sm text-slate-500">Brak zleceń.</p>
+                <p className="text-sm text-slate-500">{t("workOrders.empty")}</p>
               ) : (
                 workOrders.map((wo) => {
-                  const st = woStatusLabel(wo.status);
+                  const st = woStatusLabel(wo.status, t);
                   return (
                     <div key={wo.id} className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className={pillClass(st.kind)}>{st.text}</span>
                           {wo.pending_cancel_request && (
-                            <span className={pillClass("warn")}>Prośba o anulowanie</span>
+                            <span className={pillClass("warn")}>{t("tenantDashboard.cancelRequest")}</span>
                           )}
                         </div>
 
                         <div className="text-xs text-slate-500 mt-1 flex gap-3 flex-wrap">
-                          {wo.scheduled_at && <span>Termin: {formatDateTime(wo.scheduled_at)}</span>}
+                          {wo.scheduled_at && <span>{t("common.dueDate")}: {formatDateTime(wo.scheduled_at)}</span>}
                           {wo.last_cancel_resolution_action && (
                             <span>
                               Decyzja:{" "}

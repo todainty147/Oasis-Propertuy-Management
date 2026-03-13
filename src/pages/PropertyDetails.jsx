@@ -11,6 +11,7 @@ import MaintenanceRequestsSection from "../components/MaintenanceRequestsSection
 import WorkOrdersSection from "../components/WorkOrdersSection";
 import { useAccount } from "../context/AccountContext";
 import ActivityLogSection from "../components/ActivityLogSection";
+import { useI18n } from "../context/I18nContext";
 
 /* ======================
    SKELETON
@@ -51,6 +52,7 @@ export default function PropertyDetails({
   const navigate = useNavigate();
   const { setTitle } = usePageTitle();
   const { accountLoading, activeAccountId } = useAccount();
+  const { t } = useI18n();
 
   /* ---------- PROPERTY ---------- */
   const property = properties.find((p) => String(p.id) === String(id));
@@ -67,12 +69,12 @@ export default function PropertyDetails({
   if (!property) {
     return (
       <div className="p-6 bg-white rounded-xl border">
-        <p>Nie znaleziono nieruchomości.</p>
+        <p>{t("propertyDetails.notFound")}</p>
         <button
           className="mt-4 text-blue-600"
           onClick={() => navigate("/properties")}
         >
-          ← Wróć
+          {t("common.back")}
         </button>
       </div>
     );
@@ -99,7 +101,7 @@ export default function PropertyDetails({
     <div className="space-y-6">
       <Breadcrumbs
         items={[
-          { label: "Nieruchomości", to: "/properties" },
+          { label: t("properties.title"), to: "/properties" },
           { label: property.address },
         ]}
       />
@@ -114,25 +116,25 @@ export default function PropertyDetails({
             <p className="text-slate-600 mt-1">{property.city}</p>
           </div>
 
-          <Badge status={isOccupied ? "Wynajęte" : "Wolne"} />
+          <Badge status={isOccupied ? t("status.occupied") : t("status.vacant")} />
         </div>
 
         {/* ---------- STATS ---------- */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="p-4 bg-slate-50">
-            <p className="text-xs text-slate-500">Czynsz</p>
+            <p className="text-xs text-slate-500">{t("finance.table.rent")}</p>
             <p className="text-xl font-bold">{finance.rent.toLocaleString()} zł</p>
           </Card>
 
           <Card className="p-4 bg-slate-50">
-            <p className="text-xs text-slate-500">Opłacone</p>
+            <p className="text-xs text-slate-500">{t("finance.table.paid")}</p>
             <p className="text-xl font-bold text-green-600">
               {finance.paid.toLocaleString()} zł
             </p>
           </Card>
 
           <Card className="p-4 bg-slate-50">
-            <p className="text-xs text-slate-500">Pozostało</p>
+            <p className="text-xs text-slate-500">{t("finance.table.remaining")}</p>
             <p className="text-xl font-bold text-rose-600">
               {finance.remaining.toLocaleString()} zł
             </p>

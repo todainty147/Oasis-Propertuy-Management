@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../context/I18nContext";
 
 export default function Invite() {
   const [params] = useSearchParams();
   const token = params.get("token");
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
 
   async function acceptInvite() {
@@ -35,22 +37,22 @@ export default function Invite() {
     <div className="max-w-md mx-auto mt-24 space-y-4">
       {!user ? (
         <>
-          <h1>You’ve been invited</h1>
+          <h1>{t("invite.invited")}</h1>
           <input
             type="email"
-            placeholder="Work email"
+            placeholder={t("invite.workEmail")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
           <button onClick={sendMagicLink}>
-            Continue with email
+            {t("invite.continueWithEmail")}
           </button>
         </>
       ) : (
         <>
-          <h1>Join workspace</h1>
+          <h1>{t("invite.joinWorkspace")}</h1>
           <button onClick={acceptInvite}>
-            Accept invitation
+            {t("invite.acceptInvitation")}
           </button>
         </>
       )}

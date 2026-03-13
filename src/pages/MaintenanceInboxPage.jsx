@@ -8,14 +8,9 @@ import MaintenanceColumn from "../components/maintenance-inbox/MaintenanceColumn
 import CreateWorkOrderDrawer from "../components/maintenance-inbox/CreateWorkOrderDrawer";
 import { updateMaintenanceRequest } from "../services/maintenanceService";
 import { createWorkOrder } from "../services/workOrderService";
+import { useI18n } from "../context/I18nContext";
 
 const STATUS_ORDER = ["open", "in_progress", "waiting", "resolved", "closed"];
-const WAITING_REASON_OPTIONS = [
-  { value: "tenant_response", label: "waiting for tenant" },
-  { value: "contractor_schedule", label: "waiting for contractor" },
-  { value: "parts_ordered", label: "waiting for materials" },
-  { value: "landlord_approval", label: "waiting for decision" },
-];
 
 function timestampForNote() {
   return new Date().toLocaleString();
@@ -24,6 +19,7 @@ function timestampForNote() {
 export default function MaintenanceInboxPage() {
   const { setTitle } = usePageTitle();
   const { activeAccountId, activeRole } = useAccount();
+  const { t } = useI18n();
   const [searchParams] = useSearchParams();
 
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
@@ -75,9 +71,19 @@ export default function MaintenanceInboxPage() {
     return maxPages;
   }, [statusTotals, pageSize, visibleStatuses]);
 
+  const WAITING_REASON_OPTIONS = useMemo(
+    () => [
+      { value: "tenant_response", label: t("maintenance.inbox.waiting.tenant_response") },
+      { value: "contractor_schedule", label: t("maintenance.inbox.waiting.contractor_schedule") },
+      { value: "parts_ordered", label: t("maintenance.inbox.waiting.parts_ordered") },
+      { value: "landlord_approval", label: t("maintenance.inbox.waiting.landlord_approval") },
+    ],
+    [t]
+  );
+
   useEffect(() => {
-    setTitle("Maintenance Inbox");
-  }, [setTitle]);
+    setTitle(t("maintenance.inbox.pageTitle"));
+  }, [setTitle, t]);
 
   async function loadAll() {
     if (!activeAccountId) return;
@@ -125,7 +131,7 @@ export default function MaintenanceInboxPage() {
       const propMap = {};
       for (const p of propsRows ?? []) {
         const city = p.city ? `, ${p.city}` : "";
-        propMap[p.id] = `${p.address || "Nieruchomość"}${city}`;
+        propMap[p.id] = `${p.address || t("common.property")}${city}`;
       }
       setPropertyLabelById(propMap);
       setContractors(contractorsRows ?? []);
@@ -154,7 +160,7 @@ export default function MaintenanceInboxPage() {
       }
       setWorkOrdersByRequestId(woMap);
     } catch (e) {
-      setError(e?.message || "Nie udało się wczytać Maintenance Inbox.");
+      setError(e?.message || t("maintenance.inbox.loadError"));
       setRequests([]);
       setTotalCount(0);
       setStatusTotals({
@@ -193,7 +199,7 @@ export default function MaintenanceInboxPage() {
       (wo) => !finalStatuses.has(String(wo?.status || "").toLowerCase())
     );
     if (hasOpenWorkOrders) {
-      alert("All linked work orders must be completed or cancelled before closing.");
+      alert(t("maintenance.inbox.closeGuard"));
       return;
     }
 
@@ -202,7 +208,7 @@ export default function MaintenanceInboxPage() {
       await updateMaintenanceRequest(request.id, { status: "closed" });
       await loadAll();
     } catch (e) {
-      alert(e?.message || "Nie udało się zamknąć zgłoszenia.");
+      alert(e?.message || t("maintenance.inbox.closeError"));
     } finally {
       setBusyRequestId("");
     }
@@ -230,7 +236,7 @@ export default function MaintenanceInboxPage() {
       setNoteText("");
       await loadAll();
     } catch (e) {
-      alert(e?.message || "Nie udało się dodać notatki.");
+      alert(e?.message || t("maintenance.inbox.noteSaveError"));
     } finally {
       setBusyRequestId("");
     }
@@ -256,7 +262,7 @@ export default function MaintenanceInboxPage() {
       setWaitingReason("");
       await loadAll();
     } catch (e) {
-      alert(e?.message || "Nie udało się zapisać waiting_reason.");
+      alert(e?.message || t("maintenance.inbox.waiting.saveError"));
     } finally {
       setWaitingSaving(false);
     }
@@ -293,7 +299,7 @@ export default function MaintenanceInboxPage() {
       setSelectedRequest(null);
       await loadAll();
     } catch (e) {
-      alert(e?.message || "Nie udało się utworzyć zlecenia.");
+      alert(e?.message || t("maintenance.inbox.createWorkOrderError"));
     } finally {
       setDrawerSaving(false);
     }
@@ -324,7 +330,7 @@ export default function MaintenanceInboxPage() {
     return (
       <div className="rounded-xl border bg-white p-6">
         <p className="text-sm text-slate-600">
-          Maintenance Inbox jest dostępny tylko dla ról owner/admin/staff.
+          {t("maintenance.inbox.accessDenied")}
         </p>
       </div>
     );
@@ -334,8 +340,8 @@ export default function MaintenanceInboxPage() {
     <div className="space-y-4">
       <div className="rounded-xl border bg-white p-4 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Maintenance Inbox / Triage Board</h2>
-          <p className="text-sm text-slate-500 mt-1">Przegląd zgłoszeń serwisowych grupowanych po statusie.</p>
+          <h2 className="text-lg font-semibold text-slate-900">{t("maintenance.inbox.title")}</h2>
+          <p className="text-sm text-slate-500 mt-1">{t("maintenance.inbox.subtitle")}</p>
         </div>
         <div className="flex items-center gap-2">
           <select
@@ -347,7 +353,7 @@ export default function MaintenanceInboxPage() {
             }}
             className="px-2 py-2 text-sm rounded-lg border bg-white"
             disabled={loading}
-            title="Na stronę"
+            title={t("maintenance.inbox.perPage")}
           >
             {[5].map((n) => (
               <option key={n} value={n}>
@@ -361,7 +367,7 @@ export default function MaintenanceInboxPage() {
             disabled={loading || page <= 1}
             className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50 disabled:opacity-50"
           >
-            Prev
+            {t("common.prev")}
           </button>
           <div className="text-xs text-slate-600 min-w-[84px] text-center">
             {page}/{totalPages}
@@ -372,7 +378,7 @@ export default function MaintenanceInboxPage() {
             disabled={loading || page >= totalPages}
             className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50 disabled:opacity-50"
           >
-            Next
+            {t("common.next")}
           </button>
           <button
             type="button"
@@ -380,13 +386,13 @@ export default function MaintenanceInboxPage() {
             disabled={loading}
             className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50 disabled:opacity-50"
           >
-            Odśwież
+            {t("common.refresh")}
           </button>
         </div>
       </div>
 
       <div className="text-sm text-slate-600 px-1">
-        Łącznie zgłoszeń: <span className="font-medium text-slate-900">{totalCount}</span>
+        {t("maintenance.inbox.total")}: <span className="font-medium text-slate-900">{totalCount}</span>
       </div>
 
       {error ? (
@@ -439,22 +445,22 @@ export default function MaintenanceInboxPage() {
           <div className="absolute inset-0 bg-black/30" onClick={() => setNoteModalOpen(false)} />
           <div className="absolute left-1/2 top-1/2 w-[95vw] max-w-xl -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-xl border">
             <div className="p-4 border-b flex items-center justify-between">
-              <div className="font-semibold text-slate-900">Dodaj notatkę</div>
+              <div className="font-semibold text-slate-900">{t("maintenance.card.addNote")}</div>
               <button
                 type="button"
                 onClick={() => setNoteModalOpen(false)}
                 className="text-sm px-2 py-1 rounded hover:bg-slate-100"
               >
-                Zamknij
+                {t("common.close")}
               </button>
             </div>
             <div className="p-4 space-y-3">
-              <p className="text-sm text-slate-600">{noteRequest?.title || "Zgłoszenie"}</p>
+              <p className="text-sm text-slate-600">{noteRequest?.title || t("maintenance.requestFallbackTitle")}</p>
               <textarea
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
                 className="w-full border rounded-lg px-3 py-2 text-sm min-h-[150px]"
-                placeholder="Wpisz notatkę..."
+                placeholder={t("maintenance.notePlaceholder")}
               />
               <div className="flex items-center justify-end gap-2">
                 <button
@@ -462,7 +468,7 @@ export default function MaintenanceInboxPage() {
                   onClick={() => setNoteModalOpen(false)}
                   className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50"
                 >
-                  Anuluj
+                  {t("common.cancel")}
                 </button>
                 <button
                   type="button"
@@ -472,7 +478,7 @@ export default function MaintenanceInboxPage() {
                     !noteText.trim() || busyRequestId === noteRequest?.id ? "bg-slate-400" : "bg-blue-600"
                   }`}
                 >
-                  {busyRequestId === noteRequest?.id ? "Zapisywanie…" : "Zapisz notatkę"}
+                  {busyRequestId === noteRequest?.id ? t("common.saving") : t("maintenance.card.saveNote")}
                 </button>
               </div>
             </div>
@@ -485,24 +491,24 @@ export default function MaintenanceInboxPage() {
           <div className="absolute inset-0 bg-black/30" onClick={() => !waitingSaving && setWaitingModalOpen(false)} />
           <div className="absolute left-1/2 top-1/2 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-xl border">
             <div className="p-4 border-b flex items-center justify-between">
-              <div className="font-semibold text-slate-900">Ustaw powód oczekiwania</div>
+              <div className="font-semibold text-slate-900">{t("maintenance.card.setWaiting")}</div>
               <button
                 type="button"
                 onClick={() => !waitingSaving && setWaitingModalOpen(false)}
                 className="text-sm px-2 py-1 rounded hover:bg-slate-100"
               >
-                Zamknij
+                {t("common.close")}
               </button>
             </div>
             <div className="p-4 space-y-3">
-              <p className="text-sm text-slate-600">{waitingRequest?.title || "Zgłoszenie"}</p>
+              <p className="text-sm text-slate-600">{waitingRequest?.title || t("maintenance.requestFallbackTitle")}</p>
               <select
                 value={waitingReason}
                 onChange={(e) => setWaitingReason(e.target.value)}
                 disabled={waitingSaving}
                 className="w-full border rounded-lg px-3 py-2 text-sm bg-white disabled:bg-slate-50"
               >
-                <option value="">Brak powodu</option>
+                <option value="">{t("maintenance.inbox.waiting.none")}</option>
                 {WAITING_REASON_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
@@ -516,7 +522,7 @@ export default function MaintenanceInboxPage() {
                   disabled={waitingSaving}
                   className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50 disabled:opacity-50"
                 >
-                  Anuluj
+                  {t("common.cancel")}
                 </button>
                 <button
                   type="button"
@@ -526,7 +532,7 @@ export default function MaintenanceInboxPage() {
                     waitingSaving ? "bg-slate-400" : "bg-blue-600"
                   }`}
                 >
-                  {waitingSaving ? "Zapisywanie…" : "Zapisz"}
+                  {waitingSaving ? t("common.saving") : t("common.save")}
                 </button>
               </div>
             </div>

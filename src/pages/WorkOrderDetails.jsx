@@ -6,6 +6,7 @@ import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
+import { useI18n } from "../context/I18nContext";
 
 /* -----------------------------
    Status label helper (Polish)
@@ -92,6 +93,7 @@ export default function WorkOrderDetails() {
   const { setTitle } = usePageTitle();
 
   const { activeAccountId, activeRole } = useAccount();
+  const { t } = useI18n();
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
   const canManage = useMemo(() => ["owner", "staff", "admin"].includes(role), [role]);
 
@@ -250,9 +252,9 @@ export default function WorkOrderDetails() {
   // Make title nicer when WO loaded
   useEffect(() => {
     if (!wo) return;
-    const statusLabel = labels?.[String(wo.status ?? "").toLowerCase()] ?? wo.status ?? "Zlecenie";
-    setTitle(`Zlecenie • ${statusLabel}`);
-  }, [wo, labels, setTitle]);
+    const statusLabel = labels?.[String(wo.status ?? "").toLowerCase()] ?? wo.status ?? t("workOrder.shortLabel");
+    setTitle(`${t("workOrder.shortLabel")} • ${statusLabel}`);
+  }, [wo, labels, setTitle, t]);
 
   // -----------------------------
   // Actions
@@ -272,7 +274,7 @@ export default function WorkOrderDetails() {
       await loadAllowedActions();
       await loadAudit();
     } catch (e) {
-      alert(e?.message ?? "Nie udało się zmienić statusu");
+      alert(e?.message ?? t("workOrders.statusChangeError"));
     } finally {
       setBusy(false);
     }
@@ -292,7 +294,7 @@ export default function WorkOrderDetails() {
       await loadAllowedActions();
       await loadAudit();
     } catch (e) {
-      alert(e?.message ?? "Nie udało się przypisać wykonawcy");
+      alert(e?.message ?? t("workOrders.assignError"));
     } finally {
       setBusy(false);
     }
@@ -315,16 +317,16 @@ export default function WorkOrderDetails() {
   if (!wo) {
     return (
       <Card className="p-6 space-y-3">
-        <p className="font-medium text-slate-900">Nie znaleziono zlecenia</p>
+        <p className="font-medium text-slate-900">{t("workOrder.notFound")}</p>
         <p className="text-sm text-slate-600">
-          Zlecenie nie istnieje albo nie masz dostępu (RLS).
+          {t("workOrder.noAccessHint")}
         </p>
         <button
           type="button"
           onClick={() => navigate("/dashboard")}
           className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50 w-fit"
         >
-          Wróć do pulpitu
+          {t("workOrder.backToDashboard")}
         </button>
       </Card>
     );
@@ -387,7 +389,7 @@ export default function WorkOrderDetails() {
         <Card className="p-6 space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="font-semibold text-slate-900">Akcje</p>
+              <p className="font-semibold text-slate-900">{t("workOrder.actions")}</p>
               <p className="text-xs text-slate-500">
                 Przyciski są DB-driven (work_order_allowed_actions).
               </p>
@@ -409,7 +411,7 @@ export default function WorkOrderDetails() {
           {actionsLoading ? (
             <Skeleton className="h-10" />
           ) : allowedActions.length === 0 ? (
-            <p className="text-sm text-slate-500">Brak dostępnych akcji.</p>
+            <p className="text-sm text-slate-500">{t("workOrder.noActions")}</p>
           ) : (
             <div className="flex flex-wrap gap-3">
               {allowedActions.includes("in_progress") && (
@@ -468,7 +470,7 @@ export default function WorkOrderDetails() {
 
           {/* Assign contractor */}
           <div className="pt-2 border-t">
-            <p className="text-xs text-slate-500 mb-2">Przypisz wykonawcę</p>
+            <p className="text-xs text-slate-500 mb-2">{t("workOrder.assignContractor")}</p>
 
             <div className="flex flex-wrap items-center gap-2">
               <select
@@ -504,7 +506,7 @@ export default function WorkOrderDetails() {
       {/* Audit log */}
       <Card className="p-6">
         <div className="flex items-center justify-between gap-3">
-          <p className="font-semibold text-slate-900">Aktywność</p>
+          <p className="font-semibold text-slate-900">{t("workOrder.activity")}</p>
           <button
             type="button"
             onClick={loadAudit}
@@ -521,7 +523,7 @@ export default function WorkOrderDetails() {
             <Skeleton className="h-10" />
           </div>
         ) : audit.length === 0 ? (
-          <p className="text-sm text-slate-500 mt-3">Brak wpisów.</p>
+          <p className="text-sm text-slate-500 mt-3">{t("workOrder.noEntries")}</p>
         ) : (
           <div className="mt-3 space-y-2">
             {audit.map((e) => (

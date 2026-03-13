@@ -4,6 +4,7 @@ import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { can } from "../utils/permissions";
+import { useI18n } from "../context/I18nContext";
 
 /* ======================
    SKELETONS
@@ -77,10 +78,11 @@ export default function Finance({
 }) {
   const { accountLoading, activeRole } = useAccount();
   const { setTitle } = usePageTitle();
+  const { t } = useI18n();
 
   useEffect(() => {
-    setTitle("Finanse");
-  }, [setTitle]);
+    setTitle(t("finance.title"));
+  }, [setTitle, t]);
 
   if (loading || accountLoading) return <FinanceSkeleton />;
 
@@ -89,10 +91,10 @@ export default function Finance({
     return (
       <div className="bg-white border rounded-xl p-6">
         <h2 className="text-lg font-semibold text-slate-900">
-          Brak dostępu
+          {t("finance.noAccessTitle")}
         </h2>
         <p className="text-sm text-slate-600 mt-1">
-          Nie masz uprawnień do przeglądania finansów dla tego konta.
+          {t("finance.noAccessBody")}
         </p>
       </div>
     );
@@ -106,9 +108,9 @@ export default function Finance({
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-semibold">Finanse</h1>
+          <h1 className="text-2xl font-semibold">{t("finance.title")}</h1>
           <p className="text-sm text-gray-500">
-            Podsumowanie przychodów i płatności
+            {t("finance.subtitle")}
           </p>
         </div>
 
@@ -117,35 +119,35 @@ export default function Finance({
             onClick={onAddPayment}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg"
           >
-            Dodaj płatność
+            {t("finance.addPayment")}
           </button>
         )}
       </div>
 
       {/* SUMMARY */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <SummaryCard label="Otrzymane" value={summary?.totalIncome ?? 0} color="text-green-600" />
-        <SummaryCard label="Zaległe" value={summary?.overdueIncome ?? 0} color="text-red-600" />
-        <SummaryCard label="Oczekiwane" value={summary?.expectedIncome ?? 0} color="text-blue-600" />
+        <SummaryCard label={t("finance.summary.received")} value={summary?.totalIncome ?? 0} color="text-green-600" />
+        <SummaryCard label={t("finance.summary.overdue")} value={summary?.overdueIncome ?? 0} color="text-red-600" />
+        <SummaryCard label={t("finance.summary.expected")} value={summary?.expectedIncome ?? 0} color="text-blue-600" />
       </div>
 
       {/* PROPERTY FINANCE */}
       <div className="bg-white rounded-xl border overflow-hidden">
         <div className="px-6 py-4 border-b">
-          <h2 className="font-semibold">Finanse wg nieruchomości</h2>
+          <h2 className="font-semibold">{t("finance.byProperty")}</h2>
         </div>
 
         {propertyFinance.length === 0 ? (
-          <p className="p-6 text-sm text-gray-500">Brak danych finansowych.</p>
+          <p className="p-6 text-sm text-gray-500">{t("finance.noPropertyData")}</p>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>
-                <th className="px-6 py-3">Adres</th>
-                <th className="px-6 py-3 text-right">Czynsz</th>
-                <th className="px-6 py-3 text-right">Opłacone</th>
-                <th className="px-6 py-3 text-right">Pozostało</th>
-                <th className="px-6 py-3">Status</th>
+                <th className="px-6 py-3">{t("finance.table.address")}</th>
+                <th className="px-6 py-3 text-right">{t("finance.table.rent")}</th>
+                <th className="px-6 py-3 text-right">{t("finance.table.paid")}</th>
+                <th className="px-6 py-3 text-right">{t("finance.table.remaining")}</th>
+                <th className="px-6 py-3">{t("finance.table.status")}</th>
               </tr>
             </thead>
 
@@ -172,26 +174,26 @@ export default function Finance({
       {/* PAYMENTS */}
       <div className="bg-white rounded-xl border overflow-hidden">
         <div className="px-6 py-4 border-b flex items-center justify-between">
-          <h2 className="font-semibold">Płatności</h2>
+          <h2 className="font-semibold">{t("payments.title")}</h2>
 
           {!canCreate && (
             <span className="text-xs text-slate-500">
-              Tryb tylko do odczytu
+              {t("finance.readOnly")}
             </span>
           )}
         </div>
 
         {payments.length === 0 ? (
-          <p className="p-6 text-sm text-gray-500">Brak płatności dla tego konta.</p>
+          <p className="p-6 text-sm text-gray-500">{t("finance.noPaymentsForAccount")}</p>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>
-                <th className="px-6 py-3">Najemca</th>
-                <th className="px-6 py-3">Nieruchomość</th>
-                <th className="px-6 py-3 text-right">Kwota</th>
-                <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3">Termin</th>
+                <th className="px-6 py-3">{t("finance.table.tenant")}</th>
+                <th className="px-6 py-3">{t("finance.table.property")}</th>
+                <th className="px-6 py-3 text-right">{t("payments.amount")}</th>
+                <th className="px-6 py-3">{t("finance.table.status")}</th>
+                <th className="px-6 py-3">{t("payments.dueDate")}</th>
                 <th className="px-6 py-3 text-right"></th>
               </tr>
             </thead>
@@ -211,11 +213,11 @@ export default function Finance({
                     {canDelete ? (
                       <button
                         onClick={() => {
-                          if (confirm("Usunąć tę płatność?")) onDeletePayment(p.id);
+                          if (confirm(t("finance.confirmDeletePayment"))) onDeletePayment(p.id);
                         }}
                         className="text-red-600 hover:underline"
                       >
-                        Usuń
+                        {t("attachments.delete")}
                       </button>
                     ) : (
                       <span className="text-xs text-slate-400">—</span>

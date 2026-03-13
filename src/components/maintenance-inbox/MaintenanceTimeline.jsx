@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { createAttachmentSignedUrlForRow } from "../../services/workOrderAttachmentsService";
 import Skeleton from "../ui/Skeleton";
+import { useI18n } from "../../context/I18nContext";
 
 function fmtDate(ts) {
   if (!ts) return "—";
@@ -16,18 +17,19 @@ function safeAt(ts) {
   return Number.isFinite(t) ? t : 0;
 }
 
-function formatAction(action = "") {
+function formatAction(action = "", t) {
   const a = String(action || "").toLowerCase();
-  if (a === "insert" || a === "create") return "Utworzono";
-  if (a === "update") return "Zmieniono";
-  if (a === "delete") return "Usunięto";
-  if (a === "status_change") return "Zmiana statusu";
-  if (a === "assign") return "Przypisano wykonawcę";
-  return action || "Zmiana";
+  if (a === "insert" || a === "create") return t("activity.action.created");
+  if (a === "update") return t("activity.action.updated");
+  if (a === "delete") return t("activity.action.deleted");
+  if (a === "status_change") return t("activity.action.statusChanged");
+  if (a === "assign") return t("activity.action.assigned");
+  return action || t("activity.action.changed");
 }
 
 export default function MaintenanceTimeline({ accountId, request, linkedWorkOrders = [] }) {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [events, setEvents] = useState([]);
@@ -96,8 +98,8 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
         next.push({
           key: `req-created-${request.id}`,
           at: request.created_at,
-          title: "Tenant created request",
-          detail: request.title || "Zgłoszenie",
+          title: t("maintenance.timeline.requestCreated"),
+          detail: request.title || t("maintenance.requestFallbackTitle"),
           source: "request",
         });
 
@@ -106,7 +108,7 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
           next.push({
             key: `wo-created-${woId}`,
             at: wo?.created_at,
-            title: "Work order created",
+            title: t("maintenance.timeline.workOrderCreated"),
             detail: `WO: ${woId}`,
             woId,
             source: "work_order",
@@ -121,10 +123,10 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
             key: `activity-${row.id}`,
             at: row.created_at,
             title: isNoteChange
-              ? "Staff added note"
+              ? t("maintenance.timeline.staffNote")
               : isStatusChange
-                ? "Request status changed"
-                : formatAction(row.action),
+                ? t("maintenance.timeline.requestStatusChanged")
+                : formatAction(row.action, t),
             detail: row.field ? `field: ${row.field}` : row.actor_role ? `role: ${row.actor_role}` : "",
             source: "request",
           });
@@ -139,10 +141,10 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
             key: `wo-audit-${rowWoId || "na"}-${row.id}`,
             at: row.created_at,
             title: isAssign
-              ? "Contractor assigned"
+              ? t("maintenance.timeline.contractorAssigned")
               : isComplete
-                ? "Work completed"
-                : `Work order ${formatAction(row.action)}`,
+                ? t("maintenance.timeline.workCompleted")
+                : t("maintenance.timeline.workOrderAction", { action: formatAction(row.action) }),
             detail: row.action || "",
             woId: rowWoId,
             source: "work_order",
@@ -154,8 +156,8 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
           next.push({
             key: `att-${rowWoId || "na"}-${row.id}`,
             at: row.created_at,
-            title: "Photo uploaded",
-            detail: row.file_name || row.kind || "Attachment",
+            title: t("maintenance.timeline.photoUploaded"),
+            detail: row.file_name || row.kind || t("maintenance.timeline.attachment"),
             attachmentRow: row,
             woId: rowWoId,
             source: "work_order",
@@ -168,7 +170,7 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
             next.push({
               key: `fin-quote-submitted-${rowWoId}`,
               at: fin.quote_submitted_at,
-              title: "Quote submitted",
+              title: t("maintenance.timeline.quoteSubmitted"),
               detail: "",
               woId: rowWoId,
               source: "work_order",
@@ -178,7 +180,7 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
             next.push({
               key: `fin-quote-approved-${rowWoId}`,
               at: fin.approved_at,
-              title: "Quote approved",
+              title: t("maintenance.timeline.quoteApproved"),
               detail: "",
               woId: rowWoId,
               source: "work_order",
@@ -188,7 +190,7 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
             next.push({
               key: `fin-quote-rejected-${rowWoId}`,
               at: fin.rejected_at,
-              title: "Quote rejected",
+              title: t("maintenance.timeline.quoteRejected"),
               detail: fin.rejection_reason || "",
               woId: rowWoId,
               source: "work_order",
@@ -198,7 +200,7 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
             next.push({
               key: `fin-invoice-issued-${rowWoId}`,
               at: fin.invoice_issued_at,
-              title: "Invoice issued",
+              title: t("maintenance.timeline.invoiceIssued"),
               detail: "",
               woId: rowWoId,
               source: "work_order",
@@ -211,7 +213,7 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
           next.push({
             key: `req-closed-${request.id}`,
             at: request.updated_at || request.created_at,
-            title: "Request closed",
+            title: t("maintenance.timeline.requestClosed"),
             detail: "",
             source: "request",
           });
@@ -222,7 +224,7 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
         if (alive) setEvents(next);
       } catch (e) {
         if (alive) {
-          setError(e?.message || "Nie udało się wczytać timeline.");
+          setError(e?.message || t("maintenance.timeline.loadError"));
           setEvents([]);
         }
       } finally {
@@ -235,7 +237,7 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
     return () => {
       alive = false;
     };
-  }, [accountId, request, linkedWorkOrders]);
+  }, [accountId, request, linkedWorkOrders, t]);
 
   const rows = useMemo(() => {
     const all = events ?? [];
@@ -296,7 +298,7 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
             scope === "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"
           }`}
         >
-          Wszystkie
+          {t("maintenance.timeline.scope.all")}
         </button>
         <button
           type="button"
@@ -307,7 +309,7 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
               : "border-slate-300 bg-white text-slate-700"
           }`}
         >
-          Tylko zgłoszenie
+          {t("maintenance.timeline.scope.request")}
         </button>
         <button
           type="button"
@@ -318,11 +320,11 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
               : "border-slate-300 bg-white text-slate-700"
           }`}
         >
-          Tylko zlecenia
+          {t("maintenance.timeline.scope.workOrder")}
         </button>
       </div>
       {rows.length === 0 ? (
-        <p className="text-xs text-slate-500">Brak zdarzeń timeline.</p>
+        <p className="text-xs text-slate-500">{t("maintenance.timeline.empty")}</p>
       ) : (
         <div className="space-y-2">
           {rows.map((e) => (
@@ -333,9 +335,9 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
               className="w-full text-left flex gap-2 rounded px-1.5 py-1 hover:bg-slate-100"
               title={
                 e.attachmentRow
-                  ? "Kliknij, aby otworzyć załącznik"
+                  ? t("maintenance.timeline.openAttachmentHint")
                   : e.woId
-                    ? "Kliknij, aby otworzyć zlecenie"
+                    ? t("maintenance.timeline.openWorkOrderHint")
                     : ""
               }
             >
@@ -347,7 +349,7 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
                 {e.detail ? <div className="text-[11px] text-slate-600">{e.detail}</div> : null}
                 <div className="text-[11px] text-slate-500">
                   {fmtDate(e.at)}
-                  {busyKey === e.key ? " • otwieranie…" : ""}
+                  {busyKey === e.key ? ` • ${t("maintenance.timeline.opening")}` : ""}
                 </div>
               </div>
             </button>

@@ -3,6 +3,7 @@ import { Search, Building2, Menu, Users } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { usePageTitle } from "../layout/PageTitleContext";
 import NotificationsBell from "../components/NotificationsBell";
+import { useI18n } from "../context/I18nContext";
 
 import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
@@ -10,6 +11,7 @@ import { useTenants } from "../hooks/useTenants";
 
 export default function Topbar({ onMenuClick }) {
   const { title } = usePageTitle();
+  const { lang, setLang, t } = useI18n();
 
   /* ======================
      ACCOUNT
@@ -40,7 +42,7 @@ export default function Topbar({ onMenuClick }) {
         <button
           onClick={onMenuClick}
           className="lg:hidden p-2 rounded hover:bg-slate-100"
-          aria-label="Otwórz menu"
+          aria-label={t("topbar.openMenu")}
         >
           <Menu size={22} />
         </button>
@@ -91,10 +93,10 @@ export default function Topbar({ onMenuClick }) {
               }
               className="text-sm bg-transparent focus:outline-none"
             >
-              <option value="">Wszyscy najemcy</option>
-              {tenants.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
+              <option value="">{t("tenant.allTenants")}</option>
+              {tenants.map((tenant) => (
+                <option key={tenant.id} value={tenant.id}>
+                  {tenant.name}
                 </option>
               ))}
             </select>
@@ -105,7 +107,7 @@ export default function Topbar({ onMenuClick }) {
         <div className="hidden xl:flex relative">
           <input
             type="text"
-            placeholder="Szukaj..."
+            placeholder={t("common.search")}
             className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
           />
           <Search
@@ -114,13 +116,26 @@ export default function Topbar({ onMenuClick }) {
           />
         </div>
 
+        <div className="hidden lg:flex items-center gap-2 border border-slate-200 rounded-lg px-2 py-1.5">
+          <span className="text-xs text-slate-500">{t("topbar.language")}</span>
+          <select
+            value={lang}
+            onChange={(e) => setLang(e.target.value)}
+            className="text-sm bg-transparent focus:outline-none"
+            aria-label={t("topbar.language")}
+          >
+            <option value="pl">{t("lang.polish")}</option>
+            <option value="en">{t("lang.english")}</option>
+          </select>
+        </div>
+
         
         {/* LOGOUT */}
         <button
           onClick={() => supabase.auth.signOut()}
           className="text-sm text-slate-600 hover:text-slate-900"
         >
-          Wyloguj
+          {t("topbar.logout")}
         </button>
       </div>
     </header>

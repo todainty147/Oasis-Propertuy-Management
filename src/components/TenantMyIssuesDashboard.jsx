@@ -3,6 +3,7 @@ import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
 import { supabase } from "../lib/supabase";
 import { useAccount } from "../context/AccountContext";
+import { useI18n } from "../context/I18nContext";
 
 function Pill({ children, tone = "slate" }) {
   const tones = {
@@ -31,6 +32,7 @@ function statusTone(s) {
 
 export default function TenantMyIssuesDashboard({ propertyId, onOpenIssue }) {
   const { activeAccountId, activeRole } = useAccount();
+  const { t } = useI18n();
 
   const isTenant = useMemo(
     () => String(activeRole ?? "").toLowerCase() === "tenant",
@@ -111,7 +113,7 @@ export default function TenantMyIssuesDashboard({ propertyId, onOpenIssue }) {
     <Card className="p-6 space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-lg font-semibold">Moje zgłoszenia</h3>
+          <h3 className="text-lg font-semibold">{t("tenantIssues.title")}</h3>
           <p className="text-xs text-slate-500 mt-1">
             Podgląd Twoich usterek i powiązanych zleceń.
           </p>
@@ -136,25 +138,25 @@ export default function TenantMyIssuesDashboard({ propertyId, onOpenIssue }) {
         <>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div className="border rounded-xl p-3">
-              <div className="text-xs text-slate-500">Otwarte</div>
+              <div className="text-xs text-slate-500">{t("status.req.open")}</div>
               <div className="text-xl font-bold mt-1">{stats.open}</div>
             </div>
             <div className="border rounded-xl p-3">
-              <div className="text-xs text-slate-500">W trakcie / Oczekuje</div>
+              <div className="text-xs text-slate-500">{t("tenantIssues.inProgressWaiting")}</div>
               <div className="text-xl font-bold mt-1">{stats.active}</div>
             </div>
             <div className="border rounded-xl p-3">
-              <div className="text-xs text-slate-500">Zamknięte</div>
+              <div className="text-xs text-slate-500">{t("status.req.closed")}</div>
               <div className="text-xl font-bold mt-1">{stats.done}</div>
             </div>
             <div className="border rounded-xl p-3">
-              <div className="text-xs text-slate-500">Zlecenia aktywne</div>
+              <div className="text-xs text-slate-500">{t("tenantIssues.activeWorkOrders")}</div>
               <div className="text-xl font-bold mt-1">{stats.wo_active}</div>
             </div>
           </div>
 
           {rows.length === 0 ? (
-            <p className="text-sm text-slate-500">Brak zgłoszeń.</p>
+            <p className="text-sm text-slate-500">{t("maintenance.requests.empty")}</p>
           ) : (
             <div className="divide-y border rounded-lg bg-white">
               {rows.slice(0, 10).map((r) => (

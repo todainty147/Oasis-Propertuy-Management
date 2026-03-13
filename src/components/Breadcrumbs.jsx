@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
+import { useI18n } from "../context/I18nContext";
 
 export default function Breadcrumbs({ items }) {
+  const { t } = useI18n();
   return (
-    <nav aria-label="Breadcrumb" className="mb-4">
+    <nav aria-label={t("breadcrumbs.ariaLabel")} className="mb-4">
       <ol className="flex items-center gap-2 text-sm text-slate-500">
         {items.map((item, index) => (
           <li key={index} className="flex items-center gap-2">

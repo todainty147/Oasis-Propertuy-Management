@@ -8,38 +8,39 @@ import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
 import { createMaintenanceRequest, updateMaintenanceRequest } from "../services/maintenanceService";
 import { createWorkOrder } from "../services/workOrderService";
+import { useI18n } from "../context/I18nContext";
 
 /* -----------------------------
    Helpers
 ----------------------------- */
 
-function statusLabel(status) {
+function statusLabel(status, t) {
   switch (String(status ?? "").toLowerCase()) {
     case "open":
-      return "Otwarte";
+      return t("status.req.open");
     case "in_progress":
-      return "W trakcie";
+      return t("status.req.in_progress");
     case "waiting":
-      return "Oczekuje";
+      return t("status.req.waiting");
     case "resolved":
-      return "Rozwiązane";
+      return t("status.req.resolved");
     case "closed":
-      return "Zamknięte";
+      return t("status.req.closed");
     default:
       return status ?? "—";
   }
 }
 
-function priorityLabel(priority) {
+function priorityLabel(priority, t) {
   switch (String(priority ?? "").toLowerCase()) {
     case "low":
-      return "Niski";
+      return t("priority.low");
     case "normal":
-      return "Normalny";
+      return t("priority.normal");
     case "high":
-      return "Wysoki";
+      return t("priority.high");
     case "urgent":
-      return "Pilny";
+      return t("priority.urgent");
     default:
       return priority ?? "—";
   }
@@ -52,66 +53,66 @@ function formatDateTime(ts) {
   return d.toLocaleString();
 }
 
-function StatusPill({ status }) {
+function StatusPill({ status, t }) {
   const base = "text-xs px-2 py-0.5 rounded border";
   const s = String(status ?? "").toLowerCase();
 
   if (s === "resolved" || s === "closed") {
     return (
       <span className={`${base} bg-green-50 border-green-200 text-green-700`}>
-        {statusLabel(s)}
+        {statusLabel(s, t)}
       </span>
     );
   }
   if (s === "in_progress") {
     return (
       <span className={`${base} bg-blue-50 border-blue-200 text-blue-700`}>
-        {statusLabel(s)}
+        {statusLabel(s, t)}
       </span>
     );
   }
   if (s === "waiting") {
     return (
       <span className={`${base} bg-slate-50 border-slate-200 text-slate-600`}>
-        {statusLabel(s)}
+        {statusLabel(s, t)}
       </span>
     );
   }
   return (
     <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>
-      {statusLabel(s || "open")}
+      {statusLabel(s || "open", t)}
     </span>
   );
 }
 
-function WorkOrderPill({ wo }) {
+function WorkOrderPill({ wo, t }) {
   const base = "text-xs px-2 py-0.5 rounded border";
   const s = String(wo?.status ?? "").toLowerCase();
 
   if (s === "completed") {
     return (
       <span className={`${base} bg-green-50 border-green-200 text-green-700`}>
-        Zlecenie: Zakończone
+        {t("maintenance.workOrderStatus.completed")}
       </span>
     );
   }
   if (s === "in_progress") {
     return (
       <span className={`${base} bg-blue-50 border-blue-200 text-blue-700`}>
-        Zlecenie: W trakcie
+        {t("maintenance.workOrderStatus.inProgress")}
       </span>
     );
   }
   if (s === "cancelled") {
     return (
       <span className={`${base} bg-slate-50 border-slate-200 text-slate-600`}>
-        Zlecenie: Anulowane
+        {t("maintenance.workOrderStatus.cancelled")}
       </span>
     );
   }
   return (
     <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>
-      Zlecenie: Przypisane
+      {t("maintenance.workOrderStatus.assigned")}
     </span>
   );
 }
@@ -147,13 +148,14 @@ function PaginationFooter({
   onPrev,
   onNext,
   onPageSizeChange,
+  t,
 }) {
   if (totalPages <= 1) return null;
 
   return (
     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-3">
       <div className="flex items-center gap-2">
-        <span className="text-xs text-slate-500">Na stronę</span>
+        <span className="text-xs text-slate-500">{t("common.perPage")}</span>
         <select
           value={pageSize}
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
@@ -173,14 +175,14 @@ function PaginationFooter({
           onClick={onPrev}
           disabled={page <= 1}
         >
-          Prev
+          {t("common.prev")}
         </button>
 
         <div className="text-sm text-slate-600">
-          Page <span className="font-medium text-slate-900">{page}</span> of{" "}
+          {t("common.page")} <span className="font-medium text-slate-900">{page}</span> {t("common.of")}{" "}
           <span className="font-medium text-slate-900">{totalPages}</span>
           {typeof totalCount === "number" ? (
-            <span className="ml-2 text-xs text-slate-500">({totalCount} total)</span>
+            <span className="ml-2 text-xs text-slate-500">({totalCount} {t("common.total").toLowerCase()})</span>
           ) : null}
         </div>
 
@@ -189,7 +191,7 @@ function PaginationFooter({
           onClick={onNext}
           disabled={page >= totalPages}
         >
-          Next
+          {t("common.next")}
         </button>
       </div>
     </div>
@@ -202,6 +204,7 @@ function PaginationFooter({
 
 export default function MaintenanceRequestsSection({ propertyId }) {
   const { activeAccountId, activeRole } = useAccount();
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   const isTenant = useMemo(
@@ -391,7 +394,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
       await reloadRequests();
     } catch (e) {
       console.error(e);
-      alert(e?.message ?? "Nie udało się utworzyć zgłoszenia");
+      alert(e?.message ?? t("maintenance.requests.createError"));
     } finally {
       setCreating(false);
     }
@@ -408,7 +411,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
       await reloadRequests();
     } catch (e) {
       console.error(e);
-      alert(e?.message ?? "Nie udało się zmienić statusu");
+      alert(e?.message ?? t("maintenance.requests.statusChangeError"));
     }
   }
 
@@ -425,7 +428,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
             onClick={() => setStatus(r.id, "open")}
             className="text-slate-600 hover:underline text-right"
           >
-            Otwórz ponownie
+            {t("maintenance.actions.reopen")}
           </button>
           {s !== "closed" && (
             <button
@@ -433,7 +436,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
               onClick={() => setStatus(r.id, "closed")}
               className="text-slate-600 hover:underline text-right"
             >
-              Zamknij
+              {t("maintenance.actions.close")}
             </button>
           )}
         </div>
@@ -448,7 +451,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
             onClick={() => setStatus(r.id, "open")}
             className="text-slate-600 hover:underline text-right"
           >
-            Otwórz
+            {t("maintenance.actions.open")}
           </button>
         )}
 
@@ -458,7 +461,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
             onClick={() => setStatus(r.id, "in_progress")}
             className="text-blue-600 hover:underline text-right"
           >
-            W trakcie
+            {t("maintenance.actions.inProgress")}
           </button>
         )}
 
@@ -468,7 +471,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
             onClick={() => setStatus(r.id, "waiting")}
             className="text-slate-600 hover:underline text-right"
           >
-            Oczekuje
+            {t("maintenance.actions.waiting")}
           </button>
         )}
 
@@ -477,7 +480,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
           onClick={() => setStatus(r.id, "resolved")}
           className="text-green-700 hover:underline text-right"
         >
-          Rozwiąż
+          {t("maintenance.actions.resolve")}
         </button>
 
         <button
@@ -485,7 +488,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
           onClick={() => setStatus(r.id, "closed")}
           className="text-slate-600 hover:underline text-right"
         >
-          Zamknij
+          {t("maintenance.actions.close")}
         </button>
       </div>
     );
@@ -546,7 +549,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
       setPage(1);
       await reloadRequests();
     } catch (e) {
-      alert(e?.message ?? "Nie udało się utworzyć zlecenia");
+      alert(e?.message ?? t("maintenance.requests.createWorkOrderError"));
     } finally {
       setWoSaving(false);
     }
@@ -588,16 +591,16 @@ export default function MaintenanceRequestsSection({ propertyId }) {
     <Card className="p-6 space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-lg font-semibold">Usterki / Zgłoszenia</h3>
-          <p className="text-sm text-slate-500">Zgłoszenia serwisowe dla tej nieruchomości</p>
+          <h3 className="text-lg font-semibold">{t("maintenance.requests.title")}</h3>
+          <p className="text-sm text-slate-500">{t("maintenance.requests.subtitle")}</p>
         </div>
 
         <div className="flex items-center gap-3 text-sm text-slate-600">
-          <span>{totalCount ?? requests?.length ?? 0} zgłoszeń</span>
+          <span>{t("maintenance.requests.count", { count: totalCount ?? requests?.length ?? 0 })}</span>
 
           {/* ✅ Page size selector (header convenience) */}
           <div className="hidden md:flex items-center gap-2">
-            <span className="text-xs text-slate-500">Na stronę</span>
+            <span className="text-xs text-slate-500">{t("common.perPage")}</span>
             <select
               value={pageSize}
               onChange={(e) => {
@@ -620,62 +623,62 @@ export default function MaintenanceRequestsSection({ propertyId }) {
             onClick={reloadRequests}
             className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50"
           >
-            Odśwież
+            {t("common.refresh")}
           </button>
         </div>
       </div>
 
       {error && (
         <div className="p-3 rounded-lg border bg-white">
-          <p className="text-sm text-rose-600">Błąd: {String(error.message ?? error)}</p>
+          <p className="text-sm text-rose-600">{t("common.error")}: {String(error.message ?? error)}</p>
         </div>
       )}
 
       {canCreate && (
         <div className="border rounded-xl bg-white p-4 space-y-3">
-          <p className="text-sm font-medium">{isTenant ? "Zgłoś usterkę" : "Dodaj zgłoszenie"}</p>
+          <p className="text-sm font-medium">{isTenant ? t("maintenance.requests.reportIssue") : t("maintenance.requests.addRequest")}</p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="md:col-span-2">
-              <label className="text-xs text-slate-500">Tytuł</label>
+              <label className="text-xs text-slate-500">{t("common.title")}</label>
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
-                placeholder="np. Przeciek pod zlewem"
+                placeholder={t("maintenance.requests.titleExample")}
               />
             </div>
 
             <div>
-              <label className="text-xs text-slate-500">Priorytet</label>
+              <label className="text-xs text-slate-500">{t("common.priority")}</label>
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
               >
-                <option value="low">Niski</option>
-                <option value="normal">Normalny</option>
-                <option value="high">Wysoki</option>
-                <option value="urgent">Pilny</option>
+                <option value="low">{t("priority.low")}</option>
+                <option value="normal">{t("priority.normal")}</option>
+                <option value="high">{t("priority.high")}</option>
+                <option value="urgent">{t("priority.urgent")}</option>
               </select>
             </div>
           </div>
 
           <div>
-            <label className="text-xs text-slate-500">Opis</label>
+            <label className="text-xs text-slate-500">{t("common.description")}</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
-              placeholder="Dodaj szczegóły (opcjonalnie)"
+              placeholder={t("maintenance.requests.descriptionOptional")}
             />
           </div>
 
           <div className="flex items-center justify-between gap-3">
             {isTenant && (
               <p className="text-xs text-slate-500">
-                Po zgłoszeniu właściciel utworzy zlecenie serwisowe, gdy zacznie realizację.
+                {t("maintenance.requests.tenantCreateHint")}
               </p>
             )}
             <div className="flex justify-end">
@@ -684,7 +687,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
                 onClick={handleCreate}
                 className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg disabled:opacity-60"
               >
-                {creating ? "Dodawanie..." : "Dodaj"}
+                {creating ? t("common.adding") : t("common.add")}
               </button>
             </div>
           </div>
@@ -700,7 +703,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
       )}
 
       {!loading && requests.length === 0 && (
-        <p className="text-sm text-slate-500">Brak zgłoszeń dla tej nieruchomości.</p>
+        <p className="text-sm text-slate-500">{t("maintenance.requests.empty")}</p>
       )}
 
       {!loading && requests.length > 0 && (
@@ -713,15 +716,15 @@ export default function MaintenanceRequestsSection({ propertyId }) {
               <div key={r.id} className="px-4 py-3 flex gap-4 justify-between">
                 <button type="button" onClick={() => openDetails(r)} className="min-w-0 text-left">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <StatusPill status={r.status} />
+                    <StatusPill status={r.status} t={t} />
                     <p className="font-medium truncate">{r.title}</p>
 
                     {primaryWO && (
                       <>
-                        <WorkOrderPill wo={primaryWO} />
+                        <WorkOrderPill wo={primaryWO} t={t} />
                         {primaryWO?.pending_cancel_request && (
                           <span className="text-xs px-2 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-800">
-                            Prośba o anulowanie
+                            {t("workOrders.cancelRequestLabel")}
                           </span>
                         )}
                       </>
@@ -733,14 +736,14 @@ export default function MaintenanceRequestsSection({ propertyId }) {
                   )}
 
                   <div className="text-xs text-slate-500 mt-2 flex gap-3 flex-wrap">
-                    <span>Status: {statusLabel(r.status)}</span>
-                    <span>Priorytet: {priorityLabel(r.priority)}</span>
-                    <span>Utworzono: {formatDateTime(r.created_at)}</span>
+                    <span>{t("maintenance.card.status")}: {statusLabel(r.status, t)}</span>
+                    <span>{t("common.priority")}: {priorityLabel(r.priority, t)}</span>
+                    <span>{t("common.createdAt")}: {formatDateTime(r.created_at)}</span>
                     {primaryWO?.scheduled_at && (
-                      <span>Termin zlecenia: {formatDateTime(primaryWO.scheduled_at)}</span>
+                      <span>{t("maintenance.requests.workOrderDue")}: {formatDateTime(primaryWO.scheduled_at)}</span>
                     )}
-                    {linked.length > 1 && <span>Zlecenia: {linked.length}</span>}
-                    {woLoading && <span>Ładowanie zleceń…</span>}
+                    {linked.length > 1 && <span>{t("maintenance.card.workOrders")}: {linked.length}</span>}
+                    {woLoading && <span>{t("maintenance.requests.loadingWorkOrders")}</span>}
                   </div>
                 </button>
 
@@ -753,7 +756,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
                         onClick={() => openCreateWO(r)}
                         className="text-sm text-blue-600 hover:underline"
                       >
-                        Utwórz zlecenie
+                        {t("maintenance.actions.createWorkOrder")}
                       </button>
 
                       {/* ✅ Secondary: “suggest” deep link */}
@@ -762,7 +765,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
                         onClick={() => goCreateWorkOrderForRequest(r)}
                         className="text-xs text-slate-600 hover:underline"
                       >
-                        Sugeruj w „Zleceniach”
+                        {t("maintenance.actions.suggestInWorkOrders")}
                       </button>
                     </div>
                   )}
@@ -789,25 +792,26 @@ export default function MaintenanceRequestsSection({ propertyId }) {
             setPage(1);
             setPageSize(next);
           }}
+          t={t}
         />
       )}
 
       {/* Request details modal */}
-      <Modal open={detailOpen} onClose={closeDetails} title="Szczegóły zgłoszenia">
+      <Modal open={detailOpen} onClose={closeDetails} title={t("maintenance.requests.detailsTitle")}>
         {!selectedReq ? (
-          <p className="text-sm text-slate-500">Brak danych.</p>
+          <p className="text-sm text-slate-500">{t("common.noData")}</p>
         ) : (
           <div className="space-y-4">
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <StatusPill status={selectedReq.status} />
+                <StatusPill status={selectedReq.status} t={t} />
                 <div className="text-lg font-semibold text-slate-900">{selectedReq.title}</div>
               </div>
 
               <div className="text-xs text-slate-500 mt-2 flex gap-3 flex-wrap">
-                <span>Priorytet: {priorityLabel(selectedReq.priority)}</span>
-                <span>Utworzono: {formatDateTime(selectedReq.created_at)}</span>
-                <span>Aktualizacja: {formatDateTime(selectedReq.updated_at)}</span>
+                <span>{t("common.priority")}: {priorityLabel(selectedReq.priority, t)}</span>
+                <span>{t("common.createdAt")}: {formatDateTime(selectedReq.created_at)}</span>
+                <span>{t("common.updatedAt")}: {formatDateTime(selectedReq.updated_at)}</span>
               </div>
 
               {selectedReq.description && (
@@ -818,7 +822,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
             </div>
 
             <div>
-              <h4 className="font-semibold text-slate-900">Realizacja (zlecenia)</h4>
+              <h4 className="font-semibold text-slate-900">{t("maintenance.requests.executionWorkOrders")}</h4>
 
               {woLoading ? (
                 <div className="mt-2 space-y-2">
@@ -828,8 +832,8 @@ export default function MaintenanceRequestsSection({ propertyId }) {
               ) : selectedReqWorkOrders.length === 0 ? (
                 <p className="text-sm text-slate-500 mt-2">
                   {canManage
-                    ? "Brak zleceń dla tego zgłoszenia. Możesz utworzyć zlecenie."
-                    : "Właściciel jeszcze nie utworzył zlecenia dla tego zgłoszenia."}
+                    ? t("maintenance.requests.noWorkOrdersManage")
+                    : t("maintenance.requests.noWorkOrdersTenant")}
                 </p>
               ) : (
                 <div className="mt-2 space-y-2">
@@ -838,23 +842,23 @@ export default function MaintenanceRequestsSection({ propertyId }) {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <WorkOrderPill wo={wo} />
+                            <WorkOrderPill wo={wo} t={t} />
                             {wo?.pending_cancel_request && (
                               <span className="text-xs px-2 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-800">
-                                Prośba o anulowanie
+                                {t("workOrders.cancelRequestLabel")}
                               </span>
                             )}
                           </div>
 
                           <div className="text-xs text-slate-500 mt-2 flex gap-3 flex-wrap">
-                            {wo.contractor_name && <span>Wykonawca: {wo.contractor_name}</span>}
-                            {wo.contractor_phone && <span>Tel: {wo.contractor_phone}</span>}
-                            {wo.scheduled_at && <span>Termin: {formatDateTime(wo.scheduled_at)}</span>}
+                            {wo.contractor_name && <span>{t("common.contractor")}: {wo.contractor_name}</span>}
+                            {wo.contractor_phone && <span>{t("common.phone")}: {wo.contractor_phone}</span>}
+                            {wo.scheduled_at && <span>{t("common.dueDate")}: {formatDateTime(wo.scheduled_at)}</span>}
                           </div>
 
                           {wo.last_cancel_resolution_action && (
                             <p className="text-xs text-slate-500 mt-2">
-                              Decyzja dot. anulowania:{" "}
+                              {t("workOrders.cancelDecision")}{" "}
                               {String(wo.last_cancel_resolution_action).replaceAll("_", " ")}
                               {wo.last_cancel_resolution_at
                                 ? ` • ${formatDateTime(wo.last_cancel_resolution_at)}`
@@ -876,14 +880,14 @@ export default function MaintenanceRequestsSection({ propertyId }) {
                     onClick={() => openCreateWO(selectedReq)}
                     className="px-3 py-2 text-sm rounded-lg bg-blue-600 text-white"
                   >
-                    Utwórz zlecenie z tego zgłoszenia
+                    {t("maintenance.actions.createWorkOrderFromRequest")}
                   </button>
                   <button
                     type="button"
                     onClick={() => goCreateWorkOrderForRequest(selectedReq)}
                     className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50"
                   >
-                    Sugeruj w „Zleceniach”
+                    {t("maintenance.actions.suggestInWorkOrders")}
                   </button>
                 </div>
               )}
@@ -901,44 +905,44 @@ export default function MaintenanceRequestsSection({ propertyId }) {
       </Modal>
 
       {/* ✅ Option A: Create Work Order modal (members only) */}
-      <Modal open={woModalOpen} onClose={closeCreateWO} title="Utwórz zlecenie (Work Order)">
+      <Modal open={woModalOpen} onClose={closeCreateWO} title={t("maintenance.drawer.create")}>
         {!woForRequest ? (
-          <p className="text-sm text-slate-500">Brak danych.</p>
+          <p className="text-sm text-slate-500">{t("common.noData")}</p>
         ) : (
           <div className="space-y-4">
             <div className="bg-slate-50 border rounded-lg p-3">
               <div className="text-sm font-medium text-slate-900">
-                Zgłoszenie: {woForRequest.title}
+                {t("maintenance.requestLabel")}: {woForRequest.title}
               </div>
               <div className="text-xs text-slate-500 mt-1">
-                Priorytet: {priorityLabel(woForRequest.priority)} • Status:{" "}
-                {statusLabel(woForRequest.status)}
+                {t("common.priority")}: {priorityLabel(woForRequest.priority, t)} • {t("common.status")}:{" "}
+                {statusLabel(woForRequest.status, t)}
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-slate-500">Wykonawca (nazwa)</label>
+                <label className="text-xs text-slate-500">{t("maintenance.drawer.contractorName")}</label>
                 <input
                   value={woContractorName}
                   onChange={(e) => setWoContractorName(e.target.value)}
                   className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
-                  placeholder="Np. HydroFix"
+                  placeholder={t("maintenance.requests.contractorExample")}
                 />
               </div>
 
               <div>
-                <label className="text-xs text-slate-500">Telefon</label>
+                <label className="text-xs text-slate-500">{t("common.phone")}</label>
                 <input
                   value={woContractorPhone}
                   onChange={(e) => setWoContractorPhone(e.target.value)}
                   className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
-                  placeholder="+48…"
+                  placeholder={t("maintenance.requests.phoneExample")}
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="text-xs text-slate-500">Termin (opcjonalnie)</label>
+                <label className="text-xs text-slate-500">{t("maintenance.drawer.scheduleOptional")}</label>
                 <input
                   type="datetime-local"
                   value={woScheduledAt}
@@ -949,12 +953,12 @@ export default function MaintenanceRequestsSection({ propertyId }) {
             </div>
 
             <div>
-              <label className="text-xs text-slate-500">Notatki</label>
+              <label className="text-xs text-slate-500">{t("maintenance.drawer.notes")}</label>
               <textarea
                 value={woNotes}
                 onChange={(e) => setWoNotes(e.target.value)}
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm min-h-[100px]"
-                placeholder="Opis prac / instrukcje"
+                placeholder={t("maintenance.requests.workNotesPlaceholder")}
               />
             </div>
 
@@ -965,7 +969,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
                 className="px-3 py-2 text-sm rounded-lg border"
                 disabled={woSaving}
               >
-                Anuluj
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
@@ -975,13 +979,12 @@ export default function MaintenanceRequestsSection({ propertyId }) {
                   woSaving ? "bg-slate-400" : "bg-blue-600"
                 }`}
               >
-                {woSaving ? "Tworzenie…" : "Utwórz zlecenie"}
+                {woSaving ? t("common.creating") : t("maintenance.actions.createWorkOrder")}
               </button>
             </div>
 
             <p className="text-xs text-slate-500">
-              Uwaga: status zgłoszenia zostanie ustawiony na „W trakcie”, jeśli było „Otwarte” lub
-              „Oczekuje”.
+              {t("maintenance.requests.autoStatusHint")}
             </p>
           </div>
         )}

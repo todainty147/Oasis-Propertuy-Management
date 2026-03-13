@@ -13,6 +13,7 @@ import { useProperties } from "../hooks/useProperties";
 import { useTenant } from "../context/TenantContext";
 import { useAccount } from "../context/AccountContext";
 import { canCreateTenant } from "../utils/permissions";
+import { useI18n } from "../context/I18nContext";
 
 /* ======================
    SKELETON
@@ -43,6 +44,7 @@ export default function Tenants() {
   const { setTitle } = usePageTitle();
   const { activeTenantId } = useTenant();
   const { activeRole } = useAccount();
+  const { t } = useI18n();
 
   const { tenants, loading, createTenant } = useTenants();
   const { properties } = useProperties();
@@ -50,8 +52,8 @@ export default function Tenants() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   useEffect(() => {
-    setTitle("Najemcy");
-  }, [setTitle]);
+    setTitle(t("sidebar.tenants"));
+  }, [setTitle, t]);
 
   /* ---------- LOADING ---------- */
   if (loading) {
@@ -64,12 +66,12 @@ export default function Tenants() {
       <>
         <div className="text-center py-20">
           <h3 className="text-xl font-semibold text-slate-900">
-            Brak najemców
+            {t("tenant.emptyTitle")}
           </h3>
           <p className="text-slate-500 mt-2">
             {activeTenantId
-              ? "Wybrany najemca nie istnieje lub został usunięty"
-              : "Dodaj pierwszego najemcę"}
+              ? t("tenant.emptySelectedMissing")
+              : t("tenant.emptyAddFirst")}
           </p>
 
           {canCreateTenant(activeRole) && (
@@ -77,7 +79,7 @@ export default function Tenants() {
               onClick={() => setIsCreateOpen(true)}
               className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
             >
-              Dodaj najemcę
+              {t("tenant.add")}
             </button>
           )}
         </div>
@@ -98,7 +100,7 @@ export default function Tenants() {
         {/* HEADER */}
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold text-slate-900">
-            Najemcy
+            {t("sidebar.tenants")}
           </h2>
 
           {canCreateTenant(activeRole) && (
@@ -106,7 +108,7 @@ export default function Tenants() {
               onClick={() => setIsCreateOpen(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg"
             >
-              Dodaj najemcę
+              {t("tenant.add")}
             </button>
           )}
         </div>
@@ -135,13 +137,13 @@ export default function Tenants() {
                       </p>
                     </div>
 
-                    {property && <Badge status="Wynajęte" />}
+                    {property && <Badge status={t("status.occupied")} />}
                   </div>
 
                   <div className="mt-3 text-sm text-slate-600">
                     {property
-                      ? `Wynajmuje: ${property.address}`
-                      : "Brak przypisanej nieruchomości"}
+                      ? `${t("tenant.rents")}: ${property.address}`
+                      : t("tenant.noAssignedProperty")}
                   </div>
                 </Card>
               </Link>

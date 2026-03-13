@@ -5,24 +5,25 @@ import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
+import { useI18n } from "../context/I18nContext";
 
 /* -----------------------------
    UI helpers
 ----------------------------- */
 
-function StatusPill({ status }) {
+function StatusPill({ status, t }) {
   const base = "text-xs px-2 py-0.5 rounded border";
   const s = String(status ?? "").toLowerCase();
 
   if (s === "completed")
-    return <span className={`${base} bg-green-50 border-green-200 text-green-700`}>Zakończone</span>;
+    return <span className={`${base} bg-green-50 border-green-200 text-green-700`}>{t("status.wo.completed")}</span>;
   if (s === "in_progress")
-    return <span className={`${base} bg-blue-50 border-blue-200 text-blue-700`}>W trakcie</span>;
+    return <span className={`${base} bg-blue-50 border-blue-200 text-blue-700`}>{t("status.wo.in_progress")}</span>;
   if (s === "cancelled")
-    return <span className={`${base} bg-slate-50 border-slate-200 text-slate-600`}>Anulowane</span>;
+    return <span className={`${base} bg-slate-50 border-slate-200 text-slate-600`}>{t("status.wo.cancelled")}</span>;
   if (s === "blocked")
-    return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>Zablokowane</span>;
-  return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>{status || "assigned"}</span>;
+    return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>{t("workOrder.blocked")}</span>;
+  return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>{status || t("status.wo.assigned")}</span>;
 }
 
 function statusAccentClass(status) {
@@ -41,12 +42,12 @@ function formatDateTime(ts) {
   return d.toLocaleString();
 }
 
-function PriorityPill({ priority }) {
+function PriorityPill({ priority, t }) {
   const p = String(priority || "normal").toLowerCase();
   const base = "text-[11px] px-2 py-0.5 rounded border";
-  if (p === "critical") return <span className={`${base} bg-rose-100 border-rose-300 text-rose-700`}>Krytyczny</span>;
-  if (p === "high") return <span className={`${base} bg-orange-100 border-orange-300 text-orange-700`}>Wysoki</span>;
-  return <span className={`${base} bg-slate-100 border-slate-200 text-slate-700`}>Normalny</span>;
+  if (p === "critical") return <span className={`${base} bg-rose-100 border-rose-300 text-rose-700`}>{t("priority.critical")}</span>;
+  if (p === "high") return <span className={`${base} bg-orange-100 border-orange-300 text-orange-700`}>{t("priority.high")}</span>;
+  return <span className={`${base} bg-slate-100 border-slate-200 text-slate-700`}>{t("priority.normal")}</span>;
 }
 
 function shortText(v, max = 120) {
@@ -56,11 +57,11 @@ function shortText(v, max = 120) {
   return `${txt.slice(0, max - 1)}…`;
 }
 
-function deriveJobTitle(wo) {
-  const t = String(wo?.issueTitle || "").trim();
-  if (t) return t;
+function deriveJobTitle(wo, t) {
+  const title = String(wo?.issueTitle || "").trim();
+  if (title) return title;
   const fromNotes = String(wo?.issueDescription || wo?.notes || "").trim();
-  if (!fromNotes) return "Zlecenie serwisowe";
+  if (!fromNotes) return t("workOrders.serviceOrder");
   const firstLine = fromNotes.split("\n").find((x) => String(x || "").trim());
   return shortText(firstLine || fromNotes, 56);
 }
@@ -72,6 +73,7 @@ function deriveJobTitle(wo) {
 export default function ContractorPortal() {
   const { setTitle } = usePageTitle();
   const { activeRole } = useAccount();
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
@@ -170,7 +172,7 @@ export default function ContractorPortal() {
           issueTitle: req?.title || "",
           issueDescription: req?.description || "",
           issuePriority: req?.priority || "normal",
-          propertyLabel: prop ? `${prop.address || "Nieruchomość"}${prop.city ? `, ${prop.city}` : ""}` : "Nieruchomość",
+          propertyLabel: prop ? `${prop.address || t("common.property")}${prop.city ? `, ${prop.city}` : ""}` : t("common.property"),
         };
       });
 
@@ -178,7 +180,7 @@ export default function ContractorPortal() {
       const missing = hydrated.some(
         (x) =>
           !String(x.propertyLabel || "").trim() ||
-          String(x.propertyLabel || "").trim().toLowerCase() === "nieruchomość" ||
+          String(x.propertyLabel || "").trim().toLowerCase() === String(t("common.property")).trim().toLowerCase() ||
           !String(x.issueTitle || "").trim()
       );
 
@@ -249,7 +251,7 @@ export default function ContractorPortal() {
 
       await load();
     } catch (e) {
-      alert(e?.message ?? "Nie udało się zaktualizować zlecenia");
+      alert(e?.message ?? t("workOrders.updateError"));
     } finally {
       setSavingId(null);
     }
@@ -275,7 +277,7 @@ export default function ContractorPortal() {
       <Card className="p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Portal wykonawcy</h2>
+            <h2 className="text-lg font-semibold text-slate-900">{t("sidebar.contractorPortal")}</h2>
             <p className="text-xs text-slate-500 mt-1">
               Widzisz tylko swoje zlecenia. Kliknij/dwuklik, aby wejść w szczegóły.
             </p>
@@ -294,7 +296,7 @@ export default function ContractorPortal() {
             { key: "all", label: "Wszystkie" },
             { key: "assigned", label: "Przypisane" },
             { key: "in_progress", label: "W trakcie" },
-            { key: "completed", label: "Zakończone" },
+            { key: "completed", label: t("status.wo.completed") },
           ].map((f) => (
             <button
               key={f.key}
@@ -320,7 +322,7 @@ export default function ContractorPortal() {
         </div>
       ) : rows.filter((wo) => statusFilter === "all" || String(wo.status || "").toLowerCase() === statusFilter).length === 0 ? (
         <Card className="p-6">
-          <p className="text-sm text-slate-600">Brak przypisanych zleceń.</p>
+          <p className="text-sm text-slate-600">{t("contractor.emptyAssignments")}</p>
         </Card>
       ) : (
         <div className="space-y-3">
@@ -347,27 +349,27 @@ export default function ContractorPortal() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-slate-900 truncate">
-                        {deriveJobTitle(wo)}
+                        {deriveJobTitle(wo, t)}
                       </p>
                       <p className="mt-1 text-xs text-slate-700 font-medium truncate">
-                        {wo.propertyLabel || "Nieruchomość"}
+                        {wo.propertyLabel || t("common.property")}
                       </p>
                     </div>
                     <div className="shrink-0 flex flex-col items-end gap-1">
-                      <StatusPill status={wo.status} />
-                      <PriorityPill priority={wo.issuePriority} />
+                      <StatusPill status={wo.status} t={t} />
+                      <PriorityPill priority={wo.issuePriority} t={t} />
                     </div>
                   </div>
 
                   {wo.contractor_phone && (
-                    <div className="mt-2 text-xs text-slate-500">Tel: {wo.contractor_phone}</div>
+                    <div className="mt-2 text-xs text-slate-500">{t("common.phone")}: {wo.contractor_phone}</div>
                   )}
                   <div className="mt-2 text-xs text-slate-500">
                     Termin: {formatDateTime(wo.scheduled_at)} • Utworzono: {formatDateTime(wo.created_at)}
                   </div>
 
                   <div className="mt-3 text-sm text-slate-700 line-clamp-2">
-                    {shortText(wo.issueDescription || wo.notes, 160) || "Brak opisu problemu."}
+                    {shortText(wo.issueDescription || wo.notes, 160) || t("workOrders.noIssueDescription")}
                   </div>
 
                   <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
@@ -455,7 +457,7 @@ export default function ContractorPortal() {
                     </button>
 
                     {allowed.length === 0 && (
-                      <span className="text-xs text-slate-400">Brak akcji (sprawdź transitions)</span>
+                      <span className="text-xs text-slate-400">{t("workOrder.noActions")}</span>
                     )}
                   </div>
                 </div>

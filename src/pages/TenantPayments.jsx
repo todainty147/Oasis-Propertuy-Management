@@ -3,6 +3,7 @@ import Card from "../components/Card";
 import Skeleton from "../components/ui/Skeleton";
 import { useAccount } from "../context/AccountContext";
 import { fetchMyPayments } from "../services/paymentService";
+import { useI18n } from "../context/I18nContext";
 
 function statusBadge(status) {
   const base = "text-xs px-2 py-0.5 rounded border";
@@ -13,6 +14,7 @@ function statusBadge(status) {
 
 export default function TenantPayments() {
   const { activeAccountId, accountLoading } = useAccount();
+  const { t } = useI18n();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
@@ -25,7 +27,7 @@ export default function TenantPayments() {
       const data = await fetchMyPayments(activeAccountId);
       setRows(data);
     } catch (e) {
-      setErr(e?.message ?? "Failed to load payments");
+      setErr(e?.message ?? t("payments.loadError"));
     } finally {
       setLoading(false);
     }
@@ -49,8 +51,8 @@ export default function TenantPayments() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Płatności</h2>
-        <p className="text-sm text-slate-500">Twoje płatności dla aktywnego konta.</p>
+        <h2 className="text-2xl font-bold text-slate-900">{t("payments.title")}</h2>
+        <p className="text-sm text-slate-500">{t("payments.myPaymentsSubtitle")}</p>
       </div>
 
       {err && (
@@ -69,7 +71,7 @@ export default function TenantPayments() {
 
       {!loading && rows.length === 0 && (
         <Card className="p-6">
-          <p className="text-sm text-slate-600">Brak płatności do wyświetlenia.</p>
+          <p className="text-sm text-slate-600">{t("payments.empty")}</p>
         </Card>
       )}
 
@@ -79,11 +81,11 @@ export default function TenantPayments() {
             <div key={p.id} className="px-6 py-4 flex items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="font-medium">Kwota: {Number(p.amount).toLocaleString()} </p>
+                  <p className="font-medium">{t("payments.amount")}: {Number(p.amount).toLocaleString()} </p>
                   <span className={statusBadge(p.status)}>{p.status}</span>
                 </div>
                 <p className="text-sm text-slate-500">
-                  Termin: {p.due_date ?? "—"} {p.paid_at ? `• Zapłacono: ${p.paid_at}` : ""}
+                  {t("payments.dueDate")}: {p.due_date ?? "—"} {p.paid_at ? `• ${t("payments.paidAt")}: ${p.paid_at}` : ""}
                 </p>
               </div>
               <button
@@ -91,7 +93,7 @@ export default function TenantPayments() {
                 onClick={load}
                 className="text-sm text-blue-600 hover:underline"
               >
-                Odśwież
+                {t("common.refresh")}
               </button>
             </div>
           ))}

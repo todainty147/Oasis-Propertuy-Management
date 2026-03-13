@@ -37,6 +37,7 @@ import {
 
 import AppLayout from "./layout/AppLayout";
 import { useAccount } from "./context/AccountContext";
+import { useI18n } from "./context/I18nContext";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Properties = lazy(() => import("./pages/Properties"));
@@ -57,6 +58,7 @@ const AddTenantModal = lazy(() => import("./components/AddTenantModal"));
 const AddPaymentModal = lazy(() => import("./components/AddPaymentModal"));
 
 export default function App() {
+  const { t } = useI18n();
   /* ======================
      AUTH
      ====================== */
@@ -141,7 +143,7 @@ export default function App() {
      RENDER GATES
      ====================== */
   if (sessionLoading || accountLoading) {
-    return <div className="p-6">Ładowanie sesji…</div>;
+    return <div className="p-6">{t("common.loading")}</div>;
   }
 
   if (!session) {
@@ -151,9 +153,9 @@ export default function App() {
   if (!activeAccountId) {
     return (
       <div className="p-6">
-        <p className="font-medium">Brak przypisanego konta</p>
+        <p className="font-medium">{t("app.noAccountTitle")}</p>
         <p className="text-sm text-gray-600 mt-2">
-          Skontaktuj się z administratorem lub zaakceptuj zaproszenie.
+          {t("app.noAccountBody")}
         </p>
       </div>
     );
@@ -162,7 +164,7 @@ export default function App() {
   if (propertiesError || paymentsError || tenantsError) {
     return (
       <div className="p-6 bg-white rounded-xl border">
-        <p className="font-medium">Błąd ładowania danych</p>
+        <p className="font-medium">{t("app.loadErrorTitle")}</p>
         <pre className="mt-3 text-xs text-gray-600 whitespace-pre-wrap">
           {String(
             propertiesError?.message ||
@@ -267,7 +269,7 @@ export default function App() {
      ROUTES
      ====================== */
   return (
-    <Suspense fallback={<div className="p-6">Ładowanie…</div>}>
+    <Suspense fallback={<div className="p-6">{t("common.loading")}</div>}>
       <Routes>
         <Route
           element={
@@ -315,7 +317,7 @@ export default function App() {
                   setIsAddPropertyOpen(true);
                 }}
                 onDeleteProperty={async (propertyId) => {
-                  if (!confirm("Usunąć nieruchomość?")) return;
+                  if (!confirm(t("properties.confirmDelete"))) return;
                   await deleteProperty(propertyId);
                 }}
               />

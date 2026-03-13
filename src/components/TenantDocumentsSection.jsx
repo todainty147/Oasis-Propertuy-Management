@@ -14,6 +14,7 @@ import {
 } from "../services/documentService";
 import { fetchDocumentAudit } from "../services/documentAuditService";
 import { DOCUMENT_TAGS } from "../constants/documentTags";
+import { useI18n } from "../context/I18nContext";
 
 import {
   canUploadDocument,
@@ -37,6 +38,7 @@ export default function TenantDocumentsSection({ tenantId }) {
   const { user, loading: authLoading } = useAuth();
   const { activeAccountId, accountLoading } = useAccount(); // ✅ MULTI-TENANT
   const { role } = useAccount(); // ✅ SOURCE OF TRUTH
+  const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   
 
@@ -126,7 +128,7 @@ export default function TenantDocumentsSection({ tenantId }) {
       const url = await getDocumentPreviewUrl(doc.storage_path);
       window.open(url, "_blank", "noopener");
     } catch {
-      alert("Nie udało się otworzyć podglądu");
+      alert(t("attachments.previewError"));
     }
   }
 
@@ -147,7 +149,7 @@ export default function TenantDocumentsSection({ tenantId }) {
       e.target.value = "";
       await loadAll();
     } catch (err) {
-      alert(err?.message ?? "Upload failed");
+      alert(err?.message ?? t("attachments.uploadError"));
     }
   }
 
@@ -175,19 +177,19 @@ export default function TenantDocumentsSection({ tenantId }) {
       setEditingTags([]);
       await loadAll();
     } catch (err) {
-      alert(err?.message ?? "Nie udało się zapisać tagów");
+      alert(err?.message ?? t("documents.saveTagsError"));
     }
   }
 
   /* ---------- DELETE ---------- */
   async function handleDelete(doc) {
-    if (!confirm("Usunąć dokument?")) return;
+    if (!confirm(t("documents.confirmDelete"))) return;
 
     try {
       await deleteDocument(doc);
       await loadAll();
     } catch (err) {
-      alert(err?.message ?? "Nie udało się usunąć dokumentu");
+      alert(err?.message ?? t("documents.deleteError"));
     }
   }
 

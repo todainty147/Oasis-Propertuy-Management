@@ -7,6 +7,7 @@ import {
   createMaintenanceRequestAttachmentSignedUrl,
   deleteMaintenanceRequestAttachment,
 } from "../../services/maintenanceRequestAttachmentsService";
+import { useI18n } from "../../context/I18nContext";
 
 function isImage(name = "") {
   return /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(name);
@@ -26,6 +27,7 @@ export default function MaintenanceRequestAttachmentsPanel({
   allowDelete = false,
   requestStatus = "",
 }) {
+  const { t } = useI18n();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -44,7 +46,7 @@ export default function MaintenanceRequestAttachmentsPanel({
       });
       setItems(rows || []);
     } catch (e) {
-      setError(e?.message || "Nie udało się pobrać załączników.");
+      setError(e?.message || t("attachments.loadError"));
     } finally {
       setLoading(false);
     }
@@ -68,7 +70,7 @@ export default function MaintenanceRequestAttachmentsPanel({
       await load();
       e.target.value = "";
     } catch (e2) {
-      setError(e2?.message || "Nie udało się wysłać plików.");
+      setError(e2?.message || t("attachments.uploadError"));
     } finally {
       setUploading(false);
     }
@@ -82,7 +84,7 @@ export default function MaintenanceRequestAttachmentsPanel({
       });
       setPreviewUrl(signed);
     } catch (e) {
-      setError(e?.message || "Nie udało się otworzyć podglądu.");
+      setError(e?.message || t("attachments.previewError"));
     } finally {
       setBusyPath("");
     }
@@ -96,21 +98,21 @@ export default function MaintenanceRequestAttachmentsPanel({
       });
       window.open(signed, "_blank", "noopener,noreferrer");
     } catch (e) {
-      setError(e?.message || "Nie udało się pobrać pliku.");
+      setError(e?.message || t("attachments.downloadError"));
     } finally {
       setBusyPath("");
     }
   }
 
   async function onDelete(item) {
-    const ok = window.confirm(`Usunąć plik "${item.file_name}"?`);
+    const ok = window.confirm(t("attachments.confirmDelete", { name: item.file_name }));
     if (!ok) return;
     try {
       setBusyPath(item.storage_path);
       await deleteMaintenanceRequestAttachment({ path: item.storage_path });
       await load();
     } catch (e) {
-      setError(e?.message || "Nie udało się usunąć pliku.");
+      setError(e?.message || t("attachments.deleteError"));
     } finally {
       setBusyPath("");
     }
@@ -124,17 +126,17 @@ export default function MaintenanceRequestAttachmentsPanel({
     <Card className="p-4 space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-slate-900">Załączniki zgłoszenia</h3>
-          <p className="text-sm text-slate-500">Zdjęcia i dokumenty dodane do zgłoszenia</p>
+          <h3 className="text-base font-semibold text-slate-900">{t("attachments.requestTitle")}</h3>
+          <p className="text-sm text-slate-500">{t("attachments.requestSubtitle")}</p>
         </div>
         {canUpload ? (
           <label
             className={`inline-flex items-center px-3 py-2 rounded-lg text-white text-sm ${
               uploadDisabled ? "bg-slate-400 cursor-not-allowed" : "bg-slate-900 cursor-pointer hover:bg-slate-800"
             }`}
-            title={isClosed ? "Nie można dodawać plików do zamkniętego zgłoszenia." : ""}
+            title={isClosed ? t("attachments.closedUploadBlocked") : ""}
           >
-            {uploading ? "Wysyłanie..." : "Dodaj pliki"}
+            {uploading ? t("attachments.uploading") : t("attachments.addFiles")}
             <input
               type="file"
               multiple
@@ -148,7 +150,7 @@ export default function MaintenanceRequestAttachmentsPanel({
 
       {canUpload && isClosed ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Zgłoszenie jest zamknięte. Dodawanie nowych załączników jest zablokowane.
+          {t("attachments.closedNotice")}
         </div>
       ) : null}
 
@@ -163,7 +165,7 @@ export default function MaintenanceRequestAttachmentsPanel({
         </div>
       ) : !hasItems ? (
         <div className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-          Brak załączników dla tego zgłoszenia.
+          {t("attachments.emptyRequest")}
         </div>
       ) : (
         <div className="space-y-2">
@@ -188,7 +190,7 @@ export default function MaintenanceRequestAttachmentsPanel({
                       disabled={rowBusy}
                       className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-50"
                     >
-                      Podgląd
+                      {t("attachments.preview")}
                     </button>
                   ) : null}
                   <button
@@ -197,7 +199,7 @@ export default function MaintenanceRequestAttachmentsPanel({
                     disabled={rowBusy}
                     className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-50"
                   >
-                    Pobierz
+                    {t("attachments.download")}
                   </button>
                   {allowDelete && canUpload ? (
                     <button
@@ -206,7 +208,7 @@ export default function MaintenanceRequestAttachmentsPanel({
                       disabled={rowBusy}
                       className="px-2 py-1 text-xs rounded border border-red-300 text-red-700 hover:bg-red-50"
                     >
-                      Usuń
+                      {t("attachments.delete")}
                     </button>
                   ) : null}
                 </div>
@@ -219,19 +221,19 @@ export default function MaintenanceRequestAttachmentsPanel({
       {previewUrl ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-slate-700">Podgląd</p>
+            <p className="text-sm font-medium text-slate-700">{t("attachments.preview")}</p>
             <button
               type="button"
               onClick={() => setPreviewUrl("")}
               className="px-2 py-1 text-xs rounded border border-slate-300 hover:bg-slate-50"
             >
-              Zamknij
+              {t("common.close")}
             </button>
           </div>
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-2">
             <img
               src={previewUrl}
-              alt="Podgląd załącznika"
+              alt={t("attachments.previewAlt")}
               className="max-h-[420px] w-full object-contain rounded-lg"
             />
           </div>

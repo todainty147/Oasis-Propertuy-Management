@@ -15,6 +15,7 @@ import { useMemo } from "react";
 import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
 import { useTenants } from "../hooks/useTenants";
+import { useI18n } from "../context/I18nContext";
 
 /* ======================
    NAV ITEM
@@ -70,6 +71,7 @@ function AccountSwitcher() {
 function TenantSwitcher() {
   const { activeAccountId } = useAccount();
   const { activeTenantId, setActiveTenantId, clearTenant } = useTenant();
+  const { t } = useI18n();
 
   const { tenants, loading } = useTenants({
     enabled: !!activeAccountId,
@@ -86,7 +88,7 @@ function TenantSwitcher() {
       }
       className="w-full border rounded-lg px-3 py-2 text-sm bg-white disabled:bg-slate-100"
     >
-      <option value="">Wszyscy najemcy</option>
+      <option value="">{t("tenant.allTenants")}</option>
       {tenants.map((t) => (
         <option key={t.id} value={t.id}>
           {t.name}
@@ -102,6 +104,7 @@ function TenantSwitcher() {
 
 function SidebarContent({ onNavigate }) {
   const { activeRole } = useAccount();
+  const { t, lang, setLang } = useI18n();
 
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
   const isContractor = role === "contractor";
@@ -116,11 +119,11 @@ function SidebarContent({ onNavigate }) {
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
             ORM
           </div>
-          <span className="font-bold">OASIS Rental</span>
+          <span className="font-bold">{t("app.brand")}</span>
         </div>
 
         {onNavigate && (
-          <button onClick={onNavigate} aria-label="Zamknij menu">
+          <button onClick={onNavigate} aria-label={t("common.close")}>
             <X size={20} />
           </button>
         )}
@@ -132,6 +135,21 @@ function SidebarContent({ onNavigate }) {
           <AccountSwitcher />
         </div>
       )}
+
+      <div className="px-4 mb-3">
+        <div className="w-full border rounded-lg px-3 py-2 text-sm bg-white flex items-center justify-between gap-2">
+          <span className="text-xs text-slate-500">{t("topbar.language")}</span>
+          <select
+            value={lang}
+            onChange={(e) => setLang(e.target.value)}
+            className="text-sm bg-transparent focus:outline-none"
+            aria-label={t("topbar.language")}
+          >
+            <option value="pl">{t("lang.polish")}</option>
+            <option value="en">{t("lang.english")}</option>
+          </select>
+        </div>
+      </div>
 
       {/* Tenant switcher (only owner/admin/staff) */}
       {canManage && (
@@ -148,7 +166,7 @@ function SidebarContent({ onNavigate }) {
             <Item
               to="/contractor"
               icon={Wrench}
-              label="Portal wykonawcy"
+              label={t("sidebar.contractorPortal")}
               onNavigate={onNavigate}
             />
           </div>
@@ -156,25 +174,25 @@ function SidebarContent({ onNavigate }) {
           <>
             {/* TENANT + MANAGER MENU */}
             <div className="space-y-1">
-              <Item to="/dashboard" icon={LayoutDashboard} label="Pulpit" onNavigate={onNavigate} />
-              <Item to="/properties" icon={Home} label="Nieruchomości" onNavigate={onNavigate} />
+              <Item to="/dashboard" icon={LayoutDashboard} label={t("sidebar.dashboard")} onNavigate={onNavigate} />
+              <Item to="/properties" icon={Home} label={t("sidebar.properties")} onNavigate={onNavigate} />
               {canManage && (
-                <Item to="/maintenance-inbox" icon={Wrench} label="Maintenance Inbox" onNavigate={onNavigate} />
+                <Item to="/maintenance-inbox" icon={Wrench} label={t("sidebar.maintenanceInbox")} onNavigate={onNavigate} />
               )}
               {canManage && (
-                <Item to="/maintenance-kpi" icon={BarChart3} label="Maintenance KPI" onNavigate={onNavigate} />
+                <Item to="/maintenance-kpi" icon={BarChart3} label={t("sidebar.maintenanceKpi")} onNavigate={onNavigate} />
               )}
 
               {/* Only managers see Najemcy */}
               {!isTenant && (
-                <Item to="/tenants" icon={Users} label="Najemcy" onNavigate={onNavigate} />
+                <Item to="/tenants" icon={Users} label={t("sidebar.tenants")} onNavigate={onNavigate} />
               )}
 
-              <Item to="/finance" icon={Wallet} label="Finanse" onNavigate={onNavigate} />
+              <Item to="/finance" icon={Wallet} label={t("sidebar.finance")} onNavigate={onNavigate} />
             </div>
 
             <div className="border-t pt-4 space-y-1">
-              <Item to="/documents" icon={FileText} label="Dokumenty" onNavigate={onNavigate} />
+              <Item to="/documents" icon={FileText} label={t("sidebar.documents")} onNavigate={onNavigate} />
             </div>
           </>
         )}

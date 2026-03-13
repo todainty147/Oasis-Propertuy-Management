@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useI18n } from "../../context/I18nContext";
 
 function toIsoOrNull(v) {
   if (!v) return null;
@@ -15,6 +16,7 @@ export default function CreateWorkOrderDrawer({
   onClose,
   onSubmit,
 }) {
+  const { t } = useI18n();
   const [contractorId, setContractorId] = useState("");
   const [contractorName, setContractorName] = useState("");
   const [contractorPhone, setContractorPhone] = useState("");
@@ -45,8 +47,8 @@ export default function CreateWorkOrderDrawer({
       <div className="absolute right-0 top-0 h-full w-[96vw] max-w-xl bg-white border-l shadow-xl p-4 overflow-y-auto">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-base font-semibold text-slate-900">Utwórz zlecenie</h3>
-            <p className="text-sm text-slate-500 mt-1">{request.title || "Zgłoszenie bez tytułu"}</p>
+            <h3 className="text-base font-semibold text-slate-900">{t("maintenance.drawer.create")}</h3>
+            <p className="text-sm text-slate-500 mt-1">{request.title || t("maintenance.drawer.requestWithoutTitle")}</p>
           </div>
           <button
             type="button"
@@ -54,20 +56,20 @@ export default function CreateWorkOrderDrawer({
             disabled={saving}
             className="text-sm px-2 py-1 rounded border hover:bg-slate-50 disabled:opacity-50"
           >
-            Zamknij
+            {t("common.close")}
           </button>
         </div>
 
         <div className="mt-4 space-y-3">
           <div>
-            <label className="text-xs text-slate-500">Wykonawca (z listy)</label>
+            <label className="text-xs text-slate-500">{t("maintenance.drawer.contractorFromList")}</label>
             <select
               value={contractorId}
               onChange={(e) => setContractorId(e.target.value)}
               disabled={saving}
               className="mt-1 w-full border rounded-lg px-3 py-2 text-sm bg-white disabled:bg-slate-50"
             >
-              <option value="">Bez przypisania</option>
+              <option value="">{t("maintenance.drawer.unassigned")}</option>
               {(contractors || []).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -78,29 +80,29 @@ export default function CreateWorkOrderDrawer({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-slate-500">Nazwa wykonawcy</label>
+              <label className="text-xs text-slate-500">{t("maintenance.drawer.contractorName")}</label>
               <input
                 value={contractorName}
                 onChange={(e) => setContractorName(e.target.value)}
                 disabled={saving}
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
-                placeholder="Opcjonalnie"
+                placeholder={t("maintenance.drawer.optional")}
               />
             </div>
             <div>
-              <label className="text-xs text-slate-500">Telefon wykonawcy</label>
+              <label className="text-xs text-slate-500">{t("maintenance.drawer.contractorPhone")}</label>
               <input
                 value={contractorPhone}
                 onChange={(e) => setContractorPhone(e.target.value)}
                 disabled={saving}
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
-                placeholder="Opcjonalnie"
+                placeholder={t("maintenance.drawer.optional")}
               />
             </div>
           </div>
 
           <div>
-            <label className="text-xs text-slate-500">Termin (opcjonalnie)</label>
+            <label className="text-xs text-slate-500">{t("maintenance.drawer.scheduleOptional")}</label>
             <input
               type="datetime-local"
               value={scheduledAt}
@@ -111,13 +113,13 @@ export default function CreateWorkOrderDrawer({
           </div>
 
           <div>
-            <label className="text-xs text-slate-500">Notatki do zlecenia</label>
+            <label className="text-xs text-slate-500">{t("maintenance.drawer.notes")}</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               disabled={saving}
               className="mt-1 w-full border rounded-lg px-3 py-2 text-sm min-h-[130px] disabled:bg-slate-50"
-              placeholder="Opcjonalnie"
+              placeholder={t("maintenance.drawer.optional")}
             />
           </div>
         </div>
@@ -129,7 +131,7 @@ export default function CreateWorkOrderDrawer({
             disabled={saving}
             className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50 disabled:opacity-50"
           >
-            Anuluj
+            {t("common.cancel")}
           </button>
           <button
             type="button"
@@ -147,7 +149,7 @@ export default function CreateWorkOrderDrawer({
               saving ? "bg-slate-400" : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            {saving ? "Zapisywanie…" : "Utwórz zlecenie"}
+            {saving ? t("maintenance.drawer.saving") : t("maintenance.drawer.create")}
           </button>
         </div>
       </div>

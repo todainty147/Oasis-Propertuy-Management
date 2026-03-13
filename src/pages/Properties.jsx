@@ -7,6 +7,7 @@ import { Home, Pencil, Trash2 } from "lucide-react";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { can } from "../utils/permissions";
+import { useI18n } from "../context/I18nContext";
 
 /* ======================
    SKELETON
@@ -43,10 +44,11 @@ export default function Properties({
 }) {
   const { setTitle } = usePageTitle();
   const { accountLoading, activeRole } = useAccount();
+  const { t } = useI18n();
 
   useEffect(() => {
-    setTitle("Nieruchomości");
-  }, [setTitle]);
+    setTitle(t("properties.title"));
+  }, [setTitle, t]);
 
   if (loading || accountLoading) {
     return <PropertiesSkeleton />;
@@ -56,11 +58,9 @@ export default function Properties({
   if (!can(activeRole, "properties", "read")) {
     return (
       <div className="bg-white border rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-slate-900">
-          Brak dostępu
-        </h2>
+        <h2 className="text-lg font-semibold text-slate-900">{t("common.noAccess")}</h2>
         <p className="text-sm text-slate-600 mt-1">
-          Nie masz uprawnień do przeglądania nieruchomości.
+          {t("properties.noAccessBody")}
         </p>
       </div>
     );
@@ -74,10 +74,10 @@ export default function Properties({
     return (
       <div className="text-center py-20">
         <h3 className="text-xl font-semibold text-slate-900">
-          Brak nieruchomości
+          {t("properties.emptyTitle")}
         </h3>
         <p className="text-slate-500 mt-2">
-          Dodaj swoją pierwszą nieruchomość
+          {t("properties.emptySubtitle")}
         </p>
 
         {canCreate && (
@@ -85,7 +85,7 @@ export default function Properties({
             onClick={onAddProperty}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
           >
-            Dodaj nieruchomość
+            {t("properties.add")}
           </button>
         )}
       </div>
@@ -96,14 +96,14 @@ export default function Properties({
     <div className="space-y-6">
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <h2 className="text-2xl font-bold">Nieruchomości</h2>
+        <h2 className="text-2xl font-bold">{t("properties.title")}</h2>
 
         {canCreate && (
           <button
             onClick={onAddProperty}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg"
           >
-            Dodaj nieruchomość
+            {t("properties.add")}
           </button>
         )}
       </div>
@@ -117,7 +117,7 @@ export default function Properties({
           );
 
           const isOccupied = Boolean(tenant);
-          const statusLabel = isOccupied ? "Wynajęte" : "Wolne";
+          const statusLabel = isOccupied ? t("status.occupied") : t("status.vacant");
 
           return (
             <Link
@@ -137,15 +137,15 @@ export default function Properties({
                   </p>
 
                   <div className="mt-3 flex justify-between text-sm">
-                    <span>Czynsz</span>
+                    <span>{t("finance.table.rent")}</span>
                     <span className="font-medium">
                       {p.rent != null ? `${p.rent} PLN` : "—"}
                     </span>
                   </div>
 
                   <div className="mt-2 flex justify-between text-sm">
-                    <span>Najemca</span>
-                    <span>{tenant ? tenant.name : "Brak"}</span>
+                    <span>{t("finance.table.tenant")}</span>
+                    <span>{tenant ? tenant.name : t("common.none")}</span>
                   </div>
                 </div>
 
@@ -175,8 +175,8 @@ export default function Properties({
                         disabled={isOccupied}
                         title={
                           isOccupied
-                            ? "Usuń przypisanie najemcy przed usunięciem nieruchomości"
-                            : "Usuń nieruchomość"
+                            ? t("properties.removeTenantBeforeDelete")
+                            : t("properties.deleteProperty")
                         }
                         onClick={(e) => {
                           e.preventDefault();
@@ -202,7 +202,7 @@ export default function Properties({
 
       {!canCreate && (
         <p className="text-xs text-slate-500">
-          Tryb tylko do odczytu
+          {t("finance.readOnly")}
         </p>
       )}
     </div>

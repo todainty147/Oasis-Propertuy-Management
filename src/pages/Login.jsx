@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
+import { useI18n } from "../context/I18nContext";
 
 export default function Login() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -31,7 +33,7 @@ export default function Login() {
         className="w-full max-w-sm bg-white p-6 rounded-xl shadow"
       >
         <h1 className="text-2xl font-bold mb-4 text-center">
-          Zaloguj się
+          {t("login.title")}
         </h1>
 
         {error && (
@@ -40,7 +42,7 @@ export default function Login() {
 
         <input
           type="email"
-          placeholder="Email"
+          placeholder={t("login.email")}
           className="w-full mb-3 border rounded-lg px-3 py-2"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -48,7 +50,7 @@ export default function Login() {
 
         <input
           type="password"
-          placeholder="Hasło"
+          placeholder={t("login.password")}
           className="w-full mb-4 border rounded-lg px-3 py-2"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -59,7 +61,7 @@ export default function Login() {
           disabled={loading}
           className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
         >
-          {loading ? "Logowanie..." : "Zaloguj"}
+          {loading ? t("login.loggingIn") : t("login.login")}
         </button>
       </form>
     </div>
