@@ -1,5 +1,6 @@
 // src/pages/Finance.jsx
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
@@ -79,6 +80,7 @@ export default function Finance({
   const { accountLoading, activeRole } = useAccount();
   const { setTitle } = usePageTitle();
   const { t } = useI18n();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     setTitle(t("finance.title"));
@@ -103,6 +105,83 @@ export default function Finance({
   const canCreate = can(activeRole, "finance", "create");
   const canDelete = can(activeRole, "finance", "delete");
 
+  const statusFilterValues = useMemo(() => {
+    const raw = String(searchParams.get("status") || "").toLowerCase().trim();
+    if (!raw) return [];
+    return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  }, [searchParams]);
+
+  const rangeFilter = useMemo(() => String(searchParams.get("range") || "").toLowerCase(), [searchParams]);
+  const bucketFilter = useMemo(() => String(searchParams.get("bucket") || "").toLowerCase(), [searchParams]);
+
+  const normalizedStatus = (status) => {
+    const s = String(status || "").toLowerCase();
+    if (["paid", "opłacone", "oplacone"].includes(s)) return "paid";
+    if (["due", "oczekujące", "oczekujace", "pending"].includes(s)) return "due";
+    if (["overdue", "zaległe", "zalegle"].includes(s)) return "overdue";
+    return "other";
+  };
+
+  const filteredPayments = useMemo(() => {
+    const now = new Date();
+    const soon = new Date(now.getTime() + 7 * 24 * 3600000);
+    return (payments || []).filter((p) => {
+      const s = normalizedStatus(p.status);
+      if (statusFilterValues.length > 0 && !statusFilterValues.includes(s)) return false;
+
+      const due = p?.dueDate ? new Date(p.dueDate) : null;
+      const hasDue = due && !Number.isNaN(due.getTime());
+
+      if (rangeFilter === "7d") {
+        if (!hasDue) return false;
+        if (s === "paid") return false;
+        if (due < now || due > soon) return false;
+      }
+      if (rangeFilter === "1d") {
+        if (!hasDue) return false;
+        if (s === "paid") return false;
+        const tomorrow = new Date(now.getTime() + 24 * 3600000);
+        if (due < now || due > tomorrow) return false;
+      }
+
+      if (bucketFilter) {
+        if (!hasDue) return false;
+        if (s !== "overdue") return false;
+        const days = Math.floor((now.getTime() - due.getTime()) / 86400000);
+        if (bucketFilter === "0_7" && (days < 0 || days > 7)) return false;
+        if (bucketFilter === "8_30" && (days < 8 || days > 30)) return false;
+        if (bucketFilter === "30_plus" && days < 31) return false;
+      }
+
+      return true;
+    });
+  }, [payments, statusFilterValues, rangeFilter, bucketFilter]);
+
+  const hasActiveFilters = statusFilterValues.length > 0 || !!rangeFilter || !!bucketFilter;
+
+  const summaryView = useMemo(() => {
+    if (!hasActiveFilters) return summary;
+    let paid = 0;
+    let open = 0;
+    for (const p of filteredPayments) {
+      const amount = Number(p?.amount || 0);
+      const s = normalizedStatus(p.status);
+      if (s === "paid") paid += amount;
+      else open += amount;
+    }
+    return {
+      totalIncome: paid,
+      overdueIncome: open,
+      expectedIncome: open,
+    };
+  }, [summary, hasActiveFilters, filteredPayments]);
+
+  const propertyFinanceView = useMemo(() => {
+    if (!hasActiveFilters) return propertyFinance || [];
+    const ids = new Set(filteredPayments.map((p) => String(p.propertyId)));
+    return (propertyFinance || []).filter((pf) => ids.has(String(pf.propertyId)));
+  }, [propertyFinance, filteredPayments, hasActiveFilters]);
+
   return (
     <div className="space-y-8">
       {/* HEADER */}
@@ -126,9 +205,9 @@ export default function Finance({
 
       {/* SUMMARY */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <SummaryCard label={t("finance.summary.received")} value={summary?.totalIncome ?? 0} color="text-green-600" />
-        <SummaryCard label={t("finance.summary.overdue")} value={summary?.overdueIncome ?? 0} color="text-red-600" />
-        <SummaryCard label={t("finance.summary.expected")} value={summary?.expectedIncome ?? 0} color="text-blue-600" />
+        <SummaryCard label={t("finance.summary.received")} value={summaryView?.totalIncome ?? 0} color="text-green-600" />
+        <SummaryCard label={t("finance.summary.overdue")} value={summaryView?.overdueIncome ?? 0} color="text-red-600" />
+        <SummaryCard label={t("finance.summary.expected")} value={summaryView?.expectedIncome ?? 0} color="text-blue-600" />
       </div>
 
       {/* PROPERTY FINANCE */}
@@ -137,7 +216,7 @@ export default function Finance({
           <h2 className="font-semibold">{t("finance.byProperty")}</h2>
         </div>
 
-        {propertyFinance.length === 0 ? (
+        {propertyFinanceView.length === 0 ? (
           <p className="p-6 text-sm text-gray-500">{t("finance.noPropertyData")}</p>
         ) : (
           <table className="w-full text-sm">
@@ -152,7 +231,7 @@ export default function Finance({
             </thead>
 
             <tbody>
-              {propertyFinance.map((p) => (
+              {propertyFinanceView.map((p) => (
                 <tr key={p.propertyId} className="border-t hover:bg-gray-50">
                   <td className="px-6 py-3">
                     <div className="font-medium">{p.address}</div>
@@ -183,7 +262,7 @@ export default function Finance({
           )}
         </div>
 
-        {payments.length === 0 ? (
+        {filteredPayments.length === 0 ? (
           <p className="p-6 text-sm text-gray-500">{t("finance.noPaymentsForAccount")}</p>
         ) : (
           <table className="w-full text-sm">
@@ -199,7 +278,7 @@ export default function Finance({
             </thead>
 
             <tbody>
-              {payments.map((p) => (
+              {filteredPayments.map((p) => (
                 <tr key={p.id} className="border-t hover:bg-gray-50">
                   <td className="px-6 py-3">{p.tenantName ?? "—"}</td>
                   <td className="px-6 py-3">{p.propertyAddress ?? "—"}</td>

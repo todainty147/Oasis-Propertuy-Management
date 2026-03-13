@@ -1,5 +1,5 @@
 // src/pages/Dashboard.jsx
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Card from "../components/Card";
 import Skeleton from "../components/ui/Skeleton";
@@ -7,6 +7,7 @@ import { Wallet, TrendingUp, AlertCircle, Home, FileText } from "lucide-react";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
+import { getMaintenanceAttention } from "../services/maintenanceDashboardService";
 
 // ✅ Tenant dashboard widget
 import TenantMaintenanceDashboard from "../components/TenantMaintenanceDashboard";
@@ -45,8 +46,6 @@ export default function Dashboard({
   occupiedCount = 0,
   vacantCount = 0,
   occupancyRate = 0,
-  longVacantCount = 0,
-  shortVacantCount = 0,
   longVacantProperties = [],
 }) {
   const { t } = useI18n();
@@ -59,9 +58,32 @@ export default function Dashboard({
   }, [setTitle]);
 
   /* ---------- ROLE ---------- */
-  const { activeRole } = useAccount();
+  const { activeRole, activeAccountId } = useAccount();
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
   const isTenant = useMemo(() => role === "tenant", [role]);
+  const canManage = useMemo(() => ["owner", "admin", "staff"].includes(role), [role]);
+  const [attentionRows, setAttentionRows] = useState([]);
+  const [hubHorizon, setHubHorizon] = useState("today");
+
+  useEffect(() => {
+    let dead = false;
+    async function loadAttention() {
+      if (!canManage || !activeAccountId || isTenant) {
+        setAttentionRows([]);
+        return;
+      }
+      try {
+        const rows = await getMaintenanceAttention(activeAccountId);
+        if (!dead) setAttentionRows(Array.isArray(rows) ? rows : []);
+      } catch {
+        if (!dead) setAttentionRows([]);
+      }
+    }
+    loadAttention();
+    return () => {
+      dead = true;
+    };
+  }, [canManage, activeAccountId, isTenant]);
 
   /* ---------- LOADING ---------- */
   if (loading) return <DashboardSkeleton />;
@@ -191,61 +213,124 @@ export default function Dashboard({
   }
 
   /* =========================================================
-     NON-TENANT VIEW (UNCHANGED)
+     NON-TENANT VIEW (OPERATIONS HUB)
      ========================================================= */
+  const normalizePayStatus = (status) => {
+    const s = String(status || "").toLowerCase();
+    if (["paid", "opłacone", "oplacone"].includes(s)) return "paid";
+    if (["due", "oczekujące", "oczekujace", "pending"].includes(s)) return "due";
+    if (["overdue", "zaległe", "zalegle"].includes(s)) return "overdue";
+    return "other";
+  };
 
-  // Existing calculations (Polish labels)
-  const totalRevenue = (payments ?? [])
-    .filter((p) => p.status === "Opłacone")
+  const overdueAmount = (payments ?? [])
+    .filter((p) => normalizePayStatus(p.status) === "overdue")
     .reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
-  const pendingRevenue = (payments ?? [])
-    .filter((p) => p.status === "Oczekujące" || p.status === "Zaległe")
-    .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  const dueSoonCount = (payments ?? []).filter((p) => {
+    const s = normalizePayStatus(p.status);
+    if (s === "paid") return false;
+    const due = p?.dueDate ? new Date(p.dueDate) : null;
+    if (!due || Number.isNaN(due.getTime())) return false;
+    const now = Date.now();
+    const diff = due.getTime() - now;
+    const horizonMs = hubHorizon === "today" ? 24 * 3600000 : 7 * 24 * 3600000;
+    return diff >= 0 && diff <= horizonMs;
+  }).length;
+
+  const hubItems = (() => {
+    const maxAgeHours = hubHorizon === "today" ? 24 : 7 * 24;
+    const base = (attentionRows || [])
+      .filter((r) => {
+        const h = Number(r?.age_hours);
+        if (!Number.isFinite(h)) return true;
+        return h <= maxAgeHours;
+      })
+      .slice(0, 6)
+      .map((r) => ({
+      id: `${r.item_type}-${r.maintenance_request_id || r.work_order_id || Math.random()}`,
+      title: t(`maintenance.attention.${r.item_type}`),
+      subtitle: r.title || r.property_label || "—",
+      to: "/maintenance-inbox",
+      }));
+
+    if (longVacantProperties.length > 0) {
+      base.unshift({
+        id: "vacant-long",
+        title: t("dashboard.hub.longVacant"),
+        subtitle: `${longVacantProperties[0]?.address || "—"} (${longVacantProperties[0]?.daysVacant || 0}d)`,
+        to: "/properties?status=vacant&aging=14d",
+      });
+    }
+    if (dueSoonCount > 0) {
+      base.unshift({
+        id: "due-soon",
+        title: t("dashboard.hub.dueSoon"),
+        subtitle: t("dashboard.hub.dueSoonCount", { count: dueSoonCount }),
+        to: `/finance?status=due&range=${hubHorizon === "today" ? "1d" : "7d"}`,
+      });
+    }
+    return base.slice(0, 6);
+  })();
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card className="p-5">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500">{t("dashboard.monthlyRevenue")}</p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-1">
-                {totalRevenue.toLocaleString()} PLN
-              </h3>
-            </div>
-            <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600">
-              <Wallet size={20} />
-            </div>
+      <Card className="p-6 border bg-gradient-to-br from-slate-900 via-blue-900 to-cyan-800 text-white shadow-lg">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="text-lg font-semibold">{t("dashboard.hub.title")}</h2>
+            <p className="text-sm text-slate-200 mt-1">{t("dashboard.hub.subtitle")}</p>
           </div>
-          <div className="mt-4 flex items-center text-sm text-emerald-600">
-            <TrendingUp size={16} className="mr-1" />
-            <span>+12% od zeszłego miesiąca</span>
+          <div className="inline-flex rounded-lg border border-white/20 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setHubHorizon("today")}
+              className={`px-3 py-1.5 text-sm ${hubHorizon === "today" ? "bg-white text-slate-900" : "bg-white/10 text-white hover:bg-white/20"}`}
+            >
+              {t("dashboard.hub.range.today")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setHubHorizon("week")}
+              className={`px-3 py-1.5 text-sm ${hubHorizon === "week" ? "bg-white text-slate-900" : "bg-white/10 text-white hover:bg-white/20"}`}
+            >
+              {t("dashboard.hub.range.week")}
+            </button>
           </div>
-        </Card>
+        </div>
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          <button
+            type="button"
+            onClick={() => navigate("/maintenance-inbox?status=waiting&aging=48h")}
+            className="px-3 py-2 text-sm rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 text-left"
+          >
+            {t("dashboard.hub.quick.waiting")}
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/finance?status=overdue")}
+            className="px-3 py-2 text-sm rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 text-left"
+          >
+            {t("dashboard.hub.quick.overdue")}
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/properties?status=vacant")}
+            className="px-3 py-2 text-sm rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 text-left"
+          >
+            {t("dashboard.hub.quick.vacant")}
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/portfolio-health")}
+            className="px-3 py-2 text-sm rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 text-left"
+          >
+            {t("dashboard.hub.quick.portfolio")}
+          </button>
+        </div>
+      </Card>
 
-        <Card className="p-5">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500">{t("dashboard.pendingAndOverdue")}</p>
-              <h3 className="text-2xl font-bold text-slate-900 mt-1">
-                {pendingRevenue.toLocaleString()} PLN
-              </h3>
-            </div>
-            <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
-              <AlertCircle size={20} />
-            </div>
-          </div>
-          <div className="mt-4 text-sm text-slate-500">
-            {
-              (payments ?? []).filter(
-                (p) => p.status === "Oczekujące" || p.status === "Zaległe"
-              ).length
-            }{" "}
-            płatności do weryfikacji
-          </div>
-        </Card>
-
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-5">
           <div className="flex justify-between items-start">
             <div>
@@ -269,43 +354,84 @@ export default function Dashboard({
               <Home size={20} />
             </div>
           </div>
-          <div className="mt-4 text-sm text-slate-500">{vacantCount} wolnych lokali</div>
+          <div className="mt-4 text-sm text-slate-500">{vacantCount} {t("status.vacant").toLowerCase()}</div>
         </Card>
 
         <Card className="p-5">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-medium text-slate-500">{t("dashboard.longVacant")}</p>
-              <h3 className="text-2xl font-bold text-red-600 mt-1">{longVacantCount}</h3>
+              <p className="text-sm font-medium text-slate-500">{t("dashboard.hub.overdueAmount")}</p>
+              <h3 className="text-2xl font-bold text-rose-600 mt-1">{overdueAmount.toLocaleString()} PLN</h3>
             </div>
-            <div className="p-2 bg-red-100 rounded-lg text-red-600">
+            <div className="p-2 bg-rose-100 rounded-lg text-rose-600">
+              <Wallet size={20} />
+            </div>
+          </div>
+          <div className="mt-4 text-sm text-slate-500">{t("dashboard.hub.overdueHint")}</div>
+        </Card>
+
+        <Card className="p-5">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-sm font-medium text-slate-500">{t("dashboard.hub.dueSoon")}</p>
+              <h3 className="text-2xl font-bold text-amber-600 mt-1">{dueSoonCount}</h3>
+            </div>
+            <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
               <AlertCircle size={20} />
             </div>
           </div>
-          <div className="mt-4 text-sm text-slate-500">{shortVacantCount} wolne ≤ 30 dni</div>
+          <div className="mt-4 text-sm text-slate-500">
+            {hubHorizon === "today" ? t("dashboard.hub.dueSoonHintToday") : t("dashboard.hub.dueSoonHint")}
+          </div>
         </Card>
       </div>
 
-      {longVacantProperties.length > 0 && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4 text-red-600">
-            Lokale puste ponad 30 dni
-          </h3>
-
-          <div className="divide-y">
-            {longVacantProperties.map((p) => (
-              <div key={p.id} className="py-3 flex justify-between items-center">
-                <div>
-                  <p className="font-medium">{p.address}</p>
-                  <p className="text-sm text-slate-500">{p.city}</p>
-                </div>
-
-                <span className="text-sm font-semibold text-red-600">{p.daysVacant} dni</span>
-              </div>
-            ))}
-          </div>
+          <h3 className="text-lg font-semibold text-slate-900">{t("dashboard.hub.priorityQueue")}</h3>
+          {hubItems.length === 0 ? (
+            <p className="text-sm text-slate-500 mt-3">{t("maintenance.kpi.noUrgent")}</p>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {hubItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => navigate(item.to)}
+                  className="w-full text-left rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50"
+                >
+                  <p className="text-sm font-medium text-slate-900">{item.title}</p>
+                  <p className="text-xs text-slate-500 mt-1">{item.subtitle}</p>
+                </button>
+              ))}
+            </div>
+          )}
         </Card>
-      )}
+
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold text-slate-900">{t("dashboard.hub.vacancyWatch")}</h3>
+          {longVacantProperties.length === 0 ? (
+            <p className="text-sm text-slate-500 mt-3">{t("dashboard.hub.noLongVacancy")}</p>
+          ) : (
+            <div className="mt-3 divide-y">
+              {longVacantProperties.slice(0, 6).map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => navigate(`/properties/${p.id}`)}
+                  className="w-full py-3 flex justify-between items-center text-left hover:bg-slate-50"
+                >
+                  <div>
+                    <p className="font-medium">{p.address}</p>
+                    <p className="text-sm text-slate-500">{p.city}</p>
+                  </div>
+                  <span className="text-sm font-semibold text-red-600">{p.daysVacant}d</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
     </div>
   );
 }

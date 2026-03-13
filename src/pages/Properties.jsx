@@ -1,5 +1,5 @@
-import { Link } from "react-router-dom";
-import { useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo } from "react";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Skeleton from "../components/ui/Skeleton";
@@ -45,6 +45,7 @@ export default function Properties({
   const { setTitle } = usePageTitle();
   const { accountLoading, activeRole } = useAccount();
   const { t } = useI18n();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     setTitle(t("properties.title"));
@@ -70,7 +71,31 @@ export default function Properties({
   const canUpdate = can(activeRole, "properties", "update");
   const canDelete = can(activeRole, "properties", "delete");
 
-  if (properties.length === 0) {
+  const statusFilter = useMemo(() => {
+    const raw = String(searchParams.get("status") || "").toLowerCase();
+    if (!raw) return "";
+    if (["vacant", "wolne"].includes(raw)) return "vacant";
+    if (["occupied", "wynajete", "wynajęte"].includes(raw)) return "occupied";
+    return "";
+  }, [searchParams]);
+
+  const occupiedSet = useMemo(() => {
+    const ids = new Set();
+    for (const tenant of tenants || []) {
+      if (tenant?.propertyId) ids.add(String(tenant.propertyId));
+    }
+    return ids;
+  }, [tenants]);
+
+  const visibleProperties = useMemo(() => {
+    if (!statusFilter) return properties || [];
+    return (properties || []).filter((p) => {
+      const isOccupied = occupiedSet.has(String(p.id));
+      return statusFilter === "occupied" ? isOccupied : !isOccupied;
+    });
+  }, [properties, occupiedSet, statusFilter]);
+
+  if (visibleProperties.length === 0) {
     return (
       <div className="text-center py-20">
         <h3 className="text-xl font-semibold text-slate-900">
@@ -110,7 +135,7 @@ export default function Properties({
 
       {/* GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {properties.map((p) => {
+        {visibleProperties.map((p) => {
           // ✅ SINGLE SOURCE OF TRUTH
           const tenant = tenants.find(
             (t) => t.propertyId === p.id

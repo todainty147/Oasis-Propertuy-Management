@@ -56,9 +56,13 @@ export default function MaintenanceInboxPage() {
   const [waitingReason, setWaitingReason] = useState("");
   const [waitingSaving, setWaitingSaving] = useState(false);
 
-  const statusFilter = useMemo(() => {
-    const s = String(searchParams.get("status") || "").toLowerCase();
-    return STATUS_ORDER.includes(s) ? s : "";
+  const statusFilterValues = useMemo(() => {
+    const raw = String(searchParams.get("status") || "").toLowerCase().trim();
+    if (!raw) return [];
+    return raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => STATUS_ORDER.includes(s));
   }, [searchParams]);
 
   const ageFilter = useMemo(() => {
@@ -66,26 +70,41 @@ export default function MaintenanceInboxPage() {
     return AGE_BUCKETS.has(s) ? s : "";
   }, [searchParams]);
 
+  const agingFilter = useMemo(() => String(searchParams.get("aging") || "").toLowerCase(), [searchParams]);
+
   const woStatusFilter = useMemo(() => {
     const s = String(searchParams.get("woStatus") || "").toLowerCase();
     return s || "";
   }, [searchParams]);
 
+  const priorityFilterValues = useMemo(() => {
+    const raw = String(searchParams.get("priority") || "").toLowerCase().trim();
+    if (!raw) return [];
+    return raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }, [searchParams]);
+
   const visibleStatuses = useMemo(() => {
-    if (!statusFilter) return STATUS_ORDER;
-    return [statusFilter];
-  }, [statusFilter]);
+    if (statusFilterValues.length === 0) return STATUS_ORDER;
+    return statusFilterValues;
+  }, [statusFilterValues]);
 
   const filteredRequests = useMemo(() => {
     return (requests || []).filter((r) => {
+      const priority = String(r?.priority || "").toLowerCase();
+      if (priorityFilterValues.length > 0 && !priorityFilterValues.includes(priority)) return false;
+
       const h = ageHours(r?.created_at);
+      if (agingFilter === "48h" && h < 48) return false;
       if (ageFilter === "0_24") return h < 24;
       if (ageFilter === "24_48") return h >= 24 && h < 48;
       if (ageFilter === "48_72") return h >= 48 && h < 72;
       if (ageFilter === "72_plus") return h >= 72;
       return true;
     });
-  }, [requests, ageFilter]);
+  }, [requests, ageFilter, agingFilter, priorityFilterValues]);
 
   const requestsAfterWoFilter = useMemo(() => {
     if (!woStatusFilter) return filteredRequests;
@@ -97,13 +116,13 @@ export default function MaintenanceInboxPage() {
 
   const statusTotalsView = useMemo(() => {
     const next = { open: 0, in_progress: 0, waiting: 0, resolved: 0, closed: 0 };
-    const source = ageFilter || woStatusFilter ? requestsAfterWoFilter : requests;
+    const source = ageFilter || agingFilter || woStatusFilter || priorityFilterValues.length > 0 ? requestsAfterWoFilter : requests;
     for (const r of source || []) {
       const s = String(r?.status || "").toLowerCase();
       if (Object.prototype.hasOwnProperty.call(next, s)) next[s] += 1;
     }
     return next;
-  }, [ageFilter, woStatusFilter, requestsAfterWoFilter, requests]);
+  }, [ageFilter, agingFilter, woStatusFilter, priorityFilterValues.length, requestsAfterWoFilter, requests]);
 
   const totalPages = useMemo(() => {
     const pages = visibleStatuses.map((s) => Math.ceil((statusTotalsView[s] || 0) / (pageSize || 1)));
@@ -326,14 +345,14 @@ export default function MaintenanceInboxPage() {
   const grouped = useMemo(() => {
     const map = {};
     for (const s of STATUS_ORDER) map[s] = [];
-    const source = ageFilter || woStatusFilter ? requestsAfterWoFilter : requests;
+    const source = ageFilter || agingFilter || woStatusFilter || priorityFilterValues.length > 0 ? requestsAfterWoFilter : requests;
     for (const r of source ?? []) {
       const s = String(r.status || "").toLowerCase();
       if (!map[s]) map[s] = [];
       map[s].push(r);
     }
     return map;
-  }, [ageFilter, woStatusFilter, requestsAfterWoFilter, requests]);
+  }, [ageFilter, agingFilter, woStatusFilter, priorityFilterValues.length, requestsAfterWoFilter, requests]);
 
   const pagedGrouped = useMemo(() => {
     const from = (page - 1) * pageSize;
