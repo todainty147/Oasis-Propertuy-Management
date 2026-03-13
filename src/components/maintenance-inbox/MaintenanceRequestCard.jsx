@@ -65,6 +65,45 @@ function formatAge(createdAt) {
   return `${hours}h`;
 }
 
+function ageHours(createdAt) {
+  if (!createdAt) return 0;
+  const t = new Date(createdAt).getTime();
+  if (!Number.isFinite(t)) return 0;
+  return Math.max(0, Math.floor((Date.now() - t) / 3600000));
+}
+
+function slaMeta(status, createdAt, t) {
+  const s = String(status || "").toLowerCase();
+  if (s === "closed" || s === "resolved") {
+    return {
+      level: "green",
+      label: t("maintenance.sla.green"),
+      className: "bg-emerald-50 border-emerald-200 text-emerald-700",
+    };
+  }
+
+  const h = ageHours(createdAt);
+  if (h > 48) {
+    return {
+      level: "red",
+      label: t("maintenance.sla.red"),
+      className: "bg-rose-50 border-rose-200 text-rose-700",
+    };
+  }
+  if (h > 24) {
+    return {
+      level: "yellow",
+      label: t("maintenance.sla.yellow"),
+      className: "bg-amber-50 border-amber-200 text-amber-700",
+    };
+  }
+  return {
+    level: "green",
+    label: t("maintenance.sla.green"),
+    className: "bg-emerald-50 border-emerald-200 text-emerald-700",
+  };
+}
+
 export default function MaintenanceRequestCard({
   accountId,
   request,
@@ -92,6 +131,7 @@ export default function MaintenanceRequestCard({
     String(request.status || "").toLowerCase() === "waiting"
       ? waitingReasonLabel(request.waiting_reason, t)
       : "";
+  const sla = slaMeta(request.status, request.created_at, t);
 
   return (
     <div className={`rounded-xl border-2 p-3 space-y-3 ${priorityCardTone(request.priority)}`}>
@@ -101,7 +141,12 @@ export default function MaintenanceRequestCard({
           <p className="text-xs text-slate-500 mt-0.5">
           {propertyLabel ? `${propertyLabel} • ` : ""}{t("maintenance.card.reportedAt")}: {formatDateTime(request.created_at)}
           </p>
-          <p className="text-xs text-slate-500 mt-0.5">{t("maintenance.card.openFor")}: {formatAge(request.created_at)}</p>
+          <div className="mt-0.5 flex items-center flex-wrap gap-2">
+            <p className="text-xs text-slate-500">{t("maintenance.card.openFor")}: {formatAge(request.created_at)}</p>
+            <span className={`text-[11px] px-2 py-0.5 rounded border ${sla.className}`}>
+              {t("maintenance.sla.short")}: {sla.label}
+            </span>
+          </div>
         </div>
         <span className={`text-[11px] px-2 py-0.5 rounded border ${priorityTone(request.priority)}`}>
           {priorityLabel(request.priority, t)}

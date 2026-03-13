@@ -22,6 +22,7 @@ import {
   rejectQuote,
   upsertInvoice,
 } from "../services/workOrderFinancialsService";
+import { getContractorRatingByWorkOrder, upsertContractorRating } from "../services/contractorRatingService";
 import { useI18n } from "../context/I18nContext";
 /* -----------------------------
    UI helpers
@@ -51,6 +52,11 @@ function formatMoney(val, currency = "PLN") {
   const n = Number(val);
   if (!Number.isFinite(n)) return "—";
   return `${n.toFixed(2)} ${currency || "PLN"}`;
+}
+
+function isRatingsUnavailableError(err) {
+  const msg = String(err?.message || "").toLowerCase();
+  return msg.includes("contractor_ratings") && (msg.includes("schema") || msg.includes("table"));
 }
 
 function Modal({ open, onClose, title, children }) {
@@ -399,6 +405,12 @@ export default function WorkOrdersSection({ propertyId }) {
   const [finInvoiceCurrency, setFinInvoiceCurrency] = useState("PLN");
   const [finInvoiceIssuedAt, setFinInvoiceIssuedAt] = useState("");
   const [finInvoiceDueAt, setFinInvoiceDueAt] = useState("");
+  const [ratingLoading, setRatingLoading] = useState(false);
+  const [ratingSaving, setRatingSaving] = useState(false);
+  const [ratingUnavailable, setRatingUnavailable] = useState(false);
+  const [ratingRow, setRatingRow] = useState(null);
+  const [ratingValue, setRatingValue] = useState("");
+  const [ratingComment, setRatingComment] = useState("");
 
   function syncFinInputs(row) {
     const qAmt = row?.quote_amount;
@@ -549,6 +561,62 @@ export default function WorkOrdersSection({ propertyId }) {
     }
   }
 
+  async function loadContractorRating(workOrderId) {
+    if (!canManage || !workOrderId) return;
+    setRatingLoading(true);
+    setRatingUnavailable(false);
+    try {
+      const row = await getContractorRatingByWorkOrder(workOrderId);
+      if (!mountedRef.current) return;
+      setRatingRow(row);
+      setRatingValue(row?.rating != null ? String(row.rating) : "");
+      setRatingComment(row?.comment || "");
+    } catch (e) {
+      if (!mountedRef.current) return;
+      if (isRatingsUnavailableError(e)) {
+        setRatingUnavailable(true);
+        return;
+      }
+      if (!mountedRef.current) return;
+      setRatingRow(null);
+      setRatingValue("");
+      setRatingComment("");
+    } finally {
+      if (mountedRef.current) setRatingLoading(false);
+    }
+  }
+
+  async function saveContractorRating(workOrderId) {
+    if (!canManage || !workOrderId) return;
+    if (ratingUnavailable) return;
+    if (!ratingValue) {
+      alert(t("ratings.pickValue"));
+      return;
+    }
+    setRatingSaving(true);
+    try {
+      const row = await upsertContractorRating({
+        accountId: activeAccountId,
+        workOrderId,
+        contractorUserId: selectedWO?.contractor_user_id || null,
+        rating: Number(ratingValue),
+        comment: ratingComment || null,
+      });
+      if (!mountedRef.current) return;
+      setRatingRow(row);
+      alert(t("ratings.saved"));
+    } catch (e) {
+      if (isRatingsUnavailableError(e)) {
+        if (mountedRef.current) setRatingUnavailable(true);
+        alert(t("ratings.unavailable"));
+        return;
+      }
+      alert(e?.message ?? t("ratings.saveError"));
+    } finally {
+      if (mountedRef.current) setRatingSaving(false);
+    }
+  }
+
   // -----------------------------------------
   // Contractors directory (manager-only)
   // -----------------------------------------
@@ -590,6 +658,7 @@ export default function WorkOrdersSection({ propertyId }) {
 
     // ✅ B3
     loadFinancials(wo.id);
+    loadContractorRating(wo.id);
   }
 
   function closeDetails() {
@@ -612,6 +681,10 @@ export default function WorkOrdersSection({ propertyId }) {
     setFinInvoiceCurrency("PLN");
     setFinInvoiceIssuedAt("");
     setFinInvoiceDueAt("");
+    setRatingUnavailable(false);
+    setRatingRow(null);
+    setRatingValue("");
+    setRatingComment("");
   }
 
   async function reload() {
@@ -1503,6 +1576,35 @@ export default function WorkOrdersSection({ propertyId }) {
                 </div>
               ) : (
                 <div className="mt-4 space-y-4">
+                  <div className="border rounded-lg p-3 bg-slate-50">
+                    <div className="text-sm font-semibold text-slate-900">{t("workOrders.finSummaryTitle")}</div>
+                    <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <div className="rounded border border-slate-200 bg-white p-2">
+                        <div className="text-xs text-slate-500">{t("workOrders.quote")}</div>
+                        <div className="text-sm font-semibold text-slate-900 mt-1">
+                          {formatMoney(financials.quote_amount, financials.quote_currency)}
+                        </div>
+                      </div>
+                      <div className="rounded border border-slate-200 bg-white p-2">
+                        <div className="text-xs text-slate-500">{t("workOrders.invoice")}</div>
+                        <div className="text-sm font-semibold text-slate-900 mt-1">
+                          {formatMoney(financials.invoice_amount, financials.invoice_currency || financials.quote_currency)}
+                        </div>
+                      </div>
+                      <div className="rounded border border-slate-200 bg-white p-2">
+                        <div className="text-xs text-slate-500">{t("workOrders.margin")}</div>
+                        <div className="text-sm font-semibold text-slate-900 mt-1">
+                          {Number.isFinite(Number(financials.invoice_amount)) && Number.isFinite(Number(financials.quote_amount))
+                            ? formatMoney(
+                                Number(financials.invoice_amount) - Number(financials.quote_amount),
+                                financials.invoice_currency || financials.quote_currency
+                              )
+                            : "—"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Quote */}
                   <div className="border rounded-lg p-3">
                     <div className="flex items-center justify-between gap-3">
@@ -1705,6 +1807,73 @@ export default function WorkOrdersSection({ propertyId }) {
                 </div>
               )}
             </div>
+
+            {canManage && (
+              <div className="border rounded-xl p-4 bg-white">
+                <div className="flex items-center justify-between gap-3">
+                  <h4 className="font-semibold text-slate-900">{t("ratings.title")}</h4>
+                  {ratingRow?.updated_at ? (
+                    <p className="text-xs text-slate-500">
+                      {t("common.updatedAt")}: {formatDateTime(ratingRow.updated_at)}
+                    </p>
+                  ) : null}
+                </div>
+
+                {ratingUnavailable ? (
+                  <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 mt-2">
+                    {t("ratings.unavailable")}
+                  </p>
+                ) : String(selectedWO.status || "").toLowerCase() !== "completed" ? (
+                  <p className="text-sm text-slate-500 mt-2">{t("ratings.afterCompletionOnly")}</p>
+                ) : ratingLoading ? (
+                  <div className="mt-2">
+                    <Skeleton className="h-10" />
+                  </div>
+                ) : (
+                  <div className="mt-3 space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {[1, 2, 3, 4, 5].map((n) => {
+                        const active = Number(ratingValue || 0) === n;
+                        return (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setRatingValue(String(n))}
+                            className={`px-3 py-1.5 text-sm rounded-lg border ${
+                              active
+                                ? "border-amber-300 bg-amber-50 text-amber-700"
+                                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                            }`}
+                            disabled={ratingSaving}
+                          >
+                            {n} ★
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <textarea
+                      value={ratingComment}
+                      onChange={(e) => setRatingComment(e.target.value)}
+                      className="w-full border rounded-lg px-3 py-2 text-sm min-h-[90px] disabled:bg-slate-50"
+                      placeholder={t("ratings.commentOptional")}
+                      disabled={ratingSaving}
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => saveContractorRating(selectedWO.id)}
+                        disabled={ratingSaving}
+                        className={`px-3 py-2 text-sm rounded-lg text-white ${
+                          ratingSaving ? "bg-slate-400" : "bg-blue-600"
+                        }`}
+                      >
+                        {ratingSaving ? t("common.saving") : t("ratings.save")}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ✅ A4 Attachments */}
             {isContractor ? (

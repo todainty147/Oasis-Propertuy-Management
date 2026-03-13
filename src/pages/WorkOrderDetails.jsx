@@ -7,6 +7,7 @@ import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
+import { getContractorRatingByWorkOrder, upsertContractorRating } from "../services/contractorRatingService";
 
 /* -----------------------------
    Status label helper (Polish)
@@ -49,6 +50,17 @@ function formatDateTime(ts) {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleString();
+}
+
+function formatMoney(val, currency = "PLN") {
+  const n = Number(val);
+  if (!Number.isFinite(n)) return "—";
+  return `${n.toFixed(2)} ${currency || "PLN"}`;
+}
+
+function isRatingsUnavailableError(err) {
+  const msg = String(err?.message || "").toLowerCase();
+  return msg.includes("contractor_ratings") && (msg.includes("schema") || msg.includes("table"));
 }
 
 function StatusPill({ status, labels }) {
@@ -111,6 +123,12 @@ export default function WorkOrderDetails() {
   const [contractorsLoading, setContractorsLoading] = useState(false);
   const [assignContractorId, setAssignContractorId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [ratingLoading, setRatingLoading] = useState(false);
+  const [ratingSaving, setRatingSaving] = useState(false);
+  const [ratingUnavailable, setRatingUnavailable] = useState(false);
+  const [ratingRow, setRatingRow] = useState(null);
+  const [ratingValue, setRatingValue] = useState("");
+  const [ratingComment, setRatingComment] = useState("");
 
   useEffect(() => {
     setTitle("Zlecenie");
@@ -246,6 +264,7 @@ export default function WorkOrderDetails() {
     loadAudit();
     loadAllowedActions();
     loadContractors();
+    loadRating();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, activeAccountId, canManage]);
 
@@ -297,6 +316,60 @@ export default function WorkOrderDetails() {
       alert(e?.message ?? t("workOrders.assignError"));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function loadRating() {
+    if (!id || !canManage) return;
+    setRatingLoading(true);
+    setRatingUnavailable(false);
+    try {
+      const row = await getContractorRatingByWorkOrder(id);
+      setRatingRow(row);
+      setRatingValue(row?.rating != null ? String(row.rating) : "");
+      setRatingComment(row?.comment || "");
+    } catch (e) {
+      if (isRatingsUnavailableError(e)) {
+        setRatingUnavailable(true);
+        return;
+      }
+      setRatingRow(null);
+      setRatingValue("");
+      setRatingComment("");
+    } finally {
+      setRatingLoading(false);
+    }
+  }
+
+  async function saveRating() {
+    if (!canManage || !wo?.id) return;
+    if (ratingUnavailable) return;
+    if (String(wo.status || "").toLowerCase() !== "completed") return;
+    if (!ratingValue) {
+      alert(t("ratings.pickValue"));
+      return;
+    }
+
+    setRatingSaving(true);
+    try {
+      const row = await upsertContractorRating({
+        accountId: wo.account_id || activeAccountId,
+        workOrderId: wo.id,
+        contractorUserId: wo.contractor_user_id || null,
+        rating: Number(ratingValue),
+        comment: ratingComment || null,
+      });
+      setRatingRow(row);
+      alert(t("ratings.saved"));
+    } catch (e) {
+      if (isRatingsUnavailableError(e)) {
+        setRatingUnavailable(true);
+        alert(t("ratings.unavailable"));
+        return;
+      }
+      alert(e?.message ?? t("ratings.saveError"));
+    } finally {
+      setRatingSaving(false);
     }
   }
 
@@ -500,6 +573,95 @@ export default function WorkOrderDetails() {
               </button>
             </div>
           </div>
+        </Card>
+      )}
+
+      {/* Financial summary */}
+      <Card className="p-6">
+        <p className="font-semibold text-slate-900">{t("workOrders.finSummaryTitle")}</p>
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs text-slate-500">{t("workOrders.quote")}</p>
+            <p className="text-sm font-semibold text-slate-900 mt-1">{formatMoney(wo.quote_amount)}</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs text-slate-500">{t("workOrders.invoice")}</p>
+            <p className="text-sm font-semibold text-slate-900 mt-1">{formatMoney(wo.invoice_amount)}</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs text-slate-500">{t("workOrders.margin")}</p>
+            <p className="text-sm font-semibold text-slate-900 mt-1">
+              {Number.isFinite(Number(wo.invoice_amount)) && Number.isFinite(Number(wo.quote_amount))
+                ? formatMoney(Number(wo.invoice_amount) - Number(wo.quote_amount))
+                : "—"}
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Contractor rating */}
+      {canManage && (
+        <Card className="p-6 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="font-semibold text-slate-900">{t("ratings.title")}</p>
+            {ratingRow?.updated_at ? (
+              <p className="text-xs text-slate-500">
+                {t("common.updatedAt")}: {formatDateTime(ratingRow.updated_at)}
+              </p>
+            ) : null}
+          </div>
+
+          {ratingUnavailable ? (
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+              {t("ratings.unavailable")}
+            </p>
+          ) : String(wo.status || "").toLowerCase() !== "completed" ? (
+            <p className="text-sm text-slate-500">{t("ratings.afterCompletionOnly")}</p>
+          ) : ratingLoading ? (
+            <Skeleton className="h-10" />
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-2">
+                {[1, 2, 3, 4, 5].map((n) => {
+                  const active = Number(ratingValue || 0) === n;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setRatingValue(String(n))}
+                      className={`px-3 py-1.5 text-sm rounded-lg border ${
+                        active
+                          ? "border-amber-300 bg-amber-50 text-amber-700"
+                          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                      }`}
+                      disabled={ratingSaving}
+                    >
+                      {n} ★
+                    </button>
+                  );
+                })}
+              </div>
+              <textarea
+                value={ratingComment}
+                onChange={(e) => setRatingComment(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm min-h-[90px] disabled:bg-slate-50"
+                placeholder={t("ratings.commentOptional")}
+                disabled={ratingSaving}
+              />
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={saveRating}
+                  disabled={ratingSaving}
+                  className={`text-sm px-3 py-2 rounded-lg text-white ${
+                    ratingSaving ? "bg-slate-400" : "bg-blue-600"
+                  }`}
+                >
+                  {ratingSaving ? t("common.saving") : t("ratings.save")}
+                </button>
+              </div>
+            </>
+          )}
         </Card>
       )}
 

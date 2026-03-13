@@ -11,9 +11,17 @@ import { createWorkOrder } from "../services/workOrderService";
 import { useI18n } from "../context/I18nContext";
 
 const STATUS_ORDER = ["open", "in_progress", "waiting", "resolved", "closed"];
+const AGE_BUCKETS = new Set(["0_24", "24_48", "48_72", "72_plus"]);
 
 function timestampForNote() {
   return new Date().toLocaleString();
+}
+
+function ageHours(ts) {
+  if (!ts) return 0;
+  const t = new Date(ts).getTime();
+  if (!Number.isFinite(t)) return 0;
+  return Math.max(0, Math.floor((Date.now() - t) / 3600000));
 }
 
 export default function MaintenanceInboxPage() {
@@ -32,13 +40,6 @@ export default function MaintenanceInboxPage() {
   const [totalCount, setTotalCount] = useState(0);
 
   const [requests, setRequests] = useState([]);
-  const [statusTotals, setStatusTotals] = useState({
-    open: 0,
-    in_progress: 0,
-    waiting: 0,
-    resolved: 0,
-    closed: 0,
-  });
   const [workOrdersByRequestId, setWorkOrdersByRequestId] = useState({});
   const [propertyLabelById, setPropertyLabelById] = useState({});
   const [contractors, setContractors] = useState([]);
@@ -60,16 +61,55 @@ export default function MaintenanceInboxPage() {
     return STATUS_ORDER.includes(s) ? s : "";
   }, [searchParams]);
 
+  const ageFilter = useMemo(() => {
+    const s = String(searchParams.get("age") || "").toLowerCase();
+    return AGE_BUCKETS.has(s) ? s : "";
+  }, [searchParams]);
+
+  const woStatusFilter = useMemo(() => {
+    const s = String(searchParams.get("woStatus") || "").toLowerCase();
+    return s || "";
+  }, [searchParams]);
+
   const visibleStatuses = useMemo(() => {
     if (!statusFilter) return STATUS_ORDER;
     return [statusFilter];
   }, [statusFilter]);
 
+  const filteredRequests = useMemo(() => {
+    return (requests || []).filter((r) => {
+      const h = ageHours(r?.created_at);
+      if (ageFilter === "0_24") return h < 24;
+      if (ageFilter === "24_48") return h >= 24 && h < 48;
+      if (ageFilter === "48_72") return h >= 48 && h < 72;
+      if (ageFilter === "72_plus") return h >= 72;
+      return true;
+    });
+  }, [requests, ageFilter]);
+
+  const requestsAfterWoFilter = useMemo(() => {
+    if (!woStatusFilter) return filteredRequests;
+    return filteredRequests.filter((r) => {
+      const linked = workOrdersByRequestId[r.id] || [];
+      return linked.some((wo) => String(wo?.status || "").toLowerCase() === woStatusFilter);
+    });
+  }, [filteredRequests, workOrdersByRequestId, woStatusFilter]);
+
+  const statusTotalsView = useMemo(() => {
+    const next = { open: 0, in_progress: 0, waiting: 0, resolved: 0, closed: 0 };
+    const source = ageFilter || woStatusFilter ? requestsAfterWoFilter : requests;
+    for (const r of source || []) {
+      const s = String(r?.status || "").toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(next, s)) next[s] += 1;
+    }
+    return next;
+  }, [ageFilter, woStatusFilter, requestsAfterWoFilter, requests]);
+
   const totalPages = useMemo(() => {
-    const pages = visibleStatuses.map((s) => Math.ceil((statusTotals[s] || 0) / (pageSize || 1)));
+    const pages = visibleStatuses.map((s) => Math.ceil((statusTotalsView[s] || 0) / (pageSize || 1)));
     const maxPages = Math.max(1, ...pages);
     return maxPages;
-  }, [statusTotals, pageSize, visibleStatuses]);
+  }, [statusTotalsView, pageSize, visibleStatuses]);
 
   const WAITING_REASON_OPTIONS = useMemo(
     () => [
@@ -113,21 +153,6 @@ export default function MaintenanceInboxPage() {
       setRequests(rows);
       setTotalCount(rows.length);
 
-      const nextTotals = {
-        open: 0,
-        in_progress: 0,
-        waiting: 0,
-        resolved: 0,
-        closed: 0,
-      };
-      for (const r of rows) {
-        const s = String(r?.status || "").toLowerCase();
-        if (Object.prototype.hasOwnProperty.call(nextTotals, s)) {
-          nextTotals[s] += 1;
-        }
-      }
-      setStatusTotals(nextTotals);
-
       const propMap = {};
       for (const p of propsRows ?? []) {
         const city = p.city ? `, ${p.city}` : "";
@@ -163,13 +188,6 @@ export default function MaintenanceInboxPage() {
       setError(e?.message || t("maintenance.inbox.loadError"));
       setRequests([]);
       setTotalCount(0);
-      setStatusTotals({
-        open: 0,
-        in_progress: 0,
-        waiting: 0,
-        resolved: 0,
-        closed: 0,
-      });
       setWorkOrdersByRequestId({});
       setPropertyLabelById({});
     } finally {
@@ -308,13 +326,14 @@ export default function MaintenanceInboxPage() {
   const grouped = useMemo(() => {
     const map = {};
     for (const s of STATUS_ORDER) map[s] = [];
-    for (const r of requests ?? []) {
+    const source = ageFilter || woStatusFilter ? requestsAfterWoFilter : requests;
+    for (const r of source ?? []) {
       const s = String(r.status || "").toLowerCase();
       if (!map[s]) map[s] = [];
       map[s].push(r);
     }
     return map;
-  }, [requests]);
+  }, [ageFilter, woStatusFilter, requestsAfterWoFilter, requests]);
 
   const pagedGrouped = useMemo(() => {
     const from = (page - 1) * pageSize;
@@ -392,7 +411,19 @@ export default function MaintenanceInboxPage() {
       </div>
 
       <div className="text-sm text-slate-600 px-1">
-        {t("maintenance.inbox.total")}: <span className="font-medium text-slate-900">{totalCount}</span>
+        {t("maintenance.inbox.total")}: <span className="font-medium text-slate-900">{ageFilter || woStatusFilter ? requestsAfterWoFilter.length : totalCount}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 px-1">
+        <span className="text-xs text-slate-500">{t("maintenance.sla.legend")}:</span>
+        <span className="text-[11px] px-2 py-0.5 rounded border bg-emerald-50 border-emerald-200 text-emerald-700">
+          {t("maintenance.sla.green")} (0-24h)
+        </span>
+        <span className="text-[11px] px-2 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-700">
+          {t("maintenance.sla.yellow")} (24-48h)
+        </span>
+        <span className="text-[11px] px-2 py-0.5 rounded border bg-rose-50 border-rose-200 text-rose-700">
+          {t("maintenance.sla.red")} ({">"}48h)
+        </span>
       </div>
 
       {error ? (
@@ -413,7 +444,7 @@ export default function MaintenanceInboxPage() {
               accountId={activeAccountId}
               status={status}
               items={pagedGrouped[status] || []}
-              totalForStatus={statusTotals[status] || 0}
+              totalForStatus={statusTotalsView[status] || 0}
               workOrdersByRequestId={workOrdersByRequestId}
               propertyLabelById={propertyLabelById}
               canManage={canManage}

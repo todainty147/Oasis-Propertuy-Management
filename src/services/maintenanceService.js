@@ -219,6 +219,25 @@ export async function updateMaintenanceRequest(id, patch = {}) {
           },
         });
       }
+
+      if (next === "in_progress" && tenantRecipients.length > 0) {
+        await createNotifications({
+          accountId,
+          recipientUserIds: tenantRecipients,
+          type: "maintenance_request_in_progress",
+          title: "Twoje zgłoszenie jest realizowane",
+          body: beforeRow?.title
+            ? `Zgłoszenie "${beforeRow.title}" jest obecnie w trakcie realizacji.`
+            : "Twoje zgłoszenie jest obecnie w trakcie realizacji.",
+          entityType: "maintenance_request",
+          entityId: id,
+          linkPath: "/dashboard",
+          metadata: {
+            maintenance_request_id: id,
+            status: next,
+          },
+        });
+      }
     }
   } catch (notifyErr) {
     console.warn("[notifications] maintenance_status_changed failed", notifyErr);

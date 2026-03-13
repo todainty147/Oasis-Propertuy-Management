@@ -6,6 +6,7 @@ import { useAccount } from "../context/AccountContext";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
+import { getMaintenanceAttention, getMaintenanceStats } from "../services/maintenanceDashboardService";
 
 function fmtDate(ts) {
   if (!ts) return "—";
@@ -14,11 +15,24 @@ function fmtDate(ts) {
   return d.toLocaleString();
 }
 
-function daysSince(ts) {
-  if (!ts) return 0;
-  const t = new Date(ts).getTime();
-  if (!Number.isFinite(t)) return 0;
-  return Math.max(0, Math.floor((Date.now() - t) / 86400000));
+function slaToneByHours(hours, t) {
+  const h = Number.isFinite(Number(hours)) ? Number(hours) : -1;
+  if (h > 48) {
+    return {
+      label: t("maintenance.sla.red"),
+      className: "bg-rose-50 border-rose-200 text-rose-700",
+    };
+  }
+  if (h > 24) {
+    return {
+      label: t("maintenance.sla.yellow"),
+      className: "bg-amber-50 border-amber-200 text-amber-700",
+    };
+  }
+  return {
+    label: t("maintenance.sla.green"),
+    className: "bg-emerald-50 border-emerald-200 text-emerald-700",
+  };
 }
 
 function KPIStatCard({ label, value, hint = "", to = "", tone = "blue" }) {
@@ -47,7 +61,7 @@ function KPIStatCard({ label, value, hint = "", to = "", tone = "blue" }) {
   );
 }
 
-function StatusBarChart({ title, rows = [], labels = {} }) {
+function StatusBarChart({ title, rows = [], labels = {}, toByKey = {} }) {
   const max = Math.max(1, ...rows.map((r) => r.value));
   const sum = rows.reduce((a, b) => a + b.value, 0);
   return (
@@ -57,8 +71,9 @@ function StatusBarChart({ title, rows = [], labels = {} }) {
         {rows.map((r) => {
           const pct = sum > 0 ? Math.round((r.value / sum) * 100) : 0;
           const widthPct = Math.max(3, Math.round((r.value / max) * 100));
-          return (
-            <div key={r.key} className="rounded-lg border border-slate-200 bg-white p-2">
+          const to = toByKey?.[r.key] || "";
+          const row = (
+            <div className={`rounded-lg border border-slate-200 bg-white p-2 ${to ? "hover:bg-slate-50" : ""}`}>
               <div className="flex items-center justify-between text-xs mb-1">
                 <span className="text-slate-700">{labels[r.key] || r.key}</span>
                 <span className="font-semibold text-slate-900">
@@ -72,6 +87,12 @@ function StatusBarChart({ title, rows = [], labels = {} }) {
                 />
               </div>
             </div>
+          );
+          if (!to) return <div key={r.key}>{row}</div>;
+          return (
+            <Link key={r.key} to={to} className="block">
+              {row}
+            </Link>
           );
         })}
       </div>
@@ -117,7 +138,7 @@ function AnimatedNumber({ value = 0, durationMs = 550 }) {
   return <>{display}</>;
 }
 
-function DonutChart({ title, rows = [], labels = {}, totalLabel = "Total" }) {
+function DonutChart({ title, rows = [], labels = {}, totalLabel = "Total", toByKey = {} }) {
   const total = rows.reduce((a, b) => a + b.value, 0);
   const palette = ["#0ea5e9", "#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#64748b"];
   let start = 0;
@@ -154,8 +175,10 @@ function DonutChart({ title, rows = [], labels = {}, totalLabel = "Total" }) {
           </div>
         </div>
         <div className="space-y-2">
-          {segments.map((s) => (
-            <div key={s.key} className="flex items-center justify-between text-xs rounded-lg border border-slate-200 px-2 py-1.5">
+          {segments.map((s) => {
+            const to = toByKey?.[s.key] || "";
+            const row = (
+              <div className={`flex items-center justify-between text-xs rounded-lg border border-slate-200 px-2 py-1.5 ${to ? "hover:bg-slate-50" : ""}`}>
               <span className="inline-flex items-center gap-2 text-slate-700">
                 <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
                 {labels[s.key] || s.key}
@@ -163,9 +186,49 @@ function DonutChart({ title, rows = [], labels = {}, totalLabel = "Total" }) {
               <span className="font-semibold text-slate-900">
                 {s.value} <span className="text-slate-500 font-normal">({Math.round(s.pct)}%)</span>
               </span>
-            </div>
-          ))}
+              </div>
+            );
+            if (!to) return <div key={s.key}>{row}</div>;
+            return (
+              <Link key={s.key} to={to} className="block">
+                {row}
+              </Link>
+            );
+          })}
         </div>
+      </div>
+    </Card>
+  );
+}
+
+function AgingBars({ title, subtitle = "", rows = [], toByKey = {} }) {
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  return (
+    <Card className="p-4 border shadow-sm">
+      <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+      {subtitle ? <p className="text-xs text-slate-500 mt-1">{subtitle}</p> : null}
+      <div className="mt-3 space-y-2 text-sm">
+        {rows.map((r) => {
+          const widthPct = Math.max(3, Math.round((r.value / max) * 100));
+          const to = toByKey?.[r.key] || "";
+          const row = (
+            <div className={`rounded-lg border border-slate-200 bg-white p-2 ${to ? "hover:bg-slate-50" : ""}`}>
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-slate-700">{r.label}</span>
+                <span className="font-semibold text-slate-900">{r.value}</span>
+              </div>
+              <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-500 ${r.barClass}`} style={{ width: `${widthPct}%` }} />
+              </div>
+            </div>
+          );
+          if (!to) return <div key={r.key}>{row}</div>;
+          return (
+            <Link key={r.key} to={to} className="block">
+              {row}
+            </Link>
+          );
+        })}
       </div>
     </Card>
   );
@@ -183,9 +246,9 @@ export default function MaintenanceKPIDashboardPage() {
   const [error, setError] = useState("");
   const [requests, setRequests] = useState([]);
   const [workOrders, setWorkOrders] = useState([]);
-  const [propertyLabelById, setPropertyLabelById] = useState({});
   const [feed, setFeed] = useState([]);
   const [serverStats, setServerStats] = useState(null);
+  const [attentionRows, setAttentionRows] = useState([]);
 
   useEffect(() => {
     setTitle(t("maintenance.kpi.pageTitle"));
@@ -197,7 +260,7 @@ export default function MaintenanceKPIDashboardPage() {
     setLoading(true);
     setError("");
     try {
-      const [{ data: reqRows, error: reqErr }, { data: woRows, error: woErr }, { data: propRows, error: propErr }] =
+      const [{ data: reqRows, error: reqErr }, { data: woRows, error: woErr }] =
         await Promise.all([
           supabase
             .from("maintenance_requests")
@@ -211,38 +274,27 @@ export default function MaintenanceKPIDashboardPage() {
             )
             .eq("account_id", activeAccountId)
             .order("created_at", { ascending: false }),
-          supabase.from("properties").select("id, address, city").eq("account_id", activeAccountId),
         ]);
 
       if (reqErr) throw reqErr;
       if (woErr) throw woErr;
-      if (propErr) throw propErr;
 
       const reqData = reqRows || [];
       const woData = woRows || [];
       setRequests(reqData);
       setWorkOrders(woData);
 
-      // Optional server-side aggregate function (faster + consistent cross-environment).
       try {
-        const { data: statsData, error: statsErr } = await supabase.rpc("maintenance_dashboard_stats", {
-          p_account_id: activeAccountId,
-        });
-        if (!statsErr) {
-          const row = Array.isArray(statsData) ? statsData[0] : statsData;
-          setServerStats(row || null);
-        } else {
-          setServerStats(null);
-        }
+        const [stats, attention] = await Promise.all([
+          getMaintenanceStats(activeAccountId),
+          getMaintenanceAttention(activeAccountId),
+        ]);
+        setServerStats(stats || null);
+        setAttentionRows(attention || []);
       } catch {
         setServerStats(null);
+        setAttentionRows([]);
       }
-
-      const labels = {};
-      for (const p of propRows || []) {
-        labels[p.id] = `${p.address || t("common.property")}${p.city ? `, ${p.city}` : ""}`;
-      }
-      setPropertyLabelById(labels);
 
       const woIds = woData.map((w) => w.id).filter(Boolean);
 
@@ -296,7 +348,7 @@ export default function MaintenanceKPIDashboardPage() {
       setWorkOrders([]);
       setFeed([]);
       setServerStats(null);
-      setPropertyLabelById({});
+      setAttentionRows([]);
     } finally {
       setLoading(false);
     }
@@ -307,23 +359,6 @@ export default function MaintenanceKPIDashboardPage() {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAccountId]);
-
-  const requestById = useMemo(() => {
-    const map = {};
-    for (const r of requests) map[r.id] = r;
-    return map;
-  }, [requests]);
-
-  const workOrdersByRequestId = useMemo(() => {
-    const map = {};
-    for (const wo of workOrders) {
-      const k = wo.maintenance_request_id;
-      if (!k) continue;
-      if (!map[k]) map[k] = [];
-      map[k].push(wo);
-    }
-    return map;
-  }, [workOrders]);
 
   const kpi = useMemo(() => {
     const localOpenRequests = requests.filter((r) => String(r.status || "").toLowerCase() !== "closed").length;
@@ -376,82 +411,81 @@ export default function MaintenanceKPIDashboardPage() {
   }, [requests, workOrders, serverStats]);
 
   const attentionItems = useMemo(() => {
-    const items = [];
-
-    for (const r of requests) {
-      const s = String(r.status || "").toLowerCase();
-      const p = String(r.priority || "").toLowerCase();
-      const ageDays = daysSince(r.updated_at || r.created_at);
-      const reqWos = workOrdersByRequestId[r.id] || [];
-
-      if (s === "waiting" && ageDays > 2) {
-        items.push({
-          key: `wait-${r.id}`,
-          severity: "high",
-          title: t("maintenance.kpi.attention.waiting48h"),
-          detail: r.title || t("maintenance.requestFallbackTitle"),
-          property: propertyLabelById[r.property_id] || "",
-          timestamp: `Utworzono ${daysSince(r.created_at)} dni temu`,
-          linkPath: "/maintenance-inbox",
-        });
-      }
-
-      if ((p === "high" || p === "urgent") && s !== "closed") {
-        items.push({
-          key: `prio-${r.id}`,
-          severity: "critical",
-          title: t("maintenance.kpi.attention.highPriorityOpen"),
-          detail: r.title || t("maintenance.requestFallbackTitle"),
-          property: propertyLabelById[r.property_id] || "",
-          timestamp: `Utworzono ${daysSince(r.created_at)} dni temu`,
-          linkPath: "/maintenance-inbox",
-        });
-      }
-
-      if (s !== "closed" && reqWos.length === 0) {
-        items.push({
-          key: `no-wo-${r.id}`,
-          severity: "medium",
-          title: t("maintenance.kpi.attention.noWorkOrder"),
-          detail: r.title || t("maintenance.requestFallbackTitle"),
-          property: propertyLabelById[r.property_id] || "",
-          timestamp: `Utworzono ${daysSince(r.created_at)} dni temu`,
-          linkPath: "/maintenance-inbox",
-        });
-      }
-    }
-
-    for (const wo of workOrders) {
-      const s = String(wo.status || "").toLowerCase();
-      const ageDays = daysSince(wo.updated_at || wo.created_at);
-      const req = requestById[wo.maintenance_request_id];
-      if (s === "in_progress" && ageDays > 7) {
-        items.push({
-          key: `wip-${wo.id}`,
-          severity: "high",
-          title: `Zlecenie w trakcie > 7 dni (${ageDays}d)`,
-          detail: req?.title || `WO ${String(wo.id).slice(0, 8)}`,
-          property: propertyLabelById[wo.property_id] || "",
-          linkPath: `/work-orders/${wo.id}`,
-        });
-      }
-      if (!wo.contractor_user_id && (s === "assigned" || s === "in_progress")) {
-        items.push({
-          key: `noc-${wo.id}`,
-          severity: "medium",
-          title: "Zlecenie bez wykonawcy",
-          detail: req?.title || `WO ${String(wo.id).slice(0, 8)}`,
-          property: propertyLabelById[wo.property_id] || "",
-          timestamp: `Utworzono ${daysSince(wo.created_at)} dni temu`,
-          linkPath: `/work-orders/${wo.id}`,
-        });
-      }
-    }
-
+    const severityByType = {
+      stuck_waiting_over_48h: "high",
+      high_priority_unresolved: "critical",
+      request_without_work_order: "medium",
+      work_order_without_contractor: "medium",
+    };
     const rank = { critical: 3, high: 2, medium: 1, low: 0 };
+
+    const items = (attentionRows || []).map((r) => {
+      const itemType = String(r?.item_type || "").toLowerCase();
+      const mrId = r?.maintenance_request_id || "na";
+      const woId = r?.work_order_id || "na";
+      const ageHours = Number.isFinite(Number(r?.age_hours)) ? Math.max(0, Math.floor(Number(r.age_hours))) : null;
+      return {
+        key: `${itemType}-${mrId}-${woId}`,
+        severity: severityByType[itemType] || "medium",
+        title: t(`maintenance.attention.${itemType}`),
+        detail: r?.title || t("maintenance.requestFallbackTitle"),
+        property: r?.property_label || "",
+        timestamp: ageHours != null ? t("maintenance.kpi.openForHours", { hours: ageHours }) : "",
+        ageHours,
+        linkPath: r?.work_order_id ? `/work-orders/${r.work_order_id}` : "/maintenance-inbox",
+      };
+    });
+
     items.sort((a, b) => rank[b.severity] - rank[a.severity]);
     return items.slice(0, 12);
-  }, [requests, workOrders, requestById, workOrdersByRequestId, propertyLabelById]);
+  }, [attentionRows, t]);
+
+  const agingRows = useMemo(() => {
+    const counts = {
+      b0_24: 0,
+      b24_48: 0,
+      b48_72: 0,
+      b72_plus: 0,
+    };
+    for (const r of requests) {
+      const s = String(r?.status || "").toLowerCase();
+      if (s === "closed") continue;
+      const created = new Date(r?.created_at).getTime();
+      if (!Number.isFinite(created)) continue;
+      const ageHours = Math.max(0, Math.floor((Date.now() - created) / 3600000));
+      if (ageHours < 24) counts.b0_24 += 1;
+      else if (ageHours < 48) counts.b24_48 += 1;
+      else if (ageHours < 72) counts.b48_72 += 1;
+      else counts.b72_plus += 1;
+    }
+
+    return [
+      {
+        key: "b0_24",
+        label: t("maintenance.kpi.aging.0_24"),
+        value: counts.b0_24,
+        barClass: "bg-emerald-500",
+      },
+      {
+        key: "b24_48",
+        label: t("maintenance.kpi.aging.24_48"),
+        value: counts.b24_48,
+        barClass: "bg-amber-500",
+      },
+      {
+        key: "b48_72",
+        label: t("maintenance.kpi.aging.48_72"),
+        value: counts.b48_72,
+        barClass: "bg-orange-500",
+      },
+      {
+        key: "b72_plus",
+        label: t("maintenance.kpi.aging.72_plus"),
+        value: counts.b72_plus,
+        barClass: "bg-rose-600",
+      },
+    ];
+  }, [requests, t]);
 
   if (!canManage) {
     return (
@@ -505,10 +539,17 @@ export default function MaintenanceKPIDashboardPage() {
             <KPIStatCard label={t("maintenance.kpi.kpi.openHighPriority")} value={kpi.openHighPriority} to="/maintenance-inbox" tone="rose" />
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
             <StatusBarChart
               title={t("maintenance.kpi.requestsByStatus")}
               rows={Object.entries(kpi.reqByStatus).map(([key, value]) => ({ key, value }))}
+              toByKey={{
+                open: "/maintenance-inbox?status=open",
+                in_progress: "/maintenance-inbox?status=in_progress",
+                waiting: "/maintenance-inbox?status=waiting",
+                resolved: "/maintenance-inbox?status=resolved",
+                closed: "/maintenance-inbox?status=closed",
+              }}
               labels={{
                 open: t("status.req.open"),
                 in_progress: t("status.req.in_progress"),
@@ -522,11 +563,29 @@ export default function MaintenanceKPIDashboardPage() {
               title={t("maintenance.kpi.workOrdersByStatus")}
               rows={Object.entries(kpi.woByStatus).map(([key, value]) => ({ key, value }))}
               totalLabel={t("common.total")}
+              toByKey={{
+                assigned: "/maintenance-inbox?woStatus=assigned",
+                in_progress: "/maintenance-inbox?woStatus=in_progress",
+                completed: "/maintenance-inbox?woStatus=completed",
+                cancelled: "/maintenance-inbox?woStatus=cancelled",
+              }}
               labels={{
                 assigned: t("status.wo.assigned"),
                 in_progress: t("status.wo.in_progress"),
                 completed: t("status.wo.completed"),
                 cancelled: t("status.wo.cancelled"),
+              }}
+            />
+
+            <AgingBars
+              title={t("maintenance.kpi.aging.title")}
+              subtitle={t("maintenance.kpi.aging.subtitle")}
+              rows={agingRows}
+              toByKey={{
+                b0_24: "/maintenance-inbox?age=0_24",
+                b24_48: "/maintenance-inbox?age=24_48",
+                b48_72: "/maintenance-inbox?age=48_72",
+                b72_plus: "/maintenance-inbox?age=72_plus",
               }}
             />
           </div>
@@ -539,12 +598,17 @@ export default function MaintenanceKPIDashboardPage() {
               ) : (
                 <div className="mt-3 space-y-2">
                   {attentionItems.map((i) => (
-                    <Link
-                      key={i.key}
-                      to={i.linkPath}
-                      className="block rounded-lg border border-slate-200 hover:bg-slate-50 px-3 py-2"
-                    >
-                      <p className="text-sm font-medium text-slate-900">{i.title}</p>
+                    <Link key={i.key} to={i.linkPath} className="block rounded-lg border border-slate-200 hover:bg-slate-50 px-3 py-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-medium text-slate-900">{i.title}</p>
+                        <span
+                          className={`text-[11px] px-2 py-0.5 rounded border ${
+                            slaToneByHours(i.ageHours, t).className
+                          }`}
+                        >
+                          {t("maintenance.sla.short")}: {slaToneByHours(i.ageHours, t).label}
+                        </span>
+                      </div>
                       <p className="text-xs text-slate-600">{i.detail}</p>
                       {i.property ? <p className="text-xs text-slate-500 mt-0.5">{i.property}</p> : null}
                       {i.timestamp ? <p className="text-xs text-slate-500 mt-0.5">{i.timestamp}</p> : null}
