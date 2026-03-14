@@ -13,13 +13,16 @@ import {
   LineChart,
   Palette,
   Map,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
 import { useTenants } from "../hooks/useTenants";
 import { useI18n } from "../context/I18nContext";
+import { useAuth } from "../context/AuthContext";
 
 /* ======================
    NAV ITEM
@@ -107,7 +110,8 @@ function TenantSwitcher() {
    ====================== */
 
 function SidebarContent({ onNavigate }) {
-  const { activeRole } = useAccount();
+  const { activeRole, activeAccountId } = useAccount();
+  const { user } = useAuth();
   const { t, lang, setLang } = useI18n();
 
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
@@ -115,9 +119,39 @@ function SidebarContent({ onNavigate }) {
   const isTenant = role === "tenant";
   const canManage = ["owner", "admin", "staff"].includes(role);
   const isOwner = role === "owner";
+  const [operationsOpen, setOperationsOpen] = useState(true);
+  const [adminOpen, setAdminOpen] = useState(true);
+  const [onboardingHidden, setOnboardingHidden] = useState(false);
+
+  const onboardingHiddenKey = useMemo(() => {
+    if (!activeAccountId || !user?.id) return null;
+    return `sidebar_onboarding_hidden:${activeAccountId}:${user.id}`;
+  }, [activeAccountId, user?.id]);
+
+  useEffect(() => {
+    if (!isOwner || !onboardingHiddenKey) {
+      setOnboardingHidden(false);
+      return;
+    }
+    try {
+      setOnboardingHidden(localStorage.getItem(onboardingHiddenKey) === "1");
+    } catch {
+      setOnboardingHidden(false);
+    }
+  }, [isOwner, onboardingHiddenKey]);
+
+  function dismissOnboarding() {
+    setOnboardingHidden(true);
+    if (!onboardingHiddenKey) return;
+    try {
+      localStorage.setItem(onboardingHiddenKey, "1");
+    } catch {
+      // ignore localStorage failures
+    }
+  }
 
   return (
-    <>
+    <div className="h-full flex flex-col">
       {/* Header */}
       <div className="p-6 flex items-center justify-between">
         <div className="flex items-center space-x-3">
@@ -164,7 +198,7 @@ function SidebarContent({ onNavigate }) {
       )}
 
       {/* Navigation */}
-      <nav className="px-4 mt-4 space-y-4 pb-safe">
+      <nav className="px-4 mt-2 pb-safe flex-1 overflow-y-auto">
         {/* CONTRACTOR MENU */}
         {isContractor ? (
           <div className="space-y-1">
@@ -176,45 +210,99 @@ function SidebarContent({ onNavigate }) {
             />
           </div>
         ) : (
-          <>
-            {/* TENANT + MANAGER MENU */}
-            <div className="space-y-1">
+          <div className="space-y-5">
+            {isOwner && !onboardingHidden && (
+              <div className="space-y-2">
+                <p className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {t("sidebar.section.gettingStarted")}
+                </p>
+                <div className="rounded-lg border border-blue-100 bg-blue-50 p-1.5">
+                  <div className="flex items-center justify-between gap-2 px-2 py-1">
+                    <NavLink
+                      to="/landlord-onboarding"
+                      onClick={onNavigate}
+                      className={({ isActive }) =>
+                        `flex items-center gap-2 text-sm font-medium ${
+                          isActive ? "text-blue-700" : "text-slate-700 hover:text-blue-700"
+                        }`
+                      }
+                    >
+                      <Map size={16} />
+                      <span>{t("sidebar.landlordOnboarding")}</span>
+                    </NavLink>
+                    <button
+                      type="button"
+                      onClick={dismissOnboarding}
+                      className="ml-2 px-2 py-1 text-xs text-slate-500 hover:text-slate-700"
+                      title={t("common.hide")}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <p className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {t("sidebar.section.core")}
+              </p>
+              <div className="space-y-1">
               <Item to="/dashboard" icon={LayoutDashboard} label={t("sidebar.dashboard")} onNavigate={onNavigate} />
               <Item to="/properties" icon={Home} label={t("sidebar.properties")} onNavigate={onNavigate} />
-              {isOwner && (
-                <Item to="/landlord-onboarding" icon={Map} label={t("sidebar.landlordOnboarding")} onNavigate={onNavigate} />
-              )}
-              {canManage && (
-                <Item to="/maintenance-inbox" icon={Wrench} label={t("sidebar.maintenanceInbox")} onNavigate={onNavigate} />
-              )}
-              {canManage && (
-                <Item to="/maintenance-kpi" icon={BarChart3} label={t("sidebar.maintenanceKpi")} onNavigate={onNavigate} />
-              )}
-              {canManage && (
-                <Item to="/portfolio-health" icon={LineChart} label={t("sidebar.portfolioHealth")} onNavigate={onNavigate} />
-              )}
-              {canManage && (
-                <Item to="/invitations" icon={UserPlus} label={t("sidebar.invitations")} onNavigate={onNavigate} />
-              )}
-              {role === "owner" && (
-                <Item to="/settings/branding" icon={Palette} label={t("sidebar.branding")} onNavigate={onNavigate} />
-              )}
-
-              {/* Only managers see Najemcy */}
               {!isTenant && (
                 <Item to="/tenants" icon={Users} label={t("sidebar.tenants")} onNavigate={onNavigate} />
               )}
-
               <Item to="/finance" icon={Wallet} label={t("sidebar.finance")} onNavigate={onNavigate} />
+              <Item to="/documents" icon={FileText} label={t("sidebar.documents")} onNavigate={onNavigate} />
+              </div>
             </div>
 
-            <div className="border-t pt-4 space-y-1">
-              <Item to="/documents" icon={FileText} label={t("sidebar.documents")} onNavigate={onNavigate} />
-            </div>
-          </>
+            {canManage && (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setOperationsOpen((v) => !v)}
+                  className="w-full px-1 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500"
+                >
+                  <span>{t("sidebar.section.operations")}</span>
+                  {operationsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </button>
+                {operationsOpen && (
+                  <div className="space-y-1">
+                    <Item to="/maintenance-inbox" icon={Wrench} label={t("sidebar.maintenanceInbox")} onNavigate={onNavigate} />
+                    <Item to="/maintenance-kpi" icon={BarChart3} label={t("sidebar.maintenanceKpi")} onNavigate={onNavigate} />
+                    <Item to="/portfolio-health" icon={LineChart} label={t("sidebar.portfolioHealth")} onNavigate={onNavigate} />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {canManage && (
+              <div className="space-y-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setAdminOpen((v) => !v)}
+                  className="w-full px-1 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500"
+                >
+                  <span>{t("sidebar.section.adminSettings")}</span>
+                  {adminOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </button>
+                {adminOpen && (
+                  <div className="space-y-1">
+                    <Item to="/invitations" icon={UserPlus} label={t("sidebar.invitations")} onNavigate={onNavigate} />
+                    {role === "owner" && (
+                      <Item to="/settings/branding" icon={Palette} label={t("sidebar.branding")} onNavigate={onNavigate} />
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </nav>
-    </>
+
+    </div>
   );
 }
 
