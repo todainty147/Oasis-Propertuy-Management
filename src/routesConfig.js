@@ -39,6 +39,10 @@ export const routesConfig = [
         handle: { titleKey: "sidebar.portfolioHealth" },
       },
       {
+        path: "landlord-onboarding",
+        handle: { titleKey: "sidebar.landlordOnboarding" },
+      },
+      {
         path: "invitations",
         handle: { titleKey: "sidebar.invitations" },
       },

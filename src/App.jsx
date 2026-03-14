@@ -25,6 +25,7 @@ import {
   updateProperty,
   deleteProperty,
 } from "./services/propertyService";
+import { getAccountOwnerContact } from "./services/accountOwnerService";
 
 // IMPORTANT: use searchDocuments so we can scope by accountId
 import { searchDocuments } from "./services/documentService";
@@ -54,6 +55,7 @@ const WorkOrderDetails = lazy(() => import("./pages/WorkOrderDetails"));
 const MaintenanceInboxPage = lazy(() => import("./pages/MaintenanceInboxPage"));
 const MaintenanceKPIDashboardPage = lazy(() => import("./pages/MaintenanceKPIDashboardPage"));
 const PortfolioHealthDashboardPage = lazy(() => import("./pages/PortfolioHealthDashboardPage"));
+const LandlordOnboardingPage = lazy(() => import("./pages/LandlordOnboardingPage"));
 const InvitationsPage = lazy(() => import("./pages/InvitationsPage"));
 const AccountBrandingPage = lazy(() => import("./pages/AccountBrandingPage"));
 const FinancePage = lazy(() => import("./pages/FinancePage"));
@@ -72,7 +74,7 @@ export default function App() {
   /* ======================
      ACCOUNT (NEW)
      ====================== */
-  const { activeAccountId, accountLoading } = useAccount();
+  const { activeAccountId, activeAccount, accountLoading } = useAccount();
 
   /* ======================
      DATA HOOKS
@@ -110,6 +112,7 @@ export default function App() {
 
   const [documents, setDocuments] = useState([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [accountOwnerEmail, setAccountOwnerEmail] = useState("");
 
   /* ======================
      DOCUMENTS (ACCOUNT-SCOPED)
@@ -143,6 +146,25 @@ export default function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, activeAccountId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadOwnerContact() {
+      if (!activeAccountId) return;
+      try {
+        const owner = await getAccountOwnerContact(activeAccountId);
+        if (!cancelled) {
+          setAccountOwnerEmail(owner?.ownerEmail || "");
+        }
+      } catch (e) {
+        if (!cancelled) setAccountOwnerEmail("");
+      }
+    }
+    loadOwnerContact();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeAccountId]);
 
   /* ======================
      RENDER GATES
@@ -192,7 +214,7 @@ export default function App() {
   const owners = [
     {
       id: activeAccountId,
-      name: session.user.email,
+      name: accountOwnerEmail || activeAccount?.name || "Account owner",
     },
   ];
 
@@ -489,6 +511,7 @@ export default function App() {
         />
         <Route path="maintenance-inbox" element={<MaintenanceInboxPage />} />
         <Route path="maintenance-kpi" element={<MaintenanceKPIDashboardPage />} />
+        <Route path="landlord-onboarding" element={<LandlordOnboardingPage />} />
         <Route path="invitations" element={<InvitationsPage />} />
         <Route path="settings/branding" element={<AccountBrandingPage />} />
         <Route

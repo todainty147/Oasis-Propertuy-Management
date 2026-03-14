@@ -69,7 +69,8 @@ Deno.serve(async (req) => {
     let createdAccountName = accountName || null;
 
     if (role === "owner") {
-      const { data, error } = await admin.rpc("create_landlord_invitation", {
+      // Must use user-scoped client so auth.uid() inside RPC resolves to caller.
+      const { data, error } = await userClient.rpc("create_landlord_invitation", {
         p_root_account_id: accountId,
         p_email: email,
         p_account_name: accountName || null,
@@ -82,7 +83,8 @@ Deno.serve(async (req) => {
       createdAccountId = invite.account_id ?? accountId;
       createdAccountName = invite.account_name ?? createdAccountName;
     } else {
-      const { data: eligibility, error: eligibilityError } = await admin.rpc(
+      // Must use user-scoped client so auth.uid() inside RPC resolves to caller.
+      const { data: eligibility, error: eligibilityError } = await userClient.rpc(
         "check_account_invitation_eligibility",
         {
           p_account_id: accountId,
@@ -94,7 +96,8 @@ Deno.serve(async (req) => {
       if (!eligibility?.ok) return json({ error: eligibility?.message || "Invite is not allowed" }, 400);
 
       token = crypto.randomUUID();
-      const { data: inviteRow, error: inviteError } = await admin
+      // Use user-scoped insert so existing RLS/policies remain the source of truth.
+      const { data: inviteRow, error: inviteError } = await userClient
         .from("account_invitations")
         .insert({
           account_id: accountId,

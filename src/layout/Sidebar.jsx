@@ -12,6 +12,7 @@ import {
   BarChart3,
   LineChart,
   Palette,
+  Map,
 } from "lucide-react";
 
 import { useMemo } from "react";
@@ -113,6 +114,7 @@ function SidebarContent({ onNavigate }) {
   const isContractor = role === "contractor";
   const isTenant = role === "tenant";
   const canManage = ["owner", "admin", "staff"].includes(role);
+  const isOwner = role === "owner";
 
   return (
     <>
@@ -179,6 +181,9 @@ function SidebarContent({ onNavigate }) {
             <div className="space-y-1">
               <Item to="/dashboard" icon={LayoutDashboard} label={t("sidebar.dashboard")} onNavigate={onNavigate} />
               <Item to="/properties" icon={Home} label={t("sidebar.properties")} onNavigate={onNavigate} />
+              {isOwner && (
+                <Item to="/landlord-onboarding" icon={Map} label={t("sidebar.landlordOnboarding")} onNavigate={onNavigate} />
+              )}
               {canManage && (
                 <Item to="/maintenance-inbox" icon={Wrench} label={t("sidebar.maintenanceInbox")} onNavigate={onNavigate} />
               )}
