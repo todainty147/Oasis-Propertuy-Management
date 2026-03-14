@@ -10,13 +10,6 @@ import { useSession } from "./hooks/useSession";
 import { useProperties } from "./hooks/useProperties";
 import { usePayments } from "./hooks/usePayments";
 import { useTenants } from "./hooks/useTenants";
-
-
-import {
-  createTenant,
-  updateTenant,
-  deleteTenant,
-} from "./services/tenantService";
 import {
   createPayment,
   updatePayment,
@@ -62,7 +55,6 @@ const InvitationsPage = lazy(() => import("./pages/InvitationsPage"));
 const AccountBrandingPage = lazy(() => import("./pages/AccountBrandingPage"));
 const FinancePage = lazy(() => import("./pages/FinancePage"));
 const AddPropertyModal = lazy(() => import("./components/AddPropertyModal"));
-const AddTenantModal = lazy(() => import("./components/AddTenantModal"));
 const AddPaymentModal = lazy(() => import("./components/AddPaymentModal"));
 
 export default function App() {
@@ -103,8 +95,6 @@ export default function App() {
   /* ======================
      UI STATE
      ====================== */
-  const [isAddTenantOpen, setIsAddTenantOpen] = useState(false);
-  const [editingTenant, setEditingTenant] = useState(null);
 
   const [isAddPropertyOpen, setIsAddPropertyOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState(null);
@@ -415,44 +405,11 @@ export default function App() {
         <Route
           path="tenants"
           element={
-            <>
-              <Tenants
-                loading={tenantsLoading}
-                tenants={ownerTenants}
-                properties={ownerProperties}
-                onOpenAddTenant={() => {
-                  setEditingTenant(null);
-                  setIsAddTenantOpen(true);
-                }}
-                onEditTenant={(tenant) => {
-                  setEditingTenant(tenant);
-                  setIsAddTenantOpen(true);
-                }}
-                onDeleteTenant={deleteTenant}
-              />
-
-              <AddTenantModal
-                isOpen={isAddTenantOpen}
-                onClose={() => {
-                  setIsAddTenantOpen(false);
-                  setEditingTenant(null);
-                }}
-                properties={ownerProperties}
-                tenant={editingTenant}
-                onSave={async (data) => {
-                  const payload = {
-                    ...data,
-                    accountId: activeAccountId, // ✅ CRITICAL
-                  };
-
-                  if (data.id) {
-                    await updateTenant(data.id, payload);
-                  } else {
-                    await createTenant(payload);
-                  }
-                }}
-              />
-            </>
+            <Tenants
+              loading={tenantsLoading}
+              tenants={ownerTenants}
+              properties={ownerProperties}
+            />
           }
         />
 
