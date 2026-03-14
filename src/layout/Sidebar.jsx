@@ -11,6 +11,7 @@ import {
   Wrench,
   BarChart3,
   LineChart,
+  Palette,
 } from "lucide-react";
 
 import { useMemo } from "react";
@@ -189,6 +190,9 @@ function SidebarContent({ onNavigate }) {
               )}
               {canManage && (
                 <Item to="/invitations" icon={UserPlus} label={t("sidebar.invitations")} onNavigate={onNavigate} />
+              )}
+              {role === "owner" && (
+                <Item to="/settings/branding" icon={Palette} label={t("sidebar.branding")} onNavigate={onNavigate} />
               )}
 
               {/* Only managers see Najemcy */}

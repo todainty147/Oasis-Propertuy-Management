@@ -42,6 +42,10 @@ export const routesConfig = [
         path: "invitations",
         handle: { titleKey: "sidebar.invitations" },
       },
+      {
+        path: "settings/branding",
+        handle: { titleKey: "sidebar.branding" },
+      },
     ],
   },
 ];

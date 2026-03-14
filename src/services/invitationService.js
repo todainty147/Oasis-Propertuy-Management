@@ -4,6 +4,35 @@ function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
 }
 
+async function sendInviteViaEdge({ accountId, email, role, accountName }) {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !sessionData?.session?.access_token) {
+    throw new Error("You must be signed in");
+  }
+
+  const baseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_PROJECT_URL;
+  if (!baseUrl) throw new Error("Missing VITE_SUPABASE_URL for Edge Function invites");
+  const functionUrl = `${baseUrl}/functions/v1/invite-user`;
+
+  const res = await fetch(functionUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${sessionData.session.access_token}`,
+    },
+    body: JSON.stringify({
+      accountId,
+      email,
+      role,
+      accountName,
+    }),
+  });
+
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(payload?.error || "Failed to send invite via Edge Function");
+  return payload;
+}
+
 const ROLE_ALIASES = {
   landlord: "owner",
   manager: "staff",
@@ -58,6 +87,16 @@ export async function createAccountInvitation({
   const allowed = getAllowedInviteRoles(inviterRole, isRootAccount);
   if (!allowed.includes(normalizedRole)) {
     throw new Error("You are not allowed to invite this role");
+  }
+
+  const useBrandedEdgeInvites = String(import.meta.env.VITE_USE_BRANDED_INVITES || "").toLowerCase() === "true";
+  if (useBrandedEdgeInvites) {
+    return sendInviteViaEdge({
+      accountId,
+      email: cleanEmail,
+      role: normalizedRole,
+      accountName,
+    });
   }
 
   // Root account inviting landlord(owner): create isolated account via RPC.

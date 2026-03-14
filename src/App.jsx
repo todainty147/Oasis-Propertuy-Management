@@ -55,6 +55,7 @@ const MaintenanceInboxPage = lazy(() => import("./pages/MaintenanceInboxPage"));
 const MaintenanceKPIDashboardPage = lazy(() => import("./pages/MaintenanceKPIDashboardPage"));
 const PortfolioHealthDashboardPage = lazy(() => import("./pages/PortfolioHealthDashboardPage"));
 const InvitationsPage = lazy(() => import("./pages/InvitationsPage"));
+const AccountBrandingPage = lazy(() => import("./pages/AccountBrandingPage"));
 const FinancePage = lazy(() => import("./pages/FinancePage"));
 const AddPropertyModal = lazy(() => import("./components/AddPropertyModal"));
 const AddTenantModal = lazy(() => import("./components/AddTenantModal"));
@@ -489,6 +490,7 @@ export default function App() {
         <Route path="maintenance-inbox" element={<MaintenanceInboxPage />} />
         <Route path="maintenance-kpi" element={<MaintenanceKPIDashboardPage />} />
         <Route path="invitations" element={<InvitationsPage />} />
+        <Route path="settings/branding" element={<AccountBrandingPage />} />
         <Route
           path="portfolio-health"
           element={
