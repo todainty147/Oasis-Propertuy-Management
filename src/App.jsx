@@ -4,6 +4,8 @@ import { useState, useEffect, lazy, Suspense } from "react";
 
 import Login from "./pages/Login";
 import Invite from "./pages/Invite";
+import LandlordSignup from "./pages/LandlordSignup";
+import ResetPassword from "./pages/ResetPassword";
 import { useSession } from "./hooks/useSession";
 import { useProperties } from "./hooks/useProperties";
 import { usePayments } from "./hooks/usePayments";
@@ -175,6 +177,22 @@ export default function App() {
 
   if (location.pathname === "/invite") {
     return <Invite />;
+  }
+
+  if (location.pathname === "/reset-password") {
+    return <ResetPassword />;
+  }
+
+  if (location.pathname === "/signup" && !session) {
+    return <LandlordSignup />;
+  }
+
+  if (location.pathname === "/login" && !session) {
+    return <Login />;
+  }
+
+  if (session && (location.pathname === "/signup" || location.pathname === "/login")) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   if (!session) {

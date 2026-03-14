@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
 import { rootListAccounts } from "../services/rootAccountService";
+import { finalizeSelfServeLandlordAccount } from "../services/selfServeSignupService";
 
 const AccountContext = createContext(null);
 
@@ -243,6 +244,32 @@ export function AccountProvider({ children }) {
          by client inserts (RLS-safe default).
          ====================== */
       const autoBootstrapEnabled = String(import.meta.env.VITE_ENABLE_AUTO_ACCOUNT_BOOTSTRAP || "").toLowerCase() === "true";
+      const signupIntent = String(user?.user_metadata?.signup_intent || "").toLowerCase();
+      if (signupIntent === "landlord_owner") {
+        try {
+          const row = await finalizeSelfServeLandlordAccount(
+            user?.user_metadata?.signup_account_name || user?.email || ""
+          );
+
+          const newId = row?.account_id || null;
+          const newName = row?.account_name || user?.user_metadata?.signup_account_name || user?.email || "My Account";
+          if (newId) {
+            setAccounts([{ id: newId, name: newName, is_root: false, is_disabled: false, role: "owner" }]);
+            setActiveAccountId(newId);
+            localStorage.setItem("activeAccountId", newId);
+            setAccountLoading(false);
+            return;
+          }
+        } catch (e) {
+          console.error("Self-serve landlord bootstrap failed:", e);
+          if (!cancelled) {
+            setAccountLoading(false);
+            setAuthzError(e?.message || "Skontaktuj się z administratorem lub zaakceptuj zaproszenie.");
+          }
+          return;
+        }
+      }
+
       if (!autoBootstrapEnabled) {
         setAccountLoading(false);
         setAuthzError("Skontaktuj się z administratorem lub zaakceptuj zaproszenie.");

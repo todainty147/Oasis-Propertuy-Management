@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
 
@@ -63,6 +64,18 @@ export default function Login() {
         >
           {loading ? t("login.loggingIn") : t("login.login")}
         </button>
+
+        <div className="mt-4 text-sm text-center">
+          <Link to="/reset-password" className="text-slate-600 hover:underline">
+            {t("login.forgotPassword")}
+          </Link>
+        </div>
+
+        <div className="mt-2 text-sm text-center">
+          <Link to="/signup" className="text-blue-700 hover:underline">
+            {t("login.createLandlordAccount")}
+          </Link>
+        </div>
       </form>
     </div>
   );
