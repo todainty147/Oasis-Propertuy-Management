@@ -28,12 +28,12 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
       <form
         onSubmit={submit}
-        className="w-full max-w-sm bg-white p-6 rounded-xl shadow"
+        className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-xl shadow"
       >
-        <h1 className="text-2xl font-bold mb-4 text-center">
+        <h1 className="text-2xl font-bold mb-4 text-center text-slate-900 dark:text-slate-100">
           {t("login.title")}
         </h1>
 
@@ -44,7 +44,7 @@ export default function Login() {
         <input
           type="email"
           placeholder={t("login.email")}
-          className="w-full mb-3 border rounded-lg px-3 py-2"
+          className="w-full mb-3 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -52,7 +52,7 @@ export default function Login() {
         <input
           type="password"
           placeholder={t("login.password")}
-          className="w-full mb-4 border rounded-lg px-3 py-2"
+          className="w-full mb-4 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
@@ -66,7 +66,7 @@ export default function Login() {
         </button>
 
         <div className="mt-4 text-sm text-center">
-          <Link to="/reset-password" className="text-slate-600 hover:underline">
+          <Link to="/reset-password" className="text-slate-600 dark:text-slate-300 hover:underline">
             {t("login.forgotPassword")}
           </Link>
         </div>

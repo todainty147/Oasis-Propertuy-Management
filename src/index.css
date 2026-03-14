@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* =========================
    Global layout fixes
@@ -13,9 +14,21 @@ body,
 /* Prevent scroll bleed & rubber-band on mobile */
 body {
   overscroll-behavior: none;
+  background: var(--app-bg);
+  color: var(--app-fg);
 }
 
 /* iOS safe-area helper (used by Sidebar) */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+:root {
+  --app-bg: #f8fafc; /* slate-50 */
+  --app-fg: #0f172a; /* slate-900 */
+}
+
+.dark {
+  --app-bg: #020617; /* slate-950 */
+  --app-fg: #e2e8f0; /* slate-200 */
 }

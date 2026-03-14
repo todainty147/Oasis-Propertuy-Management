@@ -49,7 +49,7 @@ export default function AppLayout({
 
   return (
     <PageTitleContext.Provider value={{ setTitle }}>
-      <div className="h-screen flex bg-slate-50 overflow-hidden">
+      <div className="h-screen flex bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden">
         <Sidebar
           open={sidebarOpen}
           isDesktop={isDesktop}

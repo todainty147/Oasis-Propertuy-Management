@@ -45,11 +45,13 @@ export default function Properties({
   const { setTitle } = usePageTitle();
   const { accountLoading, activeRole, isRootOperator } = useAccount();
   const { t } = useI18n();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(6);
-  const [query, setQuery] = useState("");
-  const [sortDir, setSortDir] = useState("asc");
+  const [query, setQuery] = useState(() => String(searchParams.get("q") || ""));
+  const [sortDir, setSortDir] = useState(() =>
+    String(searchParams.get("sort") || "").toLowerCase() === "desc" ? "desc" : "asc"
+  );
 
   useEffect(() => {
     setTitle(t("properties.title"));
@@ -82,6 +84,30 @@ export default function Properties({
     if (["occupied", "wynajete", "wynajęte"].includes(raw)) return "occupied";
     return "";
   }, [searchParams]);
+
+  useEffect(() => {
+    const nextQ = String(searchParams.get("q") || "");
+    const nextSort =
+      String(searchParams.get("sort") || "").toLowerCase() === "desc" ? "desc" : "asc";
+    if (nextQ !== query) setQuery(nextQ);
+    if (nextSort !== sortDir) setSortDir(nextSort);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  function updateListParams(next = {}) {
+    const params = new URLSearchParams(searchParams);
+    if (Object.prototype.hasOwnProperty.call(next, "q")) {
+      const v = String(next.q || "").trim();
+      if (v) params.set("q", v);
+      else params.delete("q");
+    }
+    if (Object.prototype.hasOwnProperty.call(next, "sort")) {
+      const v = String(next.sort || "").toLowerCase();
+      if (v === "desc") params.set("sort", "desc");
+      else params.set("sort", "asc");
+    }
+    setSearchParams(params, { replace: true });
+  }
 
   const occupiedSet = useMemo(() => {
     const ids = new Set();
@@ -183,13 +209,21 @@ export default function Properties({
         <input
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            const v = e.target.value;
+            setQuery(v);
+            updateListParams({ q: v });
+          }}
           placeholder={t("properties.searchPlaceholder")}
           className="w-full sm:max-w-md rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
         <select
           value={sortDir}
-          onChange={(e) => setSortDir(e.target.value)}
+          onChange={(e) => {
+            const v = e.target.value === "desc" ? "desc" : "asc";
+            setSortDir(v);
+            updateListParams({ sort: v });
+          }}
           className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
           aria-label={t("common.sort")}
         >
