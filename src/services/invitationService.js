@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { assertEmail, assertRequiredText, normalizeText } from "../utils/validation";
 
 function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -78,9 +79,8 @@ export async function createAccountInvitation({
   accountName = "",
   redirectPath = "/invite",
 } = {}) {
-  if (!accountId) throw new Error("Missing accountId");
-  const cleanEmail = String(email || "").trim().toLowerCase();
-  if (!cleanEmail) throw new Error("Missing email");
+  assertRequiredText(accountId, "Missing accountId");
+  const cleanEmail = assertEmail(email, "Valid email required");
 
   const normalizedRole = normalizeInviteRole(role);
   if (!normalizedRole) throw new Error("Missing role");
@@ -109,7 +109,7 @@ export async function createAccountInvitation({
     const { data, error } = await supabase.rpc("create_landlord_invitation", {
       p_root_account_id: accountId,
       p_email: cleanEmail,
-      p_account_name: String(accountName || "").trim() || fallbackName,
+      p_account_name: normalizeText(accountName) || fallbackName,
     });
 
     if (error) throw friendly(error, "Failed to create landlord invitation");

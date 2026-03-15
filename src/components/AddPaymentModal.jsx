@@ -81,8 +81,8 @@ export default function AddPaymentModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <Card className="p-6 w-full max-w-lg">
-        <h3 className="text-lg font-semibold mb-4">
+      <Card className="p-6 w-full max-w-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+        <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-slate-100">
           {payment ? t("payments.edit") : t("payments.add")}
         </h3>
 
@@ -98,7 +98,7 @@ export default function AddPaymentModal({
                 tenantId: "", // reset tenant when property changes
               })
             }
-            className="w-full border rounded px-3 py-2"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded px-3 py-2 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
           >
             <option value="">{t("payments.selectProperty")}</option>
             {properties.map((p) => (
@@ -115,7 +115,7 @@ export default function AddPaymentModal({
             onChange={(e) =>
               setForm({ ...form, tenantId: e.target.value })
             }
-            className="w-full border rounded px-3 py-2"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded px-3 py-2 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-500 dark:disabled:text-slate-400"
             disabled={!form.propertyId}
           >
             <option value="">{t("payments.selectTenant")}</option>
@@ -135,7 +135,7 @@ export default function AddPaymentModal({
             onChange={(e) =>
               setForm({ ...form, amount: e.target.value })
             }
-            className="w-full border rounded px-3 py-2"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded px-3 py-2 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
           />
 
           {/* STATUS */}
@@ -144,7 +144,7 @@ export default function AddPaymentModal({
             onChange={(e) =>
               setForm({ ...form, status: e.target.value })
             }
-            className="w-full border rounded px-3 py-2"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded px-3 py-2 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
           >
             <option value="Oczekujące">{t("payments.status.pending")}</option>
             <option value="Opłacone">{t("payments.status.paid")}</option>
@@ -159,14 +159,14 @@ export default function AddPaymentModal({
             onChange={(e) =>
               setForm({ ...form, dueDate: e.target.value })
             }
-            className="w-full border rounded px-3 py-2"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded px-3 py-2 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
           />
 
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border rounded"
+              className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               {t("common.cancel")}
             </button>

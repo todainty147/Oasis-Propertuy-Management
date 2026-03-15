@@ -10,6 +10,10 @@ import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
 import { useTenants } from "../hooks/useTenants";
 
+function langFlag(lang) {
+  return lang === "pl" ? "🇵🇱" : "🇬🇧";
+}
+
 export default function Topbar({ onMenuClick }) {
   const { title } = usePageTitle();
   const { lang, setLang, t } = useI18n();
@@ -57,10 +61,6 @@ export default function Topbar({ onMenuClick }) {
       </div>
 
       {/* RIGHT */}
-      
- <div className="flex items-center gap-2">
-    <NotificationsBell />
-</div>
       <div className="flex items-center gap-3">
         {/* ======================
             ACCOUNT SWITCHER
@@ -145,17 +145,22 @@ export default function Topbar({ onMenuClick }) {
           </select>
         </div>
 
-        <div className="hidden lg:flex items-center gap-2 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5">
-          <span className="text-xs text-slate-500 dark:text-slate-400">{t("topbar.language")}</span>
-          <select
-            value={lang}
-            onChange={(e) => setLang(e.target.value)}
-            className="text-sm bg-transparent focus:outline-none text-slate-800 dark:text-slate-200"
-            aria-label={t("topbar.language")}
-          >
-            <option value="pl">{t("lang.polish")}</option>
-            <option value="en">{t("lang.english")}</option>
-          </select>
+        <div className="flex items-center gap-2">
+          <NotificationsBell />
+          <div className="hidden lg:flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 shadow-sm">
+            <span className="mr-2 text-base leading-none" aria-hidden="true">
+              {langFlag(lang)}
+            </span>
+            <select
+              value={lang}
+              onChange={(e) => setLang(e.target.value)}
+              className="min-w-[4.5rem] bg-transparent text-sm text-slate-800 dark:text-slate-200 focus:outline-none"
+              aria-label={t("topbar.language")}
+            >
+              <option value="pl">{`${langFlag("pl")} ${t("lang.polish")}`}</option>
+              <option value="en">{`${langFlag("en")} ${t("lang.english")}`}</option>
+            </select>
+          </div>
         </div>
 
         

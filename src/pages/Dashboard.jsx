@@ -6,8 +6,14 @@ import Skeleton from "../components/ui/Skeleton";
 import { Wallet, TrendingUp, AlertCircle, Home, FileText } from "lucide-react";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
+import { useTenant } from "../context/TenantContext";
 import { useI18n } from "../context/I18nContext";
-import { getMaintenanceAttention, getMaintenanceStats } from "../services/maintenanceDashboardService";
+import { getMaintenanceAttention } from "../services/maintenanceDashboardService";
+import {
+  getDashboardHubExtras,
+  getDashboardSnapshot,
+  mapDashboardHubItems,
+} from "../services/dashboardService";
 
 // ✅ Tenant dashboard widget
 import TenantMaintenanceDashboard from "../components/TenantMaintenanceDashboard";
@@ -60,11 +66,13 @@ export default function Dashboard({
 
   /* ---------- ROLE ---------- */
   const { activeRole, activeAccountId } = useAccount();
+  const { activeTenantId } = useTenant();
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
   const isTenant = useMemo(() => role === "tenant", [role]);
   const canManage = useMemo(() => ["owner", "admin", "staff"].includes(role), [role]);
   const [attentionRows, setAttentionRows] = useState([]);
-  const [maintenanceStats, setMaintenanceStats] = useState(null);
+  const [snapshot, setSnapshot] = useState(null);
+  const [hubExtras, setHubExtras] = useState([]);
   const hubHorizon = useMemo(() => {
     const h = String(searchParams.get("horizon") || "").toLowerCase();
     return h === "week" ? "week" : "today";
@@ -87,33 +95,85 @@ export default function Dashboard({
 
   useEffect(() => {
     let dead = false;
-    async function loadAttention() {
-      if (!canManage || !activeAccountId || isTenant) {
+    async function loadAttentionAndSnapshot() {
+      if (!activeAccountId) {
         setAttentionRows([]);
-        setMaintenanceStats(null);
+        setSnapshot(null);
+        setHubExtras([]);
         return;
       }
+
+      const horizonDays = hubHorizon === "week" ? 7 : 1;
       try {
-        const [rows, stats] = await Promise.all([
-          getMaintenanceAttention(activeAccountId),
-          getMaintenanceStats(activeAccountId),
-        ]);
+        const work = [
+          getDashboardSnapshot(activeAccountId, {
+            tenantId: activeTenantId || null,
+            horizonDays,
+          }),
+          getDashboardHubExtras(activeAccountId, {
+            tenantId: activeTenantId || null,
+            horizonDays,
+          }),
+        ];
+
+        if (canManage && !isTenant) {
+          work.push(getMaintenanceAttention(activeAccountId));
+        } else {
+          work.push(Promise.resolve([]));
+        }
+
+        const [snapshotRow, extras, rows] = await Promise.all(work);
         if (!dead) {
+          setSnapshot(snapshotRow || null);
+          setHubExtras(Array.isArray(extras) ? extras : []);
           setAttentionRows(Array.isArray(rows) ? rows : []);
-          setMaintenanceStats(stats || null);
         }
       } catch {
         if (!dead) {
           setAttentionRows([]);
-          setMaintenanceStats(null);
+          setSnapshot(null);
+          setHubExtras([]);
         }
       }
     }
-    loadAttention();
+    loadAttentionAndSnapshot();
     return () => {
       dead = true;
     };
-  }, [canManage, activeAccountId, isTenant]);
+  }, [activeAccountId, activeTenantId, canManage, hubHorizon, isTenant]);
+
+  const snapshotView = snapshot ?? {
+    property_count: properties.length,
+    occupied_count: occupiedCount,
+    vacant_count: vacantCount,
+    occupancy_rate: occupancyRate,
+    tenant_paid_total: 0,
+    tenant_due_total: 0,
+    tenant_overdue_total: 0,
+    tenant_due_overdue_count: 0,
+    overdue_amount: 0,
+    due_soon_count: 0,
+    overdue_current_window_amount: 0,
+    overdue_previous_window_amount: 0,
+    open_requests: 0,
+    open_high_priority: 0,
+    waiting_over_48h: 0,
+    unassigned_work_orders: 0,
+  };
+
+  const dueSoonCount = Number(snapshotView.due_soon_count || 0);
+
+  const hubItems = useMemo(
+    () =>
+      mapDashboardHubItems({
+        attentionRows,
+        dueSoonCount,
+        extras: hubExtras,
+        hubHorizon,
+        t,
+      }),
+    [attentionRows, dueSoonCount, hubExtras, hubHorizon, t]
+  );
 
   /* ---------- LOADING ---------- */
   if (loading) return <DashboardSkeleton />;
@@ -122,22 +182,10 @@ export default function Dashboard({
      TENANT VIEW
      ========================================================= */
   if (isTenant) {
-    // Payments schema: status is due/paid/overdue/void
-    const paidTotal = (payments ?? [])
-      .filter((p) => String(p.status ?? "").toLowerCase() === "paid")
-      .reduce((s, p) => s + (Number(p.amount) || 0), 0);
-
-    const dueTotal = (payments ?? [])
-      .filter((p) => String(p.status ?? "").toLowerCase() === "due")
-      .reduce((s, p) => s + (Number(p.amount) || 0), 0);
-
-    const overdueTotal = (payments ?? [])
-      .filter((p) => String(p.status ?? "").toLowerCase() === "overdue")
-      .reduce((s, p) => s + (Number(p.amount) || 0), 0);
-
-    const dueOrOverdueCount = (payments ?? []).filter((p) =>
-      ["due", "overdue"].includes(String(p.status ?? "").toLowerCase())
-    ).length;
+    const paidTotal = Number(snapshotView.tenant_paid_total || 0);
+    const dueTotal = Number(snapshotView.tenant_due_total || 0);
+    const overdueTotal = Number(snapshotView.tenant_overdue_total || 0);
+    const dueOrOverdueCount = Number(snapshotView.tenant_due_overdue_count || 0);
 
     const propertyIds = (properties ?? []).map((p) => p.id).filter(Boolean);
     const fallbackPropertyId = propertyIds[0] ?? null;
@@ -256,32 +304,13 @@ export default function Dashboard({
   const overdueAmount = (payments ?? [])
     .filter((p) => normalizePayStatus(p.status) === "overdue")
     .reduce((s, p) => s + (Number(p.amount) || 0), 0);
-
-  const unassignedWorkOrdersCount = (attentionRows || []).filter(
-    (r) => String(r?.item_type || "").toLowerCase() === "work_order_without_contractor"
-  ).length;
-
-  const waiting48hCount = (attentionRows || []).filter(
-    (r) => String(r?.item_type || "").toLowerCase() === "stuck_waiting_over_48h"
-  ).length;
-
-  const overdueTrend = (() => {
-    const now = Date.now();
-    const oneWeek = 7 * 24 * 3600000;
-    let currentWindow = 0;
-    let prevWindow = 0;
-    for (const p of payments || []) {
-      const s = normalizePayStatus(p.status);
-      if (s === "paid") continue;
-      const due = p?.dueDate ? new Date(p.dueDate).getTime() : NaN;
-      if (!Number.isFinite(due) || due > now) continue;
-      const age = now - due;
-      const amount = Number(p.amount || 0);
-      if (age <= oneWeek) currentWindow += amount;
-      else if (age <= 2 * oneWeek) prevWindow += amount;
-    }
-    return deltaMeta(currentWindow, prevWindow);
-  })();
+  const overdueAmountView = Number(snapshotView.overdue_amount || overdueAmount);
+  const unassignedWorkOrdersCount = Number(snapshotView.unassigned_work_orders || 0);
+  const waiting48hCount = Number(snapshotView.waiting_over_48h || 0);
+  const overdueTrend = deltaMeta(
+    snapshotView.overdue_current_window_amount,
+    snapshotView.overdue_previous_window_amount
+  );
 
   const overdueTrendLabel = (() => {
     if (!Number.isFinite(overdueTrend.delta) || overdueTrend.delta === 0) return t("dashboard.hub.trend.flat");
@@ -294,58 +323,6 @@ export default function Dashboard({
     return up
       ? t("dashboard.hub.trend.upPct", { value: Math.abs(overdueTrend.pct) })
       : t("dashboard.hub.trend.downPct", { value: Math.abs(overdueTrend.pct) });
-  })();
-
-  const dueSoonCount = (payments ?? []).filter((p) => {
-    const s = normalizePayStatus(p.status);
-    if (s === "paid") return false;
-    const due = p?.dueDate ? new Date(p.dueDate) : null;
-    if (!due || Number.isNaN(due.getTime())) return false;
-    const now = Date.now();
-    const diff = due.getTime() - now;
-    const horizonMs = hubHorizon === "today" ? 24 * 3600000 : 7 * 24 * 3600000;
-    return diff >= 0 && diff <= horizonMs;
-  }).length;
-
-  const hubItems = (() => {
-    const maxAgeHours = hubHorizon === "today" ? 24 : 7 * 24;
-    const base = (attentionRows || [])
-      .filter((r) => {
-        const h = Number(r?.age_hours);
-        if (!Number.isFinite(h)) return true;
-        return h <= maxAgeHours;
-      })
-      .slice(0, 6)
-      .map((r) => ({
-      id: `${r.item_type}-${r.maintenance_request_id || r.work_order_id || Math.random()}`,
-      title: t(`maintenance.attention.${r.item_type}`),
-      subtitle: r.title || r.property_label || "—",
-      meta:
-        r.property_label && Number.isFinite(Number(r.age_hours))
-          ? `${r.property_label} • ${Math.floor(Number(r.age_hours) / 24)}d ago`
-          : r.property_label || "",
-      to: "/maintenance-inbox",
-      }));
-
-    if (longVacantProperties.length > 0) {
-      base.unshift({
-        id: "vacant-long",
-        title: t("dashboard.hub.longVacant"),
-        subtitle: `${longVacantProperties[0]?.address || "—"} (${longVacantProperties[0]?.daysVacant || 0}d)`,
-        meta: longVacantProperties[0]?.city || "",
-        to: "/properties?status=vacant&aging=14d",
-      });
-    }
-    if (dueSoonCount > 0) {
-      base.unshift({
-        id: "due-soon",
-        title: t("dashboard.hub.dueSoon"),
-        subtitle: t("dashboard.hub.dueSoonCount", { count: dueSoonCount }),
-        meta: hubHorizon === "today" ? t("dashboard.hub.range.today") : t("dashboard.hub.range.week"),
-        to: `/finance?status=due&range=${hubHorizon === "today" ? "1d" : "7d"}`,
-      });
-    }
-    return base.slice(0, 6);
   })();
 
   return (
@@ -410,33 +387,33 @@ export default function Dashboard({
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium text-slate-500">{t("dashboard.occupiedUnits")}</p>
-              <h3 className="text-2xl font-bold text-green-600 mt-1">{occupiedCount}</h3>
+              <h3 className="text-2xl font-bold text-green-600 mt-1">{Number(snapshotView.occupied_count || occupiedCount)}</h3>
             </div>
             <div className="p-2 bg-green-100 rounded-lg text-green-600">
               <Home size={20} />
             </div>
           </div>
-          <div className="mt-4 text-sm text-slate-500">{t("dashboard.ofUnits", { count: properties.length })}</div>
+          <div className="mt-4 text-sm text-slate-500">{t("dashboard.ofUnits", { count: Number(snapshotView.property_count || properties.length) })}</div>
         </Card>
 
         <Card className="p-5 border border-blue-200 bg-blue-50/40">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium text-slate-500">{t("dashboard.occupancyRate")}</p>
-              <h3 className="text-2xl font-bold text-blue-600 mt-1">{occupancyRate}%</h3>
+              <h3 className="text-2xl font-bold text-blue-600 mt-1">{Number(snapshotView.occupancy_rate || occupancyRate)}%</h3>
             </div>
             <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
               <Home size={20} />
             </div>
           </div>
-          <div className="mt-4 text-sm text-slate-500">{vacantCount} {t("status.vacant").toLowerCase()}</div>
+          <div className="mt-4 text-sm text-slate-500">{Number(snapshotView.vacant_count || vacantCount)} {t("status.vacant").toLowerCase()}</div>
         </Card>
 
         <Card className="p-5 border border-rose-200 bg-rose-50/40">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium text-slate-500">{t("dashboard.hub.overdueAmount")}</p>
-              <h3 className="text-2xl font-bold text-rose-600 mt-1">{overdueAmount.toLocaleString()} PLN</h3>
+              <h3 className="text-2xl font-bold text-rose-600 mt-1">{overdueAmountView.toLocaleString()} PLN</h3>
             </div>
             <div className="p-2 bg-rose-100 rounded-lg text-rose-600">
               <Wallet size={20} />
@@ -476,11 +453,11 @@ export default function Dashboard({
         <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-3">
           <div className="rounded-lg border border-slate-200 p-3 bg-white">
             <p className="text-xs text-slate-500">{t("portfolio.labels.openRequests")}</p>
-            <p className="text-xl font-semibold text-slate-900 mt-1">{Number(maintenanceStats?.open_requests || 0)}</p>
+            <p className="text-xl font-semibold text-slate-900 mt-1">{Number(snapshotView.open_requests || 0)}</p>
           </div>
           <div className="rounded-lg border border-rose-200 p-3 bg-rose-50/40">
             <p className="text-xs text-slate-500">{t("portfolio.labels.highPriority")}</p>
-            <p className="text-xl font-semibold text-rose-700 mt-1">{Number(maintenanceStats?.open_high_priority || 0)}</p>
+            <p className="text-xl font-semibold text-rose-700 mt-1">{Number(snapshotView.open_high_priority || 0)}</p>
           </div>
           <div className="rounded-lg border border-amber-200 p-3 bg-amber-50/40">
             <p className="text-xs text-slate-500">{t("portfolio.labels.waiting48h")}</p>
@@ -493,8 +470,8 @@ export default function Dashboard({
         </div>
         <div className="mt-3 h-2 rounded-full bg-slate-100 overflow-hidden">
           {(() => {
-            const open = Number(maintenanceStats?.open_requests || 0);
-            const high = Number(maintenanceStats?.open_high_priority || 0);
+            const open = Number(snapshotView.open_requests || 0);
+            const high = Number(snapshotView.open_high_priority || 0);
             const wait = Number(waiting48hCount || 0);
             const total = Math.max(1, open + high + wait);
             const wOpen = Math.max(3, Math.round((open / total) * 100));

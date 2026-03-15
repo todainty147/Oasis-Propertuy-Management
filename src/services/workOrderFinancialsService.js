@@ -1,5 +1,11 @@
 // src/services/workOrderFinancialsService.js
 import { supabase } from "../lib/supabase";
+import {
+  assertAmount,
+  assertMaxLength,
+  assertRequiredText,
+  normalizeText,
+} from "../utils/validation";
 
 function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -32,11 +38,15 @@ export async function upsertQuoteDraft({
   quoteCurrency,
   quoteNotes,
 } = {}) {
+  assertRequiredText(workOrderId, "Missing workOrderId");
+  assertAmount(quoteAmount, { min: 0, message: "Invalid quote amount" });
+  assertMaxLength(quoteNotes, 5000, "Quote notes are too long");
+
   const { data, error } = await supabase.rpc("wo_fin_upsert_quote_draft", {
     p_work_order_id: workOrderId,
-    p_quote_amount: quoteAmount ?? null,
-    p_quote_currency: quoteCurrency ?? null,
-    p_quote_notes: quoteNotes ?? null,
+    p_quote_amount: Number(quoteAmount),
+    p_quote_currency: normalizeText(quoteCurrency || "PLN"),
+    p_quote_notes: normalizeText(quoteNotes) || null,
   });
 
   if (error) throw friendly(error, "Nie udało się zapisać szkicu wyceny");
@@ -44,6 +54,8 @@ export async function upsertQuoteDraft({
 }
 
 export async function submitQuote({ workOrderId } = {}) {
+  assertRequiredText(workOrderId, "Missing workOrderId");
+
   const { data, error } = await supabase.rpc("wo_fin_submit_quote", {
     p_work_order_id: workOrderId,
   });
@@ -59,10 +71,17 @@ export async function upsertInvoice({
   invoiceIssuedAt,
   invoiceDueAt,
 } = {}) {
+  assertRequiredText(workOrderId, "Missing workOrderId");
+  const amount = assertAmount(invoiceAmount, {
+    allowNull: true,
+    min: 0,
+    message: "Invalid invoice amount",
+  });
+
   const { data, error } = await supabase.rpc("wo_fin_upsert_invoice", {
     p_work_order_id: workOrderId,
-    p_invoice_amount: invoiceAmount ?? null,
-    p_invoice_currency: invoiceCurrency ?? null,
+    p_invoice_amount: amount,
+    p_invoice_currency: normalizeText(invoiceCurrency || "PLN"),
     p_invoice_issued_at: invoiceIssuedAt ?? null,
     p_invoice_due_at: invoiceDueAt ?? null,
   });
@@ -76,6 +95,8 @@ export async function upsertInvoice({
    ========================= */
 
 export async function approveQuote({ workOrderId } = {}) {
+  assertRequiredText(workOrderId, "Missing workOrderId");
+
   const { data, error } = await supabase.rpc("wo_fin_approve_quote", {
     p_work_order_id: workOrderId,
   });
@@ -85,9 +106,12 @@ export async function approveQuote({ workOrderId } = {}) {
 }
 
 export async function rejectQuote({ workOrderId, reason } = {}) {
+  assertRequiredText(workOrderId, "Missing workOrderId");
+  assertMaxLength(reason, 1000, "Reject reason is too long");
+
   const { data, error } = await supabase.rpc("wo_fin_reject_quote", {
     p_work_order_id: workOrderId,
-    p_reason: reason ?? null,
+    p_reason: normalizeText(reason) || null,
   });
 
   if (error) throw friendly(error, "Nie udało się odrzucić wyceny");

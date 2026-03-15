@@ -11,11 +11,6 @@ import { useProperties } from "./hooks/useProperties";
 import { usePayments } from "./hooks/usePayments";
 import { useTenants } from "./hooks/useTenants";
 import {
-  createPayment,
-  updatePayment,
-  deletePayment,
-} from "./services/paymentService";
-import {
   createProperty,
   updateProperty,
   deleteProperty,
@@ -25,20 +20,12 @@ import { getAccountOwnerContact } from "./services/accountOwnerService";
 // IMPORTANT: use searchDocuments so we can scope by accountId
 import { searchDocuments } from "./services/documentService";
 
-import {
-  calculatePropertyFinance,
-  sumPaid,
-  sumOverdue,
-  sumExpected,
-} from "./utils/finance";
-
 import AppLayout from "./layout/AppLayout";
 import { useAccount } from "./context/AccountContext";
 import { useI18n } from "./context/I18nContext";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Properties = lazy(() => import("./pages/Properties"));
-const Finance = lazy(() => import("./pages/Finance"));
 const Tenants = lazy(() => import("./pages/Tenants"));
 const PropertyDetails = lazy(() => import("./pages/PropertyDetails"));
 const TenantDetails = lazy(() => import("./pages/TenantDetails"));
@@ -55,7 +42,6 @@ const InvitationsPage = lazy(() => import("./pages/InvitationsPage"));
 const AccountBrandingPage = lazy(() => import("./pages/AccountBrandingPage"));
 const FinancePage = lazy(() => import("./pages/FinancePage"));
 const AddPropertyModal = lazy(() => import("./components/AddPropertyModal"));
-const AddPaymentModal = lazy(() => import("./components/AddPaymentModal"));
 
 export default function App() {
   const { t } = useI18n();
@@ -99,11 +85,7 @@ export default function App() {
   const [isAddPropertyOpen, setIsAddPropertyOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState(null);
 
-  const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
-  const [editingPayment, setEditingPayment] = useState(null);
-
   const [documents, setDocuments] = useState([]);
-  const [documentsLoading, setDocumentsLoading] = useState(false);
   const [accountOwnerEmail, setAccountOwnerEmail] = useState("");
 
   /* ======================
@@ -112,7 +94,6 @@ export default function App() {
   async function loadDocuments() {
     if (!activeAccountId) return;
 
-    setDocumentsLoading(true);
     try {
       const data = await searchDocuments({
         query: "",
@@ -127,8 +108,6 @@ export default function App() {
     } catch (e) {
       console.error("loadDocuments failed:", e);
       setDocuments([]);
-    } finally {
-      setDocumentsLoading(false);
     }
   }
 
@@ -277,32 +256,6 @@ export default function App() {
     });
 
   const longVacantProperties = vacancyAging.filter((p) => p.daysVacant > 30);
-  const longVacantCount = longVacantProperties.length;
-  const shortVacantCount = vacancyAging.length - longVacantCount;
-
-  /* ---------- Finance totals ---------- */
-  const financeTotals = {
-    totalIncome: sumPaid(ownerPayments),
-    overdueIncome: sumOverdue(ownerPayments),
-    expectedIncome: sumExpected(ownerPayments),
-  };
-
-  /* ---------- Property finance ---------- */
-  const propertyFinance = ownerProperties.map((property) => {
-    const finance = calculatePropertyFinance({
-      property,
-      payments: ownerPayments.filter(
-        (p) => String(p.propertyId) === String(property.id)
-      ),
-    });
-
-    return {
-      propertyId: property.id,
-      address: property.address,
-      city: property.city,
-      ...finance,
-    };
-  });
 
   /* ======================
      ROUTES
@@ -332,8 +285,6 @@ export default function App() {
               occupiedCount={occupiedCount}
               vacantCount={vacantCount}
               occupancyRate={occupancyRate}
-              longVacantCount={longVacantCount}
-              shortVacantCount={shortVacantCount}
               longVacantProperties={longVacantProperties}
             />
           }
@@ -430,53 +381,7 @@ export default function App() {
 
         <Route
           path="finance"
-          element={
-            <>
-              <Finance
-                loading={paymentsLoading}
-                summary={financeTotals}
-                payments={ownerPayments}
-                propertyFinance={propertyFinance}
-                onAddPayment={() => {
-                  setEditingPayment(null);
-                  setIsAddPaymentOpen(true);
-                }}
-                onDeletePayment={deletePayment}
-              />
-
-              <AddPaymentModal
-                isOpen={isAddPaymentOpen}
-                onClose={() => {
-                  setIsAddPaymentOpen(false);
-                  setEditingPayment(null);
-                }}
-                payment={editingPayment}
-                properties={ownerProperties}
-                tenants={ownerTenants}
-                onSave={async (form) => {
-                  const paidAt =
-                    form.status === "Opłacone"
-                      ? new Date().toISOString().slice(0, 10)
-                      : null;
-
-                  const payload = {
-                    accountId: activeAccountId, // ✅ CRITICAL
-                    propertyId: form.propertyId,
-                    tenantId: form.tenantId,
-                    amount: Number(form.amount),
-                    dueDate: form.dueDate,
-                    paidAt,
-                  };
-
-                  if (form.id) {
-                    await updatePayment(form.id, payload);
-                  } else {
-                    await createPayment(payload);
-                  }
-                }}
-              />
-            </>
-          }
+          element={<FinancePage />}
         />
 
         {/* ✅ Documents route */}
@@ -491,21 +396,8 @@ export default function App() {
         <Route path="settings/branding" element={<AccountBrandingPage />} />
         <Route
           path="portfolio-health"
-          element={
-            <PortfolioHealthDashboardPage
-              properties={ownerProperties}
-              payments={ownerPayments}
-              occupiedCount={occupiedCount}
-              vacantCount={vacantCount}
-              occupancyRate={occupancyRate}
-              longVacantProperties={longVacantProperties}
-            />
-          }
+          element={<PortfolioHealthDashboardPage />}
         />
-
-        {/* Optional: Keep FinancePage available but under a different path */}
-        <Route path="finance-page" element={<FinancePage />} />
-
         {/* ✅ Contractor routes (relative paths because they are inside AppLayout wrapper) */}
         <Route path="contractor" element={<ContractorPortal />} />
         <Route path="contractor/jobs/:id" element={<ContractorJobDetails />} />

@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { createNotifications } from "./notificationService";
+import { assertFiles } from "../utils/validation";
 
 export const BUCKET = "maintenance-request-attachments";
 
@@ -78,7 +79,7 @@ export async function uploadMaintenanceRequestAttachments({
   if (!accountId) throw new Error("Brak accountId");
   if (!maintenanceRequestId) throw new Error("Brak maintenanceRequestId");
 
-  const list = Array.from(files || []).filter(Boolean);
+  const list = assertFiles(files, { maxFiles: 10, maxBytes: 15 * 1024 * 1024 });
   if (list.length === 0) return [];
 
   // Guard: do not allow uploads to closed maintenance requests.

@@ -231,17 +231,19 @@ function SidebarContent({ onNavigate }) {
           <div className="space-y-5">
             {isOwner && !onboardingHidden && (
               <div className="space-y-2">
-                <p className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <p className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
                   {t("sidebar.section.gettingStarted")}
                 </p>
-                <div className="rounded-lg border border-blue-100 bg-blue-50 p-1.5">
+                <div className="rounded-lg border border-blue-100 bg-blue-50 p-1.5 dark:border-blue-900/70 dark:bg-blue-950/50">
                   <div className="flex items-center justify-between gap-2 px-2 py-1">
                     <NavLink
                       to="/landlord-onboarding"
                       onClick={onNavigate}
                       className={({ isActive }) =>
                         `flex items-center gap-2 text-sm font-medium ${
-                          isActive ? "text-blue-700" : "text-slate-700 hover:text-blue-700"
+                          isActive
+                            ? "text-blue-700 dark:text-blue-200"
+                            : "text-slate-700 hover:text-blue-700 dark:text-slate-100 dark:hover:text-blue-200"
                         }`
                       }
                     >
@@ -251,7 +253,7 @@ function SidebarContent({ onNavigate }) {
                     <button
                       type="button"
                       onClick={dismissOnboarding}
-                      className="ml-2 px-2 py-1 text-xs text-slate-500 hover:text-slate-700"
+                      className="ml-2 px-2 py-1 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-white"
                       title={t("common.hide")}
                     >
                       ✕

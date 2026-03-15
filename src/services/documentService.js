@@ -1,5 +1,6 @@
 // src/services/documentService.js
 import { supabase } from "../lib/supabase";
+import { assertFiles } from "../utils/validation";
 
 /* ======================
    CONFIG
@@ -60,6 +61,7 @@ export async function uploadDocument({
 }) {
   if (!accountId) throw new Error("Brak accountId przy uploadzie dokumentu");
   if (!file) throw new Error("Brak pliku");
+  assertFiles([file], { maxFiles: 1, maxBytes: MAX_FILE_SIZE, allowedMimeTypes: ALLOWED_MIME_TYPES });
 
   if (!ALLOWED_MIME_TYPES.includes(file.type)) {
     throw new Error("Niedozwolony typ pliku");

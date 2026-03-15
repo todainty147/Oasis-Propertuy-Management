@@ -6,39 +6,21 @@ import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useI18n } from "../context/I18nContext";
-import { supabase } from "../lib/supabase";
+import {
+  getPortfolioAttentionItems,
+  getPortfolioHealthSnapshot,
+  mapPortfolioAttentionItems,
+} from "../services/portfolioHealthService";
 import {
   getAccountReportSettings,
   sendWeeklySummaryNow,
   upsertAccountReportSettings,
 } from "../services/reportingService";
 
-function normalizePaymentStatus(status) {
-  const s = String(status || "").toLowerCase();
-  if (["paid", "oplacone", "opłacone"].includes(s)) return "paid";
-  if (["due", "oczekujace", "oczekujące", "pending"].includes(s)) return "due";
-  if (["overdue", "zalegle", "zaległe"].includes(s)) return "overdue";
-  return "other";
-}
-
 function money(n) {
   const v = Number(n);
   if (!Number.isFinite(v)) return "0";
   return v.toLocaleString();
-}
-
-function hoursSince(ts) {
-  if (!ts) return null;
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return null;
-  return Math.max(0, Math.floor((Date.now() - d.getTime()) / 3600000));
-}
-
-function parseDate(v) {
-  if (!v) return null;
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return null;
-  return d;
 }
 
 function pctDelta(current, previous) {
@@ -162,14 +144,7 @@ function BarCard({ title, rows = [], labels = {}, toByKey = {} }) {
   );
 }
 
-export default function PortfolioHealthDashboardPage({
-  properties = [],
-  payments = [],
-  occupiedCount = 0,
-  vacantCount = 0,
-  occupancyRate = 0,
-  longVacantProperties = [],
-}) {
+export default function PortfolioHealthDashboardPage() {
   const { setTitle } = usePageTitle();
   const { activeRole, activeAccountId } = useAccount();
   const { activeTenantId } = useTenant();
@@ -180,8 +155,8 @@ export default function PortfolioHealthDashboardPage({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [reqRows, setReqRows] = useState([]);
-  const [woRows, setWoRows] = useState([]);
+  const [snapshot, setSnapshot] = useState(null);
+  const [attentionItems, setAttentionItems] = useState([]);
   const [reporting, setReporting] = useState(null);
   const [reportSaving, setReportSaving] = useState(false);
   const [reportSending, setReportSending] = useState(false);
@@ -198,27 +173,14 @@ export default function PortfolioHealthDashboardPage({
       setLoading(true);
       setError("");
       try {
-        const [reqRes, woRes] = await Promise.all([
-          supabase
-            .from("maintenance_requests")
-            .select("id, title, status, priority, created_at, property_id")
-            .eq("account_id", activeAccountId)
-            .order("created_at", { ascending: false })
-            .limit(400),
-          supabase
-            .from("work_orders_with_flags")
-            .select("id, status, contractor_user_id, created_at, property_id")
-            .eq("account_id", activeAccountId)
-            .order("created_at", { ascending: false })
-            .limit(400),
+        const [snapshotRow, attention] = await Promise.all([
+          getPortfolioHealthSnapshot(activeAccountId, activeTenantId || null),
+          getPortfolioAttentionItems(activeAccountId, activeTenantId || null, 10),
         ]);
-
-        if (reqRes.error) throw reqRes.error;
-        if (woRes.error) throw woRes.error;
         if (dead) return;
 
-        setReqRows(reqRes.data ?? []);
-        setWoRows(woRes.data ?? []);
+        setSnapshot(snapshotRow);
+        setAttentionItems(Array.isArray(attention) ? attention : []);
       } catch (e) {
         if (!dead) setError(e?.message || t("portfolio.error"));
       } finally {
@@ -230,7 +192,7 @@ export default function PortfolioHealthDashboardPage({
     return () => {
       dead = true;
     };
-  }, [activeAccountId, canManage, t]);
+  }, [activeAccountId, activeTenantId, canManage, t]);
 
   useEffect(() => {
     if (!activeAccountId || !canManage) return;
@@ -291,216 +253,79 @@ export default function PortfolioHealthDashboardPage({
     }
   }
 
-  const paymentStats = useMemo(() => {
-    let paid = 0;
-    let due = 0;
-    let overdue = 0;
-    let dueSoon = 0;
-
-    const now = new Date();
-    const soon = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
-
-    for (const p of payments ?? []) {
-      const amount = Number(p.amount || 0);
-      const status = normalizePaymentStatus(p.status);
-      if (status === "paid") paid += amount;
-      else if (status === "due") due += amount;
-      else if (status === "overdue") overdue += amount;
-
-      const dueDate = parseDate(p.dueDate);
-      if (status !== "paid" && dueDate && dueDate >= now && dueDate <= soon) {
-        dueSoon += amount;
-      }
-    }
-
-    return { paid, due, overdue, dueSoon, outstanding: due + overdue };
-  }, [payments]);
-
-  const maintenanceStats = useMemo(() => {
-    const openReq = reqRows.filter((r) => !["closed", "zamkniete"].includes(String(r.status || "").toLowerCase()));
-    const highOpen = openReq.filter((r) => ["high", "critical", "wysoki", "krytyczny"].includes(String(r.priority || "").toLowerCase()));
-    const waiting48h = openReq.filter((r) => {
-      const h = hoursSince(r.created_at);
-      return Number.isFinite(h) && h > 48;
-    });
-    const activeWO = woRows.filter((w) => ["assigned", "in_progress", "blocked"].includes(String(w.status || "").toLowerCase()));
-    const woWithoutContractor = activeWO.filter((w) => !w.contractor_user_id);
-    const now = Date.now();
-    const sevenDaysMs = 7 * 24 * 3600 * 1000;
-    const fourteenDaysMs = 14 * 24 * 3600 * 1000;
-
-    const recentOpenCreated = reqRows.filter((r) => {
-      const created = parseDate(r.created_at);
-      if (!created) return false;
-      return now - created.getTime() <= sevenDaysMs;
-    }).length;
-    const prevOpenCreated = reqRows.filter((r) => {
-      const created = parseDate(r.created_at);
-      if (!created) return false;
-      const age = now - created.getTime();
-      return age > sevenDaysMs && age <= fourteenDaysMs;
-    }).length;
-
-    return {
-      openReq: openReq.length,
-      highOpen: highOpen.length,
-      waiting48h: waiting48h.length,
-      activeWO: activeWO.length,
-      woWithoutContractor: woWithoutContractor.length,
-      recentOpenCreated,
-      prevOpenCreated,
-    };
-  }, [reqRows, woRows]);
+  const snapshotView = snapshot ?? {
+    property_count: 0,
+    occupied_count: 0,
+    vacant_count: 0,
+    occupancy_rate: 0,
+    paid_amount: 0,
+    due_amount: 0,
+    overdue_amount: 0,
+    due_soon_amount: 0,
+    outstanding_amount: 0,
+    overdue_0_7_amount: 0,
+    overdue_8_30_amount: 0,
+    overdue_30_plus_amount: 0,
+    open_requests: 0,
+    high_priority_open_requests: 0,
+    waiting_over_48h: 0,
+    active_work_orders: 0,
+    work_orders_without_contractor: 0,
+    recent_open_created: 0,
+    prev_open_created: 0,
+    outstanding_current_month: 0,
+    outstanding_previous_month: 0,
+  };
 
   const occupancyRows = useMemo(
     () => [
-      { key: "occupied", value: Number(occupiedCount || 0) },
-      { key: "vacant", value: Number(vacantCount || 0) },
+      { key: "occupied", value: Number(snapshotView.occupied_count || 0) },
+      { key: "vacant", value: Number(snapshotView.vacant_count || 0) },
     ],
-    [occupiedCount, vacantCount]
+    [snapshotView]
   );
 
   const maintenanceRows = useMemo(
     () => [
-      { key: "open", value: maintenanceStats.openReq },
-      { key: "high", value: maintenanceStats.highOpen },
-      { key: "waiting48h", value: maintenanceStats.waiting48h },
-      { key: "woNoContractor", value: maintenanceStats.woWithoutContractor },
+      { key: "open", value: Number(snapshotView.open_requests || 0) },
+      { key: "high", value: Number(snapshotView.high_priority_open_requests || 0) },
+      { key: "waiting48h", value: Number(snapshotView.waiting_over_48h || 0) },
+      { key: "woNoContractor", value: Number(snapshotView.work_orders_without_contractor || 0) },
     ],
-    [maintenanceStats]
+    [snapshotView]
   );
 
-  const arrearsAgingRows = useMemo(() => {
-    let b0_7 = 0;
-    let b8_30 = 0;
-    let b30p = 0;
-    const now = new Date();
-    for (const p of payments ?? []) {
-      const status = normalizePaymentStatus(p.status);
-      if (status === "paid") continue;
-      const dueDate = parseDate(p.dueDate);
-      if (!dueDate || dueDate > now) continue;
-      const days = Math.floor((now.getTime() - dueDate.getTime()) / (24 * 3600 * 1000));
-      const amount = Number(p.amount || 0);
-      if (days <= 7) b0_7 += amount;
-      else if (days <= 30) b8_30 += amount;
-      else b30p += amount;
-    }
-    return [
-      { key: "overdue_0_7", value: Math.round(b0_7) },
-      { key: "overdue_8_30", value: Math.round(b8_30) },
-      { key: "overdue_30_plus", value: Math.round(b30p) },
-    ];
-  }, [payments]);
+  const arrearsAgingRows = useMemo(
+    () => [
+      { key: "overdue_0_7", value: Math.round(Number(snapshotView.overdue_0_7_amount || 0)) },
+      { key: "overdue_8_30", value: Math.round(Number(snapshotView.overdue_8_30_amount || 0)) },
+      { key: "overdue_30_plus", value: Math.round(Number(snapshotView.overdue_30_plus_amount || 0)) },
+    ],
+    [snapshotView]
+  );
 
   const financeRows = useMemo(
     () => [
-      { key: "paid", value: Math.round(paymentStats.paid) },
-      { key: "due", value: Math.round(paymentStats.due) },
-      { key: "overdue", value: Math.round(paymentStats.overdue) },
+      { key: "paid", value: Math.round(Number(snapshotView.paid_amount || 0)) },
+      { key: "due", value: Math.round(Number(snapshotView.due_amount || 0)) },
+      { key: "overdue", value: Math.round(Number(snapshotView.overdue_amount || 0)) },
     ],
-    [paymentStats]
+    [snapshotView]
   );
 
-  const attentionItems = useMemo(() => {
-    const items = [];
-
-    const vacant = (properties || [])
-      .filter((p) => ["wolne", "vacant"].includes(String(p.status || "").toLowerCase()))
-      .slice(0, 4);
-    for (const p of vacant) {
-      items.push({
-        key: `vacant-${p.id}`,
-        title: t("portfolio.attention.vacant"),
-        subtitle: `${p.address || "—"}`,
-        to: `/properties?status=vacant`,
-      });
-    }
-
-    for (const p of longVacantProperties.slice(0, 4)) {
-      items.push({
-        key: `vac-${p.id}`,
-        title: t("portfolio.attention.vacantLong"),
-        subtitle: `${p.address || "—"} (${p.daysVacant || 0}d)`,
-        to: `/properties?status=vacant&aging=14d`,
-      });
-    }
-
-    const overdue = (payments || [])
-      .filter((p) => normalizePaymentStatus(p.status) === "overdue")
-      .slice(0, 4);
-
-    for (const p of overdue) {
-      items.push({
-        key: `ovd-${p.id}`,
-        title: t("portfolio.attention.overduePayment"),
-        subtitle: `${money(p.amount)} PLN`,
-        to: "/finance?status=overdue",
-      });
-    }
-
-    const now = new Date();
-    const soon = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
-    const dueSoon = (payments || [])
-      .filter((p) => normalizePaymentStatus(p.status) !== "paid")
-      .filter((p) => {
-        const d = parseDate(p.dueDate);
-        return d && d >= now && d <= soon;
-      })
-      .slice(0, 4);
-    for (const p of dueSoon) {
-      items.push({
-        key: `soon-${p.id}`,
-        title: t("portfolio.attention.dueSoon"),
-        subtitle: `${money(p.amount)} PLN`,
-        to: "/finance?status=due&range=7d",
-      });
-    }
-
-    const highReq = reqRows
-      .filter((r) => ["high", "critical", "wysoki", "krytyczny"].includes(String(r.priority || "").toLowerCase()))
-      .filter((r) => !["closed", "zamkniete"].includes(String(r.status || "").toLowerCase()))
-      .slice(0, 4);
-
-    for (const r of highReq) {
-      items.push({
-        key: `req-${r.id}`,
-        title: t("portfolio.attention.highPriority"),
-        subtitle: r.title || r.id,
-        to: "/maintenance-inbox?priority=high,critical",
-      });
-    }
-
-    return items.slice(0, 10);
-  }, [longVacantProperties, payments, properties, reqRows, t]);
+  const attentionView = useMemo(
+    () => mapPortfolioAttentionItems(attentionItems, t),
+    [attentionItems, t]
+  );
 
   const openTrend = useMemo(
-    () => maintenanceStats.recentOpenCreated - maintenanceStats.prevOpenCreated,
-    [maintenanceStats]
+    () => Number(snapshotView.recent_open_created || 0) - Number(snapshotView.prev_open_created || 0),
+    [snapshotView]
   );
 
   const outstandingDeltaPct = useMemo(() => {
-    const now = new Date();
-    const thisMonth = now.getMonth();
-    const thisYear = now.getFullYear();
-    const prevMonthDate = new Date(thisYear, thisMonth - 1, 1);
-    const prevMonth = prevMonthDate.getMonth();
-    const prevYear = prevMonthDate.getFullYear();
-
-    let currentOutstanding = 0;
-    let previousOutstanding = 0;
-
-    for (const p of payments || []) {
-      if (normalizePaymentStatus(p.status) === "paid") continue;
-      const due = parseDate(p.dueDate);
-      if (!due) continue;
-      const amount = Number(p.amount || 0);
-      if (due.getFullYear() === thisYear && due.getMonth() === thisMonth) currentOutstanding += amount;
-      if (due.getFullYear() === prevYear && due.getMonth() === prevMonth) previousOutstanding += amount;
-    }
-
-    return pctDelta(currentOutstanding, previousOutstanding);
-  }, [payments]);
+    return pctDelta(snapshotView.outstanding_current_month, snapshotView.outstanding_previous_month);
+  }, [snapshotView]);
 
   if (!canManage) {
     return (
@@ -525,27 +350,27 @@ export default function PortfolioHealthDashboardPage({
       ) : null}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-        <StatCard title={t("portfolio.kpi.properties")} value={properties.length} to="/properties" tone="blue" />
-        <StatCard title={t("portfolio.kpi.occupancyRate")} value={`${occupancyRate}%`} hint={`${occupiedCount}/${properties.length || 0}`} to="/properties?status=occupied" tone="emerald" />
-        <StatCard title={t("portfolio.kpi.collected")} value={`${money(paymentStats.paid)} PLN`} to="/finance" tone="violet" />
+        <StatCard title={t("portfolio.kpi.properties")} value={Number(snapshotView.property_count || 0)} to="/properties" tone="blue" />
+        <StatCard title={t("portfolio.kpi.occupancyRate")} value={`${Number(snapshotView.occupancy_rate || 0)}%`} hint={`${Number(snapshotView.occupied_count || 0)}/${Number(snapshotView.property_count || 0)}`} to="/properties?status=occupied" tone="emerald" />
+        <StatCard title={t("portfolio.kpi.collected")} value={`${money(snapshotView.paid_amount)} PLN`} to="/finance" tone="violet" />
         <StatCard
           title={t("portfolio.kpi.outstanding")}
-          value={`${money(paymentStats.outstanding)} PLN`}
+          value={`${money(snapshotView.outstanding_amount)} PLN`}
           hint={outstandingDeltaPct == null ? "" : t("portfolio.kpi.trendVsPrevMonth", { value: outstandingDeltaPct })}
           to="/finance?status=overdue,due"
           tone="rose"
         />
         <StatCard
           title={t("portfolio.kpi.openMaintenance")}
-          value={maintenanceStats.openReq}
+          value={Number(snapshotView.open_requests || 0)}
           hint={t("portfolio.kpi.trendVsPrev7d", { value: openTrend })}
           to="/maintenance-inbox?status=open,in_progress,waiting,resolved"
           tone="amber"
         />
-        <StatCard title={t("portfolio.kpi.dueSoon")} value={`${money(paymentStats.dueSoon)} PLN`} to="/finance?status=due&range=7d" tone="amber" />
-        <StatCard title={t("portfolio.kpi.activeWorkOrders")} value={maintenanceStats.activeWO} to="/maintenance-inbox?status=in_progress" tone="blue" />
-        <StatCard title={t("portfolio.kpi.waitingOver48h")} value={maintenanceStats.waiting48h} to="/maintenance-inbox?status=waiting&aging=48h" tone="amber" />
-        <StatCard title={t("portfolio.kpi.withoutContractor")} value={maintenanceStats.woWithoutContractor} to="/maintenance-kpi?filter=no-contractor" tone="rose" />
+        <StatCard title={t("portfolio.kpi.dueSoon")} value={`${money(snapshotView.due_soon_amount)} PLN`} to="/finance?status=due&range=7d" tone="amber" />
+        <StatCard title={t("portfolio.kpi.activeWorkOrders")} value={Number(snapshotView.active_work_orders || 0)} to="/maintenance-inbox?status=in_progress" tone="blue" />
+        <StatCard title={t("portfolio.kpi.waitingOver48h")} value={Number(snapshotView.waiting_over_48h || 0)} to="/maintenance-inbox?status=waiting&aging=48h" tone="amber" />
+        <StatCard title={t("portfolio.kpi.withoutContractor")} value={Number(snapshotView.work_orders_without_contractor || 0)} to="/maintenance-kpi?filter=no-contractor" tone="rose" />
       </div>
 
       {loading ? (
@@ -684,11 +509,11 @@ export default function PortfolioHealthDashboardPage({
 
       <Card className="p-4 border shadow-sm">
         <h3 className="text-sm font-semibold text-slate-900">{t("portfolio.attention.title")}</h3>
-        {attentionItems.length === 0 ? (
+        {attentionView.length === 0 ? (
           <p className="text-sm text-slate-500 mt-3">{t("portfolio.attention.empty")}</p>
         ) : (
           <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
-            {attentionItems.map((item) => (
+            {attentionView.map((item) => (
               <Link key={item.key} to={item.to} className="rounded-lg border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50">
                 <p className="text-sm font-medium text-slate-900">{item.title}</p>
                 <p className="text-xs text-slate-500 mt-1">{item.subtitle}</p>

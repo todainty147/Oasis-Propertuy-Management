@@ -30,13 +30,38 @@ function toIsoOrNullFromLocalInput(v) {
 }
 
 function StatusPill({ status, t }) {
-  const s = String(status || "").toLowerCase();
+  const s = String(status || "").trim().toLowerCase();
+  const normalized =
+    ["przypisane"].includes(s) ? "assigned" :
+    ["w trakcie", "in progress"].includes(s) ? "in_progress" :
+    ["zakończone", "zakonczone"].includes(s) ? "completed" :
+    ["anulowane"].includes(s) ? "cancelled" :
+    ["zablokowane"].includes(s) ? "blocked" :
+    s;
   const base = "text-xs px-2 py-0.5 rounded-full border";
-  if (s === "completed") return <span className={`${base} bg-green-50 border-green-200 text-green-700`}>{t("status.wo.completed")}</span>;
-  if (s === "in_progress") return <span className={`${base} bg-blue-50 border-blue-200 text-blue-700`}>{t("status.wo.in_progress")}</span>;
-  if (s === "cancelled") return <span className={`${base} bg-slate-50 border-slate-200 text-slate-600`}>{t("status.wo.cancelled")}</span>;
-  if (s === "blocked") return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>{t("workOrder.blocked")}</span>;
+  if (normalized === "completed") return <span className={`${base} bg-green-50 border-green-200 text-green-700`}>{t("status.wo.completed")}</span>;
+  if (normalized === "in_progress") return <span className={`${base} bg-blue-50 border-blue-200 text-blue-700`}>{t("status.wo.in_progress")}</span>;
+  if (normalized === "cancelled") return <span className={`${base} bg-slate-50 border-slate-200 text-slate-600`}>{t("status.wo.cancelled")}</span>;
+  if (normalized === "blocked") return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>{t("workOrder.blocked")}</span>;
   return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>{t("status.wo.assigned")}</span>;
+}
+
+function normalizeQuoteStatus(status) {
+  const s = String(status ?? "").trim().toLowerCase();
+  if (["draft", "szkic"].includes(s)) return "draft";
+  if (["submitted", "wysłano", "wyslano"].includes(s)) return "submitted";
+  if (["approved", "zatwierdzone", "zatwierdzono"].includes(s)) return "approved";
+  if (["rejected", "odrzucone", "odrzucono"].includes(s)) return "rejected";
+  return s;
+}
+
+function translateQuoteStatus(status, t) {
+  const key = normalizeQuoteStatus(status);
+  if (key === "draft") return t("workOrders.quoteStatus.draft");
+  if (key === "submitted") return t("workOrders.quoteStatus.submitted");
+  if (key === "approved") return t("workOrders.quoteStatus.approved");
+  if (key === "rejected") return t("workOrders.quoteStatus.rejected");
+  return status || "—";
 }
 
 export default function ContractorJobDetails() {
@@ -284,7 +309,7 @@ export default function ContractorJobDetails() {
         type: "work_order_quote_draft_saved",
         title: t("contractor.quoteDraftSavedTitle"),
         body: row?.contractor_name
-          ? `Wykonawca: ${row.contractor_name}`
+          ? `${t("common.contractor")}: ${row.contractor_name}`
           : t("contractor.quoteDraftSavedBody"),
       });
     } catch (e) {
@@ -334,7 +359,7 @@ export default function ContractorJobDetails() {
         type: "work_order_invoice_saved",
         title: t("contractor.invoiceSavedTitle"),
         body: row?.contractor_name
-          ? `Wykonawca: ${row.contractor_name}`
+          ? `${t("common.contractor")}: ${row.contractor_name}`
           : t("contractor.invoiceSavedBody"),
       });
     } catch (e) {
@@ -568,10 +593,10 @@ export default function ContractorJobDetails() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm font-semibold text-slate-900">{t("workOrders.quote")}</div>
                     <div className="text-xs text-slate-500">
-                      {t("common.status")}: <span className="font-medium">{fin.quote_status}</span>
-                      {fin.quote_submitted_at ? ` • wysłano: ${formatDateTime(fin.quote_submitted_at)}` : ""}
-                      {fin.approved_at ? ` • zatw.: ${formatDateTime(fin.approved_at)}` : ""}
-                      {fin.rejected_at ? ` • odrz.: ${formatDateTime(fin.rejected_at)}` : ""}
+                      {t("common.status")}: <span className="font-medium">{translateQuoteStatus(fin.quote_status, t)}</span>
+                      {fin.quote_submitted_at ? ` • ${t("workOrders.submittedAt")}: ${formatDateTime(fin.quote_submitted_at)}` : ""}
+                      {fin.approved_at ? ` • ${t("workOrders.approvedAt")}: ${formatDateTime(fin.approved_at)}` : ""}
+                      {fin.rejected_at ? ` • ${t("workOrders.rejectedAt")}: ${formatDateTime(fin.rejected_at)}` : ""}
                     </div>
                   </div>
 
@@ -582,7 +607,7 @@ export default function ContractorJobDetails() {
                         value={quoteAmount}
                         onChange={(e) => setQuoteAmount(e.target.value)}
                         className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
-                        disabled={saving || fin.quote_status === "submitted" || fin.quote_status === "approved"}
+                        disabled={saving || ["submitted", "approved"].includes(normalizeQuoteStatus(fin.quote_status))}
                         placeholder={t("workOrders.amountExample250")}
                       />
                     </div>
@@ -592,7 +617,7 @@ export default function ContractorJobDetails() {
                         value={quoteCurrency}
                         onChange={(e) => setQuoteCurrency(e.target.value)}
                         className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
-                        disabled={saving || fin.quote_status === "submitted" || fin.quote_status === "approved"}
+                        disabled={saving || ["submitted", "approved"].includes(normalizeQuoteStatus(fin.quote_status))}
                       >
                         {["PLN", "GBP", "EUR", "USD"].map((c) => (
                           <option key={c} value={c}>
@@ -615,12 +640,12 @@ export default function ContractorJobDetails() {
                       value={quoteNotes}
                       onChange={(e) => setQuoteNotes(e.target.value)}
                       className="mt-1 w-full border rounded-lg px-3 py-2 text-sm min-h-[90px] disabled:bg-slate-50"
-                      disabled={saving || fin.quote_status === "submitted" || fin.quote_status === "approved"}
+                      disabled={saving || ["submitted", "approved"].includes(normalizeQuoteStatus(fin.quote_status))}
                       placeholder={t("maintenance.drawer.optional")}
                     />
                   </div>
 
-                  {fin.quote_status === "rejected" && fin.rejection_reason && (
+                  {normalizeQuoteStatus(fin.quote_status) === "rejected" && fin.rejection_reason && (
                     <div className="mt-3 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-3">
                       {t("workOrders.rejected")}: {fin.rejection_reason}
                     </div>
@@ -630,9 +655,9 @@ export default function ContractorJobDetails() {
                     <button
                       type="button"
                       onClick={saveQuoteDraft}
-                      disabled={saving || fin.quote_status === "submitted" || fin.quote_status === "approved"}
+                      disabled={saving || ["submitted", "approved"].includes(normalizeQuoteStatus(fin.quote_status))}
                       className={`px-3 py-2 text-sm rounded-lg text-white ${
-                        saving || fin.quote_status === "submitted" || fin.quote_status === "approved"
+                        saving || ["submitted", "approved"].includes(normalizeQuoteStatus(fin.quote_status))
                           ? "bg-slate-400"
                           : "bg-blue-600"
                       }`}
@@ -640,7 +665,7 @@ export default function ContractorJobDetails() {
                       {saving ? t("common.saving") : t("workOrders.saveDraft")}
                     </button>
 
-                    {(fin.quote_status === "draft" || fin.quote_status === "rejected") && (
+                    {["draft", "rejected"].includes(normalizeQuoteStatus(fin.quote_status)) && (
                       <button
                         type="button"
                         onClick={submitQuote}
@@ -663,7 +688,7 @@ export default function ContractorJobDetails() {
                     </div>
                   </div>
 
-                  {fin.quote_status !== "approved" ? (
+                  {normalizeQuoteStatus(fin.quote_status) !== "approved" ? (
                     <p className="text-sm text-slate-600 mt-3">
                       {t("workOrders.invoiceAfterApprovalOnly")}
                     </p>
@@ -827,8 +852,8 @@ export default function ContractorJobDetails() {
                 className={`whitespace-nowrap min-h-[44px] px-3 py-2 rounded-lg text-sm text-white ${
                   saving ? "bg-slate-400" : "bg-green-600"
                 }`}
-              >
-                Zakończ pracę
+                >
+                {t("workOrders.completeWork")}
               </button>
             ) : null}
             <button

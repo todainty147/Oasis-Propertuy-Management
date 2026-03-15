@@ -4,9 +4,13 @@ import Card from "../components/Card";
 import Skeleton from "../components/ui/Skeleton";
 import { useAccount } from "../context/AccountContext";
 import { usePageTitle } from "../layout/PageTitleContext";
-import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
-import { getMaintenanceAttention, getMaintenanceStats } from "../services/maintenanceDashboardService";
+import {
+  getMaintenanceAttention,
+  getMaintenanceKpiSnapshot,
+  getMaintenanceRecentActivity,
+  mapMaintenanceAttentionItems,
+} from "../services/maintenanceDashboardService";
 
 function fmtDate(ts) {
   if (!ts) return "—";
@@ -244,10 +248,8 @@ export default function MaintenanceKPIDashboardPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [requests, setRequests] = useState([]);
-  const [workOrders, setWorkOrders] = useState([]);
   const [feed, setFeed] = useState([]);
-  const [serverStats, setServerStats] = useState(null);
+  const [snapshot, setSnapshot] = useState(null);
   const [attentionRows, setAttentionRows] = useState([]);
 
   useEffect(() => {
@@ -260,94 +262,19 @@ export default function MaintenanceKPIDashboardPage() {
     setLoading(true);
     setError("");
     try {
-      const [{ data: reqRows, error: reqErr }, { data: woRows, error: woErr }] =
-        await Promise.all([
-          supabase
-            .from("maintenance_requests")
-            .select("id, property_id, title, priority, status, created_at, updated_at")
-            .eq("account_id", activeAccountId)
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("work_orders_with_flags")
-            .select(
-              "id, maintenance_request_id, property_id, status, contractor_user_id, contractor_name, contractor_phone, created_at, updated_at"
-            )
-            .eq("account_id", activeAccountId)
-            .order("created_at", { ascending: false }),
-        ]);
-
-      if (reqErr) throw reqErr;
-      if (woErr) throw woErr;
-
-      const reqData = reqRows || [];
-      const woData = woRows || [];
-      setRequests(reqData);
-      setWorkOrders(woData);
-
-      try {
-        const [stats, attention] = await Promise.all([
-          getMaintenanceStats(activeAccountId),
-          getMaintenanceAttention(activeAccountId),
-        ]);
-        setServerStats(stats || null);
-        setAttentionRows(attention || []);
-      } catch {
-        setServerStats(null);
-        setAttentionRows([]);
-      }
-
-      const woIds = woData.map((w) => w.id).filter(Boolean);
-
-      const [activityRes, woAuditRes] = await Promise.all([
-        supabase
-          .from("activity_log")
-          .select("id, entity_type, entity_id, action, field, actor_role, created_at")
-          .eq("account_id", activeAccountId)
-          .in("entity_type", ["maintenance_request", "maintenance_requests", "work_order", "work_orders"])
-          .order("created_at", { ascending: false })
-          .limit(30),
-        woIds.length > 0
-          ? supabase
-              .from("work_order_audit_log")
-              .select("id, work_order_id, action, created_at")
-              .in("work_order_id", woIds.slice(0, 200))
-              .order("created_at", { ascending: false })
-              .limit(30)
-          : Promise.resolve({ data: [], error: null }),
+      const [stats, attention, recentActivity] = await Promise.all([
+        getMaintenanceKpiSnapshot(activeAccountId),
+        getMaintenanceAttention(activeAccountId),
+        getMaintenanceRecentActivity(activeAccountId, t, 10),
       ]);
 
-      if (activityRes.error) throw activityRes.error;
-      if (woAuditRes.error) throw woAuditRes.error;
-
-      const feedRows = [];
-      for (const a of activityRes.data || []) {
-        const et = String(a.entity_type || "").toLowerCase();
-        const isWO = et === "work_order" || et === "work_orders";
-        feedRows.push({
-          key: `act-${a.id}`,
-          at: a.created_at,
-          title: isWO ? t("maintenance.kpi.feed.workOrderChange") : t("maintenance.kpi.feed.requestChange"),
-          detail: a.field ? `${a.action || "update"} • ${a.field}` : a.action || "update",
-          linkPath: isWO && a.entity_id ? `/work-orders/${a.entity_id}` : "/maintenance-inbox",
-        });
-      }
-      for (const a of woAuditRes.data || []) {
-        feedRows.push({
-          key: `woa-${a.id}`,
-          at: a.created_at,
-          title: t("maintenance.kpi.feed.workOrderAudit"),
-          detail: a.action || "update",
-          linkPath: a.work_order_id ? `/work-orders/${a.work_order_id}` : "/maintenance-inbox",
-        });
-      }
-      feedRows.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
-      setFeed(feedRows.slice(0, 10));
+      setSnapshot(stats || null);
+      setAttentionRows(attention || []);
+      setFeed(recentActivity || []);
     } catch (e) {
       setError(e?.message || t("maintenance.kpi.error"));
-      setRequests([]);
-      setWorkOrders([]);
       setFeed([]);
-      setServerStats(null);
+      setSnapshot(null);
       setAttentionRows([]);
     } finally {
       setLoading(false);
@@ -358,134 +285,97 @@ export default function MaintenanceKPIDashboardPage() {
     if (!activeAccountId) return;
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeAccountId]);
+  }, [activeAccountId, t]);
+
+  const snapshotView = snapshot ?? {
+    open_requests: 0,
+    active_work_orders: 0,
+    awaiting_action: 0,
+    resolved_pending_closure: 0,
+    open_high_priority: 0,
+    req_by_status: {
+      open: 0,
+      in_progress: 0,
+      waiting: 0,
+      resolved: 0,
+      closed: 0,
+    },
+    wo_by_status: {
+      assigned: 0,
+      in_progress: 0,
+      completed: 0,
+      cancelled: 0,
+    },
+    aging: {
+      b0_24: 0,
+      b24_48: 0,
+      b48_72: 0,
+      b72_plus: 0,
+    },
+  };
 
   const kpi = useMemo(() => {
-    const localOpenRequests = requests.filter((r) => String(r.status || "").toLowerCase() !== "closed").length;
-    const localActiveWorkOrders = workOrders.filter((w) => String(w.status || "").toLowerCase() === "in_progress").length;
-    const localAwaitingAction = requests.filter((r) => String(r.status || "").toLowerCase() === "waiting").length;
-    const localResolvedPendingClosure = requests.filter((r) => String(r.status || "").toLowerCase() === "resolved").length;
-    const localOpenHighPriority = requests.filter((r) => {
-      const s = String(r.status || "").toLowerCase();
-      const p = String(r.priority || "").toLowerCase();
-      return s !== "closed" && (p === "high" || p === "urgent");
-    }).length;
-
-    const reqByStatus = { open: 0, in_progress: 0, waiting: 0, resolved: 0, closed: 0 };
-    for (const r of requests) {
-      const s = String(r.status || "").toLowerCase();
-      if (Object.prototype.hasOwnProperty.call(reqByStatus, s)) reqByStatus[s] += 1;
-    }
-
-    const woByStatus = { assigned: 0, in_progress: 0, completed: 0, cancelled: 0 };
-    for (const w of workOrders) {
-      const s = String(w.status || "").toLowerCase();
-      if (Object.prototype.hasOwnProperty.call(woByStatus, s)) woByStatus[s] += 1;
-    }
-
-    const openRequests = Number.isFinite(Number(serverStats?.open_requests))
-      ? Number(serverStats.open_requests)
-      : localOpenRequests;
-    const activeWorkOrders = Number.isFinite(Number(serverStats?.active_work_orders))
-      ? Number(serverStats.active_work_orders)
-      : localActiveWorkOrders;
-    const awaitingAction = Number.isFinite(Number(serverStats?.awaiting_action))
-      ? Number(serverStats.awaiting_action)
-      : localAwaitingAction;
-    const resolvedPendingClosure = Number.isFinite(Number(serverStats?.resolved_pending_closure))
-      ? Number(serverStats.resolved_pending_closure)
-      : localResolvedPendingClosure;
-    const openHighPriority = Number.isFinite(Number(serverStats?.open_high_priority))
-      ? Number(serverStats.open_high_priority)
-      : localOpenHighPriority;
-
     return {
-      openRequests,
-      activeWorkOrders,
-      awaitingAction,
-      resolvedPendingClosure,
-      openHighPriority,
-      reqByStatus,
-      woByStatus,
+      openRequests: Number(snapshotView.open_requests || 0),
+      activeWorkOrders: Number(snapshotView.active_work_orders || 0),
+      awaitingAction: Number(snapshotView.awaiting_action || 0),
+      resolvedPendingClosure: Number(snapshotView.resolved_pending_closure || 0),
+      openHighPriority: Number(snapshotView.open_high_priority || 0),
+      reqByStatus: snapshotView.req_by_status || {
+        open: 0,
+        in_progress: 0,
+        waiting: 0,
+        resolved: 0,
+        closed: 0,
+      },
+      woByStatus: snapshotView.wo_by_status || {
+        assigned: 0,
+        in_progress: 0,
+        completed: 0,
+        cancelled: 0,
+      },
     };
-  }, [requests, workOrders, serverStats]);
+  }, [snapshotView]);
 
-  const attentionItems = useMemo(() => {
-    const severityByType = {
-      stuck_waiting_over_48h: "high",
-      high_priority_unresolved: "critical",
-      request_without_work_order: "medium",
-      work_order_without_contractor: "medium",
-    };
-    const rank = { critical: 3, high: 2, medium: 1, low: 0 };
-
-    const items = (attentionRows || []).map((r) => {
-      const itemType = String(r?.item_type || "").toLowerCase();
-      const mrId = r?.maintenance_request_id || "na";
-      const woId = r?.work_order_id || "na";
-      const ageHours = Number.isFinite(Number(r?.age_hours)) ? Math.max(0, Math.floor(Number(r.age_hours))) : null;
-      return {
-        key: `${itemType}-${mrId}-${woId}`,
-        severity: severityByType[itemType] || "medium",
-        title: t(`maintenance.attention.${itemType}`),
-        detail: r?.title || t("maintenance.requestFallbackTitle"),
-        property: r?.property_label || "",
-        timestamp: ageHours != null ? t("maintenance.kpi.openForHours", { hours: ageHours }) : "",
-        ageHours,
-        linkPath: r?.work_order_id ? `/work-orders/${r.work_order_id}` : "/maintenance-inbox",
-      };
-    });
-
-    items.sort((a, b) => rank[b.severity] - rank[a.severity]);
-    return items.slice(0, 12);
-  }, [attentionRows, t]);
+  const attentionItems = useMemo(
+    () => mapMaintenanceAttentionItems(attentionRows, t, 12),
+    [attentionRows, t]
+  );
 
   const agingRows = useMemo(() => {
-    const counts = {
+    const counts = snapshotView.aging || {
       b0_24: 0,
       b24_48: 0,
       b48_72: 0,
       b72_plus: 0,
     };
-    for (const r of requests) {
-      const s = String(r?.status || "").toLowerCase();
-      if (s === "closed") continue;
-      const created = new Date(r?.created_at).getTime();
-      if (!Number.isFinite(created)) continue;
-      const ageHours = Math.max(0, Math.floor((Date.now() - created) / 3600000));
-      if (ageHours < 24) counts.b0_24 += 1;
-      else if (ageHours < 48) counts.b24_48 += 1;
-      else if (ageHours < 72) counts.b48_72 += 1;
-      else counts.b72_plus += 1;
-    }
-
     return [
       {
         key: "b0_24",
         label: t("maintenance.kpi.aging.0_24"),
-        value: counts.b0_24,
+        value: Number(counts.b0_24 || 0),
         barClass: "bg-emerald-500",
       },
       {
         key: "b24_48",
         label: t("maintenance.kpi.aging.24_48"),
-        value: counts.b24_48,
+        value: Number(counts.b24_48 || 0),
         barClass: "bg-amber-500",
       },
       {
         key: "b48_72",
         label: t("maintenance.kpi.aging.48_72"),
-        value: counts.b48_72,
+        value: Number(counts.b48_72 || 0),
         barClass: "bg-orange-500",
       },
       {
         key: "b72_plus",
         label: t("maintenance.kpi.aging.72_plus"),
-        value: counts.b72_plus,
+        value: Number(counts.b72_plus || 0),
         barClass: "bg-rose-600",
       },
     ];
-  }, [requests, t]);
+  }, [snapshotView, t]);
 
   if (!canManage) {
     return (

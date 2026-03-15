@@ -1,13 +1,17 @@
 // src/pages/FinancePage.jsx
 import { useState } from "react";
 import Finance from "./Finance";
+import AddPaymentModal from "../components/AddPaymentModal";
 import { useFinance } from "../hooks/useFinance";
-import {
-  createPayment,
-  deletePayment,
-} from "../services/paymentService";
+import { useAccount } from "../context/AccountContext";
+import { useProperties } from "../hooks/useProperties";
+import { useTenants } from "../hooks/useTenants";
+import { createPayment, deletePayment, updatePayment } from "../services/paymentService";
 
 export default function FinancePage() {
+  const { activeAccountId } = useAccount();
+  const { properties, loading: propertiesLoading } = useProperties({ enabled: true });
+  const { tenants, loading: tenantsLoading } = useTenants({ enabled: true });
   const {
     summary,
     payments,
@@ -16,19 +20,53 @@ export default function FinancePage() {
   } = useFinance({ enabled: true });
 
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState(null);
 
   return (
     <>
       <Finance
-        loading={loading}
+        loading={loading || propertiesLoading || tenantsLoading}
         summary={summary}
         payments={payments}
         propertyFinance={propertyFinance}
-        onAddPayment={() => setIsAddOpen(true)}
+        onAddPayment={() => {
+          setEditingPayment(null);
+          setIsAddOpen(true);
+        }}
         onDeletePayment={deletePayment}
       />
 
-      {/* AddPaymentModal goes here */}
+      <AddPaymentModal
+        isOpen={isAddOpen}
+        onClose={() => {
+          setIsAddOpen(false);
+          setEditingPayment(null);
+        }}
+        payment={editingPayment}
+        properties={properties}
+        tenants={tenants}
+        onSave={async (form) => {
+          const paidAt =
+            form.status === "Opłacone"
+              ? new Date().toISOString().slice(0, 10)
+              : null;
+
+          const payload = {
+            accountId: activeAccountId,
+            propertyId: form.propertyId,
+            tenantId: form.tenantId,
+            amount: Number(form.amount),
+            dueDate: form.dueDate,
+            paidAt,
+          };
+
+          if (form.id) {
+            await updatePayment(form.id, payload);
+          } else {
+            await createPayment(payload);
+          }
+        }}
+      />
     </>
   );
 }

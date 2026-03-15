@@ -1,6 +1,11 @@
 // src/services/maintenanceService.js
 import { supabase } from "../lib/supabase";
 import { createNotifications } from "./notificationService";
+import {
+  assertMaxLength,
+  assertRequiredText,
+  normalizeText,
+} from "../utils/validation";
 
 function friendlyError(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -91,17 +96,19 @@ export async function createMaintenanceRequest({
   description = null,
   priority = "normal",
 }) {
-  if (!accountId) throw new Error("Brak accountId");
-  if (!propertyId) throw new Error("Brak propertyId");
-  if (!title?.trim()) throw new Error("Brak tytułu zgłoszenia");
+  assertRequiredText(accountId, "Missing accountId");
+  assertRequiredText(propertyId, "Missing propertyId");
+  assertRequiredText(title, "Title required");
+  assertMaxLength(title, 200, "Title is too long");
+  assertMaxLength(description, 5000, "Description is too long");
 
   assertPriority(priority);
 
   const payload = {
     account_id: accountId,
     property_id: propertyId,
-    title: title.trim(),
-    description: description?.trim() || null,
+    title: normalizeText(title),
+    description: normalizeText(description) || null,
     priority,
     status: "open",
   };
@@ -167,9 +174,16 @@ export async function updateMaintenanceRequest(id, patch = {}) {
   // ✅ Only include fields that were actually provided (prevents accidental nulling)
   const allowed = {};
 
-  if (patch.title !== undefined) allowed.title = patch.title?.trim() || null;
+  if (patch.title !== undefined) {
+    assertRequiredText(patch.title, "Title required");
+    assertMaxLength(patch.title, 200, "Title is too long");
+    allowed.title = normalizeText(patch.title);
+  }
   if (patch.description !== undefined)
-    allowed.description = patch.description?.trim() || null;
+    allowed.description = (() => {
+      assertMaxLength(patch.description, 5000, "Description is too long");
+      return normalizeText(patch.description) || null;
+    })();
   if (patch.priority !== undefined) allowed.priority = patch.priority;
   if (patch.status !== undefined) allowed.status = patch.status;
   if (patch.waiting_reason !== undefined) allowed.waiting_reason = patch.waiting_reason;

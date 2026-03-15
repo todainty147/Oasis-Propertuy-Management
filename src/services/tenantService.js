@@ -1,4 +1,11 @@
 import { supabase } from "../lib/supabase";
+import {
+  assertEmail,
+  assertMaxLength,
+  assertPhone,
+  assertRequiredText,
+  normalizeText,
+} from "../utils/validation";
 
 /* ======================
    CREATE TENANT
@@ -11,17 +18,19 @@ export async function createTenant({
   phone,
   propertyId = null,
 }) {
-  if (!accountId) {
-    throw new Error("Brak accountId przy tworzeniu najemcy");
-  }
+  assertRequiredText(accountId, "Missing accountId");
+  assertRequiredText(name, "Tenant name required");
+  const cleanEmail = assertEmail(email, "Valid tenant email required");
+  const cleanPhone = assertPhone(phone, { required: false, message: "Invalid tenant phone number" });
+  assertMaxLength(name, 200, "Tenant name is too long");
 
   const { data: tenant, error } = await supabase
     .from("tenants")
     .insert({
       account_id: accountId,   // ✅ MULTI-TENANT ROOT
-      name,
-      email,
-      phone,
+      name: normalizeText(name),
+      email: cleanEmail,
+      phone: cleanPhone || null,
       property_id: propertyId,
     })
     .select()
@@ -45,6 +54,12 @@ export async function createTenant({
    ====================== */
 
 export async function updateTenant(id, data) {
+  if (!id) throw new Error("Missing tenantId");
+  assertRequiredText(data?.name, "Tenant name required");
+  const cleanEmail = assertEmail(data?.email, "Valid tenant email required");
+  const cleanPhone = assertPhone(data?.phone, { required: false, message: "Invalid tenant phone number" });
+  assertMaxLength(data?.name, 200, "Tenant name is too long");
+
   const { data: current, error: currentError } = await supabase
     .from("tenants")
     .select("property_id")
@@ -56,9 +71,9 @@ export async function updateTenant(id, data) {
   const { error } = await supabase
     .from("tenants")
     .update({
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
+      name: normalizeText(data.name),
+      email: cleanEmail,
+      phone: cleanPhone || null,
       property_id: data.propertyId ?? null,
     })
     .eq("id", id);

@@ -1,5 +1,5 @@
 // src/pages/Finance.jsx
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
@@ -81,29 +81,18 @@ export default function Finance({
   const { setTitle } = usePageTitle();
   const { t } = useI18n();
   const [searchParams] = useSearchParams();
+  const [propertyPage, setPropertyPage] = useState(1);
+  const [propertyPageSize, setPropertyPageSize] = useState(10);
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const [paymentsPageSize, setPaymentsPageSize] = useState(10);
 
   useEffect(() => {
     setTitle(t("finance.title"));
   }, [setTitle, t]);
 
-  if (loading || accountLoading) return <FinanceSkeleton />;
-
-  // ✅ STAFF: finance visible but read-only
-  if (!can(activeRole, "finance", "read")) {
-    return (
-      <div className="bg-white border rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-slate-900">
-          {t("finance.noAccessTitle")}
-        </h2>
-        <p className="text-sm text-slate-600 mt-1">
-          {t("finance.noAccessBody")}
-        </p>
-      </div>
-    );
-  }
-
   const canCreate = can(activeRole, "finance", "create");
   const canDelete = can(activeRole, "finance", "delete");
+  const canRead = can(activeRole, "finance", "read");
 
   const statusFilterValues = useMemo(() => {
     const raw = String(searchParams.get("status") || "").toLowerCase().trim();
@@ -182,6 +171,42 @@ export default function Finance({
     return (propertyFinance || []).filter((pf) => ids.has(String(pf.propertyId)));
   }, [propertyFinance, filteredPayments, hasActiveFilters]);
 
+  useEffect(() => {
+    setPropertyPage(1);
+  }, [propertyPageSize, propertyFinanceView.length]);
+
+  useEffect(() => {
+    setPaymentsPage(1);
+  }, [paymentsPageSize, filteredPayments.length, statusFilterValues, rangeFilter, bucketFilter]);
+
+  const propertyTotalPages = Math.max(1, Math.ceil(propertyFinanceView.length / propertyPageSize));
+  const paymentsTotalPages = Math.max(1, Math.ceil(filteredPayments.length / paymentsPageSize));
+  const visiblePropertyFinance = useMemo(() => {
+    const safePage = Math.min(propertyPage, propertyTotalPages);
+    const start = (safePage - 1) * propertyPageSize;
+    return propertyFinanceView.slice(start, start + propertyPageSize);
+  }, [propertyFinanceView, propertyPage, propertyPageSize, propertyTotalPages]);
+  const visiblePayments = useMemo(() => {
+    const safePage = Math.min(paymentsPage, paymentsTotalPages);
+    const start = (safePage - 1) * paymentsPageSize;
+    return filteredPayments.slice(start, start + paymentsPageSize);
+  }, [filteredPayments, paymentsPage, paymentsPageSize, paymentsTotalPages]);
+
+  if (loading || accountLoading) return <FinanceSkeleton />;
+
+  if (!canRead) {
+    return (
+      <div className="bg-white border rounded-xl p-6">
+        <h2 className="text-lg font-semibold text-slate-900">
+          {t("finance.noAccessTitle")}
+        </h2>
+        <p className="text-sm text-slate-600 mt-1">
+          {t("finance.noAccessBody")}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* HEADER */}
@@ -219,34 +244,47 @@ export default function Finance({
         {propertyFinanceView.length === 0 ? (
           <p className="p-6 text-sm text-gray-500">{t("finance.noPropertyData")}</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-left">
-              <tr>
-                <th className="px-6 py-3">{t("finance.table.address")}</th>
-                <th className="px-6 py-3 text-right">{t("finance.table.rent")}</th>
-                <th className="px-6 py-3 text-right">{t("finance.table.paid")}</th>
-                <th className="px-6 py-3 text-right">{t("finance.table.remaining")}</th>
-                <th className="px-6 py-3">{t("finance.table.status")}</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {propertyFinanceView.map((p) => (
-                <tr key={p.propertyId} className="border-t hover:bg-gray-50">
-                  <td className="px-6 py-3">
-                    <div className="font-medium">{p.address}</div>
-                    <div className="text-xs text-gray-500">{p.city}</div>
-                  </td>
-                  <td className="px-6 py-3 text-right">{formatCurrency(p.rent)}</td>
-                  <td className="px-6 py-3 text-right text-green-600">{formatCurrency(p.paid)}</td>
-                  <td className="px-6 py-3 text-right text-red-600">{formatCurrency(p.remaining)}</td>
-                  <td className="px-6 py-3">
-                    <StatusBadge status={p.paymentStatus} />
-                  </td>
+          <>
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left">
+                <tr>
+                  <th className="px-6 py-3">{t("finance.table.address")}</th>
+                  <th className="px-6 py-3 text-right">{t("finance.table.rent")}</th>
+                  <th className="px-6 py-3 text-right">{t("finance.table.paid")}</th>
+                  <th className="px-6 py-3 text-right">{t("finance.table.remaining")}</th>
+                  <th className="px-6 py-3">{t("finance.table.status")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {visiblePropertyFinance.map((p) => (
+                  <tr key={p.propertyId} className="border-t hover:bg-gray-50">
+                    <td className="px-6 py-3">
+                      <div className="font-medium">{p.address}</div>
+                      <div className="text-xs text-gray-500">{p.city}</div>
+                    </td>
+                    <td className="px-6 py-3 text-right">{formatCurrency(p.rent)}</td>
+                    <td className="px-6 py-3 text-right text-green-600">{formatCurrency(p.paid)}</td>
+                    <td className="px-6 py-3 text-right text-red-600">{formatCurrency(p.remaining)}</td>
+                    <td className="px-6 py-3">
+                      <StatusBadge status={p.paymentStatus} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <PaginationFooter
+              page={Math.min(propertyPage, propertyTotalPages)}
+              totalPages={propertyTotalPages}
+              totalCount={propertyFinanceView.length}
+              pageSize={propertyPageSize}
+              onPrev={() => setPropertyPage((p) => Math.max(1, p - 1))}
+              onNext={() => setPropertyPage((p) => Math.min(propertyTotalPages, p + 1))}
+              onPageSizeChange={(next) => setPropertyPageSize(next)}
+              t={t}
+            />
+          </>
         )}
       </div>
 
@@ -265,47 +303,60 @@ export default function Finance({
         {filteredPayments.length === 0 ? (
           <p className="p-6 text-sm text-gray-500">{t("finance.noPaymentsForAccount")}</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-left">
-              <tr>
-                <th className="px-6 py-3">{t("finance.table.tenant")}</th>
-                <th className="px-6 py-3">{t("finance.table.property")}</th>
-                <th className="px-6 py-3 text-right">{t("payments.amount")}</th>
-                <th className="px-6 py-3">{t("finance.table.status")}</th>
-                <th className="px-6 py-3">{t("payments.dueDate")}</th>
-                <th className="px-6 py-3 text-right"></th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {filteredPayments.map((p) => (
-                <tr key={p.id} className="border-t hover:bg-gray-50">
-                  <td className="px-6 py-3">{p.tenantName ?? "—"}</td>
-                  <td className="px-6 py-3">{p.propertyAddress ?? "—"}</td>
-                  <td className="px-6 py-3 text-right">{formatCurrency(p.amount)}</td>
-                  <td className="px-6 py-3">
-                    <StatusBadge status={p.status} />
-                  </td>
-                  <td className="px-6 py-3">{p.dueDate}</td>
-
-                  <td className="px-6 py-3 text-right">
-                    {canDelete ? (
-                      <button
-                        onClick={() => {
-                          if (confirm(t("finance.confirmDeletePayment"))) onDeletePayment(p.id);
-                        }}
-                        className="text-red-600 hover:underline"
-                      >
-                        {t("attachments.delete")}
-                      </button>
-                    ) : (
-                      <span className="text-xs text-slate-400">—</span>
-                    )}
-                  </td>
+          <>
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left">
+                <tr>
+                  <th className="px-6 py-3">{t("finance.table.tenant")}</th>
+                  <th className="px-6 py-3">{t("finance.table.property")}</th>
+                  <th className="px-6 py-3 text-right">{t("payments.amount")}</th>
+                  <th className="px-6 py-3">{t("finance.table.status")}</th>
+                  <th className="px-6 py-3">{t("payments.dueDate")}</th>
+                  <th className="px-6 py-3 text-right"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {visiblePayments.map((p) => (
+                  <tr key={p.id} className="border-t hover:bg-gray-50">
+                    <td className="px-6 py-3">{p.tenantName ?? "—"}</td>
+                    <td className="px-6 py-3">{p.propertyAddress ?? "—"}</td>
+                    <td className="px-6 py-3 text-right">{formatCurrency(p.amount)}</td>
+                    <td className="px-6 py-3">
+                      <StatusBadge status={p.status} />
+                    </td>
+                    <td className="px-6 py-3">{p.dueDate}</td>
+
+                    <td className="px-6 py-3 text-right">
+                      {canDelete ? (
+                        <button
+                          onClick={() => {
+                            if (confirm(t("finance.confirmDeletePayment"))) onDeletePayment(p.id);
+                          }}
+                          className="text-red-600 hover:underline"
+                        >
+                          {t("attachments.delete")}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <PaginationFooter
+              page={Math.min(paymentsPage, paymentsTotalPages)}
+              totalPages={paymentsTotalPages}
+              totalCount={filteredPayments.length}
+              pageSize={paymentsPageSize}
+              onPrev={() => setPaymentsPage((p) => Math.max(1, p - 1))}
+              onNext={() => setPaymentsPage((p) => Math.min(paymentsTotalPages, p + 1))}
+              onPageSizeChange={(next) => setPaymentsPageSize(next)}
+              t={t}
+            />
+          </>
         )}
       </div>
     </div>
@@ -323,6 +374,62 @@ function SummaryCard({ label, value, color }) {
       <p className={`text-2xl font-semibold ${color}`}>
         {formatCurrency(value)}
       </p>
+    </div>
+  );
+}
+
+function PaginationFooter({
+  page,
+  totalPages,
+  totalCount,
+  pageSize,
+  onPrev,
+  onNext,
+  onPageSizeChange,
+  t,
+}) {
+  if (totalCount <= 0) return null;
+
+  return (
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-t px-6 py-4">
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-slate-500">{t("common.perPage")}</span>
+        <select
+          value={pageSize}
+          onChange={(e) => onPageSizeChange(Number(e.target.value))}
+          className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+        >
+          {[10, 20, 30, 50].map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={onPrev}
+          className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-50"
+        >
+          {t("common.prev")}
+        </button>
+        <span className="text-sm text-slate-600">
+          {t("common.page")} <span className="font-medium text-slate-900">{page}</span> {t("common.of")}{" "}
+          <span className="font-medium text-slate-900">{totalPages}</span>
+          <span className="ml-2 text-xs text-slate-500">({totalCount} {t("common.total").toLowerCase()})</span>
+        </span>
+        <button
+          type="button"
+          disabled={page >= totalPages}
+          onClick={onNext}
+          className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-50"
+        >
+          {t("common.next")}
+        </button>
+      </div>
     </div>
   );
 }

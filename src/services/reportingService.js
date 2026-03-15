@@ -5,11 +5,29 @@ function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
 }
 
+function isMissingBackendObject(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    error?.code === "PGRST404" ||
+    message.includes("could not find the function") ||
+    message.includes("relation") ||
+    message.includes("does not exist")
+  );
+}
+
 export async function getWeeklyPortfolioSummary(accountId) {
   if (!accountId) throw new Error("Missing accountId");
   const { data, error } = await supabase.rpc("portfolio_weekly_summary", {
     p_account_id: accountId,
   });
+  if (error && isMissingBackendObject(error)) {
+    return {
+      occupancy_rate: 0,
+      open_requests: 0,
+      waiting_over_48h: 0,
+      overdue_balance: 0,
+    };
+  }
   if (error) throw friendly(error, "Failed to load weekly summary");
   const row = Array.isArray(data) ? data[0] : data;
   return row ?? {
@@ -27,7 +45,18 @@ export async function getAccountReportSettings(accountId) {
     .select("account_id, weekly_summary_enabled, weekly_summary_day, weekly_summary_hour, timezone")
     .eq("account_id", accountId)
     .maybeSingle();
-  if (error) throw friendly(error, "Failed to load report settings");
+  if (error) {
+    if (isMissingBackendObject(error)) {
+      return {
+        account_id: accountId,
+        weekly_summary_enabled: false,
+        weekly_summary_day: 1,
+        weekly_summary_hour: 8,
+        timezone: "Europe/Warsaw",
+      };
+    }
+    throw friendly(error, "Failed to load report settings");
+  }
   return (
     data ?? {
       account_id: accountId,
@@ -61,6 +90,9 @@ export async function upsertAccountReportSettings({
     .select("account_id, weekly_summary_enabled, weekly_summary_day, weekly_summary_hour, timezone")
     .single();
 
+  if (error && isMissingBackendObject(error)) {
+    return payload;
+  }
   if (error) throw friendly(error, "Failed to save report settings");
   return data;
 }

@@ -1,5 +1,6 @@
 // src/services/workOrderAttachmentsService.js
 import { supabase } from "../lib/supabase";
+import { assertFiles } from "../utils/validation";
 
 /**
  * Work Order Attachments (Photos/Docs) v1
@@ -239,7 +240,7 @@ export async function uploadWorkOrderAttachments({ accountId, workOrderId, files
   if (!accountId) throw new Error("Brak accountId");
   if (!workOrderId) throw new Error("Brak workOrderId");
 
-  const list = Array.from(files || []).filter(Boolean);
+  const list = assertFiles(files, { maxFiles: 10, maxBytes: 15 * 1024 * 1024 });
   if (list.length === 0) return [];
 
   const user = await getAuthedUser();

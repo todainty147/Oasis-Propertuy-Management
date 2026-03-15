@@ -58,6 +58,35 @@ function formatMoney(val, currency = "PLN") {
   return `${n.toFixed(2)} ${currency || "PLN"}`;
 }
 
+function normalizeWorkOrderStatus(status) {
+  const s = String(status ?? "").trim().toLowerCase();
+  if (["assigned", "przypisane"].includes(s)) return "assigned";
+  if (["in_progress", "w trakcie", "in progress"].includes(s)) return "in_progress";
+  if (["completed", "zakończone", "zakonczone"].includes(s)) return "completed";
+  if (["cancelled", "anulowane"].includes(s)) return "cancelled";
+  if (["blocked", "zablokowane"].includes(s)) return "blocked";
+  return s;
+}
+
+function translateWorkOrderStatus(status, t) {
+  const key = normalizeWorkOrderStatus(status);
+  if (key === "assigned") return t("status.wo.assigned");
+  if (key === "in_progress") return t("status.wo.in_progress");
+  if (key === "completed") return t("status.wo.completed");
+  if (key === "cancelled") return t("status.wo.cancelled");
+  if (key === "blocked") return t("workOrder.blocked");
+  return status || t("workOrder.shortLabel");
+}
+
+function normalizeQuoteStatus(status) {
+  const s = String(status ?? "").trim().toLowerCase();
+  if (["draft", "szkic"].includes(s)) return "draft";
+  if (["submitted", "wysłano", "wyslano"].includes(s)) return "submitted";
+  if (["approved", "zatwierdzone", "zatwierdzono"].includes(s)) return "approved";
+  if (["rejected", "odrzucone", "odrzucono"].includes(s)) return "rejected";
+  return s;
+}
+
 function isRatingsUnavailableError(err) {
   const msg = String(err?.message || "").toLowerCase();
   return (
@@ -67,10 +96,11 @@ function isRatingsUnavailableError(err) {
   );
 }
 
-function StatusPill({ status, labels }) {
+function StatusPill({ status, labels, t }) {
   const base = "text-xs px-2 py-0.5 rounded border";
-  const s = String(status ?? "").toLowerCase();
-  const label = labels?.[s] ?? s ?? "—";
+  const s = normalizeWorkOrderStatus(status);
+  const dbLabel = labels?.[s] ?? null;
+  const label = translateWorkOrderStatus(dbLabel || s, t);
 
   if (s === "completed")
     return (
@@ -135,8 +165,8 @@ export default function WorkOrderDetails() {
   const [ratingComment, setRatingComment] = useState("");
 
   useEffect(() => {
-    setTitle("Zlecenie");
-  }, [setTitle]);
+    setTitle(t("workOrder.shortLabel"));
+  }, [setTitle, t]);
 
   // -----------------------------
   // Load work order
@@ -275,7 +305,7 @@ export default function WorkOrderDetails() {
   // Make title nicer when WO loaded
   useEffect(() => {
     if (!wo) return;
-    const statusLabel = labels?.[String(wo.status ?? "").toLowerCase()] ?? wo.status ?? t("workOrder.shortLabel");
+    const statusLabel = translateWorkOrderStatus(labels?.[normalizeWorkOrderStatus(wo.status)] ?? wo.status, t);
     setTitle(`${t("workOrder.shortLabel")} • ${statusLabel}`);
   }, [wo, labels, setTitle, t]);
 
@@ -348,7 +378,7 @@ export default function WorkOrderDetails() {
   async function saveRating() {
     if (!canManage || !wo?.id) return;
     if (ratingUnavailable) return;
-    if (String(wo.status || "").toLowerCase() !== "completed") return;
+    if (normalizeWorkOrderStatus(wo.status) !== "completed") return;
     if (!ratingValue) {
       alert(t("ratings.pickValue"));
       return;
@@ -416,28 +446,28 @@ export default function WorkOrderDetails() {
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <StatusPill status={wo.status} labels={labels} />
+              <StatusPill status={wo.status} labels={labels} t={t} />
               {wo.pending_cancel_request && (
                 <span className="text-xs px-2 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-800">
-                  Prośba o anulowanie
+                  {t("workOrders.cancelRequestLabel")}
                 </span>
               )}
             </div>
 
             {wo.maintenance_requests?.title && (
               <p className="text-sm text-slate-800 mt-2">
-                Powiązane zgłoszenie: <b>{wo.maintenance_requests.title}</b>
+                {t("workOrders.linkedRequest")}: <b>{wo.maintenance_requests.title}</b>
               </p>
             )}
 
             <p className="text-xs text-slate-500 mt-2">
-              Termin: {formatDateTime(wo.scheduled_at)} • Utworzono:{" "}
+              {t("common.dueDate")}: {formatDateTime(wo.scheduled_at)} • {t("common.createdAt")}:{" "}
               {formatDateTime(wo.created_at)}
             </p>
 
             {wo.contractor_name && (
               <p className="text-sm text-slate-900 mt-3 font-medium">
-                Wykonawca: {wo.contractor_name}
+                {t("common.contractor")}: {wo.contractor_name}
                 {wo.contractor_phone ? (
                   <span className="text-xs text-slate-500"> • {wo.contractor_phone}</span>
                 ) : null}
@@ -450,7 +480,7 @@ export default function WorkOrderDetails() {
             onClick={() => navigate(-1)}
             className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50 shrink-0"
           >
-            Wróć
+            {t("common.back")}
           </button>
         </div>
 
@@ -468,7 +498,7 @@ export default function WorkOrderDetails() {
             <div>
               <p className="font-semibold text-slate-900">{t("workOrder.actions")}</p>
               <p className="text-xs text-slate-500">
-                Przyciski są DB-driven (work_order_allowed_actions).
+                {t("workOrder.actionsHint")}
               </p>
             </div>
             <button
@@ -480,7 +510,7 @@ export default function WorkOrderDetails() {
               className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
               disabled={busy}
             >
-              Odśwież
+              {t("common.refresh")}
             </button>
           </div>
 
@@ -500,7 +530,7 @@ export default function WorkOrderDetails() {
                     busy ? "opacity-60 cursor-not-allowed" : ""
                   }`}
                 >
-                  W trakcie
+                  {t("workOrders.startWork")}
                 </button>
               )}
 
@@ -513,7 +543,7 @@ export default function WorkOrderDetails() {
                     busy ? "opacity-60 cursor-not-allowed" : ""
                   }`}
                 >
-                  Zablokowane
+                  {t("workOrder.blocked")}
                 </button>
               )}
 
@@ -526,7 +556,7 @@ export default function WorkOrderDetails() {
                     busy ? "opacity-60 cursor-not-allowed" : ""
                   }`}
                 >
-                  Zakończ
+                  {t("workOrders.completeWork")}
                 </button>
               )}
 
@@ -539,7 +569,7 @@ export default function WorkOrderDetails() {
                     busy ? "opacity-60 cursor-not-allowed" : ""
                   }`}
                 >
-                  Anuluj
+                  {t("common.cancel")}
                 </button>
               )}
             </div>
@@ -619,7 +649,7 @@ export default function WorkOrderDetails() {
             <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
               {t("ratings.unavailable")}
             </p>
-          ) : String(wo.status || "").toLowerCase() !== "completed" ? (
+          ) : normalizeWorkOrderStatus(wo.status) !== "completed" ? (
             <p className="text-sm text-slate-500">{t("ratings.afterCompletionOnly")}</p>
           ) : ratingLoading ? (
             <Skeleton className="h-10" />
@@ -679,7 +709,7 @@ export default function WorkOrderDetails() {
             className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
             disabled={auditLoading}
           >
-            Odśwież
+            {t("common.refresh")}
           </button>
         </div>
 

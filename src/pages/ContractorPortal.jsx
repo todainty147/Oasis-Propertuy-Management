@@ -13,25 +13,39 @@ import { useI18n } from "../context/I18nContext";
 
 function StatusPill({ status, t }) {
   const base = "text-xs px-2 py-0.5 rounded border";
-  const s = String(status ?? "").toLowerCase();
+  const s = String(status ?? "").trim().toLowerCase();
+  const normalized =
+    ["przypisane"].includes(s) ? "assigned" :
+    ["w trakcie", "in progress"].includes(s) ? "in_progress" :
+    ["zakończone", "zakonczone"].includes(s) ? "completed" :
+    ["anulowane"].includes(s) ? "cancelled" :
+    ["zablokowane"].includes(s) ? "blocked" :
+    s;
 
-  if (s === "completed")
+  if (normalized === "completed")
     return <span className={`${base} bg-green-50 border-green-200 text-green-700`}>{t("status.wo.completed")}</span>;
-  if (s === "in_progress")
+  if (normalized === "in_progress")
     return <span className={`${base} bg-blue-50 border-blue-200 text-blue-700`}>{t("status.wo.in_progress")}</span>;
-  if (s === "cancelled")
+  if (normalized === "cancelled")
     return <span className={`${base} bg-slate-50 border-slate-200 text-slate-600`}>{t("status.wo.cancelled")}</span>;
-  if (s === "blocked")
+  if (normalized === "blocked")
     return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>{t("workOrder.blocked")}</span>;
-  return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>{status || t("status.wo.assigned")}</span>;
+  return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>{t("status.wo.assigned")}</span>;
 }
 
 function statusAccentClass(status) {
-  const s = String(status ?? "").toLowerCase();
-  if (s === "completed") return "border-l-green-500";
-  if (s === "in_progress") return "border-l-blue-500";
-  if (s === "cancelled") return "border-l-slate-400";
-  if (s === "blocked") return "border-l-amber-500";
+  const s = String(status ?? "").trim().toLowerCase();
+  const normalized =
+    ["przypisane"].includes(s) ? "assigned" :
+    ["w trakcie", "in progress"].includes(s) ? "in_progress" :
+    ["zakończone", "zakonczone"].includes(s) ? "completed" :
+    ["anulowane"].includes(s) ? "cancelled" :
+    ["zablokowane"].includes(s) ? "blocked" :
+    s;
+  if (normalized === "completed") return "border-l-green-500";
+  if (normalized === "in_progress") return "border-l-blue-500";
+  if (normalized === "cancelled") return "border-l-slate-400";
+  if (normalized === "blocked") return "border-l-amber-500";
   return "border-l-indigo-500";
 }
 
@@ -43,10 +57,18 @@ function formatDateTime(ts) {
 }
 
 function PriorityPill({ priority, t }) {
-  const p = String(priority || "normal").toLowerCase();
+  const p = String(priority || "normal").trim().toLowerCase();
+  const normalized =
+    ["niski"].includes(p) ? "low" :
+    ["normalny"].includes(p) ? "normal" :
+    ["wysoki"].includes(p) ? "high" :
+    ["pilny"].includes(p) ? "urgent" :
+    ["krytyczny"].includes(p) ? "critical" :
+    p;
   const base = "text-[11px] px-2 py-0.5 rounded border";
-  if (p === "critical") return <span className={`${base} bg-rose-100 border-rose-300 text-rose-700`}>{t("priority.critical")}</span>;
-  if (p === "high") return <span className={`${base} bg-orange-100 border-orange-300 text-orange-700`}>{t("priority.high")}</span>;
+  if (normalized === "critical") return <span className={`${base} bg-rose-100 border-rose-300 text-rose-700`}>{t("priority.critical")}</span>;
+  if (normalized === "urgent") return <span className={`${base} bg-orange-100 border-orange-300 text-orange-700`}>{t("priority.urgent")}</span>;
+  if (normalized === "high") return <span className={`${base} bg-orange-100 border-orange-300 text-orange-700`}>{t("priority.high")}</span>;
   return <span className={`${base} bg-slate-100 border-slate-200 text-slate-700`}>{t("priority.normal")}</span>;
 }
 
@@ -266,7 +288,7 @@ export default function ContractorPortal() {
     return (
       <Card className="p-6">
         <p className="text-sm text-slate-600">
-          Ten ekran jest dostępny tylko dla kont wykonawców (contractor).
+          {t("contractor.onlyAccess")}
         </p>
       </Card>
     );
@@ -279,7 +301,7 @@ export default function ContractorPortal() {
           <div>
             <h2 className="text-lg font-semibold text-slate-900">{t("sidebar.contractorPortal")}</h2>
             <p className="text-xs text-slate-500 mt-1">
-              Widzisz tylko swoje zlecenia. Kliknij/dwuklik, aby wejść w szczegóły.
+              {t("contractor.subtitle")}
             </p>
           </div>
           <button
@@ -287,15 +309,15 @@ export default function ContractorPortal() {
             onClick={load}
             className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
           >
-            Odśwież
+            {t("common.refresh")}
           </button>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
           {[
-            { key: "all", label: "Wszystkie" },
-            { key: "assigned", label: "Przypisane" },
-            { key: "in_progress", label: "W trakcie" },
+            { key: "all", label: t("contractor.filter.all") },
+            { key: "assigned", label: t("status.wo.assigned") },
+            { key: "in_progress", label: t("status.wo.in_progress") },
             { key: "completed", label: t("status.wo.completed") },
           ].map((f) => (
             <button
@@ -320,14 +342,14 @@ export default function ContractorPortal() {
           <Skeleton className="h-14" />
           <Skeleton className="h-14" />
         </div>
-      ) : rows.filter((wo) => statusFilter === "all" || String(wo.status || "").toLowerCase() === statusFilter).length === 0 ? (
+      ) : rows.filter((wo) => statusFilter === "all" || ["przypisane"].includes(String(wo.status || "").trim().toLowerCase()) && statusFilter === "assigned" || ["w trakcie", "in progress"].includes(String(wo.status || "").trim().toLowerCase()) && statusFilter === "in_progress" || ["zakończone", "zakonczone"].includes(String(wo.status || "").trim().toLowerCase()) && statusFilter === "completed" || String(wo.status || "").trim().toLowerCase() === statusFilter).length === 0 ? (
         <Card className="p-6">
           <p className="text-sm text-slate-600">{t("contractor.emptyAssignments")}</p>
         </Card>
       ) : (
         <div className="space-y-3">
           {rows
-            .filter((wo) => statusFilter === "all" || String(wo.status || "").toLowerCase() === statusFilter)
+            .filter((wo) => statusFilter === "all" || ["przypisane"].includes(String(wo.status || "").trim().toLowerCase()) && statusFilter === "assigned" || ["w trakcie", "in progress"].includes(String(wo.status || "").trim().toLowerCase()) && statusFilter === "in_progress" || ["zakończone", "zakonczone"].includes(String(wo.status || "").trim().toLowerCase()) && statusFilter === "completed" || String(wo.status || "").trim().toLowerCase() === statusFilter)
             .map((wo) => {
             const isBusy = savingId === wo.id;
             const allowed = allowedById[wo.id] ?? [];
@@ -365,7 +387,7 @@ export default function ContractorPortal() {
                     <div className="mt-2 text-xs text-slate-500">{t("common.phone")}: {wo.contractor_phone}</div>
                   )}
                   <div className="mt-2 text-xs text-slate-500">
-                    Termin: {formatDateTime(wo.scheduled_at)} • Utworzono: {formatDateTime(wo.created_at)}
+                    {t("common.dueDate")}: {formatDateTime(wo.scheduled_at)} • {t("common.createdAt")}: {formatDateTime(wo.created_at)}
                   </div>
 
                   <div className="mt-3 text-sm text-slate-700 line-clamp-2">
@@ -387,7 +409,7 @@ export default function ContractorPortal() {
                             : "text-blue-700 border-blue-200 hover:bg-blue-50"
                         }`}
                       >
-                        W trakcie
+                        {t("workOrders.startWork")}
                       </button>
                     )}
 
@@ -405,7 +427,7 @@ export default function ContractorPortal() {
                             : "text-amber-700 border-amber-200 hover:bg-amber-50"
                         }`}
                       >
-                        Zablokowane
+                        {t("workOrder.blocked")}
                       </button>
                     )}
 
@@ -423,7 +445,7 @@ export default function ContractorPortal() {
                             : "text-green-700 border-green-200 hover:bg-green-50"
                         }`}
                       >
-                        Zakończ
+                        {t("workOrders.completeWork")}
                       </button>
                     )}
 
@@ -441,7 +463,7 @@ export default function ContractorPortal() {
                             : "text-slate-700 border-slate-300 hover:bg-slate-50"
                         }`}
                       >
-                        Anuluj
+                        {t("common.cancel")}
                       </button>
                     )}
 
@@ -453,7 +475,7 @@ export default function ContractorPortal() {
                       }}
                       className="col-span-2 min-h-[44px] text-sm px-3 rounded-lg border border-slate-900 bg-slate-900 text-white hover:bg-slate-800 sm:col-span-1 sm:bg-white sm:text-slate-900 sm:hover:bg-slate-50"
                     >
-                      Otwórz
+                      {t("workOrder.open")}
                     </button>
 
                     {allowed.length === 0 && (

@@ -91,6 +91,8 @@ export default function Documents({
 
   const [query, setQuery] = useState(queryParam);
   const [selectedTags, setSelectedTags] = useState(tagsParam);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   /* ---------- DATA ---------- */
   const [documents, setDocuments] = useState([]);
@@ -121,6 +123,10 @@ export default function Documents({
     setSelectedTags(tagsParam);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, selectedTags, activeTenantId, pageSize]);
 
   /* ======================
      LOAD DOCUMENTS
@@ -275,6 +281,20 @@ export default function Documents({
 
   const tenantsLoading = useFallback ? tenantsLoadingHook : false;
   const propertiesLoading = useFallback ? propertiesLoadingHook : false;
+  const totalPages = Math.max(1, Math.ceil(documents.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const visibleDocuments = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return documents.slice(start, start + pageSize);
+  }, [documents, safePage, pageSize]);
+
+  useEffect(() => {
+    if (!docParam || documents.length === 0) return;
+    const index = documents.findIndex((d) => String(d.id) === String(docParam));
+    if (index < 0) return;
+    const targetPage = Math.floor(index / pageSize) + 1;
+    if (targetPage !== page) setPage(targetPage);
+  }, [docParam, documents, page, pageSize]);
 
   /* ======================
      RENDER
@@ -409,7 +429,7 @@ export default function Documents({
 
       {!loading && documents.length > 0 && (
         <div className="divide-y bg-white border rounded-xl">
-          {documents.map((doc) => (
+          {visibleDocuments.map((doc) => (
             <div
               key={doc.id}
               className="px-6 py-4 flex justify-between items-center"
@@ -483,6 +503,17 @@ export default function Documents({
               </div>
             </div>
           ))}
+
+          <PaginationFooter
+            page={safePage}
+            totalPages={totalPages}
+            totalCount={documents.length}
+            pageSize={pageSize}
+            onPrev={() => setPage((p) => Math.max(1, p - 1))}
+            onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+            onPageSizeChange={(next) => setPageSize(next)}
+            t={t}
+          />
         </div>
       )}
 
@@ -540,6 +571,62 @@ export default function Documents({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function PaginationFooter({
+  page,
+  totalPages,
+  totalCount,
+  pageSize,
+  onPrev,
+  onNext,
+  onPageSizeChange,
+  t,
+}) {
+  if (totalCount <= 0) return null;
+
+  return (
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-6 py-4">
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-slate-500">{t("common.perPage")}</span>
+        <select
+          value={pageSize}
+          onChange={(e) => onPageSizeChange(Number(e.target.value))}
+          className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+        >
+          {[10, 20, 30, 50].map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={onPrev}
+          className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-50"
+        >
+          {t("common.prev")}
+        </button>
+        <span className="text-sm text-slate-600">
+          {t("common.page")} <span className="font-medium text-slate-900">{page}</span> {t("common.of")}{" "}
+          <span className="font-medium text-slate-900">{totalPages}</span>
+          <span className="ml-2 text-xs text-slate-500">({totalCount} {t("common.total").toLowerCase()})</span>
+        </span>
+        <button
+          type="button"
+          disabled={page >= totalPages}
+          onClick={onNext}
+          className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-50"
+        >
+          {t("common.next")}
+        </button>
+      </div>
     </div>
   );
 }

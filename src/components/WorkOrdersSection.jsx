@@ -54,6 +54,63 @@ function formatMoney(val, currency = "PLN") {
   return `${n.toFixed(2)} ${currency || "PLN"}`;
 }
 
+function normalizeWorkOrderStatus(status) {
+  const s = String(status ?? "").trim().toLowerCase();
+  if (["assigned", "przypisane"].includes(s)) return "assigned";
+  if (["in_progress", "w trakcie", "in progress"].includes(s)) return "in_progress";
+  if (["completed", "zakończone", "zakonczone"].includes(s)) return "completed";
+  if (["cancelled", "anulowane"].includes(s)) return "cancelled";
+  if (["blocked", "zablokowane"].includes(s)) return "blocked";
+  return s;
+}
+
+function translateWorkOrderStatus(status, t) {
+  const key = normalizeWorkOrderStatus(status);
+  if (key === "assigned") return t("status.wo.assigned");
+  if (key === "in_progress") return t("status.wo.in_progress");
+  if (key === "completed") return t("status.wo.completed");
+  if (key === "cancelled") return t("status.wo.cancelled");
+  if (key === "blocked") return t("workOrder.blocked");
+  return status || "—";
+}
+
+function normalizePriority(priority) {
+  const p = String(priority ?? "").trim().toLowerCase();
+  if (["low", "niski"].includes(p)) return "low";
+  if (["normal", "normalny"].includes(p)) return "normal";
+  if (["high", "wysoki"].includes(p)) return "high";
+  if (["urgent", "pilny"].includes(p)) return "urgent";
+  if (["critical", "krytyczny"].includes(p)) return "critical";
+  return p;
+}
+
+function translatePriority(priority, t) {
+  const key = normalizePriority(priority);
+  if (key === "low") return t("priority.low");
+  if (key === "high") return t("priority.high");
+  if (key === "urgent") return t("priority.urgent");
+  if (key === "critical") return t("priority.critical");
+  return t("priority.normal");
+}
+
+function normalizeQuoteStatus(status) {
+  const s = String(status ?? "").trim().toLowerCase();
+  if (["draft", "szkic"].includes(s)) return "draft";
+  if (["submitted", "wysłano", "wyslano"].includes(s)) return "submitted";
+  if (["approved", "zatwierdzone", "zatwierdzono"].includes(s)) return "approved";
+  if (["rejected", "odrzucone", "odrzucono"].includes(s)) return "rejected";
+  return s;
+}
+
+function translateQuoteStatus(status, t) {
+  const key = normalizeQuoteStatus(status);
+  if (key === "draft") return t("workOrders.quoteStatus.draft");
+  if (key === "submitted") return t("workOrders.quoteStatus.submitted");
+  if (key === "approved") return t("workOrders.quoteStatus.approved");
+  if (key === "rejected") return t("workOrders.quoteStatus.rejected");
+  return status || "—";
+}
+
 function isRatingsUnavailableError(err) {
   const msg = String(err?.message || "").toLowerCase();
   return (
@@ -63,7 +120,7 @@ function isRatingsUnavailableError(err) {
   );
 }
 
-function Modal({ open, onClose, title, children }) {
+function Modal({ open, onClose, title, children, t }) {
   if (!open) return null;
 
   return (
@@ -77,7 +134,7 @@ function Modal({ open, onClose, title, children }) {
             onClick={onClose}
             className="text-sm px-2 py-1 rounded hover:bg-slate-100"
           >
-            Zamknij
+            {t("common.close")}
           </button>
         </div>
         <div className="p-4">{children}</div>
@@ -206,14 +263,14 @@ export default function WorkOrdersSection({ propertyId }) {
   const statusLabelsLoadedRef = useRef(false);
 
   function getStatusLabel(status) {
-    const s = String(status ?? "").toLowerCase();
+    const s = normalizeWorkOrderStatus(status);
     return statusLabelByKey?.[s] || null;
   }
 
   function StatusPill({ status }) {
     const base = "text-xs px-2 py-0.5 rounded border";
-    const s = String(status ?? "").toLowerCase();
-    const label = getStatusLabel(s) || status || "assigned";
+    const s = normalizeWorkOrderStatus(status);
+    const label = translateWorkOrderStatus(getStatusLabel(s) || s, t);
 
     if (s === "completed")
       return <span className={`${base} bg-green-50 border-green-200 text-green-700`}>{label}</span>;
@@ -937,7 +994,7 @@ export default function WorkOrdersSection({ propertyId }) {
       if (mr) {
         setNotes((prev) => {
           if (String(prev || "").trim().length > 0) return prev;
-          return `Zgłoszenie: ${mr.title}\nPriorytet: ${mr.priority || "normal"}\nStatus: ${mr.status || ""}\n\n`;
+          return `${t("workOrders.linkedRequest")}: ${mr.title}\n${t("common.priority")}: ${mr.priority || "normal"}\n${t("common.status")}: ${mr.status || ""}\n\n`;
         });
       }
     }
@@ -1162,7 +1219,7 @@ export default function WorkOrdersSection({ propertyId }) {
         <div>
           <h3 className="text-lg font-semibold">{t("workOrders.title")}</h3>
           <p className="text-xs text-slate-500 mt-1">
-            Zlecenia dla tej nieruchomości. W przyszłości dodamy przypisanie do kontraktorów + portal wykonawcy.
+            {t("workOrders.subtitle")}
           </p>
         </div>
 
@@ -1192,7 +1249,7 @@ export default function WorkOrdersSection({ propertyId }) {
               onClick={() => setOpen((v) => !v)}
               className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg"
             >
-              {open ? "Zamknij" : "Dodaj zlecenie"}
+              {open ? t("common.close") : t("workOrders.create")}
             </button>
           )}
         </div>
@@ -1205,7 +1262,7 @@ export default function WorkOrdersSection({ propertyId }) {
             <div>
               <div className="font-semibold text-slate-900">{t("workOrders.new")}</div>
               <div className="text-xs text-slate-500 mt-1">
-                Utwórz zlecenie ręcznie lub powiąż ze zgłoszeniem (maintenance request).
+                {t("workOrders.createHint")}
               </div>
             </div>
 
@@ -1216,7 +1273,7 @@ export default function WorkOrdersSection({ propertyId }) {
               }}
               className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
             >
-              Ukryj
+              {t("common.hide")}
             </button>
           </div>
 
@@ -1229,10 +1286,10 @@ export default function WorkOrdersSection({ propertyId }) {
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm bg-white disabled:bg-slate-50"
                 disabled={requestsLoading || saving}
               >
-                <option value="">— Brak —</option>
+                <option value="">{`— ${t("common.none")} —`}</option>
                 {(openRequests ?? []).map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.title} • {r.priority || "normal"} • {r.status}
+                    {r.title} • {translatePriority(r.priority, t)} • {translateWorkOrderStatus(r.status, t)}
                   </option>
                 ))}
               </select>
@@ -1247,7 +1304,7 @@ export default function WorkOrdersSection({ propertyId }) {
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm bg-white disabled:bg-slate-50"
                 disabled={contractorsLoading || saving}
               >
-                <option value="">— Ręcznie / później —</option>
+                <option value="">{t("workOrders.contractorManualLater")}</option>
                 {(contractors ?? []).map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name} {c.phone ? `• ${c.phone}` : ""}
@@ -1316,7 +1373,7 @@ export default function WorkOrdersSection({ propertyId }) {
               className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50"
               disabled={saving}
             >
-              Wyczyść
+              {t("common.clear")}
             </button>
 
             <button
@@ -1366,7 +1423,7 @@ export default function WorkOrdersSection({ propertyId }) {
 
                     {pending && (
                       <span className="text-xs px-2 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-800">
-                        Prośba o anulowanie{lastReqAt ? ` • ${lastReqAt}` : ""}
+                        {t("workOrders.cancelRequestLabel")}{lastReqAt ? ` • ${lastReqAt}` : ""}
                       </span>
                     )}
 
@@ -1376,7 +1433,7 @@ export default function WorkOrdersSection({ propertyId }) {
 
                   {wo.maintenance_requests?.title && (
                     <p className="text-sm text-slate-700 mt-1">
-                      Powiązane zgłoszenie: <b>{wo.maintenance_requests.title}</b>
+                      {t("workOrders.linkedRequest")}: <b>{wo.maintenance_requests.title}</b>
                     </p>
                   )}
 
@@ -1451,7 +1508,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           onClick={() => setStatus(wo.id, "in_progress")}
                           className={`hover:underline ${isBusy ? "text-slate-400 cursor-not-allowed" : "text-blue-600"}`}
                         >
-                          W trakcie
+                          {t("workOrders.startWork")}
                         </button>
                       )}
 
@@ -1462,7 +1519,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           onClick={() => setStatus(wo.id, "cancelled")}
                           className={`hover:underline ${isBusy ? "text-slate-400 cursor-not-allowed" : "text-slate-600"}`}
                         >
-                          Anuluj
+                          {t("common.cancel")}
                         </button>
                       )}
 
@@ -1473,7 +1530,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           onClick={() => setStatus(wo.id, "completed")}
                           className={`hover:underline ${isBusy ? "text-slate-400 cursor-not-allowed" : "text-green-700"}`}
                         >
-                          Zakończ
+                          {t("workOrders.completeWork")}
                         </button>
                       )}
 
@@ -1483,7 +1540,7 @@ export default function WorkOrdersSection({ propertyId }) {
                         onClick={() => handleDelete(wo.id)}
                         className={`hover:underline ${isBusy ? "text-slate-400 cursor-not-allowed" : "text-rose-600"}`}
                       >
-                        Usuń
+                        {t("attachments.delete")}
                       </button>
                     </div>
                   )}
@@ -1511,7 +1568,7 @@ export default function WorkOrdersSection({ propertyId }) {
         />
       )}
 
-      <Modal open={detailOpen} onClose={closeDetails} title={t("workOrders.detailsTitle")}>
+      <Modal open={detailOpen} onClose={closeDetails} title={t("workOrders.detailsTitle")} t={t}>
         {!selectedWO ? (
           <p className="text-sm text-slate-500">{t("common.noData")}</p>
         ) : (
@@ -1523,12 +1580,12 @@ export default function WorkOrdersSection({ propertyId }) {
                   <StatusPill status={selectedWO.status} />
                   {selectedWO.pending_cancel_request && (
                     <span className="text-xs px-2 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-800">
-                      Prośba o anulowanie
+                      {t("workOrders.cancelRequestLabel")}
                     </span>
                   )}
                 </div>
 
-                <p className="text-sm text-slate-900 mt-2 font-medium">{selectedWO.contractor_name || "Zlecenie"}</p>
+                <p className="text-sm text-slate-900 mt-2 font-medium">{selectedWO.contractor_name || t("workOrder.shortLabel")}</p>
 
                 {selectedWO.contractor_phone && <p className="text-xs text-slate-500 mt-1">{t("common.phone")}: {selectedWO.contractor_phone}</p>}
 
@@ -1556,7 +1613,7 @@ export default function WorkOrdersSection({ propertyId }) {
                   className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
                   disabled={finLoading || finSaving}
                 >
-                  Odśwież
+                  {t("common.refresh")}
                 </button>
               </div>
 
@@ -1614,10 +1671,10 @@ export default function WorkOrdersSection({ propertyId }) {
                     <div className="flex items-center justify-between gap-3">
                       <div className="text-sm font-semibold text-slate-900">{t("workOrders.quote")}</div>
                       <div className="text-xs text-slate-500">
-                        Status: <span className="font-medium">{financials.quote_status}</span>
-                        {financials.quote_submitted_at ? ` • wysłano: ${formatDateTime(financials.quote_submitted_at)}` : ""}
-                        {financials.approved_at ? ` • zatw.: ${formatDateTime(financials.approved_at)}` : ""}
-                        {financials.rejected_at ? ` • odrz.: ${formatDateTime(financials.rejected_at)}` : ""}
+                        {t("common.status")}: <span className="font-medium">{translateQuoteStatus(financials.quote_status, t)}</span>
+                        {financials.quote_submitted_at ? ` • ${t("workOrders.submittedAt")}: ${formatDateTime(financials.quote_submitted_at)}` : ""}
+                        {financials.approved_at ? ` • ${t("workOrders.approvedAt")}: ${formatDateTime(financials.approved_at)}` : ""}
+                        {financials.rejected_at ? ` • ${t("workOrders.rejectedAt")}: ${formatDateTime(financials.rejected_at)}` : ""}
                       </div>
                     </div>
 
@@ -1666,9 +1723,9 @@ export default function WorkOrdersSection({ propertyId }) {
                       />
                     </div>
 
-                    {financials.quote_status === "rejected" && financials.rejection_reason && (
+                    {normalizeQuoteStatus(financials.quote_status) === "rejected" && financials.rejection_reason && (
                       <div className="mt-3 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-3">
-                        Odrzucono: {financials.rejection_reason}
+                        {t("workOrders.rejected")}: {financials.rejection_reason}
                       </div>
                     )}
 
@@ -1682,10 +1739,10 @@ export default function WorkOrdersSection({ propertyId }) {
                           finSaving || !isContractor ? "bg-slate-400 cursor-not-allowed" : "bg-blue-600"
                         }`}
                       >
-                        {finSaving ? "Zapisywanie…" : "Zapisz draft"}
+                        {finSaving ? t("common.saving") : t("workOrders.saveDraft")}
                       </button>
 
-                      {financials.quote_status === "draft" && (
+                      {normalizeQuoteStatus(financials.quote_status) === "draft" && (
                         <button
                           type="button"
                           onClick={() => finSubmit(selectedWO.id)}
@@ -1695,11 +1752,11 @@ export default function WorkOrdersSection({ propertyId }) {
                             finSaving || !isContractor ? "bg-slate-400 cursor-not-allowed" : "bg-slate-900"
                           }`}
                         >
-                          Wyślij wycenę
+                          {t("workOrders.submitQuote")}
                         </button>
                       )}
 
-                      {financials.quote_status === "submitted" && (
+                      {normalizeQuoteStatus(financials.quote_status) === "submitted" && (
                         <>
                           <button
                             type="button"
@@ -1707,7 +1764,7 @@ export default function WorkOrdersSection({ propertyId }) {
                             disabled={finSaving}
                             className={`px-3 py-2 text-sm rounded-lg text-white ${finSaving ? "bg-slate-400" : "bg-emerald-600"}`}
                           >
-                            Zatwierdź
+                            {t("workOrders.approve")}
                           </button>
 
                           <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
@@ -1724,7 +1781,7 @@ export default function WorkOrdersSection({ propertyId }) {
                               disabled={finSaving}
                               className={`px-3 py-2 text-sm rounded-lg text-white ${finSaving ? "bg-slate-400" : "bg-rose-600"}`}
                             >
-                              Odrzuć
+                              {t("workOrders.reject")}
                             </button>
                           </div>
                         </>
@@ -1827,7 +1884,7 @@ export default function WorkOrdersSection({ propertyId }) {
                   <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 mt-2">
                     {t("ratings.unavailable")}
                   </p>
-                ) : String(selectedWO.status || "").toLowerCase() !== "completed" ? (
+                ) : normalizeWorkOrderStatus(selectedWO.status) !== "completed" ? (
                   <p className="text-sm text-slate-500 mt-2">{t("ratings.afterCompletionOnly")}</p>
                 ) : ratingLoading ? (
                   <div className="mt-2">
@@ -1953,7 +2010,7 @@ export default function WorkOrdersSection({ propertyId }) {
                                 onClick={() => handleDownloadAttachment(a)}
                                 className="text-sm text-blue-600 hover:underline"
                               >
-                                Otwórz / Pobierz
+                                {t("workOrders.openDownload")}
                               </button>
 
                               {canManage && (
@@ -1962,7 +2019,7 @@ export default function WorkOrdersSection({ propertyId }) {
                                   onClick={() => handleDeleteAttachment(a)}
                                   className="text-sm text-rose-600 hover:underline"
                                 >
-                                  Usuń
+                                  {t("attachments.delete")}
                                 </button>
                               )}
                             </div>

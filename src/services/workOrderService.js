@@ -1,5 +1,11 @@
 // src/services/workOrderService.js
 import { supabase } from "../lib/supabase";
+import {
+  assertMaxLength,
+  assertPhone,
+  assertRequiredText,
+  normalizeText,
+} from "../utils/validation";
 
 function friendlyError(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -135,8 +141,11 @@ export async function createWorkOrder({
 
   signal = undefined, // optional AbortSignal
 } = {}) {
-  if (!accountId) throw new Error("Brak accountId");
-  if (!propertyId) throw new Error("Brak propertyId");
+  assertRequiredText(accountId, "Missing accountId");
+  assertRequiredText(propertyId, "Missing propertyId");
+  assertPhone(contractorPhone, { required: false, message: "Invalid contractor phone number" });
+  assertMaxLength(contractorName, 200, "Contractor name is too long");
+  assertMaxLength(notes, 5000, "Notes are too long");
 
   const { data: workOrderId, error: rpcError } = await supabase.rpc(
     "work_order_create",
@@ -145,10 +154,10 @@ export async function createWorkOrder({
       p_property_id: propertyId,
       p_maintenance_request_id: maintenanceRequestId,
       p_contractor_id: contractorId,
-      p_contractor_name: contractorName,
-      p_contractor_phone: contractorPhone,
+      p_contractor_name: normalizeText(contractorName) || null,
+      p_contractor_phone: normalizeText(contractorPhone) || null,
       p_scheduled_at: toIsoOrNull(scheduledAt),
-      p_notes: notes,
+      p_notes: normalizeText(notes) || null,
     },
     signal ? { signal } : undefined
   );
@@ -209,6 +218,21 @@ export async function updateWorkOrder(id, patch = {}, { signal } = {}) {
 
   // Normalize scheduled_at if passed as a datetime-local string/Date
   const nextPatch = { ...patch };
+  if ("contractor_phone" in nextPatch) {
+    assertPhone(nextPatch.contractor_phone, {
+      required: false,
+      message: "Invalid contractor phone number",
+    });
+    nextPatch.contractor_phone = normalizeText(nextPatch.contractor_phone) || null;
+  }
+  if ("contractor_name" in nextPatch) {
+    assertMaxLength(nextPatch.contractor_name, 200, "Contractor name is too long");
+    nextPatch.contractor_name = normalizeText(nextPatch.contractor_name) || null;
+  }
+  if ("notes" in nextPatch) {
+    assertMaxLength(nextPatch.notes, 5000, "Notes are too long");
+    nextPatch.notes = normalizeText(nextPatch.notes) || null;
+  }
   if ("scheduled_at" in nextPatch) {
     nextPatch.scheduled_at = toIsoOrNull(nextPatch.scheduled_at);
   }

@@ -2,20 +2,32 @@ import { Link } from "react-router-dom";
 import { useI18n } from "../../context/I18nContext";
 
 function workOrderStatusLabel(status, t) {
-  const s = String(status ?? "").toLowerCase();
-  if (s === "assigned") return t("status.wo.assigned");
-  if (s === "in_progress") return t("status.wo.in_progress");
-  if (s === "completed") return t("status.wo.completed");
-  if (s === "cancelled") return t("status.wo.cancelled");
+  const s = String(status ?? "").trim().toLowerCase();
+  const normalized =
+    ["przypisane"].includes(s) ? "assigned" :
+    ["w trakcie", "in progress"].includes(s) ? "in_progress" :
+    ["zakończone", "zakonczone"].includes(s) ? "completed" :
+    ["anulowane"].includes(s) ? "cancelled" :
+    s;
+  if (normalized === "assigned") return t("status.wo.assigned");
+  if (normalized === "in_progress") return t("status.wo.in_progress");
+  if (normalized === "completed") return t("status.wo.completed");
+  if (normalized === "cancelled") return t("status.wo.cancelled");
   return status || "—";
 }
 
 function workOrderStatusTone(status) {
-  const s = String(status ?? "").toLowerCase();
-  if (s === "completed") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (s === "cancelled") return "border-slate-300 bg-slate-100 text-slate-600";
-  if (s === "in_progress") return "border-blue-200 bg-blue-50 text-blue-700";
-  if (s === "assigned") return "border-amber-200 bg-amber-50 text-amber-700";
+  const s = String(status ?? "").trim().toLowerCase();
+  const normalized =
+    ["przypisane"].includes(s) ? "assigned" :
+    ["w trakcie", "in progress"].includes(s) ? "in_progress" :
+    ["zakończone", "zakonczone"].includes(s) ? "completed" :
+    ["anulowane"].includes(s) ? "cancelled" :
+    s;
+  if (normalized === "completed") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (normalized === "cancelled") return "border-slate-300 bg-slate-100 text-slate-600";
+  if (normalized === "in_progress") return "border-blue-200 bg-blue-50 text-blue-700";
+  if (normalized === "assigned") return "border-amber-200 bg-amber-50 text-amber-700";
   return "border-slate-200 bg-slate-50 text-slate-700";
 }
 

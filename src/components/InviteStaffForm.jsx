@@ -3,6 +3,7 @@ import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
+import { assertEmail, assertRequiredText } from "../utils/validation";
 
 export default function InviteStaffForm() {
   const { activeAccountId } = useAccount();
@@ -13,23 +14,30 @@ export default function InviteStaffForm() {
   async function handleInvite(e) {
     e.preventDefault();
     setLoading(true);
+    try {
+      assertRequiredText(activeAccountId, "Missing accountId");
+      const cleanEmail = assertEmail(email, "Valid email required");
 
-    const { error } = await supabase
-      .from("account_invitations")
-      .insert({
-        account_id: activeAccountId,
-        email: email.toLowerCase().trim(),
-        role: "staff",
-        token: crypto.randomUUID(),
-      });
+      const { error } = await supabase
+        .from("account_invitations")
+        .insert({
+          account_id: activeAccountId,
+          email: cleanEmail,
+          role: "staff",
+          token: crypto.randomUUID(),
+        });
 
-    setLoading(false);
+      setLoading(false);
 
-    if (error) {
-      alert(error.message);
-    } else {
-      alert(t("inviteStaff.sent"));
-      setEmail("");
+      if (error) {
+        alert(error.message);
+      } else {
+        alert(t("inviteStaff.sent"));
+        setEmail("");
+      }
+    } catch (err) {
+      setLoading(false);
+      alert(err?.message || t("common.error"));
     }
   }
 
