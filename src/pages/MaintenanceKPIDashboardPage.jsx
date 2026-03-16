@@ -7,11 +7,14 @@ import { usePageTitle } from "../layout/PageTitleContext";
 import { useI18n } from "../context/I18nContext";
 import {
   getMaintenanceAttention,
+  getMaintenanceFinancialAnalytics,
   getMaintenanceKpiSnapshot,
   getMaintenanceRecentActivity,
   mapMaintenanceAttentionItems,
+  upsertMaintenanceBudget,
 } from "../services/maintenanceDashboardService";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
+import { formatCurrencyAmount } from "../utils/currency";
 
 function fmtDate(ts) {
   if (!ts) return "—";
@@ -239,6 +242,42 @@ function AgingBars({ title, subtitle = "", rows = [], toByKey = {} }) {
   );
 }
 
+function SpendBars({ title, rows = [], emptyText = "", valueFormatter = (v) => v, linkBuilder }) {
+  const max = Math.max(1, ...rows.map((row) => Number(row.amount || 0)));
+  return (
+    <Card className="p-4 border shadow-sm">
+      <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+      {rows.length === 0 ? (
+        <p className="text-sm text-slate-500 mt-3">{emptyText}</p>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {rows.map((row) => {
+            const to = typeof linkBuilder === "function" ? linkBuilder(row) : "";
+            const widthPct = Math.max(3, Math.round((Number(row.amount || 0) / max) * 100));
+            const content = (
+              <div className={`rounded-lg border border-slate-200 bg-white p-2 ${to ? "hover:bg-slate-50" : ""}`}>
+                <div className="flex items-center justify-between text-xs mb-1 gap-3">
+                  <span className="text-slate-700 truncate">{row.label || "—"}</span>
+                  <span className="font-semibold text-slate-900 whitespace-nowrap">{valueFormatter(row.amount || 0)}</span>
+                </div>
+                <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                  <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500" style={{ width: `${widthPct}%` }} />
+                </div>
+              </div>
+            );
+            if (!to) return <div key={row.label}>{content}</div>;
+            return (
+              <Link key={row.label} to={to} className="block">
+                {content}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export default function MaintenanceKPIDashboardPage() {
   const { setTitle } = usePageTitle();
   const { activeAccountId, activeRole } = useAccount();
@@ -252,6 +291,10 @@ export default function MaintenanceKPIDashboardPage() {
   const [feed, setFeed] = useState([]);
   const [snapshot, setSnapshot] = useState(null);
   const [attentionRows, setAttentionRows] = useState([]);
+  const [financialAnalytics, setFinancialAnalytics] = useState(null);
+  const [budgetAmount, setBudgetAmount] = useState("");
+  const [budgetSaving, setBudgetSaving] = useState(false);
+  const [budgetError, setBudgetError] = useState("");
 
   useEffect(() => {
     setTitle(t("maintenance.kpi.pageTitle"));
@@ -263,20 +306,23 @@ export default function MaintenanceKPIDashboardPage() {
     setLoading(true);
     setError("");
     try {
-      const [stats, attention, recentActivity] = await Promise.all([
+      const [stats, attention, recentActivity, spendAnalytics] = await Promise.all([
         getMaintenanceKpiSnapshot(activeAccountId),
         getMaintenanceAttention(activeAccountId),
         getMaintenanceRecentActivity(activeAccountId, t, 10),
+        getMaintenanceFinancialAnalytics(activeAccountId),
       ]);
 
       setSnapshot(stats || null);
       setAttentionRows(attention || []);
       setFeed(recentActivity || []);
+      setFinancialAnalytics(spendAnalytics || null);
     } catch (e) {
       setError(e?.message || t("maintenance.kpi.error"));
       setFeed([]);
       setSnapshot(null);
       setAttentionRows([]);
+      setFinancialAnalytics(null);
     } finally {
       setLoading(false);
     }
@@ -293,6 +339,9 @@ export default function MaintenanceKPIDashboardPage() {
     subscriptions: [
       { channel: `maintenance-kpi-requests:${activeAccountId}`, table: "maintenance_requests", filter: `account_id=eq.${activeAccountId}` },
       { channel: `maintenance-kpi-work-orders:${activeAccountId}`, table: "work_orders", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `maintenance-kpi-financials:${activeAccountId}`, table: "work_order_financials" },
+      { channel: `maintenance-kpi-expenses:${activeAccountId}`, table: "maintenance_expenses", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `maintenance-kpi-budgets:${activeAccountId}`, table: "maintenance_budgets", filter: `account_id=eq.${activeAccountId}` },
       { channel: `maintenance-kpi-activity:${activeAccountId}`, table: "activity_log", filter: `account_id=eq.${activeAccountId}` },
       { channel: `maintenance-kpi-audit:${activeAccountId}`, table: "work_order_audit_log" },
     ],
@@ -388,6 +437,56 @@ export default function MaintenanceKPIDashboardPage() {
       },
     ];
   }, [snapshotView, t]);
+
+  const spendView = financialAnalytics ?? {
+    totalSpend: 0,
+    totalQuoted: 0,
+    avgCostPerWorkOrder: 0,
+    topProperties: [],
+    topContractors: [],
+    expensiveRepairs: [],
+    monthlySpend: [],
+    categorySpend: [],
+    currentMonthActual: 0,
+    currentMonthBudget: 0,
+    currentMonthVariance: 0,
+  };
+
+  const spendTrendMax = useMemo(
+    () => Math.max(1, ...(spendView.monthlySpend || []).map((row) => Number(row.amount || 0))),
+    [spendView],
+  );
+
+  const budgetMonth = useMemo(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  }, []);
+
+  useEffect(() => {
+    if (budgetSaving) return;
+    const nextValue = Number(spendView.currentMonthBudget || 0);
+    setBudgetAmount(nextValue > 0 ? String(nextValue) : "");
+  }, [spendView.currentMonthBudget, budgetSaving]);
+
+  async function handleBudgetSave(event) {
+    event.preventDefault();
+    if (!activeAccountId) return;
+
+    setBudgetSaving(true);
+    setBudgetError("");
+    try {
+      await upsertMaintenanceBudget({
+        accountId: activeAccountId,
+        budgetAmount,
+        periodMonth: budgetMonth,
+      });
+      await loadAll();
+    } catch (e) {
+      setBudgetError(e?.message || t("maintenance.kpi.financial.budgetSaveError"));
+    } finally {
+      setBudgetSaving(false);
+    }
+  }
 
   if (!canManage) {
     return (
@@ -489,6 +588,161 @@ export default function MaintenanceKPIDashboardPage() {
                 b48_72: "/maintenance-inbox?age=48_72",
                 b72_plus: "/maintenance-inbox?age=72_plus",
               }}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+            <Card className="p-4">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">{t("maintenance.kpi.financial.title")}</h3>
+                  <p className="text-xs text-slate-500 mt-1">{t("maintenance.kpi.financial.subtitle")}</p>
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("maintenance.kpi.financial.totalSpend")}</p>
+                  <p className="text-xl font-semibold text-slate-900 mt-1">{formatCurrencyAmount(spendView.totalSpend)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("maintenance.kpi.financial.totalQuoted")}</p>
+                  <p className="text-xl font-semibold text-slate-900 mt-1">{formatCurrencyAmount(spendView.totalQuoted)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("maintenance.kpi.financial.avgPerWorkOrder")}</p>
+                  <p className="text-xl font-semibold text-slate-900 mt-1">{formatCurrencyAmount(spendView.avgCostPerWorkOrder)}</p>
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("maintenance.kpi.financial.currentMonthBudget")}</p>
+                  <p className="text-xl font-semibold text-slate-900 mt-1">{formatCurrencyAmount(spendView.currentMonthBudget)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("maintenance.kpi.financial.currentMonthActual")}</p>
+                  <p className="text-xl font-semibold text-slate-900 mt-1">{formatCurrencyAmount(spendView.currentMonthActual)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("maintenance.kpi.financial.currentMonthVariance")}</p>
+                  <p className={`text-xl font-semibold mt-1 ${spendView.currentMonthVariance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                    {formatCurrencyAmount(spendView.currentMonthVariance)}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {spendView.currentMonthBudget > 0
+                      ? spendView.currentMonthVariance > 0
+                        ? t("maintenance.kpi.financial.overBudget")
+                        : t("maintenance.kpi.financial.underBudget")
+                      : t("maintenance.kpi.financial.noBudget")}
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleBudgetSave} className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
+                <div className="flex flex-col md:flex-row md:items-end gap-3">
+                  <label className="flex-1">
+                    <span className="block text-xs text-slate-500 mb-1">{t("maintenance.kpi.financial.budgetFormLabel")}</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={budgetAmount}
+                      onChange={(event) => setBudgetAmount(event.target.value)}
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                      placeholder="0.00"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={budgetSaving}
+                    className="px-3 py-2 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    {budgetSaving ? t("common.saving") : t("maintenance.kpi.financial.budgetSave")}
+                  </button>
+                </div>
+                {budgetError ? <p className="text-xs text-rose-600 mt-2">{budgetError}</p> : null}
+              </form>
+
+              <div className="mt-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h4 className="text-sm font-medium text-slate-900">{t("maintenance.kpi.financial.monthlyTrend")}</h4>
+                  <span className="text-xs text-slate-500">{t("maintenance.kpi.financial.lastMonths")}</span>
+                </div>
+                {(spendView.monthlySpend || []).length === 0 ? (
+                  <p className="text-sm text-slate-500 mt-3">{t("maintenance.kpi.financial.noSpend")}</p>
+                ) : (
+                  <div className="mt-3 grid grid-cols-6 gap-2 items-end">
+                    {(spendView.monthlySpend || []).map((row) => {
+                      const height = Math.max(12, Math.round((Number(row.amount || 0) / spendTrendMax) * 96));
+                      return (
+                        <div key={row.key} className="text-center">
+                          <div className="mx-auto flex h-28 w-full max-w-[56px] items-end justify-center rounded-lg bg-slate-100">
+                            <div
+                              className="w-8 rounded-t-md bg-gradient-to-t from-violet-500 to-fuchsia-500"
+                              style={{ height }}
+                            />
+                          </div>
+                          <p className="mt-2 text-xs text-slate-500">{row.label}</p>
+                          <p className="text-xs font-medium text-slate-900">{formatCurrencyAmount(row.amount, { maximumFractionDigits: 0 })}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <h3 className="text-sm font-semibold text-slate-900">{t("maintenance.kpi.financial.expensiveRepairs")}</h3>
+              {(spendView.expensiveRepairs || []).length === 0 ? (
+                <p className="text-sm text-slate-500 mt-3">{t("maintenance.kpi.financial.noRepairs")}</p>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {(spendView.expensiveRepairs || []).map((repair) => (
+                    <Link key={repair.id} to={repair.linkPath} className="block rounded-lg border border-slate-200 hover:bg-slate-50 px-3 py-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">{repair.title}</p>
+                          <p className="text-xs text-slate-600 mt-1">
+                            {repair.propertyLabel}
+                            {repair.contractorLabel ? ` • ${t("common.contractor")}: ${repair.contractorLabel}` : ""}
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold text-slate-900 whitespace-nowrap">
+                          {formatCurrencyAmount(repair.amount)}
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+            <SpendBars
+              title={t("maintenance.kpi.financial.byProperty")}
+              rows={spendView.topProperties}
+              emptyText={t("maintenance.kpi.financial.noSpend")}
+              valueFormatter={(value) => formatCurrencyAmount(value)}
+              linkBuilder={(row) => row.propertyId ? `/properties/${row.propertyId}` : ""}
+            />
+
+            <SpendBars
+              title={t("maintenance.kpi.financial.byContractor")}
+              rows={spendView.topContractors}
+              emptyText={t("maintenance.kpi.financial.noSpend")}
+              valueFormatter={(value) => formatCurrencyAmount(value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+            <SpendBars
+              title={t("maintenance.kpi.financial.byCategory")}
+              rows={spendView.categorySpend}
+              emptyText={t("maintenance.kpi.financial.noSpend")}
+              valueFormatter={(value) => formatCurrencyAmount(value)}
             />
           </div>
 

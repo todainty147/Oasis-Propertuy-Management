@@ -120,6 +120,367 @@ export async function getMaintenanceKpiSnapshot(accountId) {
   return Array.isArray(data) ? (data[0] ?? null) : (data ?? null);
 }
 
+function chooseSpendAmount(row) {
+  const invoice = Number(row?.invoice_amount || 0);
+  if (Number.isFinite(invoice) && invoice > 0) return invoice;
+  const quote = Number(row?.quote_amount || 0);
+  return Number.isFinite(quote) ? quote : 0;
+}
+
+function startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function monthKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function recentMonths(count = 6) {
+  const now = new Date();
+  const months = [];
+  for (let offset = count - 1; offset >= 0; offset -= 1) {
+    const d = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+    months.push({
+      key: monthKey(d),
+      date: d,
+    });
+  }
+  return months;
+}
+
+function startOfCurrentMonth() {
+  return startOfMonth(new Date());
+}
+
+function nextMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 1);
+}
+
+function normalizeCategoryLabel(category) {
+  const raw = String(category || "").trim();
+  if (!raw) return "Uncategorized";
+  return raw
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function emptyFinancialAnalytics() {
+  return {
+    totalSpend: 0,
+    totalQuoted: 0,
+    avgCostPerWorkOrder: 0,
+    topProperties: [],
+    topContractors: [],
+    expensiveRepairs: [],
+    monthlySpend: [],
+    categorySpend: [],
+    currentMonthActual: 0,
+    currentMonthBudget: 0,
+    currentMonthVariance: 0,
+  };
+}
+
+function buildLegacyFinancialAnalytics(rows = [], propertyMap = new Map()) {
+  let totalSpend = 0;
+  let totalQuoted = 0;
+  let countedWorkOrders = 0;
+  const propertySpend = new Map();
+  const contractorSpend = new Map();
+  const expensiveRepairs = [];
+  const monthDefs = recentMonths(6);
+  const monthSpend = new Map(monthDefs.map((month) => [month.key, 0]));
+
+  for (const row of rows) {
+    const quote = Number(row?.quote_amount || 0);
+    const spend = chooseSpendAmount(row);
+    const status = String(row?.status || "").toLowerCase();
+    const propertyLabel = propertyMap.get(row.property_id) || "—";
+    const contractorLabel = String(row?.contractor_name || "").trim() || "Unassigned";
+
+    totalSpend += spend;
+    totalQuoted += Number.isFinite(quote) ? quote : 0;
+    if (spend > 0) countedWorkOrders += 1;
+
+    const propertyKey = String(row.property_id || propertyLabel);
+    const currentProperty = propertySpend.get(propertyKey) || {
+      propertyId: row.property_id || null,
+      label: propertyLabel,
+      amount: 0,
+    };
+    currentProperty.amount += spend;
+    propertySpend.set(propertyKey, currentProperty);
+    contractorSpend.set(contractorLabel, (contractorSpend.get(contractorLabel) || 0) + spend);
+
+    const basisDate = new Date(row?.updated_at || row?.created_at || Date.now());
+    if (!Number.isNaN(basisDate.getTime())) {
+      const key = monthKey(startOfMonth(basisDate));
+      if (monthSpend.has(key)) {
+        monthSpend.set(key, (monthSpend.get(key) || 0) + spend);
+      }
+    }
+
+    expensiveRepairs.push({
+      id: row.id,
+      propertyId: row.property_id,
+      propertyLabel,
+      contractorLabel,
+      title: row?.maintenance_requests?.title || row.id,
+      amount: spend,
+      status,
+      linkPath: `/work-orders/${row.id}`,
+    });
+  }
+
+  return {
+    totalSpend,
+    totalQuoted,
+    avgCostPerWorkOrder: countedWorkOrders > 0 ? totalSpend / countedWorkOrders : 0,
+    topProperties: Array.from(propertySpend.values())
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5),
+    topContractors: Array.from(contractorSpend.entries())
+      .map(([label, amount]) => ({ label, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5),
+    expensiveRepairs: expensiveRepairs
+      .filter((row) => row.amount > 0)
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 6),
+    monthlySpend: monthDefs.map((month) => ({
+      key: month.key,
+      label: month.date.toLocaleDateString(undefined, { month: "short" }),
+      amount: monthSpend.get(month.key) || 0,
+    })),
+    categorySpend: [],
+    currentMonthActual: 0,
+    currentMonthBudget: 0,
+    currentMonthVariance: 0,
+  };
+}
+
+async function getPropertyMap(propertyIds = []) {
+  if (propertyIds.length === 0) return new Map();
+
+  const { data: propertyRows, error: propertyError } = await supabase
+    .from("properties")
+    .select("id, address")
+    .in("id", propertyIds);
+
+  if (propertyError && !isMissingBackendObject(propertyError)) throw propertyError;
+  return new Map((propertyRows || []).map((row) => [row.id, row.address || "—"]));
+}
+
+export async function getMaintenanceFinancialAnalytics(accountId) {
+  if (!accountId) return emptyFinancialAnalytics();
+
+  const monthStart = startOfCurrentMonth();
+  const monthEnd = nextMonth(monthStart);
+
+  const { data: workOrders, error } = await supabase
+    .from("work_orders_with_flags")
+    .select("id, property_id, contractor_name, status, quote_amount, invoice_amount, created_at, updated_at, maintenance_request_id, maintenance_requests:maintenance_request_id ( id, title )")
+    .eq("account_id", accountId)
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (error && isMissingBackendObject(error)) return emptyFinancialAnalytics();
+  if (error) throw error;
+
+  const rows = workOrders || [];
+  const propertyIds = Array.from(new Set(rows.map((row) => row.property_id).filter(Boolean)));
+  const propertyMap = await getPropertyMap(propertyIds);
+
+  const legacyAnalytics = buildLegacyFinancialAnalytics(rows, propertyMap);
+
+  const [{ data: expenseRows, error: expenseError }, { data: budgetRows, error: budgetError }] = await Promise.all([
+    supabase
+      .from("maintenance_expenses")
+      .select("id, property_id, work_order_id, vendor_id, vendor_name, category, approval_state, amount, expense_date")
+      .eq("account_id", accountId)
+      .order("expense_date", { ascending: false })
+      .limit(1000),
+    supabase
+      .from("maintenance_budgets")
+      .select("id, budget_amount, property_id, category, period_month")
+      .eq("account_id", accountId)
+      .gte("period_month", monthStart.toISOString().slice(0, 10))
+      .lt("period_month", monthEnd.toISOString().slice(0, 10)),
+  ]);
+
+  if (expenseError && isMissingBackendObject(expenseError)) return legacyAnalytics;
+  if (expenseError) throw expenseError;
+  if (budgetError && !isMissingBackendObject(budgetError)) throw budgetError;
+
+  const expenses = (expenseRows || []).filter(
+    (row) => String(row?.approval_state || "").toLowerCase() === "approved"
+  );
+
+  if (expenses.length === 0) {
+    const monthBudget = (budgetRows || [])
+      .filter((row) => !row.property_id && !row.category)
+      .reduce((sum, row) => sum + Number(row?.budget_amount || 0), 0);
+
+    return {
+      ...legacyAnalytics,
+      currentMonthBudget: monthBudget,
+      currentMonthActual: 0,
+      currentMonthVariance: 0 - monthBudget,
+    };
+  }
+
+  const workOrderMap = new Map(rows.map((row) => [row.id, row]));
+  const propertySpend = new Map();
+  const contractorSpend = new Map();
+  const categorySpend = new Map();
+  const expensiveRepairs = [];
+  const monthDefs = recentMonths(6);
+  const monthSpend = new Map(monthDefs.map((month) => [month.key, 0]));
+  const workOrderApprovedSpend = new Map();
+  let totalSpend = 0;
+
+  for (const row of expenses) {
+    const spend = Number(row?.amount || 0);
+    const linkedWorkOrder = workOrderMap.get(row.work_order_id) || null;
+    const propertyLabel = propertyMap.get(row.property_id) || "—";
+    const contractorLabel =
+      String(row?.vendor_name || linkedWorkOrder?.contractor_name || "").trim() || "Unassigned";
+    const categoryLabel = normalizeCategoryLabel(row?.category);
+
+    totalSpend += spend;
+
+    const propertyKey = String(row.property_id || propertyLabel);
+    const currentProperty = propertySpend.get(propertyKey) || {
+      propertyId: row.property_id || null,
+      label: propertyLabel,
+      amount: 0,
+    };
+    currentProperty.amount += spend;
+    propertySpend.set(propertyKey, currentProperty);
+    contractorSpend.set(contractorLabel, (contractorSpend.get(contractorLabel) || 0) + spend);
+    categorySpend.set(categoryLabel, (categorySpend.get(categoryLabel) || 0) + spend);
+
+    if (row.work_order_id) {
+      workOrderApprovedSpend.set(
+        row.work_order_id,
+        (workOrderApprovedSpend.get(row.work_order_id) || 0) + spend
+      );
+    }
+
+    const basisDate = new Date(row?.expense_date || Date.now());
+    if (!Number.isNaN(basisDate.getTime())) {
+      const key = monthKey(startOfMonth(basisDate));
+      if (monthSpend.has(key)) {
+        monthSpend.set(key, (monthSpend.get(key) || 0) + spend);
+      }
+    }
+  }
+
+  for (const [workOrderId, amount] of workOrderApprovedSpend.entries()) {
+    const row = workOrderMap.get(workOrderId);
+    if (!row || amount <= 0) continue;
+    expensiveRepairs.push({
+      id: row.id,
+      propertyId: row.property_id,
+      propertyLabel: propertyMap.get(row.property_id) || "—",
+      contractorLabel: String(row?.contractor_name || "").trim() || "Unassigned",
+      title: row?.maintenance_requests?.title || row.id,
+      amount,
+      status: String(row?.status || "").toLowerCase(),
+      linkPath: `/work-orders/${row.id}`,
+    });
+  }
+
+  const currentMonthActual = expenses.reduce((sum, row) => {
+    const d = new Date(row?.expense_date || "");
+    if (Number.isNaN(d.getTime())) return sum;
+    return d >= monthStart && d < monthEnd ? sum + Number(row?.amount || 0) : sum;
+  }, 0);
+
+  const currentMonthBudget = (budgetRows || [])
+    .filter((row) => !row.property_id && !row.category)
+    .reduce((sum, row) => sum + Number(row?.budget_amount || 0), 0);
+
+  return {
+    totalSpend,
+    totalQuoted: legacyAnalytics.totalQuoted,
+    avgCostPerWorkOrder:
+      workOrderApprovedSpend.size > 0 ? totalSpend / workOrderApprovedSpend.size : 0,
+    topProperties: Array.from(propertySpend.values())
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5),
+    topContractors: Array.from(contractorSpend.entries())
+      .map(([label, amount]) => ({ label, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5),
+    expensiveRepairs: expensiveRepairs
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 6),
+    monthlySpend: monthDefs.map((month) => ({
+      key: month.key,
+      label: month.date.toLocaleDateString(undefined, { month: "short" }),
+      amount: monthSpend.get(month.key) || 0,
+    })),
+    categorySpend: Array.from(categorySpend.entries())
+      .map(([label, amount]) => ({ label, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 6),
+    currentMonthActual,
+    currentMonthBudget,
+    currentMonthVariance: currentMonthActual - currentMonthBudget,
+  };
+}
+
+export async function upsertMaintenanceBudget({ accountId, budgetAmount, periodMonth, propertyId = null, category = null }) {
+  if (!accountId) throw new Error("Missing account");
+
+  const normalizedMonth = String(periodMonth || "").slice(0, 10);
+  const amount = Number(budgetAmount || 0);
+
+  if (!normalizedMonth) throw new Error("Missing period month");
+  if (!Number.isFinite(amount) || amount < 0) throw new Error("Invalid budget amount");
+
+  const payload = {
+    account_id: accountId,
+    property_id: propertyId,
+    category,
+    period_month: normalizedMonth,
+    budget_amount: amount,
+  };
+
+  const { data: existing, error: existingError } = await supabase
+    .from("maintenance_budgets")
+    .select("id")
+    .eq("account_id", accountId)
+    .eq("period_month", normalizedMonth)
+    .is("property_id", propertyId)
+    .is("category", category)
+    .maybeSingle();
+
+  if (existingError && isMissingBackendObject(existingError)) {
+    throw new Error("Maintenance budgets are not deployed yet.");
+  }
+  if (existingError) throw existingError;
+
+  if (existing?.id) {
+    const { error: updateError } = await supabase
+      .from("maintenance_budgets")
+      .update({ budget_amount: amount })
+      .eq("id", existing.id);
+    if (updateError) throw updateError;
+    return { id: existing.id, ...payload };
+  }
+
+  const { data, error } = await supabase
+    .from("maintenance_budgets")
+    .insert(payload)
+    .select("id")
+    .single();
+
+  if (error) throw error;
+  return { id: data?.id || null, ...payload };
+}
+
 export function mapMaintenanceAttentionItems(rows = [], t, limit = 12) {
   const severityByType = {
     stuck_waiting_over_48h: "high",
