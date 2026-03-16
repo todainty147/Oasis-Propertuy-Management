@@ -16,13 +16,6 @@
       "static/chunks/619-ba102abea3e3d0e4.js",
       "static/chunks/app/layout-eab97e345a76495d.js"
     ],
-    "/sitemap.xml/route": [
-      "static/chunks/webpack-c042ca735a68d6ec.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-ebd51be49873d76c.js",
-      "static/chunks/main-app-3498863d560cc85b.js",
-      "static/chunks/app/sitemap.xml/route-779b0e10f2bbfb6f.js"
-    ],
     "/robots.txt/route": [
       "static/chunks/webpack-c042ca735a68d6ec.js",
       "static/chunks/4bd1b696-c023c6e3521b1417.js",
@@ -30,37 +23,12 @@
       "static/chunks/main-app-3498863d560cc85b.js",
       "static/chunks/app/robots.txt/route-779b0e10f2bbfb6f.js"
     ],
-    "/compare/oasis-vs-buildium/page": [
+    "/sitemap.xml/route": [
       "static/chunks/webpack-c042ca735a68d6ec.js",
       "static/chunks/4bd1b696-c023c6e3521b1417.js",
       "static/chunks/255-ebd51be49873d76c.js",
       "static/chunks/main-app-3498863d560cc85b.js",
-      "static/chunks/619-ba102abea3e3d0e4.js",
-      "static/chunks/app/compare/oasis-vs-buildium/page-8b8a9e223580ea77.js"
-    ],
-    "/compare/oasis-vs-tenantcloud/page": [
-      "static/chunks/webpack-c042ca735a68d6ec.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-ebd51be49873d76c.js",
-      "static/chunks/main-app-3498863d560cc85b.js",
-      "static/chunks/619-ba102abea3e3d0e4.js",
-      "static/chunks/app/compare/oasis-vs-tenantcloud/page-8b8a9e223580ea77.js"
-    ],
-    "/compare/oasis-vs-landlordstudio/page": [
-      "static/chunks/webpack-c042ca735a68d6ec.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-ebd51be49873d76c.js",
-      "static/chunks/main-app-3498863d560cc85b.js",
-      "static/chunks/619-ba102abea3e3d0e4.js",
-      "static/chunks/app/compare/oasis-vs-landlordstudio/page-8b8a9e223580ea77.js"
-    ],
-    "/page": [
-      "static/chunks/webpack-c042ca735a68d6ec.js",
-      "static/chunks/4bd1b696-c023c6e3521b1417.js",
-      "static/chunks/255-ebd51be49873d76c.js",
-      "static/chunks/main-app-3498863d560cc85b.js",
-      "static/chunks/619-ba102abea3e3d0e4.js",
-      "static/chunks/app/page-8b8a9e223580ea77.js"
+      "static/chunks/app/sitemap.xml/route-779b0e10f2bbfb6f.js"
     ],
     "/blog/page": [
       "static/chunks/webpack-c042ca735a68d6ec.js",
@@ -70,13 +38,37 @@
       "static/chunks/619-ba102abea3e3d0e4.js",
       "static/chunks/app/blog/page-8b8a9e223580ea77.js"
     ],
-    "/features/maintenance-management/page": [
+    "/compare/oasis-vs-tenantcloud/page": [
       "static/chunks/webpack-c042ca735a68d6ec.js",
       "static/chunks/4bd1b696-c023c6e3521b1417.js",
       "static/chunks/255-ebd51be49873d76c.js",
       "static/chunks/main-app-3498863d560cc85b.js",
       "static/chunks/619-ba102abea3e3d0e4.js",
-      "static/chunks/app/features/maintenance-management/page-8b8a9e223580ea77.js"
+      "static/chunks/app/compare/oasis-vs-tenantcloud/page-8b8a9e223580ea77.js"
+    ],
+    "/compare/oasis-vs-buildium/page": [
+      "static/chunks/webpack-c042ca735a68d6ec.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-ebd51be49873d76c.js",
+      "static/chunks/main-app-3498863d560cc85b.js",
+      "static/chunks/619-ba102abea3e3d0e4.js",
+      "static/chunks/app/compare/oasis-vs-buildium/page-8b8a9e223580ea77.js"
+    ],
+    "/compare/oasis-vs-landlordstudio/page": [
+      "static/chunks/webpack-c042ca735a68d6ec.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-ebd51be49873d76c.js",
+      "static/chunks/main-app-3498863d560cc85b.js",
+      "static/chunks/619-ba102abea3e3d0e4.js",
+      "static/chunks/app/compare/oasis-vs-landlordstudio/page-8b8a9e223580ea77.js"
+    ],
+    "/features/rental-accounting/page": [
+      "static/chunks/webpack-c042ca735a68d6ec.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-ebd51be49873d76c.js",
+      "static/chunks/main-app-3498863d560cc85b.js",
+      "static/chunks/619-ba102abea3e3d0e4.js",
+      "static/chunks/app/features/rental-accounting/page-8b8a9e223580ea77.js"
     ],
     "/features/tenant-management/page": [
       "static/chunks/webpack-c042ca735a68d6ec.js",
@@ -86,13 +78,13 @@
       "static/chunks/619-ba102abea3e3d0e4.js",
       "static/chunks/app/features/tenant-management/page-8b8a9e223580ea77.js"
     ],
-    "/features/rental-accounting/page": [
+    "/features/maintenance-management/page": [
       "static/chunks/webpack-c042ca735a68d6ec.js",
       "static/chunks/4bd1b696-c023c6e3521b1417.js",
       "static/chunks/255-ebd51be49873d76c.js",
       "static/chunks/main-app-3498863d560cc85b.js",
       "static/chunks/619-ba102abea3e3d0e4.js",
-      "static/chunks/app/features/rental-accounting/page-8b8a9e223580ea77.js"
+      "static/chunks/app/features/maintenance-management/page-8b8a9e223580ea77.js"
     ],
     "/features/page": [
       "static/chunks/webpack-c042ca735a68d6ec.js",
@@ -109,6 +101,14 @@
       "static/chunks/main-app-3498863d560cc85b.js",
       "static/chunks/619-ba102abea3e3d0e4.js",
       "static/chunks/app/pricing/page-8b8a9e223580ea77.js"
+    ],
+    "/page": [
+      "static/chunks/webpack-c042ca735a68d6ec.js",
+      "static/chunks/4bd1b696-c023c6e3521b1417.js",
+      "static/chunks/255-ebd51be49873d76c.js",
+      "static/chunks/main-app-3498863d560cc85b.js",
+      "static/chunks/619-ba102abea3e3d0e4.js",
+      "static/chunks/app/page-8b8a9e223580ea77.js"
     ]
   }
 }
