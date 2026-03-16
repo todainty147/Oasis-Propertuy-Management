@@ -91,6 +91,8 @@ export default function ContractorJobDetails() {
   const [timelineRows, setTimelineRows] = useState([]);
   const [requestRow, setRequestRow] = useState(null);
   const [propertyLabel, setPropertyLabel] = useState("");
+  const [progressNote, setProgressNote] = useState("");
+  const [scheduleInput, setScheduleInput] = useState("");
   const attachmentsRef = useRef(null);
   const financialsRef = useRef(null);
   const timelineRef = useRef(null);
@@ -163,6 +165,16 @@ export default function ContractorJobDetails() {
     setInvoiceDueAt(toLocal(f?.invoice_due_at));
   }
 
+  function toLocal(ts) {
+    if (!ts) return "";
+    const d = new Date(ts);
+    if (Number.isNaN(d.getTime())) return "";
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+      d.getHours()
+    )}:${pad(d.getMinutes())}`;
+  }
+
   async function loadAll() {
     setLoading(true);
     try {
@@ -176,6 +188,8 @@ export default function ContractorJobDetails() {
 
       if (error) throw error;
       setRow(data ?? null);
+      setScheduleInput(toLocal(data?.scheduled_at));
+      setProgressNote("");
 
       // Financials: may not exist yet
       const { data: f, error: fe } = await supabase
@@ -392,6 +406,64 @@ export default function ContractorJobDetails() {
     }
   }
 
+  async function saveContractorUpdate({ acknowledge = false } = {}) {
+    if (!id || !row) return;
+
+    const trimmedNote = String(progressNote || "").trim();
+    const timestamp = formatDateTime(new Date().toISOString());
+    const noteParts = [];
+
+    if (acknowledge) {
+      noteParts.push(`[${timestamp}] ${t("contractor.acknowledgedNote")}`);
+    }
+
+    if (trimmedNote) {
+      noteParts.push(`[${timestamp}] ${trimmedNote}`);
+    }
+
+    if (!noteParts.length && scheduleInput === toLocal(row.scheduled_at)) {
+      alert(t("contractor.progressEmpty"));
+      return;
+    }
+
+    const mergedNotes = noteParts.length
+      ? [String(row.notes || "").trim(), ...noteParts].filter(Boolean).join("\n\n")
+      : row.notes || null;
+
+    setSaving(true);
+    try {
+      const { error } = await supabase.rpc("contractor_update_work_order", {
+        p_work_order_id: id,
+        p_status: null,
+        p_notes: mergedNotes,
+        p_scheduled_at: toIsoOrNullFromLocalInput(scheduleInput),
+      });
+      if (error) throw error;
+
+      await notifyManagers({
+        type: acknowledge ? "work_order_acknowledged" : "work_order_progress_updated",
+        title: acknowledge
+          ? t("contractor.acknowledgedTitle")
+          : t("contractor.progressSavedTitle"),
+        body: row?.contractor_name
+          ? `${t("common.contractor")}: ${row.contractor_name}`
+          : acknowledge
+            ? t("contractor.acknowledgedBody")
+            : t("contractor.progressSavedBody"),
+        metadata: {
+          acknowledged: acknowledge,
+          scheduled_at: toIsoOrNullFromLocalInput(scheduleInput),
+        },
+      });
+
+      await loadAll();
+    } catch (e) {
+      alert(e?.message ?? t("contractor.progressSaveError"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function loadTimeline() {
     if (!id) return;
     setTimelineLoading(true);
@@ -492,6 +564,18 @@ export default function ContractorJobDetails() {
               ) : null}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {String(row.status || "").toLowerCase() === "assigned" ? (
+                <button
+                  type="button"
+                  onClick={() => saveContractorUpdate({ acknowledge: true })}
+                  disabled={saving}
+                  className={`min-h-[44px] px-3 py-2 rounded-lg text-sm text-white ${
+                    saving ? "bg-slate-400" : "bg-slate-700"
+                  }`}
+                >
+                  {t("contractor.acknowledgeJob")}
+                </button>
+              ) : null}
               {allowedActions.includes("in_progress") ? (
                 <button
                   type="button"
@@ -568,6 +652,49 @@ export default function ContractorJobDetails() {
                 <span className="text-slate-900">{requestRow.description}</span>
               </div>
             ) : null}
+          </Card>
+
+          <Card className="p-4 space-y-4">
+            <div>
+              <h3 className="text-base font-semibold text-slate-900">{t("contractor.progressTitle")}</h3>
+              <p className="text-xs text-slate-500 mt-1">{t("contractor.progressSubtitle")}</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-slate-500">{t("contractor.nextVisit")}</label>
+                <input
+                  type="datetime-local"
+                  value={scheduleInput}
+                  onChange={(e) => setScheduleInput(e.target.value)}
+                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
+                  disabled={saving}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500">{t("maintenance.drawer.notes")}</label>
+                <textarea
+                  value={progressNote}
+                  onChange={(e) => setProgressNote(e.target.value)}
+                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm min-h-[110px] disabled:bg-slate-50"
+                  placeholder={t("contractor.progressPlaceholder")}
+                  disabled={saving}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => saveContractorUpdate({ acknowledge: false })}
+                disabled={saving}
+                className={`px-3 py-2 text-sm rounded-lg text-white ${
+                  saving ? "bg-slate-400" : "bg-blue-600"
+                }`}
+              >
+                {saving ? t("common.saving") : t("contractor.saveProgress")}
+              </button>
+            </div>
           </Card>
 
           <Card ref={financialsRef} className="p-4 space-y-4">

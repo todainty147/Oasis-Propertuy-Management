@@ -1,0 +1,9 @@
+User-Agent: *
+Allow: /
+Allow: /pricing
+Allow: /features
+Allow: /compare
+Disallow: /app
+
+Host: https://oasisrental.com
+Sitemap: https://oasisrental.com/sitemap.xml

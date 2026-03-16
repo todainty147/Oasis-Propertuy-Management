@@ -1,0 +1,15 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/sitemap.xml/route": "/sitemap.xml",
+  "/robots.txt/route": "/robots.txt",
+  "/compare/oasis-vs-buildium/page": "/compare/oasis-vs-buildium",
+  "/compare/oasis-vs-tenantcloud/page": "/compare/oasis-vs-tenantcloud",
+  "/compare/oasis-vs-landlordstudio/page": "/compare/oasis-vs-landlordstudio",
+  "/page": "/",
+  "/blog/page": "/blog",
+  "/features/maintenance-management/page": "/features/maintenance-management",
+  "/features/tenant-management/page": "/features/tenant-management",
+  "/features/rental-accounting/page": "/features/rental-accounting",
+  "/features/page": "/features",
+  "/pricing/page": "/pricing"
+}

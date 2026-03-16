@@ -18,6 +18,10 @@ import {
 } from "../services/reportingService";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount } from "../utils/currency";
+import {
+  getLeaseAttentionItems,
+  getLeaseSummary,
+} from "../services/leaseService";
 
 function pctDelta(current, previous) {
   const c = Number(current || 0);
@@ -153,6 +157,8 @@ export default function PortfolioHealthDashboardPage() {
   const [error, setError] = useState("");
   const [snapshot, setSnapshot] = useState(null);
   const [attentionItems, setAttentionItems] = useState([]);
+  const [leaseAttentionItems, setLeaseAttentionItems] = useState([]);
+  const [leaseSummary, setLeaseSummary] = useState(null);
   const [reporting, setReporting] = useState(null);
   const [reportSaving, setReportSaving] = useState(false);
   const [reportSending, setReportSending] = useState(false);
@@ -169,14 +175,18 @@ export default function PortfolioHealthDashboardPage() {
       setLoading(true);
       setError("");
       try {
-        const [snapshotRow, attention] = await Promise.all([
+        const [snapshotRow, attention, leaseAttention, leaseSummaryRow] = await Promise.all([
           getPortfolioHealthSnapshot(activeAccountId, activeTenantId || null),
           getPortfolioAttentionItems(activeAccountId, activeTenantId || null, 10),
+          getLeaseAttentionItems(activeAccountId, 6),
+          getLeaseSummary(activeAccountId),
         ]);
         if (dead) return;
 
         setSnapshot(snapshotRow);
         setAttentionItems(Array.isArray(attention) ? attention : []);
+        setLeaseAttentionItems(Array.isArray(leaseAttention) ? leaseAttention : []);
+        setLeaseSummary(leaseSummaryRow || null);
       } catch (e) {
         if (!dead) setError(e?.message || t("portfolio.error"));
       } finally {
@@ -196,6 +206,7 @@ export default function PortfolioHealthDashboardPage() {
       { channel: `portfolio-properties:${activeAccountId}`, table: "properties", filter: `account_id=eq.${activeAccountId}` },
       { channel: `portfolio-tenants:${activeAccountId}`, table: "tenants", filter: `account_id=eq.${activeAccountId}` },
       { channel: `portfolio-payments:${activeAccountId}`, table: "payments", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `portfolio-leases:${activeAccountId}`, table: "leases", filter: `account_id=eq.${activeAccountId}` },
       { channel: `portfolio-requests:${activeAccountId}`, table: "maintenance_requests", filter: `account_id=eq.${activeAccountId}` },
       { channel: `portfolio-work-orders:${activeAccountId}`, table: "work_orders", filter: `account_id=eq.${activeAccountId}` },
       { channel: `portfolio-reporting:${activeAccountId}`, table: "account_report_settings", filter: `account_id=eq.${activeAccountId}` },
@@ -203,17 +214,23 @@ export default function PortfolioHealthDashboardPage() {
     onChange: async () => {
       if (!activeAccountId || !canManage) return;
       try {
-        const [snapshotRow, attention, reportingRow] = await Promise.all([
+        const [snapshotRow, attention, leaseAttention, leaseSummaryRow, reportingRow] = await Promise.all([
           getPortfolioHealthSnapshot(activeAccountId, activeTenantId || null),
           getPortfolioAttentionItems(activeAccountId, activeTenantId || null, 10),
+          getLeaseAttentionItems(activeAccountId, 6),
+          getLeaseSummary(activeAccountId),
           getAccountReportSettings(activeAccountId),
         ]);
         setSnapshot(snapshotRow || null);
         setAttentionItems(Array.isArray(attention) ? attention : []);
+        setLeaseAttentionItems(Array.isArray(leaseAttention) ? leaseAttention : []);
+        setLeaseSummary(leaseSummaryRow || null);
         setReporting(reportingRow || null);
       } catch {
         setSnapshot(null);
         setAttentionItems([]);
+        setLeaseAttentionItems([]);
+        setLeaseSummary(null);
       }
     },
   });
@@ -338,8 +355,8 @@ export default function PortfolioHealthDashboardPage() {
   );
 
   const attentionView = useMemo(
-    () => mapPortfolioAttentionItems(attentionItems, t),
-    [attentionItems, t]
+    () => mapPortfolioAttentionItems([...(attentionItems || []), ...(leaseAttentionItems || [])], t),
+    [attentionItems, leaseAttentionItems, t]
   );
 
   const openTrend = useMemo(
@@ -350,6 +367,13 @@ export default function PortfolioHealthDashboardPage() {
   const outstandingDeltaPct = useMemo(() => {
     return pctDelta(snapshotView.outstanding_current_month, snapshotView.outstanding_previous_month);
   }, [snapshotView]);
+
+  const leaseSummaryView = leaseSummary ?? {
+    total: 0,
+    expiringSoonCount: 0,
+    expiredCount: 0,
+    renewalInProgressCount: 0,
+  };
 
   if (!canManage) {
     return (
@@ -392,7 +416,9 @@ export default function PortfolioHealthDashboardPage() {
           tone="amber"
         />
         <StatCard title={t("portfolio.kpi.dueSoon")} value={formatCurrencyAmount(snapshotView.due_soon_amount)} to="/finance?status=due&range=7d" tone="amber" />
+        <StatCard title={t("portfolio.kpi.leasesExpiring")} value={Number(leaseSummaryView.expiringSoonCount || 0)} to="/tenants" tone="amber" />
         <StatCard title={t("portfolio.kpi.activeWorkOrders")} value={Number(snapshotView.active_work_orders || 0)} to="/maintenance-inbox?status=in_progress" tone="blue" />
+        <StatCard title={t("portfolio.kpi.leasesExpired")} value={Number(leaseSummaryView.expiredCount || 0)} to="/tenants" tone="rose" />
         <StatCard title={t("portfolio.kpi.waitingOver48h")} value={Number(snapshotView.waiting_over_48h || 0)} to="/maintenance-inbox?status=waiting&aging=48h" tone="amber" />
         <StatCard title={t("portfolio.kpi.withoutContractor")} value={Number(snapshotView.work_orders_without_contractor || 0)} to="/maintenance-kpi?filter=no-contractor" tone="rose" />
       </div>

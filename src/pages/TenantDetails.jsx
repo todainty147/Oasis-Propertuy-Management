@@ -6,6 +6,7 @@ import Breadcrumbs from "../components/Breadcrumbs";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import TenantDocumentsSection from "../components/TenantDocumentsSection";
+import LeaseSummaryCard from "../components/LeaseSummaryCard";
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
 
@@ -42,8 +43,11 @@ export default function TenantDetails({
   const navigate = useNavigate();
 
   /* ---------- ACCOUNT ---------- */
-  const { accountLoading } = useAccount();
+  const { accountLoading, activeAccountId, activeRole } = useAccount();
   const { t } = useI18n();
+  const canManageLease = ["owner", "admin", "staff"].includes(
+    String(activeRole || "").toLowerCase(),
+  );
 
   /* ---------- PAGE TITLE ---------- */
   const { setTitle } = usePageTitle();
@@ -147,6 +151,13 @@ export default function TenantDetails({
           </Card>
         </div>
       </Card>
+
+      <LeaseSummaryCard
+        accountId={activeAccountId}
+        propertyId={tenant.propertyId || null}
+        tenantId={tenant.id}
+        canManage={canManageLease}
+      />
 
       {/* ---------- TENANT DOCUMENTS ---------- */}
       <TenantDocumentsSection tenantId={tenant.id} />

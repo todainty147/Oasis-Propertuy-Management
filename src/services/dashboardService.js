@@ -90,6 +90,7 @@ export function mapDashboardHubItems({
   attentionRows = [],
   dueSoonCount = 0,
   extras = [],
+  leaseItems = [],
   hubHorizon = "today",
   t,
 }) {
@@ -141,7 +142,43 @@ export function mapDashboardHubItems({
     };
   });
 
-  return [...extraItems, ...maintenanceItems]
+  const leaseHubItems = (leaseItems || []).map((item) => {
+    const type = String(item?.item_type || "").toLowerCase();
+    if (type === "lease_expired") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.leaseExpired"),
+        subtitle: `${item.tenant_label || "—"} • ${item.property_label || "—"}`,
+        meta: t("dashboard.hub.leaseExpiredMeta", {
+          count: Math.abs(Number(item.days_until_end || 0)),
+        }),
+        to: item.link_path || "/tenants",
+        sortOrder: Number(item.sort_order || 15),
+      };
+    }
+    if (type === "lease_renewal_in_progress") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.leaseRenewalInProgress"),
+        subtitle: `${item.tenant_label || "—"} • ${item.property_label || "—"}`,
+        meta: item.lease_end_date || "",
+        to: item.link_path || "/tenants",
+        sortOrder: Number(item.sort_order || 25),
+      };
+    }
+    return {
+      id: item.item_key,
+      title: t("dashboard.hub.leaseExpiringSoon"),
+      subtitle: `${item.tenant_label || "—"} • ${item.property_label || "—"}`,
+      meta: t("dashboard.hub.leaseExpiresIn", {
+        count: Number(item.days_until_end || 0),
+      }),
+      to: item.link_path || "/tenants",
+      sortOrder: Number(item.sort_order || 20),
+    };
+  });
+
+  return [...extraItems, ...leaseHubItems, ...maintenanceItems]
     .sort((a, b) => Number(a.sortOrder || 100) - Number(b.sortOrder || 100))
     .slice(0, 6);
 }

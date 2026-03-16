@@ -9,6 +9,10 @@ import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
 import { useI18n } from "../context/I18nContext";
 import { getMaintenanceAttention } from "../services/maintenanceDashboardService";
+import {
+  getLeaseAttentionItems,
+  getLeaseSummary,
+} from "../services/leaseService";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount } from "../utils/currency";
 import {
@@ -73,6 +77,8 @@ export default function Dashboard({
   const isTenant = useMemo(() => role === "tenant", [role]);
   const canManage = useMemo(() => ["owner", "admin", "staff"].includes(role), [role]);
   const [attentionRows, setAttentionRows] = useState([]);
+  const [leaseAttentionRows, setLeaseAttentionRows] = useState([]);
+  const [leaseSummary, setLeaseSummary] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
   const [hubExtras, setHubExtras] = useState([]);
   const hubHorizon = useMemo(() => {
@@ -100,6 +106,8 @@ export default function Dashboard({
     async function loadAttentionAndSnapshot() {
       if (!activeAccountId) {
         setAttentionRows([]);
+        setLeaseAttentionRows([]);
+        setLeaseSummary(null);
         setSnapshot(null);
         setHubExtras([]);
         return;
@@ -116,6 +124,8 @@ export default function Dashboard({
             tenantId: activeTenantId || null,
             horizonDays,
           }),
+          canManage && !isTenant ? getLeaseAttentionItems(activeAccountId, 6) : Promise.resolve([]),
+          canManage && !isTenant ? getLeaseSummary(activeAccountId) : Promise.resolve(null),
         ];
 
         if (canManage && !isTenant) {
@@ -124,15 +134,19 @@ export default function Dashboard({
           work.push(Promise.resolve([]));
         }
 
-        const [snapshotRow, extras, rows] = await Promise.all(work);
+        const [snapshotRow, extras, leaseRows, leaseSummaryRow, rows] = await Promise.all(work);
         if (!dead) {
           setSnapshot(snapshotRow || null);
           setHubExtras(Array.isArray(extras) ? extras : []);
+          setLeaseAttentionRows(Array.isArray(leaseRows) ? leaseRows : []);
+          setLeaseSummary(leaseSummaryRow || null);
           setAttentionRows(Array.isArray(rows) ? rows : []);
         }
       } catch {
         if (!dead) {
           setAttentionRows([]);
+          setLeaseAttentionRows([]);
+          setLeaseSummary(null);
           setSnapshot(null);
           setHubExtras([]);
         }
@@ -150,6 +164,7 @@ export default function Dashboard({
       { channel: `dashboard-properties:${activeAccountId}`, table: "properties", filter: `account_id=eq.${activeAccountId}` },
       { channel: `dashboard-tenants:${activeAccountId}`, table: "tenants", filter: `account_id=eq.${activeAccountId}` },
       { channel: `dashboard-payments:${activeAccountId}`, table: "payments", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `dashboard-leases:${activeAccountId}`, table: "leases", filter: `account_id=eq.${activeAccountId}` },
       { channel: `dashboard-requests:${activeAccountId}`, table: "maintenance_requests", filter: `account_id=eq.${activeAccountId}` },
       { channel: `dashboard-work-orders:${activeAccountId}`, table: "work_orders", filter: `account_id=eq.${activeAccountId}` },
     ],
@@ -165,16 +180,22 @@ export default function Dashboard({
           tenantId: activeTenantId || null,
           horizonDays,
         }),
+        canManage && !isTenant ? getLeaseAttentionItems(activeAccountId, 6) : Promise.resolve([]),
+        canManage && !isTenant ? getLeaseSummary(activeAccountId) : Promise.resolve(null),
         canManage && !isTenant ? getMaintenanceAttention(activeAccountId) : Promise.resolve([]),
       ])
-        .then(([snapshotRow, extras, rows]) => {
+        .then(([snapshotRow, extras, leaseRows, leaseSummaryRow, rows]) => {
           setSnapshot(snapshotRow || null);
           setHubExtras(Array.isArray(extras) ? extras : []);
+          setLeaseAttentionRows(Array.isArray(leaseRows) ? leaseRows : []);
+          setLeaseSummary(leaseSummaryRow || null);
           setAttentionRows(Array.isArray(rows) ? rows : []);
         })
         .catch(() => {
           setSnapshot(null);
           setHubExtras([]);
+          setLeaseAttentionRows([]);
+          setLeaseSummary(null);
           setAttentionRows([]);
         });
     },
@@ -207,10 +228,11 @@ export default function Dashboard({
         attentionRows,
         dueSoonCount,
         extras: hubExtras,
+        leaseItems: leaseAttentionRows,
         hubHorizon,
         t,
       }),
-    [attentionRows, dueSoonCount, hubExtras, hubHorizon, t]
+    [attentionRows, dueSoonCount, hubExtras, hubHorizon, leaseAttentionRows, t]
   );
 
   /* ---------- LOADING ---------- */
@@ -362,6 +384,13 @@ export default function Dashboard({
       ? t("dashboard.hub.trend.upPct", { value: Math.abs(overdueTrend.pct) })
       : t("dashboard.hub.trend.downPct", { value: Math.abs(overdueTrend.pct) });
   })();
+
+  const leaseSummaryView = leaseSummary ?? {
+    total: 0,
+    expiringSoonCount: 0,
+    expiredCount: 0,
+    renewalInProgressCount: 0,
+  };
 
   return (
     <div className="space-y-6">
@@ -523,6 +552,36 @@ export default function Dashboard({
               </div>
             );
           })()}
+        </div>
+      </Card>
+
+      <Card className="p-5 border shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">{t("dashboard.hub.leaseWatch")}</h3>
+            <p className="text-xs text-slate-500 mt-1">{t("dashboard.hub.leaseWatchHint")}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate("/tenants")}
+            className="text-xs text-blue-600 hover:text-blue-700"
+          >
+            {t("dashboard.hub.viewLeases")}
+          </button>
+        </div>
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="rounded-lg border border-amber-200 p-3 bg-amber-50/40">
+            <p className="text-xs text-slate-500">{t("dashboard.hub.leaseExpiringSoon")}</p>
+            <p className="text-xl font-semibold text-amber-700 mt-1">{Number(leaseSummaryView.expiringSoonCount || 0)}</p>
+          </div>
+          <div className="rounded-lg border border-rose-200 p-3 bg-rose-50/40">
+            <p className="text-xs text-slate-500">{t("dashboard.hub.leaseExpired")}</p>
+            <p className="text-xl font-semibold text-rose-700 mt-1">{Number(leaseSummaryView.expiredCount || 0)}</p>
+          </div>
+          <div className="rounded-lg border border-blue-200 p-3 bg-blue-50/40">
+            <p className="text-xs text-slate-500">{t("dashboard.hub.leaseRenewalInProgress")}</p>
+            <p className="text-xl font-semibold text-blue-700 mt-1">{Number(leaseSummaryView.renewalInProgressCount || 0)}</p>
+          </div>
         </div>
       </Card>
 

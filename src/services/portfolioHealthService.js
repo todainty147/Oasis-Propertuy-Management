@@ -99,6 +99,30 @@ export async function getPortfolioAttentionItems(accountId, tenantId = null, lim
 export function mapPortfolioAttentionItems(items = [], t) {
   return (items || []).map((item) => {
     const type = String(item?.item_type || "").toLowerCase();
+    if (type === "lease_expired") {
+      return {
+        key: item.item_key,
+        title: t("portfolio.attention.leaseExpired"),
+        subtitle: `${item.tenant_label || "—"} • ${item.property_label || "—"}`,
+        to: item.link_path || "/tenants",
+      };
+    }
+    if (type === "lease_expiring_soon") {
+      return {
+        key: item.item_key,
+        title: t("portfolio.attention.leaseExpiringSoon"),
+        subtitle: `${item.tenant_label || "—"} • ${item.property_label || "—"}`,
+        to: item.link_path || "/tenants",
+      };
+    }
+    if (type === "lease_renewal_in_progress") {
+      return {
+        key: item.item_key,
+        title: t("portfolio.attention.leaseRenewalInProgress"),
+        subtitle: `${item.tenant_label || "—"} • ${item.property_label || "—"}`,
+        to: item.link_path || "/tenants",
+      };
+    }
     if (type === "vacant") {
       return {
         key: item.item_key,

@@ -11,6 +11,8 @@ import MaintenanceRequestsSection from "../components/MaintenanceRequestsSection
 import WorkOrdersSection from "../components/WorkOrdersSection";
 import { useAccount } from "../context/AccountContext";
 import ActivityLogSection from "../components/ActivityLogSection";
+import PropertyMaintenanceCostsCard from "../components/PropertyMaintenanceCostsCard";
+import LeaseSummaryCard from "../components/LeaseSummaryCard";
 import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount } from "../utils/currency";
 
@@ -52,8 +54,11 @@ export default function PropertyDetails({
   const { id } = useParams();
   const navigate = useNavigate();
   const { setTitle } = usePageTitle();
-  const { accountLoading, activeAccountId } = useAccount();
+  const { accountLoading, activeAccountId, activeRole } = useAccount();
   const { t } = useI18n();
+  const canManageLease = ["owner", "admin", "staff"].includes(
+    String(activeRole || "").toLowerCase(),
+  );
 
   /* ---------- PROPERTY ---------- */
   const property = properties.find((p) => String(p.id) === String(id));
@@ -140,6 +145,22 @@ export default function PropertyDetails({
               {formatCurrencyAmount(finance.remaining)}
             </p>
           </Card>
+        </div>
+
+        <div className="pt-2">
+          <PropertyMaintenanceCostsCard
+            accountId={activeAccountId}
+            propertyId={property.id}
+          />
+        </div>
+
+        <div className="pt-2">
+          <LeaseSummaryCard
+            accountId={activeAccountId}
+            propertyId={property.id}
+            tenantId={propertyTenants[0]?.id || null}
+            canManage={canManageLease}
+          />
         </div>
 
         {/* ---------- DOCUMENTS ---------- */}
