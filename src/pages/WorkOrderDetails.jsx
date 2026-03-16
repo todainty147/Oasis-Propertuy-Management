@@ -8,6 +8,7 @@ import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
 import { getContractorRatingByWorkOrder, upsertContractorRating } from "../services/contractorRatingService";
+import { useRealtimeTables } from "../hooks/useRealtimeTables";
 
 /* -----------------------------
    Status label helper (Polish)
@@ -374,6 +375,28 @@ export default function WorkOrderDetails() {
       setRatingLoading(false);
     }
   }
+
+  async function refreshAll() {
+    await Promise.all([
+      loadWorkOrder(),
+      loadAudit(),
+      loadAllowedActions(),
+      loadContractors(),
+      loadRating(),
+    ]);
+  }
+
+  useRealtimeTables({
+    enabled: !!id,
+    subscriptions: [
+      { channel: `work-order-details:${id}`, table: "work_orders", filter: `id=eq.${id}` },
+      { channel: `work-order-details-fin:${id}`, table: "work_order_financials", filter: `work_order_id=eq.${id}` },
+      { channel: `work-order-details-audit:${id}`, table: "work_order_audit_log", filter: `work_order_id=eq.${id}` },
+      { channel: `work-order-details-requests:${id}`, table: "maintenance_requests" },
+      { channel: `work-order-details-contractors:${activeAccountId || "none"}`, table: "contractors", ...(activeAccountId ? { filter: `account_id=eq.${activeAccountId}` } : {}) },
+    ],
+    onChange: refreshAll,
+  });
 
   async function saveRating() {
     if (!canManage || !wo?.id) return;

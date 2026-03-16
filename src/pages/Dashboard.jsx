@@ -9,6 +9,7 @@ import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
 import { useI18n } from "../context/I18nContext";
 import { getMaintenanceAttention } from "../services/maintenanceDashboardService";
+import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import {
   getDashboardHubExtras,
   getDashboardSnapshot,
@@ -141,6 +142,42 @@ export default function Dashboard({
       dead = true;
     };
   }, [activeAccountId, activeTenantId, canManage, hubHorizon, isTenant]);
+
+  useRealtimeTables({
+    enabled: !!activeAccountId,
+    subscriptions: [
+      { channel: `dashboard-properties:${activeAccountId}`, table: "properties", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `dashboard-tenants:${activeAccountId}`, table: "tenants", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `dashboard-payments:${activeAccountId}`, table: "payments", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `dashboard-requests:${activeAccountId}`, table: "maintenance_requests", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `dashboard-work-orders:${activeAccountId}`, table: "work_orders", filter: `account_id=eq.${activeAccountId}` },
+    ],
+    onChange: () => {
+      if (!activeAccountId) return;
+      const horizonDays = hubHorizon === "week" ? 7 : 1;
+      Promise.all([
+        getDashboardSnapshot(activeAccountId, {
+          tenantId: activeTenantId || null,
+          horizonDays,
+        }),
+        getDashboardHubExtras(activeAccountId, {
+          tenantId: activeTenantId || null,
+          horizonDays,
+        }),
+        canManage && !isTenant ? getMaintenanceAttention(activeAccountId) : Promise.resolve([]),
+      ])
+        .then(([snapshotRow, extras, rows]) => {
+          setSnapshot(snapshotRow || null);
+          setHubExtras(Array.isArray(extras) ? extras : []);
+          setAttentionRows(Array.isArray(rows) ? rows : []);
+        })
+        .catch(() => {
+          setSnapshot(null);
+          setHubExtras([]);
+          setAttentionRows([]);
+        });
+    },
+  });
 
   const snapshotView = snapshot ?? {
     property_count: properties.length,

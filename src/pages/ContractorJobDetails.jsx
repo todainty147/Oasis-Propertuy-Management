@@ -8,6 +8,7 @@ import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
 import { createNotifications } from "../services/notificationService";
 import { useI18n } from "../context/I18nContext";
+import { useRealtimeTables } from "../hooks/useRealtimeTables";
 
 function formatDateTime(ts) {
   if (!ts) return "—";
@@ -275,16 +276,21 @@ export default function ContractorJobDetails() {
   }
 
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      if (!alive) return;
-      await loadAll();
-    })();
-    return () => {
-      alive = false;
-    };
+    if (!id) return;
+    loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useRealtimeTables({
+    enabled: !!id && isContractor,
+    subscriptions: [
+      { channel: `contractor-job-work-order:${id}`, table: "work_orders", filter: `id=eq.${id}` },
+      { channel: `contractor-job-financials:${id}`, table: "work_order_financials", filter: `work_order_id=eq.${id}` },
+      { channel: `contractor-job-requests:${id}`, table: "maintenance_requests" },
+      { channel: `contractor-job-properties:${id}`, table: "properties" },
+    ],
+    onChange: loadAll,
+  });
 
   async function saveQuoteDraft() {
     const amt = Number(quoteAmount);

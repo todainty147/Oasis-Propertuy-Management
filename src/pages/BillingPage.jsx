@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, CreditCard, ExternalLink } from "lucide-re
 
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
+import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import {
   canWriteForBilling,
   getBillingSubscription,
@@ -67,6 +68,27 @@ export default function BillingPage() {
       cancelled = true;
     };
   }, [activeAccountId, t]);
+
+  useRealtimeTables({
+    enabled: !!activeAccountId && canManageBilling,
+    subscriptions: [
+      {
+        channel: `billing-subscription:${activeAccountId}`,
+        table: "billing_subscriptions",
+        filter: `account_id=eq.${activeAccountId}`,
+      },
+    ],
+    onChange: async () => {
+      if (!activeAccountId) return;
+      try {
+        setError("");
+        const data = await getBillingSubscription(activeAccountId);
+        setSubscription(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t("billing.loadError"));
+      }
+    },
+  });
 
   async function handleCheckout(planKey) {
     try {

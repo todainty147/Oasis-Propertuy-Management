@@ -24,6 +24,7 @@ import { canUploadDocument, canDeleteDocument } from "../utils/permissions";
 // Optional fallback if you forget to pass props from App.jsx
 import { useProperties } from "../hooks/useProperties";
 import { useTenants } from "../hooks/useTenants";
+import { useRealtimeTables } from "../hooks/useRealtimeTables";
 
 /* ======================
    HELPERS
@@ -161,6 +162,18 @@ export default function Documents({
       loadDocuments();
     }
   }, [loadDocuments, authLoading, accountLoading, activeAccountId]);
+
+  useRealtimeTables({
+    enabled: !authLoading && !accountLoading && !!activeAccountId,
+    subscriptions: [
+      {
+        channel: `documents:${activeAccountId}`,
+        table: "documents",
+        filter: `account_id=eq.${activeAccountId}`,
+      },
+    ],
+    onChange: loadDocuments,
+  });
 
   /* ---------- UPDATE URL (preserve doc param if present) ---------- */
   function updateUrl(nextQuery, nextTags) {

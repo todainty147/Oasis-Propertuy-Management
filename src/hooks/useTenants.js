@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
+import { useRealtimeTables } from "./useRealtimeTables";
 
 export function useTenants({ enabled = true } = {}) {
   const { activeAccountId } = useAccount();
@@ -16,19 +17,18 @@ export function useTenants({ enabled = true } = {}) {
      LOAD TENANTS
      ====================== */
 
-  useEffect(() => {
+  async function loadTenants() {
     if (!enabled || !activeAccountId) {
       setLoading(false);
       return;
     }
 
-    async function loadTenants() {
-      setLoading(true);
-      setError(null);
+    setLoading(true);
+    setError(null);
 
-      const { data, error } = await supabase
-        .from("tenants")
-        .select(`
+    const { data, error } = await supabase
+      .from("tenants")
+      .select(`
           id,
           name,
           email,
@@ -36,34 +36,52 @@ export function useTenants({ enabled = true } = {}) {
           property_id,
           created_at
         `)
-        .eq("account_id", activeAccountId)
-        .order("created_at", { ascending: false });
+      .eq("account_id", activeAccountId)
+      .order("created_at", { ascending: false });
 
-      if (error) {
-        setError(error);
-        setTenants([]);
-      } else {
-        const mapped = data.map((t) => ({
-          id: t.id,
-          name: t.name,
-          email: t.email,
-          phone: t.phone,
-          propertyId: t.property_id,
-          createdAt: t.created_at,
-        }));
+    if (error) {
+      setError(error);
+      setTenants([]);
+    } else {
+      const mapped = data.map((t) => ({
+        id: t.id,
+        name: t.name,
+        email: t.email,
+        phone: t.phone,
+        propertyId: t.property_id,
+        createdAt: t.created_at,
+      }));
 
-        setTenants(
-          activeTenantId
-            ? mapped.filter((t) => t.id === activeTenantId)
-            : mapped
-        );
-      }
+      setTenants(
+        activeTenantId
+          ? mapped.filter((t) => t.id === activeTenantId)
+          : mapped
+      );
+    }
 
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    if (!enabled || !activeAccountId) {
       setLoading(false);
+      return;
     }
 
     loadTenants();
   }, [enabled, activeAccountId, activeTenantId]);
+
+  useRealtimeTables({
+    enabled: enabled && !!activeAccountId,
+    subscriptions: [
+      {
+        channel: `tenants:${activeAccountId}`,
+        table: "tenants",
+        filter: `account_id=eq.${activeAccountId}`,
+      },
+    ],
+    onChange: loadTenants,
+  });
 
   /* ======================
      CREATE TENANT ✅
@@ -90,9 +108,6 @@ export function useTenants({ enabled = true } = {}) {
     if (error) {
       throw error;
     }
-
-    // refresh list
-    setTenants((prev) => prev); // optimistic noop
   }
 
   return {

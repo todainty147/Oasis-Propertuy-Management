@@ -16,6 +16,7 @@ import {
   sendWeeklySummaryNow,
   upsertAccountReportSettings,
 } from "../services/reportingService";
+import { useRealtimeTables } from "../hooks/useRealtimeTables";
 
 function money(n) {
   const v = Number(n);
@@ -193,6 +194,34 @@ export default function PortfolioHealthDashboardPage() {
       dead = true;
     };
   }, [activeAccountId, activeTenantId, canManage, t]);
+
+  useRealtimeTables({
+    enabled: !!activeAccountId && canManage,
+    subscriptions: [
+      { channel: `portfolio-properties:${activeAccountId}`, table: "properties", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `portfolio-tenants:${activeAccountId}`, table: "tenants", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `portfolio-payments:${activeAccountId}`, table: "payments", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `portfolio-requests:${activeAccountId}`, table: "maintenance_requests", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `portfolio-work-orders:${activeAccountId}`, table: "work_orders", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `portfolio-reporting:${activeAccountId}`, table: "account_report_settings", filter: `account_id=eq.${activeAccountId}` },
+    ],
+    onChange: async () => {
+      if (!activeAccountId || !canManage) return;
+      try {
+        const [snapshotRow, attention, reportingRow] = await Promise.all([
+          getPortfolioHealthSnapshot(activeAccountId, activeTenantId || null),
+          getPortfolioAttentionItems(activeAccountId, activeTenantId || null, 10),
+          getAccountReportSettings(activeAccountId),
+        ]);
+        setSnapshot(snapshotRow || null);
+        setAttentionItems(Array.isArray(attention) ? attention : []);
+        setReporting(reportingRow || null);
+      } catch {
+        setSnapshot(null);
+        setAttentionItems([]);
+      }
+    },
+  });
 
   useEffect(() => {
     if (!activeAccountId || !canManage) return;

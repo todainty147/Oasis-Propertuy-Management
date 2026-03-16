@@ -6,6 +6,7 @@ import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
+import { useRealtimeTables } from "../hooks/useRealtimeTables";
 
 /* -----------------------------
    UI helpers
@@ -258,6 +259,16 @@ export default function ContractorPortal() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useRealtimeTables({
+    enabled: isContractor,
+    subscriptions: [
+      { channel: "contractor-portal-work-orders", table: "work_orders" },
+      { channel: "contractor-portal-requests", table: "maintenance_requests" },
+      { channel: "contractor-portal-financials", table: "work_order_financials" },
+    ],
+    onChange: load,
+  });
 
   async function updateWorkOrder(id, patch) {
     setSavingId(id);

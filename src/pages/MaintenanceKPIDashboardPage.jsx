@@ -11,6 +11,7 @@ import {
   getMaintenanceRecentActivity,
   mapMaintenanceAttentionItems,
 } from "../services/maintenanceDashboardService";
+import { useRealtimeTables } from "../hooks/useRealtimeTables";
 
 function fmtDate(ts) {
   if (!ts) return "—";
@@ -286,6 +287,17 @@ export default function MaintenanceKPIDashboardPage() {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAccountId, t]);
+
+  useRealtimeTables({
+    enabled: !!activeAccountId && canManage,
+    subscriptions: [
+      { channel: `maintenance-kpi-requests:${activeAccountId}`, table: "maintenance_requests", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `maintenance-kpi-work-orders:${activeAccountId}`, table: "work_orders", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `maintenance-kpi-activity:${activeAccountId}`, table: "activity_log", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `maintenance-kpi-audit:${activeAccountId}`, table: "work_order_audit_log" },
+    ],
+    onChange: loadAll,
+  });
 
   const snapshotView = snapshot ?? {
     open_requests: 0,
