@@ -36,6 +36,7 @@ const TenantPayments = lazy(() => import("./pages/TenantPayments"));
 const WorkOrderDetails = lazy(() => import("./pages/WorkOrderDetails"));
 const MaintenanceInboxPage = lazy(() => import("./pages/MaintenanceInboxPage"));
 const MaintenanceKPIDashboardPage = lazy(() => import("./pages/MaintenanceKPIDashboardPage"));
+const AttentionCenterPage = lazy(() => import("./pages/AttentionCenterPage"));
 const PortfolioHealthDashboardPage = lazy(() => import("./pages/PortfolioHealthDashboardPage"));
 const LandlordOnboardingPage = lazy(() => import("./pages/LandlordOnboardingPage"));
 const InvitationsPage = lazy(() => import("./pages/InvitationsPage"));
@@ -393,6 +394,7 @@ export default function App() {
         />
         <Route path="maintenance-inbox" element={<MaintenanceInboxPage />} />
         <Route path="maintenance-kpi" element={<MaintenanceKPIDashboardPage />} />
+        <Route path="attention-center" element={<AttentionCenterPage />} />
         <Route path="landlord-onboarding" element={<LandlordOnboardingPage />} />
         <Route path="invitations" element={<InvitationsPage />} />
         <Route path="settings/profile" element={<ProfilePage />} />
