@@ -17,12 +17,7 @@ import {
   upsertAccountReportSettings,
 } from "../services/reportingService";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
-
-function money(n) {
-  const v = Number(n);
-  if (!Number.isFinite(v)) return "0";
-  return v.toLocaleString();
-}
+import { formatCurrencyAmount } from "../utils/currency";
 
 function pctDelta(current, previous) {
   const c = Number(current || 0);
@@ -381,10 +376,10 @@ export default function PortfolioHealthDashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
         <StatCard title={t("portfolio.kpi.properties")} value={Number(snapshotView.property_count || 0)} to="/properties" tone="blue" />
         <StatCard title={t("portfolio.kpi.occupancyRate")} value={`${Number(snapshotView.occupancy_rate || 0)}%`} hint={`${Number(snapshotView.occupied_count || 0)}/${Number(snapshotView.property_count || 0)}`} to="/properties?status=occupied" tone="emerald" />
-        <StatCard title={t("portfolio.kpi.collected")} value={`${money(snapshotView.paid_amount)} PLN`} to="/finance" tone="violet" />
+        <StatCard title={t("portfolio.kpi.collected")} value={formatCurrencyAmount(snapshotView.paid_amount)} to="/finance" tone="violet" />
         <StatCard
           title={t("portfolio.kpi.outstanding")}
-          value={`${money(snapshotView.outstanding_amount)} PLN`}
+          value={formatCurrencyAmount(snapshotView.outstanding_amount)}
           hint={outstandingDeltaPct == null ? "" : t("portfolio.kpi.trendVsPrevMonth", { value: outstandingDeltaPct })}
           to="/finance?status=overdue,due"
           tone="rose"
@@ -396,7 +391,7 @@ export default function PortfolioHealthDashboardPage() {
           to="/maintenance-inbox?status=open,in_progress,waiting,resolved"
           tone="amber"
         />
-        <StatCard title={t("portfolio.kpi.dueSoon")} value={`${money(snapshotView.due_soon_amount)} PLN`} to="/finance?status=due&range=7d" tone="amber" />
+        <StatCard title={t("portfolio.kpi.dueSoon")} value={formatCurrencyAmount(snapshotView.due_soon_amount)} to="/finance?status=due&range=7d" tone="amber" />
         <StatCard title={t("portfolio.kpi.activeWorkOrders")} value={Number(snapshotView.active_work_orders || 0)} to="/maintenance-inbox?status=in_progress" tone="blue" />
         <StatCard title={t("portfolio.kpi.waitingOver48h")} value={Number(snapshotView.waiting_over_48h || 0)} to="/maintenance-inbox?status=waiting&aging=48h" tone="amber" />
         <StatCard title={t("portfolio.kpi.withoutContractor")} value={Number(snapshotView.work_orders_without_contractor || 0)} to="/maintenance-kpi?filter=no-contractor" tone="rose" />

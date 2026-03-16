@@ -6,6 +6,7 @@ import {
   assertRequiredText,
   normalizeText,
 } from "../utils/validation";
+import { getDefaultCurrency } from "../utils/currency";
 
 function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -45,7 +46,7 @@ export async function upsertQuoteDraft({
   const { data, error } = await supabase.rpc("wo_fin_upsert_quote_draft", {
     p_work_order_id: workOrderId,
     p_quote_amount: Number(quoteAmount),
-    p_quote_currency: normalizeText(quoteCurrency || "PLN"),
+    p_quote_currency: normalizeText(quoteCurrency || getDefaultCurrency()),
     p_quote_notes: normalizeText(quoteNotes) || null,
   });
 
@@ -81,7 +82,7 @@ export async function upsertInvoice({
   const { data, error } = await supabase.rpc("wo_fin_upsert_invoice", {
     p_work_order_id: workOrderId,
     p_invoice_amount: amount,
-    p_invoice_currency: normalizeText(invoiceCurrency || "PLN"),
+    p_invoice_currency: normalizeText(invoiceCurrency || getDefaultCurrency()),
     p_invoice_issued_at: invoiceIssuedAt ?? null,
     p_invoice_due_at: invoiceDueAt ?? null,
   });

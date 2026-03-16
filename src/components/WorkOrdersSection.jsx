@@ -24,6 +24,7 @@ import {
 } from "../services/workOrderFinancialsService";
 import { getContractorRatingByWorkOrder, upsertContractorRating } from "../services/contractorRatingService";
 import { useI18n } from "../context/I18nContext";
+import { formatCurrencyAmount, getCurrencyOptions, getDefaultCurrency } from "../utils/currency";
 /* -----------------------------
    UI helpers
 ----------------------------- */
@@ -48,10 +49,8 @@ function formatBytes(bytes) {
   return `${val.toFixed(val >= 10 || idx === 0 ? 0 : 1)} ${units[idx]}`;
 }
 
-function formatMoney(val, currency = "PLN") {
-  const n = Number(val);
-  if (!Number.isFinite(n)) return "—";
-  return `${n.toFixed(2)} ${currency || "PLN"}`;
+function formatMoney(val, currency = getDefaultCurrency()) {
+  return formatCurrencyAmount(val, { currency });
 }
 
 function normalizeWorkOrderStatus(status) {
@@ -458,12 +457,12 @@ export default function WorkOrdersSection({ propertyId }) {
 
   // editable fields (draft + invoice details)
   const [finQuoteAmount, setFinQuoteAmount] = useState("");
-  const [finQuoteCurrency, setFinQuoteCurrency] = useState("PLN");
+  const [finQuoteCurrency, setFinQuoteCurrency] = useState(getDefaultCurrency());
   const [finQuoteNotes, setFinQuoteNotes] = useState("");
   const [finRejectReason, setFinRejectReason] = useState("");
 
   const [finInvoiceAmount, setFinInvoiceAmount] = useState("");
-  const [finInvoiceCurrency, setFinInvoiceCurrency] = useState("PLN");
+  const [finInvoiceCurrency, setFinInvoiceCurrency] = useState(getDefaultCurrency());
   const [finInvoiceIssuedAt, setFinInvoiceIssuedAt] = useState("");
   const [finInvoiceDueAt, setFinInvoiceDueAt] = useState("");
   const [ratingLoading, setRatingLoading] = useState(false);
@@ -478,11 +477,11 @@ export default function WorkOrdersSection({ propertyId }) {
     const iAmt = row?.invoice_amount;
 
     setFinQuoteAmount(typeof qAmt === "number" || typeof qAmt === "string" ? String(qAmt) : "");
-    setFinQuoteCurrency(row?.quote_currency || "PLN");
+    setFinQuoteCurrency(row?.quote_currency || getDefaultCurrency());
     setFinQuoteNotes(row?.quote_notes || "");
 
     setFinInvoiceAmount(typeof iAmt === "number" || typeof iAmt === "string" ? String(iAmt) : "");
-    setFinInvoiceCurrency(row?.invoice_currency || "PLN");
+    setFinInvoiceCurrency(row?.invoice_currency || getDefaultCurrency());
 
     // datetime-local expects "YYYY-MM-DDTHH:mm"
     const toLocalInput = (ts) => {
@@ -533,7 +532,7 @@ export default function WorkOrdersSection({ propertyId }) {
       await upsertQuoteDraft({
         workOrderId,
         quoteAmount: n,
-        quoteCurrency: finQuoteCurrency || "PLN",
+        quoteCurrency: finQuoteCurrency || getDefaultCurrency(),
         quoteNotes: finQuoteNotes || null,
       });
 
@@ -609,7 +608,7 @@ export default function WorkOrdersSection({ propertyId }) {
       await upsertInvoice({
         workOrderId,
         invoiceAmount: amt,
-        invoiceCurrency: finInvoiceCurrency || "PLN",
+        invoiceCurrency: finInvoiceCurrency || getDefaultCurrency(),
         invoiceIssuedAt: toIsoOrNull(finInvoiceIssuedAt),
         invoiceDueAt: toIsoOrNull(finInvoiceDueAt),
       });
@@ -735,11 +734,11 @@ export default function WorkOrdersSection({ propertyId }) {
     // ✅ B3
     setFinancials(null);
     setFinQuoteAmount("");
-    setFinQuoteCurrency("PLN");
+    setFinQuoteCurrency(getDefaultCurrency());
     setFinQuoteNotes("");
     setFinRejectReason("");
     setFinInvoiceAmount("");
-    setFinInvoiceCurrency("PLN");
+    setFinInvoiceCurrency(getDefaultCurrency());
     setFinInvoiceIssuedAt("");
     setFinInvoiceDueAt("");
     setRatingUnavailable(false);
@@ -1697,7 +1696,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
                           disabled={finSaving}
                         >
-                          {["PLN", "GBP", "EUR", "USD"].map((c) => (
+                          {getCurrencyOptions().map((c) => (
                             <option key={c} value={c}>
                               {c}
                             </option>
@@ -1820,7 +1819,7 @@ export default function WorkOrdersSection({ propertyId }) {
                           className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
                           disabled={finSaving}
                         >
-                          {["PLN", "GBP", "EUR", "USD"].map((c) => (
+                          {getCurrencyOptions().map((c) => (
                             <option key={c} value={c}>
                               {c}
                             </option>

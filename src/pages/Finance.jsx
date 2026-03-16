@@ -6,6 +6,7 @@ import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { can } from "../utils/permissions";
 import { useI18n } from "../context/I18nContext";
+import { formatCurrencyAmount } from "../utils/currency";
 
 /* ======================
    SKELETONS
@@ -450,5 +451,5 @@ function StatusBadge({ status }) {
 }
 
 function formatCurrency(value = 0) {
-  return `${Number(value ?? 0).toLocaleString("pl-PL")} zł`;
+  return formatCurrencyAmount(value);
 }

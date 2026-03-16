@@ -4,6 +4,7 @@ import Skeleton from "../components/ui/Skeleton";
 import { useAccount } from "../context/AccountContext";
 import { fetchMyPayments } from "../services/paymentService";
 import { useI18n } from "../context/I18nContext";
+import { formatCurrencyAmount } from "../utils/currency";
 
 function statusBadge(status) {
   const base = "text-xs px-2 py-0.5 rounded border";
@@ -81,7 +82,7 @@ export default function TenantPayments() {
             <div key={p.id} className="px-6 py-4 flex items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="font-medium">{t("payments.amount")}: {Number(p.amount).toLocaleString()} </p>
+                  <p className="font-medium">{t("payments.amount")}: {formatCurrencyAmount(p.amount)} </p>
                   <span className={statusBadge(p.status)}>{p.status}</span>
                 </div>
                 <p className="text-sm text-slate-500">

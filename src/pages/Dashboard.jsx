@@ -10,6 +10,7 @@ import { useTenant } from "../context/TenantContext";
 import { useI18n } from "../context/I18nContext";
 import { getMaintenanceAttention } from "../services/maintenanceDashboardService";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
+import { formatCurrencyAmount } from "../utils/currency";
 import {
   getDashboardHubExtras,
   getDashboardSnapshot,
@@ -259,7 +260,7 @@ export default function Dashboard({
               <div>
                 <p className="text-sm font-medium text-slate-500">{t("finance.table.paid")}</p>
                 <h3 className="text-2xl font-bold text-slate-900 mt-1">
-                  {paidTotal.toLocaleString()} PLN
+                  {formatCurrencyAmount(paidTotal)}
                 </h3>
               </div>
               <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600">
@@ -277,7 +278,7 @@ export default function Dashboard({
               <div>
                 <p className="text-sm font-medium text-slate-500">{t("dashboard.toPay")}</p>
                 <h3 className="text-2xl font-bold text-slate-900 mt-1">
-                  {dueTotal.toLocaleString()} PLN
+                  {formatCurrencyAmount(dueTotal)}
                 </h3>
               </div>
               <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
@@ -294,7 +295,7 @@ export default function Dashboard({
               <div>
                 <p className="text-sm font-medium text-slate-500">{t("finance.summary.overdue")}</p>
                 <h3 className="text-2xl font-bold text-rose-600 mt-1">
-                  {overdueTotal.toLocaleString()} PLN
+                  {formatCurrencyAmount(overdueTotal)}
                 </h3>
               </div>
               <div className="p-2 bg-rose-100 rounded-lg text-rose-600">
@@ -354,8 +355,8 @@ export default function Dashboard({
     const up = overdueTrend.delta > 0;
     if (overdueTrend.pct == null) {
       return up
-        ? t("dashboard.hub.trend.upAmount", { value: Math.abs(overdueTrend.delta).toLocaleString() })
-        : t("dashboard.hub.trend.downAmount", { value: Math.abs(overdueTrend.delta).toLocaleString() });
+        ? t("dashboard.hub.trend.upAmount", { value: formatCurrencyAmount(Math.abs(overdueTrend.delta)) })
+        : t("dashboard.hub.trend.downAmount", { value: formatCurrencyAmount(Math.abs(overdueTrend.delta)) });
     }
     return up
       ? t("dashboard.hub.trend.upPct", { value: Math.abs(overdueTrend.pct) })
@@ -450,7 +451,7 @@ export default function Dashboard({
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium text-slate-500">{t("dashboard.hub.overdueAmount")}</p>
-              <h3 className="text-2xl font-bold text-rose-600 mt-1">{overdueAmountView.toLocaleString()} PLN</h3>
+              <h3 className="text-2xl font-bold text-rose-600 mt-1">{formatCurrencyAmount(overdueAmountView)}</h3>
             </div>
             <div className="p-2 bg-rose-100 rounded-lg text-rose-600">
               <Wallet size={20} />

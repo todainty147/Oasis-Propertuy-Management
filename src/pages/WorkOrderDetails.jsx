@@ -9,6 +9,7 @@ import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
 import { getContractorRatingByWorkOrder, upsertContractorRating } from "../services/contractorRatingService";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
+import { formatCurrencyAmount, getDefaultCurrency } from "../utils/currency";
 
 /* -----------------------------
    Status label helper (Polish)
@@ -53,10 +54,8 @@ function formatDateTime(ts) {
   return d.toLocaleString();
 }
 
-function formatMoney(val, currency = "PLN") {
-  const n = Number(val);
-  if (!Number.isFinite(n)) return "—";
-  return `${n.toFixed(2)} ${currency || "PLN"}`;
+function formatMoney(val, currency = getDefaultCurrency()) {
+  return formatCurrencyAmount(val, { currency });
 }
 
 function normalizeWorkOrderStatus(status) {

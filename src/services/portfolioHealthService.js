@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { formatCurrencyAmount } from "../utils/currency";
 
 let portfolioAttentionItemsUnavailable = false;
 
@@ -118,7 +119,7 @@ export function mapPortfolioAttentionItems(items = [], t) {
       return {
         key: item.item_key,
         title: t("portfolio.attention.overduePayment"),
-        subtitle: `${Number(item.amount || 0).toLocaleString()} PLN`,
+        subtitle: formatCurrencyAmount(item.amount || 0),
         to: item.link_path || "/finance?status=overdue",
       };
     }
@@ -126,7 +127,7 @@ export function mapPortfolioAttentionItems(items = [], t) {
       return {
         key: item.item_key,
         title: t("portfolio.attention.dueSoon"),
-        subtitle: `${Number(item.amount || 0).toLocaleString()} PLN`,
+        subtitle: formatCurrencyAmount(item.amount || 0),
         to: item.link_path || "/finance?status=due&range=7d",
       };
     }

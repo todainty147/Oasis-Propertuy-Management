@@ -12,6 +12,7 @@ import WorkOrdersSection from "../components/WorkOrdersSection";
 import { useAccount } from "../context/AccountContext";
 import ActivityLogSection from "../components/ActivityLogSection";
 import { useI18n } from "../context/I18nContext";
+import { formatCurrencyAmount } from "../utils/currency";
 
 /* ======================
    SKELETON
@@ -123,20 +124,20 @@ export default function PropertyDetails({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="p-4 bg-slate-50">
             <p className="text-xs text-slate-500">{t("finance.table.rent")}</p>
-            <p className="text-xl font-bold">{finance.rent.toLocaleString()} zł</p>
+            <p className="text-xl font-bold">{formatCurrencyAmount(finance.rent)}</p>
           </Card>
 
           <Card className="p-4 bg-slate-50">
             <p className="text-xs text-slate-500">{t("finance.table.paid")}</p>
             <p className="text-xl font-bold text-green-600">
-              {finance.paid.toLocaleString()} zł
+              {formatCurrencyAmount(finance.paid)}
             </p>
           </Card>
 
           <Card className="p-4 bg-slate-50">
             <p className="text-xs text-slate-500">{t("finance.table.remaining")}</p>
             <p className="text-xl font-bold text-rose-600">
-              {finance.remaining.toLocaleString()} zł
+              {formatCurrencyAmount(finance.remaining)}
             </p>
           </Card>
         </div>

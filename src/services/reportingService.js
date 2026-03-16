@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { createNotifications } from "./notificationService";
+import { formatCurrencyAmount } from "../utils/currency";
 
 function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -128,7 +129,7 @@ export async function sendWeeklySummaryNow(accountId) {
     `Occupancy: ${summary.occupancy_rate ?? 0}%`,
     `Open requests: ${summary.open_requests ?? 0}`,
     `Waiting >48h: ${summary.waiting_over_48h ?? 0}`,
-    `Overdue balance: ${Number(summary.overdue_balance ?? 0).toLocaleString()} PLN`,
+    `Overdue balance: ${formatCurrencyAmount(summary.overdue_balance ?? 0)}`,
   ].join("\n");
 
   await createNotifications({

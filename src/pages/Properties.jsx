@@ -8,6 +8,7 @@ import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { can } from "../utils/permissions";
 import { useI18n } from "../context/I18nContext";
+import { formatCurrencyAmount } from "../utils/currency";
 
 /* ======================
    SKELETON
@@ -269,7 +270,7 @@ export default function Properties({
                   <div className="mt-3 flex justify-between text-sm">
                     <span>{t("finance.table.rent")}</span>
                     <span className="font-medium">
-                      {p.rent != null ? `${p.rent} PLN` : "—"}
+                      {p.rent != null ? formatCurrencyAmount(p.rent) : "—"}
                     </span>
                   </div>
 

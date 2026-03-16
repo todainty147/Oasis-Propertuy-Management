@@ -9,6 +9,7 @@ import { supabase } from "../lib/supabase";
 import { createNotifications } from "../services/notificationService";
 import { useI18n } from "../context/I18nContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
+import { formatCurrencyAmount, getCurrencyOptions, getDefaultCurrency } from "../utils/currency";
 
 function formatDateTime(ts) {
   if (!ts) return "—";
@@ -17,10 +18,8 @@ function formatDateTime(ts) {
   return d.toLocaleString();
 }
 
-function formatMoney(val, currency = "PLN") {
-  const n = Number(val);
-  if (!Number.isFinite(n)) return "—";
-  return `${n.toFixed(2)} ${currency || "PLN"}`;
+function formatMoney(val, currency = getDefaultCurrency()) {
+  return formatCurrencyAmount(val, { currency });
 }
 
 function toIsoOrNullFromLocalInput(v) {
@@ -79,11 +78,11 @@ export default function ContractorJobDetails() {
   const [saving, setSaving] = useState(false);
 
   const [quoteAmount, setQuoteAmount] = useState("");
-  const [quoteCurrency, setQuoteCurrency] = useState("PLN");
+  const [quoteCurrency, setQuoteCurrency] = useState(getDefaultCurrency());
   const [quoteNotes, setQuoteNotes] = useState("");
 
   const [invoiceAmount, setInvoiceAmount] = useState("");
-  const [invoiceCurrency, setInvoiceCurrency] = useState("PLN");
+  const [invoiceCurrency, setInvoiceCurrency] = useState(getDefaultCurrency());
   const [invoiceIssuedAt, setInvoiceIssuedAt] = useState("");
   const [invoiceDueAt, setInvoiceDueAt] = useState("");
   const [allowedActions, setAllowedActions] = useState([]);
@@ -144,11 +143,11 @@ export default function ContractorJobDetails() {
 
   function syncFinInputs(f) {
     setQuoteAmount(f?.quote_amount != null ? String(f.quote_amount) : "");
-    setQuoteCurrency(f?.quote_currency || "PLN");
+    setQuoteCurrency(f?.quote_currency || getDefaultCurrency());
     setQuoteNotes(f?.quote_notes || "");
 
     setInvoiceAmount(f?.invoice_amount != null ? String(f.invoice_amount) : "");
-    setInvoiceCurrency(f?.invoice_currency || "PLN");
+    setInvoiceCurrency(f?.invoice_currency || getDefaultCurrency());
 
     const toLocal = (ts) => {
       if (!ts) return "";
@@ -304,7 +303,7 @@ export default function ContractorJobDetails() {
       const { data, error } = await supabase.rpc("wo_fin_upsert_quote_draft", {
         p_work_order_id: id,
         p_quote_amount: amt,
-        p_quote_currency: quoteCurrency || "PLN",
+        p_quote_currency: quoteCurrency || getDefaultCurrency(),
         p_quote_notes: quoteNotes || null,
       });
       if (error) throw error;
@@ -353,7 +352,7 @@ export default function ContractorJobDetails() {
       const { data, error } = await supabase.rpc("wo_fin_upsert_invoice", {
         p_work_order_id: id,
         p_invoice_amount: amt,
-        p_invoice_currency: invoiceCurrency || "PLN",
+        p_invoice_currency: invoiceCurrency || getDefaultCurrency(),
         p_invoice_issued_at: toIsoOrNullFromLocalInput(invoiceIssuedAt),
         p_invoice_due_at: toIsoOrNullFromLocalInput(invoiceDueAt),
       });
@@ -625,7 +624,7 @@ export default function ContractorJobDetails() {
                         className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
                         disabled={saving || ["submitted", "approved"].includes(normalizeQuoteStatus(fin.quote_status))}
                       >
-                        {["PLN", "GBP", "EUR", "USD"].map((c) => (
+                        {getCurrencyOptions().map((c) => (
                           <option key={c} value={c}>
                             {c}
                           </option>
@@ -720,7 +719,7 @@ export default function ContractorJobDetails() {
                             className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
                             disabled={saving}
                           >
-                            {["PLN", "GBP", "EUR", "USD"].map((c) => (
+                            {getCurrencyOptions().map((c) => (
                               <option key={c} value={c}>
                                 {c}
                               </option>
