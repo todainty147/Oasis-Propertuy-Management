@@ -268,7 +268,7 @@ export async function getLeaseAttentionItems(
           tenant_label: row.tenantLabel,
           lease_end_date: row.lease_end_date,
           days_until_end: row.daysUntilEnd,
-          link_path: "/tenants",
+          link_path: row.tenant_id ? `/tenants/${row.tenant_id}` : "/tenants",
           sort_order: 10,
         };
       }
@@ -280,7 +280,7 @@ export async function getLeaseAttentionItems(
           tenant_label: row.tenantLabel,
           lease_end_date: row.lease_end_date,
           days_until_end: row.daysUntilEnd,
-          link_path: "/tenants",
+          link_path: row.tenant_id ? `/tenants/${row.tenant_id}` : "/tenants",
           sort_order: 30,
         };
       }
@@ -292,7 +292,7 @@ export async function getLeaseAttentionItems(
           tenant_label: row.tenantLabel,
           lease_end_date: row.lease_end_date,
           days_until_end: row.daysUntilEnd,
-          link_path: "/tenants",
+          link_path: row.tenant_id ? `/tenants/${row.tenant_id}` : "/tenants",
           sort_order: 20,
         };
       }

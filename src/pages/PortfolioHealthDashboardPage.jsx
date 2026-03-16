@@ -359,6 +359,22 @@ export default function PortfolioHealthDashboardPage() {
     [attentionItems, leaseAttentionItems, t]
   );
 
+  const leaseExpiringLink = useMemo(() => {
+    const matches = (leaseAttentionItems || []).filter(
+      (item) => String(item?.item_type || "").toLowerCase() === "lease_expiring_soon",
+    );
+    if (matches.length > 1) return "/tenants?lease=expiring";
+    return matches[0]?.link_path || "/tenants";
+  }, [leaseAttentionItems]);
+
+  const leaseExpiredLink = useMemo(() => {
+    const matches = (leaseAttentionItems || []).filter(
+      (item) => String(item?.item_type || "").toLowerCase() === "lease_expired",
+    );
+    if (matches.length > 1) return "/tenants?lease=expired";
+    return matches[0]?.link_path || "/tenants";
+  }, [leaseAttentionItems]);
+
   const openTrend = useMemo(
     () => Number(snapshotView.recent_open_created || 0) - Number(snapshotView.prev_open_created || 0),
     [snapshotView]
@@ -416,9 +432,9 @@ export default function PortfolioHealthDashboardPage() {
           tone="amber"
         />
         <StatCard title={t("portfolio.kpi.dueSoon")} value={formatCurrencyAmount(snapshotView.due_soon_amount)} to="/finance?status=due&range=7d" tone="amber" />
-        <StatCard title={t("portfolio.kpi.leasesExpiring")} value={Number(leaseSummaryView.expiringSoonCount || 0)} to="/tenants" tone="amber" />
+        <StatCard title={t("portfolio.kpi.leasesExpiring")} value={Number(leaseSummaryView.expiringSoonCount || 0)} to={leaseExpiringLink} tone="amber" />
         <StatCard title={t("portfolio.kpi.activeWorkOrders")} value={Number(snapshotView.active_work_orders || 0)} to="/maintenance-inbox?status=in_progress" tone="blue" />
-        <StatCard title={t("portfolio.kpi.leasesExpired")} value={Number(leaseSummaryView.expiredCount || 0)} to="/tenants" tone="rose" />
+        <StatCard title={t("portfolio.kpi.leasesExpired")} value={Number(leaseSummaryView.expiredCount || 0)} to={leaseExpiredLink} tone="rose" />
         <StatCard title={t("portfolio.kpi.waitingOver48h")} value={Number(snapshotView.waiting_over_48h || 0)} to="/maintenance-inbox?status=waiting&aging=48h" tone="amber" />
         <StatCard title={t("portfolio.kpi.withoutContractor")} value={Number(snapshotView.work_orders_without_contractor || 0)} to="/maintenance-kpi?filter=no-contractor" tone="rose" />
       </div>

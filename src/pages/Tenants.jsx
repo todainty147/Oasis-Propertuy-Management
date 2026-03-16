@@ -13,6 +13,8 @@ import { useTenant } from "../context/TenantContext";
 import { useAccount } from "../context/AccountContext";
 import { canCreateTenant } from "../utils/permissions";
 import { useI18n } from "../context/I18nContext";
+import { useRealtimeTables } from "../hooks/useRealtimeTables";
+import { listLeases } from "../services/leaseService";
 
 /* ======================
    SKELETON
@@ -42,7 +44,7 @@ function TenantsSkeleton() {
 export default function Tenants() {
   const { setTitle } = usePageTitle();
   const { activeTenantId } = useTenant();
-  const { activeRole } = useAccount();
+  const { activeRole, activeAccountId } = useAccount();
   const { t } = useI18n();
 
   const { tenants, loading } = useTenants();
@@ -51,15 +53,20 @@ export default function Tenants() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(8);
   const [query, setQuery] = useState(() => String(searchParams.get("q") || ""));
+  const [leaseFilter, setLeaseFilter] = useState(() => String(searchParams.get("lease") || "").toLowerCase());
   const [sortDir, setSortDir] = useState(() =>
     String(searchParams.get("sort") || "").toLowerCase() === "desc" ? "desc" : "asc"
   );
+  const [leaseRows, setLeaseRows] = useState([]);
+  const [leaseLoading, setLeaseLoading] = useState(false);
 
   useEffect(() => {
     const nextQ = String(searchParams.get("q") || "");
+    const nextLease = String(searchParams.get("lease") || "").toLowerCase();
     const nextSort =
       String(searchParams.get("sort") || "").toLowerCase() === "desc" ? "desc" : "asc";
     if (nextQ !== query) setQuery(nextQ);
+    if (nextLease !== leaseFilter) setLeaseFilter(nextLease);
     if (nextSort !== sortDir) setSortDir(nextSort);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -76,14 +83,73 @@ export default function Tenants() {
       if (v === "desc") params.set("sort", "desc");
       else params.set("sort", "asc");
     }
+    if (Object.prototype.hasOwnProperty.call(next, "lease")) {
+      const v = String(next.lease || "").toLowerCase();
+      if (["expiring", "expired", "renewal"].includes(v)) params.set("lease", v);
+      else params.delete("lease");
+    }
     setSearchParams(params, { replace: true });
   }
 
+  useEffect(() => {
+    let dead = false;
+    async function loadLeases() {
+      if (!activeAccountId) {
+        setLeaseRows([]);
+        return;
+      }
+      setLeaseLoading(true);
+      try {
+        const rows = await listLeases({ accountId: activeAccountId, limit: 500 });
+        if (!dead) setLeaseRows(Array.isArray(rows) ? rows : []);
+      } catch {
+        if (!dead) setLeaseRows([]);
+      } finally {
+        if (!dead) setLeaseLoading(false);
+      }
+    }
+    loadLeases();
+    return () => {
+      dead = true;
+    };
+  }, [activeAccountId]);
+
+  useRealtimeTables({
+    enabled: !!activeAccountId,
+    subscriptions: [
+      { channel: `tenants-leases:${activeAccountId}`, table: "leases", filter: `account_id=eq.${activeAccountId}` },
+    ],
+    onChange: async () => {
+      if (!activeAccountId) return;
+      try {
+        const rows = await listLeases({ accountId: activeAccountId, limit: 500 });
+        setLeaseRows(Array.isArray(rows) ? rows : []);
+      } catch {
+        setLeaseRows([]);
+      }
+    },
+  });
+
+  const leaseTenantIds = useMemo(() => {
+    const ids = new Set();
+    for (const row of leaseRows || []) {
+      if (!row?.tenant_id) continue;
+      if (leaseFilter === "expiring" && row.derivedStatus === "expiring_soon") ids.add(String(row.tenant_id));
+      if (leaseFilter === "expired" && row.derivedStatus === "ended") ids.add(String(row.tenant_id));
+      if (leaseFilter === "renewal" && row.derivedStatus === "renewal_in_progress") ids.add(String(row.tenant_id));
+    }
+    return ids;
+  }, [leaseFilter, leaseRows]);
+
   const visibleTenants = useMemo(() => {
     const q = String(query || "").trim().toLowerCase();
-    const filtered = !q
+    const base = !leaseFilter
       ? [...(tenants || [])]
-      : (tenants || []).filter((tenant) => {
+      : (tenants || []).filter((tenant) => leaseTenantIds.has(String(tenant.id)));
+
+    const filtered = !q
+      ? base
+      : base.filter((tenant) => {
           const property = properties.find((p) => p.id === tenant.propertyId);
           const name = String(tenant?.name || "").toLowerCase();
           const email = String(tenant?.email || "").toLowerCase();
@@ -98,13 +164,13 @@ export default function Tenants() {
       return sortDir === "desc" ? -cmp : cmp;
     });
     return filtered;
-  }, [tenants, properties, query, sortDir]);
+  }, [tenants, properties, query, sortDir, leaseFilter, leaseTenantIds]);
 
   const totalPages = Math.max(1, Math.ceil((visibleTenants.length || 0) / (pageSize || 1)));
 
   useEffect(() => {
     setPage(1);
-  }, [pageSize, query, sortDir]);
+  }, [pageSize, query, sortDir, leaseFilter]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -122,7 +188,7 @@ export default function Tenants() {
   }, [setTitle, t]);
 
   /* ---------- LOADING ---------- */
-  if (loading) {
+  if (loading || leaseLoading) {
     return <TenantsSkeleton />;
   }
 
@@ -193,6 +259,21 @@ export default function Tenants() {
         >
           <option value="asc">{t("common.aToZ")}</option>
           <option value="desc">{t("common.zToA")}</option>
+        </select>
+        <select
+          value={leaseFilter}
+          onChange={(e) => {
+            const v = String(e.target.value || "").toLowerCase();
+            setLeaseFilter(v);
+            updateListParams({ lease: v });
+          }}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          aria-label={t("tenant.leaseFilter")}
+        >
+          <option value="">{t("tenant.leaseFilter.all")}</option>
+          <option value="expiring">{t("tenant.leaseFilter.expiring")}</option>
+          <option value="expired">{t("tenant.leaseFilter.expired")}</option>
+          <option value="renewal">{t("tenant.leaseFilter.renewal")}</option>
         </select>
       </div>
 

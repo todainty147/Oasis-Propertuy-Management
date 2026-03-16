@@ -207,6 +207,7 @@ as $$
   scoped_leases as (
     select
       l.id,
+      l.tenant_id,
       l.lease_end_date,
       lower(coalesce(l.renewal_status, 'active')) as renewal_status,
       coalesce(p.address, '—') as property_label,
@@ -225,7 +226,7 @@ as $$
       sl.tenant_label,
       sl.lease_end_date,
       sl.days_until_end,
-      '/tenants'::text as link_path,
+      ('/tenants/' || sl.tenant_id::text) as link_path,
       10 as sort_order
     from scoped_leases sl
     where sl.lease_end_date < current_date
@@ -240,7 +241,7 @@ as $$
       sl.tenant_label,
       sl.lease_end_date,
       sl.days_until_end,
-      '/tenants'::text as link_path,
+      ('/tenants/' || sl.tenant_id::text) as link_path,
       20 as sort_order
     from scoped_leases sl
     where sl.lease_end_date >= current_date
@@ -256,7 +257,7 @@ as $$
       sl.tenant_label,
       sl.lease_end_date,
       sl.days_until_end,
-      '/tenants'::text as link_path,
+      ('/tenants/' || sl.tenant_id::text) as link_path,
       30 as sort_order
     from scoped_leases sl
     where sl.renewal_status = 'renewal_in_progress'
