@@ -34,6 +34,11 @@ function canPreview(mime) {
   return mime?.startsWith("image/") || mime === "application/pdf";
 }
 
+function getDocumentTagLabel(tag, t) {
+  const value = String(tag || "").trim().toUpperCase();
+  return t(`documents.tag.${value}`, { defaultValue: value || tag || "—" });
+}
+
 /* ======================
    SKELETON
    ====================== */
@@ -326,7 +331,7 @@ export default function Documents({
               <p className="font-medium">{t("documents.add")}</p>
               <p className="text-xs text-slate-500">
                 {t("documents.pickTenantOrPropertyIntro")} <b>{t("finance.table.tenant").toLowerCase()}</b> {t("common.or")} <b>{t("finance.table.property").toLowerCase()}</b>, {t("documents.assignSuffix")}
-                dokument.
+                {" "}{t("attachments.document").toLowerCase()}.
               </p>
             </div>
 
@@ -396,7 +401,7 @@ export default function Documents({
                     : "bg-white text-slate-600 border-slate-300"
                 }`}
               >
-                {tag.label}
+                {getDocumentTagLabel(tag.value, t)}
               </button>
             ))}
           </div>
@@ -423,7 +428,7 @@ export default function Documents({
                 checked={selectedTags.includes(tag.value)}
                 onChange={() => toggleTag(tag.value)}
               />
-              {tag.label}
+              {getDocumentTagLabel(tag.value, t)}
             </label>
           ))}
         </div>
@@ -435,7 +440,7 @@ export default function Documents({
         <div className="text-center py-20">
           <h3 className="text-xl font-semibold text-slate-900">{t("documents.emptyTitle")}</h3>
           <p className="text-slate-500 mt-2">
-            Spróbuj zmienić kryteria wyszukiwania
+            {t("documents.emptySearchHint")}
           </p>
         </div>
       )}
@@ -452,7 +457,7 @@ export default function Documents({
                   {doc.name}
                   {doc.tenant_id && doc.property_id && (
                     <span className="text-xs px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">
-                      Wspólny
+                      {t("documents.shared")}
                     </span>
                   )}
                 </p>
@@ -468,7 +473,7 @@ export default function Documents({
                         key={tag}
                         className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700"
                       >
-                        {tag}
+                        {getDocumentTagLabel(tag, t)}
                       </span>
                     ))}
                   </div>
@@ -481,7 +486,7 @@ export default function Documents({
                     onClick={() => handlePreview(doc)}
                     className="text-blue-600 hover:underline"
                   >
-                    Podgląd
+                    {t("attachments.preview")}
                   </button>
                 )}
 
@@ -494,7 +499,7 @@ export default function Documents({
                   }
                   className="text-slate-600 hover:underline"
                 >
-                  Pobierz
+                  {t("attachments.download")}
                 </button>
 
                 {canDeleteDocument(role) && (
@@ -510,7 +515,7 @@ export default function Documents({
                     }}
                     className="text-red-600 hover:underline"
                   >
-                    Usuń
+                    {t("common.delete")}
                   </button>
                 )}
               </div>
@@ -552,7 +557,7 @@ export default function Documents({
                 }}
                 className="text-sm text-gray-600 hover:text-black"
               >
-                Zamknij ✕
+                {t("common.close")} ✕
               </button>
             </div>
 

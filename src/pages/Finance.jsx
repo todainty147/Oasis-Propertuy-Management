@@ -268,7 +268,7 @@ export default function Finance({
                     <td className="px-6 py-3 text-right text-green-600">{formatCurrency(p.paid)}</td>
                     <td className="px-6 py-3 text-right text-red-600">{formatCurrency(p.remaining)}</td>
                     <td className="px-6 py-3">
-                      <StatusBadge status={p.paymentStatus} />
+                      <StatusBadge status={p.paymentStatus} t={t} />
                     </td>
                   </tr>
                 ))}
@@ -324,7 +324,7 @@ export default function Finance({
                     <td className="px-6 py-3">{p.propertyAddress ?? "—"}</td>
                     <td className="px-6 py-3 text-right">{formatCurrency(p.amount)}</td>
                     <td className="px-6 py-3">
-                      <StatusBadge status={p.status} />
+                      <StatusBadge status={p.status} t={t} />
                     </td>
                     <td className="px-6 py-3">{p.dueDate}</td>
 
@@ -435,17 +435,38 @@ function PaginationFooter({
   );
 }
 
-function StatusBadge({ status }) {
+function normalizePaymentStatus(status) {
+  const value = String(status || "").trim().toLowerCase();
+  if (["paid", "opłacone", "oplacone"].includes(value)) return "paid";
+  if (["partial", "częściowo", "czesciowo"].includes(value)) return "partial";
+  if (["due", "pending", "oczekujące", "oczekujace"].includes(value)) return "pending";
+  if (["overdue", "zaległe", "zalegle"].includes(value)) return "overdue";
+  return "other";
+}
+
+function translatePaymentStatus(status, t) {
+  const normalized = normalizePaymentStatus(status);
+  if (normalized === "paid") return t("payments.status.paid");
+  if (normalized === "partial") return t("payments.status.partial");
+  if (normalized === "pending") return t("payments.status.pending");
+  if (normalized === "overdue") return t("payments.status.overdue");
+  return status || "—";
+}
+
+function StatusBadge({ status, t }) {
+  const normalized = normalizePaymentStatus(status);
   const styles =
-    status === "Opłacone"
+    normalized === "paid"
       ? "bg-green-100 text-green-700"
-      : status === "Częściowo"
-      ? "bg-amber-100 text-amber-700"
-      : "bg-red-100 text-red-700";
+      : normalized === "partial"
+        ? "bg-amber-100 text-amber-700"
+        : normalized === "pending"
+          ? "bg-blue-100 text-blue-700"
+          : "bg-red-100 text-red-700";
 
   return (
     <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles}`}>
-      {status}
+      {translatePaymentStatus(status, t)}
     </span>
   );
 }
