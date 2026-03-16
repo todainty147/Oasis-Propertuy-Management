@@ -1,7 +1,7 @@
 export default function DocumentPreviewModal({
   open,
   onClose,
-  url,
+  signedUrl,
   mime,
   name,
 }) {
@@ -25,7 +25,7 @@ export default function DocumentPreviewModal({
         <div className="flex-1 overflow-auto bg-slate-100">
           {mime.startsWith("image/") && (
             <img
-              src={url}
+              src={signedUrl}
               alt={name}
               className="mx-auto max-h-full object-contain"
             />
@@ -33,7 +33,7 @@ export default function DocumentPreviewModal({
 
           {mime === "application/pdf" && (
             <iframe
-              src={url}
+              src={signedUrl}
               title={name}
               className="w-full h-full"
             />

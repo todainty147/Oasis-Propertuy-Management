@@ -40,6 +40,7 @@ const PortfolioHealthDashboardPage = lazy(() => import("./pages/PortfolioHealthD
 const LandlordOnboardingPage = lazy(() => import("./pages/LandlordOnboardingPage"));
 const InvitationsPage = lazy(() => import("./pages/InvitationsPage"));
 const AccountBrandingPage = lazy(() => import("./pages/AccountBrandingPage"));
+const BillingPage = lazy(() => import("./pages/BillingPage"));
 const FinancePage = lazy(() => import("./pages/FinancePage"));
 const AddPropertyModal = lazy(() => import("./components/AddPropertyModal"));
 
@@ -394,6 +395,7 @@ export default function App() {
         <Route path="landlord-onboarding" element={<LandlordOnboardingPage />} />
         <Route path="invitations" element={<InvitationsPage />} />
         <Route path="settings/branding" element={<AccountBrandingPage />} />
+        <Route path="settings/billing" element={<BillingPage />} />
         <Route
           path="portfolio-health"
           element={<PortfolioHealthDashboardPage />}

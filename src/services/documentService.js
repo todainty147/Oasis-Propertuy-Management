@@ -1,6 +1,7 @@
 // src/services/documentService.js
 import { supabase } from "../lib/supabase";
 import { assertFiles } from "../utils/validation";
+import { createSignedStorageUrl } from "./storageUrlService";
 
 /* ======================
    CONFIG
@@ -208,14 +209,7 @@ export async function searchDocuments({
    ====================== */
 
 export async function getDocumentPreviewUrl(storagePath) {
-  if (!storagePath) throw new Error("Brak ścieżki dokumentu");
-
-  const { data, error } = await supabase.storage
-    .from("documents")
-    .createSignedUrl(storagePath, 60 * 10);
-
-  if (error) throw error;
-  return data.signedUrl;
+  return createSignedStorageUrl("documents", storagePath, 60 * 10);
 }
 
 /* ======================

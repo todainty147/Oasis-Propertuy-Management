@@ -50,6 +50,10 @@ export const routesConfig = [
         path: "settings/branding",
         handle: { titleKey: "sidebar.branding" },
       },
+      {
+        path: "settings/billing",
+        handle: { titleKey: "sidebar.billing" },
+      },
     ],
   },
 ];

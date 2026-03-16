@@ -7,22 +7,22 @@ export default function DocumentPreview({ document }) {
     );
   }
 
-  const { mime_type, publicUrl, name } = document;
+  const { mime_type, signedUrl, name } = document;
 
-  if (mime_type?.startsWith("image/") && publicUrl) {
+  if (mime_type?.startsWith("image/") && signedUrl) {
     return (
       <img
-        src={publicUrl}
+        src={signedUrl}
         alt={name}
         className="max-h-[80vh] mx-auto"
       />
     );
   }
 
-  if (mime_type === "application/pdf" && publicUrl) {
+  if (mime_type === "application/pdf" && signedUrl) {
     return (
       <iframe
-        src={publicUrl}
+        src={signedUrl}
         className="w-full h-[80vh]"
         title={name}
       />
