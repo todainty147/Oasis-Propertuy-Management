@@ -40,6 +40,23 @@ as $$
       and p.due_date >= current_date
       and p.due_date <= current_date + ((select horizon_days from cfg) || ' days')::interval
   ),
+  preventive_due_soon as (
+    select count(*)::bigint as task_count
+    from public.preventive_maintenance_tasks t
+    where t.account_id = p_account_id
+      and lower(coalesce(t.status, 'active')) = 'active'
+      and t.next_due_date is not null
+      and t.next_due_date >= current_date
+      and t.next_due_date <= current_date + interval '14 days'
+  ),
+  preventive_overdue as (
+    select count(*)::bigint as task_count
+    from public.preventive_maintenance_tasks t
+    where t.account_id = p_account_id
+      and lower(coalesce(t.status, 'active')) = 'active'
+      and t.next_due_date is not null
+      and t.next_due_date < current_date
+  ),
   vacant_long as (
     select
       p.id,
@@ -98,6 +115,34 @@ as $$
     20 as sort_order
   from due_soon ds
   where ds.due_soon_count > 0
+
+  union all
+
+  select
+    'preventive-overdue'::text,
+    'preventive_overdue_summary'::text,
+    po.task_count,
+    null::text,
+    null::text,
+    null::int,
+    '/maintenance-kpi'::text,
+    18 as sort_order
+  from preventive_overdue po
+  where po.task_count > 0
+
+  union all
+
+  select
+    'preventive-due-soon'::text,
+    'preventive_due_summary'::text,
+    pd.task_count,
+    null::text,
+    null::text,
+    null::int,
+    '/maintenance-kpi'::text,
+    22 as sort_order
+  from preventive_due_soon pd
+  where pd.task_count > 0
 
   order by sort_order;
 $$;

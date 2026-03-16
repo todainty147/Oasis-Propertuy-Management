@@ -128,6 +128,32 @@ export function mapDashboardHubItems({
       };
     }
 
+    if (type === "preventive_overdue_summary") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.preventiveOverdue"),
+        subtitle: t("dashboard.hub.preventiveCount", {
+          count: Number(item.count_value || 0),
+        }),
+        meta: t("dashboard.hub.preventiveHint"),
+        to: item.link_path || "/maintenance-kpi",
+        sortOrder: Number(item.sort_order || 18),
+      };
+    }
+
+    if (type === "preventive_due_summary") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.preventiveDueSoon"),
+        subtitle: t("dashboard.hub.preventiveCount", {
+          count: Number(item.count_value || 0),
+        }),
+        meta: t("dashboard.hub.preventiveHint"),
+        to: item.link_path || "/maintenance-kpi",
+        sortOrder: Number(item.sort_order || 22),
+      };
+    }
+
     return {
       id: item.item_key,
       title: t("dashboard.hub.dueSoon"),

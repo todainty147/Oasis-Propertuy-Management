@@ -165,6 +165,7 @@ export default function Dashboard({
       { channel: `dashboard-tenants:${activeAccountId}`, table: "tenants", filter: `account_id=eq.${activeAccountId}` },
       { channel: `dashboard-payments:${activeAccountId}`, table: "payments", filter: `account_id=eq.${activeAccountId}` },
       { channel: `dashboard-leases:${activeAccountId}`, table: "leases", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `dashboard-preventive:${activeAccountId}`, table: "preventive_maintenance_tasks", filter: `account_id=eq.${activeAccountId}` },
       { channel: `dashboard-requests:${activeAccountId}`, table: "maintenance_requests", filter: `account_id=eq.${activeAccountId}` },
       { channel: `dashboard-work-orders:${activeAccountId}`, table: "work_orders", filter: `account_id=eq.${activeAccountId}` },
     ],
@@ -347,6 +348,14 @@ export default function Dashboard({
           </p>
         </Card>
       </div>
+    );
+  }
+
+  if (!canManage) {
+    return (
+      <Card className="p-6">
+        <p className="text-sm text-slate-600">{t("dashboard.accessDenied")}</p>
+      </Card>
     );
   }
 

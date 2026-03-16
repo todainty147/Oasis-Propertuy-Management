@@ -315,6 +315,48 @@ as $$
     where l.account_id = p_account_id
       and lower(coalesce(l.renewal_status, 'active')) = 'renewal_in_progress'
   ),
+  preventive_items as (
+    select
+      'preventive-overdue-' || pmt.id::text as item_key,
+      'preventive_task_overdue'::text as item_type,
+      'urgent'::text as bucket,
+      coalesce(p.address, '—') as property_label,
+      ''::text as tenant_label,
+      pmt.title as entity_label,
+      null::numeric as amount,
+      null::int as age_hours,
+      (pmt.next_due_date - current_date)::int as due_days,
+      '/properties/' || pmt.property_id::text as link_path,
+      'preventive_maintenance_tasks'::text as source_table,
+      22 as sort_order
+    from public.preventive_maintenance_tasks pmt
+    left join public.properties p on p.id = pmt.property_id
+    where pmt.account_id = p_account_id
+      and lower(coalesce(pmt.status, 'active')) = 'active'
+      and pmt.next_due_date < current_date
+
+    union all
+
+    select
+      'preventive-due-soon-' || pmt.id::text,
+      'preventive_task_due_soon'::text,
+      'upcoming'::text,
+      coalesce(p.address, '—'),
+      ''::text,
+      pmt.title,
+      null::numeric,
+      null::int,
+      (pmt.next_due_date - current_date)::int,
+      '/properties/' || pmt.property_id::text,
+      'preventive_maintenance_tasks'::text,
+      58 as sort_order
+    from public.preventive_maintenance_tasks pmt
+    left join public.properties p on p.id = pmt.property_id
+    where pmt.account_id = p_account_id
+      and lower(coalesce(pmt.status, 'active')) = 'active'
+      and pmt.next_due_date >= current_date
+      and pmt.next_due_date <= current_date + interval '14 days'
+  ),
   notification_items as (
     select
       'notification-' || n.id::text as item_key,
@@ -343,6 +385,7 @@ as $$
     union all select * from work_order_overdue
     union all select * from recently_updated_open
     union all select * from lease_items
+    union all select * from preventive_items
     union all select * from notification_items
   )
   select

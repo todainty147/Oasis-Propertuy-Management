@@ -2,6 +2,7 @@ import { supabase } from "../lib/supabase";
 import { getDashboardSnapshot } from "./dashboardService";
 import { getLeaseAttentionItems } from "./leaseService";
 import { getMaintenanceAttention } from "./maintenanceDashboardService";
+import { getPreventiveMaintenanceAttention } from "./preventiveMaintenanceService";
 
 let attentionCenterItemsUnavailable = false;
 
@@ -106,6 +107,25 @@ function normalizeRpcItem(row) {
     linkPath: row?.link_path || "",
     source: row?.source_table || "",
     bucket: row?.bucket || "action",
+  };
+}
+
+function normalizePreventiveItem(row) {
+  const type = normalize(row?.item_type);
+  return {
+    id: row?.item_key || `preventive-${type}-${row?.property_id || "na"}`,
+    kind: type,
+    propertyLabel: row?.property_label || "",
+    tenantLabel: "",
+    entityLabel: row?.title || "",
+    amount: 0,
+    ageHours: null,
+    dueDays: Number.isFinite(Number(row?.days_until_due)) ? Number(row.days_until_due) : null,
+    linkPath: row?.link_path || (row?.property_id ? `/properties/${row.property_id}` : "/maintenance-kpi"),
+    source: "preventive_maintenance_tasks",
+    bucket: type === "preventive_task_overdue" ? "urgent" : "upcoming",
+    contractorLabel: row?.assigned_to_label || "",
+    body: row?.category || "",
   };
 }
 
@@ -259,6 +279,7 @@ export async function getAttentionCenterData(accountId) {
     snapshot,
     maintenanceRows,
     leaseRows,
+    preventiveRows,
     paymentsRes,
     workOrdersRes,
     notificationsRes,
@@ -266,6 +287,7 @@ export async function getAttentionCenterData(accountId) {
     getDashboardSnapshot(accountId, { horizonDays: 7 }),
     getMaintenanceAttention(accountId),
     getLeaseAttentionItems(accountId, 12),
+    getPreventiveMaintenanceAttention(accountId, { dueSoonDays: 14, limit: 12 }),
     supabase
       .from("payments")
       .select("id, amount, status, due_date, paid_at, tenant_id, property_id, tenants(name), properties(address)")
@@ -308,6 +330,7 @@ export async function getAttentionCenterData(accountId) {
 
   for (const row of maintenanceRows || []) items.push(normalizeMaintenanceItem(row));
   for (const row of leaseRows || []) items.push(normalizeLeaseItem(row));
+  for (const row of preventiveRows || []) items.push(normalizePreventiveItem(row));
 
   for (const row of paymentsRes.data || []) {
     if (isOverduePaymentRow(row)) {

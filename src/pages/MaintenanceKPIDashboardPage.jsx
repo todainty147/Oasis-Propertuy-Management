@@ -13,6 +13,7 @@ import {
   mapMaintenanceAttentionItems,
   upsertMaintenanceBudget,
 } from "../services/maintenanceDashboardService";
+import { getPreventiveMaintenanceOverview } from "../services/preventiveMaintenanceService";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount } from "../utils/currency";
 
@@ -292,6 +293,7 @@ export default function MaintenanceKPIDashboardPage() {
   const [snapshot, setSnapshot] = useState(null);
   const [attentionRows, setAttentionRows] = useState([]);
   const [financialAnalytics, setFinancialAnalytics] = useState(null);
+  const [preventiveOverview, setPreventiveOverview] = useState(null);
   const [budgetAmount, setBudgetAmount] = useState("");
   const [budgetSaving, setBudgetSaving] = useState(false);
   const [budgetError, setBudgetError] = useState("");
@@ -306,23 +308,26 @@ export default function MaintenanceKPIDashboardPage() {
     setLoading(true);
     setError("");
     try {
-      const [stats, attention, recentActivity, spendAnalytics] = await Promise.all([
+      const [stats, attention, recentActivity, spendAnalytics, preventive] = await Promise.all([
         getMaintenanceKpiSnapshot(activeAccountId),
         getMaintenanceAttention(activeAccountId),
         getMaintenanceRecentActivity(activeAccountId, t, 10),
         getMaintenanceFinancialAnalytics(activeAccountId),
+        getPreventiveMaintenanceOverview(activeAccountId),
       ]);
 
       setSnapshot(stats || null);
       setAttentionRows(attention || []);
       setFeed(recentActivity || []);
       setFinancialAnalytics(spendAnalytics || null);
+      setPreventiveOverview(preventive || null);
     } catch (e) {
       setError(e?.message || t("maintenance.kpi.error"));
       setFeed([]);
       setSnapshot(null);
       setAttentionRows([]);
       setFinancialAnalytics(null);
+      setPreventiveOverview(null);
     } finally {
       setLoading(false);
     }
@@ -342,6 +347,7 @@ export default function MaintenanceKPIDashboardPage() {
       { channel: `maintenance-kpi-financials:${activeAccountId}`, table: "work_order_financials" },
       { channel: `maintenance-kpi-expenses:${activeAccountId}`, table: "maintenance_expenses", filter: `account_id=eq.${activeAccountId}` },
       { channel: `maintenance-kpi-budgets:${activeAccountId}`, table: "maintenance_budgets", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `maintenance-kpi-preventive:${activeAccountId}`, table: "preventive_maintenance_tasks", filter: `account_id=eq.${activeAccountId}` },
       { channel: `maintenance-kpi-activity:${activeAccountId}`, table: "activity_log", filter: `account_id=eq.${activeAccountId}` },
       { channel: `maintenance-kpi-audit:${activeAccountId}`, table: "work_order_audit_log" },
     ],
@@ -450,6 +456,14 @@ export default function MaintenanceKPIDashboardPage() {
     currentMonthActual: 0,
     currentMonthBudget: 0,
     currentMonthVariance: 0,
+  };
+
+  const preventiveView = preventiveOverview ?? {
+    activeCount: 0,
+    overdueCount: 0,
+    dueSoonCount: 0,
+    items: [],
+    propertiesWithDueTasks: [],
   };
 
   const spendTrendMax = useMemo(
@@ -588,6 +602,62 @@ export default function MaintenanceKPIDashboardPage() {
                 b48_72: "/maintenance-inbox?age=48_72",
                 b72_plus: "/maintenance-inbox?age=72_plus",
               }}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+            <Card className="p-4">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">{t("maintenance.kpi.preventive.title")}</h3>
+                  <p className="text-xs text-slate-500 mt-1">{t("maintenance.kpi.preventive.subtitle")}</p>
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("maintenance.kpi.preventive.activePlans")}</p>
+                  <p className="text-xl font-semibold text-slate-900 mt-1">{preventiveView.activeCount}</p>
+                </div>
+                <div className="rounded-lg border border-rose-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("maintenance.kpi.preventive.overdue")}</p>
+                  <p className="text-xl font-semibold text-rose-700 mt-1">{preventiveView.overdueCount}</p>
+                </div>
+                <div className="rounded-lg border border-amber-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("maintenance.kpi.preventive.dueSoon")}</p>
+                  <p className="text-xl font-semibold text-amber-700 mt-1">{preventiveView.dueSoonCount}</p>
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {preventiveView.items.length === 0 ? (
+                  <p className="text-sm text-slate-500">{t("maintenance.kpi.preventive.empty")}</p>
+                ) : (
+                  preventiveView.items.map((item) => (
+                    <Link
+                      key={item.item_key}
+                      to={item.link_path || "/maintenance-kpi"}
+                      className="block rounded-lg border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50"
+                    >
+                      <p className="text-sm font-medium text-slate-900">
+                        {item.title}
+                      </p>
+                      <p className="text-xs text-slate-600 mt-1">
+                        {[item.property_label, item.next_due_date, item.assigned_to_label]
+                          .filter(Boolean)
+                          .join(" • ")}
+                      </p>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </Card>
+
+            <SpendBars
+              title={t("maintenance.kpi.preventive.byProperty")}
+              rows={preventiveView.propertiesWithDueTasks.map((row) => ({ label: row.label, amount: row.count }))}
+              emptyText={t("maintenance.kpi.preventive.noPropertyLoad")}
+              valueFormatter={(value) => t("maintenance.kpi.preventive.taskCount", { count: Number(value || 0) })}
             />
           </div>
 
