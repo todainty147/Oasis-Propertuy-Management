@@ -61,7 +61,10 @@ Deno.serve(async (req) => {
       return json({ error: memberError.message }, 400);
     }
 
-    if (!member || !["owner", "admin", "staff"].includes(String(member.role))) {
+    if (
+      !member ||
+      !["owner", "admin", "staff"].includes(String(member.role || "").toLowerCase())
+    ) {
       return json({ error: "No permission for this account" }, 403);
     }
 

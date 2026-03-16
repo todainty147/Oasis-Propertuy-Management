@@ -56,9 +56,19 @@ Deno.serve(async (req) => {
       return json({ error: "accountId and planKey are required" }, 400);
     }
 
-    const priceId = PRICE_MAP[String(planKey)];
-    if (!priceId) {
+    const normalizedPlanKey = String(planKey).trim().toLowerCase();
+    if (!(normalizedPlanKey in PRICE_MAP)) {
       return json({ error: "Invalid planKey" }, 400);
+    }
+
+    const priceId = PRICE_MAP[normalizedPlanKey];
+    if (!priceId) {
+      return json(
+        {
+          error: `Stripe price is not configured for plan '${normalizedPlanKey}'`,
+        },
+        400,
+      );
     }
 
     const { data: member, error: memberError } = await admin
@@ -72,7 +82,10 @@ Deno.serve(async (req) => {
       return json({ error: memberError.message }, 400);
     }
 
-    if (!member || !["owner", "admin", "staff"].includes(String(member.role))) {
+    if (
+      !member ||
+      !["owner", "admin", "staff"].includes(String(member.role || "").toLowerCase())
+    ) {
       return json({ error: "No permission for this account" }, 403);
     }
 
@@ -130,12 +143,12 @@ Deno.serve(async (req) => {
       subscription_data: {
         metadata: {
           account_id: String(accountId),
-          plan_key: String(planKey),
+          plan_key: normalizedPlanKey,
         },
       },
       metadata: {
         account_id: String(accountId),
-        plan_key: String(planKey),
+        plan_key: normalizedPlanKey,
       },
     });
 
