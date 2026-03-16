@@ -57,6 +57,12 @@ as $$
       and t.next_due_date is not null
       and t.next_due_date < current_date
   ),
+  blocked_work_orders as (
+    select count(*)::bigint as blocked_count
+    from public.work_orders_with_flags w
+    where w.account_id = p_account_id
+      and lower(coalesce(w.status, '')) in ('blocked', 'zablokowane')
+  ),
   vacant_long as (
     select
       p.id,
@@ -143,6 +149,20 @@ as $$
     22 as sort_order
   from preventive_due_soon pd
   where pd.task_count > 0
+
+  union all
+
+  select
+    'blocked-work-orders'::text,
+    'blocked_work_order_summary'::text,
+    bwo.blocked_count,
+    null::text,
+    null::text,
+    null::int,
+    '/maintenance-inbox?woStatus=blocked'::text,
+    24 as sort_order
+  from blocked_work_orders bwo
+  where bwo.blocked_count > 0
 
   order by sort_order;
 $$;

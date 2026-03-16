@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronRight,
   AlertCircle,
+  Zap,
 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
@@ -315,6 +316,7 @@ function SidebarContent({ onNavigate }) {
                   <div className="space-y-1">
                     <Item to="/invitations" icon={UserPlus} label={t("sidebar.invitations")} onNavigate={onNavigate} />
                     <Item to="/settings/billing" icon={CreditCard} label={t("sidebar.billing")} onNavigate={onNavigate} />
+                    <Item to="/settings/playbooks" icon={Zap} label={t("sidebar.playbooks")} onNavigate={onNavigate} />
                     {role === "owner" && (
                       <Item to="/settings/branding" icon={Palette} label={t("sidebar.branding")} onNavigate={onNavigate} />
                     )}

@@ -197,7 +197,12 @@ function normalizeWorkOrderGapItem(row, kind) {
     dueDays: row?.scheduled_at ? daysUntil(String(row.scheduled_at).slice(0, 10)) : null,
     linkPath: `/work-orders/${row.id}`,
     source: "work_orders",
-    bucket: kind === "work_order_overdue" || kind === "contractor_no_response" ? "urgent" : "recent",
+    bucket:
+      kind === "work_order_overdue" || kind === "contractor_no_response"
+        ? "urgent"
+        : kind === "work_order_blocked_follow_up"
+          ? "action"
+          : "recent",
     contractorLabel: row?.contractor_name || "",
   };
 }
@@ -357,6 +362,11 @@ export async function getAttentionCenterData(accountId) {
 
     if (!isCompletedWorkOrderStatus(status) && dueDays != null && dueDays < 0) {
       items.push(normalizeWorkOrderGapItem(withProperty, "work_order_overdue"));
+      continue;
+    }
+
+    if (status === "blocked" || status === "zablokowane") {
+      items.push(normalizeWorkOrderGapItem(withProperty, "work_order_blocked_follow_up"));
       continue;
     }
 

@@ -154,6 +154,19 @@ export function mapDashboardHubItems({
       };
     }
 
+    if (type === "blocked_work_order_summary") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.blockedWorkOrders"),
+        subtitle: t("dashboard.hub.blockedWorkOrdersCount", {
+          count: Number(item.count_value || 0),
+        }),
+        meta: t("dashboard.hub.blockedWorkOrdersHint"),
+        to: item.link_path || "/maintenance-inbox?woStatus=blocked",
+        sortOrder: Number(item.sort_order || 24),
+      };
+    }
+
     return {
       id: item.item_key,
       title: t("dashboard.hub.dueSoon"),

@@ -232,6 +232,23 @@ as $$
       and swo.scheduled_at is not null
       and swo.scheduled_at::date < current_date
   ),
+  blocked_work_orders as (
+    select
+      'wo-blocked-' || swo.id::text as item_key,
+      'work_order_blocked_follow_up'::text as item_type,
+      'action'::text as bucket,
+      swo.property_label,
+      ''::text as tenant_label,
+      swo.request_title as entity_label,
+      null::numeric as amount,
+      floor(extract(epoch from (now() - coalesce(swo.updated_at, swo.created_at))) / 3600)::int as age_hours,
+      case when swo.scheduled_at is not null then (swo.scheduled_at::date - current_date)::int else null::int end as due_days,
+      '/work-orders/' || swo.id::text as link_path,
+      'work_orders'::text as source_table,
+      32 as sort_order
+    from scoped_work_orders swo
+    where swo.status in ('blocked', 'zablokowane')
+  ),
   recently_updated_open as (
     select
       'wo-recent-' || swo.id::text as item_key,
@@ -383,6 +400,7 @@ as $$
     union all select * from work_order_without_contractor
     union all select * from contractor_no_response
     union all select * from work_order_overdue
+    union all select * from blocked_work_orders
     union all select * from recently_updated_open
     union all select * from lease_items
     union all select * from preventive_items

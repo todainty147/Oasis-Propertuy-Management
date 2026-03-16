@@ -44,6 +44,7 @@ const AccountBrandingPage = lazy(() => import("./pages/AccountBrandingPage"));
 const BillingPage = lazy(() => import("./pages/BillingPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const FinancePage = lazy(() => import("./pages/FinancePage"));
+const PlaybooksPage = lazy(() => import("./pages/PlaybooksPage"));
 const AddPropertyModal = lazy(() => import("./components/AddPropertyModal"));
 
 export default function App() {
@@ -397,9 +398,10 @@ export default function App() {
         <Route path="attention-center" element={<AttentionCenterPage />} />
         <Route path="landlord-onboarding" element={<LandlordOnboardingPage />} />
         <Route path="invitations" element={<InvitationsPage />} />
-        <Route path="settings/profile" element={<ProfilePage />} />
-        <Route path="settings/branding" element={<AccountBrandingPage />} />
-        <Route path="settings/billing" element={<BillingPage />} />
+              <Route path="settings/profile" element={<ProfilePage />} />
+              <Route path="settings/branding" element={<AccountBrandingPage />} />
+              <Route path="settings/billing" element={<BillingPage />} />
+              <Route path="settings/playbooks" element={<PlaybooksPage />} />
         <Route
           path="portfolio-health"
           element={<PortfolioHealthDashboardPage />}

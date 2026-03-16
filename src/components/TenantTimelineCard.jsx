@@ -29,6 +29,55 @@ function detailForEvent(event, t) {
   return parts.join(" • ");
 }
 
+function PaginationFooter({ page, totalPages, totalCount, pageSize, onPrev, onNext, onPageSizeChange, t }) {
+  if (totalCount <= 0) return null;
+
+  return (
+    <div className="flex flex-col gap-3 pt-2 md:flex-row md:items-center md:justify-between">
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-slate-500">{t("common.perPage")}</span>
+        <select
+          value={pageSize}
+          onChange={(e) => onPageSizeChange(Number(e.target.value))}
+          className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm"
+        >
+          {[10, 20, 30, 50].map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex items-center justify-between gap-3 md:justify-end">
+        <button
+          type="button"
+          className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
+          onClick={onPrev}
+          disabled={page <= 1}
+        >
+          {t("common.prev")}
+        </button>
+
+        <div className="text-sm text-slate-600">
+          {t("common.page")} <span className="font-medium text-slate-900">{page}</span> {t("common.of")}{" "}
+          <span className="font-medium text-slate-900">{totalPages}</span>
+          <span className="ml-2 text-xs text-slate-500">({totalCount} {t("common.total").toLowerCase()})</span>
+        </div>
+
+        <button
+          type="button"
+          className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
+          onClick={onNext}
+          disabled={page >= totalPages}
+        >
+          {t("common.next")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function TenantTimelineCard({ accountId, tenant, property }) {
   const { t } = useI18n();
   const [items, setItems] = useState([]);
@@ -39,10 +88,13 @@ export default function TenantTimelineCard({ accountId, tenant, property }) {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   async function loadTimeline() {
     if (!accountId || !tenant?.id) {
       setItems([]);
+      setPage(1);
       setLoading(false);
       return;
     }
@@ -50,13 +102,14 @@ export default function TenantTimelineCard({ accountId, tenant, property }) {
     setLoading(true);
     setError("");
     try {
-      const result = await getTenantTimeline({ accountId, tenant, property, limit: 40 });
+      const result = await getTenantTimeline({ accountId, tenant, property, limit: 120 });
       setItems(result?.items || []);
       setSummary(result?.summary || {
         openRequests: 0,
         overduePayments: 0,
         leaseWatch: 0,
       });
+      setPage(1);
     } catch (e) {
       setItems([]);
       setSummary({
@@ -88,6 +141,15 @@ export default function TenantTimelineCard({ accountId, tenant, property }) {
     ],
     onChange: loadTimeline,
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [tenant?.id, pageSize]);
+
+  const totalCount = items.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedItems = items.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
     <Card className="p-6 space-y-4">
@@ -133,14 +195,14 @@ export default function TenantTimelineCard({ accountId, tenant, property }) {
         <p className="text-sm text-slate-500">{t("tenantTimeline.empty")}</p>
       ) : (
         <div className="space-y-3">
-          {items.map((event) => {
+          {pagedItems.map((event) => {
             const content = (
               <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-slate-900">{titleForEvent(event, t)}</p>
                     {detailForEvent(event, t) ? (
-                      <p className="text-sm text-slate-600 mt-1">{detailForEvent(event, t)}</p>
+                      <p className="mt-1 text-sm text-slate-600">{detailForEvent(event, t)}</p>
                     ) : null}
                   </div>
                   <span className="shrink-0 text-xs text-slate-500">{fmtDate(event.at)}</span>
@@ -155,6 +217,20 @@ export default function TenantTimelineCard({ accountId, tenant, property }) {
               </Link>
             );
           })}
+
+          <PaginationFooter
+            page={safePage}
+            totalPages={totalPages}
+            totalCount={totalCount}
+            pageSize={pageSize}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(totalPages, current + 1))}
+            onPageSizeChange={(nextSize) => {
+              setPageSize(nextSize);
+              setPage(1);
+            }}
+            t={t}
+          />
         </div>
       )}
     </Card>

@@ -62,6 +62,10 @@ export const routesConfig = [
         path: "settings/billing",
         handle: { titleKey: "sidebar.billing" },
       },
+      {
+        path: "settings/playbooks",
+        handle: { titleKey: "sidebar.playbooks" },
+      },
     ],
   },
 ];

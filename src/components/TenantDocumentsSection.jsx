@@ -30,6 +30,58 @@ function canPreview(mime) {
   return mime?.startsWith("image/") || mime === "application/pdf";
 }
 
+function PaginationFooter({ page, totalPages, totalCount, pageSize, onPrev, onNext, onPageSizeChange, t }) {
+  if (totalCount <= 0) return null;
+
+  return (
+    <div className="flex flex-col gap-3 pt-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-slate-500">{t("common.perPage")}</span>
+        <select
+          value={pageSize}
+          onChange={(e) => onPageSizeChange(Number(e.target.value))}
+          className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm"
+        >
+          {[10, 20, 30, 50].map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={onPrev}
+          className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-50"
+        >
+          {t("common.prev")}
+        </button>
+        <span className="text-sm text-slate-600">
+          {t("common.page")} <span className="font-medium text-slate-900">{page}</span> {t("common.of")}{" "}
+          <span className="font-medium text-slate-900">{totalPages}</span>
+          <span className="ml-2 text-xs text-slate-500">({totalCount} {t("common.total").toLowerCase()})</span>
+        </span>
+        <button
+          type="button"
+          disabled={page >= totalPages}
+          onClick={onNext}
+          className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-50"
+        >
+          {t("common.next")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function getDocumentTagLabel(tag, t) {
+  const value = String(tag || "").trim().toUpperCase();
+  return t(`documents.tag.${value}`, { defaultValue: value || tag || "—" });
+}
+
 /* ======================
    COMPONENT
    ====================== */
@@ -51,6 +103,8 @@ export default function TenantDocumentsSection({ tenantId }) {
   const [documents, setDocuments] = useState([]);
   const [audit, setAudit] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   /* ---------- UPLOAD TAGS ---------- */
   const [uploadTags, setUploadTags] = useState([]);
@@ -78,6 +132,7 @@ export default function TenantDocumentsSection({ tenantId }) {
 
     setDocuments(docs);
     setAudit(auditLog);
+    setPage(1);
   } finally {
     setLoading(false);
   }
@@ -108,6 +163,10 @@ export default function TenantDocumentsSection({ tenantId }) {
       : documents.filter((doc) =>
           doc.tags?.some((t) => filterTags.includes(t))
         );
+
+  useEffect(() => {
+    setPage(1);
+  }, [tenantId, pageSize, searchParams]);
 
   /* ---------- PERMISSIONS ---------- */
   const canUpload = canUploadDocument(role);
@@ -201,23 +260,28 @@ export default function TenantDocumentsSection({ tenantId }) {
     return (
       <Card className="p-6">
         <p className="text-sm text-slate-500">
-          Ładowanie uprawnień…
+          {t("common.loadingPermissions")}
         </p>
       </Card>
     );
   }
+
+  const totalCount = filteredDocuments.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedDocuments = filteredDocuments.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
     <Card className="p-6 space-y-6">
       {/* ---------- HEADER ---------- */}
       <div className="flex justify-between items-center">
         <h3 className="font-semibold text-lg">
-          Dokumenty najemcy
+          {t("documents.tenantTitle")}
         </h3>
 
         {canUpload && (
           <label className="px-3 py-2 bg-blue-600 text-white rounded-lg cursor-pointer text-sm">
-            Dodaj dokument
+            {t("documents.add")}
             <input
               type="file"
               className="hidden"
@@ -247,7 +311,7 @@ export default function TenantDocumentsSection({ tenantId }) {
                   : "bg-white text-slate-600 border-slate-300"
               }`}
             >
-              {tag.label}
+              {getDocumentTagLabel(tag.value, t)}
             </button>
           ))}
         </div>
@@ -268,7 +332,7 @@ export default function TenantDocumentsSection({ tenantId }) {
                     : "bg-white text-slate-600 border-slate-300"
                 }`}
               >
-                {tag}
+                {getDocumentTagLabel(tag, t)}
               </button>
             )
           )}
@@ -278,7 +342,7 @@ export default function TenantDocumentsSection({ tenantId }) {
       {/* ---------- DOCUMENT LIST ---------- */}
       {!loading && filteredDocuments.length > 0 && (
         <div className="divide-y border rounded-lg">
-          {filteredDocuments.map((doc) => (
+          {pagedDocuments.map((doc) => (
             <div
               key={doc.id}
               className="px-4 py-3 flex justify-between items-start"
@@ -298,7 +362,7 @@ export default function TenantDocumentsSection({ tenantId }) {
                           key={tag}
                           className="text-xs px-2 py-0.5 rounded bg-slate-100"
                         >
-                          {tag}
+                          {getDocumentTagLabel(tag, t)}
                         </span>
                       ))}
                     </div>
@@ -320,7 +384,7 @@ export default function TenantDocumentsSection({ tenantId }) {
                               toggleEditTag(tag.value)
                             }
                           />
-                          {tag.label}
+                          {getDocumentTagLabel(tag.value, t)}
                         </label>
                       ))}
                     </div>
@@ -331,7 +395,7 @@ export default function TenantDocumentsSection({ tenantId }) {
                         onClick={() => saveTags(doc)}
                         className="text-blue-600 hover:underline"
                       >
-                        Zapisz
+                        {t("common.save")}
                       </button>
                       <button
                         type="button"
@@ -341,7 +405,7 @@ export default function TenantDocumentsSection({ tenantId }) {
                         }}
                         className="text-gray-500 hover:underline"
                       >
-                        Anuluj
+                        {t("common.cancel")}
                       </button>
                     </div>
                   </div>
@@ -356,7 +420,7 @@ export default function TenantDocumentsSection({ tenantId }) {
                     onClick={() => handlePreview(doc)}
                     className="text-blue-600 hover:underline"
                   >
-                    Podgląd
+                    {t("attachments.preview")}
                   </button>
                 )}
 
@@ -370,17 +434,17 @@ export default function TenantDocumentsSection({ tenantId }) {
                   }
                   className="text-slate-600 hover:underline"
                 >
-                  Pobierz
+                  {t("attachments.download")}
                 </button>
 
                 {canEdit(doc) &&
                   editingDocId !== doc.id && (
                     <button
-                      type="button"
-                      onClick={() => startEditTags(doc)}
-                      className="text-xs text-slate-600 hover:underline"
-                    >
-                      Edytuj tagi
+                    type="button"
+                    onClick={() => startEditTags(doc)}
+                    className="text-xs text-slate-600 hover:underline"
+                  >
+                      {t("documents.editTags")}
                     </button>
                   )}
 
@@ -390,14 +454,35 @@ export default function TenantDocumentsSection({ tenantId }) {
                     onClick={() => handleDelete(doc)}
                     className="text-red-600 hover:underline"
                   >
-                    Usuń
+                    {t("common.delete")}
                   </button>
                 )}
               </div>
             </div>
           ))}
+          <div className="px-4 py-3">
+            <PaginationFooter
+              page={safePage}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              pageSize={pageSize}
+              onPrev={() => setPage((current) => Math.max(1, current - 1))}
+              onNext={() => setPage((current) => Math.min(totalPages, current + 1))}
+              onPageSizeChange={(nextSize) => {
+                setPageSize(nextSize);
+                setPage(1);
+              }}
+              t={t}
+            />
+          </div>
         </div>
       )}
+
+      {!loading && filteredDocuments.length === 0 ? (
+        <p className="text-sm text-slate-500">
+          {filterTags.length ? t("documents.emptyForTags") : t("documents.emptyForTenant")}
+        </p>
+      ) : null}
     </Card>
   );
 }
