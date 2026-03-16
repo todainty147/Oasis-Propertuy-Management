@@ -82,9 +82,20 @@ Deno.serve(async (req) => {
       return json({ error: "No billing customer found for this account" }, 404);
     }
 
+    const appUrl = resolveAppUrl(req);
+    if (!appUrl) {
+      return json(
+        {
+          error:
+            "APP_URL is not configured with an explicit scheme. Use values like http://localhost:5173 or https://app.oasisrental.app",
+        },
+        400,
+      );
+    }
+
     const portal = await stripe.billingPortal.sessions.create({
       customer: customer.stripe_customer_id,
-      return_url: `${APP_URL}/settings/billing`,
+      return_url: `${appUrl}/settings/billing`,
     });
 
     return json({ url: portal.url });
@@ -104,4 +115,23 @@ function json(payload: unknown, status = 200) {
       "Content-Type": "application/json",
     },
   });
+}
+
+function resolveAppUrl(req: Request) {
+  const candidates = [APP_URL, req.headers.get("origin") || ""];
+
+  for (const candidate of candidates) {
+    const value = String(candidate || "").trim().replace(/\/+$/, "");
+    if (!value) continue;
+    try {
+      const url = new URL(value);
+      if (url.protocol === "http:" || url.protocol === "https:") {
+        return value;
+      }
+    } catch {
+      // Ignore invalid URLs and continue to the next candidate.
+    }
+  }
+
+  return null;
 }

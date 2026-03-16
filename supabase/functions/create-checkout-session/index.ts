@@ -9,6 +9,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const APP_URL = Deno.env.get("APP_URL") || "";
+const STRIPE_TEST_TRIAL_DAYS = parsePositiveInt(Deno.env.get("STRIPE_TEST_TRIAL_DAYS"));
 
 const PRICE_MAP: Record<string, string> = {
   starter: Deno.env.get("STRIPE_PRICE_STARTER") || "",
@@ -66,6 +67,17 @@ Deno.serve(async (req) => {
       return json(
         {
           error: `Stripe price is not configured for plan '${normalizedPlanKey}'`,
+        },
+        400,
+      );
+    }
+
+    const appUrl = resolveAppUrl(req);
+    if (!appUrl) {
+      return json(
+        {
+          error:
+            "APP_URL is not configured with an explicit scheme. Use values like http://localhost:5173 or https://app.oasisrental.app",
         },
         400,
       );
@@ -137,22 +149,31 @@ Deno.serve(async (req) => {
       mode: "subscription",
       customer: stripeCustomerId,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${APP_URL}/settings/billing?checkout=success`,
-      cancel_url: `${APP_URL}/settings/billing?checkout=cancelled`,
+      success_url: `${appUrl}/settings/billing?checkout=success`,
+      cancel_url: `${appUrl}/settings/billing?checkout=cancelled`,
       allow_promotion_codes: true,
+      payment_method_collection: STRIPE_TEST_TRIAL_DAYS > 0 ? "if_required" : "always",
       subscription_data: {
+        ...(STRIPE_TEST_TRIAL_DAYS > 0
+          ? { trial_period_days: STRIPE_TEST_TRIAL_DAYS }
+          : {}),
         metadata: {
           account_id: String(accountId),
           plan_key: normalizedPlanKey,
+          test_trial_days: STRIPE_TEST_TRIAL_DAYS > 0 ? String(STRIPE_TEST_TRIAL_DAYS) : "",
         },
       },
       metadata: {
         account_id: String(accountId),
         plan_key: normalizedPlanKey,
+        test_trial_days: STRIPE_TEST_TRIAL_DAYS > 0 ? String(STRIPE_TEST_TRIAL_DAYS) : "",
       },
     });
 
-    return json({ url: session.url });
+    return json({
+      url: session.url,
+      trialDays: STRIPE_TEST_TRIAL_DAYS,
+    });
   } catch (error) {
     return json(
       { error: error instanceof Error ? error.message : "Unknown error" },
@@ -169,4 +190,28 @@ function json(payload: unknown, status = 200) {
       "Content-Type": "application/json",
     },
   });
+}
+
+function resolveAppUrl(req: Request) {
+  const candidates = [APP_URL, req.headers.get("origin") || ""];
+
+  for (const candidate of candidates) {
+    const value = String(candidate || "").trim().replace(/\/+$/, "");
+    if (!value) continue;
+    try {
+      const url = new URL(value);
+      if (url.protocol === "http:" || url.protocol === "https:") {
+        return value;
+      }
+    } catch {
+      // Ignore invalid URLs and continue to the next candidate.
+    }
+  }
+
+  return null;
+}
+
+function parsePositiveInt(value: string | undefined) {
+  const parsed = Number.parseInt(String(value || "").trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }

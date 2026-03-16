@@ -47,6 +47,10 @@ export const routesConfig = [
         handle: { titleKey: "sidebar.invitations" },
       },
       {
+        path: "settings/profile",
+        handle: { titleKey: "profile.title" },
+      },
+      {
         path: "settings/branding",
         handle: { titleKey: "sidebar.branding" },
       },

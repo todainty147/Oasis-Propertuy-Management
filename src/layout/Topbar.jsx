@@ -1,5 +1,6 @@
 // src/layout/Topbar.jsx
 import { Search, Building2, Menu, Users } from "lucide-react";
+import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { usePageTitle } from "../layout/PageTitleContext";
 import NotificationsBell from "../components/NotificationsBell";
@@ -162,6 +163,13 @@ export default function Topbar({ onMenuClick }) {
             </select>
           </div>
         </div>
+
+        <Link
+          to="/settings/profile"
+          className="text-sm text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+        >
+          {t("topbar.profile")}
+        </Link>
 
         
         {/* LOGOUT */}

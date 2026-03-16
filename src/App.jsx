@@ -41,6 +41,7 @@ const LandlordOnboardingPage = lazy(() => import("./pages/LandlordOnboardingPage
 const InvitationsPage = lazy(() => import("./pages/InvitationsPage"));
 const AccountBrandingPage = lazy(() => import("./pages/AccountBrandingPage"));
 const BillingPage = lazy(() => import("./pages/BillingPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const FinancePage = lazy(() => import("./pages/FinancePage"));
 const AddPropertyModal = lazy(() => import("./components/AddPropertyModal"));
 
@@ -394,6 +395,7 @@ export default function App() {
         <Route path="maintenance-kpi" element={<MaintenanceKPIDashboardPage />} />
         <Route path="landlord-onboarding" element={<LandlordOnboardingPage />} />
         <Route path="invitations" element={<InvitationsPage />} />
+        <Route path="settings/profile" element={<ProfilePage />} />
         <Route path="settings/branding" element={<AccountBrandingPage />} />
         <Route path="settings/billing" element={<BillingPage />} />
         <Route

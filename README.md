@@ -177,3 +177,115 @@ git add README.md
 git commit -m "Add professional README"
 git push
 
+---
+
+## Billing Setup
+
+OASIS billing uses:
+
+- Stripe Checkout for starting subscriptions
+- Stripe Customer Portal for self-serve billing management
+- Stripe webhooks for subscription lifecycle sync
+- Supabase Edge Functions for secure server-side Stripe calls
+- account-scoped billing tied to `accounts.id`
+
+### Files in this repo
+
+- SQL: [supabase/20260315_billing.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/20260315_billing.sql)
+- checkout function: [supabase/functions/create-checkout-session/index.ts](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions/create-checkout-session/index.ts)
+- portal function: [supabase/functions/create-customer-portal-session/index.ts](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions/create-customer-portal-session/index.ts)
+- webhook function: [supabase/functions/stripe-webhook/index.ts](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions/stripe-webhook/index.ts)
+- frontend service: [src/services/billingService.js](/mnt/c/Users/Home/oasisrentalmanagementapp/src/services/billingService.js)
+- billing page: [src/pages/BillingPage.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/BillingPage.jsx)
+
+### Stripe prerequisites
+
+Create Stripe products and recurring monthly prices for:
+
+- `starter`
+- `growth`
+- `pro`
+
+Keep the resulting Stripe `price_...` IDs handy.
+
+### Supabase SQL
+
+Run:
+
+```sql
+\i supabase/20260315_billing.sql
+```
+
+Or paste/apply the contents of [supabase/20260315_billing.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/20260315_billing.sql) in the Supabase SQL editor.
+
+### Required secrets
+
+Set these in your Supabase project:
+
+```bash
+supabase secrets set STRIPE_SECRET_KEY=sk_test_or_live_xxx
+supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_xxx
+supabase secrets set STRIPE_PRICE_STARTER=price_xxx
+supabase secrets set STRIPE_PRICE_GROWTH=price_xxx
+supabase secrets set STRIPE_PRICE_PRO=price_xxx
+supabase secrets set APP_URL=http://localhost:5173
+supabase secrets set STRIPE_TEST_TRIAL_DAYS=14
+```
+
+Notes:
+
+- `APP_URL` must include an explicit scheme like `http://` or `https://`
+- for production, set `APP_URL` to your real deployed app URL
+- after changing secrets, redeploy the functions
+- `STRIPE_TEST_TRIAL_DAYS` is a temporary test-only switch for Stripe checkout trials
+- remove `STRIPE_TEST_TRIAL_DAYS` before going live if you do not want public trial behavior
+
+### Deploy edge functions
+
+```bash
+supabase functions deploy create-checkout-session
+supabase functions deploy create-customer-portal-session
+supabase functions deploy stripe-webhook
+```
+
+### Stripe webhook
+
+Register this webhook URL in Stripe:
+
+```text
+https://YOUR_PROJECT_REF.supabase.co/functions/v1/stripe-webhook
+```
+
+Subscribe to:
+
+- `checkout.session.completed`
+- `customer.subscription.created`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+- `invoice.payment_failed`
+
+### Local testing checklist
+
+1. Confirm the billing SQL is applied.
+2. Confirm all Stripe secrets are set.
+3. Confirm `APP_URL` is a full URL like `http://localhost:5173`.
+4. Redeploy the billing functions after any secret change.
+5. Open `/settings/billing` in the app.
+6. Click a plan and verify Stripe Checkout opens.
+7. Complete a test checkout in Stripe test mode.
+8. Verify `billing_customers`, `billing_subscriptions`, and `accounts.subscription_status` update after webhook delivery.
+9. If `STRIPE_TEST_TRIAL_DAYS` is set, verify the resulting subscription lands in `trialing` status.
+
+### Common errors
+
+- `Invalid planKey`
+  Usually means the client sent an unknown plan slug.
+
+- `Stripe price is not configured for plan 'starter'`
+  The matching `STRIPE_PRICE_*` secret is missing or empty.
+
+- `APP_URL is not configured with an explicit scheme`
+  Set `APP_URL` to a full URL such as `http://localhost:5173` or `https://app.example.com`.
+
+- Checkout opens but still asks for immediate payment
+  Confirm `STRIPE_TEST_TRIAL_DAYS` is set and the checkout function has been redeployed.

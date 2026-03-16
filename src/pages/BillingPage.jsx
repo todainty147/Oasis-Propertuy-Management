@@ -107,6 +107,7 @@ export default function BillingPage() {
 
   const currentStatus = subscription?.status || "inactive";
   const currentPlan = subscription?.metadata?.plan_key || subscription?.stripe_price_id || "—";
+  const trialEnd = subscription?.trial_end || null;
 
   return (
     <div className="space-y-6">
@@ -129,6 +130,12 @@ export default function BillingPage() {
         {error ? (
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
             {error}
+          </div>
+        ) : null}
+
+        {currentStatus === "trialing" && trialEnd ? (
+          <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200">
+            {t("billing.trialActive")} <strong>{formatDate(trialEnd)}</strong>.
           </div>
         ) : null}
 
@@ -166,7 +173,7 @@ export default function BillingPage() {
                 {t("billing.currentPeriodEnd")}
               </p>
               <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                {formatDate(subscription.current_period_end)}
+                {formatDate(currentStatus === "trialing" && trialEnd ? trialEnd : subscription.current_period_end)}
               </p>
             </div>
           </div>
@@ -200,6 +207,9 @@ export default function BillingPage() {
             </h2>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
               {t(plan.limitKey)}
+            </p>
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              {t("billing.testTrialHint")}
             </p>
             <button
               type="button"
