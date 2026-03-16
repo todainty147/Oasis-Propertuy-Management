@@ -11,8 +11,8 @@ import MaintenanceRequestsSection from "../components/MaintenanceRequestsSection
 import WorkOrdersSection from "../components/WorkOrdersSection";
 import { useAccount } from "../context/AccountContext";
 import ActivityLogSection from "../components/ActivityLogSection";
-import PropertyMaintenanceCostsCard from "../components/PropertyMaintenanceCostsCard";
 import LeaseSummaryCard from "../components/LeaseSummaryCard";
+import PropertyPerformanceCard from "../components/PropertyPerformanceCard";
 import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount } from "../utils/currency";
 
@@ -148,9 +148,11 @@ export default function PropertyDetails({
         </div>
 
         <div className="pt-2">
-          <PropertyMaintenanceCostsCard
+          <PropertyPerformanceCard
             accountId={activeAccountId}
-            propertyId={property.id}
+            property={property}
+            payments={propertyPayments}
+            tenantCount={propertyTenants.length}
           />
         </div>
 
