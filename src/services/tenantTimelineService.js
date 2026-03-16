@@ -115,6 +115,27 @@ function isResolvedRequestStatus(status) {
   return ["resolved", "closed", "zamknięte", "rozwiązane"].includes(value);
 }
 
+function mapPaymentLedgerEvent(row) {
+  return {
+    key: `payment-event-${row.id}`,
+    at: row.event_at || row.created_at || new Date().toISOString(),
+    type: row.event_type || "payment_status_changed",
+    title:
+      row.event_type === "payment_paid"
+        ? "Rent payment recorded"
+        : row.event_type === "payment_overdue"
+          ? "Rent became overdue"
+          : row.event_type === "payment_reopened"
+            ? "Rent payment reopened"
+            : row.event_type === "payment_deleted"
+              ? "Rent charge deleted"
+              : "Rent payment updated",
+    detail: row?.amount != null ? `${row.amount}` : "",
+    status: row?.new_status || row?.old_status || "",
+    linkPath: "/tenant/payments",
+  };
+}
+
 function isOverduePaymentStatus(status) {
   const value = normalizeStatus(status);
   return ["overdue", "zaległe"].includes(value);
@@ -145,6 +166,7 @@ export async function getTenantTimeline({
       lease,
       paymentSummaryRes,
       requestSummaryRes,
+      paymentEventsRes,
     ] = await Promise.all([
       supabase.rpc("tenant_activity_feed", {
         p_account_id: accountId,
@@ -163,6 +185,13 @@ export async function getTenantTimeline({
         .select("id, status")
         .eq("account_id", accountId)
         .eq("reported_by_tenant_id", tenant.id),
+      supabase
+        .from("payment_events")
+        .select("id, event_type, event_at, old_status, new_status, amount, created_at")
+        .eq("account_id", accountId)
+        .eq("tenant_id", tenant.id)
+        .order("event_at", { ascending: false })
+        .limit(limit),
     ]);
 
     const { data, error } = feedRes;
@@ -174,9 +203,16 @@ export async function getTenantTimeline({
     } else {
       if (paymentSummaryRes.error) throw paymentSummaryRes.error;
       if (requestSummaryRes.error) throw requestSummaryRes.error;
-      return {
-        items: Array.isArray(data)
-          ? data.map((row) => ({
+      let ledgerPaymentEvents = [];
+      if (paymentEventsRes.error) {
+        if (!isMissingBackendObject(paymentEventsRes.error)) throw paymentEventsRes.error;
+      } else {
+        ledgerPaymentEvents = (paymentEventsRes.data || []).map(mapPaymentLedgerEvent);
+      }
+      const nonPaymentFeedItems = Array.isArray(data)
+        ? data
+            .filter((row) => !String(row?.event_type || "").startsWith("payment_"))
+            .map((row) => ({
               key: row.event_key,
               type: row.event_type,
               at: row.occurred_at,
@@ -185,7 +221,12 @@ export async function getTenantTimeline({
               status: row.status,
               linkPath: row.link_path,
             }))
-          : [],
+        : [];
+      const merged = [...ledgerPaymentEvents, ...nonPaymentFeedItems]
+        .sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime())
+        .slice(0, limit);
+      return {
+        items: merged,
         summary: {
           openRequests: (requestSummaryRes.data || []).filter((row) => !isResolvedRequestStatus(row.status)).length,
           overduePayments: paymentSummaryRes.count || 0,

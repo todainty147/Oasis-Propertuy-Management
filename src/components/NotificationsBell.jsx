@@ -5,6 +5,20 @@ import { useNavigate } from "react-router-dom";
 import { useNotifications } from "../hooks/useNotifications";
 import { useI18n } from "../context/I18nContext";
 
+function AlertBadge({ category, severity, t }) {
+  const tone =
+    severity === "urgent"
+      ? "border-rose-200 bg-rose-50 text-rose-700"
+      : severity === "action"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-slate-200 bg-slate-50 text-slate-600";
+  return (
+    <span className={`rounded-full border px-2 py-0.5 text-[11px] ${tone}`}>
+      {t(`notifications.category.${category}`)}
+    </span>
+  );
+}
+
 /**
  * Minimal bell dropdown
  * - unread badge
@@ -118,6 +132,13 @@ export default function NotificationsBell({ limit = 20 }) {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
+                          <div className="mb-1">
+                            <AlertBadge
+                              category={n.alert_category || "general"}
+                              severity={n.alert_severity || "info"}
+                              t={t}
+                            />
+                          </div>
                           <p
                             className={`text-sm ${
                               n.is_read

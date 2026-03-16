@@ -7,6 +7,7 @@ import MaintenanceRequestAttachmentsPanel from "../components/maintenance/Mainte
 import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
 import { createNotifications } from "../services/notificationService";
+import { recordAutomationExecution } from "../services/automationExecutionService";
 import { useI18n } from "../context/I18nContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount, getCurrencyOptions, getDefaultCurrency } from "../utils/currency";
@@ -27,6 +28,29 @@ function toIsoOrNullFromLocalInput(v) {
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString();
+}
+
+function formatDateOrDash(ts) {
+  if (!ts) return "—";
+  const date = new Date(ts);
+  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString();
+}
+
+function normalizeAckStatus(status, acknowledgedAt, dueAt) {
+  if (acknowledgedAt) return "acknowledged";
+  const s = String(status || "").trim().toLowerCase();
+  if (s === "acknowledged") return "acknowledged";
+  if (s === "not_required") return "not_required";
+  if (dueAt) {
+    const due = new Date(dueAt);
+    if (!Number.isNaN(due.getTime()) && due.getTime() < Date.now()) return "overdue";
+  }
+  return s || "pending";
+}
+
+function isMissingAckColumnError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return error?.code === "42703" || message.includes("column");
 }
 
 function StatusPill({ status, t }) {
@@ -178,13 +202,21 @@ export default function ContractorJobDetails() {
   async function loadAll() {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("work_orders")
         .select(
-          "id, maintenance_request_id, property_id, status, scheduled_at, notes, contractor_name, contractor_phone, created_at, updated_at"
+          "id, maintenance_request_id, property_id, status, scheduled_at, notes, contractor_name, contractor_phone, created_at, updated_at, assigned_at, acknowledged_at, acknowledgement_due_at, acknowledgement_status"
         )
         .eq("id", id)
         .maybeSingle();
+
+      if (error && isMissingAckColumnError(error)) {
+        ({ data, error } = await supabase
+          .from("work_orders")
+          .select("id, maintenance_request_id, property_id, status, scheduled_at, notes, contractor_name, contractor_phone, created_at, updated_at")
+          .eq("id", id)
+          .maybeSingle());
+      }
 
       if (error) throw error;
       setRow(data ?? null);
@@ -398,6 +430,45 @@ export default function ContractorJobDetails() {
         p_scheduled_at: null,
       });
       if (error) throw error;
+
+      if (nextStatus === "in_progress") {
+        const { error: ackError } = await supabase
+          .from("work_orders")
+          .update({
+            acknowledged_at: row?.acknowledged_at || new Date().toISOString(),
+            acknowledgement_status: "acknowledged",
+          })
+          .eq("id", id);
+        if (ackError && !isMissingAckColumnError(ackError)) throw ackError;
+      }
+
+      if (nextStatus === "blocked") {
+        await notifyManagers({
+          type: "work_order_blocked_follow_up",
+          title: t("contractor.blockedFollowupTitle"),
+          body: row?.contractor_name
+            ? `${t("common.contractor")}: ${row.contractor_name}`
+            : t("contractor.blockedFollowupBody"),
+          metadata: {
+            alert_category: "blocked_follow_up",
+            alert_severity: "urgent",
+          },
+        });
+
+        await recordAutomationExecution({
+          accountId: activeAccountId,
+          ruleId: "contractor_blocked_followup",
+          eventKey: `work_order:${id}:blocked`,
+          entityType: "work_order",
+          entityId: id,
+          title: t("contractor.blockedFollowupTitle"),
+          details: {
+            property_id: row?.property_id || null,
+            contractor_name: row?.contractor_name || null,
+          },
+        });
+      }
+
       await loadAll();
     } catch (e) {
       alert(e?.message ?? t("workOrders.statusChangeError"));
@@ -440,6 +511,17 @@ export default function ContractorJobDetails() {
       });
       if (error) throw error;
 
+      if (acknowledge) {
+        const { error: ackError } = await supabase
+          .from("work_orders")
+          .update({
+            acknowledged_at: new Date().toISOString(),
+            acknowledgement_status: "acknowledged",
+          })
+          .eq("id", id);
+        if (ackError && !isMissingAckColumnError(ackError)) throw ackError;
+      }
+
       await notifyManagers({
         type: acknowledge ? "work_order_acknowledged" : "work_order_progress_updated",
         title: acknowledge
@@ -453,6 +535,8 @@ export default function ContractorJobDetails() {
         metadata: {
           acknowledged: acknowledge,
           scheduled_at: toIsoOrNullFromLocalInput(scheduleInput),
+          alert_category: acknowledge ? "contractor" : "maintenance",
+          alert_severity: acknowledge ? "info" : "info",
         },
       });
 
@@ -641,6 +725,20 @@ export default function ContractorJobDetails() {
             <div className="text-sm">
               <span className="text-slate-500">{t("common.phone")}:</span>{" "}
               <span className="text-slate-900">{row.contractor_phone || "—"}</span>
+            </div>
+            <div className="text-sm">
+              <span className="text-slate-500">{t("contractor.ackStatus")}:</span>{" "}
+              <span className="text-slate-900">
+                {t(`contractor.ackState.${normalizeAckStatus(row.acknowledgement_status, row.acknowledged_at, row.acknowledgement_due_at)}`)}
+              </span>
+            </div>
+            <div className="text-sm">
+              <span className="text-slate-500">{t("contractor.ackDue")}:</span>{" "}
+              <span className="text-slate-900">{formatDateOrDash(row.acknowledgement_due_at)}</span>
+            </div>
+            <div className="text-sm">
+              <span className="text-slate-500">{t("contractor.acknowledgedAt")}:</span>{" "}
+              <span className="text-slate-900">{formatDateOrDash(row.acknowledged_at)}</span>
             </div>
             <div className="text-sm">
               <span className="text-slate-500">{t("maintenance.drawer.notes")}:</span>{" "}

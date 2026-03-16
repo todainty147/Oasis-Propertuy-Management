@@ -63,6 +63,31 @@ as $$
     where w.account_id = p_account_id
       and lower(coalesce(w.status, '')) in ('blocked', 'zablokowane')
   ),
+  contractor_ack_overdue as (
+    select count(*)::bigint as overdue_count
+    from public.work_orders w
+    where w.account_id = p_account_id
+      and (w.contractor_user_id is not null or nullif(coalesce(w.contractor_name, ''), '') is not null)
+      and lower(coalesce(w.status, '')) not in ('completed', 'cancelled', 'zakończone', 'anulowane')
+      and coalesce(lower(w.acknowledgement_status), 'pending') <> 'acknowledged'
+      and w.acknowledgement_due_at is not null
+      and w.acknowledgement_due_at < now()
+  ),
+  compliance_overdue as (
+    select count(*)::bigint as item_count
+    from public.compliance_items c
+    where c.account_id = p_account_id
+      and lower(coalesce(c.status, 'active')) = 'active'
+      and c.due_date < current_date
+  ),
+  compliance_due_soon as (
+    select count(*)::bigint as item_count
+    from public.compliance_items c
+    where c.account_id = p_account_id
+      and lower(coalesce(c.status, 'active')) = 'active'
+      and c.due_date >= current_date
+      and c.due_date <= current_date + interval '30 days'
+  ),
   vacant_long as (
     select
       p.id,
@@ -125,6 +150,34 @@ as $$
   union all
 
   select
+    'contractor-ack-overdue'::text,
+    'contractor_ack_overdue_summary'::text,
+    cao.overdue_count,
+    null::text,
+    null::text,
+    null::int,
+    '/attention-center'::text,
+    16 as sort_order
+  from contractor_ack_overdue cao
+  where cao.overdue_count > 0
+
+  union all
+
+  select
+    'compliance-overdue'::text,
+    'compliance_overdue_summary'::text,
+    co.item_count,
+    null::text,
+    null::text,
+    null::int,
+    '/attention-center'::text,
+    17 as sort_order
+  from compliance_overdue co
+  where co.item_count > 0
+
+  union all
+
+  select
     'preventive-overdue'::text,
     'preventive_overdue_summary'::text,
     po.task_count,
@@ -135,6 +188,20 @@ as $$
     18 as sort_order
   from preventive_overdue po
   where po.task_count > 0
+
+  union all
+
+  select
+    'compliance-due-soon'::text,
+    'compliance_due_summary'::text,
+    cds.item_count,
+    null::text,
+    null::text,
+    null::int,
+    '/attention-center'::text,
+    19 as sort_order
+  from compliance_due_soon cds
+  where cds.item_count > 0
 
   union all
 

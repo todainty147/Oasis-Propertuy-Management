@@ -14,6 +14,8 @@ import ActivityLogSection from "../components/ActivityLogSection";
 import LeaseSummaryCard from "../components/LeaseSummaryCard";
 import PropertyPerformanceCard from "../components/PropertyPerformanceCard";
 import PropertyPreventiveMaintenanceCard from "../components/PropertyPreventiveMaintenanceCard";
+import PropertyOperatingExpensesCard from "../components/PropertyOperatingExpensesCard";
+import PropertyComplianceCard from "../components/PropertyComplianceCard";
 import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount } from "../utils/currency";
 
@@ -169,6 +171,24 @@ export default function PropertyDetails({
         {canManageLease ? (
           <div className="pt-2">
             <PropertyPreventiveMaintenanceCard
+              accountId={activeAccountId}
+              propertyId={property.id}
+            />
+          </div>
+        ) : null}
+
+        {canManageLease ? (
+          <div className="pt-2">
+            <PropertyOperatingExpensesCard
+              accountId={activeAccountId}
+              propertyId={property.id}
+            />
+          </div>
+        ) : null}
+
+        {canManageLease ? (
+          <div className="pt-2">
+            <PropertyComplianceCard
               accountId={activeAccountId}
               propertyId={property.id}
             />

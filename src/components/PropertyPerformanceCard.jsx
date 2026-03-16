@@ -5,6 +5,10 @@ import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount } from "../utils/currency";
+import {
+  getPropertyFinancialProfile,
+  listPropertyOperatingExpenses,
+} from "../services/propertyOperationsService";
 import { sumExpected, sumOverdue, sumPaid } from "../utils/finance";
 
 function toDate(value) {
@@ -90,12 +94,16 @@ export default function PropertyPerformanceCard({
   const [loading, setLoading] = useState(true);
   const [requestRows, setRequestRows] = useState([]);
   const [workOrderRows, setWorkOrderRows] = useState([]);
+  const [operatingExpenseRows, setOperatingExpenseRows] = useState([]);
+  const [financialProfile, setFinancialProfile] = useState(null);
   const [error, setError] = useState("");
 
   async function load() {
     if (!accountId || !property?.id) {
       setRequestRows([]);
       setWorkOrderRows([]);
+      setOperatingExpenseRows([]);
+      setFinancialProfile(null);
       setLoading(false);
       return;
     }
@@ -103,7 +111,7 @@ export default function PropertyPerformanceCard({
     setLoading(true);
     setError("");
     try {
-      const [requestsRes, workOrdersRes] = await Promise.all([
+      const [requestsRes, workOrdersRes, operatingExpenses, profile] = await Promise.all([
         supabase
           .from("maintenance_requests")
           .select("id, status, created_at")
@@ -114,6 +122,8 @@ export default function PropertyPerformanceCard({
           .select("id, status, quote_amount, invoice_amount, created_at, updated_at, maintenance_request_id")
           .eq("account_id", accountId)
           .eq("property_id", property.id),
+        listPropertyOperatingExpenses({ accountId, propertyId: property.id, limit: 120 }),
+        getPropertyFinancialProfile({ accountId, propertyId: property.id }),
       ]);
 
       if (requestsRes.error) throw requestsRes.error;
@@ -121,9 +131,13 @@ export default function PropertyPerformanceCard({
 
       setRequestRows(requestsRes.data || []);
       setWorkOrderRows(workOrdersRes.data || []);
+      setOperatingExpenseRows(operatingExpenses || []);
+      setFinancialProfile(profile || null);
     } catch (e) {
       setRequestRows([]);
       setWorkOrderRows([]);
+      setOperatingExpenseRows([]);
+      setFinancialProfile(null);
       setError(e?.message || t("propertyDetails.performanceLoadError"));
     } finally {
       setLoading(false);
@@ -143,6 +157,8 @@ export default function PropertyPerformanceCard({
       { channel: `property-performance-workorders:${property?.id}`, table: "work_orders", filter: `account_id=eq.${accountId}` },
       { channel: `property-performance-financials:${property?.id}`, table: "work_order_financials" },
       { channel: `property-performance-tenants:${property?.id}`, table: "tenants", filter: `account_id=eq.${accountId}` },
+      { channel: `property-performance-opex:${property?.id}`, table: "property_operating_expenses", filter: `account_id=eq.${accountId}` },
+      { channel: `property-performance-fin-profile:${property?.id}`, table: "property_financial_profiles", filter: `account_id=eq.${accountId}` },
     ],
     onChange: load,
   });
@@ -162,6 +178,7 @@ export default function PropertyPerformanceCard({
     let activeWorkOrders = 0;
     let maintenanceInvoiced = 0;
     let maintenanceCommitted = 0;
+    let operatingExpenses = 0;
     for (const row of workOrderRows || []) {
       const quote = Number(row?.quote_amount || 0);
       const invoice = Number(row?.invoice_amount || 0);
@@ -177,9 +194,19 @@ export default function PropertyPerformanceCard({
       }
     }
 
-    const netOperatingSnapshot = collectedToDate - maintenanceInvoiced;
+    for (const row of operatingExpenseRows || []) {
+      operatingExpenses += Number(row?.amount || 0);
+    }
+
+    const totalOperatingCosts = maintenanceInvoiced + operatingExpenses;
+    const netOperatingSnapshot = collectedToDate - totalOperatingCosts;
     const occupancyStatus = tenantCount > 0 ? "occupied" : "vacant";
     const attentionTone = toneForAttention({ overdueRent, openRequests, activeWorkOrders });
+    const annualizedRent = monthlyRent > 0 ? monthlyRent * 12 : 0;
+    const grossYield =
+      Number(financialProfile?.estimated_market_value || 0) > 0 && annualizedRent > 0
+        ? (annualizedRent / Number(financialProfile.estimated_market_value)) * 100
+        : null;
 
     let attentionLabel = t("propertyDetails.performanceHealthy");
     if (overdueRent > 0) attentionLabel = t("propertyDetails.performanceOverdueAttention");
@@ -195,12 +222,17 @@ export default function PropertyPerformanceCard({
       activeWorkOrders,
       maintenanceInvoiced,
       maintenanceCommitted,
+      operatingExpenses,
+      totalOperatingCosts,
       netOperatingSnapshot,
       occupancyStatus,
       attentionTone,
       attentionLabel,
+      annualizedRent,
+      estimatedMarketValue: Number(financialProfile?.estimated_market_value || 0),
+      grossYield,
     };
-  }, [payments, property?.rent, requestRows, tenantCount, t, workOrderRows]);
+  }, [financialProfile?.estimated_market_value, operatingExpenseRows, payments, property?.rent, requestRows, tenantCount, t, workOrderRows]);
 
   const trendView = useMemo(() => {
     const windows = [30, 90].map((days) => {
@@ -260,7 +292,7 @@ export default function PropertyPerformanceCard({
         label: t("propertyDetails.performanceFlagRepeatMaintenance"),
       });
     }
-    if ((summary.maintenanceInvoiced >= summary.monthlyRent && summary.monthlyRent > 0) || summary.maintenanceCommitted >= summary.monthlyRent) {
+    if ((summary.totalOperatingCosts >= summary.monthlyRent && summary.monthlyRent > 0) || summary.maintenanceCommitted >= summary.monthlyRent) {
       flags.push({
         key: "high-cost-unit",
         tone: "rose",
@@ -290,7 +322,7 @@ export default function PropertyPerformanceCard({
       maxMaintenanceAmount,
       flags,
     };
-  }, [payments, requestRows, summary.maintenanceCommitted, summary.maintenanceInvoiced, summary.monthlyRent, summary.overdueRent, t, workOrderRows]);
+  }, [payments, requestRows, summary.maintenanceCommitted, summary.monthlyRent, summary.overdueRent, summary.totalOperatingCosts, t, workOrderRows]);
 
   if (loading) {
     return (
@@ -380,8 +412,39 @@ export default function PropertyPerformanceCard({
               <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.maintenanceCommitted)}</p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-xs text-slate-500">{t("propertyDetails.performanceOperatingExpenses")}</p>
+              <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.operatingExpenses)}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-xs text-slate-500">{t("propertyDetails.performanceTotalOperatingCosts")}</p>
+              <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.totalOperatingCosts)}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-xs text-slate-500">{t("propertyDetails.performanceEstimatedValue")}</p>
+              <p className="text-lg font-bold text-slate-900 mt-1">
+                {summary.estimatedMarketValue > 0 ? formatCurrencyAmount(summary.estimatedMarketValue) : "—"}
+              </p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-xs text-slate-500">{t("propertyDetails.performanceGrossYield")}</p>
+              <p className="text-lg font-bold text-slate-900 mt-1">
+                {summary.grossYield != null ? `${summary.grossYield.toFixed(2)}%` : "—"}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
               <p className="text-xs text-slate-500">{t("propertyDetails.performanceNetOperating")}</p>
               <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.netOperatingSnapshot)}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-xs text-slate-500">{t("propertyDetails.performanceAnnualizedRent")}</p>
+              <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.annualizedRent)}</p>
+              <p className="text-xs text-slate-500 mt-1">{t("propertyDetails.performanceAnnualizedRentHint")}</p>
             </div>
           </div>
 

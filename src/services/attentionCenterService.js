@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { getComplianceAttention } from "./complianceService";
 import { getDashboardSnapshot } from "./dashboardService";
 import { getLeaseAttentionItems } from "./leaseService";
 import { getMaintenanceAttention } from "./maintenanceDashboardService";
@@ -12,7 +13,8 @@ function isMissingBackendObject(error) {
     error?.code === "PGRST404" ||
     message.includes("could not find the function") ||
     message.includes("relation") ||
-    message.includes("does not exist")
+    message.includes("does not exist") ||
+    message.includes("column")
   );
 }
 
@@ -125,6 +127,23 @@ function normalizePreventiveItem(row) {
     source: "preventive_maintenance_tasks",
     bucket: type === "preventive_task_overdue" ? "urgent" : "upcoming",
     contractorLabel: row?.assigned_to_label || "",
+    body: row?.category || "",
+  };
+}
+
+function normalizeComplianceItem(row) {
+  return {
+    id: row?.item_key || `compliance-${row?.property_id || row?.tenant_id || "na"}`,
+    kind: row?.item_type || "compliance_due_soon",
+    propertyLabel: row?.property_label || "",
+    tenantLabel: row?.tenant_label || "",
+    entityLabel: row?.title || "",
+    amount: 0,
+    ageHours: null,
+    dueDays: Number.isFinite(Number(row?.due_days)) ? Number(row.due_days) : null,
+    linkPath: row?.link_path || "/dashboard",
+    source: "compliance_items",
+    bucket: row?.item_type === "compliance_overdue" ? "urgent" : "upcoming",
     body: row?.category || "",
   };
 }
@@ -285,6 +304,7 @@ export async function getAttentionCenterData(accountId) {
     maintenanceRows,
     leaseRows,
     preventiveRows,
+    complianceRows,
     paymentsRes,
     workOrdersRes,
     notificationsRes,
@@ -293,6 +313,7 @@ export async function getAttentionCenterData(accountId) {
     getMaintenanceAttention(accountId),
     getLeaseAttentionItems(accountId, 12),
     getPreventiveMaintenanceAttention(accountId, { dueSoonDays: 14, limit: 12 }),
+    getComplianceAttention(accountId, { dueSoonDays: 30, limit: 12 }),
     supabase
       .from("payments")
       .select("id, amount, status, due_date, paid_at, tenant_id, property_id, tenants(name), properties(address)")
@@ -300,8 +321,8 @@ export async function getAttentionCenterData(accountId) {
       .order("due_date", { ascending: true })
       .limit(200),
     supabase
-      .from("work_orders_with_flags")
-      .select("id, contractor_user_id, contractor_name, status, scheduled_at, created_at, updated_at, property_id, maintenance_requests:maintenance_request_id(title)")
+      .from("work_orders")
+      .select("id, contractor_user_id, contractor_name, status, scheduled_at, created_at, updated_at, property_id, acknowledgement_due_at, acknowledgement_status, maintenance_requests:maintenance_request_id(title)")
       .eq("account_id", accountId)
       .order("updated_at", { ascending: false })
       .limit(200),
@@ -336,6 +357,7 @@ export async function getAttentionCenterData(accountId) {
   for (const row of maintenanceRows || []) items.push(normalizeMaintenanceItem(row));
   for (const row of leaseRows || []) items.push(normalizeLeaseItem(row));
   for (const row of preventiveRows || []) items.push(normalizePreventiveItem(row));
+  for (const row of complianceRows || []) items.push(normalizeComplianceItem(row));
 
   for (const row of paymentsRes.data || []) {
     if (isOverduePaymentRow(row)) {
@@ -354,8 +376,17 @@ export async function getAttentionCenterData(accountId) {
     const dueDays = row?.scheduled_at ? daysUntil(String(row.scheduled_at).slice(0, 10)) : null;
     const hasContractor = !!(row?.contractor_user_id || row?.contractor_name);
     const status = normalize(row?.status);
+    const ackStatus = normalize(row?.acknowledgement_status);
+    const ackDueDays = row?.acknowledgement_due_at
+      ? daysUntil(String(row.acknowledgement_due_at).slice(0, 10))
+      : null;
 
-    if (hasContractor && isAssignedWorkOrderStatus(status) && Number.isFinite(age) && age > 48) {
+    if (
+      hasContractor &&
+      ackStatus !== "acknowledged" &&
+      ackDueDays != null &&
+      ackDueDays < 0
+    ) {
       items.push(normalizeWorkOrderGapItem(withProperty, "contractor_no_response"));
       continue;
     }

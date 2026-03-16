@@ -96,6 +96,23 @@ function isRatingsUnavailableError(err) {
   );
 }
 
+function normalizeAckStatus(status, acknowledgedAt, dueAt) {
+  if (acknowledgedAt) return "acknowledged";
+  const value = String(status || "").trim().toLowerCase();
+  if (value === "acknowledged") return "acknowledged";
+  if (value === "not_required") return "not_required";
+  if (dueAt) {
+    const due = new Date(dueAt);
+    if (!Number.isNaN(due.getTime()) && due.getTime() < Date.now()) return "overdue";
+  }
+  return value || "pending";
+}
+
+function isMissingAckColumnError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return error?.code === "42703" || message.includes("column");
+}
+
 function StatusPill({ status, labels, t }) {
   const base = "text-xs px-2 py-0.5 rounded border";
   const s = normalizeWorkOrderStatus(status);
@@ -208,8 +225,20 @@ export default function WorkOrderDetails() {
 
       if (error) throw error;
 
+      let ackFields = null;
+      if (data?.id) {
+        const { data: ackRow, error: ackError } = await supabase
+          .from("work_orders")
+          .select("id, assigned_at, acknowledged_at, acknowledgement_due_at, acknowledgement_status")
+          .eq("id", data.id)
+          .maybeSingle();
+        if (!ackError || isMissingAckColumnError(ackError)) {
+          ackFields = ackRow || null;
+        }
+      }
+
       // If RLS hides it, data can be null
-      setWo(data ?? null);
+      setWo(data ? { ...data, ...(ackFields || {}) } : null);
     } catch (e) {
       console.error(e);
       setWo(null);
@@ -488,12 +517,21 @@ export default function WorkOrderDetails() {
             </p>
 
             {wo.contractor_name && (
-              <p className="text-sm text-slate-900 mt-3 font-medium">
-                {t("common.contractor")}: {wo.contractor_name}
-                {wo.contractor_phone ? (
-                  <span className="text-xs text-slate-500"> • {wo.contractor_phone}</span>
-                ) : null}
-              </p>
+              <div className="mt-3 space-y-1">
+                <p className="text-sm text-slate-900 font-medium">
+                  {t("common.contractor")}: {wo.contractor_name}
+                  {wo.contractor_phone ? (
+                    <span className="text-xs text-slate-500"> • {wo.contractor_phone}</span>
+                  ) : null}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {t("contractor.ackStatus")}:{" "}
+                  <span className="font-medium text-slate-700">
+                    {t(`contractor.ackState.${normalizeAckStatus(wo.acknowledgement_status, wo.acknowledged_at, wo.acknowledgement_due_at)}`)}
+                  </span>
+                  {wo.acknowledgement_due_at ? ` • ${t("contractor.ackDue")}: ${formatDateTime(wo.acknowledgement_due_at)}` : ""}
+                </p>
+              </div>
             )}
           </div>
 

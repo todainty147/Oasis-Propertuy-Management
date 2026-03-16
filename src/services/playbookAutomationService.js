@@ -6,6 +6,7 @@ import {
   getPreventiveMaintenanceOverview,
   listPreventiveMaintenanceTasks,
 } from "./preventiveMaintenanceService";
+import { listAutomationExecutions } from "./automationExecutionService";
 
 let automationRuleSettingsUnavailable = false;
 let automationRunsUnavailable = false;
@@ -129,6 +130,16 @@ const RULE_DEFS = [
     triggerKey: "playbooks.rule.contractorBlocked.trigger",
     thresholdKey: "playbooks.rule.contractorBlocked.threshold",
     outputs: ["attention_center", "dashboard"],
+    defaultConfig: {},
+    configFields: [],
+  },
+  {
+    id: "contractor_ack_overdue_watch",
+    titleKey: "playbooks.rule.contractorAckOverdue.title",
+    descriptionKey: "playbooks.rule.contractorAckOverdue.description",
+    triggerKey: "playbooks.rule.contractorAckOverdue.trigger",
+    thresholdKey: "playbooks.rule.contractorAckOverdue.threshold",
+    outputs: ["attention_center", "dashboard", "notifications"],
     defaultConfig: {},
     configFields: [],
   },
@@ -295,6 +306,7 @@ async function buildRuleSignals(accountId, rulesById) {
     leaseRows,
     maintenanceRes,
     blockedWorkOrdersRes,
+    ackOverdueWorkOrdersRes,
     preventiveRows,
   ] = await Promise.all([
     getDashboardSnapshot(accountId, { horizonDays: 7 }),
@@ -328,6 +340,15 @@ async function buildRuleSignals(accountId, rulesById) {
       .in("status", ["blocked", "zablokowane"])
       .order("updated_at", { ascending: false })
       .limit(100),
+    supabase
+      .from("work_orders")
+      .select(
+        "id, property_id, maintenance_request_id, contractor_user_id, contractor_name, acknowledgement_due_at, acknowledgement_status, acknowledged_at"
+      )
+      .eq("account_id", accountId)
+      .not("acknowledgement_due_at", "is", null)
+      .order("acknowledgement_due_at", { ascending: true })
+      .limit(100),
     listPreventiveMaintenanceTasks({
       accountId,
       includePaused: false,
@@ -338,9 +359,18 @@ async function buildRuleSignals(accountId, rulesById) {
   if (paymentsRes.error) throw paymentsRes.error;
   if (maintenanceRes.error) throw maintenanceRes.error;
   if (blockedWorkOrdersRes.error) throw blockedWorkOrdersRes.error;
+  if (ackOverdueWorkOrdersRes.error) {
+    const message = String(ackOverdueWorkOrdersRes.error?.message || "").toLowerCase();
+    if (!message.includes("does not exist") && !message.includes("acknowledgement")) {
+      throw ackOverdueWorkOrdersRes.error;
+    }
+  }
 
   const maintenanceRows = Array.isArray(maintenanceRes.data) ? maintenanceRes.data : [];
   const blockedWorkOrders = Array.isArray(blockedWorkOrdersRes.data) ? blockedWorkOrdersRes.data : [];
+  const ackOverdueWorkOrders = Array.isArray(ackOverdueWorkOrdersRes.data)
+    ? ackOverdueWorkOrdersRes.data
+    : [];
   const payments = Array.isArray(paymentsRes.data) ? paymentsRes.data : [];
 
   const propertyIds = new Set();
@@ -352,6 +382,10 @@ async function buildRuleSignals(accountId, rulesById) {
     if (row?.reported_by_tenant_id) tenantIds.add(row.reported_by_tenant_id);
   }
   for (const row of blockedWorkOrders) {
+    if (row?.property_id) propertyIds.add(row.property_id);
+    if (row?.maintenance_request_id) requestIds.add(row.maintenance_request_id);
+  }
+  for (const row of ackOverdueWorkOrders) {
     if (row?.property_id) propertyIds.add(row.property_id);
     if (row?.maintenance_request_id) requestIds.add(row.maintenance_request_id);
   }
@@ -383,6 +417,7 @@ async function buildRuleSignals(accountId, rulesById) {
     lease_renewal_watch: [],
     maintenance_triage: [],
     contractor_blocked_followup: [],
+    contractor_ack_overdue_watch: [],
     preventive_due_watch: [],
   };
 
@@ -483,6 +518,37 @@ async function buildRuleSignals(accountId, rulesById) {
     }
   }
 
+  if (rulesById.contractor_ack_overdue_watch?.enabled) {
+    const now = new Date();
+    for (const row of ackOverdueWorkOrders) {
+      const dueAt = row?.acknowledgement_due_at ? new Date(row.acknowledgement_due_at) : null;
+      const hasContractor = !!(row?.contractor_user_id || row?.contractor_name);
+      const ackStatus = normalize(row?.acknowledgement_status);
+      if (!hasContractor) continue;
+      if (!dueAt || Number.isNaN(dueAt.getTime()) || dueAt > now) continue;
+      if (ackStatus === "acknowledged" || row?.acknowledged_at) continue;
+
+      const propertyLabel = propertyMap.get(row.property_id) || "Property";
+      const requestTitle = requestTitleMap.get(row.maintenance_request_id) || "Work order";
+
+      signals.contractor_ack_overdue_watch.push({
+        sourceKey: `work_order_ack:${row.id}`,
+        severity: "urgent",
+        title: `Contractor acknowledgement overdue: ${requestTitle}`,
+        body: [propertyLabel, row?.contractor_name || ""].filter(Boolean).join(" • "),
+        entityType: "work_order",
+        entityId: row.id,
+        linkPath: `/work-orders/${row.id}`,
+        details: {
+          property_id: row.property_id || null,
+          maintenance_request_id: row.maintenance_request_id || null,
+          acknowledgement_due_at: row.acknowledgement_due_at || null,
+          contractor_name: row.contractor_name || "",
+        },
+      });
+    }
+  }
+
   if (rulesById.preventive_due_watch?.enabled) {
     for (const row of preventiveRows || []) {
       if (normalize(row?.status) !== "active") continue;
@@ -562,9 +628,11 @@ export async function getPlaybookAutomationOverview(accountId) {
         openRuns: 0,
       },
       recentRuns: [],
+      recentExecutions: [],
       storage: {
         settingsAvailable: false,
         runsAvailable: false,
+        executionLogAvailable: false,
       },
     };
   }
@@ -582,6 +650,8 @@ export async function getPlaybookAutomationOverview(accountId) {
 
   const recentRunsRows = await listRecentAutomationRunsRows(accountId, 12);
   const runsAvailable = Array.isArray(recentRunsRows);
+  const executionRows = await listAutomationExecutions(accountId, 12);
+  const executionLogAvailable = Array.isArray(executionRows);
 
   const rules = RULE_DEFS.map((rule) =>
     mergeRuleWithSetting(rule, settingsByRuleId.get(rule.id), (signals[rule.id] || []).length),
@@ -606,9 +676,11 @@ export async function getPlaybookAutomationOverview(accountId) {
         Number(preventiveOverview?.overdueCount || 0) + Number(preventiveOverview?.dueSoonCount || 0),
     },
     recentRuns: Array.isArray(recentRunsRows) ? recentRunsRows.map(mapRunForUi) : [],
+    recentExecutions: Array.isArray(executionRows) ? executionRows : [],
     storage: {
       settingsAvailable,
       runsAvailable,
+      executionLogAvailable,
     },
   };
 }

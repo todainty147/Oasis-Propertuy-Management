@@ -130,6 +130,7 @@ export default function AttentionCenterPage() {
       { channel: `attention-center-work-orders:${activeAccountId}`, table: "work_orders", filter: `account_id=eq.${activeAccountId}` },
       { channel: `attention-center-leases:${activeAccountId}`, table: "leases", filter: `account_id=eq.${activeAccountId}` },
       { channel: `attention-center-preventive:${activeAccountId}`, table: "preventive_maintenance_tasks", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `attention-center-compliance:${activeAccountId}`, table: "compliance_items", filter: `account_id=eq.${activeAccountId}` },
       { channel: `attention-center-notifications:${activeAccountId}`, table: "notifications", filter: `account_id=eq.${activeAccountId}` },
       { channel: `attention-center-tenants:${activeAccountId}`, table: "tenants", filter: `account_id=eq.${activeAccountId}` },
     ],

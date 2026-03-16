@@ -106,13 +106,15 @@ as $$
       w.maintenance_request_id,
       w.contractor_user_id,
       w.contractor_name,
+      w.acknowledgement_due_at,
+      w.acknowledgement_status,
       lower(coalesce(w.status, '')) as status,
       w.scheduled_at,
       w.created_at,
       w.updated_at,
       coalesce(pr.address, '—') as property_label,
       coalesce(mr.title, '—') as request_title
-    from public.work_orders_with_flags w
+    from public.work_orders w
     left join public.properties pr on pr.id = w.property_id
     left join public.maintenance_requests mr on mr.id = w.maintenance_request_id
     where w.account_id = p_account_id
@@ -211,7 +213,9 @@ as $$
     from scoped_work_orders swo
     where swo.status in ('assigned', 'przypisane')
       and (swo.contractor_user_id is not null or nullif(coalesce(swo.contractor_name, ''), '') is not null)
-      and coalesce(swo.updated_at, swo.created_at) <= now() - interval '48 hours'
+      and coalesce(lower(swo.acknowledgement_status), 'pending') <> 'acknowledged'
+      and swo.acknowledgement_due_at is not null
+      and swo.acknowledgement_due_at < now()
   ),
   work_order_overdue as (
     select
@@ -374,6 +378,58 @@ as $$
       and pmt.next_due_date >= current_date
       and pmt.next_due_date <= current_date + interval '14 days'
   ),
+  compliance_items as (
+    select
+      'compliance-overdue-' || c.id::text as item_key,
+      'compliance_overdue'::text as item_type,
+      'urgent'::text as bucket,
+      coalesce(p.address, '—') as property_label,
+      coalesce(t.name, '—') as tenant_label,
+      c.title as entity_label,
+      null::numeric as amount,
+      null::int as age_hours,
+      (c.due_date - current_date)::int as due_days,
+      coalesce(
+        case when c.property_id is not null then '/properties/' || c.property_id::text else null end,
+        case when c.tenant_id is not null then '/tenants/' || c.tenant_id::text else null end,
+        '/attention-center'
+      ) as link_path,
+      'compliance_items'::text as source_table,
+      19 as sort_order
+    from public.compliance_items c
+    left join public.properties p on p.id = c.property_id
+    left join public.tenants t on t.id = c.tenant_id
+    where c.account_id = p_account_id
+      and lower(coalesce(c.status, 'active')) = 'active'
+      and c.due_date < current_date
+
+    union all
+
+    select
+      'compliance-due-' || c.id::text,
+      'compliance_due_soon'::text,
+      'upcoming'::text,
+      coalesce(p.address, '—'),
+      coalesce(t.name, '—'),
+      c.title,
+      null::numeric,
+      null::int,
+      (c.due_date - current_date)::int,
+      coalesce(
+        case when c.property_id is not null then '/properties/' || c.property_id::text else null end,
+        case when c.tenant_id is not null then '/tenants/' || c.tenant_id::text else null end,
+        '/attention-center'
+      ),
+      'compliance_items'::text,
+      57 as sort_order
+    from public.compliance_items c
+    left join public.properties p on p.id = c.property_id
+    left join public.tenants t on t.id = c.tenant_id
+    where c.account_id = p_account_id
+      and lower(coalesce(c.status, 'active')) = 'active'
+      and c.due_date >= current_date
+      and c.due_date <= current_date + interval '30 days'
+  ),
   notification_items as (
     select
       'notification-' || n.id::text as item_key,
@@ -404,6 +460,7 @@ as $$
     union all select * from recently_updated_open
     union all select * from lease_items
     union all select * from preventive_items
+    union all select * from compliance_items
     union all select * from notification_items
   )
   select

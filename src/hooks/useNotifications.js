@@ -1,6 +1,7 @@
 // src/hooks/useNotifications.js
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { getAlertTaxonomy } from "../utils/alertTaxonomy";
 
 /**
  * Notifications v1 hook (hardened)
@@ -61,7 +62,16 @@ export function useNotifications({ limit = 20, accountId = null } = {}) {
         setError(e);
         setItems([]);
       } else {
-        setItems(data ?? []);
+        setItems(
+          (data ?? []).map((row) => {
+            const taxonomy = getAlertTaxonomy(row?.type, row?.metadata || {});
+            return {
+              ...row,
+              alert_category: taxonomy.category,
+              alert_severity: taxonomy.severity,
+            };
+          }),
+        );
       }
     } finally {
       if (mountedRef.current) setLoading(false);

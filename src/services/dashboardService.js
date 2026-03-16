@@ -167,6 +167,45 @@ export function mapDashboardHubItems({
       };
     }
 
+    if (type === "contractor_ack_overdue_summary") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.contractorAckOverdue"),
+        subtitle: t("dashboard.hub.contractorAckOverdueCount", {
+          count: Number(item.count_value || 0),
+        }),
+        meta: t("dashboard.hub.contractorAckOverdueHint"),
+        to: item.link_path || "/attention-center",
+        sortOrder: Number(item.sort_order || 16),
+      };
+    }
+
+    if (type === "compliance_overdue_summary") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.complianceOverdue"),
+        subtitle: t("dashboard.hub.complianceCount", {
+          count: Number(item.count_value || 0),
+        }),
+        meta: t("dashboard.hub.complianceHint"),
+        to: item.link_path || "/attention-center",
+        sortOrder: Number(item.sort_order || 17),
+      };
+    }
+
+    if (type === "compliance_due_summary") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.complianceDueSoon"),
+        subtitle: t("dashboard.hub.complianceCount", {
+          count: Number(item.count_value || 0),
+        }),
+        meta: t("dashboard.hub.complianceHint"),
+        to: item.link_path || "/attention-center",
+        sortOrder: Number(item.sort_order || 19),
+      };
+    }
+
     return {
       id: item.item_key,
       title: t("dashboard.hub.dueSoon"),

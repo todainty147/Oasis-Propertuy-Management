@@ -104,6 +104,7 @@ export default function PlaybooksPage() {
       { channel: `playbooks-notifications:${activeAccountId}`, table: "notifications", filter: `account_id=eq.${activeAccountId}` },
       { channel: `playbooks-settings:${activeAccountId}`, table: "automation_rule_settings", filter: `account_id=eq.${activeAccountId}` },
       { channel: `playbooks-runs:${activeAccountId}`, table: "automation_runs", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `playbooks-executions:${activeAccountId}`, table: "automation_execution_log", filter: `account_id=eq.${activeAccountId}` },
     ],
     onChange: load,
   });
@@ -149,9 +150,11 @@ export default function PlaybooksPage() {
   const view = overview ?? {
     rules: [],
     recentRuns: [],
+    recentExecutions: [],
     storage: {
       settingsAvailable: false,
       runsAvailable: false,
+      executionLogAvailable: false,
     },
     summary: {
       enabledRules: 0,
@@ -367,6 +370,45 @@ export default function PlaybooksPage() {
               ) : (
                 <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
                   {t("playbooks.noRuns")}
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">{t("playbooks.executionsTitle")}</h3>
+                <p className="mt-1 text-xs text-slate-500">{t("playbooks.executionsSubtitle")}</p>
+              </div>
+            </div>
+
+            <div className="mt-3 space-y-3">
+              {!view.storage.executionLogAvailable ? (
+                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                  {t("playbooks.executionLogUnavailable")}
+                </div>
+              ) : view.recentExecutions.length ? (
+                view.recentExecutions.map((execution) => (
+                  <div key={execution.id} className="rounded-lg border border-slate-200 bg-white p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {execution.title || t(RULE_DEFS_TO_TITLE_KEY[execution.rule_id] || "playbooks.title")}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {execution.rule_id} • {formatDateTime(execution.executed_at)}
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600">
+                        {execution.status}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                  {t("playbooks.noExecutions")}
                 </div>
               )}
             </div>
