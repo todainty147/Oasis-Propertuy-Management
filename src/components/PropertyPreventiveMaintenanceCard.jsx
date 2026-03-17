@@ -13,6 +13,7 @@ import {
   updatePreventiveMaintenanceTaskStatus,
   upsertPreventiveMaintenanceTask,
 } from "../services/preventiveMaintenanceService";
+import { isManageRole } from "../utils/permissions";
 
 function normalizeCategory(value) {
   return String(value || "")
@@ -62,10 +63,10 @@ const CATEGORY_OPTIONS = [
 
 export default function PropertyPreventiveMaintenanceCard({ accountId, propertyId }) {
   const navigate = useNavigate();
-  const { activeRole } = useAccount();
+  const { activeRole, isRootOperator } = useAccount();
   const { t } = useI18n();
   const role = String(activeRole || "").toLowerCase();
-  const canManage = ["owner", "admin", "staff"].includes(role);
+  const canManage = isManageRole(role, { isRootOperator });
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

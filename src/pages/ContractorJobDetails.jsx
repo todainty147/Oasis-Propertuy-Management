@@ -710,10 +710,10 @@ export default function ContractorJobDetails() {
                 <span className="text-slate-500">{t("finance.table.property")}:</span> {propertyLabel}
               </div>
             ) : null}
-            <div className="text-sm">
-              <span className="text-slate-500">{t("maintenance.card.status")}:</span>{" "}
-              <span className="font-medium text-slate-900">{row.status}</span>
-            </div>
+	            <div className="text-sm">
+	              <span className="text-slate-500">{t("maintenance.card.status")}:</span>{" "}
+	              <StatusPill status={row.status} t={t} />
+	            </div>
             <div className="text-sm">
               <span className="text-slate-500">{t("common.dueDate")}:</span>{" "}
               <span className="text-slate-900">{formatDateTime(row.scheduled_at)}</span>

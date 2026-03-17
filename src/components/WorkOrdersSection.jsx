@@ -25,6 +25,7 @@ import {
 import { getContractorRatingByWorkOrder, upsertContractorRating } from "../services/contractorRatingService";
 import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount, getCurrencyOptions, getDefaultCurrency } from "../utils/currency";
+import { isManageRole } from "../utils/permissions";
 /* -----------------------------
    UI helpers
 ----------------------------- */
@@ -194,7 +195,7 @@ function PaginationFooter({ page, totalPages, totalCount, pageSize, onPrev, onNe
 ----------------------------- */
 
 export default function WorkOrdersSection({ propertyId }) {
-  const { activeAccountId, activeRole } = useAccount();
+  const { activeAccountId, activeRole, isRootOperator } = useAccount();
   const { t } = useI18n();
 
   // ✅ NEXT-4: allow deep-link from Maintenance Requests list
@@ -207,7 +208,7 @@ export default function WorkOrdersSection({ propertyId }) {
   const isContractor = useMemo(() => role === "contractor", [role]);
   const isTenant = useMemo(() => role === "tenant", [role]);
 
-  const canManage = useMemo(() => ["owner", "admin", "staff"].includes(role), [role]);
+  const canManage = useMemo(() => isManageRole(role, { isRootOperator }), [isRootOperator, role]);
 
   // ✅ per-row busy state (prevents double-click + shows feedback)
   const [actionBusyId, setActionBusyId] = useState(null);

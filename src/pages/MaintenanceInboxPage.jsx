@@ -9,6 +9,7 @@ import CreateWorkOrderDrawer from "../components/maintenance-inbox/CreateWorkOrd
 import { updateMaintenanceRequest } from "../services/maintenanceService";
 import { createWorkOrder } from "../services/workOrderService";
 import { useI18n } from "../context/I18nContext";
+import { isManageRole } from "../utils/permissions";
 
 const STATUS_ORDER = ["open", "in_progress", "waiting", "resolved", "closed"];
 const AGE_BUCKETS = new Set(["0_24", "24_48", "48_72", "72_plus"]);
@@ -26,12 +27,12 @@ function ageHours(ts) {
 
 export default function MaintenanceInboxPage() {
   const { setTitle } = usePageTitle();
-  const { activeAccountId, activeRole } = useAccount();
+  const { activeAccountId, activeRole, isRootOperator } = useAccount();
   const { t } = useI18n();
   const [searchParams] = useSearchParams();
 
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
-  const canManage = useMemo(() => ["owner", "admin", "staff"].includes(role), [role]);
+  const canManage = useMemo(() => isManageRole(role, { isRootOperator }), [isRootOperator, role]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

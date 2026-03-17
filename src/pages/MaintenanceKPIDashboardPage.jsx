@@ -17,6 +17,7 @@ import {
 import { getPreventiveMaintenanceOverview } from "../services/preventiveMaintenanceService";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount } from "../utils/currency";
+import { isManageRole } from "../utils/permissions";
 
 function fmtDate(ts) {
   if (!ts) return "—";
@@ -288,11 +289,11 @@ function hoursToDays(hours) {
 
 export default function MaintenanceKPIDashboardPage() {
   const { setTitle } = usePageTitle();
-  const { activeAccountId, activeRole } = useAccount();
+  const { activeAccountId, activeRole, isRootOperator } = useAccount();
   const { t } = useI18n();
 
   const role = useMemo(() => String(activeRole || "").toLowerCase(), [activeRole]);
-  const canManage = useMemo(() => ["owner", "admin", "staff"].includes(role), [role]);
+  const canManage = useMemo(() => isManageRole(role, { isRootOperator }), [isRootOperator, role]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

@@ -8,6 +8,9 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+.next
+marketing-site/node_modules
+marketing-site/.next
 dist
 dist-ssr
 *.local

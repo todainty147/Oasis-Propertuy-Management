@@ -1,9 +1,13 @@
-// src/hooks/useTenants.js
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
 import { useRealtimeTables } from "./useRealtimeTables";
+import {
+  createTenant as createTenantRecord,
+  updateTenant as updateTenantRecord,
+  deleteTenant as deleteTenantRecord,
+} from "../services/tenantService";
 
 export function useTenants({ enabled = true } = {}) {
   const { activeAccountId } = useAccount();
@@ -83,31 +87,20 @@ export function useTenants({ enabled = true } = {}) {
     onChange: loadTenants,
   });
 
-  /* ======================
-     CREATE TENANT ✅
-     ====================== */
-
-  async function createTenant({
-    name,
-    email,
-    phone,
-    propertyId,
-  }) {
-    if (!activeAccountId) {
-      throw new Error("Brak aktywnego konta");
-    }
-
-    const { error } = await supabase.from("tenants").insert({
-      account_id: activeAccountId,
-      name,
-      email,
-      phone,
-      property_id: propertyId,
+  async function createTenant(payload) {
+    if (!activeAccountId) throw new Error("Brak aktywnego konta");
+    return createTenantRecord({
+      accountId: activeAccountId,
+      ...payload,
     });
+  }
 
-    if (error) {
-      throw error;
-    }
+  async function updateTenant(id, payload) {
+    return updateTenantRecord(id, payload);
+  }
+
+  async function deleteTenant(id) {
+    return deleteTenantRecord(id);
   }
 
   return {
@@ -115,7 +108,9 @@ export function useTenants({ enabled = true } = {}) {
     loading,
     error,
 
-    // ✅ MUTATIONS
+    // Canonical tenant mutations now flow through the shared service.
     createTenant,
+    updateTenant,
+    deleteTenant,
   };
 }

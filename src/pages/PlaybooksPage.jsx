@@ -10,6 +10,7 @@ import {
   getPlaybookAutomationOverview,
   updatePlaybookRuleSetting,
 } from "../services/playbookAutomationService";
+import { isManageRole } from "../utils/permissions";
 
 function OutputBadge({ output, t }) {
   return (
@@ -59,9 +60,9 @@ function ExecutionStatusBadge({ status }) {
 export default function PlaybooksPage() {
   const { setTitle } = usePageTitle();
   const { t } = useI18n();
-  const { activeAccountId, activeRole } = useAccount();
+  const { activeAccountId, activeRole, isRootOperator } = useAccount();
   const role = useMemo(() => String(activeRole || "").toLowerCase(), [activeRole]);
-  const canManage = useMemo(() => ["owner", "admin", "staff"].includes(role), [role]);
+  const canManage = useMemo(() => isManageRole(role, { isRootOperator }), [isRootOperator, role]);
 
   const [loading, setLoading] = useState(false);
   const [savingRuleId, setSavingRuleId] = useState("");

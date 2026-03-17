@@ -9,6 +9,7 @@ import { supabase } from "../lib/supabase";
 import { createMaintenanceRequest, updateMaintenanceRequest } from "../services/maintenanceService";
 import { createWorkOrder } from "../services/workOrderService";
 import { useI18n } from "../context/I18nContext";
+import { isManageRole } from "../utils/permissions";
 
 /* -----------------------------
    Helpers
@@ -203,7 +204,7 @@ function PaginationFooter({
 ----------------------------- */
 
 export default function MaintenanceRequestsSection({ propertyId }) {
-  const { activeAccountId, activeRole } = useAccount();
+  const { activeAccountId, activeRole, isRootOperator } = useAccount();
   const { t } = useI18n();
   const navigate = useNavigate();
 
@@ -213,9 +214,8 @@ export default function MaintenanceRequestsSection({ propertyId }) {
   );
 
   const canManage = useMemo(() => {
-    const r = String(activeRole ?? "").toLowerCase();
-    return ["owner", "admin", "staff"].includes(r);
-  }, [activeRole]);
+    return isManageRole(activeRole, { isRootOperator });
+  }, [activeRole, isRootOperator]);
 
   const canCreate = canManage || isTenant;
 

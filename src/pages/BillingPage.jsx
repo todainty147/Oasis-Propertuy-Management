@@ -10,6 +10,7 @@ import {
   openCustomerPortal,
   startCheckout,
 } from "../services/billingService";
+import { isManageRole } from "../utils/permissions";
 
 const PLANS = [
   { key: "starter", nameKey: "billing.plan.starter", limitKey: "billing.plan.starterLimit" },
@@ -25,7 +26,7 @@ function formatDate(value) {
 }
 
 export default function BillingPage() {
-  const { activeAccountId, activeRole } = useAccount();
+  const { activeAccountId, activeRole, isRootOperator } = useAccount();
   const { t } = useI18n();
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -33,8 +34,8 @@ export default function BillingPage() {
   const [error, setError] = useState("");
 
   const canManageBilling = useMemo(
-    () => ["owner", "admin", "staff"].includes(String(activeRole || "").toLowerCase()),
-    [activeRole],
+    () => isManageRole(activeRole, { isRootOperator }),
+    [activeRole, isRootOperator],
   );
 
   useEffect(() => {

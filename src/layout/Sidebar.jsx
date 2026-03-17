@@ -27,6 +27,7 @@ import { useTenants } from "../hooks/useTenants";
 import { useI18n } from "../context/I18nContext";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { isManageRole } from "../utils/permissions";
 
 /* ======================
    NAV ITEM
@@ -114,7 +115,7 @@ function TenantSwitcher() {
    ====================== */
 
 function SidebarContent({ onNavigate }) {
-  const { activeRole, activeAccountId } = useAccount();
+  const { activeRole, activeAccountId, isRootOperator } = useAccount();
   const { user } = useAuth();
   const { t, lang, setLang } = useI18n();
   const { theme, setTheme } = useTheme();
@@ -122,7 +123,7 @@ function SidebarContent({ onNavigate }) {
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
   const isContractor = role === "contractor";
   const isTenant = role === "tenant";
-  const canManage = ["owner", "admin", "staff"].includes(role);
+  const canManage = isManageRole(role, { isRootOperator });
   const isOwner = role === "owner";
   const [operationsOpen, setOperationsOpen] = useState(true);
   const [adminOpen, setAdminOpen] = useState(true);

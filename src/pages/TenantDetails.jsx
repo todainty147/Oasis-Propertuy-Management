@@ -10,6 +10,7 @@ import LeaseSummaryCard from "../components/LeaseSummaryCard";
 import TenantTimelineCard from "../components/TenantTimelineCard";
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
+import { isManageRole } from "../utils/permissions";
 
 /* ======================
    SKELETON
@@ -44,11 +45,9 @@ export default function TenantDetails({
   const navigate = useNavigate();
 
   /* ---------- ACCOUNT ---------- */
-  const { accountLoading, activeAccountId, activeRole } = useAccount();
+  const { accountLoading, activeAccountId, activeRole, isRootOperator } = useAccount();
   const { t } = useI18n();
-  const canManageLease = ["owner", "admin", "staff"].includes(
-    String(activeRole || "").toLowerCase(),
-  );
+  const canManageLease = isManageRole(activeRole, { isRootOperator });
 
   /* ---------- PAGE TITLE ---------- */
   const { setTitle } = usePageTitle();

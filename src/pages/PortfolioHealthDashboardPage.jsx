@@ -26,6 +26,7 @@ import {
   listPropertyOperationalHealthScores,
   summarizePropertyOperationalHealth,
 } from "../services/propertyHealthScoreService";
+import { isManageRole } from "../utils/permissions";
 
 function pctDelta(current, previous) {
   const c = Number(current || 0);
@@ -150,12 +151,12 @@ function BarCard({ title, rows = [], labels = {}, toByKey = {} }) {
 
 export default function PortfolioHealthDashboardPage() {
   const { setTitle } = usePageTitle();
-  const { activeRole, activeAccountId } = useAccount();
+  const { activeRole, activeAccountId, isRootOperator } = useAccount();
   const { activeTenantId } = useTenant();
   const { t } = useI18n();
 
   const role = useMemo(() => String(activeRole || "").toLowerCase(), [activeRole]);
-  const canManage = useMemo(() => ["owner", "admin", "staff"].includes(role), [role]);
+  const canManage = useMemo(() => isManageRole(role, { isRootOperator }), [isRootOperator, role]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

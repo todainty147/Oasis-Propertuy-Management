@@ -20,6 +20,7 @@ import {
   getDashboardSnapshot,
   mapDashboardHubItems,
 } from "../services/dashboardService";
+import { isManageRole } from "../utils/permissions";
 
 // ✅ Tenant dashboard widget
 import TenantMaintenanceDashboard from "../components/TenantMaintenanceDashboard";
@@ -71,11 +72,11 @@ export default function Dashboard({
   }, [setTitle]);
 
   /* ---------- ROLE ---------- */
-  const { activeRole, activeAccountId } = useAccount();
+  const { activeRole, activeAccountId, isRootOperator } = useAccount();
   const { activeTenantId } = useTenant();
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
   const isTenant = useMemo(() => role === "tenant", [role]);
-  const canManage = useMemo(() => ["owner", "admin", "staff"].includes(role), [role]);
+  const canManage = useMemo(() => isManageRole(role, { isRootOperator }), [isRootOperator, role]);
   const [attentionRows, setAttentionRows] = useState([]);
   const [leaseAttentionRows, setLeaseAttentionRows] = useState([]);
   const [leaseSummary, setLeaseSummary] = useState(null);

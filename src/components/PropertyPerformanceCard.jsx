@@ -95,6 +95,16 @@ function buildRecentMonths(count = 4) {
   return months;
 }
 
+function isMissingBackendObject(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    error?.code === "PGRST404" ||
+    message.includes("could not find the function") ||
+    message.includes("relation") ||
+    message.includes("does not exist")
+  );
+}
+
 export default function PropertyPerformanceCard({
   accountId,
   property,
@@ -105,6 +115,7 @@ export default function PropertyPerformanceCard({
   const [loading, setLoading] = useState(true);
   const [requestRows, setRequestRows] = useState([]);
   const [workOrderRows, setWorkOrderRows] = useState([]);
+  const [maintenanceExpenseRows, setMaintenanceExpenseRows] = useState([]);
   const [operatingExpenseRows, setOperatingExpenseRows] = useState([]);
   const [financialProfile, setFinancialProfile] = useState(null);
   const [leaseRows, setLeaseRows] = useState([]);
@@ -118,6 +129,7 @@ export default function PropertyPerformanceCard({
     if (!accountId || !property?.id) {
       setRequestRows([]);
       setWorkOrderRows([]);
+      setMaintenanceExpenseRows([]);
       setOperatingExpenseRows([]);
       setFinancialProfile(null);
       setLeaseRows([]);
@@ -135,6 +147,7 @@ export default function PropertyPerformanceCard({
       const [
         requestsRes,
         workOrdersRes,
+        maintenanceExpensesRes,
         operatingExpenses,
         profile,
         leases,
@@ -153,6 +166,13 @@ export default function PropertyPerformanceCard({
           .select("id, status, quote_amount, invoice_amount, created_at, updated_at, maintenance_request_id, acknowledgement_status, acknowledgement_due_at")
           .eq("account_id", accountId)
           .eq("property_id", property.id),
+        supabase
+          .from("maintenance_expenses")
+          .select("id, amount, approval_state, expense_date, posted_at")
+          .eq("account_id", accountId)
+          .eq("property_id", property.id)
+          .order("expense_date", { ascending: false })
+          .limit(120),
         listPropertyOperatingExpenses({ accountId, propertyId: property.id, limit: 120 }),
         getPropertyFinancialProfile({ accountId, propertyId: property.id }),
         listLeases({ accountId, propertyId: property.id, limit: 20 }),
@@ -164,9 +184,13 @@ export default function PropertyPerformanceCard({
 
       if (requestsRes.error) throw requestsRes.error;
       if (workOrdersRes.error) throw workOrdersRes.error;
+      if (maintenanceExpensesRes.error && !isMissingBackendObject(maintenanceExpensesRes.error)) {
+        throw maintenanceExpensesRes.error;
+      }
 
       setRequestRows(requestsRes.data || []);
       setWorkOrderRows(workOrdersRes.data || []);
+      setMaintenanceExpenseRows(maintenanceExpensesRes.data || []);
       setOperatingExpenseRows(operatingExpenses || []);
       setFinancialProfile(profile || null);
       setLeaseRows(leases || []);
@@ -177,6 +201,7 @@ export default function PropertyPerformanceCard({
     } catch (e) {
       setRequestRows([]);
       setWorkOrderRows([]);
+      setMaintenanceExpenseRows([]);
       setOperatingExpenseRows([]);
       setFinancialProfile(null);
       setLeaseRows([]);
@@ -201,6 +226,7 @@ export default function PropertyPerformanceCard({
       { channel: `property-performance-payments:${property?.id}`, table: "payments", filter: `account_id=eq.${accountId}` },
       { channel: `property-performance-requests:${property?.id}`, table: "maintenance_requests", filter: `account_id=eq.${accountId}` },
       { channel: `property-performance-workorders:${property?.id}`, table: "work_orders", filter: `account_id=eq.${accountId}` },
+      { channel: `property-performance-maintenance-expenses:${property?.id}`, table: "maintenance_expenses", filter: `account_id=eq.${accountId}` },
       { channel: `property-performance-financials:${property?.id}`, table: "work_order_financials" },
       { channel: `property-performance-tenants:${property?.id}`, table: "tenants", filter: `account_id=eq.${accountId}` },
       { channel: `property-performance-leases:${property?.id}`, table: "leases", filter: `account_id=eq.${accountId}` },
@@ -317,14 +343,25 @@ export default function PropertyPerformanceCard({
     }).length;
 
     const months = buildRecentMonths(4);
+    const approvedMaintenanceExpenses = (maintenanceExpenseRows || []).filter(
+      (row) => String(row?.approval_state || "").toLowerCase() === "approved"
+    );
     const monthlyMaintenance = months.map((month) => {
       const start = startOfMonth(month.date);
       const end = new Date(month.date.getFullYear(), month.date.getMonth() + 1, 1);
       let amount = 0;
-      for (const row of workOrderRows || []) {
-        const basis = toDate(row?.updated_at || row?.created_at);
+      const trendSource = approvedMaintenanceExpenses.length > 0
+        ? approvedMaintenanceExpenses
+        : workOrderRows || [];
+
+      for (const row of trendSource) {
+        const basis = approvedMaintenanceExpenses.length > 0
+          ? toDate(row?.expense_date || row?.posted_at)
+          : toDate(row?.updated_at || row?.created_at);
         if (!basis || basis < start || basis >= end) continue;
-        amount += Number(row?.invoice_amount || 0);
+        amount += approvedMaintenanceExpenses.length > 0
+          ? Number(row?.amount || 0)
+          : Number(row?.invoice_amount || 0);
       }
       return {
         ...month,
@@ -372,7 +409,17 @@ export default function PropertyPerformanceCard({
       maxMaintenanceAmount,
       flags,
     };
-  }, [payments, requestRows, summary.maintenanceCommitted, summary.monthlyRent, summary.overdueRent, summary.totalOperatingCosts, t, workOrderRows]);
+  }, [
+    maintenanceExpenseRows,
+    payments,
+    requestRows,
+    summary.maintenanceCommitted,
+    summary.monthlyRent,
+    summary.overdueRent,
+    summary.totalOperatingCosts,
+    t,
+    workOrderRows,
+  ]);
 
   const healthView = useMemo(() => {
     const fallbackScore = calculatePropertyOperationalHealth({

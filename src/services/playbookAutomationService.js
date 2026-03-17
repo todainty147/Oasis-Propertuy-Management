@@ -1,18 +1,6 @@
 import { supabase } from "../lib/supabase";
-import { getDashboardSnapshot } from "./dashboardService";
-import { getDerivedLeaseStatus, listLeases } from "./leaseService";
-import { getMaintenanceKpiSnapshot } from "./maintenanceDashboardService";
-import { listComplianceItems } from "./complianceService";
-import {
-  getPreventiveMaintenanceOverview,
-  listPreventiveMaintenanceTasks,
-} from "./preventiveMaintenanceService";
-import { listAutomationExecutions } from "./automationExecutionService";
-import { listPropertyOperationalHealthScores } from "./propertyHealthScoreService";
 
 let automationRuleSettingsUnavailable = false;
-let automationRunsUnavailable = false;
-let playbookSnapshotUnavailable = false;
 
 function isMissingBackendObject(error) {
   const message = String(error?.message || "").toLowerCase();
@@ -29,54 +17,10 @@ function isPermissionDenied(error) {
   return error?.code === "42501" || message.includes("permission denied");
 }
 
-function normalize(value) {
-  return String(value || "").trim().toLowerCase();
-}
-
-function toDateOnly(value) {
-  if (!value) return null;
-  const next = new Date(`${String(value).slice(0, 10)}T00:00:00`);
-  return Number.isNaN(next.getTime()) ? null : next;
-}
-
-function daysUntil(value) {
-  const target = toDateOnly(value);
-  if (!target) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.round((target.getTime() - today.getTime()) / 86400000);
-}
-
-function todayDate() {
-  const date = new Date();
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function formatShortDate(value) {
-  const date = value ? new Date(value) : null;
-  if (!date || Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString();
-}
-
-function isOverduePayment(row, graceDays = 0) {
-  const status = normalize(row?.status);
-  if (row?.paid_at) return false;
-  if (status === "overdue" || status === "zaległe") return true;
-  const due = toDateOnly(row?.due_date);
-  if (!due) return false;
-  const diff = Math.round((todayDate().getTime() - due.getTime()) / 86400000);
-  return diff > Math.max(0, Number(graceDays || 0));
-}
-
 function clampInt(value, fallback, min = 0, max = 365) {
   const next = Number(value);
   if (!Number.isFinite(next)) return fallback;
   return Math.max(min, Math.min(max, Math.floor(next)));
-}
-
-function safeConfigValue(config, key, fallback, min = 0, max = 365) {
-  return clampInt(config?.[key], fallback, min, max);
 }
 
 const RULE_DEFS = [
@@ -232,65 +176,6 @@ function mergeRuleWithSetting(rule, settingRow, currentCount) {
   };
 }
 
-async function listAutomationRuleSettingsRows(accountId) {
-  if (!accountId) return [];
-  if (automationRuleSettingsUnavailable) return null;
-  const { data, error } = await supabase
-    .from("automation_rule_settings")
-    .select("account_id, rule_id, enabled, config, updated_at")
-    .eq("account_id", accountId);
-
-  if (error && isMissingBackendObject(error)) {
-    automationRuleSettingsUnavailable = true;
-    return null;
-  }
-  if (error && isPermissionDenied(error)) {
-    automationRuleSettingsUnavailable = true;
-    return null;
-  }
-  if (error) throw error;
-  return Array.isArray(data) ? data : [];
-}
-
-async function listRecentAutomationRunsRows(accountId, limit = 12) {
-  if (!accountId) return [];
-  if (automationRunsUnavailable) return null;
-  const { data, error } = await supabase
-    .from("automation_runs")
-    .select(`
-      id,
-      rule_id,
-      source_key,
-      state,
-      severity,
-      title,
-      body,
-      entity_type,
-      entity_id,
-      link_path,
-      details,
-      first_triggered_at,
-      last_triggered_at,
-      resolved_at,
-      created_at,
-      updated_at
-    `)
-    .eq("account_id", accountId)
-    .order("last_triggered_at", { ascending: false })
-    .limit(limit);
-
-  if (error && isMissingBackendObject(error)) {
-    automationRunsUnavailable = true;
-    return null;
-  }
-  if (error && isPermissionDenied(error)) {
-    automationRunsUnavailable = true;
-    return null;
-  }
-  if (error) throw error;
-  return Array.isArray(data) ? data : [];
-}
-
 function mapRunForUi(row) {
   return {
     id: row.id,
@@ -323,396 +208,6 @@ function parseJsonArray(value) {
 
 function parseJsonObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
-
-async function mapLabels({ propertyIds = [], tenantIds = [] }) {
-  const propertyMap = new Map();
-  const tenantMap = new Map();
-
-  if (propertyIds.length) {
-    const { data, error } = await supabase
-      .from("properties")
-      .select("id, address")
-      .in("id", propertyIds);
-    if (!error) {
-      for (const row of data || []) propertyMap.set(row.id, row.address || "—");
-    }
-  }
-
-  if (tenantIds.length) {
-    const { data, error } = await supabase
-      .from("tenants")
-      .select("id, name")
-      .in("id", tenantIds);
-    if (!error) {
-      for (const row of data || []) tenantMap.set(row.id, row.name || "—");
-    }
-  }
-
-  return { propertyMap, tenantMap };
-}
-
-async function buildRuleSignals(accountId, rulesById) {
-  const [
-    dashboardSnapshot,
-    maintenanceSnapshot,
-    paymentsRes,
-    leaseRows,
-    maintenanceRes,
-    blockedWorkOrdersRes,
-    ackOverdueWorkOrdersRes,
-    preventiveRows,
-    propertyHealthRows,
-  ] = await Promise.all([
-    getDashboardSnapshot(accountId, { horizonDays: 7 }),
-    getMaintenanceKpiSnapshot(accountId),
-    supabase
-      .from("payments")
-      .select(`
-        id,
-        amount,
-        status,
-        due_date,
-        paid_at,
-        tenant_id,
-        property_id,
-        tenants ( name ),
-        properties ( address )
-      `)
-      .eq("account_id", accountId),
-    listLeases({ accountId, limit: 500 }),
-    supabase
-      .from("maintenance_requests")
-      .select("id, title, status, property_id, reported_by_tenant_id, created_at")
-      .eq("account_id", accountId)
-      .eq("status", "open")
-      .order("created_at", { ascending: false })
-      .limit(200),
-    supabase
-      .from("work_orders")
-      .select("id, property_id, maintenance_request_id, status, contractor_name, created_at, updated_at")
-      .eq("account_id", accountId)
-      .in("status", ["blocked", "zablokowane"])
-      .order("updated_at", { ascending: false })
-      .limit(100),
-    supabase
-      .from("work_orders")
-      .select(
-        "id, property_id, maintenance_request_id, contractor_user_id, contractor_name, acknowledgement_due_at, acknowledgement_status, acknowledged_at"
-      )
-      .eq("account_id", accountId)
-      .not("acknowledgement_due_at", "is", null)
-      .order("acknowledgement_due_at", { ascending: true })
-      .limit(100),
-    listPreventiveMaintenanceTasks({
-      accountId,
-      includePaused: false,
-      limit: 500,
-    }),
-    listPropertyOperationalHealthScores(accountId, { limit: 200 }),
-  ]);
-
-  if (paymentsRes.error) throw paymentsRes.error;
-  if (maintenanceRes.error) throw maintenanceRes.error;
-  if (blockedWorkOrdersRes.error) throw blockedWorkOrdersRes.error;
-  if (ackOverdueWorkOrdersRes.error) {
-    const message = String(ackOverdueWorkOrdersRes.error?.message || "").toLowerCase();
-    if (!message.includes("does not exist") && !message.includes("acknowledgement")) {
-      throw ackOverdueWorkOrdersRes.error;
-    }
-  }
-
-  const maintenanceRows = Array.isArray(maintenanceRes.data) ? maintenanceRes.data : [];
-  const blockedWorkOrders = Array.isArray(blockedWorkOrdersRes.data) ? blockedWorkOrdersRes.data : [];
-  const ackOverdueWorkOrders = Array.isArray(ackOverdueWorkOrdersRes.data)
-    ? ackOverdueWorkOrdersRes.data
-    : [];
-  const payments = Array.isArray(paymentsRes.data) ? paymentsRes.data : [];
-
-  const propertyIds = new Set();
-  const tenantIds = new Set();
-  const requestIds = new Set();
-
-  for (const row of maintenanceRows) {
-    if (row?.property_id) propertyIds.add(row.property_id);
-    if (row?.reported_by_tenant_id) tenantIds.add(row.reported_by_tenant_id);
-  }
-  for (const row of blockedWorkOrders) {
-    if (row?.property_id) propertyIds.add(row.property_id);
-    if (row?.maintenance_request_id) requestIds.add(row.maintenance_request_id);
-  }
-  for (const row of ackOverdueWorkOrders) {
-    if (row?.property_id) propertyIds.add(row.property_id);
-    if (row?.maintenance_request_id) requestIds.add(row.maintenance_request_id);
-  }
-  for (const row of preventiveRows || []) {
-    if (row?.property_id) propertyIds.add(row.property_id);
-  }
-
-  const [{ propertyMap, tenantMap }, requestMapRes] = await Promise.all([
-    mapLabels({
-      propertyIds: Array.from(propertyIds),
-      tenantIds: Array.from(tenantIds),
-    }),
-    requestIds.size
-      ? supabase
-          .from("maintenance_requests")
-          .select("id, title")
-          .in("id", Array.from(requestIds))
-      : Promise.resolve({ data: [] }),
-  ]);
-
-  const requestTitleMap = new Map((requestMapRes.data || []).map((row) => [row.id, row.title || "Maintenance request"]));
-
-  const overdueGraceDays = safeConfigValue(rulesById.rent_overdue_watch?.config, "grace_days", 0, 0, 30);
-  const leaseLeadDays = safeConfigValue(rulesById.lease_renewal_watch?.config, "lead_days", 60, 7, 180);
-  const complianceLeadDays = safeConfigValue(rulesById.compliance_due_watch?.config, "lead_days", 30, 1, 120);
-  const preventiveLeadDays = safeConfigValue(rulesById.preventive_due_watch?.config, "lead_days", 14, 1, 60);
-  const propertyHealthDropPoints = safeConfigValue(
-    rulesById.property_health_watch?.config,
-    "sharp_drop_points",
-    15,
-    5,
-    40,
-  );
-
-  const signals = {
-    rent_overdue_watch: [],
-    lease_renewal_watch: [],
-    maintenance_triage: [],
-    contractor_blocked_followup: [],
-    contractor_ack_overdue_watch: [],
-    compliance_due_watch: [],
-    preventive_due_watch: [],
-    property_health_watch: [],
-  };
-
-  if (rulesById.rent_overdue_watch?.enabled) {
-    for (const row of payments) {
-      if (!isOverduePayment(row, overdueGraceDays)) continue;
-      const tenantLabel = row?.tenants?.name || "Tenant";
-      const propertyLabel = row?.properties?.address || "Property";
-      signals.rent_overdue_watch.push({
-        sourceKey: `payment:${row.id}`,
-        severity: "urgent",
-        title: `Overdue rent: ${tenantLabel}`,
-        body: `${propertyLabel} • ${Number(row.amount || 0)} due on ${formatShortDate(row.due_date)}`,
-        entityType: "payment",
-        entityId: row.id,
-        linkPath: row?.tenant_id ? `/tenants/${row.tenant_id}` : "/finance",
-        details: {
-          amount: Number(row.amount || 0),
-          due_date: row.due_date,
-          tenant_id: row.tenant_id || null,
-          property_id: row.property_id || null,
-          tenant_label: tenantLabel,
-          property_label: propertyLabel,
-        },
-      });
-    }
-  }
-
-  if (rulesById.lease_renewal_watch?.enabled) {
-    for (const row of leaseRows || []) {
-      const derived = getDerivedLeaseStatus(row, leaseLeadDays);
-      if (!["expiring_soon", "renewal_in_progress", "ended"].includes(derived)) continue;
-      const tenantLabel = row.tenantLabel || "Tenant";
-      const propertyLabel = row.propertyLabel || "Property";
-      signals.lease_renewal_watch.push({
-        sourceKey: `lease:${row.id}`,
-        severity: derived === "ended" ? "urgent" : "action",
-        title:
-          derived === "renewal_in_progress"
-            ? `Lease renewal in progress: ${tenantLabel}`
-            : derived === "ended"
-              ? `Expired lease: ${tenantLabel}`
-              : `Lease expiring soon: ${tenantLabel}`,
-        body: `${propertyLabel} • lease end ${formatShortDate(row.lease_end_date)}`,
-        entityType: "lease",
-        entityId: row.id,
-        linkPath: row?.tenant_id ? `/tenants/${row.tenant_id}` : "/tenants",
-        details: {
-          tenant_id: row.tenant_id || null,
-          property_id: row.property_id || null,
-          lease_end_date: row.lease_end_date,
-          derived_status: derived,
-        },
-      });
-    }
-  }
-
-  if (rulesById.compliance_due_watch?.enabled) {
-    const complianceRows = await listComplianceItems({
-      accountId,
-      includeClosed: false,
-      limit: 500,
-    });
-    const tenantIdSet = new Set((complianceRows || []).map((row) => row?.tenant_id).filter(Boolean));
-    const propertyIdSet = new Set((complianceRows || []).map((row) => row?.property_id).filter(Boolean));
-    const labels = await mapLabels({
-      propertyIds: Array.from(propertyIdSet),
-      tenantIds: Array.from(tenantIdSet),
-    });
-
-    for (const row of complianceRows || []) {
-      const dueInDays = daysUntil(row?.due_date);
-      if (!Number.isFinite(dueInDays) || dueInDays > complianceLeadDays) continue;
-      const propertyLabel = labels.propertyMap.get(row?.property_id) || "Property";
-      const tenantLabel = labels.tenantMap.get(row?.tenant_id) || "";
-      signals.compliance_due_watch.push({
-        sourceKey: `compliance:${row.id}`,
-        severity: dueInDays < 0 ? "urgent" : "action",
-        title:
-          dueInDays < 0
-            ? `Compliance overdue: ${row.title || "Compliance item"}`
-            : `Compliance due soon: ${row.title || "Compliance item"}`,
-        body: [propertyLabel, tenantLabel, formatShortDate(row?.due_date)].filter(Boolean).join(" • "),
-        entityType: "compliance_item",
-        entityId: row.id,
-        linkPath: row?.property_id ? `/properties/${row.property_id}` : "/attention-center",
-        details: {
-          property_id: row?.property_id || null,
-          tenant_id: row?.tenant_id || null,
-          category: row?.category || null,
-          due_date: row?.due_date || null,
-          days_until_due: dueInDays,
-        },
-      });
-    }
-  }
-
-  if (rulesById.maintenance_triage?.enabled) {
-    for (const row of maintenanceRows) {
-      const propertyLabel = propertyMap.get(row.property_id) || "Property";
-      const tenantLabel = tenantMap.get(row.reported_by_tenant_id) || "";
-      signals.maintenance_triage.push({
-        sourceKey: `maintenance_request:${row.id}`,
-        severity: "action",
-        title: `Maintenance request awaiting review: ${row.title || "Untitled request"}`,
-        body: [propertyLabel, tenantLabel].filter(Boolean).join(" • "),
-        entityType: "maintenance_request",
-        entityId: row.id,
-        linkPath: "/maintenance-inbox",
-        details: {
-          property_id: row.property_id || null,
-          tenant_id: row.reported_by_tenant_id || null,
-          property_label: propertyLabel,
-          tenant_label: tenantLabel,
-        },
-      });
-    }
-  }
-
-  if (rulesById.contractor_blocked_followup?.enabled) {
-    for (const row of blockedWorkOrders) {
-      const propertyLabel = propertyMap.get(row.property_id) || "Property";
-      const requestTitle = requestTitleMap.get(row.maintenance_request_id) || "Work order";
-      signals.contractor_blocked_followup.push({
-        sourceKey: `work_order:${row.id}`,
-        severity: "action",
-        title: `Blocked contractor follow-up: ${requestTitle}`,
-        body: [propertyLabel, row?.contractor_name || ""].filter(Boolean).join(" • "),
-        entityType: "work_order",
-        entityId: row.id,
-        linkPath: `/work-orders/${row.id}`,
-        details: {
-          property_id: row.property_id || null,
-          maintenance_request_id: row.maintenance_request_id || null,
-          contractor_name: row.contractor_name || "",
-        },
-      });
-    }
-  }
-
-  if (rulesById.contractor_ack_overdue_watch?.enabled) {
-    const now = new Date();
-    for (const row of ackOverdueWorkOrders) {
-      const dueAt = row?.acknowledgement_due_at ? new Date(row.acknowledgement_due_at) : null;
-      const hasContractor = !!(row?.contractor_user_id || row?.contractor_name);
-      const ackStatus = normalize(row?.acknowledgement_status);
-      if (!hasContractor) continue;
-      if (!dueAt || Number.isNaN(dueAt.getTime()) || dueAt > now) continue;
-      if (ackStatus === "acknowledged" || row?.acknowledged_at) continue;
-
-      const propertyLabel = propertyMap.get(row.property_id) || "Property";
-      const requestTitle = requestTitleMap.get(row.maintenance_request_id) || "Work order";
-
-      signals.contractor_ack_overdue_watch.push({
-        sourceKey: `work_order_ack:${row.id}`,
-        severity: "urgent",
-        title: `Contractor acknowledgement overdue: ${requestTitle}`,
-        body: [propertyLabel, row?.contractor_name || ""].filter(Boolean).join(" • "),
-        entityType: "work_order",
-        entityId: row.id,
-        linkPath: `/work-orders/${row.id}`,
-        details: {
-          property_id: row.property_id || null,
-          maintenance_request_id: row.maintenance_request_id || null,
-          acknowledgement_due_at: row.acknowledgement_due_at || null,
-          contractor_name: row.contractor_name || "",
-        },
-      });
-    }
-  }
-
-  if (rulesById.preventive_due_watch?.enabled) {
-    for (const row of preventiveRows || []) {
-      if (normalize(row?.status) !== "active") continue;
-      const dueDays = daysUntil(row?.next_due_date);
-      if (!Number.isFinite(dueDays)) continue;
-      if (dueDays > preventiveLeadDays) continue;
-      signals.preventive_due_watch.push({
-        sourceKey: `preventive_task:${row.id}`,
-        severity: dueDays < 0 ? "urgent" : "action",
-        title:
-          dueDays < 0
-            ? `Overdue preventive task: ${row.title || "Preventive task"}`
-            : `Preventive task due soon: ${row.title || "Preventive task"}`,
-        body: `${row.propertyLabel || "Property"} • ${formatShortDate(row.next_due_date)}`,
-        entityType: "preventive_task",
-        entityId: row.id,
-        linkPath: row?.property_id ? `/properties/${row.property_id}` : "/maintenance-kpi",
-        details: {
-          property_id: row.property_id || null,
-          next_due_date: row.next_due_date || null,
-          days_until_due: dueDays,
-          category: row.category || "",
-        },
-      });
-    }
-  }
-
-  if (rulesById.property_health_watch?.enabled) {
-    for (const row of propertyHealthRows || []) {
-      if (row?.category === "high_risk") {
-        signals.property_health_watch.push({
-          sourceKey: `property_health:${row.propertyId}:high_risk`,
-          severity: "urgent",
-          title: `Property health high risk: ${row.propertyLabel || "Property"}`,
-          body: `Health score ${Number(row.score || 0)}`,
-          entityType: "property",
-          entityId: row.propertyId,
-          linkPath: row?.propertyId ? `/properties/${row.propertyId}` : "/properties",
-          details: {
-            property_id: row?.propertyId || null,
-            property_label: row?.propertyLabel || "",
-            score: Number(row?.score || 0),
-            category: row?.category || "",
-            sharp_drop_points: propertyHealthDropPoints,
-          },
-        });
-      }
-    }
-  }
-
-  return {
-    signals,
-    dashboardSnapshot,
-    maintenanceSnapshot,
-    preventiveOverview: await getPreventiveMaintenanceOverview(accountId, {
-      dueSoonDays: preventiveLeadDays,
-    }),
-  };
 }
 
 export async function updatePlaybookRuleSetting(accountId, ruleId, input = {}) {
@@ -755,96 +250,45 @@ export async function getPlaybookAutomationOverview(accountId) {
         activeRules: 0,
         totalSignals: 0,
         openRuns: 0,
+        lastRunAt: null,
+        lastRunStatus: "recorded",
       },
       recentRuns: [],
+      recentResolvedRuns: [],
       recentExecutions: [],
       storage: {
-        settingsAvailable: false,
-        runsAvailable: false,
-        executionLogAvailable: false,
+        settingsAvailable: true,
+        runsAvailable: true,
+        executionLogAvailable: true,
+        snapshotAvailable: true,
       },
     };
   }
 
-  if (!playbookSnapshotUnavailable) {
-    const { data, error } = await supabase.rpc("playbook_status_snapshot", {
-      p_account_id: accountId,
-      p_recent_limit: 12,
-    });
+  const { data, error } = await supabase.rpc("playbook_status_snapshot", {
+    p_account_id: accountId,
+    p_recent_limit: 12,
+  });
 
-    if (error && isMissingBackendObject(error)) {
-      playbookSnapshotUnavailable = true;
-    } else if (error && isPermissionDenied(error)) {
-      playbookSnapshotUnavailable = true;
-    } else if (error) {
-      throw error;
-    } else if (Array.isArray(data) && data[0]) {
-      const row = data[0];
-      const settingsRows = parseJsonArray(row.settings);
-      const settingsByRuleId = new Map(settingsRows.map((entry) => [entry.rule_id, entry]));
-      const openRunCounts = parseJsonObject(row.open_run_counts);
-      const rules = RULE_DEFS.map((rule) =>
-        mergeRuleWithSetting(rule, settingsByRuleId.get(rule.id), Number(openRunCounts?.[rule.id] || 0)),
-      );
-      const recentRuns = parseJsonArray(row.recent_runs).map(mapRunForUi);
-      const recentResolvedRuns = parseJsonArray(row.recent_resolved_runs).map(mapRunForUi);
-      const recentExecutions = parseJsonArray(row.recent_executions).map(mapExecutionForUi);
-      const activeRules = rules.filter((rule) => rule.enabled && rule.currentCount > 0).length;
-      const totalSignals = rules.reduce((sum, rule) => sum + Number(rule.currentCount || 0), 0);
-
-      return {
-        rules,
-        summary: {
-          enabledRules: rules.filter((rule) => rule.enabled).length,
-          activeRules,
-          totalSignals,
-          openRuns: Number(row.open_runs || 0),
-          lastRunAt: row.last_run_at || null,
-          lastRunStatus: row.last_run_status || "recorded",
-        },
-        recentRuns,
-        recentResolvedRuns,
-        recentExecutions,
-        storage: {
-          settingsAvailable: true,
-          runsAvailable: true,
-          executionLogAvailable: true,
-          snapshotAvailable: true,
-        },
-      };
+  if (error) {
+    if (isMissingBackendObject(error) || isPermissionDenied(error)) {
+      throw new Error("playbook_status_snapshot RPC is not deployed. Run supabase/playbook_status_snapshot.sql.");
     }
+    throw error;
   }
 
-  const settingsRows = await listAutomationRuleSettingsRows(accountId);
-  const settingsAvailable = Array.isArray(settingsRows);
-  const settingsByRuleId = new Map((settingsRows || []).map((row) => [row.rule_id, row]));
-
-  const seedRules = Object.fromEntries(
-    RULE_DEFS.map((rule) => [rule.id, mergeRuleWithSetting(rule, settingsByRuleId.get(rule.id), 0)]),
-  );
-
-  const { signals, dashboardSnapshot, maintenanceSnapshot, preventiveOverview } =
-    await buildRuleSignals(accountId, seedRules);
-
-  const recentRunsRows = await listRecentAutomationRunsRows(accountId, 12);
-  const runsAvailable = Array.isArray(recentRunsRows);
-  const executionRows = await listAutomationExecutions(accountId, 12);
-  const executionLogAvailable = Array.isArray(executionRows);
-  const lastRunAt = Array.isArray(executionRows) && executionRows.length
-    ? executionRows[0]?.executed_at || null
-    : Array.isArray(recentRunsRows) && recentRunsRows.length
-      ? recentRunsRows[0]?.last_triggered_at || null
-      : null;
-
+  const row = Array.isArray(data) ? data[0] : data;
+  const settingsRows = parseJsonArray(row?.settings);
+  const settingsByRuleId = new Map(settingsRows.map((entry) => [entry.rule_id, entry]));
+  const openRunCounts = parseJsonObject(row?.open_run_counts);
   const rules = RULE_DEFS.map((rule) =>
-    mergeRuleWithSetting(rule, settingsByRuleId.get(rule.id), (signals[rule.id] || []).length),
+    mergeRuleWithSetting(rule, settingsByRuleId.get(rule.id), Number(openRunCounts?.[rule.id] || 0)),
   );
-
+  const recentRuns = parseJsonArray(row?.recent_runs).map(mapRunForUi);
+  const recentResolvedRuns = parseJsonArray(row?.recent_resolved_runs).map(mapRunForUi);
+  const recentExecutions = parseJsonArray(row?.recent_executions).map(mapExecutionForUi);
   const activeRules = rules.filter((rule) => rule.enabled && rule.currentCount > 0).length;
   const totalSignals = rules.reduce((sum, rule) => sum + Number(rule.currentCount || 0), 0);
-  const openRuns = Array.isArray(recentRunsRows)
-    ? recentRunsRows.filter((row) => normalize(row?.state) === "open").length
-    : 0;
 
   return {
     rules,
@@ -852,24 +296,18 @@ export async function getPlaybookAutomationOverview(accountId) {
       enabledRules: rules.filter((rule) => rule.enabled).length,
       activeRules,
       totalSignals,
-      openRuns,
-      lastRunAt,
-      overdueAmount: Number(dashboardSnapshot?.overdue_amount || 0),
-      openRequests: Number(maintenanceSnapshot?.open_requests || 0),
-      preventiveSignals:
-        Number(preventiveOverview?.overdueCount || 0) + Number(preventiveOverview?.dueSoonCount || 0),
-      highRiskProperties: Number((signals.property_health_watch || []).length || 0),
+      openRuns: Number(row?.open_runs || 0),
+      lastRunAt: row?.last_run_at || null,
+      lastRunStatus: row?.last_run_status || "recorded",
     },
-    recentRuns: Array.isArray(recentRunsRows) ? recentRunsRows.map(mapRunForUi) : [],
-    recentResolvedRuns: Array.isArray(recentRunsRows)
-      ? recentRunsRows.filter((row) => normalize(row?.state) === "resolved").map(mapRunForUi).slice(0, 8)
-      : [],
-    recentExecutions: Array.isArray(executionRows) ? executionRows.map(mapExecutionForUi) : [],
+    recentRuns,
+    recentResolvedRuns,
+    recentExecutions,
     storage: {
-      settingsAvailable,
-      runsAvailable,
-      executionLogAvailable,
-      snapshotAvailable: false,
+      settingsAvailable: true,
+      runsAvailable: true,
+      executionLogAvailable: true,
+      snapshotAvailable: true,
     },
   };
 }

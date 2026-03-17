@@ -10,6 +10,7 @@ import { useI18n } from "../context/I18nContext";
 import { getContractorRatingByWorkOrder, upsertContractorRating } from "../services/contractorRatingService";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount, getDefaultCurrency } from "../utils/currency";
+import { isManageRole } from "../utils/permissions";
 
 /* -----------------------------
    Status label helper (Polish)
@@ -205,10 +206,10 @@ export default function WorkOrderDetails() {
   const navigate = useNavigate();
   const { setTitle } = usePageTitle();
 
-  const { activeAccountId, activeRole } = useAccount();
+  const { activeAccountId, activeRole, isRootOperator } = useAccount();
   const { t } = useI18n();
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
-  const canManage = useMemo(() => ["owner", "staff", "admin"].includes(role), [role]);
+  const canManage = useMemo(() => isManageRole(role, { isRootOperator }), [isRootOperator, role]);
 
   const labels = useWorkOrderStatusLabels();
 
@@ -747,35 +748,35 @@ export default function WorkOrderDetails() {
             <p className="text-xs text-slate-500 mb-2">{t("workOrder.assignContractor")}</p>
 
             <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={assignContractorId}
-                disabled={busy || contractorsLoading}
-                onChange={(e) => setAssignContractorId(e.target.value)}
-                className="border rounded-lg px-3 py-2 text-sm min-w-[280px] disabled:bg-slate-50"
-              >
-                <option value="">— wybierz —</option>
-                {(contractors ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                    {c.phone ? ` • ${c.phone}` : ""}
-                  </option>
+	              <select
+	                value={assignContractorId}
+	                disabled={busy || contractorsLoading}
+	                onChange={(e) => setAssignContractorId(e.target.value)}
+	                className="border rounded-lg px-3 py-2 text-sm min-w-[280px] disabled:bg-slate-50"
+	              >
+	                <option value="">{t("workOrder.selectContractorPlaceholder")}</option>
+	                {(contractors ?? []).map((c) => (
+	                  <option key={c.id} value={c.id}>
+	                    {c.name}
+	                    {c.phone ? ` • ${c.phone}` : ""}
+	                  </option>
                 ))}
               </select>
 
               <button
                 type="button"
                 onClick={assignContractor}
-                disabled={!assignContractorId || busy}
-                className={`text-sm px-3 py-2 rounded-lg text-white ${
-                  !assignContractorId || busy ? "bg-slate-400" : "bg-blue-600"
-                }`}
-              >
-                {busy ? "Przetwarzanie…" : "Przypisz"}
-              </button>
-            </div>
-          </div>
-        </Card>
-      )}
+	                disabled={!assignContractorId || busy}
+	                className={`text-sm px-3 py-2 rounded-lg text-white ${
+	                  !assignContractorId || busy ? "bg-slate-400" : "bg-blue-600"
+	                }`}
+	              >
+	                {busy ? t("common.processing") : t("workOrder.assignContractorAction")}
+	              </button>
+	            </div>
+	          </div>
+	        </Card>
+	      )}
 
       {/* Financial summary */}
       <Card className="p-6">

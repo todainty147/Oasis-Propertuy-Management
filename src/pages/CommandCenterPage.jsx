@@ -8,6 +8,7 @@ import { usePageTitle } from "../layout/PageTitleContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { getCommandCenterData } from "../services/commandCenterService";
 import { formatCurrencyAmount } from "../utils/currency";
+import { isManageRole } from "../utils/permissions";
 
 function hoursLabel(hours, t) {
   if (!Number.isFinite(hours)) return "";
@@ -154,9 +155,9 @@ function Section({ title, items = [], emptyText, t }) {
 export default function CommandCenterPage() {
   const { setTitle } = usePageTitle();
   const { t } = useI18n();
-  const { activeAccountId, activeRole } = useAccount();
+  const { activeAccountId, activeRole, isRootOperator } = useAccount();
   const role = useMemo(() => String(activeRole || "").toLowerCase(), [activeRole]);
-  const canManage = useMemo(() => ["owner", "admin", "staff"].includes(role), [role]);
+  const canManage = useMemo(() => isManageRole(role, { isRootOperator }), [isRootOperator, role]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

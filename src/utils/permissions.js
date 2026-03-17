@@ -37,12 +37,27 @@ export const ROLE_CAPABILITIES = {
   },
 };
 
+export function normalizeRole(role) {
+  return String(role ?? "").toLowerCase();
+}
+
+export function isRootLikeRole(role) {
+  const normalized = normalizeRole(role);
+  return normalized === "root" || normalized === "super-admin" || normalized === "super_admin";
+}
+
+export function isManageRole(role, { isRootOperator = false } = {}) {
+  if (isRootOperator || isRootLikeRole(role)) return true;
+  const normalized = normalizeRole(role);
+  return ["owner", "admin", "staff"].includes(normalized);
+}
+
 /* ======================
    GENERIC PERMISSION CHECK
    ====================== */
 
 export function can(role, resource, action) {
-  const r = String(role ?? "").toLowerCase();
+  const r = isRootLikeRole(role) ? "owner" : normalizeRole(role);
   if (!r) return false;
   return ROLE_CAPABILITIES[r]?.[resource]?.includes(action) ?? false;
 }

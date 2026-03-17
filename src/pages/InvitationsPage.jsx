@@ -13,6 +13,7 @@ import {
   revokeInvitation,
 } from "../services/invitationService";
 import { rootDeleteAccount, rootListAccounts, rootSetAccountDisabled } from "../services/rootAccountService";
+import { isManageRole } from "../utils/permissions";
 
 function fmt(ts) {
   if (!ts) return "—";
@@ -49,7 +50,7 @@ export default function InvitationsPage() {
   const rootAccountId = useMemo(() => accounts.find((a) => a.is_root)?.id || null, [accounts]);
 
   const role = useMemo(() => String(activeRole || "").toLowerCase(), [activeRole]);
-  const canManage = useMemo(() => ["owner", "admin", "staff"].includes(role), [role]);
+  const canManage = useMemo(() => isManageRole(role, { isRootOperator }), [isRootOperator, role]);
   const allowedInviteRoles = useMemo(() => getAllowedInviteRoles(role, isRootAccount), [role, isRootAccount]);
 
   const [loading, setLoading] = useState(false);

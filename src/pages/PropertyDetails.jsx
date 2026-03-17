@@ -18,6 +18,7 @@ import PropertyOperatingExpensesCard from "../components/PropertyOperatingExpens
 import PropertyComplianceCard from "../components/PropertyComplianceCard";
 import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount } from "../utils/currency";
+import { isManageRole } from "../utils/permissions";
 
 /* ======================
    SKELETON
@@ -57,11 +58,9 @@ export default function PropertyDetails({
   const { id } = useParams();
   const navigate = useNavigate();
   const { setTitle } = usePageTitle();
-  const { accountLoading, activeAccountId, activeRole } = useAccount();
+  const { accountLoading, activeAccountId, activeRole, isRootOperator } = useAccount();
   const { t } = useI18n();
-  const canManageLease = ["owner", "admin", "staff"].includes(
-    String(activeRole || "").toLowerCase(),
-  );
+  const canManageLease = isManageRole(activeRole, { isRootOperator });
 
   /* ---------- PROPERTY ---------- */
   const property = properties.find((p) => String(p.id) === String(id));
