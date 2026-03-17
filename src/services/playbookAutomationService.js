@@ -12,6 +12,7 @@ import { listPropertyOperationalHealthScores } from "./propertyHealthScoreServic
 
 let automationRuleSettingsUnavailable = false;
 let automationRunsUnavailable = false;
+let playbookSnapshotUnavailable = false;
 
 function isMissingBackendObject(error) {
   const message = String(error?.message || "").toLowerCase();
@@ -307,6 +308,21 @@ function mapRunForUi(row) {
     resolvedAt: row.resolved_at,
     details: row.details || {},
   };
+}
+
+function mapExecutionForUi(row) {
+  return {
+    ...row,
+    details: row?.details || {},
+  };
+}
+
+function parseJsonArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function parseJsonObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
 async function mapLabels({ propertyIds = [], tenantIds = [] }) {
@@ -750,6 +766,55 @@ export async function getPlaybookAutomationOverview(accountId) {
     };
   }
 
+  if (!playbookSnapshotUnavailable) {
+    const { data, error } = await supabase.rpc("playbook_status_snapshot", {
+      p_account_id: accountId,
+      p_recent_limit: 12,
+    });
+
+    if (error && isMissingBackendObject(error)) {
+      playbookSnapshotUnavailable = true;
+    } else if (error && isPermissionDenied(error)) {
+      playbookSnapshotUnavailable = true;
+    } else if (error) {
+      throw error;
+    } else if (Array.isArray(data) && data[0]) {
+      const row = data[0];
+      const settingsRows = parseJsonArray(row.settings);
+      const settingsByRuleId = new Map(settingsRows.map((entry) => [entry.rule_id, entry]));
+      const openRunCounts = parseJsonObject(row.open_run_counts);
+      const rules = RULE_DEFS.map((rule) =>
+        mergeRuleWithSetting(rule, settingsByRuleId.get(rule.id), Number(openRunCounts?.[rule.id] || 0)),
+      );
+      const recentRuns = parseJsonArray(row.recent_runs).map(mapRunForUi);
+      const recentResolvedRuns = parseJsonArray(row.recent_resolved_runs).map(mapRunForUi);
+      const recentExecutions = parseJsonArray(row.recent_executions).map(mapExecutionForUi);
+      const activeRules = rules.filter((rule) => rule.enabled && rule.currentCount > 0).length;
+      const totalSignals = rules.reduce((sum, rule) => sum + Number(rule.currentCount || 0), 0);
+
+      return {
+        rules,
+        summary: {
+          enabledRules: rules.filter((rule) => rule.enabled).length,
+          activeRules,
+          totalSignals,
+          openRuns: Number(row.open_runs || 0),
+          lastRunAt: row.last_run_at || null,
+          lastRunStatus: row.last_run_status || "recorded",
+        },
+        recentRuns,
+        recentResolvedRuns,
+        recentExecutions,
+        storage: {
+          settingsAvailable: true,
+          runsAvailable: true,
+          executionLogAvailable: true,
+          snapshotAvailable: true,
+        },
+      };
+    }
+  }
+
   const settingsRows = await listAutomationRuleSettingsRows(accountId);
   const settingsAvailable = Array.isArray(settingsRows);
   const settingsByRuleId = new Map((settingsRows || []).map((row) => [row.rule_id, row]));
@@ -765,6 +830,11 @@ export async function getPlaybookAutomationOverview(accountId) {
   const runsAvailable = Array.isArray(recentRunsRows);
   const executionRows = await listAutomationExecutions(accountId, 12);
   const executionLogAvailable = Array.isArray(executionRows);
+  const lastRunAt = Array.isArray(executionRows) && executionRows.length
+    ? executionRows[0]?.executed_at || null
+    : Array.isArray(recentRunsRows) && recentRunsRows.length
+      ? recentRunsRows[0]?.last_triggered_at || null
+      : null;
 
   const rules = RULE_DEFS.map((rule) =>
     mergeRuleWithSetting(rule, settingsByRuleId.get(rule.id), (signals[rule.id] || []).length),
@@ -783,6 +853,7 @@ export async function getPlaybookAutomationOverview(accountId) {
       activeRules,
       totalSignals,
       openRuns,
+      lastRunAt,
       overdueAmount: Number(dashboardSnapshot?.overdue_amount || 0),
       openRequests: Number(maintenanceSnapshot?.open_requests || 0),
       preventiveSignals:
@@ -790,11 +861,15 @@ export async function getPlaybookAutomationOverview(accountId) {
       highRiskProperties: Number((signals.property_health_watch || []).length || 0),
     },
     recentRuns: Array.isArray(recentRunsRows) ? recentRunsRows.map(mapRunForUi) : [],
-    recentExecutions: Array.isArray(executionRows) ? executionRows : [],
+    recentResolvedRuns: Array.isArray(recentRunsRows)
+      ? recentRunsRows.filter((row) => normalize(row?.state) === "resolved").map(mapRunForUi).slice(0, 8)
+      : [],
+    recentExecutions: Array.isArray(executionRows) ? executionRows.map(mapExecutionForUi) : [],
     storage: {
       settingsAvailable,
       runsAvailable,
       executionLogAvailable,
+      snapshotAvailable: false,
     },
   };
 }

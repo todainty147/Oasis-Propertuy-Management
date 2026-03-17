@@ -1,5 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { getAttentionCenterData } from "./attentionCenterService";
+import { getDashboardSnapshot } from "./dashboardService";
+import { listPropertyOperationalHealthScores } from "./propertyHealthScoreService";
 
 const CORE_RULE_IDS = new Set([
   "rent_overdue_watch",
@@ -10,6 +12,19 @@ const CORE_RULE_IDS = new Set([
   "compliance_due_watch",
   "preventive_due_watch",
 ]);
+
+let commandCenterItemsUnavailable = false;
+
+function isMissingBackendObject(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    error?.code === "PGRST404" ||
+    message.includes("could not find the function") ||
+    message.includes("relation") ||
+    message.includes("does not exist") ||
+    message.includes("column")
+  );
+}
 
 function normalize(value) {
   return String(value || "").trim().toLowerCase();
@@ -42,6 +57,34 @@ function mapSeverityToBucket(severity) {
   if (normalized === "urgent") return "urgent";
   if (normalized === "action") return "action";
   return "recent";
+}
+
+function normalizeRpcItem(row) {
+  return {
+    id: row?.item_key || "",
+    kind: row?.item_type || "",
+    category: row?.category || "general",
+    severity: row?.severity || "info",
+    bucket: row?.bucket || "action",
+    entityType: row?.entity_type || "portfolio",
+    entityId: row?.entity_id || null,
+    title: row?.title || row?.item_type || "Signal",
+    body: row?.body || "",
+    linkPath: row?.link_path || "",
+    createdAt: row?.created_at || null,
+    resolvedState: !!row?.resolved_state,
+    source: row?.source_table || "",
+    propertyId: row?.property_id || null,
+    propertyLabel: row?.property_label || "",
+    tenantId: row?.tenant_id || null,
+    tenantLabel: row?.tenant_label || "",
+    entityLabel: row?.entity_label || "",
+    contractorLabel: row?.contractor_label || "",
+    amount: Number(row?.amount || 0),
+    ageHours: Number.isFinite(Number(row?.age_hours)) ? Number(row.age_hours) : null,
+    dueDays: Number.isFinite(Number(row?.due_days)) ? Number(row.due_days) : null,
+    sourceLabel: row?.source_table || "",
+  };
 }
 
 function getAutomationEntityLabels(row) {
@@ -173,6 +216,97 @@ function dedupeItems(items = []) {
 }
 
 export async function getCommandCenterData(accountId) {
+  if (!accountId) {
+    return {
+      summary: {
+        urgentCount: 0,
+        actionCount: 0,
+        upcomingCount: 0,
+        recentCount: 0,
+        automationCount: 0,
+        propertiesWithIssuesCount: 0,
+        unreadAlertsCount: 0,
+        overdueAmount: 0,
+      },
+      groups: { urgent: [], action: [], upcoming: [], recent: [] },
+      propertyIssues: [],
+      items: [],
+      categoryCounts: {},
+      automationItems: [],
+      snapshot: null,
+    };
+  }
+
+  if (!commandCenterItemsUnavailable) {
+    const [snapshot, rpcRes, propertyHealthRows] = await Promise.all([
+      getDashboardSnapshot(accountId, { horizonDays: 7 }),
+      supabase.rpc("command_center_items", {
+        p_account_id: accountId,
+        p_limit: 80,
+      }),
+      listPropertyOperationalHealthScores(accountId, { limit: 200 }),
+    ]);
+
+    if (rpcRes.error && isMissingBackendObject(rpcRes.error)) {
+      commandCenterItemsUnavailable = true;
+    } else if (rpcRes.error) {
+      throw rpcRes.error;
+    } else {
+      const items = (rpcRes.data || []).map(normalizeRpcItem);
+      const urgent = sortItems(items.filter((item) => item.bucket === "urgent")).slice(0, 12);
+      const action = sortItems(items.filter((item) => item.bucket === "action")).slice(0, 12);
+      const upcoming = sortItems(items.filter((item) => item.bucket === "upcoming")).slice(0, 12);
+      const recent = sortItems(items.filter((item) => item.bucket === "recent")).slice(0, 12);
+      const actionableItems = [...urgent, ...action, ...upcoming];
+      const healthByProperty = new Map((propertyHealthRows || []).map((row) => [row.propertyId, row]));
+      const propertyCounts = new Map();
+
+      for (const item of actionableItems) {
+        const key = item?.propertyId || null;
+        const label = String(item?.propertyLabel || "").trim();
+        if (!key && !label) continue;
+        const mapKey = key || label;
+        const current = propertyCounts.get(mapKey) || { id: key, label, count: 0 };
+        current.count += 1;
+        propertyCounts.set(mapKey, current);
+      }
+
+      const propertyIssues = Array.from(propertyCounts.values())
+        .sort((a, b) => b.count - a.count || String(a.label).localeCompare(String(b.label)))
+        .slice(0, 8)
+        .map((row) => {
+          const health = healthByProperty.get(row.id) || null;
+          return {
+            ...row,
+            score: health?.score ?? null,
+            category: health?.category || null,
+            linkPath: row.id ? `/properties/${row.id}` : "",
+          };
+        });
+
+      const automationItems = items.filter((item) => item.source === "automation_runs");
+
+      return {
+        summary: {
+          urgentCount: urgent.length,
+          actionCount: action.length,
+          upcomingCount: upcoming.length,
+          recentCount: recent.length,
+          automationCount: automationItems.length,
+          propertiesWithIssuesCount: propertyIssues.length,
+          unreadAlertsCount: items.filter((item) => item.source === "notifications").length,
+          overdueAmount: Number(snapshot?.overdue_amount || 0),
+        },
+        groups: { urgent, action, upcoming, recent },
+        propertyIssues,
+        items,
+        categoryCounts: countByCategory(items),
+        automationItems,
+        snapshot,
+      };
+    }
+  }
+
   const [attentionData, automationItems] = await Promise.all([
     getAttentionCenterData(accountId),
     listCommandCenterAutomationRuns(accountId),

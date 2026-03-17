@@ -44,6 +44,18 @@ function formatDateTime(value) {
   return next.toLocaleString();
 }
 
+function ExecutionStatusBadge({ status }) {
+  const normalized = String(status || "").toLowerCase();
+  const tone =
+    normalized === "failed"
+      ? "border-rose-200 bg-rose-50 text-rose-700"
+      : normalized === "skipped"
+        ? "border-slate-200 bg-slate-50 text-slate-600"
+        : "border-emerald-200 bg-emerald-50 text-emerald-700";
+
+  return <span className={`rounded-full border px-2 py-1 text-xs ${tone}`}>{normalized}</span>;
+}
+
 export default function PlaybooksPage() {
   const { setTitle } = usePageTitle();
   const { t } = useI18n();
@@ -150,6 +162,7 @@ export default function PlaybooksPage() {
   const view = overview ?? {
     rules: [],
     recentRuns: [],
+    recentResolvedRuns: [],
     recentExecutions: [],
     storage: {
       settingsAvailable: false,
@@ -161,6 +174,7 @@ export default function PlaybooksPage() {
       activeRules: 0,
       totalSignals: 0,
       openRuns: 0,
+      lastRunAt: null,
     },
   };
 
@@ -191,7 +205,7 @@ export default function PlaybooksPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
             <Card className="p-4">
               <p className="text-xs text-slate-500">{t("playbooks.summary.enabledRules")}</p>
               <p className="mt-1 text-2xl font-bold text-slate-900">{view.summary.enabledRules}</p>
@@ -207,6 +221,12 @@ export default function PlaybooksPage() {
             <Card className="p-4">
               <p className="text-xs text-slate-500">{t("playbooks.summary.openRuns")}</p>
               <p className="mt-1 text-2xl font-bold text-rose-700">{view.summary.openRuns}</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-slate-500">{t("playbooks.summary.lastRun")}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">
+                {view.summary.lastRunAt ? formatDateTime(view.summary.lastRunAt) : "—"}
+              </p>
             </Card>
           </div>
 
@@ -327,6 +347,48 @@ export default function PlaybooksPage() {
           <Card className="p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
+                <h3 className="text-sm font-semibold text-slate-900">{t("playbooks.resolvedTitle")}</h3>
+                <p className="mt-1 text-xs text-slate-500">{t("playbooks.resolvedSubtitle")}</p>
+              </div>
+            </div>
+
+            <div className="mt-3 space-y-3">
+              {view.recentResolvedRuns.length ? (
+                view.recentResolvedRuns.map((run) => (
+                  <div key={run.id} className="rounded-lg border border-slate-200 bg-white p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{run.title}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {t(RULE_DEFS_TO_TITLE_KEY[run.ruleId] || "playbooks.title")}
+                        </p>
+                      </div>
+                      <RunStateBadge state={run.state} severity={run.severity} t={t} />
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                      <span>
+                        {t("playbooks.resolvedAtLabel")}: {formatDateTime(run.resolvedAt)}
+                      </span>
+                      {run.linkPath ? (
+                        <Link className="font-medium text-blue-700 hover:underline" to={run.linkPath}>
+                          {t("playbooks.openSource")}
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                  {t("playbooks.noResolvedRuns")}
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
                 <h3 className="text-sm font-semibold text-slate-900">{t("playbooks.runsTitle")}</h3>
                 <p className="mt-1 text-xs text-slate-500">{t("playbooks.runsSubtitle")}</p>
               </div>
@@ -397,12 +459,15 @@ export default function PlaybooksPage() {
                           {execution.title || t(RULE_DEFS_TO_TITLE_KEY[execution.rule_id] || "playbooks.title")}
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
-                          {execution.rule_id} • {formatDateTime(execution.executed_at)}
+                          {execution.rule_id} • {execution.execution_type} • {formatDateTime(execution.executed_at)}
                         </p>
+                        {execution.details?.signal_count != null ? (
+                          <p className="mt-1 text-xs text-slate-500">
+                            {t("playbooks.evaluationSummary", { count: execution.details.signal_count })}
+                          </p>
+                        ) : null}
                       </div>
-                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600">
-                        {execution.status}
-                      </span>
+                      <ExecutionStatusBadge status={execution.status} />
                     </div>
                   </div>
                 ))
@@ -424,5 +489,8 @@ const RULE_DEFS_TO_TITLE_KEY = {
   lease_renewal_watch: "playbooks.rule.leaseRenewal.title",
   maintenance_triage: "playbooks.rule.maintenanceTriage.title",
   contractor_blocked_followup: "playbooks.rule.contractorBlocked.title",
+  contractor_ack_overdue_watch: "playbooks.rule.contractorAckOverdue.title",
+  compliance_due_watch: "playbooks.rule.complianceDue.title",
   preventive_due_watch: "playbooks.rule.preventiveDue.title",
+  property_health_watch: "playbooks.rule.propertyHealth.title",
 };

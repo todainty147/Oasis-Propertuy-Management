@@ -15,6 +15,8 @@ const corsHeaders = {
 const TAXONOMY: Record<string, { category: string; severity: string }> = {
   overdue_rent: { category: "overdue_rent", severity: "urgent" },
   lease_expiring: { category: "lease_expiring", severity: "action" },
+  maintenance_triage_needed: { category: "maintenance", severity: "action" },
+  work_order_blocked_follow_up: { category: "blocked_follow_up", severity: "action" },
   compliance_due: { category: "compliance_due", severity: "action" },
   preventive_due: { category: "preventive_due", severity: "action" },
   contractor_ack_overdue: { category: "contractor_ack_overdue", severity: "urgent" },
@@ -29,6 +31,14 @@ const RULE_DEFS = {
   lease_renewal_watch: {
     notificationType: "lease_expiring",
     defaultConfig: { lead_days: 60 },
+  },
+  maintenance_triage: {
+    notificationType: "maintenance_triage_needed",
+    defaultConfig: {},
+  },
+  contractor_blocked_followup: {
+    notificationType: "work_order_blocked_follow_up",
+    defaultConfig: {},
   },
   compliance_due_watch: {
     notificationType: "compliance_due",
@@ -158,6 +168,29 @@ Deno.serve(async (req) => {
         });
       } catch (error) {
         totals.errors += 1;
+        if (!dryRun) {
+          try {
+            await insertExecutionRows([
+              buildExecutionRow({
+                accountId,
+                ruleId: "system_sync",
+                eventKey: `account_sync_failed:${accountId}:${Date.now()}`,
+                executionType: "account_sync_failed",
+                status: "failed",
+                title: "Account automation sync failed",
+                details: {
+                  request_id: requestId,
+                  error: error instanceof Error ? error.message : "Unknown account sync error",
+                },
+              }),
+            ]);
+          } catch (logErrorInner) {
+            logError(requestId, "account_sync_failure_logging_failed", {
+              accountId,
+              error: logErrorInner instanceof Error ? logErrorInner.message : "Unknown execution-log failure",
+            });
+          }
+        }
         logError(requestId, "account_sync_failed", {
           accountId,
           dryRun,
@@ -403,6 +436,8 @@ async function deriveSignals(accountId: string, settings: Map<string, { enabled:
   const [
     paymentsRes,
     leasesRes,
+    maintenanceRequestsRes,
+    blockedWorkOrdersRes,
     complianceRes,
     preventiveRes,
     ackOverdueRes,
@@ -434,6 +469,39 @@ async function deriveSignals(accountId: string, settings: Map<string, { enabled:
       `)
       .eq("account_id", accountId)
       .order("lease_end_date", { ascending: true })
+      .limit(500),
+    admin
+      .from("maintenance_requests")
+      .select(`
+        id,
+        title,
+        status,
+        property_id,
+        reported_by_tenant_id,
+        created_at,
+        tenants(name),
+        properties(address)
+      `)
+      .eq("account_id", accountId)
+      .eq("status", "open")
+      .order("created_at", { ascending: false })
+      .limit(500),
+    admin
+      .from("work_orders")
+      .select(`
+        id,
+        property_id,
+        maintenance_request_id,
+        contractor_name,
+        status,
+        updated_at,
+        created_at,
+        maintenance_requests:maintenance_request_id(title),
+        properties(address)
+      `)
+      .eq("account_id", accountId)
+      .in("status", ["blocked", "zablokowane"])
+      .order("updated_at", { ascending: false })
       .limit(500),
     admin
       .from("compliance_items")
@@ -484,6 +552,8 @@ async function deriveSignals(accountId: string, settings: Map<string, { enabled:
 
   if (paymentsRes.error) throw paymentsRes.error;
   if (leasesRes.error) throw leasesRes.error;
+  if (maintenanceRequestsRes.error) throw maintenanceRequestsRes.error;
+  if (blockedWorkOrdersRes.error) throw blockedWorkOrdersRes.error;
   if (complianceRes.error) throw complianceRes.error;
   if (preventiveRes.error) throw preventiveRes.error;
   if (ackOverdueRes.error) throw ackOverdueRes.error;
@@ -545,6 +615,57 @@ async function deriveSignals(accountId: string, settings: Map<string, { enabled:
           property_id: row.property_id || null,
           lease_end_date: row.lease_end_date || null,
           derived_status: derivedStatus,
+        },
+      });
+    }
+  }
+
+  const maintenanceTriageConfig = getRuleConfig(settings, "maintenance_triage");
+  if (maintenanceTriageConfig.enabled) {
+    for (const row of maintenanceRequestsRes.data || []) {
+      const propertyLabel = row?.properties?.address || "Property";
+      const tenantLabel = row?.tenants?.name || "";
+      signals.push({
+        ruleId: "maintenance_triage",
+        notificationType: RULE_DEFS.maintenance_triage.notificationType,
+        sourceKey: `maintenance_request:${row.id}`,
+        severity: "action",
+        title: `Maintenance request awaiting review: ${row.title || "Untitled request"}`,
+        body: [propertyLabel, tenantLabel].filter(Boolean).join(" • "),
+        entityType: "maintenance_request",
+        entityId: row.id,
+        linkPath: "/maintenance-inbox",
+        details: {
+          property_id: row.property_id || null,
+          tenant_id: row.reported_by_tenant_id || null,
+          property_label: propertyLabel,
+          tenant_label: tenantLabel,
+          created_at: row.created_at || null,
+        },
+      });
+    }
+  }
+
+  const blockedFollowupConfig = getRuleConfig(settings, "contractor_blocked_followup");
+  if (blockedFollowupConfig.enabled) {
+    for (const row of blockedWorkOrdersRes.data || []) {
+      const propertyLabel = row?.properties?.address || "Property";
+      const requestTitle = row?.maintenance_requests?.title || "Work order";
+      signals.push({
+        ruleId: "contractor_blocked_followup",
+        notificationType: RULE_DEFS.contractor_blocked_followup.notificationType,
+        sourceKey: `work_order:${row.id}`,
+        severity: "action",
+        title: `Blocked contractor follow-up: ${requestTitle}`,
+        body: [propertyLabel, row?.contractor_name || ""].filter(Boolean).join(" • "),
+        entityType: "work_order",
+        entityId: row.id,
+        linkPath: `/work-orders/${row.id}`,
+        details: {
+          property_id: row.property_id || null,
+          maintenance_request_id: row.maintenance_request_id || null,
+          property_label: propertyLabel,
+          contractor_name: row.contractor_name || null,
         },
       });
     }
@@ -813,6 +934,33 @@ function buildExecutionRow({
   };
 }
 
+function buildRuleEvaluationRows(
+  accountId: string,
+  settings: Map<string, { enabled: boolean; config: Record<string, unknown> }>,
+  signals: AutomationSignal[],
+  { dryRun = false } = {},
+) {
+  return RULE_IDS.map((ruleId) => {
+    const rule = getRuleConfig(settings, ruleId);
+    const matchingSignals = signals.filter((signal) => signal.ruleId === ruleId);
+    return buildExecutionRow({
+      accountId,
+      ruleId,
+      eventKey: `evaluated:${ruleId}:${Date.now()}`,
+      executionType: dryRun ? "rule_evaluated_dry_run" : "rule_evaluated",
+      status: rule.enabled ? "recorded" : "skipped",
+      title: `Rule evaluated: ${ruleId}`,
+      details: {
+        enabled: rule.enabled,
+        signal_count: matchingSignals.length,
+        signal_keys: matchingSignals.slice(0, 20).map((signal) => signal.sourceKey),
+        config: rule.config,
+        dry_run: dryRun,
+      },
+    });
+  });
+}
+
 async function insertExecutionRows(rows: Array<Record<string, unknown>>) {
   if (!rows.length) return 0;
   const { error } = await admin.from("automation_execution_log").insert(rows);
@@ -900,6 +1048,7 @@ async function syncAccount(accountId: string, { dryRun = false } = {}) {
 
   let executionRowsInserted = 0;
   let notificationsCreated = 0;
+  const evaluationRows = buildRuleEvaluationRows(accountId, settings, signals, { dryRun });
 
   if (!dryRun) {
     if (rowsToUpsert.length) {
@@ -922,6 +1071,7 @@ async function syncAccount(accountId: string, { dryRun = false } = {}) {
     }
 
     const transitionExecutionRows = [
+      ...evaluationRows,
       ...newlyOpenedSignals.map((signal) =>
         buildExecutionRow({
           accountId,
@@ -1004,12 +1154,21 @@ async function syncAccount(accountId: string, { dryRun = false } = {}) {
     signalsResolved: runsToResolve.length,
     notificationsCreated,
     executionRowsInserted,
+    lastRunAt: nowIso,
     enabledRules: {
       rent_overdue_watch: getRuleConfig(settings, "rent_overdue_watch").enabled,
       lease_renewal_watch: getRuleConfig(settings, "lease_renewal_watch").enabled,
+      maintenance_triage: getRuleConfig(settings, "maintenance_triage").enabled,
+      contractor_blocked_followup: getRuleConfig(settings, "contractor_blocked_followup").enabled,
+      compliance_due_watch: getRuleConfig(settings, "compliance_due_watch").enabled,
       preventive_due_watch: getRuleConfig(settings, "preventive_due_watch").enabled,
       contractor_ack_overdue_watch: getRuleConfig(settings, "contractor_ack_overdue_watch").enabled,
       property_health_watch: getRuleConfig(settings, "property_health_watch").enabled,
     },
+    ruleEvaluations: evaluationRows.map((row) => ({
+      ruleId: row.rule_id,
+      status: row.status,
+      signalCount: row.details?.signal_count ?? 0,
+    })),
   };
 }
