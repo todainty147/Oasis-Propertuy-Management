@@ -4,6 +4,7 @@ import { getDashboardSnapshot } from "./dashboardService";
 import { getLeaseAttentionItems } from "./leaseService";
 import { getMaintenanceAttention } from "./maintenanceDashboardService";
 import { getPreventiveMaintenanceAttention } from "./preventiveMaintenanceService";
+import { listPropertyOperationalHealthScores } from "./propertyHealthScoreService";
 
 let attentionCenterItemsUnavailable = false;
 
@@ -20,6 +21,73 @@ function isMissingBackendObject(error) {
 
 function normalize(value) {
   return String(value || "").trim().toLowerCase();
+}
+
+function inferEntityFromLinkPath(linkPath) {
+  const value = String(linkPath || "").trim();
+  const patterns = [
+    { prefix: "/tenants/", entityType: "tenant" },
+    { prefix: "/properties/", entityType: "property" },
+    { prefix: "/work-orders/", entityType: "work_order" },
+  ];
+
+  for (const pattern of patterns) {
+    if (!value.startsWith(pattern.prefix)) continue;
+    const entityId = value.slice(pattern.prefix.length).split("?")[0] || null;
+    return {
+      entityType: pattern.entityType,
+      entityId,
+    };
+  }
+
+  return {
+    entityType: "portfolio",
+    entityId: null,
+  };
+}
+
+function deriveAttentionCategory(kind, source) {
+  const normalizedKind = normalize(kind);
+  const normalizedSource = normalize(source);
+
+  if (normalizedKind.includes("rent") || normalizedSource === "payments") return "finance";
+  if (normalizedKind.startsWith("lease")) return "lease";
+  if (normalizedKind.startsWith("preventive")) return "preventive";
+  if (normalizedKind.startsWith("compliance")) return "compliance";
+  if (
+    [
+      "contractor_no_response",
+      "work_order_without_contractor",
+      "work_order_blocked_follow_up",
+      "contractor_ack_overdue",
+    ].includes(normalizedKind)
+  ) {
+    return "contractor";
+  }
+  if (normalizedKind === "notification_alert") return "general";
+  return "maintenance";
+}
+
+function deriveAttentionSeverity(kind, bucket) {
+  if (normalize(bucket) === "urgent") return "urgent";
+  if (normalize(bucket) === "action") return "action";
+  if (normalize(kind) === "notification_alert") return "info";
+  return "info";
+}
+
+function enrichAttentionItem(item) {
+  const inferred = inferEntityFromLinkPath(item?.linkPath);
+  return {
+    ...item,
+    category: item?.category || deriveAttentionCategory(item?.kind, item?.source),
+    severity: item?.severity || deriveAttentionSeverity(item?.kind, item?.bucket),
+    entityType: item?.entityType || inferred.entityType,
+    entityId: item?.entityId || inferred.entityId,
+    title: item?.title || item?.kind || "",
+    createdAt: item?.createdAt || null,
+    resolvedState: item?.resolvedState === true,
+    sourceLabel: item?.source === "notifications" ? "notifications" : item?.source,
+  };
 }
 
 function hoursSince(value) {
@@ -76,20 +144,33 @@ function normalizeMaintenanceItem(row) {
   const item = {
     id: `maint-${type}-${row?.maintenance_request_id || row?.work_order_id || "na"}`,
     kind: type,
+    propertyId: row?.property_id || null,
     propertyLabel: row?.property_label || "",
     tenantLabel: "",
     entityLabel: row?.title || "",
     amount: 0,
     ageHours: Number.isFinite(Number(row?.age_hours)) ? Number(row.age_hours) : null,
     dueDays: null,
-    linkPath: row?.work_order_id ? `/work-orders/${row.work_order_id}` : "/maintenance-inbox",
+    linkPath:
+      row?.link_path ||
+      (row?.work_order_id
+        ? `/work-orders/${row.work_order_id}`
+        : row?.property_id
+          ? `/properties/${row.property_id}`
+          : "/maintenance-inbox"),
     source: "maintenance",
     bucket: "action",
+    createdAt: row?.created_at || row?.updated_at || null,
+    resolvedState: false,
   };
 
   if (type === "high_priority_unresolved" || type === "stuck_waiting_over_48h") {
     item.bucket = "urgent";
-  } else if (type === "request_without_work_order" || type === "work_order_without_contractor") {
+  } else if (["triage_over_24h", "contractor_ack_overdue", "stalled_in_progress_repair"].includes(type)) {
+    item.bucket = "urgent";
+  } else if (
+    ["request_without_work_order", "work_order_without_contractor", "long_running_repair", "repeated_repairs_property"].includes(type)
+  ) {
     item.bucket = "action";
   }
 
@@ -100,6 +181,7 @@ function normalizeRpcItem(row) {
   return {
     id: row?.item_key || `${row?.item_type || "item"}-${row?.source_table || "src"}`,
     kind: row?.item_type || "",
+    propertyId: row?.property_id || null,
     propertyLabel: row?.property_label || "",
     tenantLabel: row?.tenant_label || "",
     entityLabel: row?.entity_label || "",
@@ -109,6 +191,8 @@ function normalizeRpcItem(row) {
     linkPath: row?.link_path || "",
     source: row?.source_table || "",
     bucket: row?.bucket || "action",
+    createdAt: null,
+    resolvedState: false,
   };
 }
 
@@ -117,6 +201,7 @@ function normalizePreventiveItem(row) {
   return {
     id: row?.item_key || `preventive-${type}-${row?.property_id || "na"}`,
     kind: type,
+    propertyId: row?.property_id || null,
     propertyLabel: row?.property_label || "",
     tenantLabel: "",
     entityLabel: row?.title || "",
@@ -128,6 +213,8 @@ function normalizePreventiveItem(row) {
     bucket: type === "preventive_task_overdue" ? "urgent" : "upcoming",
     contractorLabel: row?.assigned_to_label || "",
     body: row?.category || "",
+    createdAt: row?.created_at || null,
+    resolvedState: false,
   };
 }
 
@@ -135,6 +222,7 @@ function normalizeComplianceItem(row) {
   return {
     id: row?.item_key || `compliance-${row?.property_id || row?.tenant_id || "na"}`,
     kind: row?.item_type || "compliance_due_soon",
+    propertyId: row?.property_id || null,
     propertyLabel: row?.property_label || "",
     tenantLabel: row?.tenant_label || "",
     entityLabel: row?.title || "",
@@ -143,8 +231,15 @@ function normalizeComplianceItem(row) {
     dueDays: Number.isFinite(Number(row?.due_days)) ? Number(row.due_days) : null,
     linkPath: row?.link_path || "/dashboard",
     source: "compliance_items",
-    bucket: row?.item_type === "compliance_overdue" ? "urgent" : "upcoming",
+    bucket:
+      row?.item_type === "compliance_overdue"
+        ? "urgent"
+        : row?.item_type === "compliance_missing_setup"
+          ? "action"
+          : "upcoming",
     body: row?.category || "",
+    createdAt: row?.created_at || null,
+    resolvedState: false,
   };
 }
 
@@ -153,6 +248,7 @@ function normalizeLeaseItem(row) {
   return {
     id: row?.item_key || `lease-${type}-${row?.tenant_label || "na"}`,
     kind: type,
+    propertyId: row?.property_id || null,
     propertyLabel: row?.property_label || "",
     tenantLabel: row?.tenant_label || "",
     entityLabel: "",
@@ -167,6 +263,8 @@ function normalizeLeaseItem(row) {
         : type === "lease_expiring_soon"
           ? "upcoming"
           : "action",
+    createdAt: row?.created_at || null,
+    resolvedState: false,
   };
 }
 
@@ -175,6 +273,7 @@ function normalizePaymentItem(row, kind) {
   return {
     id: `payment-${kind}-${row.id}`,
     kind,
+    propertyId: row?.property_id || null,
     propertyLabel: row?.properties?.address || "",
     tenantLabel: row?.tenants?.name || "",
     entityLabel: "",
@@ -184,6 +283,8 @@ function normalizePaymentItem(row, kind) {
     linkPath: row?.tenant_id ? `/tenants/${row.tenant_id}` : "/finance",
     source: "payments",
     bucket: kind === "overdue_rent" ? "urgent" : "upcoming",
+    createdAt: row?.created_at || row?.due_date || null,
+    resolvedState: false,
   };
 }
 
@@ -191,6 +292,7 @@ function normalizeNotificationItem(row) {
   return {
     id: `notification-${row.id}`,
     kind: "notification_alert",
+    propertyId: null,
     propertyLabel: "",
     tenantLabel: "",
     entityLabel: row?.title || "",
@@ -201,6 +303,8 @@ function normalizeNotificationItem(row) {
     source: "notifications",
     bucket: "recent",
     body: row?.body || "",
+    createdAt: row?.created_at || null,
+    resolvedState: !!row?.is_read,
   };
 }
 
@@ -208,6 +312,7 @@ function normalizeWorkOrderGapItem(row, kind) {
   return {
     id: `wo-gap-${kind}-${row.id}`,
     kind,
+    propertyId: row?.property_id || null,
     propertyLabel: row?.propertyLabel || "",
     tenantLabel: "",
     entityLabel: row?.maintenance_requests?.title || "",
@@ -217,12 +322,16 @@ function normalizeWorkOrderGapItem(row, kind) {
     linkPath: `/work-orders/${row.id}`,
     source: "work_orders",
     bucket:
-      kind === "work_order_overdue" || kind === "contractor_no_response"
+      kind === "work_order_overdue" ||
+      kind === "contractor_no_response" ||
+      kind === "stalled_in_progress_repair"
         ? "urgent"
-        : kind === "work_order_blocked_follow_up"
+        : kind === "work_order_blocked_follow_up" || kind === "long_running_repair"
           ? "action"
           : "recent",
     contractorLabel: row?.contractor_name || "",
+    createdAt: row?.created_at || null,
+    resolvedState: false,
   };
 }
 
@@ -231,11 +340,13 @@ function propertyIssueRows(items = []) {
   for (const item of items) {
     const label = String(item?.propertyLabel || "").trim();
     if (!label) continue;
-    counts.set(label, (counts.get(label) || 0) + 1);
+    const key = item?.propertyId || label;
+    const current = counts.get(key) || { id: item?.propertyId || null, label, count: 0 };
+    current.count += 1;
+    counts.set(key, current);
   }
-  return Array.from(counts.entries())
-    .map(([label, count]) => ({ label, count }))
-    .sort((a, b) => b.count - a.count)
+  return Array.from(counts.values())
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
     .slice(0, 8);
 }
 
@@ -258,12 +369,13 @@ export async function getAttentionCenterData(accountId) {
   }
 
   if (!attentionCenterItemsUnavailable) {
-    const [snapshot, rpcRes] = await Promise.all([
+    const [snapshot, rpcRes, propertyHealthRows] = await Promise.all([
       getDashboardSnapshot(accountId, { horizonDays: 7 }),
       supabase.rpc("attention_center_items", {
         p_account_id: accountId,
         p_limit: 60,
       }),
+      listPropertyOperationalHealthScores(accountId, { limit: 200 }),
     ]);
 
     if (rpcRes.error && isMissingBackendObject(rpcRes.error)) {
@@ -271,7 +383,7 @@ export async function getAttentionCenterData(accountId) {
     } else if (rpcRes.error) {
       throw rpcRes.error;
     } else {
-      const items = Array.isArray(rpcRes.data) ? rpcRes.data.map(normalizeRpcItem) : [];
+      const items = Array.isArray(rpcRes.data) ? rpcRes.data.map(normalizeRpcItem).map(enrichAttentionItem) : [];
       const groups = {
         urgent: items.filter((item) => item.bucket === "urgent").slice(0, 12),
         action: items.filter((item) => item.bucket === "action").slice(0, 12),
@@ -280,6 +392,7 @@ export async function getAttentionCenterData(accountId) {
       };
       const actionableItems = [...groups.urgent, ...groups.action, ...groups.upcoming];
       const propertyIssues = propertyIssueRows(actionableItems);
+      const healthByProperty = new Map((propertyHealthRows || []).map((row) => [row.propertyId, row]));
       const unreadAlertsCount = items.filter((item) => item.kind === "notification_alert").length;
 
       return {
@@ -293,7 +406,16 @@ export async function getAttentionCenterData(accountId) {
           overdueAmount: Number(snapshot?.overdue_amount || 0),
         },
         groups,
-        propertyIssues,
+        propertyIssues: propertyIssues.map((row) => {
+          const health = healthByProperty.get(row.id) || null;
+          return {
+            ...row,
+            score: health?.score ?? null,
+            category: health?.category || null,
+            linkPath: row.id ? `/properties/${row.id}` : "",
+          };
+        }),
+        items,
         snapshot,
       };
     }
@@ -308,6 +430,7 @@ export async function getAttentionCenterData(accountId) {
     paymentsRes,
     workOrdersRes,
     notificationsRes,
+    propertyHealthRows,
   ] = await Promise.all([
     getDashboardSnapshot(accountId, { horizonDays: 7 }),
     getMaintenanceAttention(accountId),
@@ -333,6 +456,7 @@ export async function getAttentionCenterData(accountId) {
       .eq("is_read", false)
       .order("created_at", { ascending: false })
       .limit(12),
+    listPropertyOperationalHealthScores(accountId, { limit: 200 }),
   ]);
 
   if (paymentsRes.error) throw paymentsRes.error;
@@ -396,6 +520,25 @@ export async function getAttentionCenterData(accountId) {
       continue;
     }
 
+    if (
+      !isCompletedWorkOrderStatus(status) &&
+      Number.isFinite(age) &&
+      age >= 72 &&
+      (isInProgressWorkOrderStatus(status) || status === "blocked" || status === "zablokowane")
+    ) {
+      items.push(normalizeWorkOrderGapItem(withProperty, "stalled_in_progress_repair"));
+      continue;
+    }
+
+    if (
+      !isCompletedWorkOrderStatus(status) &&
+      Number.isFinite(hoursSince(row?.created_at)) &&
+      hoursSince(row?.created_at) >= 14 * 24
+    ) {
+      items.push(normalizeWorkOrderGapItem(withProperty, "long_running_repair"));
+      continue;
+    }
+
     if (status === "blocked" || status === "zablokowane") {
       items.push(normalizeWorkOrderGapItem(withProperty, "work_order_blocked_follow_up"));
       continue;
@@ -415,7 +558,7 @@ export async function getAttentionCenterData(accountId) {
     items.push(normalizeNotificationItem(row));
   }
 
-  const deduped = Array.from(new Map(items.map((item) => [item.id, item])).values());
+  const deduped = Array.from(new Map(items.map((item) => [item.id, item])).values()).map(enrichAttentionItem);
   const groups = {
     urgent: deduped.filter((item) => item.bucket === "urgent").slice(0, 12),
     action: deduped.filter((item) => item.bucket === "action").slice(0, 12),
@@ -428,6 +571,7 @@ export async function getAttentionCenterData(accountId) {
 
   const actionableItems = [...groups.urgent, ...groups.action, ...groups.upcoming];
   const propertyIssues = propertyIssueRows(actionableItems);
+  const healthByProperty = new Map((propertyHealthRows || []).map((row) => [row.propertyId, row]));
 
   return {
     summary: {
@@ -440,7 +584,16 @@ export async function getAttentionCenterData(accountId) {
       overdueAmount: Number(snapshot?.overdue_amount || 0),
     },
     groups,
-    propertyIssues,
+    propertyIssues: propertyIssues.map((row) => {
+      const health = healthByProperty.get(row.id) || null;
+      return {
+        ...row,
+        score: health?.score ?? null,
+        category: health?.category || null,
+        linkPath: row.id ? `/properties/${row.id}` : "",
+      };
+    }),
+    items: deduped,
     snapshot,
   };
 }

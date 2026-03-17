@@ -35,6 +35,10 @@ export const routesConfig = [
         handle: { titleKey: "sidebar.maintenanceKpi" },
       },
       {
+        path: "command-center",
+        handle: { titleKey: "sidebar.commandCenter" },
+      },
+      {
         path: "attention-center",
         handle: { titleKey: "sidebar.attentionCenter" },
       },

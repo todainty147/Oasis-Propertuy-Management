@@ -4,15 +4,28 @@ import Skeleton from "./ui/Skeleton";
 import { useI18n } from "../context/I18nContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import {
+  downloadDocument,
+  fetchDocuments,
+  getDocumentPreviewUrl,
+} from "../services/documentService";
+import {
+  completeComplianceItem,
   createComplianceItem,
+  linkComplianceDocument,
   listComplianceItems,
-  updateComplianceItem,
+  listComplianceDocumentLinks,
+  listMissingComplianceSetup,
+  unlinkComplianceDocument,
 } from "../services/complianceService";
 
 const CATEGORY_OPTIONS = [
   "gas_safety",
+  "epc_expiry",
   "electrical_inspection",
   "insurance_renewal",
+  "fire_alarm_inspection",
+  "smoke_alarm_check",
+  "landlord_licensing",
   "document_expiry",
   "other",
 ];
@@ -39,11 +52,16 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [rows, setRows] = useState([]);
+  const [missingRows, setMissingRows] = useState([]);
+  const [propertyDocuments, setPropertyDocuments] = useState([]);
+  const [linkedDocuments, setLinkedDocuments] = useState([]);
+  const [linkSelections, setLinkSelections] = useState({});
   const [form, setForm] = useState({
     title: "",
     category: "gas_safety",
     dueDate: "",
     reminderWindowDays: "30",
+    recurrenceIntervalMonths: "12",
     notes: "",
   });
 
@@ -63,15 +81,33 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
     setLoading(true);
     setError("");
     try {
-      const next = await listComplianceItems({
+      const [next, missing, docs] = await Promise.all([
+        listComplianceItems({
+          accountId,
+          propertyId,
+          includeClosed: true,
+          limit: 50,
+        }),
+        listMissingComplianceSetup(accountId, { propertyId, limit: 12 }),
+        fetchDocuments({
+          accountId,
+          propertyId,
+        }),
+      ]);
+      const links = await listComplianceDocumentLinks({
         accountId,
         propertyId,
-        includeClosed: true,
-        limit: 50,
+        complianceItemIds: next.map((row) => row.id),
       });
       setRows(next);
+      setMissingRows(missing);
+      setPropertyDocuments(Array.isArray(docs) ? docs : []);
+      setLinkedDocuments(Array.isArray(links) ? links : []);
     } catch (e) {
       setRows([]);
+      setMissingRows([]);
+      setPropertyDocuments([]);
+      setLinkedDocuments([]);
       setError(e?.message || t("compliance.loadError"));
     } finally {
       setLoading(false);
@@ -87,6 +123,8 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
     enabled: !!accountId && !!propertyId,
     subscriptions: [
       { channel: `property-compliance:${propertyId}`, table: "compliance_items", filter: `account_id=eq.${accountId}` },
+      { channel: `property-compliance-links:${propertyId}`, table: "compliance_document_links", filter: `account_id=eq.${accountId}` },
+      { channel: `property-compliance-documents:${propertyId}`, table: "documents", filter: `account_id=eq.${accountId}` },
     ],
     onChange: load,
   });
@@ -118,6 +156,7 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
         category: form.category,
         dueDate: form.dueDate,
         reminderWindowDays: form.reminderWindowDays,
+        recurrenceIntervalMonths: form.recurrenceIntervalMonths,
         notes: form.notes,
       });
       setForm({
@@ -125,6 +164,7 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
         category: form.category,
         dueDate: "",
         reminderWindowDays: form.reminderWindowDays,
+        recurrenceIntervalMonths: form.recurrenceIntervalMonths,
         notes: "",
       });
       await load();
@@ -138,11 +178,56 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
   async function markComplete(id) {
     setError("");
     try {
-      await updateComplianceItem(id, { status: "completed" });
+      await completeComplianceItem(id);
       await load();
     } catch (e) {
       setError(e?.message || t("compliance.completeError"));
     }
+  }
+
+  async function handleLinkDocument(complianceItemId) {
+    const documentId = linkSelections[complianceItemId];
+    if (!documentId) return;
+    setError("");
+    try {
+      await linkComplianceDocument({
+        accountId,
+        complianceItemId,
+        documentId,
+      });
+      setLinkSelections((prev) => ({ ...prev, [complianceItemId]: "" }));
+      await load();
+    } catch (e) {
+      setError(e?.message || t("compliance.linkSaveError"));
+    }
+  }
+
+  async function handleUnlinkDocument(linkId) {
+    setError("");
+    try {
+      await unlinkComplianceDocument(linkId);
+      await load();
+    } catch (e) {
+      setError(e?.message || t("compliance.linkDeleteError"));
+    }
+  }
+
+  async function handlePreviewDocument(doc) {
+    try {
+      const url = await getDocumentPreviewUrl(doc?.storage_path);
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      setError(e?.message || t("documents.previewError"));
+    }
+  }
+
+  function docsForComplianceItem(complianceItemId) {
+    return linkedDocuments.filter((row) => String(row?.compliance_item_id) === String(complianceItemId));
+  }
+
+  function availableDocumentsForComplianceItem(complianceItemId) {
+    const linkedIds = new Set(docsForComplianceItem(complianceItemId).map((row) => row?.document_id));
+    return propertyDocuments.filter((doc) => !linkedIds.has(doc.id));
   }
 
   if (loading) {
@@ -184,6 +269,20 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
 
       <div className="mt-4 grid grid-cols-1 xl:grid-cols-[1.2fr_1fr] gap-4">
         <div className="rounded-lg border border-slate-200 bg-white p-4">
+          {missingRows.length > 0 ? (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <p className="text-sm font-medium text-amber-800">{t("compliance.missingTitle")}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {missingRows.map((row) => (
+                  <span key={row.item_key} className="rounded-full border border-amber-300 bg-white px-2 py-0.5 text-xs text-amber-800">
+                    {row.title === "Compliance calendar not set up"
+                      ? t("compliance.missingSetup")
+                      : categoryLabel(row.category)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {rows.length === 0 ? (
             <p className="text-sm text-slate-500">{t("compliance.empty")}</p>
           ) : (
@@ -200,6 +299,11 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
                           <span className={`rounded-full border px-2 py-0.5 text-xs ${dueTone(days)}`}>
                             {t(`compliance.status.${String(row.status || "active").toLowerCase()}`)}
                           </span>
+                          {Number(row?.recurrence_interval_months || 0) > 0 ? (
+                            <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
+                              {t("compliance.recursEveryMonths", { count: Number(row.recurrence_interval_months || 0) })}
+                            </span>
+                          ) : null}
                         </div>
                         <p className="mt-1 text-xs text-slate-500">
                           {categoryLabel(String(row.category || "other").toLowerCase())}
@@ -207,6 +311,79 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
                           {row.due_date}
                         </p>
                         {row.notes ? <p className="mt-1 text-xs text-slate-600">{row.notes}</p> : null}
+                        <div className="mt-2 space-y-2">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                            {t("compliance.linkedDocuments")}
+                          </p>
+                          {docsForComplianceItem(row.id).length === 0 ? (
+                            <p className="text-xs text-slate-500">{t("compliance.noLinkedDocuments")}</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {docsForComplianceItem(row.id).map((linkRow) => {
+                                const doc = linkRow?.documents;
+                                return (
+                                  <div
+                                    key={linkRow.id}
+                                    className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5"
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="truncate text-xs font-medium text-slate-900">
+                                        {doc?.name || "—"}
+                                      </p>
+                                      <p className="text-[11px] text-slate-500">{doc?.mime_type || "document"}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => handlePreviewDocument(doc)}
+                                        className="text-xs text-slate-600 hover:text-slate-900"
+                                      >
+                                        {t("documents.preview")}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => downloadDocument({ storagePath: doc?.storage_path, filename: doc?.name })}
+                                        className="text-xs text-slate-600 hover:text-slate-900"
+                                      >
+                                        {t("documents.download")}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUnlinkDocument(linkRow.id)}
+                                        className="text-xs text-rose-600 hover:text-rose-700"
+                                      >
+                                        {t("compliance.unlinkDocument")}
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          <div className="flex flex-col gap-2 md:flex-row">
+                            <select
+                              value={linkSelections[row.id] || ""}
+                              onChange={(e) => setLinkSelections((prev) => ({ ...prev, [row.id]: e.target.value }))}
+                              className="min-w-0 flex-1 rounded-lg border px-3 py-2 text-xs"
+                            >
+                              <option value="">{t("compliance.selectDocumentToLink")}</option>
+                              {availableDocumentsForComplianceItem(row.id).map((doc) => (
+                                <option key={doc.id} value={doc.id}>
+                                  {doc.name}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => handleLinkDocument(row.id)}
+                              disabled={!linkSelections[row.id]}
+                              className="rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            >
+                              {t("compliance.linkDocument")}
+                            </button>
+                          </div>
+                        </div>
                       </div>
                       {isActive ? (
                         <button
@@ -261,6 +438,20 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
               />
             </label>
           </div>
+          <label className="text-sm block">
+            <span className="text-xs text-slate-500">{t("compliance.recurrenceLabel")}</span>
+            <select
+              value={form.recurrenceIntervalMonths}
+              onChange={(e) => setForm((prev) => ({ ...prev, recurrenceIntervalMonths: e.target.value }))}
+              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+            >
+              <option value="0">{t("compliance.recurrence.none")}</option>
+              <option value="1">{t("compliance.recurrence.monthly")}</option>
+              <option value="3">{t("compliance.recurrence.quarterly")}</option>
+              <option value="6">{t("compliance.recurrence.every6Months")}</option>
+              <option value="12">{t("compliance.recurrence.yearly")}</option>
+            </select>
+          </label>
           <label className="text-sm block">
             <span className="text-xs text-slate-500">{t("compliance.reminderWindowLabel")}</span>
             <input

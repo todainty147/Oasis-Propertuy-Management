@@ -22,6 +22,10 @@ import {
   getLeaseAttentionItems,
   getLeaseSummary,
 } from "../services/leaseService";
+import {
+  listPropertyOperationalHealthScores,
+  summarizePropertyOperationalHealth,
+} from "../services/propertyHealthScoreService";
 
 function pctDelta(current, previous) {
   const c = Number(current || 0);
@@ -159,6 +163,7 @@ export default function PortfolioHealthDashboardPage() {
   const [attentionItems, setAttentionItems] = useState([]);
   const [leaseAttentionItems, setLeaseAttentionItems] = useState([]);
   const [leaseSummary, setLeaseSummary] = useState(null);
+  const [propertyHealthRows, setPropertyHealthRows] = useState([]);
   const [reporting, setReporting] = useState(null);
   const [reportSaving, setReportSaving] = useState(false);
   const [reportSending, setReportSending] = useState(false);
@@ -175,11 +180,12 @@ export default function PortfolioHealthDashboardPage() {
       setLoading(true);
       setError("");
       try {
-        const [snapshotRow, attention, leaseAttention, leaseSummaryRow] = await Promise.all([
+        const [snapshotRow, attention, leaseAttention, leaseSummaryRow, healthRows] = await Promise.all([
           getPortfolioHealthSnapshot(activeAccountId, activeTenantId || null),
           getPortfolioAttentionItems(activeAccountId, activeTenantId || null, 10),
           getLeaseAttentionItems(activeAccountId, 6),
           getLeaseSummary(activeAccountId),
+          listPropertyOperationalHealthScores(activeAccountId, { limit: 200 }),
         ]);
         if (dead) return;
 
@@ -187,6 +193,7 @@ export default function PortfolioHealthDashboardPage() {
         setAttentionItems(Array.isArray(attention) ? attention : []);
         setLeaseAttentionItems(Array.isArray(leaseAttention) ? leaseAttention : []);
         setLeaseSummary(leaseSummaryRow || null);
+        setPropertyHealthRows(Array.isArray(healthRows) ? healthRows : []);
       } catch (e) {
         if (!dead) setError(e?.message || t("portfolio.error"));
       } finally {
@@ -214,23 +221,26 @@ export default function PortfolioHealthDashboardPage() {
     onChange: async () => {
       if (!activeAccountId || !canManage) return;
       try {
-        const [snapshotRow, attention, leaseAttention, leaseSummaryRow, reportingRow] = await Promise.all([
+        const [snapshotRow, attention, leaseAttention, leaseSummaryRow, reportingRow, healthRows] = await Promise.all([
           getPortfolioHealthSnapshot(activeAccountId, activeTenantId || null),
           getPortfolioAttentionItems(activeAccountId, activeTenantId || null, 10),
           getLeaseAttentionItems(activeAccountId, 6),
           getLeaseSummary(activeAccountId),
           getAccountReportSettings(activeAccountId),
+          listPropertyOperationalHealthScores(activeAccountId, { limit: 200 }),
         ]);
         setSnapshot(snapshotRow || null);
         setAttentionItems(Array.isArray(attention) ? attention : []);
         setLeaseAttentionItems(Array.isArray(leaseAttention) ? leaseAttention : []);
         setLeaseSummary(leaseSummaryRow || null);
+        setPropertyHealthRows(Array.isArray(healthRows) ? healthRows : []);
         setReporting(reportingRow || null);
       } catch {
         setSnapshot(null);
         setAttentionItems([]);
         setLeaseAttentionItems([]);
         setLeaseSummary(null);
+        setPropertyHealthRows([]);
       }
     },
   });
@@ -312,6 +322,10 @@ export default function PortfolioHealthDashboardPage() {
     waiting_over_48h: 0,
     active_work_orders: 0,
     work_orders_without_contractor: 0,
+    contractor_ack_overdue: 0,
+    stalled_repairs: 0,
+    long_running_repairs: 0,
+    repeat_repair_properties: 0,
     recent_open_created: 0,
     prev_open_created: 0,
     outstanding_current_month: 0,
@@ -332,6 +346,10 @@ export default function PortfolioHealthDashboardPage() {
       { key: "high", value: Number(snapshotView.high_priority_open_requests || 0) },
       { key: "waiting48h", value: Number(snapshotView.waiting_over_48h || 0) },
       { key: "woNoContractor", value: Number(snapshotView.work_orders_without_contractor || 0) },
+      { key: "ackOverdue", value: Number(snapshotView.contractor_ack_overdue || 0) },
+      { key: "stalledRepairs", value: Number(snapshotView.stalled_repairs || 0) },
+      { key: "longRunning", value: Number(snapshotView.long_running_repairs || 0) },
+      { key: "repeatRepairs", value: Number(snapshotView.repeat_repair_properties || 0) },
     ],
     [snapshotView]
   );
@@ -391,6 +409,48 @@ export default function PortfolioHealthDashboardPage() {
     renewalInProgressCount: 0,
   };
 
+  const propertyHealthSummary = useMemo(
+    () => summarizePropertyOperationalHealth(propertyHealthRows),
+    [propertyHealthRows],
+  );
+
+  const propertyHealthDistributionRows = useMemo(
+    () => [
+      { key: "healthy", value: propertyHealthSummary.healthyCount },
+      { key: "attention_needed", value: propertyHealthSummary.attentionCount },
+      { key: "high_risk", value: propertyHealthSummary.highRiskCount },
+    ],
+    [propertyHealthSummary],
+  );
+
+  const lowestHealthRows = useMemo(
+    () =>
+      (propertyHealthSummary.lowestProperties || []).map((row) => ({
+        key: row.propertyId,
+        value: Number(row.score || 0),
+      })),
+    [propertyHealthSummary],
+  );
+
+  const lowestHealthLabels = useMemo(
+    () =>
+      Object.fromEntries(
+        (propertyHealthSummary.lowestProperties || []).map((row) => [
+          row.propertyId,
+          `${row.propertyLabel || "—"} (${t(`propertyHealth.status.${row.category}`)})`,
+        ]),
+      ),
+    [propertyHealthSummary, t],
+  );
+
+  const lowestHealthLinks = useMemo(
+    () =>
+      Object.fromEntries(
+        (propertyHealthSummary.lowestProperties || []).map((row) => [row.propertyId, `/properties/${row.propertyId}`]),
+      ),
+    [propertyHealthSummary],
+  );
+
   if (!canManage) {
     return (
       <Card className="p-6">
@@ -437,6 +497,12 @@ export default function PortfolioHealthDashboardPage() {
         <StatCard title={t("portfolio.kpi.leasesExpired")} value={Number(leaseSummaryView.expiredCount || 0)} to={leaseExpiredLink} tone="rose" />
         <StatCard title={t("portfolio.kpi.waitingOver48h")} value={Number(snapshotView.waiting_over_48h || 0)} to="/maintenance-inbox?status=waiting&aging=48h" tone="amber" />
         <StatCard title={t("portfolio.kpi.withoutContractor")} value={Number(snapshotView.work_orders_without_contractor || 0)} to="/maintenance-kpi?filter=no-contractor" tone="rose" />
+        <StatCard title={t("portfolio.kpi.ackOverdue")} value={Number(snapshotView.contractor_ack_overdue || 0)} to="/attention-center" tone="rose" />
+        <StatCard title={t("portfolio.kpi.stalledRepairs")} value={Number(snapshotView.stalled_repairs || 0)} to="/attention-center" tone="rose" />
+        <StatCard title={t("portfolio.kpi.longRunningRepairs")} value={Number(snapshotView.long_running_repairs || 0)} to="/attention-center" tone="amber" />
+        <StatCard title={t("portfolio.kpi.repeatRepairProperties")} value={Number(snapshotView.repeat_repair_properties || 0)} to="/attention-center" tone="violet" />
+        <StatCard title={t("portfolio.kpi.avgHealthScore")} value={propertyHealthSummary.averageScore} to="/properties" tone="emerald" />
+        <StatCard title={t("portfolio.kpi.highRiskProperties")} value={propertyHealthSummary.highRiskCount} to="/properties" tone="rose" />
       </div>
 
       {loading ? (
@@ -485,16 +551,49 @@ export default function PortfolioHealthDashboardPage() {
               high: t("portfolio.labels.highPriority"),
               waiting48h: t("portfolio.labels.waiting48h"),
               woNoContractor: t("portfolio.labels.woNoContractor"),
+              ackOverdue: t("portfolio.labels.ackOverdue"),
+              stalledRepairs: t("portfolio.labels.stalledRepairs"),
+              longRunning: t("portfolio.labels.longRunningRepairs"),
+              repeatRepairs: t("portfolio.labels.repeatRepairProperties"),
             }}
             toByKey={{
               open: "/maintenance-inbox?status=open,in_progress,waiting,resolved",
               high: "/maintenance-inbox?priority=high,critical",
               waiting48h: "/maintenance-inbox?status=waiting&aging=48h",
               woNoContractor: "/maintenance-kpi?filter=no-contractor",
+              ackOverdue: "/attention-center",
+              stalledRepairs: "/attention-center",
+              longRunning: "/attention-center",
+              repeatRepairs: "/attention-center",
             }}
           />
         </div>
       )}
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <DonutCard
+          title={t("portfolio.charts.healthDistribution")}
+          totalLabel={t("portfolio.total")}
+          rows={propertyHealthDistributionRows}
+          labels={{
+            healthy: t("propertyHealth.status.healthy"),
+            attention_needed: t("propertyHealth.status.attention_needed"),
+            high_risk: t("propertyHealth.status.high_risk"),
+          }}
+          toByKey={{
+            healthy: "/properties",
+            attention_needed: "/properties",
+            high_risk: "/properties",
+          }}
+        />
+
+        <BarCard
+          title={t("portfolio.charts.lowestHealth")}
+          rows={lowestHealthRows}
+          labels={lowestHealthLabels}
+          toByKey={lowestHealthLinks}
+        />
+      </div>
 
       <Card className="p-4 border shadow-sm">
         <div className="flex items-start justify-between gap-3 flex-wrap">

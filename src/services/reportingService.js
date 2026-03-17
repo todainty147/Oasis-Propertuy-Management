@@ -1,6 +1,10 @@
 import { supabase } from "../lib/supabase";
 import { createNotifications } from "./notificationService";
 import { formatCurrencyAmount } from "../utils/currency";
+import {
+  listPropertyOperationalHealthScores,
+  summarizePropertyOperationalHealth,
+} from "./propertyHealthScoreService";
 
 function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -18,24 +22,35 @@ function isMissingBackendObject(error) {
 
 export async function getWeeklyPortfolioSummary(accountId) {
   if (!accountId) throw new Error("Missing accountId");
-  const { data, error } = await supabase.rpc("portfolio_weekly_summary", {
-    p_account_id: accountId,
-  });
+  const [{ data, error }, propertyHealthRows] = await Promise.all([
+    supabase.rpc("portfolio_weekly_summary", {
+      p_account_id: accountId,
+    }),
+    listPropertyOperationalHealthScores(accountId, { limit: 200 }),
+  ]);
   if (error && isMissingBackendObject(error)) {
+    const healthSummary = summarizePropertyOperationalHealth(propertyHealthRows);
     return {
       occupancy_rate: 0,
       open_requests: 0,
       waiting_over_48h: 0,
       overdue_balance: 0,
+      average_property_health_score: healthSummary.averageScore,
+      high_risk_property_count: healthSummary.highRiskCount,
     };
   }
   if (error) throw friendly(error, "Failed to load weekly summary");
   const row = Array.isArray(data) ? data[0] : data;
-  return row ?? {
-    occupancy_rate: 0,
-    open_requests: 0,
-    waiting_over_48h: 0,
-    overdue_balance: 0,
+  const healthSummary = summarizePropertyOperationalHealth(propertyHealthRows);
+  return {
+    ...(row ?? {
+      occupancy_rate: 0,
+      open_requests: 0,
+      waiting_over_48h: 0,
+      overdue_balance: 0,
+    }),
+    average_property_health_score: healthSummary.averageScore,
+    high_risk_property_count: healthSummary.highRiskCount,
   };
 }
 
@@ -130,6 +145,8 @@ export async function sendWeeklySummaryNow(accountId) {
     `Open requests: ${summary.open_requests ?? 0}`,
     `Waiting >48h: ${summary.waiting_over_48h ?? 0}`,
     `Overdue balance: ${formatCurrencyAmount(summary.overdue_balance ?? 0)}`,
+    `Average property health: ${summary.average_property_health_score ?? 0}`,
+    `High-risk properties: ${summary.high_risk_property_count ?? 0}`,
   ].join("\n");
 
   await createNotifications({
@@ -146,6 +163,8 @@ export async function sendWeeklySummaryNow(accountId) {
       open_requests: summary.open_requests ?? 0,
       waiting_over_48h: summary.waiting_over_48h ?? 0,
       overdue_balance: Number(summary.overdue_balance ?? 0),
+      average_property_health_score: Number(summary.average_property_health_score ?? 0),
+      high_risk_property_count: Number(summary.high_risk_property_count ?? 0),
     },
   });
 

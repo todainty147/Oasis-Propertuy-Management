@@ -44,6 +44,10 @@ export async function getPortfolioHealthSnapshot(accountId, tenantId = null) {
       waiting_over_48h: 0,
       active_work_orders: 0,
       work_orders_without_contractor: 0,
+      contractor_ack_overdue: 0,
+      stalled_repairs: 0,
+      long_running_repairs: 0,
+      repeat_repair_properties: 0,
       recent_open_created: 0,
       prev_open_created: 0,
       outstanding_current_month: 0,
@@ -71,6 +75,10 @@ export async function getPortfolioHealthSnapshot(accountId, tenantId = null) {
     waiting_over_48h: 0,
     active_work_orders: 0,
     work_orders_without_contractor: 0,
+    contractor_ack_overdue: 0,
+    stalled_repairs: 0,
+    long_running_repairs: 0,
+    repeat_repair_properties: 0,
     recent_open_created: 0,
     prev_open_created: 0,
     outstanding_current_month: 0,
@@ -153,6 +161,46 @@ export function mapPortfolioAttentionItems(items = [], t) {
         title: t("portfolio.attention.dueSoon"),
         subtitle: formatCurrencyAmount(item.amount || 0),
         to: item.link_path || "/finance?status=due&range=7d",
+      };
+    }
+    if (type === "triage_over_24h") {
+      return {
+        key: item.item_key,
+        title: t("portfolio.attention.triageOver24h"),
+        subtitle: `${item.request_title || "—"} • ${item.property_label || "—"}`,
+        to: item.link_path || "/maintenance-inbox?status=open",
+      };
+    }
+    if (type === "contractor_ack_overdue") {
+      return {
+        key: item.item_key,
+        title: t("portfolio.attention.contractorAckOverdue"),
+        subtitle: `${item.request_title || "—"} • ${item.property_label || "—"}`,
+        to: item.link_path || "/attention-center",
+      };
+    }
+    if (type === "stalled_in_progress_repair") {
+      return {
+        key: item.item_key,
+        title: t("portfolio.attention.stalledRepair"),
+        subtitle: `${item.request_title || "—"} • ${item.property_label || "—"}`,
+        to: item.link_path || "/attention-center",
+      };
+    }
+    if (type === "long_running_repair") {
+      return {
+        key: item.item_key,
+        title: t("portfolio.attention.longRunningRepair"),
+        subtitle: `${item.request_title || "—"} • ${item.property_label || "—"}`,
+        to: item.link_path || "/attention-center",
+      };
+    }
+    if (type === "repeated_repairs_property") {
+      return {
+        key: item.item_key,
+        title: t("portfolio.attention.repeatRepairs"),
+        subtitle: item.property_label || "—",
+        to: item.link_path || "/attention-center",
       };
     }
     return {

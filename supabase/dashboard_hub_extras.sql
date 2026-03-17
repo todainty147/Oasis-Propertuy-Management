@@ -88,6 +88,17 @@ as $$
       and c.due_date >= current_date
       and c.due_date <= current_date + interval '30 days'
   ),
+  compliance_missing_setup as (
+    select count(*)::bigint as property_count
+    from public.properties p
+    where p.account_id = p_account_id
+      and not exists (
+        select 1
+        from public.compliance_items c
+        where c.account_id = p.account_id
+          and c.property_id = p.id
+      )
+  ),
   vacant_long as (
     select
       p.id,
@@ -202,6 +213,20 @@ as $$
     19 as sort_order
   from compliance_due_soon cds
   where cds.item_count > 0
+
+  union all
+
+  select
+    'compliance-missing-setup'::text,
+    'compliance_missing_setup_summary'::text,
+    cms.property_count,
+    null::text,
+    null::text,
+    null::int,
+    '/attention-center'::text,
+    21 as sort_order
+  from compliance_missing_setup cms
+  where cms.property_count > 0
 
   union all
 

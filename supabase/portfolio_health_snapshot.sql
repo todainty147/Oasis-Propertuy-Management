@@ -1,4 +1,6 @@
-create or replace function public.portfolio_health_snapshot(
+drop function if exists public.portfolio_health_snapshot(uuid, uuid);
+
+create function public.portfolio_health_snapshot(
   p_account_id uuid,
   p_tenant_id uuid default null
 )
@@ -20,6 +22,10 @@ returns table (
   waiting_over_48h bigint,
   active_work_orders bigint,
   work_orders_without_contractor bigint,
+  contractor_ack_overdue bigint,
+  stalled_repairs bigint,
+  long_running_repairs bigint,
+  repeat_repair_properties bigint,
   recent_open_created bigint,
   prev_open_created bigint,
   outstanding_current_month numeric,
@@ -68,6 +74,8 @@ as $$
   ),
   scoped_requests as (
     select
+      r.id,
+      r.property_id,
       lower(coalesce(r.status, '')) as status_norm,
       lower(coalesce(r.priority, '')) as priority_norm,
       r.created_at
@@ -80,14 +88,29 @@ as $$
   ),
   scoped_work_orders as (
     select
+      w.property_id,
       lower(coalesce(w.status, '')) as status_norm,
-      w.contractor_user_id
-    from work_orders_with_flags w
+      w.contractor_user_id,
+      w.contractor_name,
+      w.acknowledgement_due_at,
+      w.acknowledged_at,
+      lower(coalesce(w.acknowledgement_status, '')) as acknowledgement_status_norm,
+      w.created_at,
+      w.updated_at
+    from work_orders w
     where w.account_id = p_account_id
       and (
         p_tenant_id is null
         or w.property_id = (select property_id from tenant_scope)
       )
+  ),
+  repeat_repair_properties as (
+    select sr.property_id
+    from scoped_requests sr
+    where sr.property_id is not null
+      and sr.created_at >= now() - interval '90 days'
+    group by sr.property_id
+    having count(*) >= 3
   ),
   finance as (
     select
@@ -201,6 +224,29 @@ as $$
       ) as work_orders_without_contractor,
       (
         select count(*)
+        from scoped_work_orders
+        where status_norm not in ('completed', 'cancelled', 'zakończone', 'anulowane')
+          and (contractor_user_id is not null or nullif(coalesce(contractor_name, ''), '') is not null)
+          and acknowledgement_due_at is not null
+          and acknowledgement_due_at < now()
+          and acknowledgement_status_norm <> 'acknowledged'
+          and acknowledged_at is null
+      ) as contractor_ack_overdue,
+      (
+        select count(*)
+        from scoped_work_orders
+        where status_norm in ('in_progress', 'w trakcie', 'blocked', 'zablokowane')
+          and coalesce(updated_at, created_at) <= now() - interval '72 hours'
+      ) as stalled_repairs,
+      (
+        select count(*)
+        from scoped_work_orders
+        where status_norm not in ('completed', 'cancelled', 'zakończone', 'anulowane')
+          and created_at <= now() - interval '14 days'
+      ) as long_running_repairs,
+      (select count(*) from repeat_repair_properties) as repeat_repair_properties,
+      (
+        select count(*)
         from scoped_requests
         where created_at >= now() - interval '7 days'
       ) as recent_open_created,
@@ -234,6 +280,10 @@ as $$
     maintenance.waiting_over_48h,
     maintenance.active_work_orders,
     maintenance.work_orders_without_contractor,
+    maintenance.contractor_ack_overdue,
+    maintenance.stalled_repairs,
+    maintenance.long_running_repairs,
+    maintenance.repeat_repair_properties,
     maintenance.recent_open_created,
     maintenance.prev_open_created,
     finance.outstanding_current_month,

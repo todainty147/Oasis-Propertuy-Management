@@ -2,11 +2,13 @@ import { supabase } from "../lib/supabase";
 import { getDashboardSnapshot } from "./dashboardService";
 import { getDerivedLeaseStatus, listLeases } from "./leaseService";
 import { getMaintenanceKpiSnapshot } from "./maintenanceDashboardService";
+import { listComplianceItems } from "./complianceService";
 import {
   getPreventiveMaintenanceOverview,
   listPreventiveMaintenanceTasks,
 } from "./preventiveMaintenanceService";
 import { listAutomationExecutions } from "./automationExecutionService";
+import { listPropertyOperationalHealthScores } from "./propertyHealthScoreService";
 
 let automationRuleSettingsUnavailable = false;
 let automationRunsUnavailable = false;
@@ -144,6 +146,24 @@ const RULE_DEFS = [
     configFields: [],
   },
   {
+    id: "compliance_due_watch",
+    titleKey: "playbooks.rule.complianceDue.title",
+    descriptionKey: "playbooks.rule.complianceDue.description",
+    triggerKey: "playbooks.rule.complianceDue.trigger",
+    thresholdKey: "playbooks.rule.complianceDue.threshold",
+    outputs: ["attention_center", "dashboard", "notifications"],
+    defaultConfig: { lead_days: 30 },
+    configFields: [
+      {
+        key: "lead_days",
+        labelKey: "playbooks.config.leadDays",
+        unitKey: "playbooks.unit.days",
+        min: 1,
+        max: 120,
+      },
+    ],
+  },
+  {
     id: "preventive_due_watch",
     titleKey: "playbooks.rule.preventiveDue.title",
     descriptionKey: "playbooks.rule.preventiveDue.description",
@@ -158,6 +178,24 @@ const RULE_DEFS = [
         unitKey: "playbooks.unit.days",
         min: 1,
         max: 60,
+      },
+    ],
+  },
+  {
+    id: "property_health_watch",
+    titleKey: "playbooks.rule.propertyHealth.title",
+    descriptionKey: "playbooks.rule.propertyHealth.description",
+    triggerKey: "playbooks.rule.propertyHealth.trigger",
+    thresholdKey: "playbooks.rule.propertyHealth.threshold",
+    outputs: ["attention_center", "dashboard", "notifications", "reporting"],
+    defaultConfig: { sharp_drop_points: 15 },
+    configFields: [
+      {
+        key: "sharp_drop_points",
+        labelKey: "playbooks.config.sharpDropPoints",
+        unitKey: "playbooks.unit.points",
+        min: 5,
+        max: 40,
       },
     ],
   },
@@ -308,6 +346,7 @@ async function buildRuleSignals(accountId, rulesById) {
     blockedWorkOrdersRes,
     ackOverdueWorkOrdersRes,
     preventiveRows,
+    propertyHealthRows,
   ] = await Promise.all([
     getDashboardSnapshot(accountId, { horizonDays: 7 }),
     getMaintenanceKpiSnapshot(accountId),
@@ -354,6 +393,7 @@ async function buildRuleSignals(accountId, rulesById) {
       includePaused: false,
       limit: 500,
     }),
+    listPropertyOperationalHealthScores(accountId, { limit: 200 }),
   ]);
 
   if (paymentsRes.error) throw paymentsRes.error;
@@ -410,7 +450,15 @@ async function buildRuleSignals(accountId, rulesById) {
 
   const overdueGraceDays = safeConfigValue(rulesById.rent_overdue_watch?.config, "grace_days", 0, 0, 30);
   const leaseLeadDays = safeConfigValue(rulesById.lease_renewal_watch?.config, "lead_days", 60, 7, 180);
+  const complianceLeadDays = safeConfigValue(rulesById.compliance_due_watch?.config, "lead_days", 30, 1, 120);
   const preventiveLeadDays = safeConfigValue(rulesById.preventive_due_watch?.config, "lead_days", 14, 1, 60);
+  const propertyHealthDropPoints = safeConfigValue(
+    rulesById.property_health_watch?.config,
+    "sharp_drop_points",
+    15,
+    5,
+    40,
+  );
 
   const signals = {
     rent_overdue_watch: [],
@@ -418,7 +466,9 @@ async function buildRuleSignals(accountId, rulesById) {
     maintenance_triage: [],
     contractor_blocked_followup: [],
     contractor_ack_overdue_watch: [],
+    compliance_due_watch: [],
     preventive_due_watch: [],
+    property_health_watch: [],
   };
 
   if (rulesById.rent_overdue_watch?.enabled) {
@@ -470,6 +520,46 @@ async function buildRuleSignals(accountId, rulesById) {
           property_id: row.property_id || null,
           lease_end_date: row.lease_end_date,
           derived_status: derived,
+        },
+      });
+    }
+  }
+
+  if (rulesById.compliance_due_watch?.enabled) {
+    const complianceRows = await listComplianceItems({
+      accountId,
+      includeClosed: false,
+      limit: 500,
+    });
+    const tenantIdSet = new Set((complianceRows || []).map((row) => row?.tenant_id).filter(Boolean));
+    const propertyIdSet = new Set((complianceRows || []).map((row) => row?.property_id).filter(Boolean));
+    const labels = await mapLabels({
+      propertyIds: Array.from(propertyIdSet),
+      tenantIds: Array.from(tenantIdSet),
+    });
+
+    for (const row of complianceRows || []) {
+      const dueInDays = daysUntil(row?.due_date);
+      if (!Number.isFinite(dueInDays) || dueInDays > complianceLeadDays) continue;
+      const propertyLabel = labels.propertyMap.get(row?.property_id) || "Property";
+      const tenantLabel = labels.tenantMap.get(row?.tenant_id) || "";
+      signals.compliance_due_watch.push({
+        sourceKey: `compliance:${row.id}`,
+        severity: dueInDays < 0 ? "urgent" : "action",
+        title:
+          dueInDays < 0
+            ? `Compliance overdue: ${row.title || "Compliance item"}`
+            : `Compliance due soon: ${row.title || "Compliance item"}`,
+        body: [propertyLabel, tenantLabel, formatShortDate(row?.due_date)].filter(Boolean).join(" • "),
+        entityType: "compliance_item",
+        entityId: row.id,
+        linkPath: row?.property_id ? `/properties/${row.property_id}` : "/attention-center",
+        details: {
+          property_id: row?.property_id || null,
+          tenant_id: row?.tenant_id || null,
+          category: row?.category || null,
+          due_date: row?.due_date || null,
+          days_until_due: dueInDays,
         },
       });
     }
@@ -576,6 +666,29 @@ async function buildRuleSignals(accountId, rulesById) {
     }
   }
 
+  if (rulesById.property_health_watch?.enabled) {
+    for (const row of propertyHealthRows || []) {
+      if (row?.category === "high_risk") {
+        signals.property_health_watch.push({
+          sourceKey: `property_health:${row.propertyId}:high_risk`,
+          severity: "urgent",
+          title: `Property health high risk: ${row.propertyLabel || "Property"}`,
+          body: `Health score ${Number(row.score || 0)}`,
+          entityType: "property",
+          entityId: row.propertyId,
+          linkPath: row?.propertyId ? `/properties/${row.propertyId}` : "/properties",
+          details: {
+            property_id: row?.propertyId || null,
+            property_label: row?.propertyLabel || "",
+            score: Number(row?.score || 0),
+            category: row?.category || "",
+            sharp_drop_points: propertyHealthDropPoints,
+          },
+        });
+      }
+    }
+  }
+
   return {
     signals,
     dashboardSnapshot,
@@ -674,6 +787,7 @@ export async function getPlaybookAutomationOverview(accountId) {
       openRequests: Number(maintenanceSnapshot?.open_requests || 0),
       preventiveSignals:
         Number(preventiveOverview?.overdueCount || 0) + Number(preventiveOverview?.dueSoonCount || 0),
+      highRiskProperties: Number((signals.property_health_watch || []).length || 0),
     },
     recentRuns: Array.isArray(recentRunsRows) ? recentRunsRows.map(mapRunForUi) : [],
     recentExecutions: Array.isArray(executionRows) ? executionRows : [],

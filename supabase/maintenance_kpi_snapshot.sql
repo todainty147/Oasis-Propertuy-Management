@@ -1,10 +1,17 @@
-create or replace function public.maintenance_kpi_snapshot(p_account_id uuid)
+drop function if exists public.maintenance_kpi_snapshot(uuid);
+
+create function public.maintenance_kpi_snapshot(p_account_id uuid)
 returns table (
   open_requests bigint,
   active_work_orders bigint,
   awaiting_action bigint,
   resolved_pending_closure bigint,
   open_high_priority bigint,
+  triage_over_24h bigint,
+  contractor_ack_overdue bigint,
+  stalled_repairs bigint,
+  long_running_repairs bigint,
+  repeat_repair_properties bigint,
   req_by_status jsonb,
   wo_by_status jsonb,
   aging jsonb
@@ -15,17 +22,38 @@ set search_path = public
 as $$
   with req as (
     select
+      id,
+      property_id,
       lower(coalesce(status, '')) as status_norm,
       lower(coalesce(priority, '')) as priority_norm,
-      created_at
+      created_at,
+      updated_at
     from maintenance_requests
     where account_id = p_account_id
   ),
   wo as (
     select
-      lower(coalesce(status, '')) as status_norm
-    from work_orders_with_flags
+      id,
+      property_id,
+      maintenance_request_id,
+      contractor_user_id,
+      contractor_name,
+      acknowledgement_due_at,
+      acknowledged_at,
+      lower(coalesce(acknowledgement_status, '')) as acknowledgement_status_norm,
+      lower(coalesce(status, '')) as status_norm,
+      created_at,
+      updated_at
+    from work_orders
     where account_id = p_account_id
+  ),
+  recent_repair_properties as (
+    select property_id
+    from req
+    where property_id is not null
+      and created_at >= now() - interval '90 days'
+    group by property_id
+    having count(*) >= 3
   ),
   status_counts as (
     select
@@ -66,6 +94,40 @@ as $$
       where status_norm <> 'closed'
         and priority_norm in ('high', 'urgent')
     ) as open_high_priority,
+    (
+      select count(*)
+      from req r
+      where r.status_norm = 'open'
+        and r.created_at <= now() - interval '24 hours'
+        and not exists (
+          select 1
+          from wo
+          where wo.maintenance_request_id = r.id
+        )
+    ) as triage_over_24h,
+    (
+      select count(*)
+      from wo
+      where status_norm not in ('completed', 'cancelled', 'zakończone', 'anulowane')
+        and (contractor_user_id is not null or nullif(coalesce(contractor_name, ''), '') is not null)
+        and acknowledgement_due_at is not null
+        and acknowledgement_due_at < now()
+        and acknowledgement_status_norm <> 'acknowledged'
+        and acknowledged_at is null
+    ) as contractor_ack_overdue,
+    (
+      select count(*)
+      from wo
+      where status_norm in ('in_progress', 'w trakcie', 'blocked', 'zablokowane')
+        and coalesce(updated_at, created_at) <= now() - interval '72 hours'
+    ) as stalled_repairs,
+    (
+      select count(*)
+      from wo
+      where status_norm not in ('completed', 'cancelled', 'zakończone', 'anulowane')
+        and created_at <= now() - interval '14 days'
+    ) as long_running_repairs,
+    (select count(*) from recent_repair_properties) as repeat_repair_properties,
     status_counts.req_by_status,
     status_counts.wo_by_status,
     aging_counts.aging

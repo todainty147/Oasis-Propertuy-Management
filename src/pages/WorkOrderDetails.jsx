@@ -108,6 +108,56 @@ function normalizeAckStatus(status, acknowledgedAt, dueAt) {
   return value || "pending";
 }
 
+function hoursSince(value) {
+  const d = new Date(value || "");
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.max(0, Math.floor((Date.now() - d.getTime()) / 3600000));
+}
+
+function daysFromHours(value) {
+  if (!Number.isFinite(Number(value))) return null;
+  return Math.max(0, Math.floor(Number(value) / 24));
+}
+
+function workOrderSlaState(workOrder) {
+  if (!workOrder) {
+    return {
+      ackStatus: "pending",
+      ackOverdue: false,
+      stalledRepair: false,
+      longRunning: false,
+      ageDays: null,
+      lastUpdatedDays: null,
+    };
+  }
+
+  const status = normalizeWorkOrderStatus(workOrder.status);
+  const ackStatus = normalizeAckStatus(
+    workOrder.acknowledgement_status,
+    workOrder.acknowledged_at,
+    workOrder.acknowledgement_due_at,
+  );
+  const ageHours = hoursSince(workOrder.created_at);
+  const lastUpdatedHours = hoursSince(workOrder.updated_at || workOrder.created_at);
+  const incomplete = !["completed", "cancelled"].includes(status);
+
+  return {
+    ackStatus,
+    ackOverdue: ackStatus === "overdue",
+    stalledRepair:
+      incomplete &&
+      ["in_progress", "blocked"].includes(status) &&
+      Number.isFinite(lastUpdatedHours) &&
+      lastUpdatedHours >= 72,
+    longRunning:
+      incomplete &&
+      Number.isFinite(ageHours) &&
+      ageHours >= 14 * 24,
+    ageDays: daysFromHours(ageHours),
+    lastUpdatedDays: daysFromHours(lastUpdatedHours),
+  };
+}
+
 function isMissingAckColumnError(error) {
   const message = String(error?.message || "").toLowerCase();
   return error?.code === "42703" || message.includes("column");
@@ -180,6 +230,7 @@ export default function WorkOrderDetails() {
   const [ratingRow, setRatingRow] = useState(null);
   const [ratingValue, setRatingValue] = useState("");
   const [ratingComment, setRatingComment] = useState("");
+  const slaState = useMemo(() => workOrderSlaState(wo), [wo]);
 
   useEffect(() => {
     setTitle(t("workOrder.shortLabel"));
@@ -549,6 +600,62 @@ export default function WorkOrderDetails() {
             {wo.notes}
           </div>
         )}
+      </Card>
+
+      <Card className="p-6">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <p className="font-semibold text-slate-900">{t("workOrder.slaTitle")}</p>
+            <p className="text-xs text-slate-500 mt-1">{t("workOrder.slaSubtitle")}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {slaState.ackOverdue ? (
+              <span className="text-xs px-2 py-1 rounded border bg-rose-50 border-rose-200 text-rose-700">
+                {t("workOrder.slaAckOverdue")}
+              </span>
+            ) : null}
+            {slaState.stalledRepair ? (
+              <span className="text-xs px-2 py-1 rounded border bg-rose-50 border-rose-200 text-rose-700">
+                {t("workOrder.slaStalledRepair")}
+              </span>
+            ) : null}
+            {slaState.longRunning ? (
+              <span className="text-xs px-2 py-1 rounded border bg-amber-50 border-amber-200 text-amber-700">
+                {t("workOrder.slaLongRunning")}
+              </span>
+            ) : null}
+            {!slaState.ackOverdue && !slaState.stalledRepair && !slaState.longRunning ? (
+              <span className="text-xs px-2 py-1 rounded border bg-emerald-50 border-emerald-200 text-emerald-700">
+                {t("workOrder.slaOnTrack")}
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs text-slate-500">{t("workOrder.slaRepairAge")}</p>
+            <p className="text-sm font-semibold text-slate-900 mt-1">
+              {slaState.ageDays == null ? "—" : t("workOrder.slaDaysOpen", { count: slaState.ageDays })}
+            </p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs text-slate-500">{t("workOrder.slaLastUpdate")}</p>
+            <p className="text-sm font-semibold text-slate-900 mt-1">
+              {slaState.lastUpdatedDays == null ? "—" : t("workOrder.slaDaysSinceUpdate", { count: slaState.lastUpdatedDays })}
+            </p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs text-slate-500">{t("contractor.ackStatus")}</p>
+            <p className="text-sm font-semibold text-slate-900 mt-1">
+              {t(`contractor.ackState.${slaState.ackStatus}`)}
+            </p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs text-slate-500">{t("workOrder.slaScheduledFor")}</p>
+            <p className="text-sm font-semibold text-slate-900 mt-1">{formatDateTime(wo.scheduled_at)}</p>
+          </div>
+        </div>
       </Card>
 
       {/* Manager actions */}

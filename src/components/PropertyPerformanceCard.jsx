@@ -9,6 +9,17 @@ import {
   getPropertyFinancialProfile,
   listPropertyOperatingExpenses,
 } from "../services/propertyOperationsService";
+import { listLeases } from "../services/leaseService";
+import { listPreventiveMaintenanceTasks } from "../services/preventiveMaintenanceService";
+import {
+  listComplianceItems,
+  listMissingComplianceSetup,
+} from "../services/complianceService";
+import {
+  calculatePropertyOperationalHealth,
+  getPropertyOperationalHealthCategory,
+  listPropertyOperationalHealthScores,
+} from "../services/propertyHealthScoreService";
 import { sumExpected, sumOverdue, sumPaid } from "../utils/finance";
 
 function toDate(value) {
@@ -96,6 +107,11 @@ export default function PropertyPerformanceCard({
   const [workOrderRows, setWorkOrderRows] = useState([]);
   const [operatingExpenseRows, setOperatingExpenseRows] = useState([]);
   const [financialProfile, setFinancialProfile] = useState(null);
+  const [leaseRows, setLeaseRows] = useState([]);
+  const [preventiveRows, setPreventiveRows] = useState([]);
+  const [complianceRows, setComplianceRows] = useState([]);
+  const [missingComplianceRows, setMissingComplianceRows] = useState([]);
+  const [healthSnapshot, setHealthSnapshot] = useState(null);
   const [error, setError] = useState("");
 
   async function load() {
@@ -104,6 +120,11 @@ export default function PropertyPerformanceCard({
       setWorkOrderRows([]);
       setOperatingExpenseRows([]);
       setFinancialProfile(null);
+      setLeaseRows([]);
+      setPreventiveRows([]);
+      setComplianceRows([]);
+      setMissingComplianceRows([]);
+      setHealthSnapshot(null);
       setLoading(false);
       return;
     }
@@ -111,19 +132,34 @@ export default function PropertyPerformanceCard({
     setLoading(true);
     setError("");
     try {
-      const [requestsRes, workOrdersRes, operatingExpenses, profile] = await Promise.all([
+      const [
+        requestsRes,
+        workOrdersRes,
+        operatingExpenses,
+        profile,
+        leases,
+        preventiveTasks,
+        complianceItems,
+        missingCompliance,
+        healthRows,
+      ] = await Promise.all([
         supabase
           .from("maintenance_requests")
           .select("id, status, created_at")
           .eq("account_id", accountId)
           .eq("property_id", property.id),
         supabase
-          .from("work_orders_with_flags")
-          .select("id, status, quote_amount, invoice_amount, created_at, updated_at, maintenance_request_id")
+          .from("work_orders")
+          .select("id, status, quote_amount, invoice_amount, created_at, updated_at, maintenance_request_id, acknowledgement_status, acknowledgement_due_at")
           .eq("account_id", accountId)
           .eq("property_id", property.id),
         listPropertyOperatingExpenses({ accountId, propertyId: property.id, limit: 120 }),
         getPropertyFinancialProfile({ accountId, propertyId: property.id }),
+        listLeases({ accountId, propertyId: property.id, limit: 20 }),
+        listPreventiveMaintenanceTasks({ accountId, propertyId: property.id, limit: 50 }),
+        listComplianceItems({ accountId, propertyId: property.id, includeClosed: false, limit: 50 }),
+        listMissingComplianceSetup(accountId, { propertyId: property.id, limit: 10 }),
+        listPropertyOperationalHealthScores(accountId, { propertyId: property.id, limit: 1 }),
       ]);
 
       if (requestsRes.error) throw requestsRes.error;
@@ -133,11 +169,21 @@ export default function PropertyPerformanceCard({
       setWorkOrderRows(workOrdersRes.data || []);
       setOperatingExpenseRows(operatingExpenses || []);
       setFinancialProfile(profile || null);
+      setLeaseRows(leases || []);
+      setPreventiveRows(preventiveTasks || []);
+      setComplianceRows(complianceItems || []);
+      setMissingComplianceRows(missingCompliance || []);
+      setHealthSnapshot(Array.isArray(healthRows) ? healthRows[0] || null : null);
     } catch (e) {
       setRequestRows([]);
       setWorkOrderRows([]);
       setOperatingExpenseRows([]);
       setFinancialProfile(null);
+      setLeaseRows([]);
+      setPreventiveRows([]);
+      setComplianceRows([]);
+      setMissingComplianceRows([]);
+      setHealthSnapshot(null);
       setError(e?.message || t("propertyDetails.performanceLoadError"));
     } finally {
       setLoading(false);
@@ -157,8 +203,12 @@ export default function PropertyPerformanceCard({
       { channel: `property-performance-workorders:${property?.id}`, table: "work_orders", filter: `account_id=eq.${accountId}` },
       { channel: `property-performance-financials:${property?.id}`, table: "work_order_financials" },
       { channel: `property-performance-tenants:${property?.id}`, table: "tenants", filter: `account_id=eq.${accountId}` },
+      { channel: `property-performance-leases:${property?.id}`, table: "leases", filter: `account_id=eq.${accountId}` },
+      { channel: `property-performance-preventive:${property?.id}`, table: "preventive_maintenance_tasks", filter: `account_id=eq.${accountId}` },
+      { channel: `property-performance-compliance:${property?.id}`, table: "compliance_items", filter: `account_id=eq.${accountId}` },
       { channel: `property-performance-opex:${property?.id}`, table: "property_operating_expenses", filter: `account_id=eq.${accountId}` },
       { channel: `property-performance-fin-profile:${property?.id}`, table: "property_financial_profiles", filter: `account_id=eq.${accountId}` },
+      { channel: `property-performance-health-wo:${property?.id}`, table: "work_orders", filter: `account_id=eq.${accountId}` },
     ],
     onChange: load,
   });
@@ -324,6 +374,45 @@ export default function PropertyPerformanceCard({
     };
   }, [payments, requestRows, summary.maintenanceCommitted, summary.monthlyRent, summary.overdueRent, summary.totalOperatingCosts, t, workOrderRows]);
 
+  const healthView = useMemo(() => {
+    const fallbackScore = calculatePropertyOperationalHealth({
+      property,
+      payments: (payments || []).map((row) => ({
+        ...row,
+        due_date: row?.due_date || row?.dueDate,
+        paid_at: row?.paid_at || row?.paidAt,
+      })),
+      maintenanceRequests: requestRows,
+      workOrders: workOrderRows,
+      preventiveTasks: preventiveRows,
+      complianceItems: complianceRows,
+      missingComplianceItems: missingComplianceRows,
+      leases: leaseRows,
+      operatingExpenses: operatingExpenseRows,
+      tenantCount,
+    });
+
+    const activeScore = healthSnapshot || fallbackScore;
+
+    return {
+      ...activeScore,
+      category: getPropertyOperationalHealthCategory(activeScore.score),
+      primaryReasons: (activeScore.reasons || []).slice(0, 4),
+    };
+  }, [
+    complianceRows,
+    healthSnapshot,
+    leaseRows,
+    missingComplianceRows,
+    operatingExpenseRows,
+    payments,
+    preventiveRows,
+    property,
+    requestRows,
+    tenantCount,
+    workOrderRows,
+  ]);
+
   if (loading) {
     return (
       <Card className="p-4 bg-slate-50">
@@ -343,6 +432,13 @@ export default function PropertyPerformanceCard({
       : summary.attentionTone === "amber"
         ? "border-amber-200 bg-amber-50/50 text-amber-700"
         : "border-emerald-200 bg-emerald-50/50 text-emerald-700";
+
+  const healthToneClasses =
+    healthView.category === "high_risk"
+      ? "border-rose-200 bg-rose-50 text-rose-700"
+      : healthView.category === "attention_needed"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-emerald-200 bg-emerald-50 text-emerald-700";
 
   return (
     <Card className="p-4 bg-slate-50">
@@ -364,6 +460,41 @@ export default function PropertyPerformanceCard({
         <p className="mt-3 text-sm text-rose-700">{error}</p>
       ) : (
         <div className="mt-3 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <p className="text-xs text-slate-500">{t("propertyDetails.performanceHealthScore")}</p>
+              <div className="mt-2 flex items-end gap-2">
+                <p className="text-3xl font-bold text-slate-900">{healthView.score}</p>
+                <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-medium ${healthToneClasses}`}>
+                  {t(`propertyHealth.status.${healthView.category}`)}
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">{t("propertyDetails.performanceHealthSummary")}</p>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium text-slate-900">{t("propertyDetails.performanceHealthDrivers")}</p>
+                <span className="text-xs text-slate-500">{t("propertyDetails.performanceHealthPenaltyHint")}</span>
+              </div>
+              {healthView.primaryReasons.length === 0 ? (
+                <p className="mt-3 text-sm text-emerald-700">{t("propertyHealth.reason.healthy_baseline")}</p>
+              ) : (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {healthView.primaryReasons.map((reason) => (
+                    <span
+                      key={`${reason.key}-${reason.penalty}`}
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700"
+                    >
+                      <span>{t(`propertyHealth.reason.${reason.key}`)}</span>
+                      <span className="font-semibold text-slate-900">-{reason.penalty}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div className="rounded-lg border border-slate-200 bg-white p-3">
               <p className="text-xs text-slate-500">{t("propertyDetails.performanceMonthlyRent")}</p>

@@ -10,6 +10,7 @@ const TAXONOMY = {
   lease_expiring: { category: "lease_expiring", severity: "action" },
   compliance_due: { category: "compliance_due", severity: "action" },
   preventive_due: { category: "preventive_due", severity: "action" },
+  property_health_alert: { category: "property_health", severity: "urgent" },
 };
 
 export function getAlertTaxonomy(type, metadata = {}) {

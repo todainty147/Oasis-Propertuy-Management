@@ -10,6 +10,7 @@ import {
   getMaintenanceFinancialAnalytics,
   getMaintenanceKpiSnapshot,
   getMaintenanceRecentActivity,
+  getMaintenanceSlaAnalytics,
   mapMaintenanceAttentionItems,
   upsertMaintenanceBudget,
 } from "../services/maintenanceDashboardService";
@@ -279,6 +280,12 @@ function SpendBars({ title, rows = [], emptyText = "", valueFormatter = (v) => v
   );
 }
 
+function hoursToDays(hours) {
+  const value = Number(hours || 0);
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.floor(value / 24));
+}
+
 export default function MaintenanceKPIDashboardPage() {
   const { setTitle } = usePageTitle();
   const { activeAccountId, activeRole } = useAccount();
@@ -294,6 +301,7 @@ export default function MaintenanceKPIDashboardPage() {
   const [attentionRows, setAttentionRows] = useState([]);
   const [financialAnalytics, setFinancialAnalytics] = useState(null);
   const [preventiveOverview, setPreventiveOverview] = useState(null);
+  const [slaAnalytics, setSlaAnalytics] = useState(null);
   const [budgetAmount, setBudgetAmount] = useState("");
   const [budgetSaving, setBudgetSaving] = useState(false);
   const [budgetError, setBudgetError] = useState("");
@@ -308,12 +316,13 @@ export default function MaintenanceKPIDashboardPage() {
     setLoading(true);
     setError("");
     try {
-      const [stats, attention, recentActivity, spendAnalytics, preventive] = await Promise.all([
+      const [stats, attention, recentActivity, spendAnalytics, preventive, sla] = await Promise.all([
         getMaintenanceKpiSnapshot(activeAccountId),
         getMaintenanceAttention(activeAccountId),
         getMaintenanceRecentActivity(activeAccountId, t, 10),
         getMaintenanceFinancialAnalytics(activeAccountId),
         getPreventiveMaintenanceOverview(activeAccountId),
+        getMaintenanceSlaAnalytics(activeAccountId),
       ]);
 
       setSnapshot(stats || null);
@@ -321,6 +330,7 @@ export default function MaintenanceKPIDashboardPage() {
       setFeed(recentActivity || []);
       setFinancialAnalytics(spendAnalytics || null);
       setPreventiveOverview(preventive || null);
+      setSlaAnalytics(sla || null);
     } catch (e) {
       setError(e?.message || t("maintenance.kpi.error"));
       setFeed([]);
@@ -328,6 +338,7 @@ export default function MaintenanceKPIDashboardPage() {
       setAttentionRows([]);
       setFinancialAnalytics(null);
       setPreventiveOverview(null);
+      setSlaAnalytics(null);
     } finally {
       setLoading(false);
     }
@@ -359,8 +370,13 @@ export default function MaintenanceKPIDashboardPage() {
     active_work_orders: 0,
     awaiting_action: 0,
     resolved_pending_closure: 0,
-    open_high_priority: 0,
-    req_by_status: {
+      open_high_priority: 0,
+      triage_over_24h: 0,
+      contractor_ack_overdue: 0,
+      stalled_repairs: 0,
+      long_running_repairs: 0,
+      repeat_repair_properties: 0,
+      req_by_status: {
       open: 0,
       in_progress: 0,
       waiting: 0,
@@ -388,6 +404,11 @@ export default function MaintenanceKPIDashboardPage() {
       awaitingAction: Number(snapshotView.awaiting_action || 0),
       resolvedPendingClosure: Number(snapshotView.resolved_pending_closure || 0),
       openHighPriority: Number(snapshotView.open_high_priority || 0),
+      triageOver24h: Number(snapshotView.triage_over_24h || 0),
+      contractorAckOverdue: Number(snapshotView.contractor_ack_overdue || 0),
+      stalledRepairs: Number(snapshotView.stalled_repairs || 0),
+      longRunningRepairs: Number(snapshotView.long_running_repairs || 0),
+      repeatRepairProperties: Number(snapshotView.repeat_repair_properties || 0),
       reqByStatus: snapshotView.req_by_status || {
         open: 0,
         in_progress: 0,
@@ -464,6 +485,17 @@ export default function MaintenanceKPIDashboardPage() {
     dueSoonCount: 0,
     items: [],
     propertiesWithDueTasks: [],
+  };
+
+  const slaView = slaAnalytics ?? {
+    triageOver24hCount: 0,
+    contractorAckOverdueCount: 0,
+    stalledRepairsCount: 0,
+    longRunningRepairsCount: 0,
+    repeatRepairPropertiesCount: 0,
+    stalledRepairs: [],
+    longRunningRepairs: [],
+    repeatRepairProperties: [],
   };
 
   const spendTrendMax = useMemo(
@@ -552,6 +584,11 @@ export default function MaintenanceKPIDashboardPage() {
               tone="emerald"
             />
             <KPIStatCard label={t("maintenance.kpi.kpi.openHighPriority")} value={kpi.openHighPriority} to="/maintenance-inbox" tone="rose" />
+            <KPIStatCard label={t("maintenance.kpi.kpi.triageOver24h")} value={kpi.triageOver24h} to="/maintenance-inbox?status=open" tone="amber" />
+            <KPIStatCard label={t("maintenance.kpi.kpi.ackOverdue")} value={kpi.contractorAckOverdue} to="/attention-center" tone="rose" />
+            <KPIStatCard label={t("maintenance.kpi.kpi.stalledRepairs")} value={kpi.stalledRepairs} to="/attention-center" tone="rose" />
+            <KPIStatCard label={t("maintenance.kpi.kpi.repeatRepairProperties")} value={kpi.repeatRepairProperties} to="/attention-center" tone="violet" />
+            <KPIStatCard label={t("maintenance.kpi.kpi.longRunningRepairs")} value={kpi.longRunningRepairs} to="/attention-center" tone="amber" />
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
@@ -813,6 +850,58 @@ export default function MaintenanceKPIDashboardPage() {
               rows={spendView.categorySpend}
               emptyText={t("maintenance.kpi.financial.noSpend")}
               valueFormatter={(value) => formatCurrencyAmount(value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+            <Card className="p-4">
+              <h3 className="text-sm font-semibold text-slate-900">{t("maintenance.kpi.sla.stalledRepairs")}</h3>
+              {slaView.stalledRepairs.length === 0 ? (
+                <p className="text-sm text-slate-500 mt-3">{t("maintenance.kpi.sla.noStalled")}</p>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {slaView.stalledRepairs.map((repair) => (
+                    <Link key={repair.id} to={repair.linkPath} className="block rounded-lg border border-slate-200 hover:bg-slate-50 px-3 py-2">
+                      <p className="text-sm font-medium text-slate-900">{repair.title}</p>
+                      <p className="text-xs text-slate-600 mt-1">
+                        {[repair.propertyLabel, repair.contractorLabel ? `${t("common.contractor")}: ${repair.contractorLabel}` : ""]
+                          .filter(Boolean)
+                          .join(" • ")}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {t("maintenance.kpi.sla.lastUpdated", { count: hoursToDays(repair.ageHours) })}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card className="p-4">
+              <h3 className="text-sm font-semibold text-slate-900">{t("maintenance.kpi.sla.longRunningRepairs")}</h3>
+              {slaView.longRunningRepairs.length === 0 ? (
+                <p className="text-sm text-slate-500 mt-3">{t("maintenance.kpi.sla.noLongRunning")}</p>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {slaView.longRunningRepairs.map((repair) => (
+                    <Link key={repair.id} to={repair.linkPath} className="block rounded-lg border border-slate-200 hover:bg-slate-50 px-3 py-2">
+                      <p className="text-sm font-medium text-slate-900">{repair.title}</p>
+                      <p className="text-xs text-slate-600 mt-1">{repair.propertyLabel}</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {t("maintenance.kpi.sla.repairAgeDays", { count: hoursToDays(repair.repairAgeHours) })}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <SpendBars
+              title={t("maintenance.kpi.sla.repeatRepairProperties")}
+              rows={slaView.repeatRepairProperties}
+              emptyText={t("maintenance.kpi.sla.noRepeatRepairs")}
+              valueFormatter={(value) => t("maintenance.kpi.sla.repeatCount", { count: Number(value || 0) })}
+              linkBuilder={(row) => row.propertyId ? `/properties/${row.propertyId}` : ""}
             />
           </div>
 

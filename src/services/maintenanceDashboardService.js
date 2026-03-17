@@ -10,14 +10,38 @@ function isMissingBackendObject(error) {
   );
 }
 
+function normalize(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function hoursSince(value) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return null;
+  return Math.max(0, Math.floor((Date.now() - date.getTime()) / 3600000));
+}
+
+function isCompletedWorkOrderStatus(status) {
+  return ["completed", "cancelled", "zakończone", "anulowane"].includes(normalize(status));
+}
+
 export async function getMaintenanceAttention(accountId) {
   if (!accountId) return [];
   const { data, error } = await supabase.rpc("maintenance_attention_needed", {
     p_account_id: accountId,
   });
-  if (error && isMissingBackendObject(error)) return [];
+  if (error && isMissingBackendObject(error)) {
+    const fallbackAnalytics = await getMaintenanceSlaAnalytics(accountId);
+    return fallbackAnalytics.attentionRows;
+  }
   if (error) throw error;
-  return Array.isArray(data) ? data : [];
+  const baseRows = Array.isArray(data) ? data : [];
+  const derived = await getMaintenanceSlaAnalytics(accountId);
+  const deduped = new Map();
+  for (const row of [...baseRows, ...(derived.attentionRows || [])]) {
+    const key = `${row?.item_type || "item"}-${row?.maintenance_request_id || "na"}-${row?.work_order_id || "na"}-${row?.property_id || "na"}`;
+    if (!deduped.has(key)) deduped.set(key, row);
+  }
+  return Array.from(deduped.values());
 }
 
 export async function getMaintenanceRecentActivity(accountId, t, limit = 10) {
@@ -95,6 +119,11 @@ export async function getMaintenanceKpiSnapshot(accountId) {
       awaiting_action: 0,
       resolved_pending_closure: 0,
       open_high_priority: 0,
+      triage_over_24h: 0,
+      contractor_ack_overdue: 0,
+      stalled_repairs: 0,
+      long_running_repairs: 0,
+      repeat_repair_properties: 0,
       req_by_status: {
         open: 0,
         in_progress: 0,
@@ -178,6 +207,20 @@ function emptyFinancialAnalytics() {
     currentMonthActual: 0,
     currentMonthBudget: 0,
     currentMonthVariance: 0,
+  };
+}
+
+function emptySlaAnalytics() {
+  return {
+    triageOver24hCount: 0,
+    contractorAckOverdueCount: 0,
+    stalledRepairsCount: 0,
+    longRunningRepairsCount: 0,
+    repeatRepairPropertiesCount: 0,
+    stalledRepairs: [],
+    longRunningRepairs: [],
+    repeatRepairProperties: [],
+    attentionRows: [],
   };
 }
 
@@ -269,6 +312,245 @@ async function getPropertyMap(propertyIds = []) {
 
   if (propertyError && !isMissingBackendObject(propertyError)) throw propertyError;
   return new Map((propertyRows || []).map((row) => [row.id, row.address || "—"]));
+}
+
+function makeAttentionRow({
+  itemType,
+  propertyLabel = "",
+  title = "",
+  ageHours = null,
+  workOrderId = null,
+  maintenanceRequestId = null,
+  propertyId = null,
+}) {
+  return {
+    item_type: itemType,
+    property_label: propertyLabel,
+    title,
+    age_hours: ageHours,
+    work_order_id: workOrderId,
+    maintenance_request_id: maintenanceRequestId,
+    property_id: propertyId,
+  };
+}
+
+export async function getMaintenanceSlaAnalytics(accountId) {
+  if (!accountId) return emptySlaAnalytics();
+
+  const [requestsRes, workOrdersRes] = await Promise.all([
+    supabase
+      .from("maintenance_requests")
+      .select("id, property_id, reported_by_tenant_id, title, status, priority, created_at, updated_at")
+      .eq("account_id", accountId)
+      .order("created_at", { ascending: false })
+      .limit(1000),
+    supabase
+      .from("work_orders")
+      .select(`
+        id,
+        property_id,
+        maintenance_request_id,
+        contractor_user_id,
+        contractor_name,
+        status,
+        scheduled_at,
+        created_at,
+        updated_at,
+        assigned_at,
+        acknowledged_at,
+        acknowledgement_due_at,
+        acknowledgement_status,
+        maintenance_requests:maintenance_request_id ( id, title )
+      `)
+      .eq("account_id", accountId)
+      .order("created_at", { ascending: false })
+      .limit(1000),
+  ]);
+
+  if (requestsRes.error && isMissingBackendObject(requestsRes.error)) return emptySlaAnalytics();
+  if (workOrdersRes.error && isMissingBackendObject(workOrdersRes.error)) return emptySlaAnalytics();
+  if (requestsRes.error) throw requestsRes.error;
+  if (workOrdersRes.error) throw workOrdersRes.error;
+
+  const requests = Array.isArray(requestsRes.data) ? requestsRes.data : [];
+  const workOrders = Array.isArray(workOrdersRes.data) ? workOrdersRes.data : [];
+
+  const propertyIds = Array.from(
+    new Set([
+      ...requests.map((row) => row.property_id).filter(Boolean),
+      ...workOrders.map((row) => row.property_id).filter(Boolean),
+    ]),
+  );
+  const propertyMap = await getPropertyMap(propertyIds);
+
+  const workOrdersByRequestId = new Map();
+  for (const row of workOrders) {
+    if (!row?.maintenance_request_id) continue;
+    const list = workOrdersByRequestId.get(row.maintenance_request_id) || [];
+    list.push(row);
+    workOrdersByRequestId.set(row.maintenance_request_id, list);
+  }
+
+  const triageOverdue = [];
+  for (const row of requests) {
+    const status = normalize(row?.status);
+    if (status !== "open") continue;
+    if ((workOrdersByRequestId.get(row.id) || []).length > 0) continue;
+    const ageHours = hoursSince(row?.created_at);
+    if (!Number.isFinite(ageHours) || ageHours < 24) continue;
+    triageOverdue.push({
+      requestId: row.id,
+      propertyId: row.property_id || null,
+      propertyLabel: propertyMap.get(row.property_id) || "—",
+      title: row?.title || "Maintenance request",
+      ageHours,
+    });
+  }
+
+  const contractorAckOverdue = [];
+  const stalledRepairs = [];
+  const longRunningRepairs = [];
+
+  for (const row of workOrders) {
+    const status = normalize(row?.status);
+    const propertyLabel = propertyMap.get(row.property_id) || "—";
+    const requestTitle = row?.maintenance_requests?.title || row.id;
+    const lastUpdatedHours = hoursSince(row?.updated_at || row?.created_at);
+    const repairAgeHours = hoursSince(row?.created_at);
+    const hasContractor = !!(row?.contractor_user_id || row?.contractor_name);
+    const ackStatus = normalize(row?.acknowledgement_status);
+    const ackDueAt = row?.acknowledgement_due_at ? new Date(row.acknowledgement_due_at) : null;
+
+    if (
+      hasContractor &&
+      ackDueAt &&
+      !Number.isNaN(ackDueAt.getTime()) &&
+      ackDueAt.getTime() < Date.now() &&
+      !row?.acknowledged_at &&
+      ackStatus !== "acknowledged" &&
+      !isCompletedWorkOrderStatus(status)
+    ) {
+      contractorAckOverdue.push({
+        id: row.id,
+        propertyId: row.property_id || null,
+        propertyLabel,
+        title: requestTitle,
+        contractorLabel: row?.contractor_name || "",
+        ageHours: lastUpdatedHours,
+        dueAt: row?.acknowledgement_due_at || null,
+        linkPath: `/work-orders/${row.id}`,
+      });
+    }
+
+    if (
+      ["in_progress", "w trakcie", "blocked", "zablokowane"].includes(status) &&
+      Number.isFinite(lastUpdatedHours) &&
+      lastUpdatedHours >= 72
+    ) {
+      stalledRepairs.push({
+        id: row.id,
+        propertyId: row.property_id || null,
+        propertyLabel,
+        title: requestTitle,
+        contractorLabel: row?.contractor_name || "",
+        ageHours: lastUpdatedHours,
+        repairAgeHours,
+        linkPath: `/work-orders/${row.id}`,
+      });
+    }
+
+    if (!isCompletedWorkOrderStatus(status) && Number.isFinite(repairAgeHours) && repairAgeHours >= 24 * 14) {
+      longRunningRepairs.push({
+        id: row.id,
+        propertyId: row.property_id || null,
+        propertyLabel,
+        title: requestTitle,
+        contractorLabel: row?.contractor_name || "",
+        ageHours: lastUpdatedHours,
+        repairAgeHours,
+        linkPath: `/work-orders/${row.id}`,
+      });
+    }
+  }
+
+  const recentPropertyCounts = new Map();
+  const repeatRepairProperties = [];
+  const ninetyDaysAgo = Date.now() - 90 * 24 * 3600000;
+  for (const row of requests) {
+    if (!row?.property_id) continue;
+    const createdAt = row?.created_at ? new Date(row.created_at).getTime() : NaN;
+    if (!Number.isFinite(createdAt) || createdAt < ninetyDaysAgo) continue;
+    recentPropertyCounts.set(row.property_id, (recentPropertyCounts.get(row.property_id) || 0) + 1);
+  }
+  for (const [propertyId, count] of recentPropertyCounts.entries()) {
+    if (count < 3) continue;
+    repeatRepairProperties.push({
+      propertyId,
+      label: propertyMap.get(propertyId) || "—",
+      count,
+      amount: count,
+      linkPath: `/properties/${propertyId}`,
+    });
+  }
+
+  return {
+    triageOver24hCount: triageOverdue.length,
+    contractorAckOverdueCount: contractorAckOverdue.length,
+    stalledRepairsCount: stalledRepairs.length,
+    longRunningRepairsCount: longRunningRepairs.length,
+    repeatRepairPropertiesCount: repeatRepairProperties.length,
+    stalledRepairs: stalledRepairs
+      .sort((a, b) => Number(b.ageHours || 0) - Number(a.ageHours || 0))
+      .slice(0, 6),
+    longRunningRepairs: longRunningRepairs
+      .sort((a, b) => Number(b.repairAgeHours || 0) - Number(a.repairAgeHours || 0))
+      .slice(0, 6),
+    repeatRepairProperties: repeatRepairProperties
+      .sort((a, b) => Number(b.count || 0) - Number(a.count || 0))
+      .slice(0, 6),
+    attentionRows: [
+      ...triageOverdue.slice(0, 12).map((row) =>
+        makeAttentionRow({
+          itemType: "triage_over_24h",
+          propertyLabel: row.propertyLabel,
+          title: row.title,
+          ageHours: row.ageHours,
+          maintenanceRequestId: row.requestId,
+          propertyId: row.propertyId,
+        }),
+      ),
+      ...contractorAckOverdue.slice(0, 12).map((row) =>
+        makeAttentionRow({
+          itemType: "contractor_ack_overdue",
+          propertyLabel: row.propertyLabel,
+          title: row.title,
+          ageHours: row.ageHours,
+          workOrderId: row.id,
+          propertyId: row.propertyId,
+        }),
+      ),
+      ...stalledRepairs.slice(0, 12).map((row) =>
+        makeAttentionRow({
+          itemType: "stalled_in_progress_repair",
+          propertyLabel: row.propertyLabel,
+          title: row.title,
+          ageHours: row.ageHours,
+          workOrderId: row.id,
+          propertyId: row.propertyId,
+        }),
+      ),
+      ...longRunningRepairs.slice(0, 12).map((row) =>
+        makeAttentionRow({
+          itemType: "long_running_repair",
+          propertyLabel: row.propertyLabel,
+          title: row.title,
+          ageHours: row.repairAgeHours,
+          workOrderId: row.id,
+          propertyId: row.propertyId,
+        }),
+      ),
+    ],
+  };
 }
 
 export async function getMaintenanceFinancialAnalytics(accountId) {
@@ -483,7 +765,11 @@ export async function upsertMaintenanceBudget({ accountId, budgetAmount, periodM
 
 export function mapMaintenanceAttentionItems(rows = [], t, limit = 12) {
   const severityByType = {
+    triage_over_24h: "urgent",
+    contractor_ack_overdue: "urgent",
     stuck_waiting_over_48h: "high",
+    stalled_in_progress_repair: "critical",
+    long_running_repair: "high",
     high_priority_unresolved: "critical",
     request_without_work_order: "medium",
     work_order_without_contractor: "medium",
@@ -507,7 +793,14 @@ export function mapMaintenanceAttentionItems(rows = [], t, limit = 12) {
         property: row?.property_label || "",
         timestamp: ageHours != null ? t("maintenance.kpi.openForHours", { hours: ageHours }) : "",
         ageHours,
-        linkPath: row?.work_order_id ? `/work-orders/${row.work_order_id}` : "/maintenance-inbox",
+        linkPath:
+          row?.work_order_id
+            ? `/work-orders/${row.work_order_id}`
+            : row?.maintenance_request_id
+              ? "/maintenance-inbox"
+              : row?.property_id
+                ? `/properties/${row.property_id}`
+                : "/maintenance-inbox",
       };
     })
     .sort((a, b) => rank[b.severity] - rank[a.severity])

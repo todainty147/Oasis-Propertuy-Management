@@ -206,6 +206,19 @@ export function mapDashboardHubItems({
       };
     }
 
+    if (type === "compliance_missing_setup_summary") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.complianceMissing"),
+        subtitle: t("dashboard.hub.complianceCount", {
+          count: Number(item.count_value || 0),
+        }),
+        meta: t("dashboard.hub.complianceMissingHint"),
+        to: item.link_path || "/attention-center",
+        sortOrder: Number(item.sort_order || 21),
+      };
+    }
+
     return {
       id: item.item_key,
       title: t("dashboard.hub.dueSoon"),

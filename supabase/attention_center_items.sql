@@ -141,6 +141,29 @@ as $$
         where swo.maintenance_request_id = sr.id
       )
   ),
+  triage_overdue as (
+    select
+      'maint-triage-' || sr.id::text as item_key,
+      'triage_over_24h'::text as item_type,
+      'urgent'::text as bucket,
+      sr.property_label,
+      sr.tenant_label,
+      sr.title as entity_label,
+      null::numeric as amount,
+      floor(extract(epoch from (now() - sr.created_at)) / 3600)::int as age_hours,
+      null::int as due_days,
+      '/maintenance-inbox?status=open'::text as link_path,
+      'maintenance_requests'::text as source_table,
+      14 as sort_order
+    from scoped_requests sr
+    where sr.status in ('open')
+      and sr.created_at <= now() - interval '24 hours'
+      and not exists (
+        select 1
+        from scoped_work_orders swo
+        where swo.maintenance_request_id = sr.id
+      )
+  ),
   high_priority_unresolved as (
     select
       'maint-high-' || sr.id::text as item_key,
@@ -252,6 +275,62 @@ as $$
       32 as sort_order
     from scoped_work_orders swo
     where swo.status in ('blocked', 'zablokowane')
+  ),
+  stalled_work_orders as (
+    select
+      'wo-stalled-' || swo.id::text as item_key,
+      'stalled_in_progress_repair'::text as item_type,
+      'urgent'::text as bucket,
+      swo.property_label,
+      ''::text as tenant_label,
+      swo.request_title as entity_label,
+      null::numeric as amount,
+      floor(extract(epoch from (now() - coalesce(swo.updated_at, swo.created_at))) / 3600)::int as age_hours,
+      case when swo.scheduled_at is not null then (swo.scheduled_at::date - current_date)::int else null::int end as due_days,
+      '/work-orders/' || swo.id::text as link_path,
+      'work_orders'::text as source_table,
+      17 as sort_order
+    from scoped_work_orders swo
+    where swo.status in ('in_progress', 'w trakcie', 'blocked', 'zablokowane')
+      and coalesce(swo.updated_at, swo.created_at) <= now() - interval '72 hours'
+  ),
+  long_running_repairs as (
+    select
+      'wo-long-running-' || swo.id::text as item_key,
+      'long_running_repair'::text as item_type,
+      'action'::text as bucket,
+      swo.property_label,
+      ''::text as tenant_label,
+      swo.request_title as entity_label,
+      null::numeric as amount,
+      floor(extract(epoch from (now() - swo.created_at)) / 3600)::int as age_hours,
+      case when swo.scheduled_at is not null then (swo.scheduled_at::date - current_date)::int else null::int end as due_days,
+      '/work-orders/' || swo.id::text as link_path,
+      'work_orders'::text as source_table,
+      44 as sort_order
+    from scoped_work_orders swo
+    where swo.status not in ('completed', 'cancelled', 'zakończone', 'anulowane')
+      and swo.created_at <= now() - interval '14 days'
+  ),
+  repeated_repairs as (
+    select
+      'repeat-repairs-' || sr.property_id::text as item_key,
+      'repeated_repairs_property'::text as item_type,
+      'action'::text as bucket,
+      max(sr.property_label) as property_label,
+      ''::text as tenant_label,
+      ''::text as entity_label,
+      count(*)::numeric as amount,
+      null::int as age_hours,
+      null::int as due_days,
+      '/properties/' || sr.property_id::text as link_path,
+      'maintenance_requests'::text as source_table,
+      46 as sort_order
+    from scoped_requests sr
+    where sr.property_id is not null
+      and sr.created_at >= now() - interval '90 days'
+    group by sr.property_id
+    having count(*) >= 3
   ),
   recently_updated_open as (
     select
@@ -430,6 +509,29 @@ as $$
       and c.due_date >= current_date
       and c.due_date <= current_date + interval '30 days'
   ),
+  compliance_missing_setup as (
+    select
+      'compliance-missing-calendar-' || p.id::text as item_key,
+      'compliance_missing_setup'::text as item_type,
+      'action'::text as bucket,
+      coalesce(p.address, '—') as property_label,
+      ''::text as tenant_label,
+      'Compliance calendar not set up'::text as entity_label,
+      null::numeric as amount,
+      null::int as age_hours,
+      null::int as due_days,
+      '/properties/' || p.id::text as link_path,
+      'compliance_items'::text as source_table,
+      59 as sort_order
+    from public.properties p
+    where p.account_id = p_account_id
+      and not exists (
+        select 1
+        from public.compliance_items c
+        where c.account_id = p.account_id
+          and c.property_id = p.id
+      )
+  ),
   notification_items as (
     select
       'notification-' || n.id::text as item_key,
@@ -451,16 +553,21 @@ as $$
   unioned as (
     select * from payment_items
     union all select * from request_without_work_order
+    union all select * from triage_overdue
     union all select * from high_priority_unresolved
     union all select * from stuck_waiting
     union all select * from work_order_without_contractor
     union all select * from contractor_no_response
     union all select * from work_order_overdue
     union all select * from blocked_work_orders
+    union all select * from stalled_work_orders
+    union all select * from long_running_repairs
+    union all select * from repeated_repairs
     union all select * from recently_updated_open
     union all select * from lease_items
     union all select * from preventive_items
     union all select * from compliance_items
+    union all select * from compliance_missing_setup
     union all select * from notification_items
   )
   select

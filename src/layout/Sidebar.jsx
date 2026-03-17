@@ -293,7 +293,7 @@ function SidebarContent({ onNavigate }) {
                 </button>
                 {operationsOpen && (
                   <div className="space-y-1">
-                    <Item to="/attention-center" icon={AlertCircle} label={t("sidebar.attentionCenter")} onNavigate={onNavigate} />
+                    <Item to="/command-center" icon={AlertCircle} label={t("sidebar.commandCenter")} onNavigate={onNavigate} />
                     <Item to="/maintenance-inbox" icon={Wrench} label={t("sidebar.maintenanceInbox")} onNavigate={onNavigate} />
                     <Item to="/maintenance-kpi" icon={BarChart3} label={t("sidebar.maintenanceKpi")} onNavigate={onNavigate} />
                     <Item to="/portfolio-health" icon={LineChart} label={t("sidebar.portfolioHealth")} onNavigate={onNavigate} />

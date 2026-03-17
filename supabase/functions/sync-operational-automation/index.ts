@@ -15,8 +15,10 @@ const corsHeaders = {
 const TAXONOMY: Record<string, { category: string; severity: string }> = {
   overdue_rent: { category: "overdue_rent", severity: "urgent" },
   lease_expiring: { category: "lease_expiring", severity: "action" },
+  compliance_due: { category: "compliance_due", severity: "action" },
   preventive_due: { category: "preventive_due", severity: "action" },
   contractor_ack_overdue: { category: "contractor_ack_overdue", severity: "urgent" },
+  property_health_alert: { category: "property_health", severity: "urgent" },
 };
 
 const RULE_DEFS = {
@@ -28,6 +30,10 @@ const RULE_DEFS = {
     notificationType: "lease_expiring",
     defaultConfig: { lead_days: 60 },
   },
+  compliance_due_watch: {
+    notificationType: "compliance_due",
+    defaultConfig: { lead_days: 30 },
+  },
   preventive_due_watch: {
     notificationType: "preventive_due",
     defaultConfig: { lead_days: 14 },
@@ -36,6 +42,10 @@ const RULE_DEFS = {
     notificationType: "contractor_ack_overdue",
     defaultConfig: {},
   },
+  property_health_watch: {
+    notificationType: "property_health_alert",
+    defaultConfig: { sharp_drop_points: 15 },
+  },
 } as const;
 
 const RULE_IDS = Object.keys(RULE_DEFS);
@@ -43,6 +53,11 @@ const RULE_IDS = Object.keys(RULE_DEFS);
 type SyncBody = {
   accountId?: string;
   dryRun?: boolean;
+};
+
+type AuthResult = {
+  ok: boolean;
+  method: "x-cron-secret" | "authorization" | "none";
 };
 
 type RuleId = keyof typeof RULE_DEFS;
@@ -61,26 +76,56 @@ type AutomationSignal = {
 };
 
 Deno.serve(async (req) => {
+  const requestId = crypto.randomUUID();
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    const auth = getAuthResult(req);
+    logInfo(requestId, "sync_invoked", {
+      method: req.method,
+      path: new URL(req.url).pathname,
+      authMethod: auth.method,
+      authPassed: auth.ok,
+    });
+
     if (req.method !== "POST") {
-      return json({ error: "Method not allowed" }, 405);
+      logWarn(requestId, "invalid_method", { method: req.method });
+      return jsonError(405, "method_not_allowed", "Method not allowed. Use POST for scheduled sync.", requestId);
     }
 
     if (!CRON_SECRET) {
-      return json({ error: "CRON_SECRET is not configured" }, 500);
+      logError(requestId, "missing_cron_secret", { configured: false });
+      return jsonError(
+        500,
+        "cron_secret_not_configured",
+        "CRON_SECRET is not configured for sync-operational-automation.",
+        requestId,
+      );
     }
 
-    if (!isAuthorized(req)) {
-      return json({ error: "Unauthorized" }, 401);
+    if (!auth.ok) {
+      logWarn(requestId, "unauthorized", { authMethod: auth.method });
+      return jsonError(
+        401,
+        "unauthorized",
+        "Unauthorized. Provide the cron secret using x-cron-secret or Authorization: Bearer <secret>.",
+        requestId,
+        { preferredAuthMethod: "x-cron-secret" },
+      );
     }
 
     const body = (await readJson(req)) as SyncBody;
     const accountIds = await resolveAccountIds(body?.accountId || null);
     const dryRun = body?.dryRun === true;
+    logInfo(requestId, "accounts_resolved", {
+      authMethod: auth.method,
+      dryRun,
+      requestedAccountId: body?.accountId || null,
+      accountCount: accountIds.length,
+    });
 
     const results = [];
     const totals = {
@@ -94,6 +139,7 @@ Deno.serve(async (req) => {
 
     for (const accountId of accountIds) {
       try {
+        logInfo(requestId, "account_sync_started", { accountId, dryRun });
         const result = await syncAccount(accountId, { dryRun });
         totals.accountsProcessed += 1;
         totals.signalsOpen += result.signalsOpen;
@@ -101,8 +147,22 @@ Deno.serve(async (req) => {
         totals.notificationsCreated += result.notificationsCreated;
         totals.executionRowsInserted += result.executionRowsInserted;
         results.push(result);
+        logInfo(requestId, "account_sync_completed", {
+          accountId,
+          dryRun,
+          signalsOpen: result.signalsOpen,
+          signalsOpened: result.signalsOpened,
+          signalsResolved: result.signalsResolved,
+          notificationsCreated: result.notificationsCreated,
+          executionRowsInserted: result.executionRowsInserted,
+        });
       } catch (error) {
         totals.errors += 1;
+        logError(requestId, "account_sync_failed", {
+          accountId,
+          dryRun,
+          error: error instanceof Error ? error.message : "Unknown account sync error",
+        });
         results.push({
           accountId,
           ok: false,
@@ -111,17 +171,30 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({
+    const response = {
       ok: true,
+      requestId,
+      authMethod: auth.method,
       dryRun,
       processedAt: new Date().toISOString(),
       totals,
       results,
+    };
+    logInfo(requestId, "sync_completed", {
+      authMethod: auth.method,
+      dryRun,
+      totals,
     });
+    return json(response);
   } catch (error) {
-    return json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
+    logError(requestId, "sync_failed", {
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    return jsonError(
       500,
+      "unexpected_error",
+      error instanceof Error ? error.message : "Unexpected sync error",
+      requestId,
     );
   }
 });
@@ -136,6 +209,39 @@ function json(payload: unknown, status = 200) {
   });
 }
 
+function jsonError(
+  status: number,
+  code: string,
+  message: string,
+  requestId: string,
+  extra: Record<string, unknown> = {},
+) {
+  return json(
+    {
+      ok: false,
+      requestId,
+      error: {
+        code,
+        message,
+        ...extra,
+      },
+    },
+    status,
+  );
+}
+
+function logInfo(requestId: string, event: string, details: Record<string, unknown> = {}) {
+  console.info(JSON.stringify({ level: "info", requestId, event, ...details }));
+}
+
+function logWarn(requestId: string, event: string, details: Record<string, unknown> = {}) {
+  console.warn(JSON.stringify({ level: "warn", requestId, event, ...details }));
+}
+
+function logError(requestId: string, event: string, details: Record<string, unknown> = {}) {
+  console.error(JSON.stringify({ level: "error", requestId, event, ...details }));
+}
+
 async function readJson(req: Request) {
   try {
     return await req.json();
@@ -144,11 +250,29 @@ async function readJson(req: Request) {
   }
 }
 
-function isAuthorized(req: Request) {
+function getAuthResult(req: Request): AuthResult {
+  const headerSecret = req.headers.get("x-cron-secret") || "";
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-  const headerSecret = req.headers.get("x-cron-secret") || "";
-  return token === CRON_SECRET || headerSecret === CRON_SECRET;
+
+  if (headerSecret) {
+    return {
+      ok: headerSecret === CRON_SECRET,
+      method: "x-cron-secret",
+    };
+  }
+
+  if (token) {
+    return {
+      ok: token === CRON_SECRET,
+      method: "authorization",
+    };
+  }
+
+  return {
+    ok: false,
+    method: "none",
+  };
 }
 
 async function resolveAccountIds(accountId: string | null) {
@@ -279,6 +403,7 @@ async function deriveSignals(accountId: string, settings: Map<string, { enabled:
   const [
     paymentsRes,
     leasesRes,
+    complianceRes,
     preventiveRes,
     ackOverdueRes,
   ] = await Promise.all([
@@ -309,6 +434,21 @@ async function deriveSignals(accountId: string, settings: Map<string, { enabled:
       `)
       .eq("account_id", accountId)
       .order("lease_end_date", { ascending: true })
+      .limit(500),
+    admin
+      .from("compliance_items")
+      .select(`
+        id,
+        property_id,
+        tenant_id,
+        title,
+        category,
+        due_date,
+        status,
+        properties(address),
+        tenants(name)
+      `)
+      .eq("account_id", accountId)
       .limit(500),
     admin
       .from("preventive_maintenance_tasks")
@@ -344,6 +484,7 @@ async function deriveSignals(accountId: string, settings: Map<string, { enabled:
 
   if (paymentsRes.error) throw paymentsRes.error;
   if (leasesRes.error) throw leasesRes.error;
+  if (complianceRes.error) throw complianceRes.error;
   if (preventiveRes.error) throw preventiveRes.error;
   if (ackOverdueRes.error) throw ackOverdueRes.error;
 
@@ -404,6 +545,39 @@ async function deriveSignals(accountId: string, settings: Map<string, { enabled:
           property_id: row.property_id || null,
           lease_end_date: row.lease_end_date || null,
           derived_status: derivedStatus,
+        },
+      });
+    }
+  }
+
+  const complianceConfig = getRuleConfig(settings, "compliance_due_watch");
+  if (complianceConfig.enabled) {
+    const leadDays = clampInt(complianceConfig.config.lead_days, 30, 1, 120);
+    for (const row of complianceRes.data || []) {
+      if (normalize(row?.status) !== "active") continue;
+      const dueInDays = daysUntil(row?.due_date);
+      if (!Number.isFinite(dueInDays) || Number(dueInDays) > leadDays) continue;
+      const propertyLabel = row?.properties?.address || "Property";
+      const tenantLabel = row?.tenants?.name || "";
+      signals.push({
+        ruleId: "compliance_due_watch",
+        notificationType: RULE_DEFS.compliance_due_watch.notificationType,
+        sourceKey: `compliance:${row.id}`,
+        severity: Number(dueInDays) < 0 ? "urgent" : "action",
+        title:
+          Number(dueInDays) < 0
+            ? `Compliance overdue: ${row.title || "Compliance item"}`
+            : `Compliance due soon: ${row.title || "Compliance item"}`,
+        body: [propertyLabel, tenantLabel, formatShortDate(row.due_date)].filter(Boolean).join(" • "),
+        entityType: "compliance_item",
+        entityId: row.id,
+        linkPath: row?.property_id ? `/properties/${row.property_id}` : "/attention-center",
+        details: {
+          property_id: row.property_id || null,
+          tenant_id: row.tenant_id || null,
+          category: row.category || null,
+          due_date: row.due_date || null,
+          days_until_due: dueInDays,
         },
       });
     }
@@ -476,10 +650,123 @@ async function deriveSignals(accountId: string, settings: Map<string, { enabled:
   return signals;
 }
 
+function extractPropertyHealthScore(details: Record<string, unknown> | null | undefined) {
+  const score = Number(details?.score);
+  if (!Number.isFinite(score)) return null;
+  return score;
+}
+
+function extractPropertyHealthReasonKey(reasons: unknown) {
+  if (!Array.isArray(reasons) || reasons.length === 0) return "";
+  const first = reasons[0] as Record<string, unknown>;
+  return String(first?.key || "");
+}
+
+async function derivePropertyHealthSignals(
+  accountId: string,
+  settings: Map<string, { enabled: boolean; config: Record<string, unknown> }>,
+  existingRuns: Array<Record<string, unknown>>,
+) {
+  const rule = getRuleConfig(settings, "property_health_watch");
+  if (!rule.enabled) return [] as AutomationSignal[];
+
+  const sharpDropPoints = clampInt(rule.config.sharp_drop_points, 15, 5, 40);
+  const { data, error } = await admin.rpc("property_operational_health_snapshot", {
+    p_account_id: accountId,
+    p_property_id: null,
+    p_limit: 500,
+  });
+
+  if (error) {
+    const message = String(error.message || "").toLowerCase();
+    if (message.includes("does not exist") || message.includes("could not find the function")) {
+      return [] as AutomationSignal[];
+    }
+    throw error;
+  }
+
+  const latestByProperty = new Map<string, { score: number | null; at: string }>();
+  for (const row of existingRuns || []) {
+    if (String(row?.rule_id || "") !== "property_health_watch") continue;
+    const propertyId = String(row?.entity_id || "");
+    if (!propertyId) continue;
+    const current = latestByProperty.get(propertyId);
+    const lastAt = String(row?.last_triggered_at || row?.first_triggered_at || "");
+    if (!current || lastAt > current.at) {
+      latestByProperty.set(propertyId, {
+        score: extractPropertyHealthScore((row?.details || {}) as Record<string, unknown>),
+        at: lastAt,
+      });
+    }
+  }
+
+  const signals: AutomationSignal[] = [];
+  for (const row of Array.isArray(data) ? data : []) {
+    const propertyId = String(row?.property_id || "");
+    if (!propertyId) continue;
+    const propertyLabel = String(row?.property_label || "Property");
+    const score = Number(row?.score || 0);
+    const category = String(row?.category || "");
+    const reasonKey = extractPropertyHealthReasonKey(row?.reasons);
+    const previous = latestByProperty.get(propertyId)?.score;
+    const dropAmount =
+      Number.isFinite(previous) && previous != null ? Number(previous) - score : null;
+
+    const sharedDetails = {
+      property_id: propertyId,
+      property_label: propertyLabel,
+      score,
+      category,
+      reasons: Array.isArray(row?.reasons) ? row.reasons : [],
+      previous_score: previous,
+      drop_amount: dropAmount,
+    };
+
+    if (category === "high_risk") {
+      signals.push({
+        ruleId: "property_health_watch",
+        notificationType: RULE_DEFS.property_health_watch.notificationType,
+        sourceKey: `property_health:${propertyId}:high_risk`,
+        severity: "urgent",
+        title: `Property health high risk: ${propertyLabel}`,
+        body: `Health score ${score}${reasonKey ? ` • primary driver: ${reasonKey}` : ""}`,
+        entityType: "property",
+        entityId: propertyId,
+        linkPath: `/properties/${propertyId}`,
+        details: {
+          ...sharedDetails,
+          signal_kind: "high_risk",
+        },
+      });
+    }
+
+    if (dropAmount != null && dropAmount >= sharpDropPoints) {
+      signals.push({
+        ruleId: "property_health_watch",
+        notificationType: RULE_DEFS.property_health_watch.notificationType,
+        sourceKey: `property_health:${propertyId}:sharp_drop`,
+        severity: category === "high_risk" ? "urgent" : "action",
+        title: `Property health deteriorated: ${propertyLabel}`,
+        body: `Score dropped by ${dropAmount} points to ${score}`,
+        entityType: "property",
+        entityId: propertyId,
+        linkPath: `/properties/${propertyId}`,
+        details: {
+          ...sharedDetails,
+          signal_kind: "sharp_drop",
+          sharp_drop_threshold: sharpDropPoints,
+        },
+      });
+    }
+  }
+
+  return signals;
+}
+
 async function loadExistingRuns(accountId: string) {
   const { data, error } = await admin
     .from("automation_runs")
-    .select("id, rule_id, source_key, state, severity, title, entity_type, entity_id, first_triggered_at, last_triggered_at, resolved_at")
+    .select("id, rule_id, source_key, state, severity, title, entity_type, entity_id, first_triggered_at, last_triggered_at, resolved_at, details")
     .eq("account_id", accountId)
     .in("rule_id", RULE_IDS);
 
@@ -562,11 +849,13 @@ async function sendSignalNotification(accountId: string, recipientUserIds: strin
 
 async function syncAccount(accountId: string, { dryRun = false } = {}) {
   const settings = await loadRuleSettings(accountId);
-  const [recipientUserIds, existingRuns, signals] = await Promise.all([
+  const [recipientUserIds, existingRuns, baseSignals] = await Promise.all([
     loadManagerRecipientIds(accountId),
     loadExistingRuns(accountId),
     deriveSignals(accountId, settings),
   ]);
+  const propertyHealthSignals = await derivePropertyHealthSignals(accountId, settings, existingRuns);
+  const signals = [...baseSignals, ...propertyHealthSignals];
 
   const existingMap = new Map(
     existingRuns.map((row) => [buildRunKey(row.rule_id, row.source_key), row]),
@@ -720,6 +1009,7 @@ async function syncAccount(accountId: string, { dryRun = false } = {}) {
       lease_renewal_watch: getRuleConfig(settings, "lease_renewal_watch").enabled,
       preventive_due_watch: getRuleConfig(settings, "preventive_due_watch").enabled,
       contractor_ack_overdue_watch: getRuleConfig(settings, "contractor_ack_overdue_watch").enabled,
+      property_health_watch: getRuleConfig(settings, "property_health_watch").enabled,
     },
   };
 }
