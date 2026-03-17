@@ -7,6 +7,10 @@ import { useAccount } from "../context/AccountContext";
 import { can } from "../utils/permissions";
 import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount } from "../utils/currency";
+import {
+  normalizePaymentStatus,
+  paymentStatusLabelKey,
+} from "../utils/statuses";
 
 /* ======================
    SKELETONS
@@ -98,25 +102,22 @@ export default function Finance({
   const statusFilterValues = useMemo(() => {
     const raw = String(searchParams.get("status") || "").toLowerCase().trim();
     if (!raw) return [];
-    return raw.split(",").map((s) => s.trim()).filter(Boolean);
+    return raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => (s === "due" ? "pending" : normalizePaymentStatus(s)))
+      .filter((s) => s !== "other");
   }, [searchParams]);
 
   const rangeFilter = useMemo(() => String(searchParams.get("range") || "").toLowerCase(), [searchParams]);
   const bucketFilter = useMemo(() => String(searchParams.get("bucket") || "").toLowerCase(), [searchParams]);
 
-  const normalizedStatus = (status) => {
-    const s = String(status || "").toLowerCase();
-    if (["paid", "opłacone", "oplacone"].includes(s)) return "paid";
-    if (["due", "oczekujące", "oczekujace", "pending"].includes(s)) return "due";
-    if (["overdue", "zaległe", "zalegle"].includes(s)) return "overdue";
-    return "other";
-  };
-
   const filteredPayments = useMemo(() => {
     const now = new Date();
     const soon = new Date(now.getTime() + 7 * 24 * 3600000);
     return (payments || []).filter((p) => {
-      const s = normalizedStatus(p.status);
+      const s = normalizePaymentStatus(p.status);
       if (statusFilterValues.length > 0 && !statusFilterValues.includes(s)) return false;
 
       const due = p?.dueDate ? new Date(p.dueDate) : null;
@@ -155,7 +156,7 @@ export default function Finance({
     let open = 0;
     for (const p of filteredPayments) {
       const amount = Number(p?.amount || 0);
-      const s = normalizedStatus(p.status);
+      const s = normalizePaymentStatus(p.status);
       if (s === "paid") paid += amount;
       else open += amount;
     }
@@ -435,21 +436,9 @@ function PaginationFooter({
   );
 }
 
-function normalizePaymentStatus(status) {
-  const value = String(status || "").trim().toLowerCase();
-  if (["paid", "opłacone", "oplacone"].includes(value)) return "paid";
-  if (["partial", "częściowo", "czesciowo"].includes(value)) return "partial";
-  if (["due", "pending", "oczekujące", "oczekujace"].includes(value)) return "pending";
-  if (["overdue", "zaległe", "zalegle"].includes(value)) return "overdue";
-  return "other";
-}
-
 function translatePaymentStatus(status, t) {
-  const normalized = normalizePaymentStatus(status);
-  if (normalized === "paid") return t("payments.status.paid");
-  if (normalized === "partial") return t("payments.status.partial");
-  if (normalized === "pending") return t("payments.status.pending");
-  if (normalized === "overdue") return t("payments.status.overdue");
+  const labelKey = paymentStatusLabelKey(status);
+  if (labelKey) return t(labelKey);
   return status || "—";
 }
 

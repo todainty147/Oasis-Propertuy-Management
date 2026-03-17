@@ -1,3 +1,9 @@
+import {
+  PAYMENT_STATUS,
+  isOverdueStatus,
+  isPaidStatus,
+} from "./statuses";
+
 /* ======================================================
    AGGREGATES (used by Finance dashboard)
    ====================================================== */
@@ -16,8 +22,7 @@ function toDate(value) {
 function isPaid(p) {
   if (!p) return false;
   if (p.paidAt) return true;
-  const s = String(p.status ?? "").toLowerCase();
-  return s === "paid" || p.status === "Opłacone";
+  return isPaidStatus(p.status);
 }
 
 /**
@@ -30,8 +35,7 @@ function isOverdue(p) {
   if (!p) return false;
   if (isPaid(p)) return false;
 
-  const s = String(p.status ?? "").toLowerCase();
-  if (s === "overdue" || p.status === "Zaległe") return true;
+  if (isOverdueStatus(p.status)) return true;
 
   const due = toDate(p.dueDate);
   if (!due) return false;
@@ -84,10 +88,10 @@ export function calculateMonthlyBalance({
   const remaining = Math.max(Number(rent || 0) - paid, 0);
 
   // Keep your existing Polish labels (so UI doesn’t change)
-  let status = "Zaległe";
-  if (paid === 0) status = "Zaległe";
-  else if (paid < rent) status = "Częściowo";
-  else status = "Opłacone";
+  let status = PAYMENT_STATUS.OVERDUE;
+  if (paid === 0) status = PAYMENT_STATUS.OVERDUE;
+  else if (paid < rent) status = PAYMENT_STATUS.PARTIAL;
+  else status = PAYMENT_STATUS.PAID;
 
   return {
     paid,

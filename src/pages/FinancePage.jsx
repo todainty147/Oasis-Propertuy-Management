@@ -7,6 +7,7 @@ import { useAccount } from "../context/AccountContext";
 import { useProperties } from "../hooks/useProperties";
 import { useTenants } from "../hooks/useTenants";
 import { createPayment, deletePayment, updatePayment } from "../services/paymentService";
+import { PAYMENT_STATUS } from "../utils/statuses";
 
 export default function FinancePage() {
   const { activeAccountId } = useAccount();
@@ -47,7 +48,7 @@ export default function FinancePage() {
         tenants={tenants}
         onSave={async (form) => {
           const paidAt =
-            form.status === "Opłacone"
+            form.status === PAYMENT_STATUS.PAID
               ? new Date().toISOString().slice(0, 10)
               : null;
 

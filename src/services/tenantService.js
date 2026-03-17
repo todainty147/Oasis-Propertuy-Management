@@ -6,6 +6,7 @@ import {
   assertRequiredText,
   normalizeText,
 } from "../utils/validation";
+import { OCCUPANCY_STATUS } from "../utils/statuses";
 
 /* ======================
    CREATE TENANT
@@ -40,9 +41,9 @@ export async function createTenant({
 
   // 🔄 property status sync (RLS enforces account ownership)
   if (propertyId) {
-    await supabase
+      await supabase
       .from("properties")
-      .update({ status: "Wynajęte" })
+      .update({ status: OCCUPANCY_STATUS.OCCUPIED })
       .eq("id", propertyId);
   }
 
@@ -85,14 +86,14 @@ export async function updateTenant(id, data) {
     if (current.property_id) {
       await supabase
         .from("properties")
-        .update({ status: "Wolne" })
+        .update({ status: OCCUPANCY_STATUS.VACANT })
         .eq("id", current.property_id);
     }
 
     if (data.propertyId) {
       await supabase
         .from("properties")
-        .update({ status: "Wynajęte" })
+        .update({ status: OCCUPANCY_STATUS.OCCUPIED })
         .eq("id", data.propertyId);
     }
   }
@@ -121,7 +122,7 @@ export async function deleteTenant(id) {
   if (tenant?.property_id) {
     await supabase
       .from("properties")
-      .update({ status: "Wolne" })
+      .update({ status: OCCUPANCY_STATUS.VACANT })
       .eq("id", tenant.property_id);
   }
 }

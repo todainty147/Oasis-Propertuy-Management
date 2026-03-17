@@ -3,8 +3,12 @@ import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
 
+function langFlag(lang) {
+  return lang === "pl" ? "PL" : "GB";
+}
+
 export default function Login() {
-  const { t } = useI18n();
+  const { t, lang, setLang } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,7 +32,24 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4">
+      <div className="mx-auto flex w-full max-w-5xl justify-end">
+        <div className="mb-4 flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 shadow-sm">
+          <span className="mr-2 text-sm leading-none text-slate-700 dark:text-slate-200" aria-hidden="true">
+            {langFlag(lang)}
+          </span>
+          <select
+            value={lang}
+            onChange={(e) => setLang(e.target.value)}
+            className="min-w-[4.5rem] bg-transparent text-sm text-slate-800 dark:text-slate-200 focus:outline-none"
+            aria-label={t("topbar.language")}
+          >
+            <option value="pl">{`${langFlag("pl")} ${t("lang.polish")}`}</option>
+            <option value="en">{`${langFlag("en")} ${t("lang.english")}`}</option>
+          </select>
+        </div>
+      </div>
+      <div className="flex items-center justify-center">
       <form
         onSubmit={submit}
         className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-xl shadow"
@@ -77,6 +98,7 @@ export default function Login() {
           </Link>
         </div>
       </form>
+      </div>
     </div>
   );
 }

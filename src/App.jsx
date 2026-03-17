@@ -23,6 +23,7 @@ import { searchDocuments } from "./services/documentService";
 import AppLayout from "./layout/AppLayout";
 import { useAccount } from "./context/AccountContext";
 import { useI18n } from "./context/I18nContext";
+import { OCCUPANCY_STATUS } from "./utils/statuses";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Properties = lazy(() => import("./pages/Properties"));
@@ -220,7 +221,7 @@ export default function App() {
     );
     return {
       ...p,
-      status: isOccupied ? "Wynajęte" : "Wolne",
+      status: isOccupied ? OCCUPANCY_STATUS.OCCUPIED : OCCUPANCY_STATUS.VACANT,
     };
   });
 
@@ -232,7 +233,7 @@ export default function App() {
   );
 
   const occupiedCount = ownerProperties.filter(
-    (p) => p.status === "Wynajęte"
+    (p) => p.status === OCCUPANCY_STATUS.OCCUPIED
   ).length;
   const vacantCount = ownerProperties.length - occupiedCount;
 
@@ -245,7 +246,7 @@ export default function App() {
   const now = new Date();
 
   const vacancyAging = ownerProperties
-    .filter((p) => p.status === "Wolne")
+    .filter((p) => p.status === OCCUPANCY_STATUS.VACANT)
     .map((property) => {
       const pastTenants = ownerTenants
         .filter((t) => String(t.propertyId) === String(property.id))

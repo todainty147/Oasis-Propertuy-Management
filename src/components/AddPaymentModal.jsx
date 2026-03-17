@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Card from "./Card";
 import { useAccount } from "../context/AccountContext"; // ✅ MULTI-TENANT
 import { useI18n } from "../context/I18nContext";
+import { normalizePaymentStatus, PAYMENT_STATUS } from "../utils/statuses";
 
 export default function AddPaymentModal({
   isOpen,
@@ -18,7 +19,7 @@ export default function AddPaymentModal({
     propertyId: "",
     tenantId: "",
     amount: "",
-    status: "Oczekujące",
+    status: PAYMENT_STATUS.PENDING,
     dueDate: "",
   });
 
@@ -27,11 +28,14 @@ export default function AddPaymentModal({
      ====================== */
   useEffect(() => {
     if (payment) {
+      const derivedStatus = payment.paidAt
+        ? PAYMENT_STATUS.PAID
+        : normalizePaymentStatus(payment.status);
       setForm({
         propertyId: payment.propertyId ?? "",
         tenantId: payment.tenantId ?? "",
         amount: payment.amount ?? "",
-        status: payment.status ?? "Oczekujące",
+        status: derivedStatus === PAYMENT_STATUS.OTHER ? PAYMENT_STATUS.PENDING : derivedStatus,
         dueDate: payment.dueDate ?? "",
       });
     } else {
@@ -39,7 +43,7 @@ export default function AddPaymentModal({
         propertyId: "",
         tenantId: "",
         amount: "",
-        status: "Oczekujące",
+        status: PAYMENT_STATUS.PENDING,
         dueDate: "",
       });
     }
@@ -146,9 +150,9 @@ export default function AddPaymentModal({
             }
             className="w-full border border-slate-300 dark:border-slate-600 rounded px-3 py-2 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
           >
-            <option value="Oczekujące">{t("payments.status.pending")}</option>
-            <option value="Opłacone">{t("payments.status.paid")}</option>
-            <option value="Zaległe">{t("payments.status.overdue")}</option>
+            <option value={PAYMENT_STATUS.PENDING}>{t("payments.status.pending")}</option>
+            <option value={PAYMENT_STATUS.PAID}>{t("payments.status.paid")}</option>
+            <option value={PAYMENT_STATUS.OVERDUE}>{t("payments.status.overdue")}</option>
           </select>
 
           {/* DUE DATE (REQUIRED) */}
