@@ -11,6 +11,7 @@ import {
   updatePlaybookRuleSetting,
 } from "../services/playbookAutomationService";
 import { isManageRole } from "../utils/permissions";
+import OnboardingHintCard from "../components/OnboardingHintCard";
 
 function OutputBadge({ output, t }) {
   return (
@@ -185,6 +186,11 @@ export default function PlaybooksPage() {
         <h2 className="text-lg font-semibold text-white">{t("playbooks.title")}</h2>
         <p className="mt-1 text-sm text-slate-200">{t("playbooks.subtitle")}</p>
       </div>
+
+      <OnboardingHintCard
+        title={t("pageHints.playbooks.title")}
+        body={t("pageHints.playbooks.body")}
+      />
 
       {error ? (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

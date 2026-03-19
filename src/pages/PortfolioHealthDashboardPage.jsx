@@ -27,6 +27,7 @@ import {
   summarizePropertyOperationalHealth,
 } from "../services/propertyHealthScoreService";
 import { isManageRole } from "../utils/permissions";
+import OnboardingHintCard from "../components/OnboardingHintCard";
 
 function pctDelta(current, previous) {
   const c = Number(current || 0);
@@ -469,6 +470,11 @@ export default function PortfolioHealthDashboardPage() {
           <p className="text-xs text-cyan-100 mt-2">{t("portfolio.scopeFiltered")}</p>
         ) : null}
       </Card>
+
+      <OnboardingHintCard
+        title={t("pageHints.portfolioHealth.title")}
+        body={t("pageHints.portfolioHealth.body")}
+      />
 
       {error ? (
         <Card className="p-4 border border-rose-200 bg-rose-50 text-rose-700 text-sm">{error}</Card>

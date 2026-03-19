@@ -11,6 +11,7 @@ import {
   startCheckout,
 } from "../services/billingService";
 import { isManageRole } from "../utils/permissions";
+import OnboardingHintCard from "../components/OnboardingHintCard";
 
 const PLANS = [
   { key: "starter", nameKey: "billing.plan.starter", limitKey: "billing.plan.starterLimit" },
@@ -218,6 +219,11 @@ export default function BillingPage() {
           </button>
         </div>
       </div>
+
+      <OnboardingHintCard
+        title={t("pageHints.billing.title")}
+        body={t("pageHints.billing.body")}
+      />
 
       <div className="grid gap-4 md:grid-cols-3">
         {PLANS.map((plan) => (

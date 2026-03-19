@@ -15,6 +15,7 @@ import { canCreateTenant } from "../utils/permissions";
 import { useI18n } from "../context/I18nContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { listLeases } from "../services/leaseService";
+import OnboardingHintCard from "../components/OnboardingHintCard";
 
 /* ======================
    SKELETON
@@ -234,6 +235,11 @@ export default function Tenants() {
           </Link>
         )}
       </div>
+
+      <OnboardingHintCard
+        title={t("pageHints.tenants.title")}
+        body={t("pageHints.tenants.body")}
+      />
 
       <div className="flex flex-col sm:flex-row gap-3">
         <input

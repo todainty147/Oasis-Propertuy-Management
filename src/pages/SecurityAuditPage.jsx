@@ -39,6 +39,7 @@ import {
 import { listSecurityObservabilityEvents } from "../services/securityObservabilityService";
 import { downloadTextFile, buildCsv } from "../utils/export";
 import { isManageRole } from "../utils/permissions";
+import OnboardingHintCard from "../components/OnboardingHintCard";
 
 const DEFAULT_FILTERS = {
   dateFrom: "",
@@ -947,6 +948,11 @@ from public.security_observability_event_feed(
           </div>
         </div>
       </div>
+
+      <OnboardingHintCard
+        title={t("pageHints.securityAudit.title")}
+        body={t("pageHints.securityAudit.body")}
+      />
 
       {error ? (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">

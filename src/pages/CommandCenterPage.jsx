@@ -9,6 +9,7 @@ import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { getCommandCenterData } from "../services/commandCenterService";
 import { formatCurrencyAmount } from "../utils/currency";
 import { isManageRole } from "../utils/permissions";
+import OnboardingHintCard from "../components/OnboardingHintCard";
 
 function hoursLabel(hours, t) {
   if (!Number.isFinite(hours)) return "";
@@ -236,6 +237,11 @@ export default function CommandCenterPage() {
         <h2 className="text-lg font-semibold text-white">{t("commandCenter.title")}</h2>
         <p className="text-sm text-slate-200 mt-1">{t("commandCenter.subtitle")}</p>
       </div>
+
+      <OnboardingHintCard
+        title={t("pageHints.commandCenter.title")}
+        body={t("pageHints.commandCenter.body")}
+      />
 
       {error ? (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>

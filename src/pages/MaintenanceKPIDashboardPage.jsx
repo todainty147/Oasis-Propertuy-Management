@@ -18,6 +18,7 @@ import { getPreventiveMaintenanceOverview } from "../services/preventiveMaintena
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount } from "../utils/currency";
 import { isManageRole } from "../utils/permissions";
+import OnboardingHintCard from "../components/OnboardingHintCard";
 
 function fmtDate(ts) {
   if (!ts) return "—";
@@ -561,6 +562,11 @@ export default function MaintenanceKPIDashboardPage() {
           {t("common.refresh")}
         </button>
       </div>
+
+      <OnboardingHintCard
+        title={t("pageHints.maintenanceKpi.title")}
+        body={t("pageHints.maintenanceKpi.body")}
+      />
 
       {error ? (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
