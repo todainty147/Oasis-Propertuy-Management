@@ -509,19 +509,39 @@ export async function listSecurityAuditFilterOptions(accountId, { limit = 300 } 
 
   const { data, error } = await supabase
     .from("security_audit_ledger")
-    .select("action, actor_user_id, entity_type")
+    .select("action, actor_user_id, entity_type, entity_id, metadata, created_at")
     .eq("account_id", accountId)
     .order("created_at", { ascending: false })
     .limit(safeLimit);
 
   if (error) throw error;
 
-  const rows = data ?? [];
+  const rows = await resolveSecurityAuditLabels(accountId, data ?? []);
+  const entities = Array.from(
+    new Map(
+      rows
+        .filter((row) => row.entity_id)
+        .map((row) => {
+          const label = normalizeText(row.entityLabel) || normalizeText(row.entity_type) || normalizeText(row.entity_id);
+          const type = normalizeText(row.entity_type);
+          const id = normalizeText(row.entity_id);
+          return [
+            `${type}:${id}`,
+            {
+              id,
+              type,
+              label: type ? `${label} (${type})` : label,
+            },
+          ];
+        }),
+    ).values(),
+  ).sort((a, b) => a.label.localeCompare(b.label));
 
   return {
     actions: Array.from(new Set(rows.map((row) => row.action).filter(Boolean))).sort(),
     actorUserIds: Array.from(new Set(rows.map((row) => row.actor_user_id).filter(Boolean))).sort(),
     entityTypes: Array.from(new Set(rows.map((row) => row.entity_type).filter(Boolean))).sort(),
+    entities,
   };
 }
 

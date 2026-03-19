@@ -286,7 +286,7 @@ export default function SecurityAuditPage() {
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [pageSize] = useState(25);
-  const [facets, setFacets] = useState({ actions: [], actorUserIds: [], entityTypes: [] });
+  const [facets, setFacets] = useState({ actions: [], actorUserIds: [], entityTypes: [], entities: [] });
   const [expandedRows, setExpandedRows] = useState({});
   const [anomalyAlerts, setAnomalyAlerts] = useState([]);
   const [alertAssignees, setAlertAssignees] = useState([]);
@@ -1654,15 +1654,22 @@ export default function SecurityAuditPage() {
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <label className="space-y-1">
             <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              {t("securityAudit.filters.entityId")}
+              {t("securityAudit.filters.entity")}
             </span>
-            <input
-              type="text"
+            <select
               value={filters.entityId}
               onChange={(e) => updateFilter("entityId", e.target.value)}
-              placeholder={t("securityAudit.filters.entityIdPlaceholder")}
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-            />
+            >
+              <option value="">{t("securityAudit.filters.allEntities")}</option>
+              {facets.entities
+                .filter((entity) => !filters.entityType || entity.type === filters.entityType)
+                .map((entity) => (
+                  <option key={`${entity.type}:${entity.id}`} value={entity.id}>
+                    {entity.label}
+                  </option>
+                ))}
+            </select>
           </label>
         </div>
       </Card>
