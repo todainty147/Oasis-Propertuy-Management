@@ -500,18 +500,19 @@ export default function Dashboard({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pt-3 lg:pt-4">
       {isOwner && !checklistDismissed ? (
-        <Card className="border border-cyan-200 bg-gradient-to-r from-cyan-50 via-white to-sky-50 p-5">
-          <div className="flex items-start justify-between gap-4">
+        <Card className="relative overflow-hidden border border-slate-800 bg-gradient-to-r from-slate-900 via-slate-900 to-blue-950 p-5 shadow-lg">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.14),transparent_34%)]" />
+          <div className="relative flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700">
+              <p className="text-xs font-semibold uppercase tracking-wide text-sky-300">
                 {t("dashboard.onboarding.eyebrow")}
               </p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-900">
+              <h2 className="mt-1 text-lg font-semibold text-white">
                 {t("dashboard.onboarding.title")}
               </h2>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="mt-1 text-sm text-slate-300">
                 {t("dashboard.onboarding.subtitle", {
                   done: onboardingCompleteCount,
                   total: onboardingItems.length,
@@ -522,14 +523,14 @@ export default function Dashboard({
               <button
                 type="button"
                 onClick={() => navigate("/landlord-onboarding")}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white"
+                className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-sm font-medium text-slate-100 hover:border-blue-400 hover:text-blue-200"
               >
                 {t("dashboard.onboarding.openGuide")}
               </button>
               <button
                 type="button"
                 onClick={dismissChecklist}
-                className="rounded-lg border border-transparent p-2 text-slate-500 hover:bg-white"
+                className="rounded-lg border border-slate-700 bg-slate-950/30 p-2 text-slate-300 hover:border-blue-400 hover:text-blue-200"
                 aria-label={t("dashboard.onboarding.dismiss")}
                 title={t("dashboard.onboarding.dismiss")}
               >
@@ -538,7 +539,7 @@ export default function Dashboard({
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-5">
+          <div className="relative mt-4 grid grid-cols-1 gap-3 lg:grid-cols-5">
             {onboardingItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -546,10 +547,10 @@ export default function Dashboard({
                   key={item.key}
                   type="button"
                   onClick={() => navigate(item.href)}
-                  className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-cyan-300 hover:shadow-sm"
+                  className="rounded-xl border border-slate-700 bg-slate-900/85 p-4 text-left transition hover:border-blue-400 hover:shadow-sm"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="rounded-lg bg-slate-100 p-2 text-slate-700">
+                    <div className="rounded-lg bg-blue-500/12 p-2 text-blue-300">
                       <Icon size={16} />
                     </div>
                     {item.complete ? (
@@ -558,8 +559,8 @@ export default function Dashboard({
                       <CircleDashed size={18} className="text-slate-400" />
                     )}
                   </div>
-                  <p className="mt-3 text-sm font-semibold text-slate-900">{item.title}</p>
-                  <p className="mt-1 text-sm text-slate-600">{item.body}</p>
+                  <p className="mt-3 text-sm font-semibold text-slate-100">{item.title}</p>
+                  <p className="mt-1 text-sm text-slate-300">{item.body}</p>
                 </button>
               );
             })}
