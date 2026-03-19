@@ -849,7 +849,7 @@ export default function SecurityAuditPage() {
             <button
               type="button"
               onClick={() => setError("")}
-              className="rounded-lg border border-rose-300 px-2 py-1 text-xs transition hover:bg-rose-100 dark:border-rose-800 dark:hover:bg-rose-900/40"
+              className="rounded-lg border border-rose-300 bg-white/70 px-2 py-1 text-xs transition hover:bg-rose-100 dark:border-rose-700 dark:bg-rose-950/30 dark:text-rose-100 dark:hover:bg-rose-900/60"
               aria-label={t("common.close")}
             >
               <X size={14} />
@@ -865,7 +865,7 @@ export default function SecurityAuditPage() {
             <button
               type="button"
               onClick={() => setInfo("")}
-              className="rounded-lg border border-emerald-300 px-2 py-1 text-xs transition hover:bg-emerald-100 dark:border-emerald-800 dark:hover:bg-emerald-900/40"
+              className="rounded-lg border border-emerald-300 bg-white/70 px-2 py-1 text-xs transition hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-100 dark:hover:bg-emerald-900/60"
               aria-label={t("securityAudit.dismissNotice")}
             >
               <Trash2 size={14} />
@@ -913,7 +913,7 @@ export default function SecurityAuditPage() {
                   max="20"
                   value={securitySettingsDraft?.role_change_target_threshold ?? ""}
                   onChange={(e) => updateSecuritySetting("role_change_target_threshold", e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50"
                 />
               </label>
               <label className="space-y-1">
@@ -926,7 +926,7 @@ export default function SecurityAuditPage() {
                   max="50"
                   value={securitySettingsDraft?.role_change_account_threshold ?? ""}
                   onChange={(e) => updateSecuritySetting("role_change_account_threshold", e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50"
                 />
               </label>
               <label className="space-y-1">
@@ -939,7 +939,7 @@ export default function SecurityAuditPage() {
                   max="240"
                   value={securitySettingsDraft?.role_change_window_minutes ?? ""}
                   onChange={(e) => updateSecuritySetting("role_change_window_minutes", e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50"
                 />
               </label>
             </div>
@@ -963,7 +963,7 @@ export default function SecurityAuditPage() {
                   max="50"
                   value={securitySettingsDraft?.document_delete_actor_threshold ?? ""}
                   onChange={(e) => updateSecuritySetting("document_delete_actor_threshold", e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50"
                 />
               </label>
               <label className="space-y-1">
@@ -976,7 +976,7 @@ export default function SecurityAuditPage() {
                   max="100"
                   value={securitySettingsDraft?.document_delete_account_threshold ?? ""}
                   onChange={(e) => updateSecuritySetting("document_delete_account_threshold", e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50"
                 />
               </label>
               <label className="space-y-1">
@@ -989,7 +989,7 @@ export default function SecurityAuditPage() {
                   max="240"
                   value={securitySettingsDraft?.document_delete_window_minutes ?? ""}
                   onChange={(e) => updateSecuritySetting("document_delete_window_minutes", e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50"
                 />
               </label>
             </div>
@@ -1013,7 +1013,7 @@ export default function SecurityAuditPage() {
                   max="90"
                   value={securitySettingsDraft?.export_retention_days ?? ""}
                   onChange={(e) => updateSecuritySetting("export_retention_days", e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50"
                 />
               </label>
 
@@ -1088,7 +1088,7 @@ export default function SecurityAuditPage() {
                 setExportJobsPageSize(Number(e.target.value));
                 setExportJobsPage(1);
               }}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50"
             >
               {[5, 10].map((value) => (
                 <option key={value} value={value}>
@@ -1100,7 +1100,7 @@ export default function SecurityAuditPage() {
               <button
                 type="button"
                 onClick={restoreHiddenBackendExports}
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-700"
               >
                 {t("securityAudit.backendExportsShowHidden", { count: hiddenExportJobIds.length })}
               </button>
@@ -1111,13 +1111,13 @@ export default function SecurityAuditPage() {
               onChange={(e) => setBackendExportLabel(e.target.value)}
               placeholder={t("securityAudit.backendExportLabelPlaceholder")}
               maxLength={80}
-              className="w-64 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="w-64 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50 dark:placeholder:text-slate-300"
             />
             <button
               type="button"
               onClick={handleBackendExport}
               disabled={backendExporting || loading}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-700"
             >
               <Download size={16} />
               {backendExporting ? t("securityAudit.backendExportRunning") : t("securityAudit.backendExport")}
@@ -1157,13 +1157,13 @@ export default function SecurityAuditPage() {
                     <button
                       type="button"
                       onClick={() => dismissBackendExportJob(job.id)}
-                      className="rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                      className="rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
                       aria-label={t("securityAudit.backendExportDismiss")}
                       title={t("securityAudit.backendExportDismiss")}
                     >
                       <X size={14} />
                     </button>
-                    <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                    <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
                       {job.status}
                     </span>
                     {job.status === "completed" && job.artifactPath ? (
@@ -1218,7 +1218,7 @@ export default function SecurityAuditPage() {
                   type="button"
                   onClick={() => setExportJobsPage((prev) => Math.max(prev - 1, 1))}
                   disabled={exportJobsPage <= 1}
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-700"
                 >
                   {t("common.prev")}
                 </button>
@@ -1226,7 +1226,7 @@ export default function SecurityAuditPage() {
                   type="button"
                   onClick={() => setExportJobsPage((prev) => Math.min(prev + 1, exportJobPages))}
                   disabled={exportJobsPage >= exportJobPages}
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-700"
                 >
                   {t("common.next")}
                 </button>
@@ -1253,7 +1253,7 @@ export default function SecurityAuditPage() {
                 setAnomalyAlertsPageSize(Number(e.target.value));
                 setAnomalyAlertsPage(1);
               }}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50"
             >
               {[5, 10].map((value) => (
                 <option key={value} value={value}>
@@ -1261,7 +1261,7 @@ export default function SecurityAuditPage() {
                 </option>
               ))}
             </select>
-            <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+            <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
               {t("securityAudit.anomaliesOpenCount", { count: anomalyAlertsTotal })}
             </div>
           </div>
@@ -1278,7 +1278,7 @@ export default function SecurityAuditPage() {
                 className={`rounded-full border px-3 py-1 text-xs transition ${
                   active
                     ? "border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900"
-                    : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                    : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
                 }`}
               >
                 {t(`securityAudit.alertStatus.${value}`)}
@@ -1343,7 +1343,7 @@ export default function SecurityAuditPage() {
                     <button
                       type="button"
                       onClick={() => toggleAlertExpanded(alert.id)}
-                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-700"
                     >
                       {expandedAlerts[alert.id]
                         ? t("securityAudit.alert.hideWorkflow")
@@ -1443,7 +1443,7 @@ export default function SecurityAuditPage() {
                             !alertDrafts[alert.id]?.classification ||
                             String(alert.status || "").toLowerCase() === "resolved"
                           }
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                          className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-700"
                         >
                           {t("securityAudit.alert.actions.classify")}
                         </button>
@@ -1451,7 +1451,7 @@ export default function SecurityAuditPage() {
                           type="button"
                           onClick={() => handleAlertAction(alert, "assign")}
                           disabled={alertBusyKey === `${alert.id}:assign` || String(alert.status || "").toLowerCase() === "resolved"}
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                          className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-700"
                         >
                           {t("securityAudit.alert.actions.assign")}
                         </button>
@@ -1548,7 +1548,7 @@ export default function SecurityAuditPage() {
           <button
             type="button"
             onClick={clearFilters}
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-700"
           >
             {t("common.clear")}
           </button>
@@ -1767,7 +1767,7 @@ export default function SecurityAuditPage() {
               type="button"
               onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
               disabled={page <= 1 || loading}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-700"
             >
               {t("common.prev")}
             </button>
@@ -1775,7 +1775,7 @@ export default function SecurityAuditPage() {
               type="button"
               onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
               disabled={page >= totalPages || loading}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-700"
             >
               {t("common.next")}
             </button>
