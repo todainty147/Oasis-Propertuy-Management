@@ -276,6 +276,96 @@ export default function Dashboard({
     [attentionRows, dueSoonCount, hubExtras, hubHorizon, leaseAttentionRows, t]
   );
 
+  const normalizePayStatus = (status) => {
+    const s = String(status || "").toLowerCase();
+    if (["paid", "opłacone", "oplacone"].includes(s)) return "paid";
+    if (["due", "oczekujące", "oczekujace", "pending"].includes(s)) return "due";
+    if (["overdue", "zaległe", "zalegle"].includes(s)) return "overdue";
+    return "other";
+  };
+
+  const overdueAmount = (payments ?? [])
+    .filter((p) => normalizePayStatus(p.status) === "overdue")
+    .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  const overdueAmountView = Number(snapshotView.overdue_amount || overdueAmount);
+  const unassignedWorkOrdersCount = Number(snapshotView.unassigned_work_orders || 0);
+  const waiting48hCount = Number(snapshotView.waiting_over_48h || 0);
+  const maintenanceStarted =
+    Number(snapshotView.open_requests || 0) > 0 ||
+    unassignedWorkOrdersCount > 0 ||
+    waiting48hCount > 0;
+  const overdueTrend = deltaMeta(
+    snapshotView.overdue_current_window_amount,
+    snapshotView.overdue_previous_window_amount
+  );
+
+  const overdueTrendLabel = (() => {
+    if (!Number.isFinite(overdueTrend.delta) || overdueTrend.delta === 0) return t("dashboard.hub.trend.flat");
+    const up = overdueTrend.delta > 0;
+    if (overdueTrend.pct == null) {
+      return up
+        ? t("dashboard.hub.trend.upAmount", { value: formatCurrencyAmount(Math.abs(overdueTrend.delta)) })
+        : t("dashboard.hub.trend.downAmount", { value: formatCurrencyAmount(Math.abs(overdueTrend.delta)) });
+    }
+    return up
+      ? t("dashboard.hub.trend.upPct", { value: Math.abs(overdueTrend.pct) })
+      : t("dashboard.hub.trend.downPct", { value: Math.abs(overdueTrend.pct) });
+  })();
+
+  const leaseSummaryView = leaseSummary ?? {
+    total: 0,
+    expiringSoonCount: 0,
+    expiredCount: 0,
+    renewalInProgressCount: 0,
+  };
+
+  const onboardingItems = useMemo(
+    () => [
+      {
+        key: "property",
+        title: t("dashboard.onboarding.items.property.title"),
+        body: t("dashboard.onboarding.items.property.body"),
+        complete: (properties || []).length > 0,
+        href: "/properties",
+        icon: Home,
+      },
+      {
+        key: "tenant",
+        title: t("dashboard.onboarding.items.tenant.title"),
+        body: t("dashboard.onboarding.items.tenant.body"),
+        complete: (tenants || []).length > 0,
+        href: "/invitations",
+        icon: UserPlus,
+      },
+      {
+        key: "payment",
+        title: t("dashboard.onboarding.items.payment.title"),
+        body: t("dashboard.onboarding.items.payment.body"),
+        complete: (payments || []).length > 0,
+        href: "/finance",
+        icon: Wallet,
+      },
+      {
+        key: "maintenance",
+        title: t("dashboard.onboarding.items.maintenance.title"),
+        body: t("dashboard.onboarding.items.maintenance.body"),
+        complete: maintenanceStarted,
+        href: "/maintenance-inbox",
+        icon: Wrench,
+      },
+      {
+        key: "contractor",
+        title: t("dashboard.onboarding.items.contractor.title"),
+        body: t("dashboard.onboarding.items.contractor.body"),
+        complete: contractorCount > 0,
+        href: "/invitations",
+        icon: BriefcaseBusiness,
+      },
+    ],
+    [contractorCount, maintenanceStarted, payments, properties, t, tenants]
+  );
+  const onboardingCompleteCount = onboardingItems.filter((item) => item.complete).length;
+
   /* ---------- LOADING ---------- */
   if (loading) return <DashboardSkeleton />;
 
@@ -402,95 +492,6 @@ export default function Dashboard({
   /* =========================================================
      NON-TENANT VIEW (OPERATIONS HUB)
      ========================================================= */
-  const normalizePayStatus = (status) => {
-    const s = String(status || "").toLowerCase();
-    if (["paid", "opłacone", "oplacone"].includes(s)) return "paid";
-    if (["due", "oczekujące", "oczekujace", "pending"].includes(s)) return "due";
-    if (["overdue", "zaległe", "zalegle"].includes(s)) return "overdue";
-    return "other";
-  };
-
-  const overdueAmount = (payments ?? [])
-    .filter((p) => normalizePayStatus(p.status) === "overdue")
-    .reduce((s, p) => s + (Number(p.amount) || 0), 0);
-  const overdueAmountView = Number(snapshotView.overdue_amount || overdueAmount);
-  const unassignedWorkOrdersCount = Number(snapshotView.unassigned_work_orders || 0);
-  const waiting48hCount = Number(snapshotView.waiting_over_48h || 0);
-  const maintenanceStarted =
-    Number(snapshotView.open_requests || 0) > 0 ||
-    unassignedWorkOrdersCount > 0 ||
-    waiting48hCount > 0;
-  const overdueTrend = deltaMeta(
-    snapshotView.overdue_current_window_amount,
-    snapshotView.overdue_previous_window_amount
-  );
-
-  const overdueTrendLabel = (() => {
-    if (!Number.isFinite(overdueTrend.delta) || overdueTrend.delta === 0) return t("dashboard.hub.trend.flat");
-    const up = overdueTrend.delta > 0;
-    if (overdueTrend.pct == null) {
-      return up
-        ? t("dashboard.hub.trend.upAmount", { value: formatCurrencyAmount(Math.abs(overdueTrend.delta)) })
-        : t("dashboard.hub.trend.downAmount", { value: formatCurrencyAmount(Math.abs(overdueTrend.delta)) });
-    }
-    return up
-      ? t("dashboard.hub.trend.upPct", { value: Math.abs(overdueTrend.pct) })
-      : t("dashboard.hub.trend.downPct", { value: Math.abs(overdueTrend.pct) });
-  })();
-
-  const leaseSummaryView = leaseSummary ?? {
-    total: 0,
-    expiringSoonCount: 0,
-    expiredCount: 0,
-    renewalInProgressCount: 0,
-  };
-
-  const onboardingItems = useMemo(
-    () => [
-      {
-        key: "property",
-        title: t("dashboard.onboarding.items.property.title"),
-        body: t("dashboard.onboarding.items.property.body"),
-        complete: (properties || []).length > 0,
-        href: "/properties",
-        icon: Home,
-      },
-      {
-        key: "tenant",
-        title: t("dashboard.onboarding.items.tenant.title"),
-        body: t("dashboard.onboarding.items.tenant.body"),
-        complete: (tenants || []).length > 0,
-        href: "/invitations",
-        icon: UserPlus,
-      },
-      {
-        key: "payment",
-        title: t("dashboard.onboarding.items.payment.title"),
-        body: t("dashboard.onboarding.items.payment.body"),
-        complete: (payments || []).length > 0,
-        href: "/finance",
-        icon: Wallet,
-      },
-      {
-        key: "maintenance",
-        title: t("dashboard.onboarding.items.maintenance.title"),
-        body: t("dashboard.onboarding.items.maintenance.body"),
-        complete: maintenanceStarted,
-        href: "/maintenance-inbox",
-        icon: Wrench,
-      },
-      {
-        key: "contractor",
-        title: t("dashboard.onboarding.items.contractor.title"),
-        body: t("dashboard.onboarding.items.contractor.body"),
-        complete: contractorCount > 0,
-        href: "/invitations",
-        icon: BriefcaseBusiness,
-      },
-    ],
-    [contractorCount, maintenanceStarted, payments, properties, t, tenants]
-  );
-  const onboardingCompleteCount = onboardingItems.filter((item) => item.complete).length;
 
   function dismissChecklist() {
     if (!activeAccountId) return;
