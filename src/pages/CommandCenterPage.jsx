@@ -36,7 +36,9 @@ function formatCreatedAt(value) {
 }
 
 function itemTitle(item, t) {
-  if (item.source === "automation_runs" && item.title) return item.title;
+  if ((item.source === "automation_runs" || item.source === "security_anomaly_alerts") && item.title) {
+    return item.title;
+  }
   return t(`attentionCenter.kind.${item.kind}`);
 }
 
@@ -199,6 +201,7 @@ export default function CommandCenterPage() {
       { channel: `command-center-compliance:${activeAccountId}`, table: "compliance_items", filter: `account_id=eq.${activeAccountId}` },
       { channel: `command-center-notifications:${activeAccountId}`, table: "notifications", filter: `account_id=eq.${activeAccountId}` },
       { channel: `command-center-automation-runs:${activeAccountId}`, table: "automation_runs", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `command-center-security-alerts:${activeAccountId}`, table: "security_anomaly_alerts", filter: `account_id=eq.${activeAccountId}` },
       { channel: `command-center-tenants:${activeAccountId}`, table: "tenants", filter: `account_id=eq.${activeAccountId}` },
     ],
     onChange: loadData,

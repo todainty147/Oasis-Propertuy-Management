@@ -20,7 +20,10 @@ language sql
 security definer
 set search_path = public
 as $$
-  with req as (
+  with authz as (
+    select public.assert_manage_account_access(p_account_id) as account_id
+  ),
+  req as (
     select
       id,
       property_id,
@@ -29,7 +32,8 @@ as $$
       created_at,
       updated_at
     from maintenance_requests
-    where account_id = p_account_id
+    cross join authz a
+    where account_id = a.account_id
   ),
   wo as (
     select

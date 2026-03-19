@@ -577,6 +577,7 @@ declare
   v_uid uuid := auth.uid();
   v_member_role text;
   v_is_root boolean := false;
+  v_previous_disabled boolean;
 begin
   if v_uid is null then
     raise exception 'Not authenticated';
@@ -631,6 +632,7 @@ declare
   v_uid uuid := auth.uid();
   v_member_role text;
   v_is_root boolean := false;
+  v_previous_disabled boolean := false;
 begin
   if v_uid is null then
     raise exception 'Not authenticated';
@@ -665,6 +667,12 @@ begin
     raise exception 'Cannot disable root account';
   end if;
 
+  select coalesce(a.is_disabled, false)
+  into v_previous_disabled
+  from public.accounts a
+  where a.id = p_target_account_id
+  limit 1;
+
   update public.accounts a
   set
     is_disabled = coalesce(p_disabled, false),
@@ -675,10 +683,132 @@ begin
     raise exception 'Target account not found';
   end if;
 
+  if coalesce(v_previous_disabled, false) is distinct from coalesce(p_disabled, false) then
+    perform public.log_security_event(
+      p_target_account_id,
+      case when coalesce(p_disabled, false) then 'account_disabled' else 'account_enabled' end,
+      'account',
+      p_target_account_id,
+      jsonb_build_object(
+        'target_account_id', p_target_account_id,
+        'root_account_id', p_root_account_id,
+        'old_is_disabled', coalesce(v_previous_disabled, false),
+        'new_is_disabled', coalesce(p_disabled, false)
+      )
+    );
+  end if;
+
   return jsonb_build_object(
     'ok', true,
     'account_id', p_target_account_id,
     'is_disabled', coalesce(p_disabled, false)
+  );
+end;
+$$;
+
+drop function if exists public.account_member_set_role(uuid, uuid, text);
+create or replace function public.account_member_set_role(
+  p_account_id uuid,
+  p_target_user_id uuid,
+  p_new_role text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_current_role text;
+  v_new_role text := lower(trim(coalesce(p_new_role, '')));
+  v_new_member_role public.account_members.role%type;
+  v_has_admin boolean := false;
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_account_id is null then
+    raise exception 'Missing account id';
+  end if;
+
+  if p_target_user_id is null then
+    raise exception 'Missing target user';
+  end if;
+
+  if v_new_role = '' then
+    raise exception 'Missing role';
+  end if;
+
+  perform public.assert_manage_account_access(p_account_id);
+
+  select exists (
+    select 1
+    from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    join pg_enum e on e.enumtypid = t.oid
+    where n.nspname = 'public'
+      and t.typname = 'account_role'
+      and e.enumlabel = 'admin'
+  )
+  into v_has_admin;
+
+  if v_new_role = 'admin' and not v_has_admin then
+    v_new_role := 'staff';
+  end if;
+
+  if not public.can_invite_account_role(p_account_id, v_new_role) then
+    raise exception 'Insufficient permission to assign this role';
+  end if;
+
+  v_new_member_role := v_new_role;
+
+  select lower(am.role::text)
+  into v_current_role
+  from public.account_members am
+  where am.account_id = p_account_id
+    and am.user_id = p_target_user_id
+  limit 1;
+
+  if v_current_role is null then
+    raise exception 'Target member not found';
+  end if;
+
+  if v_current_role = v_new_role then
+    return jsonb_build_object(
+      'ok', true,
+      'account_id', p_account_id,
+      'user_id', p_target_user_id,
+      'role', v_current_role,
+      'changed', false
+    );
+  end if;
+
+  update public.account_members am
+  set role = v_new_member_role
+  where am.account_id = p_account_id
+    and am.user_id = p_target_user_id;
+
+  perform public.log_security_event(
+    p_account_id,
+    'role_changed',
+    'account_member',
+    p_target_user_id,
+    jsonb_build_object(
+      'target_user_id', p_target_user_id,
+      'old_role', v_current_role,
+      'new_role', v_new_role,
+      'change_source', 'admin_role_edit'
+    )
+  );
+
+  return jsonb_build_object(
+    'ok', true,
+    'account_id', p_account_id,
+    'user_id', p_target_user_id,
+    'old_role', v_current_role,
+    'role', v_new_role,
+    'changed', true
   );
 end;
 $$;
@@ -738,6 +868,17 @@ begin
     raise exception 'Target account not found';
   end if;
 
+  perform public.log_security_event(
+    p_root_account_id,
+    'account_deleted',
+    'account',
+    p_target_account_id,
+    jsonb_build_object(
+      'target_account_id', p_target_account_id,
+      'root_account_id', p_root_account_id
+    )
+  );
+
   return jsonb_build_object(
     'ok', true,
     'account_id', p_target_account_id
@@ -763,6 +904,7 @@ declare
   v_role text;
   v_has_admin boolean := false;
   v_member_role public.account_members.role%type;
+  v_previous_role text;
 begin
   if v_uid is null then
     raise exception 'Not authenticated';
@@ -809,6 +951,13 @@ begin
   end if;
   v_member_role := v_role;
 
+  select lower(am.role::text)
+  into v_previous_role
+  from public.account_members am
+  where am.account_id = v_inv.account_id
+    and am.user_id = v_uid
+  limit 1;
+
   insert into public.account_members(account_id, user_id, role)
   values (v_inv.account_id, v_uid, v_member_role)
   on conflict (account_id, user_id) do update set role = excluded.role;
@@ -818,11 +967,46 @@ begin
       accepted_by = v_uid
   where id = v_inv.id;
 
+  perform public.log_security_event(
+    v_inv.account_id,
+    'invite_accepted',
+    'account_invitation',
+    v_inv.id,
+    jsonb_strip_nulls(
+      jsonb_build_object(
+        'invite_id', v_inv.id,
+        'accepted_user_id', v_uid,
+        'invited_role', v_role,
+        'email', lower(v_inv.email),
+        'account_id', v_inv.account_id
+      )
+    )
+  );
+
+  if v_previous_role is not null and v_previous_role is distinct from v_role then
+    perform public.log_security_event(
+      v_inv.account_id,
+      'role_changed',
+      'account_member',
+      v_uid,
+      jsonb_strip_nulls(
+        jsonb_build_object(
+          'target_user_id', v_uid,
+          'old_role', v_previous_role,
+          'new_role', v_role,
+          'change_source', 'invite_acceptance',
+          'invite_id', v_inv.id
+        )
+      )
+    );
+  end if;
+
   return jsonb_build_object('ok', true, 'account_id', v_inv.account_id, 'role', v_role);
 end;
 $$;
 
 grant execute on function public.accept_account_invite(text) to authenticated;
+grant execute on function public.account_member_set_role(uuid, uuid, text) to authenticated;
 grant execute on function public.can_invite_account_role(uuid, text) to authenticated;
 grant execute on function public.create_landlord_invitation(uuid, text, text) to authenticated;
 grant execute on function public.root_list_accounts(uuid) to authenticated;

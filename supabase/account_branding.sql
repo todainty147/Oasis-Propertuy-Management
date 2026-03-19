@@ -33,8 +33,7 @@ before update on public.account_branding
 for each row
 execute function public.account_branding_set_updated_at();
 
--- Back-compat helper for RLS predicates.
-create or replace function public.user_can_manage_account(p_account_id uuid)
+create or replace function public.user_is_root_operator()
 returns boolean
 language sql
 stable
@@ -44,10 +43,99 @@ as $$
   select exists (
     select 1
     from public.account_members am
-    where am.account_id = p_account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
+    join public.accounts a on a.id = am.account_id
+    where am.user_id = auth.uid()
+      and coalesce(a.is_root, false) = true
   );
+$$;
+
+-- Back-compat helper for RLS predicates and SECURITY DEFINER access guards.
+create or replace function public.user_can_manage_account(p_account_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select (
+    public.user_is_root_operator()
+    or exists (
+      select 1
+      from public.account_members am
+      where am.account_id = p_account_id
+        and am.user_id = auth.uid()
+        and lower(am.role::text) in ('owner', 'admin', 'staff')
+    )
+  );
+$$;
+
+create or replace function public.assert_manage_account_access(p_account_id uuid)
+returns uuid
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_account_id is null then
+    raise exception 'Missing account id';
+  end if;
+
+  if not public.user_can_manage_account(p_account_id) then
+    raise exception 'Access denied';
+  end if;
+
+  return p_account_id;
+end;
+$$;
+
+create or replace function public.assert_tenant_scope_access(
+  p_account_id uuid,
+  p_tenant_id uuid default null
+)
+returns uuid
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_tenant_id uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_account_id is null then
+    raise exception 'Missing account id';
+  end if;
+
+  if public.user_can_manage_account(p_account_id) then
+    return p_tenant_id;
+  end if;
+
+  if p_tenant_id is null then
+    raise exception 'Access denied';
+  end if;
+
+  select t.id
+  into v_tenant_id
+  from public.tenants t
+  where t.id = p_tenant_id
+    and t.account_id = p_account_id
+    and t.user_id = auth.uid()
+  limit 1;
+
+  if v_tenant_id is null then
+    raise exception 'Access denied';
+  end if;
+
+  return v_tenant_id;
+end;
 $$;
 
 alter table public.account_branding enable row level security;
@@ -75,5 +163,7 @@ using (public.user_can_manage_account(account_id))
 with check (public.user_can_manage_account(account_id));
 
 grant select, insert, update on table public.account_branding to authenticated;
+grant execute on function public.user_is_root_operator() to authenticated;
 grant execute on function public.user_can_manage_account(uuid) to authenticated;
-
+grant execute on function public.assert_manage_account_access(uuid) to authenticated;
+grant execute on function public.assert_tenant_scope_access(uuid, uuid) to authenticated;

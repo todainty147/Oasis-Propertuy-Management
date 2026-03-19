@@ -30,3 +30,18 @@ export async function getAccountUserIds(accountId, roles = null) {
 
   return Array.from(new Set(ids));
 }
+
+export async function setAccountMemberRole({ accountId, targetUserId, role } = {}) {
+  if (!accountId) throw new Error("setAccountMemberRole: missing accountId");
+  if (!targetUserId) throw new Error("setAccountMemberRole: missing targetUserId");
+  if (!role) throw new Error("setAccountMemberRole: missing role");
+
+  const { data, error } = await supabase.rpc("account_member_set_role", {
+    p_account_id: accountId,
+    p_target_user_id: targetUserId,
+    p_new_role: role,
+  });
+
+  if (error) throw error;
+  return data;
+}

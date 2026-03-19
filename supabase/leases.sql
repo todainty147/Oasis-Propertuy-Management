@@ -204,6 +204,9 @@ as $$
       greatest(1, least(coalesce(p_limit, 10), 50)) as max_items,
       greatest(1, least(coalesce(p_expiring_days, 60), 365)) as expiring_days
   ),
+  authz as (
+    select public.assert_manage_account_access(p_account_id) as account_id
+  ),
   scoped_leases as (
     select
       l.id,
@@ -214,9 +217,10 @@ as $$
       coalesce(t.name, '—') as tenant_label,
       (l.lease_end_date - current_date)::int as days_until_end
     from public.leases l
+    cross join authz a
     left join public.properties p on p.id = l.property_id
     left join public.tenants t on t.id = l.tenant_id
-    where l.account_id = p_account_id
+    where l.account_id = a.account_id
   ),
   items as (
     select

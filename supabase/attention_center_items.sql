@@ -23,6 +23,9 @@ as $$
   with cfg as (
     select greatest(1, least(coalesce(p_limit, 60), 200)) as max_items
   ),
+  authz as (
+    select public.assert_manage_account_access(p_account_id) as account_id
+  ),
   scoped_payments as (
     select
       p.id,
@@ -35,9 +38,10 @@ as $$
       coalesce(pr.address, '—') as property_label,
       coalesce(t.name, '—') as tenant_label
     from public.payments p
+    cross join authz a
     left join public.properties pr on pr.id = p.property_id
     left join public.tenants t on t.id = p.tenant_id
-    where p.account_id = p_account_id
+    where p.account_id = a.account_id
   ),
   payment_items as (
     select

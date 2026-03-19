@@ -1,6 +1,6 @@
 // src/services/documentService.js
 import { supabase } from "../lib/supabase";
-import { assertFiles } from "../utils/validation";
+import { assertFiles, assertUuid } from "../utils/validation";
 import { createSignedStorageUrl } from "./storageUrlService";
 
 /* ======================
@@ -146,6 +146,8 @@ export async function fetchDocuments({
   onlyUploaded = true, // ✅ keeps UI clean by default
 } = {}) {
   if (!accountId) return [];
+  const safeTenantId = tenantId ? assertUuid(tenantId, "Invalid tenant id") : null;
+  const safePropertyId = propertyId ? assertUuid(propertyId, "Invalid property id") : null;
 
   let query = supabase
     .from("documents")
@@ -155,10 +157,10 @@ export async function fetchDocuments({
 
   if (onlyUploaded) query = query.eq("upload_status", "uploaded");
 
-  if (propertyId) query = query.eq("property_id", propertyId);
+  if (safePropertyId) query = query.eq("property_id", safePropertyId);
 
   // Tenant switcher logic (intentional)
-  if (tenantId) query = query.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
+  if (safeTenantId) query = query.or(`tenant_id.eq.${safeTenantId},tenant_id.is.null`);
 
   if (tag) query = query.contains("tags", [tag]);
 
@@ -181,6 +183,8 @@ export async function searchDocuments({
   onlyUploaded = true,
 } = {}) {
   if (!accountId) return [];
+  const safeTenantId = tenantId ? assertUuid(tenantId, "Invalid tenant id") : null;
+  const safePropertyId = propertyId ? assertUuid(propertyId, "Invalid property id") : null;
 
   let q = supabase
     .from("documents")
@@ -194,9 +198,9 @@ export async function searchDocuments({
 
   if (tags.length > 0) q = q.contains("tags", tags);
 
-  if (propertyId) q = q.eq("property_id", propertyId);
+  if (safePropertyId) q = q.eq("property_id", safePropertyId);
 
-  if (tenantId) q = q.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
+  if (safeTenantId) q = q.or(`tenant_id.eq.${safeTenantId},tenant_id.is.null`);
 
   const { data, error } = await q;
   if (error) throw error;

@@ -65,14 +65,31 @@ Deno.serve(async (req) => {
           const item = sub.items.data[0];
 
           if (accountId) {
+            const [{ data: existingAccount }, { data: existingSubscription }] = await Promise.all([
+              admin
+                .from("accounts")
+                .select("subscription_plan, subscription_status")
+                .eq("id", accountId)
+                .maybeSingle(),
+              admin
+                .from("billing_subscriptions")
+                .select("stripe_price_id, status")
+                .eq("account_id", accountId)
+                .maybeSingle(),
+            ]);
+
+            const nextPlan = sub.metadata?.plan_key || null;
+            const nextStatus = sub.status;
+            const nextPriceId = item?.price?.id || "";
+
             await admin.from("billing_subscriptions").upsert({
               account_id: accountId,
               stripe_customer_id: String(sub.customer),
               stripe_subscription_id: sub.id,
-              stripe_price_id: item?.price?.id || "",
+              stripe_price_id: nextPriceId,
               stripe_product_id:
                 typeof item?.price?.product === "string" ? item.price.product : null,
-              status: sub.status,
+              status: nextStatus,
               current_period_start: toIso(sub.current_period_start),
               current_period_end: toIso(sub.current_period_end),
               cancel_at_period_end: sub.cancel_at_period_end,
@@ -83,14 +100,42 @@ Deno.serve(async (req) => {
             await admin
               .from("accounts")
               .update({
-                subscription_status: sub.status,
-                subscription_plan: sub.metadata?.plan_key || null,
+                subscription_status: nextStatus,
+                subscription_plan: nextPlan,
                 subscription_renews_at: toIso(sub.current_period_end),
-                billing_locked_at: ["canceled", "unpaid", "incomplete_expired"].includes(sub.status)
+                billing_locked_at: ["canceled", "unpaid", "incomplete_expired"].includes(nextStatus)
                   ? new Date().toISOString()
                   : null,
               })
               .eq("id", accountId);
+
+            if (
+              existingAccount?.subscription_plan !== nextPlan ||
+              existingAccount?.subscription_status !== nextStatus ||
+              existingSubscription?.stripe_price_id !== nextPriceId ||
+              existingSubscription?.status !== nextStatus
+            ) {
+              const { error: securityLogError } = await admin.rpc("log_security_event", {
+                p_account_id: accountId,
+                p_action: "billing_plan_changed",
+                p_entity_type: "account",
+                p_entity_id: accountId,
+                p_metadata: {
+                  stripe_event_id: event.id,
+                  stripe_subscription_id: sub.id,
+                  old_plan: existingAccount?.subscription_plan || null,
+                  new_plan: nextPlan,
+                  old_status: existingAccount?.subscription_status || existingSubscription?.status || null,
+                  new_status: nextStatus,
+                  old_price_id: existingSubscription?.stripe_price_id || null,
+                  new_price_id: nextPriceId || null,
+                },
+              });
+
+              if (securityLogError) {
+                throw securityLogError;
+              }
+            }
           }
           break;
         }

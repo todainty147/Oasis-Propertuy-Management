@@ -18,16 +18,16 @@ import {
   ChevronRight,
   AlertCircle,
   Zap,
+  Shield,
 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "../context/AccountContext";
-import { useTenant } from "../context/TenantContext";
-import { useTenants } from "../hooks/useTenants";
 import { useI18n } from "../context/I18nContext";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { isManageRole } from "../utils/permissions";
+import TenantSwitcher from "../components/TenantSwitcher";
 
 /* ======================
    NAV ITEM
@@ -70,40 +70,6 @@ function AccountSwitcher() {
       {accounts.map((a) => (
         <option key={a.id} value={a.id}>
           {a.name}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-/* ======================
-   TENANT SWITCHER
-   ====================== */
-
-function TenantSwitcher() {
-  const { activeAccountId } = useAccount();
-  const { activeTenantId, setActiveTenantId, clearTenant } = useTenant();
-  const { t } = useI18n();
-
-  const { tenants, loading } = useTenants({
-    enabled: !!activeAccountId,
-  });
-
-  if (!activeAccountId) return null;
-
-  return (
-    <select
-      value={activeTenantId ?? ""}
-      disabled={loading}
-      onChange={(e) =>
-        e.target.value ? setActiveTenantId(e.target.value) : clearTenant()
-      }
-      className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 disabled:bg-slate-100 dark:disabled:bg-slate-800"
-    >
-      <option value="">{t("tenant.allTenants")}</option>
-      {tenants.map((t) => (
-        <option key={t.id} value={t.id}>
-          {t.name}
         </option>
       ))}
     </select>
@@ -215,7 +181,10 @@ function SidebarContent({ onNavigate }) {
       {/* Tenant switcher (only owner/admin/staff) */}
       {canManage && (
         <div className="px-4 mb-4">
-          <TenantSwitcher />
+          <TenantSwitcher
+            showWhenEmpty
+            className="w-full border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 disabled:bg-slate-100 dark:disabled:bg-slate-800"
+          />
         </div>
       )}
 
@@ -318,6 +287,7 @@ function SidebarContent({ onNavigate }) {
                     <Item to="/invitations" icon={UserPlus} label={t("sidebar.invitations")} onNavigate={onNavigate} />
                     <Item to="/settings/billing" icon={CreditCard} label={t("sidebar.billing")} onNavigate={onNavigate} />
                     <Item to="/settings/playbooks" icon={Zap} label={t("sidebar.playbooks")} onNavigate={onNavigate} />
+                    <Item to="/settings/security-audit" icon={Shield} label={t("sidebar.securityAudit")} onNavigate={onNavigate} />
                     {role === "owner" && (
                       <Item to="/settings/branding" icon={Palette} label={t("sidebar.branding")} onNavigate={onNavigate} />
                     )}

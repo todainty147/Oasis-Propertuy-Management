@@ -230,6 +230,9 @@ as $$
       greatest(1, least(coalesce(p_due_soon_days, 14), 90)) as due_soon_days,
       greatest(1, least(coalesce(p_limit, 25), 200)) as max_items
   ),
+  authz as (
+    select public.assert_manage_account_access(p_account_id) as account_id
+  ),
   scoped_tasks as (
     select
       t.id,
@@ -241,9 +244,10 @@ as $$
       (t.next_due_date - current_date)::int as days_until_due,
       coalesce(c.name, '') as assigned_to_label
     from public.preventive_maintenance_tasks t
+    cross join authz a
     left join public.properties p on p.id = t.property_id
     left join public.contractors c on c.id = t.assigned_to_contractor_id
-    where t.account_id = p_account_id
+    where t.account_id = a.account_id
       and lower(coalesce(t.status, 'active')) = 'active'
   ),
   items as (
@@ -280,9 +284,20 @@ as $$
     where st.next_due_date >= current_date
       and st.next_due_date <= current_date + (cfg.due_soon_days || ' days')::interval
   )
-  select *
-  from items
-  order by sort_order, next_due_date asc nulls last, title
+  select
+    i.item_key,
+    i.item_type,
+    i.property_id,
+    i.property_label,
+    i.title,
+    i.category,
+    i.next_due_date,
+    i.days_until_due,
+    i.assigned_to_label,
+    i.link_path,
+    i.sort_order
+  from items i
+  order by i.sort_order, i.next_due_date asc nulls last, i.title, i.item_key
   limit (select max_items from cfg);
 $$;
 

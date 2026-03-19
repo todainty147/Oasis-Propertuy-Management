@@ -36,6 +36,27 @@ as $$
   with cfg as (
     select greatest(1, least(coalesce(p_limit, 80), 200)) as max_items
   ),
+  authz as (
+    select public.assert_manage_account_access(p_account_id) as account_id
+  ),
+  security_cfg as (
+    select
+      coalesce((
+        select s.surface_security_alerts_in_command_center
+        from public.account_security_settings s
+        where s.account_id = p_account_id
+      ), true) as enabled,
+      coalesce((
+        select lower(s.security_command_center_min_severity)
+        from public.account_security_settings s
+        where s.account_id = p_account_id
+      ), 'urgent') as min_severity,
+      coalesce((
+        select s.security_command_center_include_suspicious
+        from public.account_security_settings s
+        where s.account_id = p_account_id
+      ), true) as include_suspicious
+  ),
   scoped_payments as (
     select
       p.id,
@@ -49,9 +70,10 @@ as $$
       coalesce(pr.address, '—') as property_label,
       coalesce(t.name, '—') as tenant_label
     from public.payments p
+    cross join authz a
     left join public.properties pr on pr.id = p.property_id
     left join public.tenants t on t.id = p.tenant_id
-    where p.account_id = p_account_id
+    where p.account_id = a.account_id
   ),
   payment_items as (
     select
@@ -869,6 +891,56 @@ as $$
         )
       )
   ),
+  security_alert_items as (
+    select
+      'security-alert-' || sa.id::text as item_key,
+      'security_alert'::text as item_type,
+      'security'::text as category,
+      lower(coalesce(sa.severity, 'action'))::text as severity,
+      case
+        when lower(coalesce(sa.severity, '')) = 'urgent' then 'urgent'
+        when lower(coalesce(sa.classification, '')) = 'suspicious' then 'action'
+        else 'recent'
+      end::text as bucket,
+      'security_alert'::text as entity_type,
+      sa.id::text as entity_id,
+      coalesce(sa.title, 'Security alert') as title,
+      coalesce(sa.summary, '') as body,
+      '/settings/security-audit'::text as link_path,
+      null::uuid as property_id,
+      ''::text as property_label,
+      null::uuid as tenant_id,
+      ''::text as tenant_label,
+      coalesce(sa.alert_type, 'security_alert')::text as entity_label,
+      ''::text as contractor_label,
+      null::numeric as amount,
+      floor(extract(epoch from (now() - coalesce(sa.last_seen_at, sa.created_at))) / 3600)::int as age_hours,
+      null::int as due_days,
+      coalesce(sa.last_seen_at, sa.created_at) as created_at,
+      lower(coalesce(sa.status, 'open')) = 'resolved' as resolved_state,
+      'security_anomaly_alerts'::text as source_table,
+      18 as sort_order
+    from public.security_anomaly_alerts sa
+    cross join security_cfg sc
+    where sa.account_id = p_account_id
+      and sc.enabled
+      and lower(coalesce(sa.status, 'open')) in ('open', 'acknowledged')
+      and (
+        lower(coalesce(sa.alert_type, '')) = 'cross_role_admin_activity'
+        or (
+          sc.min_severity = 'action'
+          and lower(coalesce(sa.severity, '')) in ('urgent', 'action')
+        )
+        or (
+          sc.min_severity = 'urgent'
+          and lower(coalesce(sa.severity, '')) = 'urgent'
+        )
+        or (
+          sc.include_suspicious
+          and lower(coalesce(sa.classification, '')) = 'suspicious'
+        )
+      )
+  ),
   unioned as (
     select * from payment_items
     union all select * from request_without_work_order
@@ -889,6 +961,7 @@ as $$
     union all select * from compliance_missing_setup
     union all select * from notification_items
     union all select * from automation_items
+    union all select * from security_alert_items
   )
   select
     u.item_key,

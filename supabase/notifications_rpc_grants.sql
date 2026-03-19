@@ -1,5 +1,11 @@
--- Ensure all authenticated users can call notification RPCs
--- (especially tenant/contractor clients that need to trigger notifications).
+-- Ensure authenticated users can call notification RPCs.
+--
+-- IMPORTANT:
+-- - This grant assumes public.create_notifications performs its own
+--   server-side authorization and recipient/account validation.
+-- - The create_notifications function body is not stored in this repository,
+--   so its live implementation must be reviewed directly in Supabase before
+--   the notification write path can be considered fully remediated.
 
 DO $$
 DECLARE

@@ -44,13 +44,17 @@ as $$
       ('smoke_alarm_check'::text),
       ('landlord_licensing'::text)
   ),
+  authz as (
+    select public.assert_manage_account_access(p_account_id) as account_id
+  ),
   scoped_properties as (
     select
       p.id,
       coalesce(p.address, '') as property_label,
       coalesce(p.rent, 0)::numeric as monthly_rent
     from public.properties p
-    where p.account_id = p_account_id
+    cross join authz a
+    where p.account_id = a.account_id
       and (p_property_id is null or p.id = p_property_id)
     order by p.address asc
     limit greatest(coalesce(p_limit, 200), 1)

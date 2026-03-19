@@ -21,6 +21,9 @@ as $$
   with cfg as (
     select greatest(1, least(coalesce(p_recent_limit, 12), 50)) as recent_limit
   ),
+  authz as (
+    select public.assert_manage_account_access(p_account_id) as account_id
+  ),
   settings_rows as (
     select
       ars.rule_id,
@@ -28,7 +31,8 @@ as $$
       ars.config,
       ars.updated_at
     from public.automation_rule_settings ars
-    where ars.account_id = p_account_id
+    cross join authz a
+    where ars.account_id = a.account_id
   ),
   open_run_count_rows as (
     select

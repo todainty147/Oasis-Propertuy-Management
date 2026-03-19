@@ -8,11 +8,24 @@ returns table (
   expected_income numeric,
   property_finance jsonb
 )
-language sql
+language plpgsql
 security definer
 set search_path = public
 as $$
-  with scoped_payments as (
+declare
+  v_tenant_id uuid;
+begin
+  v_tenant_id := public.assert_tenant_scope_access(p_account_id, p_tenant_id);
+
+  return query
+  with tenant_scope as (
+    select t.property_id
+    from public.tenants t
+    where t.id = v_tenant_id
+      and t.account_id = p_account_id
+    limit 1
+  ),
+  scoped_payments as (
     select
       p.id,
       p.property_id,
@@ -24,8 +37,8 @@ as $$
     from payments p
     where p.account_id = p_account_id
       and (
-        p_tenant_id is null
-        or p.tenant_id = p_tenant_id
+        v_tenant_id is null
+        or p.tenant_id = v_tenant_id
       )
   ),
   scoped_properties as (
@@ -37,12 +50,8 @@ as $$
     from properties pr
     where pr.account_id = p_account_id
       and (
-        p_tenant_id is null
-        or exists (
-          select 1
-          from scoped_payments sp
-          where sp.property_id = pr.id
-        )
+        v_tenant_id is null
+        or pr.id = (select property_id from tenant_scope)
       )
   ),
   finance_totals as (
@@ -148,6 +157,7 @@ as $$
     finance_totals.expected_income,
     property_json.property_finance
   from finance_totals, property_json;
+end;
 $$;
 
 grant execute on function public.finance_snapshot(uuid, uuid) to authenticated;

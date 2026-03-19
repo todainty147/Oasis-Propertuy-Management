@@ -20,11 +20,17 @@ as $$
   with cfg as (
     select greatest(1, least(coalesce(p_horizon_days, 1), 30)) as horizon_days
   ),
+  authz as (
+    select
+      p_account_id as account_id,
+      public.assert_tenant_scope_access(p_account_id, p_tenant_id) as tenant_id
+  ),
   tenant_scope as (
     select t.property_id
     from tenants t
-    where t.id = p_tenant_id
-      and t.account_id = p_account_id
+    cross join authz a
+    where t.id = a.tenant_id
+      and t.account_id = a.account_id
     limit 1
   ),
   due_soon as (

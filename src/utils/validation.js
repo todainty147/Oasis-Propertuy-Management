@@ -1,5 +1,6 @@
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_ALLOWED_RE = /^[0-9+\-()\s.]+$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function isBlank(value) {
   return !String(value ?? "").trim();
@@ -24,6 +25,12 @@ export function assertEmail(email, message = "Valid email required") {
   const clean = normalizeText(email).toLowerCase();
   if (!EMAIL_RE.test(clean)) throw new Error(message);
   return clean;
+}
+
+export function assertUuid(value, message = "Invalid id") {
+  const clean = normalizeText(value);
+  if (!UUID_RE.test(clean)) throw new Error(message);
+  return clean.toLowerCase();
 }
 
 export function assertPhone(phone, { required = false, message } = {}) {
