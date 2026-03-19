@@ -1,0 +1,83 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run fast Vitest suite
+        run: npm run test:unit:run
+
+  integration-tests:
+    name: Integration Isolation Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+
+      - name: Start local Supabase
+        run: npx supabase start
+
+      - name: Export local Supabase env for integration harness
+        run: |
+          npx supabase status -o env >> "$GITHUB_ENV"
+          echo "TEST_USER_PASSWORD=OasisTest123!" >> "$GITHUB_ENV"
+
+      - name: Load baseline schema
+        run: |
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=0 \
+            --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+            --file "supabase/baseline_schema.sql"
+
+      - name: Apply invite and membership SQL overlay
+        run: |
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+            --file "supabase/account_invitations_saas.sql"
+
+      - name: Seed integration harness
+        run: npm run test:integration:seed
+
+      - name: Run integration isolation suite
+        run: npm run test:integration:run
+
+      - name: Stop local Supabase
+        if: always()
+        run: npx supabase stop

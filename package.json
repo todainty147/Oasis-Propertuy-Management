@@ -7,10 +7,17 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:unit": "vitest",
+    "test:unit:run": "vitest run",
+    "test:integration": "vitest --config vitest.integration.config.js",
+    "test:integration:run": "vitest run --config vitest.integration.config.js",
+    "test:integration:seed": "node tests/integration/bootstrapLocalSupabase.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.89.0",
+    "@supabase/supabase-js": "^2.99.2",
     "@tailwindcss/vite": "^4.1.18",
     "lucide-react": "^0.560.0",
     "react": "^19.2.0",
@@ -28,6 +35,8 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
-    "vite": "^7.2.4"
+    "supabase": "^2.82.0",
+    "vite": "^7.2.4",
+    "vitest": "^4.1.0"
   }
 }

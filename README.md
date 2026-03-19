@@ -289,3 +289,25 @@ Subscribe to:
 
 - Checkout opens but still asks for immediate payment
   Confirm `STRIPE_TEST_TRIAL_DAYS` is set and the checkout function has been redeployed.
+
+## Test Branch Protection
+
+OASIS now ships a GitHub Actions workflow at [tests.yml](/mnt/c/Users/Home/oasisrentalmanagementapp/.github/workflows/tests.yml) with two required lanes:
+
+- `Unit Tests`
+- `Integration Isolation Tests`
+
+Recommended GitHub branch protection for `main`:
+
+1. Open GitHub repository settings.
+2. Go to `Branches`.
+3. Add or edit the protection rule for `main`.
+4. Enable `Require a pull request before merging`.
+5. Enable `Require status checks to pass before merging`.
+6. Mark these checks as required:
+   - `Unit Tests`
+   - `Integration Isolation Tests`
+
+Why both checks matter:
+- `Unit Tests` gives fast feedback on fixture, service, and SQL contract regressions.
+- `Integration Isolation Tests` proves the real local-Supabase authenticated isolation suite still passes before merge.

@@ -1,0 +1,86 @@
+# Local Supabase Integration Harness
+
+This harness is the first honest step toward end-to-end RPC isolation tests.
+
+What it assumes:
+- you have a local Supabase project already running
+- the local database already has the OASIS schema/RPC SQL applied
+- you provide local test credentials in `.env.integration.local`
+
+Preflight behavior:
+- if local Supabase is not running, the seed script now fails with a direct connectivity message
+- if the local database is missing baseline OASIS tables, the seed script reports exactly which core tables are missing
+
+What it does:
+- creates deterministic auth users by fixture email
+- seeds fixed account/property/tenant/contractor/payment/request/work-order rows
+- signs in as real users against the local Supabase Auth service
+- allows integration tests to call real RPCs under authenticated sessions
+
+Current file structure:
+- `tests/integration/dashboard_snapshot.test.js`
+- `tests/integration/finance_snapshot.test.js`
+- `tests/integration/tenant_activity_feed.test.js`
+- `tests/integration/command_center_items.test.js`
+- `tests/integration/attention_center_items.test.js`
+- `tests/integration/portfolio_attention_items.test.js`
+- `tests/integration/portfolio_health_snapshot.test.js`
+- `tests/integration/contractor_work_order_cards.test.js`
+- `tests/integration/accept_account_invite.test.js`
+- `tests/integration/contractor_financial_workflow.test.js`
+- shared harness helpers stay under `tests/integration/helpers/`
+
+Behavior notes:
+- manager-only feeds like `attention_center_items` and `command_center_items` deny tenant/contractor access
+- mixed-scope feeds like `portfolio_attention_items` and `portfolio_health_snapshot` allow tenant self-scope but deny cross-tenant scope
+- `contractor_work_order_cards` is intentionally contractor-filtered by `auth.uid()` and returns an empty set for non-contractors instead of throwing
+- `accept_account_invite` is covered with real authenticated invite acceptance, replay, revoked, and email-mismatch scenarios
+- `accept_account_invite` now rejects expired invites server-side when `expires_at` is set in the past
+- contractor financial workflow coverage now exercises quote draft save, quote submit, manager reject/approve, and invoice save-after-approval with real authenticated role boundaries
+
+Recommended local flow:
+1. Start local Supabase.
+2. Load `supabase/baseline_schema.sql` into your local database.
+3. Apply additive SQL overlays that are newer than the baseline you loaded. For the current invite-membership suite, make sure `supabase/account_invitations_saas.sql` is applied after the baseline.
+4. Copy `.env.integration.example` to `.env.integration.local`.
+5. Set `TEST_SUPABASE_URL`, `TEST_SUPABASE_ANON_KEY`, and `TEST_SUPABASE_SERVICE_ROLE_KEY`.
+6. Apply the invite overlay if your local baseline does not already include it:
+
+```bash
+PGPASSWORD=postgres psql \
+  --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+  --file "supabase/account_invitations_saas.sql"
+```
+
+7. Seed the harness:
+
+```bash
+npm run test:integration:seed
+```
+
+8. Run the integration suite:
+
+```bash
+npm run test:integration:run
+```
+
+CI structure:
+- fast Vitest/source tests run via `npm run test:unit:run`
+- authenticated local Supabase integration tests run via `npm run test:integration:seed` and `npm run test:integration:run`
+- the GitHub Actions integration lane starts a local Supabase stack, loads `supabase/baseline_schema.sql`, applies `supabase/account_invitations_saas.sql`, seeds the harness, and then runs the integration suite
+
+CI env and secrets:
+- the checked-in GitHub Actions workflow uses local Supabase in CI, so it does not require hosted Supabase secrets
+- integration env values are populated from the local CLI stack with `supabase status -o env`
+- `TEST_USER_PASSWORD` is set in the workflow for deterministic fixture auth bootstrap
+- if you later move this lane to a non-local Supabase target, you will need to provide:
+  - `TEST_SUPABASE_URL`
+  - `TEST_SUPABASE_ANON_KEY`
+  - `TEST_SUPABASE_SERVICE_ROLE_KEY`
+  - `TEST_USER_PASSWORD`
+
+Why this harness is additive:
+- it does not replace the existing fast unit/source Vitest suite
+- it does not invent a second fixture vocabulary
+- it reuses the seeded logical identities from `tests/fixtures/isolationFixtures.js`
+- it uses real authenticated Supabase clients for future deny-vs-filtered assertions

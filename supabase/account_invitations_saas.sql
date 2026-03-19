@@ -7,6 +7,7 @@ create table if not exists public.account_invitations (
   role text not null,
   token text not null unique,
   invited_by uuid null references auth.users(id) on delete set null,
+  expires_at timestamptz null,
   accepted_by uuid null references auth.users(id) on delete set null,
   accepted_at timestamptz null,
   revoked_at timestamptz null,
@@ -17,6 +18,7 @@ create table if not exists public.account_invitations (
 -- Backfill columns for legacy installations where account_invitations already exists
 alter table public.account_invitations
   add column if not exists invited_by uuid null references auth.users(id) on delete set null,
+  add column if not exists expires_at timestamptz null,
   add column if not exists accepted_by uuid null references auth.users(id) on delete set null,
   add column if not exists accepted_at timestamptz null,
   add column if not exists revoked_at timestamptz null,
@@ -930,6 +932,10 @@ begin
 
   if v_inv.accepted_at is not null then
     return jsonb_build_object('ok', true, 'already_accepted', true, 'account_id', v_inv.account_id);
+  end if;
+
+  if v_inv.expires_at is not null and v_inv.expires_at <= now() then
+    raise exception 'Invitation expired';
   end if;
 
   v_role := lower(coalesce(v_inv.role::text, 'staff'));
