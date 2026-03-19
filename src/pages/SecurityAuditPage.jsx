@@ -7,6 +7,7 @@ import {
   Download,
   Shield,
   ShieldAlert,
+  Trash2,
   X,
 } from "lucide-react";
 
@@ -48,6 +49,7 @@ const DEFAULT_FILTERS = {
 };
 
 const ALERT_CLASSIFICATIONS = ["suspicious", "expected", "false_positive", "informational"];
+const HIDDEN_EXPORT_JOBS_STORAGE_KEY = "securityAuditHiddenExportJobs";
 
 function filtersFromSearchParams(searchParams) {
   return {
@@ -152,6 +154,10 @@ function summarizeMetadata(metadata, t) {
   }
 
   return parts.length > 0 ? parts.join(" • ") : t("securityAudit.metadata.empty");
+}
+
+function hiddenExportJobsKey(accountId) {
+  return `${HIDDEN_EXPORT_JOBS_STORAGE_KEY}:${accountId || "unknown"}`;
 }
 
 function AuditRow({ row, expanded, onToggle, onReview, t }) {
@@ -289,6 +295,14 @@ export default function SecurityAuditPage() {
   const [alertDrafts, setAlertDrafts] = useState({});
   const [alertBusyKey, setAlertBusyKey] = useState("");
   const [exportJobs, setExportJobs] = useState([]);
+  const [anomalyAlertsTotal, setAnomalyAlertsTotal] = useState(0);
+  const [anomalyAlertsPage, setAnomalyAlertsPage] = useState(1);
+  const [anomalyAlertsPageSize, setAnomalyAlertsPageSize] = useState(5);
+  const [exportJobsTotal, setExportJobsTotal] = useState(0);
+  const [exportJobsPage, setExportJobsPage] = useState(1);
+  const [exportJobsPageSize, setExportJobsPageSize] = useState(5);
+  const [hiddenExportJobIds, setHiddenExportJobIds] = useState([]);
+  const [backendExportLabel, setBackendExportLabel] = useState("");
   const [securitySettings, setSecuritySettings] = useState(null);
   const [securitySettingsDraft, setSecuritySettingsDraft] = useState(null);
   const [selectedEventId, setSelectedEventId] = useState(() => searchParams.get("event") || "");
@@ -321,8 +335,15 @@ export default function SecurityAuditPage() {
       const [events, nextFacets, nextAlerts, nextJobs, nextAssignees, nextSecuritySettings] = await Promise.all([
         listSecurityAuditEvents(activeAccountId, { ...filters, page, pageSize }),
         listSecurityAuditFilterOptions(activeAccountId),
-        listSecurityAnomalyAlerts(activeAccountId, { status: alertStatus, limit: 8 }),
-        listSecurityAuditExportJobs(activeAccountId, { limit: 8 }),
+        listSecurityAnomalyAlerts(activeAccountId, {
+          status: alertStatus,
+          page: anomalyAlertsPage,
+          pageSize: anomalyAlertsPageSize,
+        }),
+        listSecurityAuditExportJobs(activeAccountId, {
+          page: exportJobsPage,
+          pageSize: exportJobsPageSize,
+        }),
         listSecurityAlertAssignees(activeAccountId),
         getAccountSecuritySettings(activeAccountId),
       ]);
@@ -330,8 +351,10 @@ export default function SecurityAuditPage() {
       setRows(events.rows);
       setTotal(events.total);
       setFacets(nextFacets);
-      setAnomalyAlerts(nextAlerts);
-      setExportJobs(nextJobs);
+      setAnomalyAlerts(nextAlerts.rows);
+      setAnomalyAlertsTotal(nextAlerts.total);
+      setExportJobs(nextJobs.rows);
+      setExportJobsTotal(nextJobs.total);
       setAlertAssignees(nextAssignees);
       setSecuritySettings(nextSecuritySettings);
       setSecuritySettingsDraft((prev) => {
@@ -345,7 +368,9 @@ export default function SecurityAuditPage() {
       setRows([]);
       setTotal(0);
       setAnomalyAlerts([]);
+      setAnomalyAlertsTotal(0);
       setExportJobs([]);
+      setExportJobsTotal(0);
       setAlertAssignees([]);
       setSecuritySettings(null);
       setSecuritySettingsDraft(null);
@@ -359,12 +384,47 @@ export default function SecurityAuditPage() {
     if (!activeAccountId || !canManage) return;
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeAccountId, alertStatus, canManage, page, pageSize, filters]);
+  }, [
+    activeAccountId,
+    alertStatus,
+    anomalyAlertsPage,
+    anomalyAlertsPageSize,
+    canManage,
+    exportJobsPage,
+    exportJobsPageSize,
+    page,
+    pageSize,
+    filters,
+  ]);
 
   useEffect(() => {
     setSecuritySettings(null);
     setSecuritySettingsDraft(null);
   }, [activeAccountId]);
+
+  useEffect(() => {
+    if (!activeAccountId) {
+      setHiddenExportJobIds([]);
+      return;
+    }
+
+    try {
+      const raw = localStorage.getItem(hiddenExportJobsKey(activeAccountId));
+      const parsed = raw ? JSON.parse(raw) : [];
+      setHiddenExportJobIds(Array.isArray(parsed) ? parsed.filter(Boolean) : []);
+    } catch {
+      setHiddenExportJobIds([]);
+    }
+  }, [activeAccountId]);
+
+  useEffect(() => {
+    if (!activeAccountId) return;
+    try {
+      localStorage.setItem(hiddenExportJobsKey(activeAccountId), JSON.stringify(hiddenExportJobIds));
+    } catch {
+      // ignore localStorage failures
+    }
+  }, [activeAccountId, hiddenExportJobIds]);
 
   useRealtimeTables({
     enabled: !!activeAccountId && canManage,
@@ -451,6 +511,7 @@ export default function SecurityAuditPage() {
   }
 
   function setAlertStatusFilter(nextStatus) {
+    setAnomalyAlertsPage(1);
     setAlertStatus(nextStatus);
   }
 
@@ -625,9 +686,12 @@ export default function SecurityAuditPage() {
       setBackendExporting(true);
       setError("");
       setInfo("");
-      const job = await requestSecurityAuditBackendExport(activeAccountId, filters);
+      const job = await requestSecurityAuditBackendExport(activeAccountId, filters, {
+        requestedLabel: backendExportLabel,
+      });
       await runSecurityAuditExportJob(job.id);
       await load();
+      setBackendExportLabel("");
       setInfo(t("securityAudit.backendExportRequested"));
     } catch (e) {
       setError(e?.message || t("securityAudit.backendExportError"));
@@ -647,6 +711,14 @@ export default function SecurityAuditPage() {
     } finally {
       setDownloadingJobId("");
     }
+  }
+
+  function dismissBackendExportJob(jobId) {
+    setHiddenExportJobIds((prev) => (prev.includes(jobId) ? prev : [...prev, jobId]));
+  }
+
+  function restoreHiddenBackendExports() {
+    setHiddenExportJobIds([]);
   }
 
   function updateSecuritySetting(key, value) {
@@ -743,6 +815,9 @@ export default function SecurityAuditPage() {
 
   const totalPages = Math.max(Math.ceil(total / pageSize), 1);
   const shouldRecommendBackendExport = total > SECURITY_AUDIT_BACKEND_EXPORT_THRESHOLD;
+  const visibleExportJobs = exportJobs.filter((job) => !hiddenExportJobIds.includes(job.id));
+  const anomalyAlertPages = Math.max(Math.ceil(anomalyAlertsTotal / anomalyAlertsPageSize), 1);
+  const exportJobPages = Math.max(Math.ceil(exportJobsTotal / exportJobsPageSize), 1);
 
   if (!canManage) {
     return (
@@ -769,13 +844,33 @@ export default function SecurityAuditPage() {
 
       {error ? (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
-          {error}
+          <div className="flex items-start justify-between gap-3">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={() => setError("")}
+              className="rounded-lg border border-rose-300 px-2 py-1 text-xs transition hover:bg-rose-100 dark:border-rose-800 dark:hover:bg-rose-900/40"
+              aria-label={t("common.close")}
+            >
+              <X size={14} />
+            </button>
+          </div>
         </div>
       ) : null}
 
       {info ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
-          {info}
+          <div className="flex items-start justify-between gap-3">
+            <span>{info}</span>
+            <button
+              type="button"
+              onClick={() => setInfo("")}
+              className="rounded-lg border border-emerald-300 px-2 py-1 text-xs transition hover:bg-emerald-100 dark:border-emerald-800 dark:hover:bg-emerald-900/40"
+              aria-label={t("securityAudit.dismissNotice")}
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -986,15 +1081,48 @@ export default function SecurityAuditPage() {
                 : t("securityAudit.backendExportsSubtitle")}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleBackendExport}
-            disabled={backendExporting || loading}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-          >
-            <Download size={16} />
-            {backendExporting ? t("securityAudit.backendExportRunning") : t("securityAudit.backendExport")}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={String(exportJobsPageSize)}
+              onChange={(e) => {
+                setExportJobsPageSize(Number(e.target.value));
+                setExportJobsPage(1);
+              }}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            >
+              {[5, 10].map((value) => (
+                <option key={value} value={value}>
+                  {t("securityAudit.pageSize", { count: value })}
+                </option>
+              ))}
+            </select>
+            {hiddenExportJobIds.length > 0 ? (
+              <button
+                type="button"
+                onClick={restoreHiddenBackendExports}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                {t("securityAudit.backendExportsShowHidden", { count: hiddenExportJobIds.length })}
+              </button>
+            ) : null}
+            <input
+              type="text"
+              value={backendExportLabel}
+              onChange={(e) => setBackendExportLabel(e.target.value)}
+              placeholder={t("securityAudit.backendExportLabelPlaceholder")}
+              maxLength={80}
+              className="w-64 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+            <button
+              type="button"
+              onClick={handleBackendExport}
+              disabled={backendExporting || loading}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              <Download size={16} />
+              {backendExporting ? t("securityAudit.backendExportRunning") : t("securityAudit.backendExport")}
+            </button>
+          </div>
         </div>
 
         {exportJobs.length === 0 ? (
@@ -1003,7 +1131,12 @@ export default function SecurityAuditPage() {
           </div>
         ) : (
           <div className="mt-4 space-y-3">
-            {exportJobs.map((job) => (
+            {visibleExportJobs.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-300">
+                {t("securityAudit.backendExportsPageHidden")}
+              </div>
+            ) : null}
+            {visibleExportJobs.map((job) => (
               <div
                 key={job.id}
                 className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
@@ -1011,7 +1144,7 @@ export default function SecurityAuditPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {t("securityAudit.backendExportJobLabel", { id: shortenId(job.id) })}
+                      {job.displayLabel || t("securityAudit.backendExportJobLabel", { id: shortenId(job.id) })}
                     </p>
                     <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       {t("securityAudit.backendExportJobMeta", {
@@ -1021,6 +1154,15 @@ export default function SecurityAuditPage() {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => dismissBackendExportJob(job.id)}
+                      className="rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                      aria-label={t("securityAudit.backendExportDismiss")}
+                      title={t("securityAudit.backendExportDismiss")}
+                    >
+                      <X size={14} />
+                    </button>
                     <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                       {job.status}
                     </span>
@@ -1063,6 +1205,33 @@ export default function SecurityAuditPage() {
                 ) : null}
               </div>
             ))}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3 dark:border-slate-800">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t("securityAudit.pagination", {
+                  from: exportJobsTotal === 0 ? 0 : (exportJobsPage - 1) * exportJobsPageSize + 1,
+                  to: exportJobsTotal === 0 ? 0 : Math.min(exportJobsPage * exportJobsPageSize, exportJobsTotal),
+                  total: exportJobsTotal,
+                })}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setExportJobsPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={exportJobsPage <= 1}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  {t("common.prev")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExportJobsPage((prev) => Math.min(prev + 1, exportJobPages))}
+                  disabled={exportJobsPage >= exportJobPages}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  {t("common.next")}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </Card>
@@ -1077,8 +1246,24 @@ export default function SecurityAuditPage() {
               {t("securityAudit.anomaliesSubtitle")}
             </p>
           </div>
-          <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-            {t("securityAudit.anomaliesOpenCount", { count: anomalyAlerts.length })}
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={String(anomalyAlertsPageSize)}
+              onChange={(e) => {
+                setAnomalyAlertsPageSize(Number(e.target.value));
+                setAnomalyAlertsPage(1);
+              }}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            >
+              {[5, 10].map((value) => (
+                <option key={value} value={value}>
+                  {t("securityAudit.pageSize", { count: value })}
+                </option>
+              ))}
+            </select>
+            <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              {t("securityAudit.anomaliesOpenCount", { count: anomalyAlertsTotal })}
+            </div>
           </div>
         </div>
 
@@ -1107,213 +1292,246 @@ export default function SecurityAuditPage() {
             {t("securityAudit.anomaliesEmpty")}
           </div>
         ) : (
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {anomalyAlerts.map((alert) => (
-              <div key={alert.id} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{alert.title}</p>
-                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{alert.summary}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <span className={`rounded-full border px-2 py-1 text-xs ${alertStatusTone(alert.status)}`}>
-                      {alert.status}
-                    </span>
-                    <span className={`rounded-full border px-2 py-1 text-xs ${anomalySeverityTone(alert.severity)}`}>
-                      {alert.severity}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <DetailField
-                    label={t("securityAudit.columns.actor")}
-                    value={alert.actorLabel || alert.actorUserId || t("securityAudit.systemActor")}
-                  />
-                  <DetailField
-                    label={t("securityAudit.columns.entity")}
-                    value={alert.entityLabel || alert.entityType || "—"}
-                  />
-                  <DetailField label={t("securityAudit.anomaly.count")} value={String(alert.alertCount)} />
-                  <DetailField label={t("securityAudit.anomaly.lastSeen")} value={formatDateTime(alert.lastSeenAt)} />
-                  <DetailField
-                    label={t("securityAudit.alert.assignee")}
-                    value={alert.assignedToLabel || alert.assignedToUserId || "—"}
-                  />
-                  <DetailField
-                    label={t("securityAudit.alert.classification")}
-                    value={alert.classification || "—"}
-                  />
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => focusAnomalyAlert(alert)}
-                    className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
-                  >
-                    {t("securityAudit.anomaly.focus")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleAlertExpanded(alert.id)}
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                  >
-                    {expandedAlerts[alert.id]
-                      ? t("securityAudit.alert.hideWorkflow")
-                      : t("securityAudit.alert.showWorkflow")}
-                  </button>
-                </div>
-
-                {expandedAlerts[alert.id] ? (
-                  <div className="mt-4 space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/50">
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <DetailField
-                        label={t("securityAudit.alert.acknowledgedAt")}
-                        value={formatDateTime(alert.acknowledgedAt)}
-                      />
-                      <DetailField
-                        label={t("securityAudit.alert.acknowledgedBy")}
-                        value={alert.acknowledgedByLabel || alert.acknowledgedByUserId || "—"}
-                      />
-                      <DetailField
-                        label={t("securityAudit.alert.resolvedAt")}
-                        value={formatDateTime(alert.resolvedAt)}
-                      />
-                      <DetailField
-                        label={t("securityAudit.alert.resolvedBy")}
-                        value={alert.resolvedByLabel || alert.resolvedByUserId || "—"}
-                      />
+          <>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {anomalyAlerts.map((alert) => (
+                <div key={alert.id} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{alert.title}</p>
+                      <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{alert.summary}</p>
                     </div>
-
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <label className="space-y-1">
-                        <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                          {t("securityAudit.alert.classification")}
-                        </span>
-                        <select
-                          value={alertDrafts[alert.id]?.classification || ""}
-                          onChange={(e) => updateAlertDraft(alert.id, { classification: e.target.value })}
-                          disabled={String(alert.status || "").toLowerCase() === "resolved"}
-                          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                        >
-                          <option value="">{t("securityAudit.alert.classificationPlaceholder")}</option>
-                          {ALERT_CLASSIFICATIONS.map((value) => (
-                            <option key={value} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <label className="space-y-1">
-                        <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                          {t("securityAudit.alert.assignee")}
-                        </span>
-                        <select
-                          value={alertDrafts[alert.id]?.assignedToUserId || ""}
-                          onChange={(e) => updateAlertDraft(alert.id, { assignedToUserId: e.target.value })}
-                          disabled={String(alert.status || "").toLowerCase() === "resolved"}
-                          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                        >
-                          <option value="">{t("securityAudit.alert.unassigned")}</option>
-                          {alertAssignees.map((option) => (
-                            <option key={option.userId} value={option.userId}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-
-                    <label className="space-y-1">
-                      <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        {t("securityAudit.alert.resolutionNote")}
-                      </span>
-                      <textarea
-                        rows={3}
-                        value={alertDrafts[alert.id]?.resolutionNote || ""}
-                        onChange={(e) => updateAlertDraft(alert.id, { resolutionNote: e.target.value })}
-                        placeholder={t("securityAudit.alert.resolutionNotePlaceholder")}
-                        disabled={String(alert.status || "").toLowerCase() === "resolved"}
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                      />
-                    </label>
-
                     <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleAlertAction(alert, "acknowledge")}
-                        disabled={alertBusyKey === `${alert.id}:acknowledge` || String(alert.status || "").toLowerCase() !== "open"}
-                        className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
-                      >
-                        {t("securityAudit.alert.actions.acknowledge")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleAlertAction(alert, "classify")}
-                        disabled={
-                          alertBusyKey === `${alert.id}:classify` ||
-                          !alertDrafts[alert.id]?.classification ||
-                          String(alert.status || "").toLowerCase() === "resolved"
-                        }
-                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                      >
-                        {t("securityAudit.alert.actions.classify")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleAlertAction(alert, "assign")}
-                        disabled={alertBusyKey === `${alert.id}:assign` || String(alert.status || "").toLowerCase() === "resolved"}
-                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                      >
-                        {t("securityAudit.alert.actions.assign")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleAlertAction(alert, "resolve")}
-                        disabled={alertBusyKey === `${alert.id}:resolve` || String(alert.status || "").toLowerCase() === "resolved"}
-                        className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-950/60"
-                      >
-                        {t("securityAudit.alert.actions.resolve")}
-                      </button>
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        {t("securityAudit.alert.history")}
-                      </p>
-                      {(alertHistoryById[alert.id] || []).length === 0 ? (
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                          {t("securityAudit.alert.historyEmpty")}
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          {alertHistoryById[alert.id].map((entry) => (
-                            <div
-                              key={entry.id}
-                              className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
-                            >
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{entry.action}</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">{formatDateTime(entry.created_at)}</p>
-                              </div>
-                              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                {entry.actorLabel || entry.actor_user_id || t("securityAudit.systemActor")}
-                              </p>
-                              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                                {summarizeMetadata(entry.metadata, t)}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <span className={`rounded-full border px-2 py-1 text-xs ${alertStatusTone(alert.status)}`}>
+                        {alert.status}
+                      </span>
+                      <span className={`rounded-full border px-2 py-1 text-xs ${anomalySeverityTone(alert.severity)}`}>
+                        {alert.severity}
+                      </span>
                     </div>
                   </div>
-                ) : null}
+
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <DetailField
+                      label={t("securityAudit.columns.actor")}
+                      value={alert.actorLabel || alert.actorUserId || t("securityAudit.systemActor")}
+                    />
+                    <DetailField
+                      label={t("securityAudit.columns.entity")}
+                      value={alert.entityLabel || alert.entityType || "—"}
+                    />
+                    <DetailField label={t("securityAudit.anomaly.count")} value={String(alert.alertCount)} />
+                    <DetailField label={t("securityAudit.anomaly.lastSeen")} value={formatDateTime(alert.lastSeenAt)} />
+                    <DetailField
+                      label={t("securityAudit.alert.assignee")}
+                      value={alert.assignedToLabel || alert.assignedToUserId || "—"}
+                    />
+                    <DetailField
+                      label={t("securityAudit.alert.classification")}
+                      value={alert.classification || "—"}
+                    />
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => focusAnomalyAlert(alert)}
+                      className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                    >
+                      {t("securityAudit.anomaly.focus")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleAlertExpanded(alert.id)}
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                      {expandedAlerts[alert.id]
+                        ? t("securityAudit.alert.hideWorkflow")
+                        : t("securityAudit.alert.showWorkflow")}
+                    </button>
+                  </div>
+
+                  {expandedAlerts[alert.id] ? (
+                    <div className="mt-4 space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/50">
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <DetailField
+                          label={t("securityAudit.alert.acknowledgedAt")}
+                          value={formatDateTime(alert.acknowledgedAt)}
+                        />
+                        <DetailField
+                          label={t("securityAudit.alert.acknowledgedBy")}
+                          value={alert.acknowledgedByLabel || alert.acknowledgedByUserId || "—"}
+                        />
+                        <DetailField
+                          label={t("securityAudit.alert.resolvedAt")}
+                          value={formatDateTime(alert.resolvedAt)}
+                        />
+                        <DetailField
+                          label={t("securityAudit.alert.resolvedBy")}
+                          value={alert.resolvedByLabel || alert.resolvedByUserId || "—"}
+                        />
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <label className="space-y-1">
+                          <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            {t("securityAudit.alert.classification")}
+                          </span>
+                          <select
+                            value={alertDrafts[alert.id]?.classification || ""}
+                            onChange={(e) => updateAlertDraft(alert.id, { classification: e.target.value })}
+                            disabled={String(alert.status || "").toLowerCase() === "resolved"}
+                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                          >
+                            <option value="">{t("securityAudit.alert.classificationPlaceholder")}</option>
+                            {ALERT_CLASSIFICATIONS.map((value) => (
+                              <option key={value} value={value}>
+                                {value}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className="space-y-1">
+                          <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            {t("securityAudit.alert.assignee")}
+                          </span>
+                          <select
+                            value={alertDrafts[alert.id]?.assignedToUserId || ""}
+                            onChange={(e) => updateAlertDraft(alert.id, { assignedToUserId: e.target.value })}
+                            disabled={String(alert.status || "").toLowerCase() === "resolved"}
+                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                          >
+                            <option value="">{t("securityAudit.alert.unassigned")}</option>
+                            {alertAssignees.map((option) => (
+                              <option key={option.userId} value={option.userId}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+
+                      <label className="space-y-1">
+                        <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          {t("securityAudit.alert.resolutionNote")}
+                        </span>
+                        <textarea
+                          rows={3}
+                          value={alertDrafts[alert.id]?.resolutionNote || ""}
+                          onChange={(e) => updateAlertDraft(alert.id, { resolutionNote: e.target.value })}
+                          placeholder={t("securityAudit.alert.resolutionNotePlaceholder")}
+                          disabled={String(alert.status || "").toLowerCase() === "resolved"}
+                          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                        />
+                      </label>
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleAlertAction(alert, "acknowledge")}
+                          disabled={alertBusyKey === `${alert.id}:acknowledge` || String(alert.status || "").toLowerCase() !== "open"}
+                          className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                        >
+                          {t("securityAudit.alert.actions.acknowledge")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAlertAction(alert, "classify")}
+                          disabled={
+                            alertBusyKey === `${alert.id}:classify` ||
+                            !alertDrafts[alert.id]?.classification ||
+                            String(alert.status || "").toLowerCase() === "resolved"
+                          }
+                          className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                        >
+                          {t("securityAudit.alert.actions.classify")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAlertAction(alert, "assign")}
+                          disabled={alertBusyKey === `${alert.id}:assign` || String(alert.status || "").toLowerCase() === "resolved"}
+                          className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                        >
+                          {t("securityAudit.alert.actions.assign")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAlertAction(alert, "resolve")}
+                          disabled={alertBusyKey === `${alert.id}:resolve` || String(alert.status || "").toLowerCase() === "resolved"}
+                          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-950/60"
+                        >
+                          {t("securityAudit.alert.actions.resolve")}
+                        </button>
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          {t("securityAudit.alert.history")}
+                        </p>
+                        {(alertHistoryById[alert.id] || []).length === 0 ? (
+                          <p className="text-sm text-slate-500 dark:text-slate-400">
+                            {t("securityAudit.alert.historyEmpty")}
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {alertHistoryById[alert.id].map((entry) => (
+                              <div
+                                key={entry.id}
+                                className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{entry.action}</p>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">{formatDateTime(entry.created_at)}</p>
+                                </div>
+                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                  {entry.actorLabel || entry.actor_user_id || t("securityAudit.systemActor")}
+                                </p>
+                                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                                  {summarizeMetadata(entry.metadata, t)}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3 dark:border-slate-800">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t("securityAudit.pagination", {
+                  from: anomalyAlertsTotal === 0 ? 0 : (anomalyAlertsPage - 1) * anomalyAlertsPageSize + 1,
+                  to:
+                    anomalyAlertsTotal === 0
+                      ? 0
+                      : Math.min(anomalyAlertsPage * anomalyAlertsPageSize, anomalyAlertsTotal),
+                  total: anomalyAlertsTotal,
+                })}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAnomalyAlertsPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={anomalyAlertsPage <= 1}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  {t("common.prev")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAnomalyAlertsPage((prev) => Math.min(prev + 1, anomalyAlertPages))}
+                  disabled={anomalyAlertsPage >= anomalyAlertPages}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  {t("common.next")}
+                </button>
               </div>
-            ))}
-          </div>
+            </div>
+          </>
         )}
       </Card>
 

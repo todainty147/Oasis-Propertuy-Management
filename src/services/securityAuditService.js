@@ -30,6 +30,26 @@ function normalizeText(value) {
   return next || "";
 }
 
+function formatExportLabelDate(value) {
+  const next = value ? new Date(value) : null;
+  if (!next || Number.isNaN(next.getTime())) return "";
+  return next.toISOString().slice(0, 10);
+}
+
+function buildExportDisplayLabel(row) {
+  const explicit = normalizeText(row?.requested_label);
+  const datePart = formatExportLabelDate(row?.created_at);
+
+  if (explicit && datePart) return `${datePart} - ${explicit}`;
+  if (explicit) return explicit;
+
+  const filter = row?.filter_criteria || {};
+  const derived = [normalizeText(filter.action), normalizeText(filter.entityType)].filter(Boolean).join(" · ");
+  if (derived && datePart) return `${datePart} - ${derived}`;
+  if (datePart) return `${datePart} - security-audit-export`;
+  return "security-audit-export";
+}
+
 async function invokeEdgeFunction(name, body) {
   const {
     data: { session },
@@ -505,10 +525,16 @@ export async function listSecurityAuditFilterOptions(accountId, { limit = 300 } 
   };
 }
 
-export async function listSecurityAnomalyAlerts(accountId, { status = "active", limit = 12 } = {}) {
+export async function listSecurityAnomalyAlerts(
+  accountId,
+  { status = "active", page = 1, pageSize = 5 } = {},
+) {
   if (!accountId) throw new Error("Missing accountId");
 
-  const safeLimit = Math.min(Math.max(Number(limit) || 12, 1), 50);
+  const safePageSize = Math.min(Math.max(Number(pageSize) || 5, 1), 25);
+  const safePage = Math.max(Number(page) || 1, 1);
+  const from = (safePage - 1) * safePageSize;
+  const to = from + safePageSize - 1;
 
   let query = supabase
     .from("security_anomaly_alerts")
@@ -540,10 +566,11 @@ export async function listSecurityAnomalyAlerts(accountId, { status = "active", 
       updated_at,
       resolution_note
     `,
+      { count: "exact" },
     )
     .eq("account_id", accountId)
     .order("last_seen_at", { ascending: false })
-    .limit(safeLimit);
+    .range(from, to);
 
   if (status === "active") {
     query = query.in("status", ["open", "acknowledged"]);
@@ -551,45 +578,48 @@ export async function listSecurityAnomalyAlerts(accountId, { status = "active", 
     query = query.eq("status", String(status).trim().toLowerCase());
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
   if (error) throw error;
 
   const enrichedRows = await resolveSecurityAuditLabels(accountId, data ?? []);
 
-  return enrichedRows.map((row) => ({
-    id: row.id,
-    accountId: row.account_id,
-    alertType: row.alert_type,
-    severity: row.severity,
-    status: row.status,
-    actorUserId: row.actor_user_id,
-    actorLabel: row.actorLabel || "",
-    entityType: row.entity_type,
-    entityId: row.entity_id,
-    entityLabel: row.entityLabel || "",
-    title: row.title,
-    summary: row.summary,
-    metadata: row.metadata || {},
-    alertCount: Number(row.alert_count || 1),
-    classification: row.classification || "",
-    classifiedByUserId: row.classified_by_user_id || "",
-    classifiedByLabel: row.classifiedByLabel || "",
-    classifiedAt: row.classified_at,
-    assignedToUserId: row.assigned_to_user_id || "",
-    assignedToLabel: row.assignedToLabel || "",
-    assignedByUserId: row.assigned_by_user_id || "",
-    assignedAt: row.assigned_at,
-    acknowledgedByUserId: row.acknowledged_by_user_id || "",
-    acknowledgedByLabel: row.acknowledgedByLabel || "",
-    acknowledgedAt: row.acknowledged_at,
-    resolvedByUserId: row.resolved_by_user_id || "",
-    resolvedByLabel: row.resolvedByLabel || "",
-    resolvedAt: row.resolved_at,
-    resolutionNote: row.resolution_note || "",
-    createdAt: row.created_at,
-    lastSeenAt: row.last_seen_at,
-    updatedAt: row.updated_at,
-  }));
+  return {
+    rows: enrichedRows.map((row) => ({
+      id: row.id,
+      accountId: row.account_id,
+      alertType: row.alert_type,
+      severity: row.severity,
+      status: row.status,
+      actorUserId: row.actor_user_id,
+      actorLabel: row.actorLabel || "",
+      entityType: row.entity_type,
+      entityId: row.entity_id,
+      entityLabel: row.entityLabel || "",
+      title: row.title,
+      summary: row.summary,
+      metadata: row.metadata || {},
+      alertCount: Number(row.alert_count || 1),
+      classification: row.classification || "",
+      classifiedByUserId: row.classified_by_user_id || "",
+      classifiedByLabel: row.classifiedByLabel || "",
+      classifiedAt: row.classified_at,
+      assignedToUserId: row.assigned_to_user_id || "",
+      assignedToLabel: row.assignedToLabel || "",
+      assignedByUserId: row.assigned_by_user_id || "",
+      assignedAt: row.assigned_at,
+      acknowledgedByUserId: row.acknowledged_by_user_id || "",
+      acknowledgedByLabel: row.acknowledgedByLabel || "",
+      acknowledgedAt: row.acknowledged_at,
+      resolvedByUserId: row.resolved_by_user_id || "",
+      resolvedByLabel: row.resolvedByLabel || "",
+      resolvedAt: row.resolved_at,
+      resolutionNote: row.resolution_note || "",
+      createdAt: row.created_at,
+      lastSeenAt: row.last_seen_at,
+      updatedAt: row.updated_at,
+    })),
+    total: Number(count || 0),
+  };
 }
 
 export async function listSecurityAlertHistory(accountId, alertId, { limit = 20 } = {}) {
@@ -654,18 +684,25 @@ export async function applySecurityAlertWorkflow({
   return data;
 }
 
-export async function listSecurityAuditExportJobs(accountId, { limit = 8 } = {}) {
+export async function listSecurityAuditExportJobs(
+  accountId,
+  { page = 1, pageSize = 5 } = {},
+) {
   if (!accountId) throw new Error("Missing accountId");
 
-  const safeLimit = Math.min(Math.max(Number(limit) || 8, 1), MAX_BACKEND_EXPORT_JOB_ROWS);
+  const safePageSize = Math.min(Math.max(Number(pageSize) || 5, 1), 10);
+  const safePage = Math.max(Number(page) || 1, 1);
+  const from = (safePage - 1) * safePageSize;
+  const to = from + safePageSize - 1;
 
-  const { data, error } = await supabase
+  const { data, error, count } = await supabase
     .from("security_audit_export_jobs")
     .select(
       `
       id,
       account_id,
       requested_by_user_id,
+      requested_label,
       export_kind,
       format,
       status,
@@ -680,10 +717,11 @@ export async function listSecurityAuditExportJobs(accountId, { limit = 8 } = {})
       completed_at,
       expires_at
     `,
+      { count: "exact" },
     )
     .eq("account_id", accountId)
     .order("created_at", { ascending: false })
-    .limit(safeLimit);
+    .range(from, to);
 
   if (error) throw error;
 
@@ -695,28 +733,37 @@ export async function listSecurityAuditExportJobs(accountId, { limit = 8 } = {})
     })),
   );
 
-  return enrichedRows.map((row) => ({
-    id: row.id,
-    accountId: row.account_id,
-    requestedByUserId: row.requested_by_user_id,
-    requestedByLabel: row.actorLabel || "",
-    exportKind: row.export_kind,
-    format: row.format,
-    status: row.status,
-    filterCriteria: row.filter_criteria || {},
-    artifactBucket: row.artifact_bucket || "",
-    artifactPath: row.artifact_path || "",
-    rowCount: Number(row.row_count || 0),
-    fileSizeBytes: Number(row.file_size_bytes || 0),
-    errorSummary: row.error_summary || "",
-    createdAt: row.created_at,
-    startedAt: row.started_at,
-    completedAt: row.completed_at,
-    expiresAt: row.expires_at,
-  }));
+  return {
+    rows: enrichedRows.map((row) => ({
+      id: row.id,
+      accountId: row.account_id,
+      requestedByUserId: row.requested_by_user_id,
+      requestedByLabel: row.actorLabel || "",
+      requestedLabel: row.requested_label || "",
+      displayLabel: buildExportDisplayLabel(row),
+      exportKind: row.export_kind,
+      format: row.format,
+      status: row.status,
+      filterCriteria: row.filter_criteria || {},
+      artifactBucket: row.artifact_bucket || "",
+      artifactPath: row.artifact_path || "",
+      rowCount: Number(row.row_count || 0),
+      fileSizeBytes: Number(row.file_size_bytes || 0),
+      errorSummary: row.error_summary || "",
+      createdAt: row.created_at,
+      startedAt: row.started_at,
+      completedAt: row.completed_at,
+      expiresAt: row.expires_at,
+    })),
+    total: Number(count || 0),
+  };
 }
 
-export async function requestSecurityAuditBackendExport(accountId, filters = {}, { retentionDays = null } = {}) {
+export async function requestSecurityAuditBackendExport(
+  accountId,
+  filters = {},
+  { retentionDays = null, requestedLabel = "" } = {},
+) {
   if (!accountId) throw new Error("Missing accountId");
 
   const payload = {
@@ -733,6 +780,7 @@ export async function requestSecurityAuditBackendExport(accountId, filters = {},
     p_filter_criteria: payload,
     p_format: "csv",
     p_retention_days: retentionDays,
+    p_requested_label: normalizeText(requestedLabel) || null,
   });
 
   if (error) throw error;

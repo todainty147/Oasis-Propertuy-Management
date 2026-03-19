@@ -73,11 +73,15 @@ grant select, insert, update on table public.account_security_settings to authen
 alter table public.security_audit_export_jobs
   add column if not exists expired_at timestamptz null;
 
+alter table public.security_audit_export_jobs
+  add column if not exists requested_label text null;
+
 create or replace function public.request_security_audit_export(
   p_account_id uuid,
   p_filter_criteria jsonb default '{}'::jsonb,
   p_format text default 'csv',
-  p_retention_days integer default null
+  p_retention_days integer default null,
+  p_requested_label text default null
 )
 returns public.security_audit_export_jobs
 language plpgsql
@@ -90,6 +94,7 @@ declare
   v_config public.account_security_settings;
   v_retention_days integer;
   v_filter_criteria jsonb := coalesce(p_filter_criteria, '{}'::jsonb);
+  v_requested_label text := nullif(left(trim(coalesce(p_requested_label, '')), 80), '');
   v_job public.security_audit_export_jobs;
 begin
   v_account_id := public.assert_manage_account_access(p_account_id);
@@ -114,6 +119,7 @@ begin
   insert into public.security_audit_export_jobs (
     account_id,
     requested_by_user_id,
+    requested_label,
     export_kind,
     format,
     status,
@@ -123,6 +129,7 @@ begin
   values (
     v_account_id,
     auth.uid(),
+    v_requested_label,
     'security_audit_csv',
     v_format,
     'queued',

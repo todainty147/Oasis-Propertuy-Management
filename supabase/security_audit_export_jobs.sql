@@ -2,6 +2,7 @@ create table if not exists public.security_audit_export_jobs (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts(id) on delete cascade,
   requested_by_user_id uuid null references auth.users(id) on delete set null,
+  requested_label text null,
   export_kind text not null default 'security_audit_csv',
   format text not null default 'csv',
   status text not null default 'queued',
@@ -26,8 +27,14 @@ create table if not exists public.security_audit_export_jobs (
 comment on table public.security_audit_export_jobs is
   'Durable backend export jobs for large or long-retention security audit exports.';
 
+alter table public.security_audit_export_jobs
+  add column if not exists requested_label text null;
+
 comment on column public.security_audit_export_jobs.filter_criteria is
   'Normalized filter payload used to generate the export artifact.';
+
+comment on column public.security_audit_export_jobs.requested_label is
+  'Optional human-friendly label chosen by the requester for display and artifact naming.';
 
 create index if not exists security_audit_export_jobs_account_created_idx
   on public.security_audit_export_jobs(account_id, created_at desc);
@@ -80,7 +87,8 @@ create or replace function public.request_security_audit_export(
   p_account_id uuid,
   p_filter_criteria jsonb default '{}'::jsonb,
   p_format text default 'csv',
-  p_retention_days integer default 14
+  p_retention_days integer default 14,
+  p_requested_label text default null
 )
 returns public.security_audit_export_jobs
 language plpgsql
@@ -92,6 +100,7 @@ declare
   v_format text := lower(trim(coalesce(p_format, 'csv')));
   v_retention_days integer := greatest(1, least(coalesce(p_retention_days, 14), 30));
   v_filter_criteria jsonb := coalesce(p_filter_criteria, '{}'::jsonb);
+  v_requested_label text := nullif(left(trim(coalesce(p_requested_label, '')), 80), '');
   v_job public.security_audit_export_jobs;
 begin
   v_account_id := public.assert_manage_account_access(p_account_id);
@@ -103,6 +112,7 @@ begin
   insert into public.security_audit_export_jobs (
     account_id,
     requested_by_user_id,
+    requested_label,
     export_kind,
     format,
     status,
@@ -112,6 +122,7 @@ begin
   values (
     v_account_id,
     auth.uid(),
+    v_requested_label,
     'security_audit_csv',
     v_format,
     'queued',
@@ -124,9 +135,9 @@ begin
 end;
 $$;
 
-comment on function public.request_security_audit_export(uuid, jsonb, text, integer) is
+comment on function public.request_security_audit_export(uuid, jsonb, text, integer, text) is
   'Queues a durable backend security audit export job for the active account scope.';
 
-revoke all on function public.request_security_audit_export(uuid, jsonb, text, integer) from public;
-grant execute on function public.request_security_audit_export(uuid, jsonb, text, integer) to authenticated;
-grant execute on function public.request_security_audit_export(uuid, jsonb, text, integer) to service_role;
+revoke all on function public.request_security_audit_export(uuid, jsonb, text, integer, text) from public;
+grant execute on function public.request_security_audit_export(uuid, jsonb, text, integer, text) to authenticated;
+grant execute on function public.request_security_audit_export(uuid, jsonb, text, integer, text) to service_role;

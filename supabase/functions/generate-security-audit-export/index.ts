@@ -23,6 +23,7 @@ type ExportJobRow = {
   id: string;
   account_id: string;
   requested_by_user_id: string | null;
+  requested_label: string | null;
   format: string;
   status: string;
   filter_criteria: Record<string, unknown> | null;
@@ -78,7 +79,7 @@ Deno.serve(async (req) => {
 
     const { data, error: jobError } = await admin
       .from("security_audit_export_jobs")
-      .select("id, account_id, requested_by_user_id, format, status, filter_criteria, expires_at")
+      .select("id, account_id, requested_by_user_id, requested_label, format, status, filter_criteria, expires_at")
       .eq("id", jobId)
       .maybeSingle();
 
@@ -117,7 +118,8 @@ Deno.serve(async (req) => {
     const encoder = new TextEncoder();
     const csvBytes = encoder.encode(csv);
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const fileName = `security-audit-${timestamp}.csv`;
+    const labelPart = sanitizeFilePart(job.requested_label, "security-audit");
+    const fileName = `${labelPart}-${timestamp}.csv`;
     const artifactPath = `account/${job.account_id}/security_audit_exports/${job.id}/${fileName}`;
 
     const { error: uploadError } = await admin.storage
@@ -202,6 +204,17 @@ function normalizeFilters(input: Record<string, unknown> | null) {
 
 function normalizeText(value: unknown) {
   return String(value || "").trim();
+}
+
+function sanitizeFilePart(value: unknown, fallback: string) {
+  const next = String(value || fallback)
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w.-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return next || fallback;
 }
 
 function normalizeDateStart(value: string) {
