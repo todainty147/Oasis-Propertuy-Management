@@ -7,6 +7,21 @@ type InvitePayload = {
   accountName?: string;
 };
 
+type SecurityClassification = {
+  category: string;
+  kind: "authorization_denied" | "unexpected_security_failure";
+  surface: string;
+  reason: string | null;
+  outcome: "denied" | "error";
+  code: string | null;
+  hint: string | null;
+  accountId: string | null;
+  entityType: string | null;
+  entityId: string | null;
+  correlationId: string;
+  guardDenied: boolean;
+};
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -21,6 +36,107 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+function normalizeText(value: unknown) {
+  const next = String(value || "").trim().toLowerCase();
+  return next || null;
+}
+
+function scrubContext(input: Record<string, unknown> = {}) {
+  return Object.fromEntries(
+    Object.entries(input).filter(([key, value]) => {
+      if (["token", "inviteToken", "email", "body", "metadata", "rawPayload", "password", "accessToken"].includes(key)) {
+        return false;
+      }
+      if (value === undefined || value === null || value === "") return false;
+      return true;
+    }),
+  );
+}
+
+function classifyInviteFailure({
+  surface,
+  message,
+  accountId = null,
+  code = null,
+  hint = null,
+  entityType = null,
+  entityId = null,
+}: {
+  surface: string;
+  message: string;
+  accountId?: string | null;
+  code?: string | null;
+  hint?: string | null;
+  entityType?: string | null;
+  entityId?: string | null;
+}): SecurityClassification {
+  const normalizedMessage = String(message || "").trim().toLowerCase();
+  const authorizationDenied =
+    code === "401" ||
+    code === "403" ||
+    normalizedMessage.includes("permission denied") ||
+    normalizedMessage.includes("unauthorized") ||
+    normalizedMessage.includes("not allowed") ||
+    normalizedMessage.includes("forbidden") ||
+    normalizedMessage.includes("invite is not allowed");
+
+  return {
+    category: "invite_security",
+    kind: authorizationDenied ? "authorization_denied" : "unexpected_security_failure",
+    surface,
+    reason: normalizeText(message)?.replace(/\s+/g, "_") || null,
+    outcome: authorizationDenied ? "denied" : "error",
+    code,
+    hint: hint ? String(hint) : null,
+    accountId,
+    entityType,
+    entityId,
+    correlationId: crypto.randomUUID(),
+    guardDenied: false,
+  };
+}
+
+async function recordSecurityObservabilityEvent(
+  userClient: ReturnType<typeof createClient>,
+  userId: string,
+  classification: SecurityClassification,
+  context: Record<string, unknown> = {},
+) {
+  if (!classification.accountId) return;
+
+  const { data: canRecord, error: canRecordError } = await userClient.rpc(
+    "actor_can_record_security_denied_event",
+    { p_account_id: classification.accountId },
+  );
+  if (canRecordError || !canRecord) return;
+
+  const { data: actorRole } = await userClient.rpc("security_denied_event_actor_role", {
+    p_account_id: classification.accountId,
+  });
+
+  await admin.from("security_observability_events").insert({
+    account_id: classification.accountId,
+    actor_user_id: userId,
+    actor_role: actorRole || "authenticated",
+    category: classification.category,
+    kind: classification.kind,
+    surface: classification.surface,
+    reason: classification.reason,
+    outcome: classification.outcome,
+    code: classification.code,
+    guard_denied: classification.guardDenied,
+    entity_type: classification.entityType,
+    entity_id: classification.entityId,
+    correlation_id: classification.correlationId,
+    source: "edge_function_invite_user",
+    metadata: scrubContext({
+      hint: classification.hint,
+      role: context.role,
+      functionName: "invite-user",
+    }),
+  });
+}
 
 Deno.serve(async (req) => {
   try {
@@ -75,7 +191,16 @@ Deno.serve(async (req) => {
         p_email: email,
         p_account_name: accountName || null,
       });
-      if (error) return json({ error: error.message }, 400);
+      if (error) {
+        const classification = classifyInviteFailure({
+          surface: "create_landlord_invitation",
+          message: error.message,
+          accountId,
+          code: "403",
+        });
+        await recordSecurityObservabilityEvent(userClient, user.id, classification, { role });
+        return json({ error: error.message, classification }, 400);
+      }
 
       const invite = Array.isArray(data) ? data[0] : data;
       if (!invite?.token) return json({ error: "Landlord invitation token missing" }, 400);
@@ -92,8 +217,26 @@ Deno.serve(async (req) => {
           p_role: role,
         },
       );
-      if (eligibilityError) return json({ error: eligibilityError.message }, 400);
-      if (!eligibility?.ok) return json({ error: eligibility?.message || "Invite is not allowed" }, 400);
+      if (eligibilityError) {
+        const classification = classifyInviteFailure({
+          surface: "check_account_invitation_eligibility",
+          message: eligibilityError.message,
+          accountId,
+          code: "403",
+        });
+        await recordSecurityObservabilityEvent(userClient, user.id, classification, { role });
+        return json({ error: eligibilityError.message, classification }, 400);
+      }
+      if (!eligibility?.ok) {
+        const classification = classifyInviteFailure({
+          surface: "check_account_invitation_eligibility",
+          message: eligibility?.message || "Invite is not allowed",
+          accountId,
+          code: "403",
+        });
+        await recordSecurityObservabilityEvent(userClient, user.id, classification, { role });
+        return json({ error: eligibility?.message || "Invite is not allowed", classification }, 400);
+      }
 
       token = crypto.randomUUID();
       // Use user-scoped insert so existing RLS/policies remain the source of truth.
@@ -109,7 +252,16 @@ Deno.serve(async (req) => {
         .select("id, token")
         .single();
       if (inviteError || !inviteRow) {
-        return json({ error: inviteError?.message || "Failed to create invitation" }, 400);
+        const classification = classifyInviteFailure({
+          surface: "create_account_invitation",
+          message: inviteError?.message || "Failed to create invitation",
+          accountId,
+          code: inviteError?.code || "400",
+          entityType: "account_invitation",
+          entityId: null,
+        });
+        await recordSecurityObservabilityEvent(userClient, user.id, classification, { role });
+        return json({ error: inviteError?.message || "Failed to create invitation", classification }, 400);
       }
     }
 

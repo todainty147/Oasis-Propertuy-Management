@@ -36,6 +36,7 @@ import {
   getAccountSecuritySettings,
   upsertAccountSecuritySettings,
 } from "../services/securitySettingsService";
+import { listSecurityObservabilityEvents } from "../services/securityObservabilityService";
 import { downloadTextFile, buildCsv } from "../utils/export";
 import { isManageRole } from "../utils/permissions";
 
@@ -50,6 +51,14 @@ const DEFAULT_FILTERS = {
 
 const ALERT_CLASSIFICATIONS = ["suspicious", "expected", "false_positive", "informational"];
 const HIDDEN_EXPORT_JOBS_STORAGE_KEY = "securityAuditHiddenExportJobs";
+const HOSTED_EVENT_KINDS = ["authorization_denied", "unexpected_security_failure"];
+
+const DEFAULT_HOSTED_EVENT_FILTERS = {
+  category: "",
+  kind: "",
+  surface: "",
+  limit: 25,
+};
 
 function filtersFromSearchParams(searchParams) {
   return {
@@ -91,6 +100,10 @@ function sanitizeFilePart(value, fallback) {
     .replace(/\s+/g, "_")
     .replace(/[^\w.-]/g, "_");
   return cleaned || fallback;
+}
+
+function escapeSqlLiteral(value) {
+  return String(value || "").replaceAll("'", "''");
 }
 
 function formatDateTime(value) {
@@ -271,6 +284,14 @@ function alertStatusTone(status) {
   return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200";
 }
 
+function hostedEventKindTone(kind) {
+  const normalized = String(kind || "").toLowerCase();
+  if (normalized === "authorization_denied") {
+    return "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200";
+  }
+  return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200";
+}
+
 export default function SecurityAuditPage() {
   const { setTitle } = usePageTitle();
   const { t } = useI18n();
@@ -305,11 +326,14 @@ export default function SecurityAuditPage() {
   const [backendExportLabel, setBackendExportLabel] = useState("");
   const [securitySettings, setSecuritySettings] = useState(null);
   const [securitySettingsDraft, setSecuritySettingsDraft] = useState(null);
+  const [hostedEventFilters, setHostedEventFilters] = useState(DEFAULT_HOSTED_EVENT_FILTERS);
+  const [hostedEvents, setHostedEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState(() => searchParams.get("event") || "");
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [hostedExporting, setHostedExporting] = useState(false);
   const [backendExporting, setBackendExporting] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [downloadingJobId, setDownloadingJobId] = useState("");
@@ -332,7 +356,7 @@ export default function SecurityAuditPage() {
     setError("");
 
     try {
-      const [events, nextFacets, nextAlerts, nextJobs, nextAssignees, nextSecuritySettings] = await Promise.all([
+      const [events, nextFacets, nextAlerts, nextJobs, nextAssignees, nextSecuritySettings, nextHostedEvents] = await Promise.all([
         listSecurityAuditEvents(activeAccountId, { ...filters, page, pageSize }),
         listSecurityAuditFilterOptions(activeAccountId),
         listSecurityAnomalyAlerts(activeAccountId, {
@@ -346,6 +370,7 @@ export default function SecurityAuditPage() {
         }),
         listSecurityAlertAssignees(activeAccountId),
         getAccountSecuritySettings(activeAccountId),
+        listSecurityObservabilityEvents(activeAccountId, hostedEventFilters),
       ]);
 
       setRows(events.rows);
@@ -357,6 +382,7 @@ export default function SecurityAuditPage() {
       setExportJobsTotal(nextJobs.total);
       setAlertAssignees(nextAssignees);
       setSecuritySettings(nextSecuritySettings);
+      setHostedEvents(nextHostedEvents);
       setSecuritySettingsDraft((prev) => {
         if (!nextSecuritySettings) return prev;
         if (!prev || prev.account_id !== nextSecuritySettings.account_id) {
@@ -374,6 +400,7 @@ export default function SecurityAuditPage() {
       setAlertAssignees([]);
       setSecuritySettings(null);
       setSecuritySettingsDraft(null);
+      setHostedEvents([]);
       setError(e?.message || t("securityAudit.loadError"));
     } finally {
       setLoading(false);
@@ -395,6 +422,7 @@ export default function SecurityAuditPage() {
     page,
     pageSize,
     filters,
+    hostedEventFilters,
   ]);
 
   useEffect(() => {
@@ -643,6 +671,34 @@ export default function SecurityAuditPage() {
     }
   }
 
+  async function handleCopyHostedEventsSql() {
+    if (!activeAccountId) return;
+
+    const category = hostedEventFilters.category ? `'${escapeSqlLiteral(hostedEventFilters.category)}'` : "null";
+    const kind = hostedEventFilters.kind ? `'${escapeSqlLiteral(hostedEventFilters.kind)}'` : "null";
+    const surface = hostedEventFilters.surface ? `'${escapeSqlLiteral(hostedEventFilters.surface)}'` : "null";
+    const limit = Number(hostedEventFilters.limit) || 25;
+
+    const sql = `select *
+from public.security_observability_event_feed(
+  '${activeAccountId}'::uuid,
+  ${category},
+  ${kind},
+  ${surface},
+  ${limit}
+);`;
+
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error(t("securityAudit.copyUnsupported"));
+      }
+      await navigator.clipboard.writeText(sql);
+      setInfo(t("securityAudit.hostedEvents.copySqlSuccess"));
+    } catch (e) {
+      setError(e?.message || t("securityAudit.hostedEvents.copySqlError"));
+    }
+  }
+
   async function handleExport() {
     if (!activeAccountId) return;
     try {
@@ -697,6 +753,48 @@ export default function SecurityAuditPage() {
       setError(e?.message || t("securityAudit.backendExportError"));
     } finally {
       setBackendExporting(false);
+    }
+  }
+
+  function handleHostedEventsExport() {
+    if (!hostedEvents.length) return;
+
+    try {
+      setHostedExporting(true);
+      setError("");
+      setInfo("");
+
+      const csv = buildCsv(hostedEvents, [
+        { header: "created_at", getValue: (row) => row.created_at || "" },
+        { header: "account_id", getValue: (row) => row.account_id || "" },
+        { header: "actor_user_id", getValue: (row) => row.actor_user_id || "" },
+        { header: "actor_role", getValue: (row) => row.actor_role || "" },
+        { header: "category", getValue: (row) => row.category || "" },
+        { header: "kind", getValue: (row) => row.kind || "" },
+        { header: "surface", getValue: (row) => row.surface || "" },
+        { header: "reason", getValue: (row) => row.reason || "" },
+        { header: "outcome", getValue: (row) => row.outcome || "" },
+        { header: "code", getValue: (row) => row.code || "" },
+        { header: "guard_denied", getValue: (row) => row.guard_denied || false },
+        { header: "entity_type", getValue: (row) => row.entity_type || "" },
+        { header: "entity_id", getValue: (row) => row.entity_id || "" },
+        { header: "correlation_id", getValue: (row) => row.correlation_id || "" },
+        { header: "source", getValue: (row) => row.source || "" },
+        { header: "metadata", getValue: (row) => row.metadata || {} },
+      ]);
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const accountLabel = sanitizeFilePart(activeAccount?.name, "account");
+      downloadTextFile(
+        `security-observability-${accountLabel}-${timestamp}.csv`,
+        csv,
+        "text/csv;charset=utf-8",
+      );
+      setInfo(t("securityAudit.hostedEvents.exportSuccess", { count: hostedEvents.length }));
+    } catch (e) {
+      setError(e?.message || t("securityAudit.hostedEvents.exportError"));
+    } finally {
+      setHostedExporting(false);
     }
   }
 
@@ -818,6 +916,14 @@ export default function SecurityAuditPage() {
   const visibleExportJobs = exportJobs.filter((job) => !hiddenExportJobIds.includes(job.id));
   const anomalyAlertPages = Math.max(Math.ceil(anomalyAlertsTotal / anomalyAlertsPageSize), 1);
   const exportJobPages = Math.max(Math.ceil(exportJobsTotal / exportJobsPageSize), 1);
+  const hostedEventCategories = useMemo(
+    () => Array.from(new Set(hostedEvents.map((row) => String(row.category || "").trim()).filter(Boolean))).sort(),
+    [hostedEvents],
+  );
+  const hostedEventSurfaces = useMemo(
+    () => Array.from(new Set(hostedEvents.map((row) => String(row.surface || "").trim()).filter(Boolean))).sort(),
+    [hostedEvents],
+  );
 
   if (!canManage) {
     return (
@@ -1067,6 +1173,173 @@ export default function SecurityAuditPage() {
         <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
           {t("securityAudit.settings.note")}
         </p>
+      </Card>
+
+      <Card className="p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {t("securityAudit.hostedEvents.title")}
+            </h3>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {t("securityAudit.hostedEvents.subtitle")}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t("securityAudit.hostedEvents.retentionNote")}
+            </p>
+            <button
+              type="button"
+              onClick={handleCopyHostedEventsSql}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-700"
+            >
+              <Copy size={16} />
+              {t("securityAudit.hostedEvents.copySql")}
+            </button>
+            <button
+              type="button"
+              onClick={handleHostedEventsExport}
+              disabled={hostedExporting || hostedEvents.length === 0}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-700"
+            >
+              <Download size={16} />
+              {hostedExporting ? t("securityAudit.exporting") : t("securityAudit.hostedEvents.export")}
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-4">
+          <label className="space-y-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              {t("securityAudit.hostedEvents.filters.category")}
+            </span>
+            <select
+              value={hostedEventFilters.category}
+              onChange={(e) =>
+                setHostedEventFilters((prev) => ({
+                  ...prev,
+                  category: e.target.value,
+                }))
+              }
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            >
+              <option value="">{t("securityAudit.hostedEvents.filters.allCategories")}</option>
+              {hostedEventCategories.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              {t("securityAudit.hostedEvents.filters.kind")}
+            </span>
+            <select
+              value={hostedEventFilters.kind}
+              onChange={(e) =>
+                setHostedEventFilters((prev) => ({
+                  ...prev,
+                  kind: e.target.value,
+                }))
+              }
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            >
+              <option value="">{t("securityAudit.hostedEvents.filters.allKinds")}</option>
+              {HOSTED_EVENT_KINDS.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              {t("securityAudit.hostedEvents.filters.surface")}
+            </span>
+            <select
+              value={hostedEventFilters.surface}
+              onChange={(e) =>
+                setHostedEventFilters((prev) => ({
+                  ...prev,
+                  surface: e.target.value,
+                }))
+              }
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            >
+              <option value="">{t("securityAudit.hostedEvents.filters.allSurfaces")}</option>
+              {hostedEventSurfaces.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              {t("securityAudit.hostedEvents.filters.limit")}
+            </span>
+            <select
+              value={String(hostedEventFilters.limit)}
+              onChange={(e) =>
+                setHostedEventFilters((prev) => ({
+                  ...prev,
+                  limit: Number(e.target.value) || 25,
+                }))
+              }
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            >
+              {[10, 25, 50, 100].map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {hostedEvents.length === 0 ? (
+          <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-300">
+            {t("securityAudit.hostedEvents.empty")}
+          </div>
+        ) : (
+          <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+            <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+              <thead className="bg-slate-50 dark:bg-slate-900/70">
+                <tr className="text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  <th className="px-3 py-2">{t("securityAudit.columns.timestamp")}</th>
+                  <th className="px-3 py-2">{t("securityAudit.hostedEvents.columns.category")}</th>
+                  <th className="px-3 py-2">{t("securityAudit.hostedEvents.columns.kind")}</th>
+                  <th className="px-3 py-2">{t("securityAudit.hostedEvents.columns.surface")}</th>
+                  <th className="px-3 py-2">{t("securityAudit.hostedEvents.columns.role")}</th>
+                  <th className="px-3 py-2">{t("securityAudit.hostedEvents.columns.reason")}</th>
+                  <th className="px-3 py-2">{t("securityAudit.hostedEvents.columns.outcome")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-950/40">
+                {hostedEvents.map((row) => (
+                  <tr key={row.id} className="align-top">
+                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{formatDateTime(row.created_at)}</td>
+                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{row.category || "—"}</td>
+                    <td className="px-3 py-2">
+                      <span className={`rounded-full border px-2 py-1 text-xs ${hostedEventKindTone(row.kind)}`}>
+                        {row.kind || "—"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{row.surface || "—"}</td>
+                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{row.actor_role || "—"}</td>
+                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{row.reason || "—"}</td>
+                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{row.outcome || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
 
       <Card className="p-4">

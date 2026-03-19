@@ -14,6 +14,7 @@ import {
 } from "../services/invitationService";
 import { rootDeleteAccount, rootListAccounts, rootSetAccountDisabled } from "../services/rootAccountService";
 import { isManageRole } from "../utils/permissions";
+import OnboardingHintCard from "../components/OnboardingHintCard";
 
 function fmt(ts) {
   if (!ts) return "—";
@@ -267,6 +268,11 @@ export default function InvitationsPage() {
 
   return (
     <div className="space-y-4">
+      <OnboardingHintCard
+        title={t("onboarding.hints.invites.title")}
+        body={t("onboarding.hints.invites.body")}
+      />
+
       <Card className="p-5 border">
         <h2 className="text-base font-semibold text-slate-900">{t("invites.title")}</h2>
         <p className="text-sm text-slate-500 mt-1">{t("invites.subtitle")}</p>

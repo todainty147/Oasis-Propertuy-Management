@@ -184,7 +184,14 @@ export default function TenantDocumentsSection({ tenantId }) {
     if (!canPreview(doc.mime_type)) return;
 
     try {
-      const url = await getDocumentPreviewUrl(doc.storage_path);
+      const url = await getDocumentPreviewUrl(doc.storage_path, {
+        accountId: doc.account_id,
+        documentId: doc.id,
+        propertyId: doc.property_id,
+        tenantId: doc.tenant_id,
+        scope: doc.scope,
+        visibility: doc.visibility,
+      });
       window.open(url, "_blank", "noopener");
     } catch {
       alert(t("attachments.previewError"));
@@ -430,6 +437,12 @@ export default function TenantDocumentsSection({ tenantId }) {
                     downloadDocument({
                       storagePath: doc.storage_path,
                       filename: doc.name,
+                      accountId: doc.account_id,
+                      documentId: doc.id,
+                      propertyId: doc.property_id,
+                      tenantId: doc.tenant_id,
+                      scope: doc.scope,
+                      visibility: doc.visibility,
                     })
                   }
                   className="text-slate-600 hover:underline"

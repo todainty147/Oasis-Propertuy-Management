@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { getDashboardSnapshot } from "./dashboardService";
 import { listPropertyOperationalHealthScores } from "./propertyHealthScoreService";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 function isMissingBackendObject(error) {
   const message = String(error?.message || "").toLowerCase();
@@ -150,6 +151,10 @@ export async function getAttentionCenterData(accountId) {
     if (isMissingBackendObject(rpcRes.error)) {
       throw new Error("attention_center_items RPC is not deployed. Run supabase/attention_center_items.sql.");
     }
+    logSecurityRelevantFailure("attention_center_items", {
+      error: rpcRes.error,
+      context: { accountId },
+    });
     throw rpcRes.error;
   }
 

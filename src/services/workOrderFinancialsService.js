@@ -7,6 +7,7 @@ import {
   normalizeText,
 } from "../utils/validation";
 import { getDefaultCurrency } from "../utils/currency";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -50,7 +51,13 @@ export async function upsertQuoteDraft({
     p_quote_notes: normalizeText(quoteNotes) || null,
   });
 
-  if (error) throw friendly(error, "Nie udało się zapisać szkicu wyceny");
+  if (error) {
+    logSecurityRelevantFailure("wo_fin_upsert_quote_draft", {
+      error,
+      context: { workOrderId },
+    });
+    throw friendly(error, "Nie udało się zapisać szkicu wyceny");
+  }
   return data;
 }
 
@@ -61,7 +68,13 @@ export async function submitQuote({ workOrderId } = {}) {
     p_work_order_id: workOrderId,
   });
 
-  if (error) throw friendly(error, "Nie udało się wysłać wyceny");
+  if (error) {
+    logSecurityRelevantFailure("wo_fin_submit_quote", {
+      error,
+      context: { workOrderId },
+    });
+    throw friendly(error, "Nie udało się wysłać wyceny");
+  }
   return data;
 }
 
@@ -87,7 +100,13 @@ export async function upsertInvoice({
     p_invoice_due_at: invoiceDueAt ?? null,
   });
 
-  if (error) throw friendly(error, "Nie udało się zapisać faktury");
+  if (error) {
+    logSecurityRelevantFailure("wo_fin_upsert_invoice", {
+      error,
+      context: { workOrderId },
+    });
+    throw friendly(error, "Nie udało się zapisać faktury");
+  }
   return data;
 }
 
@@ -102,7 +121,13 @@ export async function approveQuote({ workOrderId } = {}) {
     p_work_order_id: workOrderId,
   });
 
-  if (error) throw friendly(error, "Nie udało się zatwierdzić wyceny");
+  if (error) {
+    logSecurityRelevantFailure("wo_fin_approve_quote", {
+      error,
+      context: { workOrderId },
+    });
+    throw friendly(error, "Nie udało się zatwierdzić wyceny");
+  }
   return data;
 }
 
@@ -115,7 +140,13 @@ export async function rejectQuote({ workOrderId, reason } = {}) {
     p_reason: normalizeText(reason) || null,
   });
 
-  if (error) throw friendly(error, "Nie udało się odrzucić wyceny");
+  if (error) {
+    logSecurityRelevantFailure("wo_fin_reject_quote", {
+      error,
+      context: { workOrderId },
+    });
+    throw friendly(error, "Nie udało się odrzucić wyceny");
+  }
   return data;
 }
 // Back-compat aliases (safe)

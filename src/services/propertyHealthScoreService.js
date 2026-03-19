@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { getDerivedLeaseStatus } from "./leaseService";
 import { listMissingComplianceSetup } from "./complianceService";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 const HEALTH_SCORE_BASE = 100;
 const HEALTH_THRESHOLDS = {
@@ -347,6 +348,10 @@ export async function listPropertyOperationalHealthScores(accountId, { propertyI
   }
 
   if (snapshotError && !isMissingBackendObject(snapshotError)) {
+    logSecurityRelevantFailure("property_operational_health_snapshot", {
+      error: snapshotError,
+      context: { accountId, propertyId },
+    });
     throw snapshotError;
   }
 

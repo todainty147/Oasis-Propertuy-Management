@@ -1,6 +1,7 @@
 // src/services/notificationService.js
 import { supabase } from "../lib/supabase";
 import { getAlertTaxonomy } from "../utils/alertTaxonomy";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 /**
  * Thin wrapper around public.create_notifications RPC
@@ -43,12 +44,14 @@ export async function createNotifications({
   const { error } = await supabase.rpc("create_notifications", payload);
 
   if (error) {
-    console.error("[notifications] RPC create_notifications failed:", {
+    logSecurityRelevantFailure("create_notifications", {
       error,
-      payload: {
-        ...payload,
-        // avoid logging potentially large metadata
-        p_metadata: undefined,
+      context: {
+        accountId,
+        type,
+        entityType,
+        entityId,
+        recipientCount: recipientUserIds.length,
       },
     });
     throw error;

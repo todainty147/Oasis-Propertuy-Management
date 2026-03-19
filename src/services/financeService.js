@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -30,7 +31,13 @@ export async function getFinanceSnapshot(accountId, tenantId = null) {
       property_finance: [],
     };
   }
-  if (error) throw friendly(error, "Failed to load finance snapshot");
+  if (error) {
+    logSecurityRelevantFailure("finance_snapshot", {
+      error,
+      context: { accountId, tenantId },
+    });
+    throw friendly(error, "Failed to load finance snapshot");
+  }
 
   const row = Array.isArray(data) ? data[0] : data;
   return row ?? {

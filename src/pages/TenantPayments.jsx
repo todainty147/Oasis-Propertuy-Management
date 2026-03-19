@@ -5,6 +5,7 @@ import { useAccount } from "../context/AccountContext";
 import { fetchMyPayments } from "../services/paymentService";
 import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount } from "../utils/currency";
+import OnboardingHintCard from "../components/OnboardingHintCard";
 
 function statusBadge(status) {
   const base = "text-xs px-2 py-0.5 rounded border";
@@ -55,6 +56,11 @@ export default function TenantPayments() {
         <h2 className="text-2xl font-bold text-slate-900">{t("payments.title")}</h2>
         <p className="text-sm text-slate-500">{t("payments.myPaymentsSubtitle")}</p>
       </div>
+
+      <OnboardingHintCard
+        title={t("onboarding.hints.tenantPayments.title")}
+        body={t("onboarding.hints.tenantPayments.body")}
+      />
 
       {err && (
         <Card className="p-4 border border-rose-200 bg-rose-50 text-rose-800">

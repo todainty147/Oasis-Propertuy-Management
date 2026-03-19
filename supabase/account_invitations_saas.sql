@@ -422,7 +422,14 @@ declare
   v_now timestamptz := now();
 begin
   if v_uid is null then
-    raise exception 'Not authenticated';
+    raise exception using
+      errcode = '28000',
+      message = 'Not authenticated',
+      detail = public.security_failure_context(
+        'accept_account_invite',
+        'missing_auth'
+      ),
+      hint = 'Authenticate with the invited account before accepting an invitation.';
   end if;
 
   if p_root_account_id is null then
@@ -919,15 +926,43 @@ begin
   limit 1;
 
   if v_inv.id is null then
-    raise exception 'Invitation not found';
+    raise exception using
+      errcode = 'P0002',
+      message = 'Invitation not found',
+      detail = public.security_failure_context(
+        'accept_account_invite',
+        'invite_not_found'
+      ),
+      hint = 'Use a valid current invitation link.';
   end if;
 
   if v_email = '' or lower(v_inv.email) <> v_email then
-    raise exception 'Invitation email mismatch';
+    raise exception using
+      errcode = '42501',
+      message = 'Invitation email mismatch',
+      detail = public.security_failure_context(
+        'accept_account_invite',
+        'invite_email_mismatch',
+        v_inv.account_id,
+        'account_invitation',
+        v_inv.id,
+        jsonb_build_object('invited_role', lower(coalesce(v_inv.role::text, '')))
+      ),
+      hint = 'Sign in with the email address that received the invitation.';
   end if;
 
   if v_inv.revoked_at is not null then
-    raise exception 'Invitation revoked';
+    raise exception using
+      errcode = '42501',
+      message = 'Invitation revoked',
+      detail = public.security_failure_context(
+        'accept_account_invite',
+        'invite_revoked',
+        v_inv.account_id,
+        'account_invitation',
+        v_inv.id
+      ),
+      hint = 'Request a new invitation from an account manager.';
   end if;
 
   if v_inv.accepted_at is not null then
@@ -935,7 +970,17 @@ begin
   end if;
 
   if v_inv.expires_at is not null and v_inv.expires_at <= now() then
-    raise exception 'Invitation expired';
+    raise exception using
+      errcode = '22023',
+      message = 'Invitation expired',
+      detail = public.security_failure_context(
+        'accept_account_invite',
+        'invite_expired',
+        v_inv.account_id,
+        'account_invitation',
+        v_inv.id
+      ),
+      hint = 'Request a fresh invitation link before retrying acceptance.';
   end if;
 
   v_role := lower(coalesce(v_inv.role::text, 'staff'));

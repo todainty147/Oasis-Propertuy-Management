@@ -1,8 +1,27 @@
 import { supabase } from "../lib/supabase";
 import { assertEmail, assertRequiredText, normalizeText } from "../utils/validation";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
+}
+
+function buildStructuredEdgeFunctionError(payload, fallback, context = {}) {
+  const error = new Error(payload?.error || fallback);
+  const classification = payload?.classification || null;
+  if (classification?.code) error.code = classification.code;
+  if (classification?.hint) error.hint = classification.hint;
+  if (classification) {
+    error.details = JSON.stringify({
+      event: classification.surface || "invite_user_edge_function",
+      reason: classification.reason || null,
+      account_id: classification.accountId || context.accountId || null,
+      entity_type: classification.entityType || null,
+      entity_id: classification.entityId || null,
+      correlation_id: classification.correlationId || null,
+    });
+  }
+  return error;
 }
 
 async function sendInviteViaEdge({ accountId, email, role, accountName }) {
@@ -30,7 +49,18 @@ async function sendInviteViaEdge({ accountId, email, role, accountName }) {
   });
 
   const payload = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(payload?.error || "Failed to send invite via Edge Function");
+  if (!res.ok) {
+    const error = buildStructuredEdgeFunctionError(
+      payload,
+      "Failed to send invite via Edge Function",
+      { accountId },
+    );
+    logSecurityRelevantFailure("invite_user_edge_function", {
+      error,
+      context: { accountId, role },
+    });
+    throw error;
+  }
   return payload;
 }
 
@@ -112,7 +142,13 @@ export async function createAccountInvitation({
       p_account_name: normalizeText(accountName) || fallbackName,
     });
 
-    if (error) throw friendly(error, "Failed to create landlord invitation");
+    if (error) {
+      logSecurityRelevantFailure("create_landlord_invitation", {
+        error,
+        context: { accountId, role: normalizedRole },
+      });
+      throw friendly(error, "Failed to create landlord invitation");
+    }
     const invite = Array.isArray(data) ? data[0] : data;
     if (!invite?.token) throw new Error("Landlord invitation token missing");
 
@@ -121,7 +157,13 @@ export async function createAccountInvitation({
       email: cleanEmail,
       options: { emailRedirectTo: redirectUrl },
     });
-    if (otpErr) throw friendly(otpErr, "Landlord invitation created but failed to send email link");
+    if (otpErr) {
+      logSecurityRelevantFailure("landlord_invitation_email_send", {
+        error: otpErr,
+        context: { accountId, role: normalizedRole },
+      });
+      throw friendly(otpErr, "Landlord invitation created but failed to send email link");
+    }
     return invite;
   }
 
@@ -138,7 +180,13 @@ export async function createAccountInvitation({
     .select("id, account_id, email, role, token, created_at")
     .single();
 
-  if (error) throw friendly(error, "Failed to create invitation");
+  if (error) {
+    logSecurityRelevantFailure("create_account_invitation", {
+      error,
+      context: { accountId, role: normalizedRole },
+    });
+    throw friendly(error, "Failed to create invitation");
+  }
 
   const redirectUrl = `${window.location.origin}${redirectPath}?token=${token}`;
   const { error: otpErr } = await supabase.auth.signInWithOtp({
@@ -149,6 +197,10 @@ export async function createAccountInvitation({
   });
 
   if (otpErr) {
+    logSecurityRelevantFailure("account_invitation_email_send", {
+      error: otpErr,
+      context: { accountId, role: normalizedRole, invitationId: data?.id },
+    });
     throw friendly(otpErr, "Invitation created but failed to send email link");
   }
 
@@ -172,7 +224,13 @@ export async function checkAccountInvitationEligibility({
     p_role: normalizedRole,
   });
 
-  if (error) throw friendly(error, "Failed to validate invitation");
+  if (error) {
+    logSecurityRelevantFailure("check_account_invitation_eligibility", {
+      error,
+      context: { accountId, role: normalizedRole },
+    });
+    throw friendly(error, "Failed to validate invitation");
+  }
   return data ?? { ok: false, code: "unknown", message: "Validation returned empty response" };
 }
 
@@ -189,7 +247,13 @@ export async function resendInvitationEmail(invitation, redirectPath = "/invite"
     },
   });
 
-  if (error) throw friendly(error, "Failed to resend invitation email");
+  if (error) {
+    logSecurityRelevantFailure("resend_invitation_email", {
+      error,
+      context: { invitationId: invitation?.id, accountId: invitation?.account_id, role: invitation?.role },
+    });
+    throw friendly(error, "Failed to resend invitation email");
+  }
 }
 
 export async function revokeInvitation({ invitationId, accountId } = {}) {
@@ -211,5 +275,11 @@ export async function revokeInvitation({ invitationId, accountId } = {}) {
     .eq("id", invitationId)
     .eq("account_id", accountId || undefined);
 
-  if (delErr) throw friendly(delErr, "Failed to revoke invitation");
+  if (delErr) {
+    logSecurityRelevantFailure("revoke_invitation", {
+      error: delErr,
+      context: { invitationId, accountId },
+    });
+    throw friendly(delErr, "Failed to revoke invitation");
+  }
 }

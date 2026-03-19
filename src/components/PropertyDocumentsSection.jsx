@@ -186,7 +186,14 @@ async function loadAll() {
 
     try {
       setPreviewError(null);
-      const url = await getDocumentPreviewUrl(doc.storage_path);
+      const url = await getDocumentPreviewUrl(doc.storage_path, {
+        accountId: doc.account_id,
+        documentId: doc.id,
+        propertyId: doc.property_id,
+        tenantId: doc.tenant_id,
+        scope: doc.scope,
+        visibility: doc.visibility,
+      });
       setPreviewDoc(doc);
       setPreviewUrl(url);
     } catch {
@@ -200,6 +207,12 @@ async function loadAll() {
       await downloadDocument({
         storagePath: doc.storage_path,
         filename: doc.name,
+        accountId: doc.account_id,
+        documentId: doc.id,
+        propertyId: doc.property_id,
+        tenantId: doc.tenant_id,
+        scope: doc.scope,
+        visibility: doc.visibility,
       });
     } catch (err) {
       alert(err?.message ?? t("documents.downloadError"));

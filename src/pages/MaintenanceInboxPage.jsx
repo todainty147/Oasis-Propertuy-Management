@@ -10,6 +10,7 @@ import { updateMaintenanceRequest } from "../services/maintenanceService";
 import { createWorkOrder } from "../services/workOrderService";
 import { useI18n } from "../context/I18nContext";
 import { isManageRole } from "../utils/permissions";
+import OnboardingHintCard from "../components/OnboardingHintCard";
 
 const STATUS_ORDER = ["open", "in_progress", "waiting", "resolved", "closed"];
 const AGE_BUCKETS = new Set(["0_24", "24_48", "48_72", "72_plus"]);
@@ -429,6 +430,11 @@ export default function MaintenanceInboxPage() {
           </button>
         </div>
       </div>
+
+      <OnboardingHintCard
+        title={t("onboarding.hints.maintenance.title")}
+        body={t("onboarding.hints.maintenance.body")}
+      />
 
       <div className="text-sm text-slate-600 px-1">
         {t("maintenance.inbox.total")}: <span className="font-medium text-slate-900">{ageFilter || woStatusFilter ? requestsAfterWoFilter.length : totalCount}</span>

@@ -28,6 +28,8 @@ Current file structure:
 - `tests/integration/contractor_work_order_cards.test.js`
 - `tests/integration/accept_account_invite.test.js`
 - `tests/integration/contractor_financial_workflow.test.js`
+- `tests/integration/schema_regression_guards.test.js`
+- `tests/integration/PERFORMANCE_REVIEW.md`
 - shared harness helpers stay under `tests/integration/helpers/`
 
 Behavior notes:
@@ -37,6 +39,9 @@ Behavior notes:
 - `accept_account_invite` is covered with real authenticated invite acceptance, replay, revoked, and email-mismatch scenarios
 - `accept_account_invite` now rejects expired invites server-side when `expires_at` is set in the past
 - contractor financial workflow coverage now exercises quote draft save, quote submit, manager reject/approve, and invoice save-after-approval with real authenticated role boundaries
+- schema regression guards fail early when critical columns or seeded account/tenant/contractor/payment/work-order linkages drift under future migrations
+- `tests/integration/PERFORMANCE_REVIEW.md` tracks the current performance-sensitive RPC shapes, supporting indexes, and the next index/query tightening candidates
+- `docs/SECURITY_OBSERVABILITY.md` tracks how denied-path and security-sensitive failures are surfaced for staging/production diagnosis
 
 Recommended local flow:
 1. Start local Supabase.
@@ -63,6 +68,37 @@ npm run test:integration:seed
 ```bash
 npm run test:integration:run
 ```
+
+Recommended day-to-day commands:
+- run one integration file:
+
+```bash
+npm run test:integration:file -- tests/integration/accept_account_invite.test.js
+```
+
+- run one named test or focused subset:
+
+```bash
+npm run test:integration:name -- -t "rejects expired invites"
+```
+
+- run one file with a named subset:
+
+```bash
+npm run test:integration:file -- tests/integration/contractor_financial_workflow.test.js -t "invoice save"
+```
+
+- rerun with verbose reporting when failure output needs more context:
+
+```bash
+npm run test:integration:verbose
+```
+
+Practical workflow:
+- use `npm run test:unit:run` for fast source/unit feedback
+- use `npm run test:integration:file -- <path>` while iterating on one RPC or mutation
+- use `npm run test:integration:name -- -t "<pattern>"` when you only need one scenario
+- use `npm run test:integration:run` before pushing when you touched shared SQL, harness, or seeded auth flows
 
 CI structure:
 - fast Vitest/source tests run via `npm run test:unit:run`

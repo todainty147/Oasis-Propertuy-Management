@@ -86,6 +86,22 @@ as $$
       and sp.due_date <= current_date + interval '7 days'
       and sp.status not in ('paid', 'opłacone', 'oplacone')
   ),
+  limited_payment_items as (
+    select *
+    from payment_items
+    order by
+      case bucket
+        when 'urgent' then 1
+        when 'action' then 2
+        when 'upcoming' then 3
+        else 4
+      end,
+      sort_order,
+      coalesce(age_hours, 999999),
+      coalesce(due_days, 999999),
+      item_key
+    limit (select max_items from cfg)
+  ),
   scoped_requests as (
     select
       mr.id,
@@ -203,6 +219,24 @@ as $$
     from scoped_requests sr
     where sr.status in ('waiting')
       and sr.updated_at <= now() - interval '48 hours'
+  ),
+  limited_request_items as (
+    select * from request_without_work_order
+    union all select * from triage_overdue
+    union all select * from high_priority_unresolved
+    union all select * from stuck_waiting
+    order by
+      case bucket
+        when 'urgent' then 1
+        when 'action' then 2
+        when 'upcoming' then 3
+        else 4
+      end,
+      sort_order,
+      coalesce(age_hours, 999999),
+      coalesce(due_days, 999999),
+      item_key
+    limit (select max_items from cfg)
   ),
   work_order_without_contractor as (
     select
@@ -354,6 +388,28 @@ as $$
     where swo.status in ('assigned', 'przypisane', 'in_progress', 'w trakcie')
       and coalesce(swo.updated_at, swo.created_at) >= now() - interval '72 hours'
   ),
+  limited_work_order_items as (
+    select * from work_order_without_contractor
+    union all select * from contractor_no_response
+    union all select * from work_order_overdue
+    union all select * from blocked_work_orders
+    union all select * from stalled_work_orders
+    union all select * from long_running_repairs
+    union all select * from repeated_repairs
+    union all select * from recently_updated_open
+    order by
+      case bucket
+        when 'urgent' then 1
+        when 'action' then 2
+        when 'upcoming' then 3
+        else 4
+      end,
+      sort_order,
+      coalesce(age_hours, 999999),
+      coalesce(due_days, 999999),
+      item_key
+    limit (select max_items from cfg)
+  ),
   lease_items as (
     select
       'lease-expired-' || l.id::text as item_key,
@@ -419,6 +475,22 @@ as $$
     where l.account_id = p_account_id
       and lower(coalesce(l.renewal_status, 'active')) = 'renewal_in_progress'
   ),
+  limited_lease_items as (
+    select *
+    from lease_items
+    order by
+      case bucket
+        when 'urgent' then 1
+        when 'action' then 2
+        when 'upcoming' then 3
+        else 4
+      end,
+      sort_order,
+      coalesce(age_hours, 999999),
+      coalesce(due_days, 999999),
+      item_key
+    limit (select max_items from cfg)
+  ),
   preventive_items as (
     select
       'preventive-overdue-' || pmt.id::text as item_key,
@@ -460,6 +532,22 @@ as $$
       and lower(coalesce(pmt.status, 'active')) = 'active'
       and pmt.next_due_date >= current_date
       and pmt.next_due_date <= current_date + interval '14 days'
+  ),
+  limited_preventive_items as (
+    select *
+    from preventive_items
+    order by
+      case bucket
+        when 'urgent' then 1
+        when 'action' then 2
+        when 'upcoming' then 3
+        else 4
+      end,
+      sort_order,
+      coalesce(age_hours, 999999),
+      coalesce(due_days, 999999),
+      item_key
+    limit (select max_items from cfg)
   ),
   compliance_items as (
     select
@@ -536,6 +624,22 @@ as $$
           and c.property_id = p.id
       )
   ),
+  limited_compliance_items as (
+    select * from compliance_items
+    union all select * from compliance_missing_setup
+    order by
+      case bucket
+        when 'urgent' then 1
+        when 'action' then 2
+        when 'upcoming' then 3
+        else 4
+      end,
+      sort_order,
+      coalesce(age_hours, 999999),
+      coalesce(due_days, 999999),
+      item_key
+    limit (select max_items from cfg)
+  ),
   notification_items as (
     select
       'notification-' || n.id::text as item_key,
@@ -554,25 +658,30 @@ as $$
     where n.account_id = p_account_id
       and coalesce(n.is_read, false) = false
   ),
+  limited_notification_items as (
+    select *
+    from notification_items
+    order by
+      case bucket
+        when 'urgent' then 1
+        when 'action' then 2
+        when 'upcoming' then 3
+        else 4
+      end,
+      sort_order,
+      coalesce(age_hours, 999999),
+      coalesce(due_days, 999999),
+      item_key
+    limit (select max_items from cfg)
+  ),
   unioned as (
-    select * from payment_items
-    union all select * from request_without_work_order
-    union all select * from triage_overdue
-    union all select * from high_priority_unresolved
-    union all select * from stuck_waiting
-    union all select * from work_order_without_contractor
-    union all select * from contractor_no_response
-    union all select * from work_order_overdue
-    union all select * from blocked_work_orders
-    union all select * from stalled_work_orders
-    union all select * from long_running_repairs
-    union all select * from repeated_repairs
-    union all select * from recently_updated_open
-    union all select * from lease_items
-    union all select * from preventive_items
-    union all select * from compliance_items
-    union all select * from compliance_missing_setup
-    union all select * from notification_items
+    select * from limited_payment_items
+    union all select * from limited_request_items
+    union all select * from limited_work_order_items
+    union all select * from limited_lease_items
+    union all select * from limited_preventive_items
+    union all select * from limited_compliance_items
+    union all select * from limited_notification_items
   )
   select
     u.item_key,

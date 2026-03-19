@@ -9,6 +9,7 @@ import { useAccount } from "../context/AccountContext";
 import { can } from "../utils/permissions";
 import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount } from "../utils/currency";
+import OnboardingHintCard from "../components/OnboardingHintCard";
 
 /* ======================
    SKELETON
@@ -205,6 +206,11 @@ export default function Properties({
           </button>
         )}
       </div>
+
+      <OnboardingHintCard
+        title={t("onboarding.hints.properties.title")}
+        body={t("onboarding.hints.properties.body")}
+      />
 
       <div className="flex flex-col sm:flex-row gap-3">
         <input

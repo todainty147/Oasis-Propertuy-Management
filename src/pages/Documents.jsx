@@ -259,7 +259,14 @@ export default function Documents({
 
     try {
       setPreviewError(null);
-      const url = await getDocumentPreviewUrl(doc.storage_path);
+      const url = await getDocumentPreviewUrl(doc.storage_path, {
+        accountId: doc.account_id,
+        documentId: doc.id,
+        propertyId: doc.property_id,
+        tenantId: doc.tenant_id,
+        scope: doc.scope,
+        visibility: doc.visibility,
+      });
       setPreviewDoc(doc);
       setPreviewUrl(url);
     } catch {
@@ -495,6 +502,12 @@ export default function Documents({
                     downloadDocument({
                       storagePath: doc.storage_path,
                       filename: doc.name,
+                      accountId: doc.account_id,
+                      documentId: doc.id,
+                      propertyId: doc.property_id,
+                      tenantId: doc.tenant_id,
+                      scope: doc.scope,
+                      visibility: doc.visibility,
                     })
                   }
                   className="text-slate-600 hover:underline"
@@ -509,6 +522,11 @@ export default function Documents({
                         await deleteDocument({
                           id: doc.id,
                           storagePath: doc.storage_path,
+                          accountId: doc.account_id,
+                          propertyId: doc.property_id,
+                          tenantId: doc.tenant_id,
+                          scope: doc.scope,
+                          visibility: doc.visibility,
                         });
                         await loadDocuments();
                       }

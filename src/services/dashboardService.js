@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 let dashboardHubExtrasUnavailable = false;
 
@@ -45,7 +46,13 @@ export async function getDashboardSnapshot(accountId, { tenantId = null, horizon
       unassigned_work_orders: 0,
     };
   }
-  if (error) throw friendly(error, "Failed to load dashboard snapshot");
+  if (error) {
+    logSecurityRelevantFailure("dashboard_snapshot", {
+      error,
+      context: { accountId, tenantId, horizonDays },
+    });
+    throw friendly(error, "Failed to load dashboard snapshot");
+  }
 
   const row = Array.isArray(data) ? data[0] : data;
   return row ?? {
@@ -82,7 +89,13 @@ export async function getDashboardHubExtras(accountId, { tenantId = null, horizo
     dashboardHubExtrasUnavailable = true;
     return [];
   }
-  if (error) throw friendly(error, "Failed to load dashboard hub extras");
+  if (error) {
+    logSecurityRelevantFailure("dashboard_hub_extras", {
+      error,
+      context: { accountId, tenantId, horizonDays },
+    });
+    throw friendly(error, "Failed to load dashboard hub extras");
+  }
   return Array.isArray(data) ? data : [];
 }
 

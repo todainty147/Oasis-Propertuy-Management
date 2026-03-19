@@ -1,5 +1,6 @@
 // src/services/documentAuditService.js
 import { supabase } from "../lib/supabase";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 export async function fetchDocumentAudit({
   accountId = null,
@@ -20,6 +21,17 @@ export async function fetchDocumentAudit({
   if (documentId) q = q.eq("document_id", documentId);
 
   const { data, error } = await q;
-  if (error) throw error;
+  if (error) {
+    logSecurityRelevantFailure("document_audit_log_select", {
+      error,
+      context: {
+        accountId,
+        documentId,
+        limit: safeLimit,
+        operation: "fetch_document_audit",
+      },
+    });
+    throw error;
+  }
   return data ?? [];
 }

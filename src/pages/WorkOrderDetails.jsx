@@ -8,6 +8,7 @@ import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
 import { getContractorRatingByWorkOrder, upsertContractorRating } from "../services/contractorRatingService";
+import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount, getDefaultCurrency } from "../utils/currency";
 import { isManageRole } from "../utils/permissions";
@@ -408,6 +409,14 @@ export default function WorkOrderDetails() {
       await loadAllowedActions();
       await loadAudit();
     } catch (e) {
+      logSecurityRelevantFailure("work_order_set_status", {
+        error: e,
+        context: {
+          accountId: activeAccountId,
+          workOrderId: id,
+          requestedStatus: nextStatus,
+        },
+      });
       alert(e?.message ?? t("workOrders.statusChangeError"));
     } finally {
       setBusy(false);

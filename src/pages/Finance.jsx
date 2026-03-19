@@ -7,6 +7,7 @@ import { useAccount } from "../context/AccountContext";
 import { can } from "../utils/permissions";
 import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount } from "../utils/currency";
+import OnboardingHintCard from "../components/OnboardingHintCard";
 import {
   normalizePaymentStatus,
   paymentStatusLabelKey,
@@ -229,6 +230,11 @@ export default function Finance({
           </button>
         )}
       </div>
+
+      <OnboardingHintCard
+        title={t("onboarding.hints.finance.title")}
+        body={t("onboarding.hints.finance.body")}
+      />
 
       {/* SUMMARY */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

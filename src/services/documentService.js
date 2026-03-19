@@ -2,6 +2,7 @@
 import { supabase } from "../lib/supabase";
 import { assertFiles, assertUuid } from "../utils/validation";
 import { createSignedStorageUrl } from "./storageUrlService";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 /* ======================
    CONFIG
@@ -30,6 +31,28 @@ function sanitizeFilename(name) {
 
 function friendlyError(err, fallback) {
   return new Error(err?.message ?? fallback);
+}
+
+function buildDocumentContext({
+  accountId = null,
+  documentId = null,
+  propertyId = null,
+  tenantId = null,
+  scope = null,
+  visibility = null,
+  operation = null,
+  storageBucket = null,
+} = {}) {
+  return {
+    accountId,
+    documentId,
+    propertyId,
+    tenantId,
+    scope,
+    visibility,
+    operation,
+    storageBucket,
+  };
 }
 
 /* ======================
@@ -94,6 +117,18 @@ export async function uploadDocument({
   );
 
   if (stubError || !doc?.id || !doc?.storage_path) {
+    logSecurityRelevantFailure("create_document_stub", {
+      error: stubError || new Error("Document stub missing id/storage path"),
+      context: buildDocumentContext({
+        accountId,
+        propertyId,
+        tenantId,
+        scope,
+        visibility,
+        operation: "stub_create",
+        storageBucket: "documents",
+      }),
+    });
     throw friendlyError(stubError, "Nie udało się utworzyć dokumentu (stub)");
   }
 
@@ -108,6 +143,19 @@ export async function uploadDocument({
     });
 
   if (uploadError) {
+    logSecurityRelevantFailure("document_storage_upload", {
+      error: uploadError,
+      context: buildDocumentContext({
+        accountId,
+        documentId: doc.id,
+        propertyId,
+        tenantId,
+        scope,
+        visibility,
+        operation: "storage_upload",
+        storageBucket: "documents",
+      }),
+    });
     // Stub will remain; optional mark-failed RPC can be added later.
     throw friendlyError(uploadError, "Błąd uploadu do Storage");
   }
@@ -128,6 +176,19 @@ export async function uploadDocument({
   );
 
   if (finalizeError || !finalized?.id) {
+    logSecurityRelevantFailure("finalize_document_upload", {
+      error: finalizeError || new Error("Finalize document upload returned empty row"),
+      context: buildDocumentContext({
+        accountId,
+        documentId: doc.id,
+        propertyId,
+        tenantId,
+        scope,
+        visibility,
+        operation: "finalize_upload",
+        storageBucket: "documents",
+      }),
+    });
     throw friendlyError(finalizeError, "Nie udało się sfinalizować uploadu");
   }
 
@@ -165,7 +226,19 @@ export async function fetchDocuments({
   if (tag) query = query.contains("tags", [tag]);
 
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) {
+    logSecurityRelevantFailure("documents_select", {
+      error,
+      context: buildDocumentContext({
+        accountId,
+        propertyId: safePropertyId,
+        tenantId: safeTenantId,
+        operation: "list_documents",
+        storageBucket: "documents",
+      }),
+    });
+    throw error;
+  }
 
   return data ?? [];
 }
@@ -203,7 +276,19 @@ export async function searchDocuments({
   if (safeTenantId) q = q.or(`tenant_id.eq.${safeTenantId},tenant_id.is.null`);
 
   const { data, error } = await q;
-  if (error) throw error;
+  if (error) {
+    logSecurityRelevantFailure("documents_search", {
+      error,
+      context: buildDocumentContext({
+        accountId,
+        propertyId: safePropertyId,
+        tenantId: safeTenantId,
+        operation: "search_documents",
+        storageBucket: "documents",
+      }),
+    });
+    throw error;
+  }
 
   return data ?? [];
 }
@@ -212,22 +297,63 @@ export async function searchDocuments({
    PREVIEW
    ====================== */
 
-export async function getDocumentPreviewUrl(storagePath) {
-  return createSignedStorageUrl("documents", storagePath, 60 * 10);
+export async function getDocumentPreviewUrl(storagePath, context = {}) {
+  try {
+    return await createSignedStorageUrl("documents", storagePath, 60 * 10);
+  } catch (error) {
+    logSecurityRelevantFailure("document_preview_url", {
+      error,
+      context: buildDocumentContext({
+        accountId: context.accountId || null,
+        documentId: context.documentId || null,
+        propertyId: context.propertyId || null,
+        tenantId: context.tenantId || null,
+        scope: context.scope || null,
+        visibility: context.visibility || null,
+        operation: "create_preview_url",
+        storageBucket: "documents",
+      }),
+    });
+    throw error;
+  }
 }
 
 /* ======================
    DOWNLOAD
    ====================== */
 
-export async function downloadDocument({ storagePath, filename }) {
+export async function downloadDocument({
+  storagePath,
+  filename,
+  accountId = null,
+  documentId = null,
+  propertyId = null,
+  tenantId = null,
+  scope = null,
+  visibility = null,
+}) {
   if (!storagePath) throw new Error("Brak ścieżki dokumentu");
 
   const { data, error } = await supabase.storage
     .from("documents")
     .download(storagePath);
 
-  if (error) throw error;
+  if (error) {
+    logSecurityRelevantFailure("document_storage_download", {
+      error,
+      context: buildDocumentContext({
+        accountId,
+        documentId,
+        propertyId,
+        tenantId,
+        scope,
+        visibility,
+        operation: "download_document",
+        storageBucket: "documents",
+      }),
+    });
+    throw error;
+  }
 
   const url = URL.createObjectURL(data);
   const a = document.createElement("a");
@@ -255,7 +381,16 @@ export async function updateDocumentTags({ documentId, tags }) {
     p_tags: tags ?? [],
   });
 
-  if (error) throw error;
+  if (error) {
+    logSecurityRelevantFailure("set_document_tags", {
+      error,
+      context: buildDocumentContext({
+        documentId,
+        operation: "set_document_tags",
+      }),
+    });
+    throw error;
+  }
   return data;
 }
 
@@ -268,7 +403,15 @@ export async function updateDocumentTags({ documentId, tags }) {
  * - Delete DB record + audit FIRST (keeps DB consistent)
  * - Then best-effort storage delete (avoid leaving broken DB rows if storage fails)
  */
-export async function deleteDocument({ id, storagePath }) {
+export async function deleteDocument({
+  id,
+  storagePath,
+  accountId = null,
+  propertyId = null,
+  tenantId = null,
+  scope = null,
+  visibility = null,
+}) {
   if (!id || !storagePath) {
     throw new Error("Nieprawidłowy dokument");
   }
@@ -278,7 +421,22 @@ export async function deleteDocument({ id, storagePath }) {
     p_document_id: id,
   });
 
-  if (rpcError) throw rpcError;
+  if (rpcError) {
+    logSecurityRelevantFailure("delete_document_and_audit", {
+      error: rpcError,
+      context: buildDocumentContext({
+        accountId,
+        documentId: id,
+        propertyId,
+        tenantId,
+        scope,
+        visibility,
+        operation: "delete_document",
+        storageBucket: "documents",
+      }),
+    });
+    throw rpcError;
+  }
 
   // 2) Best-effort storage delete
   const { error: storageError } = await supabase.storage
@@ -287,6 +445,18 @@ export async function deleteDocument({ id, storagePath }) {
 
   if (storageError) {
     // DB is already consistent; log for later cleanup rather than breaking UX
-    console.warn("Storage delete failed:", storageError);
+    logSecurityRelevantFailure("document_storage_delete", {
+      error: storageError,
+      context: buildDocumentContext({
+        accountId,
+        documentId: id,
+        propertyId,
+        tenantId,
+        scope,
+        visibility,
+        operation: "storage_delete_after_document_delete",
+        storageBucket: "documents",
+      }),
+    });
   }
 }

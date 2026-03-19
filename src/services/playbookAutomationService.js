@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 let automationRuleSettingsUnavailable = false;
 
@@ -15,6 +16,15 @@ function isMissingBackendObject(error) {
 function isPermissionDenied(error) {
   const message = String(error?.message || "").toLowerCase();
   return error?.code === "42501" || message.includes("permission denied");
+}
+
+function permissionError(error) {
+  const message = String(error?.message || "").trim();
+  return new Error(message || "You do not have access to this playbook status.");
+}
+
+function deploymentError() {
+  return new Error("playbook_status_snapshot RPC is not deployed. Run supabase/playbook_status_snapshot.sql.");
 }
 
 function clampInt(value, fallback, min = 0, max = 365) {
@@ -271,8 +281,15 @@ export async function getPlaybookAutomationOverview(accountId) {
   });
 
   if (error) {
-    if (isMissingBackendObject(error) || isPermissionDenied(error)) {
-      throw new Error("playbook_status_snapshot RPC is not deployed. Run supabase/playbook_status_snapshot.sql.");
+    if (isPermissionDenied(error)) {
+      logSecurityRelevantFailure("playbook_status_snapshot", {
+        error,
+        context: { accountId },
+      });
+      throw permissionError(error);
+    }
+    if (isMissingBackendObject(error)) {
+      throw deploymentError();
     }
     throw error;
   }

@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { getDashboardSnapshot } from "./dashboardService";
 import { listPropertyOperationalHealthScores } from "./propertyHealthScoreService";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 function isMissingBackendObject(error) {
   const message = String(error?.message || "").toLowerCase();
@@ -102,6 +103,10 @@ export async function getCommandCenterData(accountId) {
     if (isMissingBackendObject(rpcRes.error)) {
       throw new Error("command_center_items RPC is not deployed. Run supabase/command_center_items.sql.");
     }
+    logSecurityRelevantFailure("command_center_items", {
+      error: rpcRes.error,
+      context: { accountId },
+    });
     throw rpcRes.error;
   }
 

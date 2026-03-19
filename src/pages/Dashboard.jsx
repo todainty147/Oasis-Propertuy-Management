@@ -3,11 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Card from "../components/Card";
 import Skeleton from "../components/ui/Skeleton";
-import { Wallet, TrendingUp, AlertCircle, Home, FileText } from "lucide-react";
+import { Wallet, TrendingUp, AlertCircle, Home, FileText, BriefcaseBusiness, CheckCircle2, CircleDashed, UserPlus, Wrench, X } from "lucide-react";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
 import { useI18n } from "../context/I18nContext";
+import { supabase } from "../lib/supabase";
 import { getMaintenanceAttention } from "../services/maintenanceDashboardService";
 import {
   getLeaseAttentionItems,
@@ -21,6 +22,7 @@ import {
   mapDashboardHubItems,
 } from "../services/dashboardService";
 import { isManageRole } from "../utils/permissions";
+import OnboardingHintCard from "../components/OnboardingHintCard";
 
 // ✅ Tenant dashboard widget
 import TenantMaintenanceDashboard from "../components/TenantMaintenanceDashboard";
@@ -55,6 +57,7 @@ function DashboardSkeleton() {
 export default function Dashboard({
   loading = false,
   properties = [],
+  tenants = [],
   payments = [],
   occupiedCount = 0,
   vacantCount = 0,
@@ -77,11 +80,14 @@ export default function Dashboard({
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
   const isTenant = useMemo(() => role === "tenant", [role]);
   const canManage = useMemo(() => isManageRole(role, { isRootOperator }), [isRootOperator, role]);
+  const isOwner = useMemo(() => role === "owner", [role]);
   const [attentionRows, setAttentionRows] = useState([]);
   const [leaseAttentionRows, setLeaseAttentionRows] = useState([]);
   const [leaseSummary, setLeaseSummary] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
   const [hubExtras, setHubExtras] = useState([]);
+  const [contractorCount, setContractorCount] = useState(0);
+  const [checklistDismissed, setChecklistDismissed] = useState(false);
   const hubHorizon = useMemo(() => {
     const h = String(searchParams.get("horizon") || "").toLowerCase();
     return h === "week" ? "week" : "today";
@@ -101,6 +107,39 @@ export default function Dashboard({
     params.set("horizon", "today");
     setSearchParams(params, { replace: true });
   }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const key = activeAccountId ? `dashboard_onboarding_hidden:${activeAccountId}:${role}` : "";
+    if (!key) {
+      setChecklistDismissed(false);
+      return;
+    }
+    setChecklistDismissed(localStorage.getItem(key) === "1");
+  }, [activeAccountId, role]);
+
+  useEffect(() => {
+    let dead = false;
+    async function loadContractorCount() {
+      if (!activeAccountId || !isOwner) {
+        setContractorCount(0);
+        return;
+      }
+      try {
+        const { count } = await supabase
+          .from("contractors")
+          .select("id", { count: "exact", head: true })
+          .eq("account_id", activeAccountId)
+          .eq("active", true);
+        if (!dead) setContractorCount(Number(count || 0));
+      } catch {
+        if (!dead) setContractorCount(0);
+      }
+    }
+    loadContractorCount();
+    return () => {
+      dead = true;
+    };
+  }, [activeAccountId, isOwner]);
 
   useEffect(() => {
     let dead = false;
@@ -377,6 +416,10 @@ export default function Dashboard({
   const overdueAmountView = Number(snapshotView.overdue_amount || overdueAmount);
   const unassignedWorkOrdersCount = Number(snapshotView.unassigned_work_orders || 0);
   const waiting48hCount = Number(snapshotView.waiting_over_48h || 0);
+  const maintenanceStarted =
+    Number(snapshotView.open_requests || 0) > 0 ||
+    unassignedWorkOrdersCount > 0 ||
+    waiting48hCount > 0;
   const overdueTrend = deltaMeta(
     snapshotView.overdue_current_window_amount,
     snapshotView.overdue_previous_window_amount
@@ -402,8 +445,127 @@ export default function Dashboard({
     renewalInProgressCount: 0,
   };
 
+  const onboardingItems = useMemo(
+    () => [
+      {
+        key: "property",
+        title: t("dashboard.onboarding.items.property.title"),
+        body: t("dashboard.onboarding.items.property.body"),
+        complete: (properties || []).length > 0,
+        href: "/properties",
+        icon: Home,
+      },
+      {
+        key: "tenant",
+        title: t("dashboard.onboarding.items.tenant.title"),
+        body: t("dashboard.onboarding.items.tenant.body"),
+        complete: (tenants || []).length > 0,
+        href: "/invitations",
+        icon: UserPlus,
+      },
+      {
+        key: "payment",
+        title: t("dashboard.onboarding.items.payment.title"),
+        body: t("dashboard.onboarding.items.payment.body"),
+        complete: (payments || []).length > 0,
+        href: "/finance",
+        icon: Wallet,
+      },
+      {
+        key: "maintenance",
+        title: t("dashboard.onboarding.items.maintenance.title"),
+        body: t("dashboard.onboarding.items.maintenance.body"),
+        complete: maintenanceStarted,
+        href: "/maintenance-inbox",
+        icon: Wrench,
+      },
+      {
+        key: "contractor",
+        title: t("dashboard.onboarding.items.contractor.title"),
+        body: t("dashboard.onboarding.items.contractor.body"),
+        complete: contractorCount > 0,
+        href: "/invitations",
+        icon: BriefcaseBusiness,
+      },
+    ],
+    [contractorCount, maintenanceStarted, payments, properties, t, tenants]
+  );
+  const onboardingCompleteCount = onboardingItems.filter((item) => item.complete).length;
+
+  function dismissChecklist() {
+    if (!activeAccountId) return;
+    localStorage.setItem(`dashboard_onboarding_hidden:${activeAccountId}:${role}`, "1");
+    setChecklistDismissed(true);
+  }
+
   return (
     <div className="space-y-6">
+      {isOwner && !checklistDismissed ? (
+        <Card className="border border-cyan-200 bg-gradient-to-r from-cyan-50 via-white to-sky-50 p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700">
+                {t("dashboard.onboarding.eyebrow")}
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-slate-900">
+                {t("dashboard.onboarding.title")}
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                {t("dashboard.onboarding.subtitle", {
+                  done: onboardingCompleteCount,
+                  total: onboardingItems.length,
+                })}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => navigate("/landlord-onboarding")}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white"
+              >
+                {t("dashboard.onboarding.openGuide")}
+              </button>
+              <button
+                type="button"
+                onClick={dismissChecklist}
+                className="rounded-lg border border-transparent p-2 text-slate-500 hover:bg-white"
+                aria-label={t("dashboard.onboarding.dismiss")}
+                title={t("dashboard.onboarding.dismiss")}
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-5">
+            {onboardingItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => navigate(item.href)}
+                  className="rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-cyan-300 hover:shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="rounded-lg bg-slate-100 p-2 text-slate-700">
+                      <Icon size={16} />
+                    </div>
+                    {item.complete ? (
+                      <CheckCircle2 size={18} className="text-emerald-600" />
+                    ) : (
+                      <CircleDashed size={18} className="text-slate-400" />
+                    )}
+                  </div>
+                  <p className="mt-3 text-sm font-semibold text-slate-900">{item.title}</p>
+                  <p className="mt-1 text-sm text-slate-600">{item.body}</p>
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+      ) : null}
+
       <Card className="p-6 border bg-gradient-to-br from-slate-900 via-blue-900 to-cyan-800 text-white shadow-lg">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
@@ -458,6 +620,11 @@ export default function Dashboard({
           </button>
         </div>
       </Card>
+
+      <OnboardingHintCard
+        title={t("dashboard.onboarding.hintTitle")}
+        body={t("dashboard.onboarding.hintBody")}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-5 border border-emerald-200 bg-emerald-50/40">

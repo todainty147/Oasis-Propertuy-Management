@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 function isMissingBackendObject(error) {
   const message = String(error?.message || "").toLowerCase();
@@ -145,7 +146,13 @@ export async function getMaintenanceKpiSnapshot(accountId) {
       },
     };
   }
-  if (error) throw error;
+  if (error) {
+    logSecurityRelevantFailure("maintenance_kpi_snapshot", {
+      error,
+      context: { accountId },
+    });
+    throw error;
+  }
   return Array.isArray(data) ? (data[0] ?? null) : (data ?? null);
 }
 

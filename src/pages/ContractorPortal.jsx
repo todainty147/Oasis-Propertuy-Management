@@ -7,6 +7,8 @@ import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
+import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
+import OnboardingHintCard from "../components/OnboardingHintCard";
 
 /* -----------------------------
    UI helpers
@@ -212,6 +214,15 @@ export default function ContractorPortal() {
           const { data: cardRows, error: cardErr } = await supabase.rpc("contractor_work_order_cards", {
             p_work_order_ids: hydrated.map((x) => x.id).filter(Boolean),
           });
+          if (cardErr) {
+            logSecurityRelevantFailure("contractor_work_order_cards", {
+              error: cardErr,
+              context: {
+                accountId: hydrated[0]?.account_id || null,
+                workOrderId: hydrated[0]?.id || null,
+              },
+            });
+          }
           if (!cardErr && Array.isArray(cardRows)) {
             const byId = Object.fromEntries(cardRows.map((r) => [r.work_order_id, r]));
             merged = hydrated.map((wo) => {
@@ -241,6 +252,15 @@ export default function ContractorPortal() {
           const { data: a, error: e } = await supabase.rpc("contractor_allowed_actions", {
             p_work_order_id: id,
           });
+          if (e) {
+            logSecurityRelevantFailure("contractor_allowed_actions", {
+              error: e,
+              context: {
+                accountId: list.find((row) => row.id === id)?.account_id || null,
+                workOrderId: id,
+              },
+            });
+          }
           if (e) return [id, []];
           return [id, Array.isArray(a) ? a : []];
         })
@@ -346,6 +366,11 @@ export default function ContractorPortal() {
           ))}
         </div>
       </Card>
+
+      <OnboardingHintCard
+        title={t("onboarding.hints.contractors.title")}
+        body={t("onboarding.hints.contractors.body")}
+      />
 
       {loading ? (
         <div className="space-y-2">

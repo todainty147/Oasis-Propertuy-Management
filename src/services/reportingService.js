@@ -5,6 +5,7 @@ import {
   listPropertyOperationalHealthScores,
   summarizePropertyOperationalHealth,
 } from "./propertyHealthScoreService";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -39,7 +40,13 @@ export async function getWeeklyPortfolioSummary(accountId) {
       high_risk_property_count: healthSummary.highRiskCount,
     };
   }
-  if (error) throw friendly(error, "Failed to load weekly summary");
+  if (error) {
+    logSecurityRelevantFailure("portfolio_weekly_summary", {
+      error,
+      context: { accountId },
+    });
+    throw friendly(error, "Failed to load weekly summary");
+  }
   const row = Array.isArray(data) ? data[0] : data;
   const healthSummary = summarizePropertyOperationalHealth(propertyHealthRows);
   return {

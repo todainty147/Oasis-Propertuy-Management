@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
+import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
 
 export default function Invite() {
   const [params] = useSearchParams();
@@ -31,6 +32,10 @@ export default function Invite() {
       navigate("/dashboard", { replace: true });
       return;
     }
+    logSecurityRelevantFailure("accept_account_invite", {
+      error,
+      context: { inviteFlow: "accept" },
+    });
     alert(error.message);
     setBusy(false);
   }

@@ -8,6 +8,7 @@ import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
 import { createNotifications } from "../services/notificationService";
 import { recordAutomationExecution } from "../services/automationExecutionService";
+import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
 import { useI18n } from "../context/I18nContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount, getCurrencyOptions, getDefaultCurrency } from "../utils/currency";
@@ -277,6 +278,15 @@ export default function ContractorJobDetails() {
           const { data: cardRows, error: cardErr } = await supabase.rpc("contractor_work_order_cards", {
             p_work_order_ids: [data.id],
           });
+          if (cardErr) {
+            logSecurityRelevantFailure("contractor_work_order_cards", {
+              error: cardErr,
+              context: {
+                accountId: data?.account_id || activeAccountId || null,
+                workOrderId: data?.id || id || null,
+              },
+            });
+          }
           if (!cardErr && Array.isArray(cardRows) && cardRows[0]) {
             const c = cardRows[0];
             if (!String(resolvedPropertyLabel || "").trim() && String(c.property_label || "").trim()) {
@@ -306,6 +316,15 @@ export default function ContractorJobDetails() {
       const { data: acts, error: aErr } = await supabase.rpc("contractor_allowed_actions", {
         p_work_order_id: id,
       });
+      if (aErr) {
+        logSecurityRelevantFailure("contractor_allowed_actions", {
+          error: aErr,
+          context: {
+            accountId: data?.account_id || activeAccountId || null,
+            workOrderId: id,
+          },
+        });
+      }
       if (!aErr) setAllowedActions(Array.isArray(acts) ? acts : []);
       else setAllowedActions([]);
     } catch (e) {
@@ -364,6 +383,10 @@ export default function ContractorJobDetails() {
           : t("contractor.quoteDraftSavedBody"),
       });
     } catch (e) {
+      logSecurityRelevantFailure("wo_fin_upsert_quote_draft", {
+        error: e,
+        context: { workOrderId: id, accountId: activeAccountId },
+      });
       alert(e?.message ?? t("workOrders.quoteDraftSaveError"));
     } finally {
       setSaving(false);
@@ -380,6 +403,10 @@ export default function ContractorJobDetails() {
       setFin(data ?? null);
       syncFinInputs(data ?? null);
     } catch (e) {
+      logSecurityRelevantFailure("wo_fin_submit_quote", {
+        error: e,
+        context: { workOrderId: id, accountId: activeAccountId },
+      });
       alert(e?.message ?? t("workOrders.quoteSubmitError"));
     } finally {
       setSaving(false);
@@ -414,6 +441,10 @@ export default function ContractorJobDetails() {
           : t("contractor.invoiceSavedBody"),
       });
     } catch (e) {
+      logSecurityRelevantFailure("wo_fin_upsert_invoice", {
+        error: e,
+        context: { workOrderId: id, accountId: activeAccountId },
+      });
       alert(e?.message ?? t("workOrders.invoiceSaveError"));
     } finally {
       setSaving(false);
@@ -471,6 +502,10 @@ export default function ContractorJobDetails() {
 
       await loadAll();
     } catch (e) {
+      logSecurityRelevantFailure("contractor_update_work_order", {
+        error: e,
+        context: { workOrderId: id, accountId: activeAccountId, requestedStatus: nextStatus },
+      });
       alert(e?.message ?? t("workOrders.statusChangeError"));
     } finally {
       setSaving(false);

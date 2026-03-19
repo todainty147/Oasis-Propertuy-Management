@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 import { getDerivedLeaseStatus, getPrimaryLease } from "./leaseService";
 
 function isMissingBackendObject(error) {
@@ -199,6 +200,10 @@ export async function getTenantTimeline({
     if (error && isMissingBackendObject(error)) {
       tenantActivityFeedUnavailable = true;
     } else if (error) {
+      logSecurityRelevantFailure("tenant_activity_feed", {
+        error,
+        context: { accountId, tenantId: tenant.id, limit },
+      });
       throw error;
     } else {
       if (paymentSummaryRes.error) throw paymentSummaryRes.error;

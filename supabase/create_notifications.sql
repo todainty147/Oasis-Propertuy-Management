@@ -14,11 +14,49 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_recipient_count integer := coalesce(array_length(p_recipient_user_ids, 1), 0);
 begin
-  perform public.assert_manage_account_access(p_account_id);
+  begin
+    perform public.assert_manage_account_access(p_account_id);
+  exception
+    when others then
+      if sqlerrm = 'Access denied' then
+        raise exception using
+          errcode = '42501',
+          message = 'Access denied',
+          detail = public.security_failure_context(
+            'create_notifications',
+            'manage_account_required',
+            p_account_id,
+            'notification',
+            p_entity_id,
+            jsonb_build_object(
+              'recipient_count', v_recipient_count,
+              'notification_type', lower(coalesce(p_type, ''))
+            )
+          ),
+          hint = 'Only owner, admin, or staff members for the target account can create notifications.';
+      end if;
+      raise;
+  end;
 
-  if p_recipient_user_ids is null or coalesce(array_length(p_recipient_user_ids, 1), 0) = 0 then
-    raise exception 'Recipient list cannot be empty';
+  if p_recipient_user_ids is null or v_recipient_count = 0 then
+    raise exception using
+      errcode = '22023',
+      message = 'Recipient list cannot be empty',
+      detail = public.security_failure_context(
+        'create_notifications',
+        'empty_recipients',
+        p_account_id,
+        'notification',
+        p_entity_id,
+        jsonb_build_object(
+          'recipient_count', v_recipient_count,
+          'notification_type', lower(coalesce(p_type, ''))
+        )
+      ),
+      hint = 'Provide at least one account-scoped recipient before calling create_notifications.';
   end if;
 
   if exists (
@@ -41,7 +79,21 @@ begin
          and t.user_id is null
        )
   ) then
-    raise exception 'One or more recipients are not part of this account';
+    raise exception using
+      errcode = '42501',
+      message = 'One or more recipients are not part of this account',
+      detail = public.security_failure_context(
+        'create_notifications',
+        'foreign_or_invalid_recipient',
+        p_account_id,
+        'notification',
+        p_entity_id,
+        jsonb_build_object(
+          'recipient_count', v_recipient_count,
+          'notification_type', lower(coalesce(p_type, ''))
+        )
+      ),
+      hint = 'Notification recipients must already belong to the target account as members, active contractors, or tenants.';
   end if;
 
   insert into public.notifications (

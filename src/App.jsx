@@ -287,6 +287,7 @@ export default function App() {
             <Dashboard
               loading={propertiesLoading || paymentsLoading || tenantsLoading}
               properties={ownerProperties}
+              tenants={ownerTenants}
               payments={payments}
               occupiedCount={occupiedCount}
               vacantCount={vacantCount}

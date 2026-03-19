@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { formatCurrencyAmount } from "../utils/currency";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 let portfolioAttentionItemsUnavailable = false;
 
@@ -54,7 +55,13 @@ export async function getPortfolioHealthSnapshot(accountId, tenantId = null) {
       outstanding_previous_month: 0,
     };
   }
-  if (error) throw friendly(error, "Failed to load portfolio health snapshot");
+  if (error) {
+    logSecurityRelevantFailure("portfolio_health_snapshot", {
+      error,
+      context: { accountId, tenantId },
+    });
+    throw friendly(error, "Failed to load portfolio health snapshot");
+  }
 
   const row = Array.isArray(data) ? data[0] : data;
   return row ?? {
@@ -100,7 +107,13 @@ export async function getPortfolioAttentionItems(accountId, tenantId = null, lim
     portfolioAttentionItemsUnavailable = true;
     return [];
   }
-  if (error) throw friendly(error, "Failed to load portfolio attention items");
+  if (error) {
+    logSecurityRelevantFailure("portfolio_attention_items", {
+      error,
+      context: { accountId, tenantId, limit },
+    });
+    throw friendly(error, "Failed to load portfolio attention items");
+  }
   return Array.isArray(data) ? data : [];
 }
 

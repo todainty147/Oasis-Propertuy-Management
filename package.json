@@ -14,7 +14,13 @@
     "test:unit:run": "vitest run",
     "test:integration": "vitest --config vitest.integration.config.js",
     "test:integration:run": "vitest run --config vitest.integration.config.js",
-    "test:integration:seed": "node tests/integration/bootstrapLocalSupabase.mjs"
+    "test:integration:seed": "node tests/integration/bootstrapLocalSupabase.mjs",
+    "test:integration:file": "vitest run --config vitest.integration.config.js",
+    "test:integration:name": "vitest run --config vitest.integration.config.js",
+    "test:integration:verbose": "vitest run --config vitest.integration.config.js --reporter=verbose",
+    "test:staging": "vitest --config vitest.staging.config.js",
+    "test:staging:run": "vitest run --config vitest.staging.config.js",
+    "test:staging:file": "vitest run --config vitest.staging.config.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.2",
