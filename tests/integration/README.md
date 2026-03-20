@@ -27,6 +27,7 @@ Current file structure:
 - `tests/integration/portfolio_health_snapshot.test.js`
 - `tests/integration/contractor_work_order_cards.test.js`
 - `tests/integration/accept_account_invite.test.js`
+- `tests/integration/inviteSecurity.test.js`
 - `tests/integration/contractor_financial_workflow.test.js`
 - `tests/integration/schema_regression_guards.test.js`
 - `tests/integration/PERFORMANCE_REVIEW.md`
@@ -38,6 +39,7 @@ Behavior notes:
 - `contractor_work_order_cards` is intentionally contractor-filtered by `auth.uid()` and returns an empty set for non-contractors instead of throwing
 - `accept_account_invite` is covered with real authenticated invite acceptance, replay, revoked, and email-mismatch scenarios
 - `accept_account_invite` now rejects expired invites server-side when `expires_at` is set in the past
+- invite lifecycle coverage now exercises authenticated create, revoke, eligibility, and account-scoped pending-invite visibility for standard account invitations
 - contractor financial workflow coverage now exercises quote draft save, quote submit, manager reject/approve, and invoice save-after-approval with real authenticated role boundaries
 - schema regression guards fail early when critical columns or seeded account/tenant/contractor/payment/work-order linkages drift under future migrations
 - `tests/integration/PERFORMANCE_REVIEW.md` tracks the current performance-sensitive RPC shapes, supporting indexes, and the next index/query tightening candidates
@@ -46,15 +48,35 @@ Behavior notes:
 Recommended local flow:
 1. Start local Supabase.
 2. Load `supabase/baseline_schema.sql` into your local database.
-3. Apply additive SQL overlays that are newer than the baseline you loaded. For the current invite-membership suite, make sure `supabase/account_invitations_saas.sql` is applied after the baseline.
+3. Apply additive SQL overlays that are newer than the baseline you loaded. For the current suite, make sure invite, payment authorization, and storage overlays are applied after the baseline.
 4. Copy `.env.integration.example` to `.env.integration.local`.
 5. Set `TEST_SUPABASE_URL`, `TEST_SUPABASE_ANON_KEY`, and `TEST_SUPABASE_SERVICE_ROLE_KEY`.
-6. Apply the invite overlay if your local baseline does not already include it:
+6. Apply the invite, payment authorization, and storage overlays if your local baseline does not already include them:
 
 ```bash
 PGPASSWORD=postgres psql \
   --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
   --file "supabase/account_invitations_saas.sql"
+
+PGPASSWORD=postgres psql \
+  --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+  --file "supabase/payment_write_authorization.sql"
+
+PGPASSWORD=postgres psql \
+  --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+  --file "supabase/storage_buckets.sql"
+
+PGPASSWORD=postgres psql \
+  --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+  --file "supabase/storage_documents_policies.sql"
+
+PGPASSWORD=postgres psql \
+  --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+  --file "supabase/storage_maintenance_request_attachments_policies.sql"
+
+PGPASSWORD=postgres psql \
+  --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+  --file "supabase/storage_work_order_attachments_policies.sql"
 ```
 
 7. Seed the harness:
@@ -68,6 +90,22 @@ npm run test:integration:seed
 ```bash
 npm run test:integration:run
 ```
+
+Schema regeneration:
+- the authoritative local bootstrap artifact is `supabase/baseline_schema.sql`
+- refresh it from the current local authoritative database with:
+
+```bash
+npm run schema:baseline:refresh
+```
+
+- verify it has not drifted with:
+
+```bash
+npm run schema:baseline:check
+```
+
+- see [docs/SCHEMA_WORKFLOW.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/SCHEMA_WORKFLOW.md) for the full baseline + overlay workflow and known limitations
 
 Recommended day-to-day commands:
 - run one integration file:
@@ -103,7 +141,7 @@ Practical workflow:
 CI structure:
 - fast Vitest/source tests run via `npm run test:unit:run`
 - authenticated local Supabase integration tests run via `npm run test:integration:seed` and `npm run test:integration:run`
-- the GitHub Actions integration lane starts a local Supabase stack, loads `supabase/baseline_schema.sql`, applies `supabase/account_invitations_saas.sql`, seeds the harness, and then runs the integration suite
+- the GitHub Actions integration lane starts a local Supabase stack, loads `supabase/baseline_schema.sql`, applies invite, payment authorization, and storage overlays, seeds the harness, and then runs the integration suite
 
 CI env and secrets:
 - the checked-in GitHub Actions workflow uses local Supabase in CI, so it does not require hosted Supabase secrets

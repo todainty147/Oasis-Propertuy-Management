@@ -24,7 +24,8 @@ describe.skipIf(!isIntegrationHarnessConfigured())("finance_snapshot isolation",
     expect(result.error).toBeNull();
     const row = firstRow(result.data);
     expect(row).toBeTruthy();
-    expect(Number(row.expected_income)).toBeGreaterThanOrEqual(1200);
+    expect(Number(row.due_soon_income)).toBeGreaterThanOrEqual(1200);
+    expect(Number(row.outstanding_income)).toBeGreaterThanOrEqual(Number(row.due_soon_income));
   });
 
   it("denies account A owner from reading account B finance snapshot", async () => {
@@ -65,7 +66,8 @@ describe.skipIf(!isIntegrationHarnessConfigured())("finance_snapshot isolation",
     expect(row).toBeTruthy();
     expect(Number(row.total_income)).toBe(0);
     expect(Number(row.overdue_income)).toBe(0);
-    expect(Number(row.expected_income)).toBe(0);
+    expect(Number(row.due_soon_income)).toBe(0);
+    expect(Number(row.outstanding_income)).toBe(0);
     expect(row.property_finance).toEqual([]);
   });
 

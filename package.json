@@ -20,7 +20,10 @@
     "test:integration:verbose": "vitest run --config vitest.integration.config.js --reporter=verbose",
     "test:staging": "vitest --config vitest.staging.config.js",
     "test:staging:run": "vitest run --config vitest.staging.config.js",
-    "test:staging:file": "vitest run --config vitest.staging.config.js"
+    "test:staging:file": "vitest run --config vitest.staging.config.js",
+    "schema:baseline:refresh": "node scripts/schema/refresh-baseline.mjs refresh",
+    "schema:baseline:check": "node scripts/schema/refresh-baseline.mjs check",
+    "guardrails:install": "bash scripts/git-guardrails/install-local-hooks.sh"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.2",

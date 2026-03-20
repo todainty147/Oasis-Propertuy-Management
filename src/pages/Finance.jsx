@@ -7,6 +7,7 @@ import { useAccount } from "../context/AccountContext";
 import { can } from "../utils/permissions";
 import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount } from "../utils/currency";
+import { sumDueSoon, sumExpected, sumOverdue, sumPaid } from "../utils/finance";
 import OnboardingHintCard from "../components/OnboardingHintCard";
 import {
   normalizePaymentStatus,
@@ -28,8 +29,8 @@ function FinanceSkeleton() {
         <Skeleton className="h-10 w-40" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {Array.from({ length: 3 }).map((_, i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-[96px]" />
         ))}
       </div>
@@ -153,18 +154,11 @@ export default function Finance({
 
   const summaryView = useMemo(() => {
     if (!hasActiveFilters) return summary;
-    let paid = 0;
-    let open = 0;
-    for (const p of filteredPayments) {
-      const amount = Number(p?.amount || 0);
-      const s = normalizePaymentStatus(p.status);
-      if (s === "paid") paid += amount;
-      else open += amount;
-    }
     return {
-      totalIncome: paid,
-      overdueIncome: open,
-      expectedIncome: open,
+      totalIncome: sumPaid(filteredPayments),
+      overdueIncome: sumOverdue(filteredPayments),
+      dueSoonIncome: sumDueSoon(filteredPayments, 7),
+      outstandingIncome: sumExpected(filteredPayments),
     };
   }, [summary, hasActiveFilters, filteredPayments]);
 
@@ -237,10 +231,11 @@ export default function Finance({
       />
 
       {/* SUMMARY */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <SummaryCard label={t("finance.summary.received")} value={summaryView?.totalIncome ?? 0} color="text-green-600" />
         <SummaryCard label={t("finance.summary.overdue")} value={summaryView?.overdueIncome ?? 0} color="text-red-600" />
-        <SummaryCard label={t("finance.summary.expected")} value={summaryView?.expectedIncome ?? 0} color="text-blue-600" />
+        <SummaryCard label={t("finance.summary.dueSoon")} value={summaryView?.dueSoonIncome ?? 0} color="text-blue-600" />
+        <SummaryCard label={t("finance.summary.outstanding")} value={summaryView?.outstandingIncome ?? 0} color="text-violet-600" />
       </div>
 
       {/* PROPERTY FINANCE */}

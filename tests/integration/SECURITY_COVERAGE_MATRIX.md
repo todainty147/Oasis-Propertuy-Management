@@ -49,16 +49,16 @@ Coverage status legend:
 
 | Surface | Type | Expected roles | Enforcement layer | Automated coverage status | Notes / known gaps | Recommended next action |
 | --- | --- | --- | --- | --- | --- | --- |
-| `documents` + `create_document_stub` / `finalize_document_upload` / `delete_document_and_audit` / `set_document_tags` | App flow + write RPCs + table RLS | owner, admin, staff; tenant/member depending on flow | RPC guards + document/storage audit path | Gap | Document deletion is security-sensitive and anomaly-linked; current suite does not verify cross-account or wrong-role document writes | Add document lifecycle integration tests |
-| `work_order_attachments` / maintenance attachment storage policies | Table/storage policies | owner, admin, staff, tenant uploader, assigned contractor | RLS + storage bucket policies | Gap | Attachment access is security-sensitive but currently only app/manual tested | Add table/storage integration tests for attachment metadata paths |
-| `payments` write RPCs (`create_payment`, `update_payment`, `delete_payment`, `mark_payment_paid`, `mark_payment_unpaid`) | Write RPCs | owner, admin; tenant read only | RPC guards + table RLS | Gap | Finance data is high-value and not yet covered end-to-end in the integration suite | Add payment write authorization tests |
+| `documents` + `create_document_stub` / `finalize_document_upload` / `delete_document_and_audit` / `set_document_tags` | App flow + write RPCs + table RLS | owner, admin, staff; tenant/member depending on flow | RPC guards + document/storage audit path | Partial | Cross-account document reads, tenant self-scope reads, tenant cross-scope denial, download access, and wrong-account uploads are now covered. Raw client `createSignedUrl()` on the local `documents` bucket still returns `Object not found` even when the object exists and service-role download succeeds, so signed-URL behavior remains a local/provider-specific gap. Delete/tag mutation paths are still not directly integration tested. | Add document delete/tag integration tests and separately investigate local `documents` signed-url behavior |
+| `work_order_attachments` / maintenance attachment storage policies | Table/storage policies | owner, admin, staff, tenant uploader, assigned contractor | RLS + storage bucket policies | Partial | Assigned-contractor attachment reads, cross-work-order denial, and storage signed URL enforcement are now covered. Maintenance-request attachment policies are still not directly integration tested. | Add maintenance-request attachment integration tests |
+| `payments` write RPCs (`create_payment`, `update_payment`, `delete_payment`, `mark_payment_paid`, `mark_payment_unpaid`) | Write RPCs | owner, admin; tenant read only | RPC guards + table RLS | Partial | In-account owner/admin create-update-status flows are now covered, along with cross-account denial and tenant/contractor denial. `delete_payment`, `reopen_payment`, and `void_payment` still need direct integration coverage. | Add delete/void/reopen integration tests |
 | `maintenance_requests` direct insert/update/read table flows | Table RLS + app flow | tenant(self property), owner, admin, staff | RLS policies | Gap | Tenant insert/read/update security is important; current suite only covers downstream snapshot/feed reads | Add maintenance request direct table integration tests |
 | `work_order_assign_contractor` / `work_order_approve_tenant_cancellation` / `work_order_deny_tenant_cancellation` | Write RPCs | owner, admin, staff | manager-only RPC guard | Gap | Related work order paths are covered, but assignment and tenant cancellation decision flows are not | Add direct work order workflow integration tests |
 | `root_list_accounts` / `root_set_account_disabled` / `root_delete_account` | Root-only write/read RPCs | root operator | root + active account model | Gap | Very sensitive admin surfaces with no local integration coverage | Add root operator integration tests |
 | `create_self_serve_landlord_account` | Write RPC | authenticated signup actor | self-serve provisioning RPC | Gap | High-impact account creation path not yet covered | Add self-serve signup integration tests |
 | `contractor_update_work_order` | Write RPC | assigned contractor | contractor-only RPC guard | Gap | Contractor portal uses this broader mutation path; current suite only covers the stricter status RPC | Add direct contractor update integration tests |
 | `contractor_allowed_actions` / `work_order_allowed_actions` / `work_order_allowed_actions_bulk` | Read RPCs | contractor/member/tenant depending on work order | permission computation RPCs | Gap | UI depends on these for action gating; only downstream writes are covered today | Add action-gating integration tests |
-| `account_invitations` direct table CRUD via RLS | Table policies | owner, admin, staff | table RLS policies | Gap | Acceptance path is covered, but invitation creation/revoke/list security is only app-driven today | Add table-level invitation CRUD integration tests |
+| `account_invitations` direct table CRUD via RLS + `check_account_invitation_eligibility` | Table policies + eligibility RPC | owner, admin, staff; root owner invite path separate | table RLS policies + RPC guard | Partial | Create/revoke/list account scoping and eligibility duplicate/member checks are now covered, and `accept_account_invite` already has a dedicated integration file. Root landlord invitation creation and root account lifecycle remain separate follow-up surfaces. | Add root landlord invite integration tests |
 
 ## Covered vs uncovered summary
 
@@ -73,25 +73,25 @@ Coverage status legend:
 
 ### Still mostly uncovered
 - document lifecycle and attachment policy paths
-- payments write flows
+- payments delete/void/reopen flows
 - direct maintenance request table/RLS behavior
 - root operator / self-serve provisioning flows
-- invitation creation/revocation/list RLS
+- root landlord invitation creation and root account invitation lifecycle
 - broader work-order permission helper RPCs and assignment flows
 
 ## Top 5 remaining high-risk gaps
 
 1. **Document lifecycle security**  
-   `create_document_stub`, `finalize_document_upload`, `set_document_tags`, and `delete_document_and_audit` touch sensitive tenant/account data and feed security audit trails, but have no direct integration coverage yet.
+   Core document read/upload/download boundaries are now covered, but `set_document_tags` and `delete_document_and_audit` still need direct integration coverage, and local `documents` signed-url behavior still needs targeted follow-up.
 
-2. **Payment write authorization**  
-   `create_payment`, `update_payment`, `delete_payment`, `mark_payment_paid`, and `mark_payment_unpaid` are financially sensitive and currently lack end-to-end authenticated mutation coverage.
+2. **Payment deletion and reversal authorization**  
+   Core payment create/update/status mutation coverage now exists, but `delete_payment`, `void_payment`, and `reopen_payment` still need direct authenticated integration coverage to close the remaining finance write gap.
 
 3. **Attachment and storage policy enforcement**  
-   `work_order_attachments` and maintenance-request attachment policies are high-risk because cross-account file access mistakes are easy to miss without real integration tests.
+   Contractor attachment reads are now covered, but maintenance-request attachment policies still need direct integration coverage.
 
-4. **Invitation creation / revoke / eligibility enforcement**  
-   Invite acceptance is covered well, but the manager/staff invite creation and revoke table/RPC paths are still only indirectly validated through the app.
+4. **Root landlord invitation lifecycle**  
+   Standard account invite create/revoke/list/eligibility coverage now exists, but root-only landlord invitation creation and related root account invitation lifecycle still need direct integration tests.
 
 5. **Root / account-provisioning surfaces**  
    `create_landlord_invitation`, `root_list_accounts`, `root_set_account_disabled`, `root_delete_account`, and `create_self_serve_landlord_account` are privileged account-boundary surfaces with no automated integration checks yet.
@@ -99,7 +99,7 @@ Coverage status legend:
 ## Recommended next actions
 
 1. Add document lifecycle and attachment integration tests.
-2. Add payment write-path authorization tests.
-3. Add invite creation/revoke/eligibility integration tests.
+2. Add payment delete/void/reopen authorization tests.
+3. Add root landlord invitation integration tests.
 4. Add work-order assignment / tenant-cancellation decision integration tests.
 5. Add root/operator and self-serve provisioning integration tests.

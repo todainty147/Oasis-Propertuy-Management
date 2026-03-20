@@ -311,3 +311,35 @@ Recommended GitHub branch protection for `main`:
 Why both checks matter:
 - `Unit Tests` gives fast feedback on fixture, service, and SQL contract regressions.
 - `Integration Isolation Tests` proves the real local-Supabase authenticated isolation suite still passes before merge.
+
+## Git Guardrails
+
+Lightweight repo-local Git guardrails are documented in:
+- [GIT_GUARDRAILS.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/GIT_GUARDRAILS.md)
+
+Install them for your local clone with:
+
+```bash
+npm run guardrails:install
+```
+
+## Schema Workflow
+
+The local bootstrap source of truth is:
+- [supabase/baseline_schema.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/baseline_schema.sql)
+- plus explicit additive overlays applied after baseline when needed
+
+Refresh the checked-in baseline from the current local authoritative database with:
+
+```bash
+npm run schema:baseline:refresh
+```
+
+Check for baseline drift with:
+
+```bash
+npm run schema:baseline:check
+```
+
+Full workflow and limitations are documented in:
+- [SCHEMA_WORKFLOW.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/SCHEMA_WORKFLOW.md)

@@ -13,7 +13,8 @@ export function useFinance({ enabled = true } = {}) {
   const [summary, setSummary] = useState({
     totalIncome: 0,
     overdueIncome: 0,
-    expectedIncome: 0,
+    dueSoonIncome: 0,
+    outstandingIncome: 0,
   });
 
   const [payments, setPayments] = useState([]);
@@ -74,7 +75,8 @@ export function useFinance({ enabled = true } = {}) {
       setSummary({
         totalIncome: Number(snapshot?.total_income ?? 0),
         overdueIncome: Number(snapshot?.overdue_income ?? 0),
-        expectedIncome: Number(snapshot?.expected_income ?? 0),
+        dueSoonIncome: Number(snapshot?.due_soon_income ?? 0),
+        outstandingIncome: Number(snapshot?.outstanding_income ?? 0),
       });
       setPropertyFinance(Array.isArray(snapshot?.property_finance) ? snapshot.property_finance : []);
     } catch (error) {
@@ -83,7 +85,8 @@ export function useFinance({ enabled = true } = {}) {
       setSummary({
         totalIncome: 0,
         overdueIncome: 0,
-        expectedIncome: 0,
+        dueSoonIncome: 0,
+        outstandingIncome: 0,
       });
       setPropertyFinance([]);
     } finally {

@@ -47,6 +47,20 @@ describe.skipIf(!isStagingSmokeConfigured())("staging security smoke", () => {
     expect(result.data[0].work_order_id).toBe("88888888-8888-8888-8888-888888888881");
   });
 
+  it("allows in-account owner document reads without leaking cross-account rows", async () => {
+    const { client } = await signInAsStagingFixtureUser("ownerA");
+
+    const result = await client
+      .from("documents")
+      .select("id, account_id, visibility, scope")
+      .eq("account_id", isolationFixtures.accounts.accountA.id)
+      .limit(10);
+
+    expect(result.error).toBeNull();
+    expect(Array.isArray(result.data)).toBe(true);
+    expect(result.data.every((row) => row.account_id === isolationFixtures.accounts.accountA.id)).toBe(true);
+  });
+
   it("denies tenant A from using account-level notification writes", async () => {
     const { client } = await signInAsStagingFixtureUser("tenantA1");
 

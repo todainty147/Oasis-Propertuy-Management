@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${OASIS_ALLOW_PROTECTED_PUSH:-0}" == "1" ]]; then
+  exit 0
+fi
+
+PROTECTED_REFS_REGEX='^refs/heads/(main|master|production)$'
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if printf '%s\n' "${remote_ref}" | grep -qE "${PROTECTED_REFS_REGEX}"; then
+    echo "Blocked direct push to protected branch '${remote_ref}'." >&2
+    echo "Open a PR instead, or set OASIS_ALLOW_PROTECTED_PUSH=1 for an intentional one-off override." >&2
+    exit 1
+  fi
+done
+
+exit 0

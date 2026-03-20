@@ -27,7 +27,8 @@ export async function getFinanceSnapshot(accountId, tenantId = null) {
     return {
       total_income: 0,
       overdue_income: 0,
-      expected_income: 0,
+      due_soon_income: 0,
+      outstanding_income: 0,
       property_finance: [],
     };
   }
@@ -43,7 +44,8 @@ export async function getFinanceSnapshot(accountId, tenantId = null) {
   return row ?? {
     total_income: 0,
     overdue_income: 0,
-    expected_income: 0,
+    due_soon_income: 0,
+    outstanding_income: 0,
     property_finance: [],
   };
 }

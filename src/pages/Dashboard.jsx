@@ -16,6 +16,7 @@ import {
 } from "../services/leaseService";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount } from "../utils/currency";
+import { sumOverdue } from "../utils/finance";
 import {
   getDashboardHubExtras,
   getDashboardSnapshot,
@@ -253,6 +254,7 @@ export default function Dashboard({
     tenant_due_overdue_count: 0,
     overdue_amount: 0,
     due_soon_count: 0,
+    due_soon_amount: 0,
     overdue_current_window_amount: 0,
     overdue_previous_window_amount: 0,
     open_requests: 0,
@@ -262,6 +264,7 @@ export default function Dashboard({
   };
 
   const dueSoonCount = Number(snapshotView.due_soon_count || 0);
+  const dueSoonAmount = Number(snapshotView.due_soon_amount || 0);
 
   const hubItems = useMemo(
     () =>
@@ -276,17 +279,13 @@ export default function Dashboard({
     [attentionRows, dueSoonCount, hubExtras, hubHorizon, leaseAttentionRows, t]
   );
 
-  const normalizePayStatus = (status) => {
-    const s = String(status || "").toLowerCase();
-    if (["paid", "opłacone", "oplacone"].includes(s)) return "paid";
-    if (["due", "oczekujące", "oczekujace", "pending"].includes(s)) return "due";
-    if (["overdue", "zaległe", "zalegle"].includes(s)) return "overdue";
-    return "other";
-  };
-
-  const overdueAmount = (payments ?? [])
-    .filter((p) => normalizePayStatus(p.status) === "overdue")
-    .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  const overdueAmount = sumOverdue(
+    (payments ?? []).map((p) => ({
+      ...p,
+      dueDate: p?.dueDate ?? p?.due_date ?? null,
+      paidAt: p?.paidAt ?? p?.paid_at ?? null,
+    })),
+  );
   const overdueAmountView = Number(snapshotView.overdue_amount || overdueAmount);
   const unassignedWorkOrdersCount = Number(snapshotView.unassigned_work_orders || 0);
   const waiting48hCount = Number(snapshotView.waiting_over_48h || 0);
@@ -628,7 +627,7 @@ export default function Dashboard({
         body={t("dashboard.onboarding.hintBody")}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <Card className="p-5 border border-emerald-200 bg-emerald-50/40">
           <div className="flex justify-between items-start">
             <div>
@@ -679,13 +678,16 @@ export default function Dashboard({
           <div className="flex justify-between items-start">
             <div>
               <p className="text-sm font-medium text-slate-500">{t("dashboard.hub.dueSoon")}</p>
-              <h3 className="text-2xl font-bold text-amber-600 mt-1">{dueSoonCount}</h3>
+              <h3 className="text-2xl font-bold text-amber-600 mt-1">{formatCurrencyAmount(dueSoonAmount)}</h3>
             </div>
             <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
               <AlertCircle size={20} />
             </div>
           </div>
           <div className="mt-4 text-sm text-slate-500">
+            {t("dashboard.hub.dueSoonCount", { count: dueSoonCount })}
+          </div>
+          <div className="mt-1 text-xs text-slate-500">
             {hubHorizon === "today" ? t("dashboard.hub.dueSoonHintToday") : t("dashboard.hub.dueSoonHint")}
           </div>
         </Card>

@@ -72,7 +72,7 @@ describe("RPC service isolation contracts", () => {
     const { tenantA1, tenantB1 } = isolationFixtures.users;
 
     rpcMock.mockResolvedValueOnce({
-      data: [{ total_income: 1200, overdue_income: 0, expected_income: 0, property_finance: [] }],
+      data: [{ total_income: 1200, overdue_income: 0, due_soon_income: 0, outstanding_income: 0, property_finance: [] }],
       error: null,
     });
 

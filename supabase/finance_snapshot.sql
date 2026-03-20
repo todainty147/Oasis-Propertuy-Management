@@ -1,3 +1,5 @@
+drop function if exists public.finance_snapshot(uuid, uuid);
+
 create or replace function public.finance_snapshot(
   p_account_id uuid,
   p_tenant_id uuid default null
@@ -5,7 +7,8 @@ create or replace function public.finance_snapshot(
 returns table (
   total_income numeric,
   overdue_income numeric,
-  expected_income numeric,
+  due_soon_income numeric,
+  outstanding_income numeric,
   property_finance jsonb
 )
 language plpgsql
@@ -41,6 +44,40 @@ begin
         or p.tenant_id = v_tenant_id
       )
   ),
+  payment_flags as (
+    select
+      sp.id,
+      sp.property_id,
+      sp.tenant_id,
+      sp.amount,
+      sp.status_norm,
+      sp.paid_at,
+      sp.due_date,
+      (
+        sp.paid_at is not null
+        or sp.status_norm in ('paid', 'oplacone', 'opłacone')
+      ) as is_paid,
+      (
+        not (
+          sp.paid_at is not null
+          or sp.status_norm in ('paid', 'oplacone', 'opłacone')
+        )
+        and (
+          sp.status_norm in ('overdue', 'zalegle', 'zaległe')
+          or (sp.due_date is not null and sp.due_date < current_date)
+        )
+      ) as is_overdue,
+      (
+        not (
+          sp.paid_at is not null
+          or sp.status_norm in ('paid', 'oplacone', 'opłacone')
+        )
+        and sp.due_date is not null
+        and sp.due_date >= current_date
+        and sp.due_date <= current_date + interval '7 days'
+      ) as is_due_soon
+    from scoped_payments sp
+  ),
   scoped_properties as (
     select
       pr.id,
@@ -59,7 +96,7 @@ begin
       coalesce(
         sum(
           case
-            when paid_at is not null or status_norm in ('paid', 'oplacone', 'opłacone')
+            when is_paid
             then amount
             else 0
           end
@@ -69,11 +106,7 @@ begin
       coalesce(
         sum(
           case
-            when not (paid_at is not null or status_norm in ('paid', 'oplacone', 'opłacone'))
-             and (
-               status_norm in ('overdue', 'zalegle', 'zaległe')
-               or (due_date is not null and due_date < current_date)
-             )
+            when is_overdue
             then amount
             else 0
           end
@@ -83,14 +116,24 @@ begin
       coalesce(
         sum(
           case
-            when not (paid_at is not null or status_norm in ('paid', 'oplacone', 'opłacone'))
+            when is_due_soon
             then amount
             else 0
           end
         ),
         0
-      ) as expected_income
-    from scoped_payments
+      ) as due_soon_income,
+      coalesce(
+        sum(
+          case
+            when not is_paid
+            then amount
+            else 0
+          end
+        ),
+        0
+      ) as outstanding_income
+    from payment_flags
   ),
   property_rows as (
     select
@@ -154,7 +197,8 @@ begin
   select
     finance_totals.total_income,
     finance_totals.overdue_income,
-    finance_totals.expected_income,
+    finance_totals.due_soon_income,
+    finance_totals.outstanding_income,
     property_json.property_finance
   from finance_totals, property_json;
 end;

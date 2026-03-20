@@ -365,6 +365,7 @@ export async function ensureIsolationHarnessSeed() {
         name: "Tenant A1",
         email: isolationFixtures.users.tenantA1.email,
         phone: "+447700900001",
+        status: "active",
       },
       {
         id: isolationFixtures.users.tenantB1.tenantId,
@@ -375,6 +376,7 @@ export async function ensureIsolationHarnessSeed() {
         name: "Tenant B1",
         email: isolationFixtures.users.tenantB1.email,
         phone: "+447700900002",
+        status: "active",
       },
     ]);
   } catch (error) {

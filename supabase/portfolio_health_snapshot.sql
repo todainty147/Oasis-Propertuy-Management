@@ -53,7 +53,7 @@ as $$
     from properties p
     where p.account_id = p_account_id
       and (
-        p_tenant_id is null
+        (select tenant_id from authz) is null
         or p.id = (select property_id from tenant_scope)
       )
   ),
@@ -68,15 +68,46 @@ as $$
   ),
   scoped_payments as (
     select
-      p.amount,
+      coalesce(p.amount, 0) as amount,
       lower(coalesce(p.status, '')) as status_norm,
+      p.paid_at,
       p.due_date
     from payments p
     where p.account_id = p_account_id
       and (
-        p_tenant_id is null
-        or p.tenant_id = p_tenant_id
+        (select tenant_id from authz) is null
+        or p.tenant_id = (select tenant_id from authz)
       )
+  ),
+  payment_flags as (
+    select
+      sp.amount,
+      sp.status_norm,
+      sp.due_date,
+      (
+        sp.paid_at is not null
+        or sp.status_norm in ('paid', 'oplacone', 'opłacone')
+      ) as is_paid,
+      (
+        not (
+          sp.paid_at is not null
+          or sp.status_norm in ('paid', 'oplacone', 'opłacone')
+        )
+        and (
+          sp.status_norm in ('overdue', 'zalegle', 'zaległe')
+          or (sp.due_date is not null and sp.due_date < current_date)
+        )
+      ) as is_overdue,
+      (
+        not (
+          sp.paid_at is not null
+          or sp.status_norm in ('paid', 'oplacone', 'opłacone')
+        )
+        and sp.due_date is not null
+        and sp.due_date >= current_date
+        and sp.due_date <= current_date + interval '7 days'
+      ) as is_due_soon
+    from scoped_payments sp
   ),
   scoped_requests as (
     select
@@ -88,7 +119,7 @@ as $$
     from maintenance_requests r
     where r.account_id = p_account_id
       and (
-        p_tenant_id is null
+        (select tenant_id from authz) is null
         or r.property_id = (select property_id from tenant_scope)
       )
   ),
@@ -106,7 +137,7 @@ as $$
     from work_orders w
     where w.account_id = p_account_id
       and (
-        p_tenant_id is null
+        (select tenant_id from authz) is null
         or w.property_id = (select property_id from tenant_scope)
       )
   ),
@@ -120,27 +151,24 @@ as $$
   ),
   finance as (
     select
-      coalesce(sum(case when status_norm in ('paid', 'oplacone', 'opłacone') then amount else 0 end), 0) as paid_amount,
-      coalesce(sum(case when status_norm in ('due', 'oczekujace', 'oczekujące', 'pending') then amount else 0 end), 0) as due_amount,
-      coalesce(sum(case when status_norm in ('overdue', 'zalegle', 'zaległe') then amount else 0 end), 0) as overdue_amount,
+      coalesce(sum(case when is_paid then amount else 0 end), 0) as paid_amount,
+      coalesce(sum(case when not is_paid and not is_overdue then amount else 0 end), 0) as due_amount,
+      coalesce(sum(case when is_overdue then amount else 0 end), 0) as overdue_amount,
       coalesce(
         sum(
           case
-            when status_norm not in ('paid', 'oplacone', 'opłacone')
-             and due_date is not null
-             and due_date >= current_date
-             and due_date <= current_date + interval '7 days'
+            when is_due_soon
             then amount
             else 0
           end
         ),
         0
       ) as due_soon_amount,
-      coalesce(sum(case when status_norm not in ('paid', 'oplacone', 'opłacone') then amount else 0 end), 0) as outstanding_amount,
+      coalesce(sum(case when not is_paid then amount else 0 end), 0) as outstanding_amount,
       coalesce(
         sum(
           case
-            when status_norm not in ('paid', 'oplacone', 'opłacone')
+            when is_overdue
              and due_date is not null
              and due_date <= current_date
              and current_date - due_date <= 7
@@ -153,7 +181,7 @@ as $$
       coalesce(
         sum(
           case
-            when status_norm not in ('paid', 'oplacone', 'opłacone')
+            when is_overdue
              and due_date is not null
              and due_date <= current_date
              and current_date - due_date between 8 and 30
@@ -166,7 +194,7 @@ as $$
       coalesce(
         sum(
           case
-            when status_norm not in ('paid', 'oplacone', 'opłacone')
+            when is_overdue
              and due_date is not null
              and due_date <= current_date
              and current_date - due_date >= 31
@@ -179,7 +207,7 @@ as $$
       coalesce(
         sum(
           case
-            when status_norm not in ('paid', 'oplacone', 'opłacone')
+            when not is_paid
              and due_date is not null
              and date_trunc('month', due_date::timestamp) = date_trunc('month', current_date::timestamp)
             then amount
@@ -191,7 +219,7 @@ as $$
       coalesce(
         sum(
           case
-            when status_norm not in ('paid', 'oplacone', 'opłacone')
+            when not is_paid
              and due_date is not null
              and date_trunc('month', due_date::timestamp) = date_trunc('month', current_date::timestamp - interval '1 month')
             then amount
@@ -200,7 +228,7 @@ as $$
         ),
         0
       ) as outstanding_previous_month
-    from scoped_payments
+    from payment_flags
   ),
   maintenance as (
     select

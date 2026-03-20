@@ -17,7 +17,7 @@ export async function fetchMyPayments(accountId) {
 }
 
 /* ======================
-   OWNER/STAFF: CREATE (RPC)
+   OWNER/ADMIN: CREATE (RPC)
    ====================== */
 
 export async function createPayment({
@@ -53,7 +53,7 @@ export async function createPayment({
 }
 
 /* ======================
-   OWNER/STAFF: UPDATE (RPC)
+   OWNER/ADMIN: UPDATE (RPC)
    ====================== */
 
 export async function updatePayment(paymentId, { amount = null, dueDate = null } = {}) {
@@ -76,7 +76,7 @@ export async function updatePayment(paymentId, { amount = null, dueDate = null }
 }
 
 /* ======================
-   OWNER/STAFF: DELETE (RPC)
+   OWNER: DELETE (RPC)
    ====================== */
 
 export async function deletePayment(paymentId) {
@@ -90,7 +90,7 @@ export async function deletePayment(paymentId) {
 }
 
 /* ======================
-   OWNER/STAFF: MARK PAID/UNPAID
+   OWNER/ADMIN: MARK PAID/UNPAID
    ====================== */
 
 export async function markPaymentPaid(paymentId, paidAt = null) {

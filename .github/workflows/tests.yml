@@ -72,6 +72,32 @@ jobs:
             --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
             --file "supabase/account_invitations_saas.sql"
 
+      - name: Apply payment write authorization overlay
+        run: |
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+            --file "supabase/payment_write_authorization.sql"
+
+      - name: Apply storage security overlays
+        run: |
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+            --file "supabase/storage_buckets.sql"
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+            --file "supabase/storage_documents_policies.sql"
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+            --file "supabase/storage_maintenance_request_attachments_policies.sql"
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+            --file "supabase/storage_work_order_attachments_policies.sql"
+
       - name: Seed integration harness
         run: npm run test:integration:seed
 

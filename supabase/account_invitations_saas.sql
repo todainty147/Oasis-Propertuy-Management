@@ -1,5 +1,33 @@
 -- SaaS invitation hardening (account-scoped, multi-role)
 
+create or replace function public.security_failure_context(
+  p_event text,
+  p_reason text,
+  p_account_id uuid default null,
+  p_entity_type text default null,
+  p_entity_id uuid default null,
+  p_metadata jsonb default '{}'::jsonb
+)
+returns text
+language sql
+stable
+set search_path = public
+as $$
+  select jsonb_strip_nulls(
+    jsonb_build_object(
+      'event', nullif(trim(coalesce(p_event, '')), ''),
+      'reason', nullif(trim(coalesce(p_reason, '')), ''),
+      'account_id', p_account_id,
+      'entity_type', nullif(trim(coalesce(lower(p_entity_type), '')), ''),
+      'entity_id', p_entity_id,
+      'actor_user_id', auth.uid()
+    ) || coalesce(p_metadata, '{}'::jsonb)
+  )::text;
+$$;
+
+comment on function public.security_failure_context(text, text, uuid, text, uuid, jsonb) is
+  'Formats safe structured detail payloads for security-sensitive denied-path and validation exceptions.';
+
 create table if not exists public.account_invitations (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts(id) on delete cascade,

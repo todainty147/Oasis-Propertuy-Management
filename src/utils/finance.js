@@ -59,8 +59,26 @@ export function sumOverdue(payments = []) {
     .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 }
 
+export function sumDueSoon(payments = [], horizonDays = 7) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const horizon = new Date(today);
+  horizon.setDate(horizon.getDate() + Math.max(1, Number(horizonDays || 7)));
+
+  return payments
+    .filter((p) => {
+      if (!p || isPaid(p) || isOverdue(p)) return false;
+      const due = toDate(p.dueDate);
+      if (!due) return false;
+      due.setHours(0, 0, 0, 0);
+      return due >= today && due <= horizon;
+    })
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+}
+
 export function sumExpected(payments = []) {
-  // Expected = unpaid (includes due + overdue)
+  // Expected/open = unpaid (includes due soon + overdue)
   return payments
     .filter((p) => !isPaid(p))
     .reduce((sum, p) => sum + Number(p.amount || 0), 0);

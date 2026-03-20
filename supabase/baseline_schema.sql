@@ -165,6 +165,7 @@ ALTER TYPE auth.one_time_token_type OWNER TO supabase_auth_admin;
 
 CREATE TYPE public.account_role AS ENUM (
     'owner',
+    'admin',
     'staff',
     'tenant',
     'contractor'
@@ -4216,8 +4217,8 @@ declare
   v_owner_id uuid;
   v_row public.payments;
 begin
-  -- Guard: only owner/admin/staff can create
-  if account_role_for(p_account_id) not in ('owner','admin','staff') then
+  -- Guard: only owner/admin can create
+  if coalesce(account_role_for(p_account_id), '') not in ('owner','admin') then
     raise exception 'Not allowed';
   end if;
 
@@ -4666,24 +4667,24 @@ ALTER FUNCTION public.dashboard_hub_extras(p_account_id uuid, p_tenant_id uuid, 
 -- Name: dashboard_snapshot(uuid, uuid, integer); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.dashboard_snapshot(p_account_id uuid, p_tenant_id uuid DEFAULT NULL::uuid, p_horizon_days integer DEFAULT 1) RETURNS TABLE(property_count bigint, occupied_count bigint, vacant_count bigint, occupancy_rate integer, tenant_paid_total numeric, tenant_due_total numeric, tenant_overdue_total numeric, tenant_due_overdue_count bigint, overdue_amount numeric, due_soon_count bigint, overdue_current_window_amount numeric, overdue_previous_window_amount numeric, open_requests bigint, open_high_priority bigint, waiting_over_48h bigint, unassigned_work_orders bigint)
-    LANGUAGE plpgsql SECURITY DEFINER
+CREATE FUNCTION public.dashboard_snapshot(p_account_id uuid, p_tenant_id uuid DEFAULT NULL::uuid, p_horizon_days integer DEFAULT 1) RETURNS TABLE(property_count bigint, occupied_count bigint, vacant_count bigint, occupancy_rate integer, tenant_paid_total numeric, tenant_due_total numeric, tenant_overdue_total numeric, tenant_due_overdue_count bigint, overdue_amount numeric, due_soon_count bigint, due_soon_amount numeric, overdue_current_window_amount numeric, overdue_previous_window_amount numeric, open_requests bigint, open_high_priority bigint, waiting_over_48h bigint, unassigned_work_orders bigint)
+    LANGUAGE sql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
-declare
-  v_tenant_id uuid;
-begin
-  v_tenant_id := public.assert_tenant_scope_access(p_account_id, p_tenant_id);
-
-  return query
   with cfg as (
     select greatest(1, least(coalesce(p_horizon_days, 1), 30)) as horizon_days
+  ),
+  authz as (
+    select
+      p_account_id as account_id,
+      public.assert_tenant_scope_access(p_account_id, p_tenant_id) as tenant_id
   ),
   tenant_scope as (
     select t.property_id
     from tenants t
-    where t.id = v_tenant_id
-      and t.account_id = p_account_id
+    cross join authz a
+    where t.id = a.tenant_id
+      and t.account_id = a.account_id
     limit 1
   ),
   scoped_properties as (
@@ -4691,7 +4692,7 @@ begin
     from properties p
     where p.account_id = p_account_id
       and (
-        v_tenant_id is null
+        (select tenant_id from authz) is null
         or p.id = (select property_id from tenant_scope)
       )
   ),
@@ -4708,13 +4709,44 @@ begin
     select
       coalesce(p.amount, 0) as amount,
       lower(coalesce(p.status, '')) as status_norm,
+      p.paid_at,
       p.due_date
     from payments p
     where p.account_id = p_account_id
       and (
-        v_tenant_id is null
-        or p.tenant_id = v_tenant_id
+        (select tenant_id from authz) is null
+        or p.tenant_id = (select tenant_id from authz)
       )
+  ),
+  payment_flags as (
+    select
+      sp.amount,
+      sp.status_norm,
+      sp.due_date,
+      (
+        sp.paid_at is not null
+        or sp.status_norm in ('paid', 'oplacone', 'opłacone')
+      ) as is_paid,
+      (
+        not (
+          sp.paid_at is not null
+          or sp.status_norm in ('paid', 'oplacone', 'opłacone')
+        )
+        and (
+          sp.status_norm in ('overdue', 'zalegle', 'zaległe')
+          or (sp.due_date is not null and sp.due_date < current_date)
+        )
+      ) as is_overdue,
+      (
+        not (
+          sp.paid_at is not null
+          or sp.status_norm in ('paid', 'oplacone', 'opłacone')
+        )
+        and sp.due_date is not null
+        and sp.due_date >= current_date
+        and sp.due_date <= current_date + ((select horizon_days from cfg) || ' days')::interval
+      ) as is_due_soon
+    from scoped_payments sp
   ),
   scoped_requests as (
     select
@@ -4724,7 +4756,7 @@ begin
     from maintenance_requests r
     where r.account_id = p_account_id
       and (
-        v_tenant_id is null
+        (select tenant_id from authz) is null
         or r.property_id = (select property_id from tenant_scope)
       )
   ),
@@ -4735,24 +4767,21 @@ begin
     from work_orders_with_flags w
     where w.account_id = p_account_id
       and (
-        v_tenant_id is null
+        (select tenant_id from authz) is null
         or w.property_id = (select property_id from tenant_scope)
       )
   ),
   finance as (
     select
-      coalesce(sum(case when status_norm in ('paid', 'oplacone', 'opłacone') then amount else 0 end), 0) as tenant_paid_total,
-      coalesce(sum(case when status_norm in ('due', 'oczekujace', 'oczekujące', 'pending') then amount else 0 end), 0) as tenant_due_total,
-      coalesce(sum(case when status_norm in ('overdue', 'zalegle', 'zaległe') then amount else 0 end), 0) as tenant_overdue_total,
-      coalesce(sum(case when status_norm in ('due', 'oczekujace', 'oczekujące', 'pending', 'overdue', 'zalegle', 'zaległe') then 1 else 0 end), 0) as tenant_due_overdue_count,
-      coalesce(sum(case when status_norm in ('overdue', 'zalegle', 'zaległe') then amount else 0 end), 0) as overdue_amount,
+      coalesce(sum(case when is_paid then amount else 0 end), 0) as tenant_paid_total,
+      coalesce(sum(case when not is_paid and not is_overdue then amount else 0 end), 0) as tenant_due_total,
+      coalesce(sum(case when is_overdue then amount else 0 end), 0) as tenant_overdue_total,
+      coalesce(sum(case when not is_paid then 1 else 0 end), 0) as tenant_due_overdue_count,
+      coalesce(sum(case when is_overdue then amount else 0 end), 0) as overdue_amount,
       coalesce(
         sum(
           case
-            when status_norm not in ('paid', 'oplacone', 'opłacone')
-             and due_date is not null
-             and due_date >= current_date
-             and due_date <= current_date + ((select horizon_days from cfg) || ' days')::interval
+            when is_due_soon
             then 1
             else 0
           end
@@ -4762,7 +4791,17 @@ begin
       coalesce(
         sum(
           case
-            when status_norm not in ('paid', 'oplacone', 'opłacone')
+            when is_due_soon
+            then amount
+            else 0
+          end
+        ),
+        0
+      ) as due_soon_amount,
+      coalesce(
+        sum(
+          case
+            when is_overdue
              and due_date is not null
              and due_date <= current_date
              and current_date - due_date <= 7
@@ -4775,7 +4814,7 @@ begin
       coalesce(
         sum(
           case
-            when status_norm not in ('paid', 'oplacone', 'opłacone')
+            when is_overdue
              and due_date is not null
              and current_date - due_date > 7
              and current_date - due_date <= 14
@@ -4785,7 +4824,7 @@ begin
         ),
         0
       ) as overdue_previous_window_amount
-    from scoped_payments
+    from payment_flags
   ),
   maintenance as (
     select
@@ -4825,6 +4864,7 @@ begin
     finance.tenant_due_overdue_count,
     finance.overdue_amount,
     finance.due_soon_count,
+    finance.due_soon_amount,
     finance.overdue_current_window_amount,
     finance.overdue_previous_window_amount,
     maintenance.open_requests,
@@ -4832,7 +4872,6 @@ begin
     maintenance.waiting_over_48h,
     maintenance.unassigned_work_orders
   from finance, maintenance;
-end;
 $$;
 
 
@@ -4904,7 +4943,7 @@ begin
     raise exception 'Payment not found';
   end if;
 
-  if account_role_for(v_account_id) not in ('owner','admin') then
+  if coalesce(account_role_for(v_account_id), '') <> 'owner' then
     raise exception 'Not allowed';
   end if;
 
@@ -5209,7 +5248,7 @@ begin
   end if;
 
   v_role := public.account_role_for(v_doc.account_id);
-  if v_role not in ('owner','admin','staff') then
+  if coalesce(v_role, '') not in ('owner','admin') then
     raise exception 'Not permitted';
   end if;
 
@@ -5278,7 +5317,7 @@ ALTER FUNCTION public.finalize_document_upload(p_document_id uuid, p_size_bytes 
 -- Name: finance_snapshot(uuid, uuid); Type: FUNCTION; Schema: public; Owner: postgres
 --
 
-CREATE FUNCTION public.finance_snapshot(p_account_id uuid, p_tenant_id uuid DEFAULT NULL::uuid) RETURNS TABLE(total_income numeric, overdue_income numeric, expected_income numeric, property_finance jsonb)
+CREATE FUNCTION public.finance_snapshot(p_account_id uuid, p_tenant_id uuid DEFAULT NULL::uuid) RETURNS TABLE(total_income numeric, overdue_income numeric, due_soon_income numeric, outstanding_income numeric, property_finance jsonb)
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
@@ -5311,6 +5350,40 @@ begin
         or p.tenant_id = v_tenant_id
       )
   ),
+  payment_flags as (
+    select
+      sp.id,
+      sp.property_id,
+      sp.tenant_id,
+      sp.amount,
+      sp.status_norm,
+      sp.paid_at,
+      sp.due_date,
+      (
+        sp.paid_at is not null
+        or sp.status_norm in ('paid', 'oplacone', 'opłacone')
+      ) as is_paid,
+      (
+        not (
+          sp.paid_at is not null
+          or sp.status_norm in ('paid', 'oplacone', 'opłacone')
+        )
+        and (
+          sp.status_norm in ('overdue', 'zalegle', 'zaległe')
+          or (sp.due_date is not null and sp.due_date < current_date)
+        )
+      ) as is_overdue,
+      (
+        not (
+          sp.paid_at is not null
+          or sp.status_norm in ('paid', 'oplacone', 'opłacone')
+        )
+        and sp.due_date is not null
+        and sp.due_date >= current_date
+        and sp.due_date <= current_date + interval '7 days'
+      ) as is_due_soon
+    from scoped_payments sp
+  ),
   scoped_properties as (
     select
       pr.id,
@@ -5329,7 +5402,7 @@ begin
       coalesce(
         sum(
           case
-            when paid_at is not null or status_norm in ('paid', 'oplacone', 'opłacone')
+            when is_paid
             then amount
             else 0
           end
@@ -5339,11 +5412,7 @@ begin
       coalesce(
         sum(
           case
-            when not (paid_at is not null or status_norm in ('paid', 'oplacone', 'opłacone'))
-             and (
-               status_norm in ('overdue', 'zalegle', 'zaległe')
-               or (due_date is not null and due_date < current_date)
-             )
+            when is_overdue
             then amount
             else 0
           end
@@ -5353,14 +5422,24 @@ begin
       coalesce(
         sum(
           case
-            when not (paid_at is not null or status_norm in ('paid', 'oplacone', 'opłacone'))
+            when is_due_soon
             then amount
             else 0
           end
         ),
         0
-      ) as expected_income
-    from scoped_payments
+      ) as due_soon_income,
+      coalesce(
+        sum(
+          case
+            when not is_paid
+            then amount
+            else 0
+          end
+        ),
+        0
+      ) as outstanding_income
+    from payment_flags
   ),
   property_rows as (
     select
@@ -5424,7 +5503,8 @@ begin
   select
     finance_totals.total_income,
     finance_totals.overdue_income,
-    finance_totals.expected_income,
+    finance_totals.due_soon_income,
+    finance_totals.outstanding_income,
     property_json.property_finance
   from finance_totals, property_json;
 end;
@@ -6753,7 +6833,7 @@ begin
     raise exception 'Payment not found';
   end if;
 
-  if account_role_for(v_row.account_id) not in ('owner','admin','staff') then
+  if coalesce(account_role_for(v_row.account_id), '') not in ('owner','admin') then
     raise exception 'Not allowed';
   end if;
 
@@ -7237,8 +7317,9 @@ begin
   ),
   scoped_payments as (
     select
-      p.amount,
+      coalesce(p.amount, 0) as amount,
       lower(coalesce(p.status, '')) as status_norm,
+      p.paid_at,
       p.due_date
     from payments p
     where p.account_id = p_account_id
@@ -7246,6 +7327,36 @@ begin
         v_tenant_id is null
         or p.tenant_id = v_tenant_id
       )
+  ),
+  payment_flags as (
+    select
+      sp.amount,
+      sp.status_norm,
+      sp.due_date,
+      (
+        sp.paid_at is not null
+        or sp.status_norm in ('paid', 'oplacone', 'opłacone')
+      ) as is_paid,
+      (
+        not (
+          sp.paid_at is not null
+          or sp.status_norm in ('paid', 'oplacone', 'opłacone')
+        )
+        and (
+          sp.status_norm in ('overdue', 'zalegle', 'zaległe')
+          or (sp.due_date is not null and sp.due_date < current_date)
+        )
+      ) as is_overdue,
+      (
+        not (
+          sp.paid_at is not null
+          or sp.status_norm in ('paid', 'oplacone', 'opłacone')
+        )
+        and sp.due_date is not null
+        and sp.due_date >= current_date
+        and sp.due_date <= current_date + interval '7 days'
+      ) as is_due_soon
+    from scoped_payments sp
   ),
   scoped_requests as (
     select
@@ -7289,27 +7400,24 @@ begin
   ),
   finance as (
     select
-      coalesce(sum(case when status_norm in ('paid', 'oplacone', 'opłacone') then amount else 0 end), 0) as paid_amount,
-      coalesce(sum(case when status_norm in ('due', 'oczekujace', 'oczekujące', 'pending') then amount else 0 end), 0) as due_amount,
-      coalesce(sum(case when status_norm in ('overdue', 'zalegle', 'zaległe') then amount else 0 end), 0) as overdue_amount,
+      coalesce(sum(case when is_paid then amount else 0 end), 0) as paid_amount,
+      coalesce(sum(case when not is_paid and not is_overdue then amount else 0 end), 0) as due_amount,
+      coalesce(sum(case when is_overdue then amount else 0 end), 0) as overdue_amount,
       coalesce(
         sum(
           case
-            when status_norm not in ('paid', 'oplacone', 'opłacone')
-             and due_date is not null
-             and due_date >= current_date
-             and due_date <= current_date + interval '7 days'
+            when is_due_soon
             then amount
             else 0
           end
         ),
         0
       ) as due_soon_amount,
-      coalesce(sum(case when status_norm not in ('paid', 'oplacone', 'opłacone') then amount else 0 end), 0) as outstanding_amount,
+      coalesce(sum(case when not is_paid then amount else 0 end), 0) as outstanding_amount,
       coalesce(
         sum(
           case
-            when status_norm not in ('paid', 'oplacone', 'opłacone')
+            when is_overdue
              and due_date is not null
              and due_date <= current_date
              and current_date - due_date <= 7
@@ -7322,7 +7430,7 @@ begin
       coalesce(
         sum(
           case
-            when status_norm not in ('paid', 'oplacone', 'opłacone')
+            when is_overdue
              and due_date is not null
              and due_date <= current_date
              and current_date - due_date between 8 and 30
@@ -7335,7 +7443,7 @@ begin
       coalesce(
         sum(
           case
-            when status_norm not in ('paid', 'oplacone', 'opłacone')
+            when is_overdue
              and due_date is not null
              and due_date <= current_date
              and current_date - due_date >= 31
@@ -7348,7 +7456,7 @@ begin
       coalesce(
         sum(
           case
-            when status_norm not in ('paid', 'oplacone', 'opłacone')
+            when not is_paid
              and due_date is not null
              and date_trunc('month', due_date::timestamp) = date_trunc('month', current_date::timestamp)
             then amount
@@ -7360,7 +7468,7 @@ begin
       coalesce(
         sum(
           case
-            when status_norm not in ('paid', 'oplacone', 'opłacone')
+            when not is_paid
              and due_date is not null
              and date_trunc('month', due_date::timestamp) = date_trunc('month', current_date::timestamp - interval '1 month')
             then amount
@@ -7369,7 +7477,7 @@ begin
         ),
         0
       ) as outstanding_previous_month
-    from scoped_payments
+    from payment_flags
   ),
   maintenance as (
     select
@@ -7533,6 +7641,10 @@ CREATE FUNCTION public.prevent_ledger_update_delete() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
+  if current_setting('oasis.allow_ledger_sync', true) = 'on' then
+    return coalesce(new, old);
+  end if;
+
   RAISE EXCEPTION
     'ledger_entries is append-only. Use reversal entries instead.';
 END;
@@ -8265,7 +8377,7 @@ begin
   end if;
 
   v_role := public.account_role_for(v_pay.account_id);
-  if v_role not in ('owner','admin','staff') then
+  if coalesce(v_role, '') not in ('owner','admin') then
     raise exception 'Not permitted';
   end if;
 
@@ -11098,12 +11210,12 @@ CREATE FUNCTION public.tg_sync_payments_to_ledger() RETURNS trigger
     SET search_path TO 'public'
     AS $$
 begin
-  -- Safety
   if new.account_id is null then
     return new;
   end if;
 
-  -- Only mirror to ledger when actually PAID
+  perform set_config('oasis.allow_ledger_sync', 'on', true);
+
   if new.paid_at is not null and coalesce(new.status,'') <> 'void' then
     insert into public.ledger_entries (
       account_id, property_id, tenant_id,
@@ -11138,12 +11250,12 @@ begin
       updated_at  = now();
 
   else
-    -- If it is NOT paid (or is void), remove ledger row if present
     delete from public.ledger_entries
     where source_table = 'payments'
       and source_id = new.id;
   end if;
 
+  perform set_config('oasis.allow_ledger_sync', 'off', true);
   return new;
 end;
 $$;
@@ -11471,7 +11583,7 @@ begin
     raise exception 'Payment not found';
   end if;
 
-  if account_role_for(v_row.account_id) not in ('owner','admin','staff') then
+  if coalesce(account_role_for(v_row.account_id), '') not in ('owner','admin') then
     raise exception 'Not allowed';
   end if;
 
@@ -11823,7 +11935,7 @@ begin
   end if;
 
   v_role := public.account_role_for(v_pay.account_id);
-  if v_role not in ('owner','admin','staff') then
+  if v_role not in ('owner','admin') then
     raise exception 'Not permitted';
   end if;
 
@@ -24659,4 +24771,3 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON T
 --
 
 \unrestrict Myrp6E4emMIEvZ0TzmlV6MsflSz3MygNbgJuhuYJfN3Y0F6ok6bT7cMSsyytjeO
-
