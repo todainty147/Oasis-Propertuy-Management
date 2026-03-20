@@ -25,17 +25,94 @@ Before this cleanup:
 Use this when rebuilding a local database for integration work.
 
 1. Start local Supabase.
-2. Load [supabase/baseline_schema.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/baseline_schema.sql).
-3. Apply required overlays after the baseline.
-4. Seed the integration harness if needed.
+2. Run:
+
+```bash
+npm run db:bootstrap
+```
+
+3. Seed the integration harness if needed.
 
 Example overlay order for the current repo:
 
 1. `supabase/account_invitations_saas.sql`
-2. `supabase/security_failure_observability.sql`
-3. any other additive overlay you are actively testing
+2. `supabase/create_notifications.sql`
+3. `supabase/security_denied_event_stream.sql`
+4. `supabase/security_observability_events.sql`
+5. `supabase/payment_write_authorization.sql`
+6. `supabase/storage_buckets.sql`
+7. `supabase/storage_documents_policies.sql`
+8. `supabase/storage_maintenance_request_attachments_policies.sql`
+9. `supabase/storage_work_order_attachments_policies.sql`
 
 This is intentionally explicit. Do not assume `supabase db reset` alone reconstructs the full app schema in this repo.
+
+## Local bootstrap helper
+
+Use:
+
+```bash
+npm run db:bootstrap
+```
+
+What it does:
+- resets the local Supabase database first with `supabase db reset --local --no-seed`
+- checks connectivity to the local Postgres/Supabase database
+- applies [supabase/baseline_schema.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/baseline_schema.sql)
+- applies the current required overlays in a deterministic order
+- logs each step so local rebuilds are easy to audit
+
+The reset step gives the helper a clean local starting point. `supabase db reset` alone is still not enough for this repo because the app schema depends on the explicit baseline + overlay sequence that follows.
+
+The helper mirrors the same baseline + overlay order used by the integration workflow. It does not introduce migrations or replace the documented schema model.
+
+Do not treat a noisy baseline replay as proof that the local database is ready. The helper intentionally replays the checked-in baseline with `ON_ERROR_STOP=0` because of expected Supabase-managed ownership and default-privilege replay warnings.
+
+## Local verification helper
+
+Use:
+
+```bash
+npm run db:verify
+```
+
+What it does:
+- checks a small set of launch-relevant schema objects after bootstrap
+- fails clearly if key tables, RPCs, or storage helpers are missing
+- gives a practical confidence signal on top of the intentionally noisy baseline replay
+
+The current verification set covers:
+- invite lifecycle surface
+- security denied-event and observability surfaces
+- document storage access helper
+- dashboard / finance / portfolio aggregate RPCs
+- payment write RPCs
+- system notification side-effect RPC
+- documents bucket presence
+
+## Team-standard local workflow
+
+Use this as the official rebuild path for local schema work:
+
+```bash
+npm run db:bootstrap
+npm run db:verify
+npm run test:integration:seed
+npm run test:integration:run
+```
+
+If you want the first three steps together:
+
+```bash
+npm run db:ready
+```
+
+`db:ready` runs:
+- `npm run db:bootstrap`
+- `npm run db:verify`
+- `npm run test:integration:seed`
+
+It does not replace the full integration suite.
 
 ## Refreshing the checked-in baseline
 
@@ -68,6 +145,9 @@ This command fails if a regenerated normalized dump differs from the checked-in 
 
 ## What not to do
 
+- Do not trust baseline replay logs alone as a readiness signal.
+- Do not refresh `baseline_schema.sql` from a half-updated local database.
+- Do not apply overlays in arbitrary order.
 - Do not treat [supabase/migrations/20260319114347_remote_schema.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/migrations/20260319114347_remote_schema.sql) as the app bootstrap source.
 - Do not hand-edit `baseline_schema.sql` when a dump-based refresh is possible.
 - Do not assume overlays are already folded into baseline unless you have explicitly refreshed it afterward.
