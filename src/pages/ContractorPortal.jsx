@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import Card from "../components/Card";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
@@ -117,6 +117,10 @@ export default function ContractorPortal() {
   async function load() {
     setLoading(true);
     try {
+      const { data: authData, error: authErr } = await supabase.auth.getUser();
+      if (authErr) throw authErr;
+      const authedUserId = authData?.user?.id || "";
+
       // Prefer richer view first (may include related data depending on RLS/view grants)
       let list = [];
       const baseSelect = `
@@ -165,6 +169,10 @@ export default function ContractorPortal() {
         list = fallbackRows ?? [];
       } else {
         list = fromView ?? [];
+      }
+
+      if (authedUserId) {
+        list = list.filter((row) => String(row?.contractor_user_id || "") === authedUserId);
       }
 
       const requestIds = list.map((x) => x.maintenance_request_id).filter(Boolean);
@@ -316,13 +324,7 @@ export default function ContractorPortal() {
   }
 
   if (!isContractor) {
-    return (
-      <Card className="p-6">
-        <p className="text-sm text-slate-600">
-          {t("contractor.onlyAccess")}
-        </p>
-      </Card>
-    );
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (

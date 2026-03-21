@@ -81,7 +81,7 @@ export async function uploadDocument({
       : tenantId
         ? "tenant"
         : "account",
-  visibility = "staff",
+  visibility = tenantId ? "tenant" : "staff",
 }) {
   if (!accountId) throw new Error("Brak accountId przy uploadzie dokumentu");
   if (!file) throw new Error("Brak pliku");

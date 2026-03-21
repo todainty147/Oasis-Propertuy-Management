@@ -1,6 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { createNotifications } from "./notificationService";
-import { assertFiles } from "../utils/validation";
+import { assertFiles, assertUuid } from "../utils/validation";
 
 export const BUCKET = "maintenance-request-attachments";
 
@@ -36,10 +36,10 @@ function buildPath({ accountId, maintenanceRequestId, fileName }) {
 }
 
 export async function listMaintenanceRequestAttachments({ accountId, maintenanceRequestId } = {}) {
-  if (!accountId) throw new Error("Brak accountId");
-  if (!maintenanceRequestId) throw new Error("Brak maintenanceRequestId");
+  const safeAccountId = assertUuid(accountId, "Invalid account id");
+  const safeMaintenanceRequestId = assertUuid(maintenanceRequestId, "Invalid maintenance request id");
 
-  const folder = `account/${accountId}/maintenance_requests/${maintenanceRequestId}`;
+  const folder = `account/${safeAccountId}/maintenance_requests/${safeMaintenanceRequestId}`;
   const { data, error } = await supabase.storage.from(BUCKET).list(folder, {
     limit: 200,
     sortBy: { column: "created_at", order: "desc" },
@@ -76,8 +76,8 @@ export async function uploadMaintenanceRequestAttachments({
   maintenanceRequestId,
   files = [],
 } = {}) {
-  if (!accountId) throw new Error("Brak accountId");
-  if (!maintenanceRequestId) throw new Error("Brak maintenanceRequestId");
+  const safeAccountId = assertUuid(accountId, "Invalid account id");
+  const safeMaintenanceRequestId = assertUuid(maintenanceRequestId, "Invalid maintenance request id");
 
   const list = assertFiles(files, { maxFiles: 10, maxBytes: 15 * 1024 * 1024 });
   if (list.length === 0) return [];
@@ -86,8 +86,8 @@ export async function uploadMaintenanceRequestAttachments({
   const { data: reqRow, error: reqErr } = await supabase
     .from("maintenance_requests")
     .select("status")
-    .eq("account_id", accountId)
-    .eq("id", maintenanceRequestId)
+    .eq("account_id", safeAccountId)
+    .eq("id", safeMaintenanceRequestId)
     .single();
   if (reqErr) throw friendlyError(reqErr, "Nie udało się sprawdzić statusu zgłoszenia");
   if (String(reqRow?.status || "").toLowerCase() === "closed") {
@@ -98,8 +98,8 @@ export async function uploadMaintenanceRequestAttachments({
 
   for (const file of list) {
     const storagePath = buildPath({
-      accountId,
-      maintenanceRequestId,
+      accountId: safeAccountId,
+      maintenanceRequestId: safeMaintenanceRequestId,
       fileName: file.name,
     });
 
@@ -130,7 +130,7 @@ export async function uploadMaintenanceRequestAttachments({
     const { data: members, error: membersErr } = await supabase
       .from("account_members")
       .select("user_id, role")
-      .eq("account_id", accountId);
+      .eq("account_id", safeAccountId);
     if (membersErr) throw membersErr;
 
     const blockedRoles = new Set(["tenant", "contractor"]);
@@ -142,8 +142,8 @@ export async function uploadMaintenanceRequestAttachments({
     const { data: contractors } = await supabase
       .from("work_orders")
       .select("contractor_user_id")
-      .eq("account_id", accountId)
-      .eq("maintenance_request_id", maintenanceRequestId)
+      .eq("account_id", safeAccountId)
+      .eq("maintenance_request_id", safeMaintenanceRequestId)
       .not("contractor_user_id", "is", null);
 
     const contractorRecipients = (contractors || [])
@@ -151,16 +151,16 @@ export async function uploadMaintenanceRequestAttachments({
       .filter((id) => id && id !== actorId);
 
     await createNotifications({
-      accountId,
+      accountId: safeAccountId,
       recipientUserIds: Array.from(new Set([...managerRecipients, ...contractorRecipients])),
       type: "maintenance_attachment_uploaded",
       title: "Dodano załącznik do zgłoszenia",
       body: uploaded.length > 1 ? `Dodano ${uploaded.length} plików` : `Dodano plik: ${uploaded[0]?.file_name || "załącznik"}`,
       entityType: "maintenance_request",
-      entityId: maintenanceRequestId,
+      entityId: safeMaintenanceRequestId,
       linkPath: "/maintenance-inbox",
       metadata: {
-        maintenance_request_id: maintenanceRequestId,
+        maintenance_request_id: safeMaintenanceRequestId,
         files_count: uploaded.length,
       },
     });

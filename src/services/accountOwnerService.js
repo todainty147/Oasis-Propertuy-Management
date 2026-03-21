@@ -10,6 +10,16 @@ function isMissingBackendObject(error) {
   );
 }
 
+function isExpectedOptionalLookupError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    error?.code === "42501" ||
+    message.includes("access denied") ||
+    message.includes("not authenticated") ||
+    message.includes("invalid input syntax for type uuid")
+  );
+}
+
 export async function getAccountOwnerContact(accountId) {
   if (!accountId) return null;
   const { data, error } = await supabase.rpc("get_account_owner_contact", {
@@ -17,7 +27,9 @@ export async function getAccountOwnerContact(accountId) {
   });
 
   if (error) {
-    if (isMissingBackendObject(error)) return null;
+    if (isMissingBackendObject(error) || isExpectedOptionalLookupError(error)) {
+      return null;
+    }
     throw error;
   }
   const row = Array.isArray(data) ? data[0] : data;

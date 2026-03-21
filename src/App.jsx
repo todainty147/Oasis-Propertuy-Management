@@ -60,7 +60,7 @@ export default function App() {
   /* ======================
      ACCOUNT (NEW)
      ====================== */
-  const { activeAccountId, activeAccount, accountLoading } = useAccount();
+  const { activeAccountId, activeAccount, activeRole, accountLoading } = useAccount();
 
   /* ======================
      DATA HOOKS
@@ -128,6 +128,11 @@ export default function App() {
     let cancelled = false;
     async function loadOwnerContact() {
       if (!activeAccountId) return;
+      const role = String(activeRole || "").toLowerCase();
+      if (role === "tenant" || role === "contractor") {
+        if (!cancelled) setAccountOwnerEmail("");
+        return;
+      }
       try {
         const owner = await getAccountOwnerContact(activeAccountId);
         if (!cancelled) {
@@ -141,7 +146,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [activeAccountId]);
+  }, [activeAccountId, activeRole]);
 
   /* ======================
      RENDER GATES

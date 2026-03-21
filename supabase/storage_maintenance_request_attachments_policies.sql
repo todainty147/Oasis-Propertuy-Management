@@ -6,6 +6,83 @@
 --   account/<account_id>/maintenance_requests/<maintenance_request_id>/<file>
 -- =========================================================
 
+create or replace function public.can_view_maintenance_request_attachment(
+  p_account_id uuid,
+  p_maintenance_request_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.maintenance_requests mr
+    where mr.id = p_maintenance_request_id
+      and mr.account_id = p_account_id
+      and (
+        exists (
+          select 1
+          from public.account_members am
+          where am.account_id = mr.account_id
+            and am.user_id = auth.uid()
+        )
+        or exists (
+          select 1
+          from public.tenants t
+          where t.id = mr.reported_by_tenant_id
+            and t.account_id = mr.account_id
+            and t.user_id = auth.uid()
+            and t.archived_at is null
+            and t.status in ('active', 'accepted_pending_signing')
+        )
+        or exists (
+          select 1
+          from public.work_orders wo
+          where wo.maintenance_request_id = mr.id
+            and wo.account_id = mr.account_id
+            and wo.contractor_user_id = auth.uid()
+        )
+      )
+  );
+$$;
+
+create or replace function public.can_manage_maintenance_request_attachment(
+  p_account_id uuid,
+  p_maintenance_request_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.maintenance_requests mr
+    where mr.id = p_maintenance_request_id
+      and mr.account_id = p_account_id
+      and (
+        exists (
+          select 1
+          from public.account_members am
+          where am.account_id = mr.account_id
+            and am.user_id = auth.uid()
+        )
+        or exists (
+          select 1
+          from public.tenants t
+          where t.id = mr.reported_by_tenant_id
+            and t.account_id = mr.account_id
+            and t.user_id = auth.uid()
+            and t.archived_at is null
+            and t.status in ('active', 'accepted_pending_signing')
+        )
+      )
+  );
+$$;
+
 DROP POLICY IF EXISTS "mr_attach_select_access" ON storage.objects;
 DROP POLICY IF EXISTS "mr_attach_insert_tenant_or_member" ON storage.objects;
 DROP POLICY IF EXISTS "mr_attach_delete_tenant_or_member" ON storage.objects;
@@ -18,36 +95,11 @@ USING (
   bucket_id = 'maintenance-request-attachments'
   AND split_part(name, '/', 1) = 'account'
   AND split_part(name, '/', 3) = 'maintenance_requests'
-  AND split_part(name, '/', 2) ~* '^[0-9a-f-]{36}$'
-  AND split_part(name, '/', 4) ~* '^[0-9a-f-]{36}$'
-  AND (
-    -- members in this account (owner/admin/staff/...)
-    EXISTS (
-      SELECT 1
-      FROM account_members am
-      WHERE am.user_id = auth.uid()
-        AND am.account_id = split_part(name, '/', 2)::uuid
-    )
-    OR
-    -- tenant who reported this maintenance request
-    EXISTS (
-      SELECT 1
-      FROM maintenance_requests mr
-      JOIN tenants t ON t.id = mr.reported_by_tenant_id
-      WHERE mr.id = split_part(name, '/', 4)::uuid
-        AND mr.account_id = split_part(name, '/', 2)::uuid
-        AND t.account_id = mr.account_id
-        AND t.user_id = auth.uid()
-    )
-    OR
-    -- assigned contractor on any linked work order
-    EXISTS (
-      SELECT 1
-      FROM work_orders wo
-      WHERE wo.maintenance_request_id = split_part(name, '/', 4)::uuid
-        AND wo.account_id = split_part(name, '/', 2)::uuid
-        AND wo.contractor_user_id = auth.uid()
-    )
+  AND public.safe_uuid(split_part(name, '/', 2)) IS NOT NULL
+  AND public.safe_uuid(split_part(name, '/', 4)) IS NOT NULL
+  AND public.can_view_maintenance_request_attachment(
+    public.safe_uuid(split_part(name, '/', 2)),
+    public.safe_uuid(split_part(name, '/', 4))
   )
 );
 
@@ -59,31 +111,17 @@ WITH CHECK (
   bucket_id = 'maintenance-request-attachments'
   AND split_part(name, '/', 1) = 'account'
   AND split_part(name, '/', 3) = 'maintenance_requests'
-  AND split_part(name, '/', 2) ~* '^[0-9a-f-]{36}$'
-  AND split_part(name, '/', 4) ~* '^[0-9a-f-]{36}$'
-  AND (
-    EXISTS (
-      SELECT 1
-      FROM account_members am
-      WHERE am.user_id = auth.uid()
-        AND am.account_id = split_part(name, '/', 2)::uuid
-    )
-    OR
-    EXISTS (
-      SELECT 1
-      FROM maintenance_requests mr
-      JOIN tenants t ON t.id = mr.reported_by_tenant_id
-      WHERE mr.id = split_part(name, '/', 4)::uuid
-        AND mr.account_id = split_part(name, '/', 2)::uuid
-        AND t.account_id = mr.account_id
-        AND t.user_id = auth.uid()
-    )
+  AND public.safe_uuid(split_part(name, '/', 2)) IS NOT NULL
+  AND public.safe_uuid(split_part(name, '/', 4)) IS NOT NULL
+  AND public.can_manage_maintenance_request_attachment(
+    public.safe_uuid(split_part(name, '/', 2)),
+    public.safe_uuid(split_part(name, '/', 4))
   )
   AND EXISTS (
     SELECT 1
     FROM maintenance_requests mr
-    WHERE mr.id = split_part(name, '/', 4)::uuid
-      AND mr.account_id = split_part(name, '/', 2)::uuid
+    WHERE mr.id = public.safe_uuid(split_part(name, '/', 4))
+      AND mr.account_id = public.safe_uuid(split_part(name, '/', 2))
       AND lower(coalesce(mr.status, '')) <> 'closed'
   )
 );
@@ -96,24 +134,10 @@ USING (
   bucket_id = 'maintenance-request-attachments'
   AND split_part(name, '/', 1) = 'account'
   AND split_part(name, '/', 3) = 'maintenance_requests'
-  AND split_part(name, '/', 2) ~* '^[0-9a-f-]{36}$'
-  AND split_part(name, '/', 4) ~* '^[0-9a-f-]{36}$'
-  AND (
-    EXISTS (
-      SELECT 1
-      FROM account_members am
-      WHERE am.user_id = auth.uid()
-        AND am.account_id = split_part(name, '/', 2)::uuid
-    )
-    OR
-    EXISTS (
-      SELECT 1
-      FROM maintenance_requests mr
-      JOIN tenants t ON t.id = mr.reported_by_tenant_id
-      WHERE mr.id = split_part(name, '/', 4)::uuid
-        AND mr.account_id = split_part(name, '/', 2)::uuid
-        AND t.account_id = mr.account_id
-        AND t.user_id = auth.uid()
-    )
+  AND public.safe_uuid(split_part(name, '/', 2)) IS NOT NULL
+  AND public.safe_uuid(split_part(name, '/', 4)) IS NOT NULL
+  AND public.can_manage_maintenance_request_attachment(
+    public.safe_uuid(split_part(name, '/', 2)),
+    public.safe_uuid(split_part(name, '/', 4))
   )
 );

@@ -10,6 +10,7 @@ import { getCommandCenterData } from "../services/commandCenterService";
 import { formatCurrencyAmount } from "../utils/currency";
 import { isManageRole } from "../utils/permissions";
 import OnboardingHintCard from "../components/OnboardingHintCard";
+import { localizeNotificationContent } from "../utils/notificationLocalization";
 
 function hoursLabel(hours, t) {
   if (!Number.isFinite(hours)) return "";
@@ -37,6 +38,9 @@ function formatCreatedAt(value) {
 }
 
 function itemTitle(item, t) {
+  if (item.source === "notifications") {
+    return localizeNotificationContent(item, t).title;
+  }
   if ((item.source === "automation_runs" || item.source === "security_anomaly_alerts") && item.title) {
     return item.title;
   }
@@ -44,17 +48,21 @@ function itemTitle(item, t) {
 }
 
 function itemSubtitle(item, t) {
+  const localizedNotification = item.source === "notifications"
+    ? localizeNotificationContent(item, t)
+    : null;
   const parts = [];
   if (item.tenantLabel) parts.push(item.tenantLabel);
   if (item.propertyLabel) parts.push(item.propertyLabel);
-  if (item.entityLabel) parts.push(item.entityLabel);
+  if (item.entityLabel && item.source !== "notifications") parts.push(item.entityLabel);
   if (Number(item.amount || 0) > 0) parts.push(formatCurrencyAmount(item.amount));
   const due = dueLabel(item.dueDays, t);
   const age = hoursLabel(item.ageHours, t);
   if (due) parts.push(due);
   if (age) parts.push(age);
   if (item.contractorLabel) parts.push(`${t("common.contractor")}: ${item.contractorLabel}`);
-  if (item.body) parts.push(item.body);
+  if (localizedNotification?.body) parts.push(localizedNotification.body);
+  else if (item.body) parts.push(item.body);
   if (item.createdAt) parts.push(formatCreatedAt(item.createdAt));
   return parts.filter(Boolean).join(" • ");
 }

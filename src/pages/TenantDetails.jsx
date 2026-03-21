@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
@@ -68,6 +68,10 @@ export default function TenantDetails({
   /* ---------- EARLY STATES ---------- */
   if (loading || accountLoading) {
     return <TenantDetailsSkeleton />;
+  }
+
+  if (!canManageLease) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   if (!tenant) {

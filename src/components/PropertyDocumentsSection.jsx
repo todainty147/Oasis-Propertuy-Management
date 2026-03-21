@@ -16,6 +16,7 @@ import {
 import { fetchDocumentAudit } from "../services/documentAuditService";
 import { DOCUMENT_TAGS } from "../constants/documentTags";
 import { useI18n } from "../context/I18nContext";
+import { isUuid } from "../utils/validation";
 
 import {
   canUploadDocument,
@@ -44,7 +45,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
   const fileInputRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
-  const { activeAccountId, accountLoading,role } = useAccount(); // ✅ MULTI-TENANT
+  const { activeAccountId, accountLoading, activeRole } = useAccount(); // ✅ MULTI-TENANT
 
   /* ---------- URL FILTER STATE ---------- */
   const filterTags =
@@ -69,6 +70,12 @@ export default function PropertyDocumentsSection({ propertyId }) {
 /* ---------- LOAD ---------- */
 async function loadAll() {
   if (!propertyId || !activeAccountId) return; // ✅ REQUIRED
+  if (!isUuid(propertyId)) {
+    setDocuments([]);
+    setAudit([]);
+    setLoading(false);
+    return;
+  }
 
   setLoading(true);
   try {
@@ -85,6 +92,9 @@ async function loadAll() {
 
     setDocuments(docs);
     setAudit(auditLog);
+  } catch {
+    setDocuments([]);
+    setAudit([]);
   } finally {
     setLoading(false);
   }
@@ -99,14 +109,14 @@ async function loadAll() {
   }, [propertyId, authLoading, accountLoading, activeAccountId]);
 
   /* ---------- PERMISSIONS ---------- */
-  const canUpload = canUploadDocument(role);
+  const canUpload = canUploadDocument(activeRole);
 
   function canEdit(doc) {
-    return canEditDocument({ role, userId: user?.id, doc });
+    return canEditDocument({ role: activeRole, userId: user?.id, doc });
   }
 
   function canDelete(doc) {
-    return canDeleteDocument({ role, userId: user?.id, doc });
+    return canDeleteDocument({ role: activeRole, userId: user?.id, doc });
   }
 
   /* ---------- URL FILTER ---------- */
@@ -224,7 +234,15 @@ async function loadAll() {
     if (!confirm(t("documents.confirmDelete"))) return;
 
     try {
-      await deleteDocument(doc);
+      await deleteDocument({
+        id: doc.id,
+        storagePath: doc.storage_path,
+        accountId: doc.account_id,
+        propertyId: doc.property_id,
+        tenantId: doc.tenant_id,
+        scope: doc.scope,
+        visibility: doc.visibility,
+      });
       await loadAll();
     } catch (err) {
       alert(err?.message ?? t("documents.deleteError"));

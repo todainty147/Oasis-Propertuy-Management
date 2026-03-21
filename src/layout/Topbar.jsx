@@ -1,6 +1,6 @@
 // src/layout/Topbar.jsx
 import { Search, Building2, Menu, Users } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { usePageTitle } from "../layout/PageTitleContext";
 import NotificationsBell from "../components/NotificationsBell";
@@ -16,6 +16,7 @@ function langFlag(lang) {
 }
 
 export default function Topbar({ onMenuClick }) {
+  const navigate = useNavigate();
   const { title } = usePageTitle();
   const { lang, setLang, t } = useI18n();
   const { theme, setTheme } = useTheme();
@@ -45,6 +46,12 @@ export default function Topbar({ onMenuClick }) {
     enabled: !!activeAccountId,
   });
   const isTenant = String(activeRole ?? "").toLowerCase() === "tenant";
+
+  async function handleLogout() {
+    clearTenant();
+    await supabase.auth.signOut();
+    navigate("/login", { replace: true });
+  }
 
   return (
     <header className="fixed top-0 left-0 right-0 h-14 lg:h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center px-4 lg:px-8 z-30 lg:left-64">
@@ -176,7 +183,7 @@ export default function Topbar({ onMenuClick }) {
         
         {/* LOGOUT */}
         <button
-          onClick={() => supabase.auth.signOut()}
+          onClick={handleLogout}
           className="text-sm text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
         >
           {t("topbar.logout")}

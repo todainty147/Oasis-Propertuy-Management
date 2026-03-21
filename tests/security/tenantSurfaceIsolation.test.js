@@ -24,4 +24,15 @@ describe("tenant surface isolation contracts", () => {
     expect(propertyDetailsSource).toContain("{canManageLease ? (");
     expect(propertyDetailsSource).toContain("<PropertyPerformanceCard");
   });
+
+  it("keeps tenant details and tenant documents scoped to manager-only routes and tenant-linked docs", () => {
+    const tenantDetailsSource = readSource("src/pages/TenantDetails.jsx");
+    const tenantDocumentsSource = readSource("src/components/TenantDocumentsSection.jsx");
+    const topbarSource = readSource("src/layout/Topbar.jsx");
+
+    expect(tenantDetailsSource).toContain('if (!canManageLease)');
+    expect(tenantDetailsSource).toContain('<Navigate to="/dashboard" replace />');
+    expect(tenantDocumentsSource).toContain('String(doc?.tenant_id || "") === String(tenantId)');
+    expect(topbarSource).toContain('navigate("/login", { replace: true })');
+  });
 });

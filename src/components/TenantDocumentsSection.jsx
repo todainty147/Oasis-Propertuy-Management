@@ -88,8 +88,7 @@ function getDocumentTagLabel(tag, t) {
 
 export default function TenantDocumentsSection({ tenantId }) {
   const { user, loading: authLoading } = useAuth();
-  const { activeAccountId, accountLoading } = useAccount(); // ✅ MULTI-TENANT
-  const { role } = useAccount(); // ✅ SOURCE OF TRUTH
+  const { activeAccountId, accountLoading, activeRole } = useAccount(); // ✅ MULTI-TENANT
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   
@@ -130,7 +129,10 @@ export default function TenantDocumentsSection({ tenantId }) {
       }),
     ]);
 
-    setDocuments(docs);
+    // Tenant documents card must only show docs explicitly linked to this tenant.
+    setDocuments(
+      docs.filter((doc) => String(doc?.tenant_id || "") === String(tenantId))
+    );
     setAudit(auditLog);
     setPage(1);
   } finally {
@@ -169,14 +171,14 @@ export default function TenantDocumentsSection({ tenantId }) {
   }, [tenantId, pageSize, searchParams]);
 
   /* ---------- PERMISSIONS ---------- */
-  const canUpload = canUploadDocument(role);
+  const canUpload = canUploadDocument(activeRole);
 
   function canEdit(doc) {
-    return canEditDocument({ role, userId: user?.id, doc });
+    return canEditDocument({ role: activeRole, userId: user?.id, doc });
   }
 
   function canDelete(doc) {
-    return canDeleteDocument({ role, userId: user?.id, doc });
+    return canDeleteDocument({ role: activeRole, userId: user?.id, doc });
   }
 
   /* ---------- PREVIEW ---------- */
@@ -252,7 +254,15 @@ export default function TenantDocumentsSection({ tenantId }) {
     if (!confirm(t("documents.confirmDelete"))) return;
 
     try {
-      await deleteDocument(doc);
+      await deleteDocument({
+        id: doc.id,
+        storagePath: doc.storage_path,
+        accountId: doc.account_id,
+        propertyId: doc.property_id,
+        tenantId: doc.tenant_id,
+        scope: doc.scope,
+        visibility: doc.visibility,
+      });
       await loadAll();
     } catch (err) {
       alert(err?.message ?? t("documents.deleteError"));

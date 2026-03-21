@@ -3,6 +3,7 @@ import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
 import { useI18n } from "../context/I18nContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
+import { isUuid } from "../utils/validation";
 import {
   downloadDocument,
   fetchDocuments,
@@ -74,6 +75,14 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
   async function load() {
     if (!accountId || !propertyId) {
       setRows([]);
+      setLoading(false);
+      return;
+    }
+    if (!isUuid(propertyId)) {
+      setRows([]);
+      setMissingRows([]);
+      setPropertyDocuments([]);
+      setLinkedDocuments([]);
       setLoading(false);
       return;
     }

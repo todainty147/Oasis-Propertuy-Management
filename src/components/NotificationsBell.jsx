@@ -4,6 +4,7 @@ import { Bell } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useNotifications } from "../hooks/useNotifications";
 import { useI18n } from "../context/I18nContext";
+import { localizeNotificationContent } from "../utils/notificationLocalization";
 
 function AlertBadge({ category, severity, t }) {
   const tone =
@@ -123,6 +124,9 @@ export default function NotificationsBell({ limit = 20 }) {
               <ul className="divide-y divide-slate-100">
                 {items.map((n) => (
                   <li key={n.id}>
+                    {(() => {
+                      const localized = localizeNotificationContent(n, t);
+                      return (
                     <button
                       type="button"
                       onClick={() => handleClickNotification(n)}
@@ -146,11 +150,11 @@ export default function NotificationsBell({ limit = 20 }) {
                                 : "text-slate-900 font-semibold"
                             }`}
                           >
-                            {n.title}
+                            {localized.title}
                           </p>
-                          {n.body && (
+                          {localized.body && (
                             <p className="text-xs text-slate-600 mt-1 line-clamp-2">
-                              {n.body}
+                              {localized.body}
                             </p>
                           )}
                           <p className="text-[11px] text-slate-400 mt-1">
@@ -163,6 +167,8 @@ export default function NotificationsBell({ limit = 20 }) {
                         )}
                       </div>
                     </button>
+                      );
+                    })()}
                   </li>
                 ))}
               </ul>

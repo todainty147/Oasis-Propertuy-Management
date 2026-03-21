@@ -148,21 +148,23 @@ export async function createMaintenanceRequest({
     console.warn("[notifications] maintenance_request_created failed", notifyErr);
   }
 
-  try {
-    await recordAutomationExecution({
-      accountId,
-      ruleId: "maintenance_triage",
-      eventKey: `maintenance_request:${data?.id}`,
-      entityType: "maintenance_request",
-      entityId: data?.id || null,
-      title: data?.title || "Maintenance request awaiting review",
-      details: {
-        property_id: propertyId,
-        tenant_id: reportedByTenantId || null,
-      },
-    });
-  } catch (automationErr) {
-    console.warn("[automation] maintenance_triage log failed", automationErr);
+  if (!reportedByTenantId) {
+    try {
+      await recordAutomationExecution({
+        accountId,
+        ruleId: "maintenance_triage",
+        eventKey: `maintenance_request:${data?.id}`,
+        entityType: "maintenance_request",
+        entityId: data?.id || null,
+        title: data?.title || "Maintenance request awaiting review",
+        details: {
+          property_id: propertyId,
+          tenant_id: reportedByTenantId || null,
+        },
+      });
+    } catch (automationErr) {
+      console.warn("[automation] maintenance_triage log failed", automationErr);
+    }
   }
 
   return data;

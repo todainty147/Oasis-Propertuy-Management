@@ -1,6 +1,7 @@
 -- =========================================================
 -- STORAGE POLICIES: work-order-attachments
--- Purpose: allow read/sign for assigned contractors + account members
+-- Purpose: allow read/sign for assigned contractors + account members,
+-- and upload/delete for assigned contractors + account members.
 -- Path format expected:
 --   account/<account_id>/work_orders/<work_order_id>/<file>
 -- =========================================================
@@ -9,35 +10,108 @@
 -- createSignedUrl() checks SELECT policy on storage.objects.
 -- Without SELECT permission, Supabase often returns "Object not found" / 400.
 
-DROP POLICY IF EXISTS "wo_attach_select_members_or_assigned_contractor" ON storage.objects;
+create or replace function public.can_view_work_order_attachment(
+  p_account_id uuid,
+  p_work_order_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.work_orders wo
+    where wo.id = p_work_order_id
+      and wo.account_id = p_account_id
+      and (
+        exists (
+          select 1
+          from public.account_members am
+          where am.account_id = wo.account_id
+            and am.user_id = auth.uid()
+        )
+        or wo.contractor_user_id = auth.uid()
+      )
+  );
+$$;
 
-CREATE POLICY "wo_attach_select_members_or_assigned_contractor"
-ON storage.objects
-FOR SELECT
-TO authenticated
-USING (
+create or replace function public.can_manage_work_order_attachment(
+  p_account_id uuid,
+  p_work_order_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.work_orders wo
+    where wo.id = p_work_order_id
+      and wo.account_id = p_account_id
+      and (
+        exists (
+          select 1
+          from public.account_members am
+          where am.account_id = wo.account_id
+            and am.user_id = auth.uid()
+        )
+        or wo.contractor_user_id = auth.uid()
+      )
+  );
+$$;
+
+drop policy if exists "wo_attach_select_members_or_assigned_contractor" on storage.objects;
+drop policy if exists "wo_attach_insert_members_or_assigned_contractor" on storage.objects;
+drop policy if exists "wo_attach_delete_members_or_assigned_contractor" on storage.objects;
+
+create policy "wo_attach_select_members_or_assigned_contractor"
+on storage.objects
+for select
+to authenticated
+using (
   bucket_id = 'work-order-attachments'
-  AND split_part(name, '/', 1) = 'account'
-  AND split_part(name, '/', 3) = 'work_orders'
-  AND split_part(name, '/', 2) ~* '^[0-9a-f-]{36}$'
-  AND split_part(name, '/', 4) ~* '^[0-9a-f-]{36}$'
-  AND (
-    -- owner/admin/staff/etc via account membership
-    EXISTS (
-      SELECT 1
-      FROM account_members am
-      WHERE am.user_id = auth.uid()
-        AND am.account_id = split_part(name, '/', 2)::uuid
-    )
-    OR
-    -- assigned contractor for this work order
-    EXISTS (
-      SELECT 1
-      FROM work_orders wo
-      WHERE wo.id = split_part(name, '/', 4)::uuid
-        AND wo.account_id = split_part(name, '/', 2)::uuid
-        AND wo.contractor_user_id = auth.uid()
-    )
+  and split_part(name, '/', 1) = 'account'
+  and split_part(name, '/', 3) = 'work_orders'
+  and public.safe_uuid(split_part(name, '/', 2)) is not null
+  and public.safe_uuid(split_part(name, '/', 4)) is not null
+  and public.can_view_work_order_attachment(
+    public.safe_uuid(split_part(name, '/', 2)),
+    public.safe_uuid(split_part(name, '/', 4))
   )
 );
 
+create policy "wo_attach_insert_members_or_assigned_contractor"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'work-order-attachments'
+  and split_part(name, '/', 1) = 'account'
+  and split_part(name, '/', 3) = 'work_orders'
+  and public.safe_uuid(split_part(name, '/', 2)) is not null
+  and public.safe_uuid(split_part(name, '/', 4)) is not null
+  and public.can_manage_work_order_attachment(
+    public.safe_uuid(split_part(name, '/', 2)),
+    public.safe_uuid(split_part(name, '/', 4))
+  )
+);
+
+create policy "wo_attach_delete_members_or_assigned_contractor"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'work-order-attachments'
+  and split_part(name, '/', 1) = 'account'
+  and split_part(name, '/', 3) = 'work_orders'
+  and public.safe_uuid(split_part(name, '/', 2)) is not null
+  and public.safe_uuid(split_part(name, '/', 4)) is not null
+  and public.can_manage_work_order_attachment(
+    public.safe_uuid(split_part(name, '/', 2)),
+    public.safe_uuid(split_part(name, '/', 4))
+  )
+);

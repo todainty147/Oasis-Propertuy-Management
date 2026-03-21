@@ -74,6 +74,10 @@ function normalizeRpcItem(row) {
   return {
     id: row?.item_key || `${row?.item_type || "item"}-${row?.source_table || "src"}`,
     kind: row?.item_type || "",
+    title: row?.title || "",
+    body: row?.body || "",
+    createdAt: row?.created_at || null,
+    metadata: row?.metadata || {},
     propertyId: row?.property_id || null,
     propertyLabel: row?.property_label || "",
     tenantLabel: row?.tenant_label || "",
@@ -84,7 +88,6 @@ function normalizeRpcItem(row) {
     linkPath: row?.link_path || "",
     source: row?.source_table || "",
     bucket: row?.bucket || "action",
-    createdAt: null,
     resolvedState: false,
   };
 }

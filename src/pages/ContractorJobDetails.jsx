@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, Navigate } from "react-router-dom";
 import Card from "../components/Card";
 import Skeleton from "../components/ui/Skeleton";
 import ContractorAttachmentsPanel from "../components/work-orders/ContractorAttachmentsPanel";
@@ -609,13 +609,7 @@ export default function ContractorJobDetails() {
   }, [timelineOpen, id]);
 
   if (!isContractor) {
-    return (
-      <Card className="p-6">
-        <p className="text-sm text-slate-600">
-          {t("contractor.onlyAccess")}
-        </p>
-      </Card>
-    );
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (
