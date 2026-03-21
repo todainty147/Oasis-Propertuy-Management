@@ -20,30 +20,12 @@ import {
   getPropertyOperationalHealthCategory,
   listPropertyOperationalHealthScores,
 } from "../services/propertyHealthScoreService";
-import { sumExpected, sumOverdue, sumPaid } from "../utils/finance";
+import { buildPaymentCycles, calculatePropertyFinance } from "../utils/finance";
 
 function toDate(value) {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function isPaidLike(payment) {
-  if (!payment) return false;
-  if (payment.paidAt) return true;
-  return String(payment.status || "").toLowerCase() === "paid" || payment.status === "Opłacone";
-}
-
-function isOverdueLike(payment) {
-  if (!payment || isPaidLike(payment)) return false;
-  const status = String(payment.status || "").toLowerCase();
-  if (status === "overdue" || payment.status === "Zaległe") return true;
-  const due = toDate(payment.dueDate);
-  if (!due) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  due.setHours(0, 0, 0, 0);
-  return due < today;
 }
 
 function normalizeRequestStatus(status) {
@@ -240,10 +222,17 @@ export default function PropertyPerformanceCard({
   });
 
   const summary = useMemo(() => {
-    const monthlyRent = Number(property?.rent || 0);
-    const collectedToDate = sumPaid(payments);
-    const overdueRent = sumOverdue(payments);
-    const outstandingRent = sumExpected(payments);
+    const propertyFinance = calculatePropertyFinance({
+      property,
+      payments,
+    });
+    const monthlyRent = Number(propertyFinance?.rent || property?.rent || 0);
+    const collectedToDate = Number(propertyFinance?.paid || 0);
+    const outstandingRent = Number(propertyFinance?.remaining || 0);
+    const overdueRent =
+      String(propertyFinance?.paymentStatus || "").toLowerCase() === "overdue"
+        ? outstandingRent
+        : 0;
     const billedToDate = collectedToDate + outstandingRent;
 
     let openRequests = 0;
@@ -317,13 +306,15 @@ export default function PropertyPerformanceCard({
         const due = toDate(payment?.dueDate);
         return due && due >= cutoff;
       });
-      const billed = inWindow.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-      const collected = inWindow
-        .filter(isPaidLike)
-        .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-      const overdue = inWindow
-        .filter(isOverdueLike)
-        .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+      const cycles = buildPaymentCycles(inWindow, {
+        rentByPropertyId: property?.id ? { [String(property.id)]: Number(property?.rent || 0) } : {},
+      });
+      const billed = cycles.reduce((sum, cycle) => sum + Number(cycle.billedAmount || 0), 0);
+      const collected = cycles.reduce((sum, cycle) => sum + Number(cycle.paidAmount || 0), 0);
+      const overdue = cycles.reduce(
+        (sum, cycle) => sum + (cycle.hasOverdue ? Number(cycle.remainingAmount || 0) : 0),
+        0,
+      );
       return {
         days,
         billed,
@@ -412,6 +403,8 @@ export default function PropertyPerformanceCard({
   }, [
     maintenanceExpenseRows,
     payments,
+    property?.id,
+    property?.rent,
     requestRows,
     summary.maintenanceCommitted,
     summary.monthlyRent,

@@ -68,6 +68,8 @@ as $$
   ),
   scoped_payments as (
     select
+      p.property_id,
+      p.tenant_id,
       coalesce(p.amount, 0) as amount,
       lower(coalesce(p.status, '')) as status_norm,
       p.paid_at,
@@ -79,35 +81,61 @@ as $$
         or p.tenant_id = (select tenant_id from authz)
       )
   ),
-  payment_flags as (
+  payment_rows as (
     select
+      sp.property_id,
+      sp.tenant_id,
       sp.amount,
       sp.status_norm,
+      sp.paid_at,
       sp.due_date,
       (
         sp.paid_at is not null
         or sp.status_norm in ('paid', 'oplacone', 'opłacone')
       ) as is_paid,
-      (
-        not (
-          sp.paid_at is not null
-          or sp.status_norm in ('paid', 'oplacone', 'opłacone')
-        )
-        and (
-          sp.status_norm in ('overdue', 'zalegle', 'zaległe')
-          or (sp.due_date is not null and sp.due_date < current_date)
-        )
-      ) as is_overdue,
-      (
-        not (
-          sp.paid_at is not null
-          or sp.status_norm in ('paid', 'oplacone', 'opłacone')
-        )
-        and sp.due_date is not null
-        and sp.due_date >= current_date
-        and sp.due_date <= current_date + interval '7 days'
-      ) as is_due_soon
+      date_trunc(
+        'month',
+        coalesce(sp.due_date::timestamp, sp.paid_at::timestamp, current_date::timestamp)
+      ) as cycle_month
     from scoped_payments sp
+  ),
+  payment_cycles as (
+    select
+      prx.property_id,
+      prx.tenant_id,
+      prx.cycle_month,
+      greatest(
+        coalesce(max(pr.rent), 0),
+        coalesce(max(prx.amount), 0)
+      ) as billed_amount,
+      coalesce(
+        sum(
+          case
+            when prx.is_paid then prx.amount else 0
+          end
+        ),
+        0
+      ) as paid_amount,
+      min(
+        case
+          when not prx.is_paid then prx.due_date
+          else null
+        end
+      ) as open_due_date,
+      coalesce(
+        bool_or(
+          not prx.is_paid
+          and (
+            prx.status_norm in ('overdue', 'zalegle', 'zaległe')
+            or (prx.due_date is not null and prx.due_date < current_date)
+          )
+        ),
+        false
+      ) as has_overdue
+    from payment_rows prx
+    left join properties pr
+      on pr.id = prx.property_id
+    group by prx.property_id, prx.tenant_id, prx.cycle_month
   ),
   scoped_requests as (
     select
@@ -151,28 +179,52 @@ as $$
   ),
   finance as (
     select
-      coalesce(sum(case when is_paid then amount else 0 end), 0) as paid_amount,
-      coalesce(sum(case when not is_paid and not is_overdue then amount else 0 end), 0) as due_amount,
-      coalesce(sum(case when is_overdue then amount else 0 end), 0) as overdue_amount,
+      coalesce(sum(pc.paid_amount), 0) as paid_amount,
       coalesce(
         sum(
           case
-            when is_due_soon
-            then amount
+            when greatest(pc.billed_amount - pc.paid_amount, 0) > 0
+             and not pc.has_overdue
+            then greatest(pc.billed_amount - pc.paid_amount, 0)
+            else 0
+          end
+        ),
+        0
+      ) as due_amount,
+      coalesce(
+        sum(
+          case
+            when greatest(pc.billed_amount - pc.paid_amount, 0) > 0
+             and pc.has_overdue
+            then greatest(pc.billed_amount - pc.paid_amount, 0)
+            else 0
+          end
+        ),
+        0
+      ) as overdue_amount,
+      coalesce(
+        sum(
+          case
+            when greatest(pc.billed_amount - pc.paid_amount, 0) > 0
+             and pc.open_due_date is not null
+             and pc.open_due_date >= current_date
+             and pc.open_due_date <= current_date + interval '7 days'
+            then greatest(pc.billed_amount - pc.paid_amount, 0)
             else 0
           end
         ),
         0
       ) as due_soon_amount,
-      coalesce(sum(case when not is_paid then amount else 0 end), 0) as outstanding_amount,
+      coalesce(sum(greatest(pc.billed_amount - pc.paid_amount, 0)), 0) as outstanding_amount,
       coalesce(
         sum(
           case
-            when is_overdue
-             and due_date is not null
-             and due_date <= current_date
-             and current_date - due_date <= 7
-            then amount
+            when greatest(pc.billed_amount - pc.paid_amount, 0) > 0
+             and pc.has_overdue
+             and pc.open_due_date is not null
+             and pc.open_due_date <= current_date
+             and current_date - pc.open_due_date <= 7
+            then greatest(pc.billed_amount - pc.paid_amount, 0)
             else 0
           end
         ),
@@ -181,11 +233,12 @@ as $$
       coalesce(
         sum(
           case
-            when is_overdue
-             and due_date is not null
-             and due_date <= current_date
-             and current_date - due_date between 8 and 30
-            then amount
+            when greatest(pc.billed_amount - pc.paid_amount, 0) > 0
+             and pc.has_overdue
+             and pc.open_due_date is not null
+             and pc.open_due_date <= current_date
+             and current_date - pc.open_due_date between 8 and 30
+            then greatest(pc.billed_amount - pc.paid_amount, 0)
             else 0
           end
         ),
@@ -194,11 +247,12 @@ as $$
       coalesce(
         sum(
           case
-            when is_overdue
-             and due_date is not null
-             and due_date <= current_date
-             and current_date - due_date >= 31
-            then amount
+            when greatest(pc.billed_amount - pc.paid_amount, 0) > 0
+             and pc.has_overdue
+             and pc.open_due_date is not null
+             and pc.open_due_date <= current_date
+             and current_date - pc.open_due_date >= 31
+            then greatest(pc.billed_amount - pc.paid_amount, 0)
             else 0
           end
         ),
@@ -207,10 +261,9 @@ as $$
       coalesce(
         sum(
           case
-            when not is_paid
-             and due_date is not null
-             and date_trunc('month', due_date::timestamp) = date_trunc('month', current_date::timestamp)
-            then amount
+            when greatest(pc.billed_amount - pc.paid_amount, 0) > 0
+             and pc.cycle_month = date_trunc('month', current_date::timestamp)
+            then greatest(pc.billed_amount - pc.paid_amount, 0)
             else 0
           end
         ),
@@ -219,16 +272,15 @@ as $$
       coalesce(
         sum(
           case
-            when not is_paid
-             and due_date is not null
-             and date_trunc('month', due_date::timestamp) = date_trunc('month', current_date::timestamp - interval '1 month')
-            then amount
+            when greatest(pc.billed_amount - pc.paid_amount, 0) > 0
+             and pc.cycle_month = date_trunc('month', current_date::timestamp - interval '1 month')
+            then greatest(pc.billed_amount - pc.paid_amount, 0)
             else 0
           end
         ),
         0
       ) as outstanding_previous_month
-    from payment_flags
+    from payment_cycles pc
   ),
   maintenance as (
     select

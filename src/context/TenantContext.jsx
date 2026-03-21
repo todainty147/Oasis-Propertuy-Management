@@ -16,7 +16,7 @@ const TenantContext = createContext(null);
    ====================== */
 
 export function TenantProvider({ children }) {
-  const { activeAccountId } = useAccount();
+  const { activeAccountId, tenantContext, activeRole } = useAccount();
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -62,6 +62,15 @@ export function TenantProvider({ children }) {
   useEffect(() => {
     setActiveTenantIdState(tenantFromUrl ?? null);
   }, [tenantFromUrl]);
+
+  useEffect(() => {
+    const isTenant = String(activeRole ?? "").toLowerCase() === "tenant";
+    if (!isTenant) return;
+    if (tenantFromUrl) return;
+    if (!tenantContext?.tenant_id) return;
+    if (tenantContext.account_id !== activeAccountId) return;
+    setActiveTenantIdState(tenantContext.tenant_id);
+  }, [activeAccountId, activeRole, tenantContext, tenantFromUrl]);
 
   /* ---------- STATE → URL ---------- */
   function setActiveTenantId(id) {

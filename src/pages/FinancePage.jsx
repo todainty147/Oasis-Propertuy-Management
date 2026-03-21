@@ -1,5 +1,6 @@
 // src/pages/FinancePage.jsx
 import { useState } from "react";
+import { Navigate } from "react-router-dom";
 import Finance from "./Finance";
 import AddPaymentModal from "../components/AddPaymentModal";
 import { useFinance } from "../hooks/useFinance";
@@ -10,7 +11,7 @@ import { createPayment, deletePayment, updatePayment } from "../services/payment
 import { PAYMENT_STATUS } from "../utils/statuses";
 
 export default function FinancePage() {
-  const { activeAccountId } = useAccount();
+  const { activeAccountId, activeRole } = useAccount();
   const { properties, loading: propertiesLoading } = useProperties({ enabled: true });
   const { tenants, loading: tenantsLoading } = useTenants({ enabled: true });
   const {
@@ -22,6 +23,10 @@ export default function FinancePage() {
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null);
+
+  if (String(activeRole || "").toLowerCase() === "tenant") {
+    return <Navigate to="/tenant/payments" replace />;
+  }
 
   return (
     <>

@@ -67,6 +67,7 @@ export function useFinance({ enabled = true } = {}) {
         paidAt: p.paid_at,
         tenantId: p.tenant_id,
         propertyId: p.property_id,
+        propertyRent: Number(p.properties?.rent ?? 0),
         tenantName: p.tenants?.name ?? "—",
         propertyAddress: p.properties?.address ?? "—",
       }));

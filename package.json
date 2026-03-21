@@ -21,6 +21,7 @@
     "test:staging": "vitest --config vitest.staging.config.js",
     "test:staging:run": "vitest run --config vitest.staging.config.js",
     "test:staging:file": "vitest run --config vitest.staging.config.js",
+    "staging:seed:fixtures": "node scripts/seedStagingFixtures.js",
     "db:bootstrap": "node scripts/dbBootstrap.js",
     "db:verify": "node scripts/dbVerify.js",
     "db:ready": "npm run db:bootstrap && npm run db:verify && npm run test:integration:seed",

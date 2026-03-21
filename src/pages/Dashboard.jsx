@@ -91,7 +91,7 @@ export default function Dashboard({
   const [checklistDismissed, setChecklistDismissed] = useState(false);
   const hubHorizon = useMemo(() => {
     const h = String(searchParams.get("horizon") || "").toLowerCase();
-    return h === "week" ? "week" : "today";
+    return h === "today" ? "today" : "week";
   }, [searchParams]);
 
   function setHubHorizon(next) {
@@ -105,7 +105,7 @@ export default function Dashboard({
     const h = String(searchParams.get("horizon") || "").toLowerCase();
     if (h === "today" || h === "week") return;
     const params = new URLSearchParams(searchParams);
-    params.set("horizon", "today");
+    params.set("horizon", "week");
     setSearchParams(params, { replace: true });
   }, [searchParams, setSearchParams]);
 
@@ -438,7 +438,7 @@ export default function Dashboard({
               </div>
             </div>
             <div className="mt-4 text-sm text-slate-500">
-              {dueOrOverdueCount} płatności (due/overdue)
+              {t("dashboard.tenantDueOverdueCount", { count: dueOrOverdueCount })}
             </div>
           </Card>
 
@@ -455,7 +455,7 @@ export default function Dashboard({
               </div>
             </div>
             <div className="mt-4 text-sm text-slate-500">
-              Jeśli widzisz zaległości, skontaktuj się z właścicielem.
+              {t("dashboard.tenantOverdueHint")}
             </div>
           </Card>
         </div>
@@ -467,13 +467,12 @@ export default function Dashboard({
               <FileText size={18} />
             </div>
             <h3 className="text-lg font-semibold text-slate-900">
-              Dokumenty wymagające uwagi
+              {t("dashboard.tenantDocumentsTitle")}
             </h3>
           </div>
 
           <p className="text-sm text-slate-500 mt-2">
-            Tutaj pokażemy dokumenty do podpisu / potwierdzenia (np. umowa, aneksy,
-            protokoły). Na razie: sekcja przygotowana pod kolejną iterację.
+            {t("dashboard.tenantDocumentsBody")}
           </p>
         </Card>
       </div>

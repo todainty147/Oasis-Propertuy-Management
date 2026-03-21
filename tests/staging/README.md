@@ -27,6 +27,7 @@ The staging environment should contain the same deterministic fixture identities
 Expected env vars:
 - `STAGING_SUPABASE_URL`
 - `STAGING_SUPABASE_ANON_KEY`
+- `STAGING_SUPABASE_SERVICE_ROLE_KEY` when seeding the deterministic fixture users/data
 - `STAGING_USER_PASSWORD`
 
 The fixture users in staging should share the same known password value supplied via `STAGING_USER_PASSWORD`.
@@ -37,6 +38,12 @@ Create `.env.staging.local` from `.env.staging.example`, then run:
 
 ```bash
 npm run test:staging:run
+```
+
+If your staging project does not already contain the deterministic fixture users and account data expected by the smoke suite, seed them first:
+
+```bash
+npm run staging:seed:fixtures
 ```
 
 To run just the staging smoke file:

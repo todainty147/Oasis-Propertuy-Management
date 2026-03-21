@@ -172,7 +172,7 @@ export default function TenantMaintenanceDashboard({
         <div>
           <h3 className="text-lg font-semibold">{t("tenantDashboard.title")}</h3>
           <p className="text-sm text-slate-500">
-            Szybki podgląd ostatnich zgłoszeń oraz statusów zleceń.
+            {t("tenantDashboard.subtitle")}
           </p>
         </div>
 
@@ -182,14 +182,14 @@ export default function TenantMaintenanceDashboard({
             onClick={onOpenRequests}
             className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50"
           >
-            Zgłoszenia
+            {t("tenantDashboard.requestsAction")}
           </button>
           <button
             type="button"
             onClick={onOpenWorkOrders}
             className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50"
           >
-            Zlecenia
+            {t("tenantDashboard.workOrdersAction")}
           </button>
         </div>
       </div>
@@ -223,7 +223,7 @@ export default function TenantMaintenanceDashboard({
                           </span>
                         </div>
                         <div className="text-xs text-slate-500 mt-1">
-                          Utworzono: {formatDateTime(r.created_at)}
+                          {t("tenantDashboard.createdAt", { value: formatDateTime(r.created_at) })}
                         </div>
                       </div>
                     </div>

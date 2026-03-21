@@ -52,6 +52,71 @@ Current decision:
 - work-order status/activity candidate: deferred pending staging plan evidence
 - no additional index was added in this pass
 
+## Tier 3.1 Launch Decision
+
+Capture date:
+- 2026-03-20
+
+What was re-checked:
+- staging runbook and capture SQL in [tests/staging/PERFORMANCE_EXPLAIN.md](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/staging/PERFORMANCE_EXPLAIN.md) and [supabase/performance_staging_explain.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/performance_staging_explain.sql)
+- unread notification branches in:
+  - [attention_center_items.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/attention_center_items.sql)
+  - [command_center_items.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/command_center_items.sql)
+- work-order status/time branches in:
+  - [attention_center_items.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/attention_center_items.sql)
+  - [command_center_items.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/command_center_items.sql)
+- current index support in:
+  - [baseline_schema.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/baseline_schema.sql)
+  - [operations_foundations.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/operations_foundations.sql)
+  - [performance_rpc_indexes.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/performance_rpc_indexes.sql)
+
+What exact query paths were examined:
+- unread notifications:
+  - `public.notifications` filtered by `account_id` and `coalesce(is_read, false) = false`, ordered by `created_at desc`, then locally capped per feed family
+- work-order acknowledgement overdue:
+  - `public.work_orders` filtered by `account_id`, assigned-status variants, non-acknowledged state, and `acknowledgement_due_at < now()`
+- work-order stalled / blocked:
+  - `public.work_orders` filtered by `account_id`, blocked or in-progress status variants, and `coalesce(updated_at, created_at) <= now() - interval '72 hours'`
+- work-order recently updated open:
+  - `public.work_orders` filtered by `account_id`, assigned or in-progress status variants, and `coalesce(updated_at, created_at) >= now() - interval '72 hours'`
+
+Current supporting indexes:
+- unread notifications:
+  - `idx_notifications_account_created`
+- work orders:
+  - `work_orders_account_status_idx`
+  - `work_orders_ack_due_idx`
+  - `work_orders_contractor_user_idx`
+
+Evidence captured in this workspace:
+- source-level query-shape review only
+- no real staging `EXPLAIN (ANALYZE, BUFFERS, VERBOSE)` output could be attached from this environment
+
+Why no staging plan was captured here:
+- the repo contains the staging EXPLAIN runbook and SQL kit, but this workspace does not include a checked-in staging database connection path
+- only the staging smoke anon/auth path is documented locally
+- `.env.staging.local` is not present in this workspace
+- without direct staging SQL access, adding either deferred index would still be speculative
+
+Tier 3.1 decision:
+- unread notifications candidate: deferred
+- work-order status/activity candidate: deferred
+
+Reasoning:
+- unread notifications:
+  - the current unread branch is simple and already account-scoped with a recent-first order
+  - `idx_notifications_account_created` may already be sufficient for launch-sized accounts, but only staging plans can confirm whether `is_read` filtering remains expensive enough to justify another partial index
+  - no unread partial index was added before go-live because the required staging hotspot evidence is still missing
+- work-order status/activity:
+  - the current work-order branches already have baseline support from `work_orders_account_status_idx` and `work_orders_ack_due_idx`
+  - the deferred expression index could help stalled/recent branches, but the added write and maintenance cost is not justified without captured staging plans showing broad scans or heavy post-filtering on `coalesce(updated_at, created_at)`
+  - no broader work-order index was added before go-live because the required staging benefit has not yet been demonstrated
+
+Launch-safe conclusion:
+- no additional launch index is justified yet
+- no SQL rewrite or caching change was introduced
+- the correct next step remains: run the existing staging EXPLAIN kit against a real busy staging account and only add one of the deferred indexes if the captured plan clearly improves
+
 Evidence to look for:
 - unread notifications:
   - many filtered rows on `is_read`

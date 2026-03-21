@@ -246,7 +246,12 @@ function SidebarContent({ onNavigate }) {
               {!isTenant && (
                 <Item to="/tenants" icon={Users} label={t("sidebar.tenants")} onNavigate={onNavigate} />
               )}
-              <Item to="/finance" icon={Wallet} label={t("sidebar.finance")} onNavigate={onNavigate} />
+              <Item
+                to={isTenant ? "/tenant/payments" : "/finance"}
+                icon={Wallet}
+                label={t("sidebar.finance")}
+                onNavigate={onNavigate}
+              />
               <Item to="/documents" icon={FileText} label={t("sidebar.documents")} onNavigate={onNavigate} />
               </div>
             </div>

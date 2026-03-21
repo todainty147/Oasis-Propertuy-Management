@@ -3,12 +3,15 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { isolationFixtures } from "../fixtures/isolationFixtures.js";
 import {
   ensureIsolationHarnessSeed,
+  getIntegrationAdminClient,
   signInAsFixtureUser,
 } from "./helpers/localSupabaseHarness.js";
 import { isIntegrationHarnessConfigured } from "./helpers/env.js";
 import { expectAccessDenied, firstRow } from "./helpers/rpcAssertions.js";
 
 describe.skipIf(!isIntegrationHarnessConfigured())("dashboard_snapshot isolation", () => {
+  const admin = getIntegrationAdminClient();
+
   beforeAll(async () => {
     await ensureIsolationHarnessSeed();
   });
@@ -95,5 +98,65 @@ describe.skipIf(!isIntegrationHarnessConfigured())("dashboard_snapshot isolation
     });
 
     expectAccessDenied(result);
+  });
+
+  it("nets partial payments into due-soon dashboard totals", async () => {
+    const partialPaymentId = "66666666-6666-6666-6666-666666666773";
+    const { client } = await signInAsFixtureUser("ownerA");
+    const { data: existingPartialPayment, error: existingPartialPaymentError } = await admin
+      .from("payments")
+      .select("id")
+      .eq("id", partialPaymentId)
+      .maybeSingle();
+
+    expect(existingPartialPaymentError).toBeNull();
+
+    const beforeResult = await client.rpc("dashboard_snapshot", {
+      p_account_id: isolationFixtures.accounts.accountA.id,
+      p_tenant_id: null,
+      p_horizon_days: 7,
+    });
+
+    expect(beforeResult.error).toBeNull();
+    const beforeRow = firstRow(beforeResult.data);
+    expect(beforeRow).toBeTruthy();
+
+    const { data: seededPayment, error: seededPaymentError } = await admin
+      .from("payments")
+      .select("owner_id")
+      .eq("id", "66666666-6666-6666-6666-666666666661")
+      .single();
+
+    expect(seededPaymentError).toBeNull();
+
+    const { error: seedError } = await admin.from("payments").upsert({
+      id: partialPaymentId,
+      account_id: isolationFixtures.accounts.accountA.id,
+      owner_id: seededPayment.owner_id,
+      property_id: isolationFixtures.users.tenantA1.propertyId,
+      tenant_id: isolationFixtures.users.tenantA1.tenantId,
+      amount: 300,
+      status: "paid",
+      due_date: "2026-03-20",
+      paid_at: "2026-03-20",
+    }, {
+      onConflict: "id",
+    });
+
+    expect(seedError).toBeNull();
+
+    const result = await client.rpc("dashboard_snapshot", {
+      p_account_id: isolationFixtures.accounts.accountA.id,
+      p_tenant_id: null,
+      p_horizon_days: 7,
+    });
+
+    expect(result.error).toBeNull();
+    const row = firstRow(result.data);
+    expect(row).toBeTruthy();
+    const expectedDelta = existingPartialPayment ? 0 : 300;
+    expect(Number(row.tenant_paid_total)).toBe(Number(beforeRow.tenant_paid_total) + expectedDelta);
+    expect(Number(row.tenant_due_total)).toBe(Number(beforeRow.tenant_due_total) - expectedDelta);
+    expect(Number(row.due_soon_amount)).toBe(Number(beforeRow.due_soon_amount) - expectedDelta);
   });
 });

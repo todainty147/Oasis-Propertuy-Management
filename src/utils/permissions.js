@@ -31,7 +31,7 @@ export const ROLE_CAPABILITIES = {
   tenant: {
     properties: ["read"],     // tenant can view their linked property
     documents: ["read"],      // optional (keep read; upload can be added later)
-    finance: ["read"],        // optional (rent/payment visibility via RLS)
+    finance: [],              // tenant uses the dedicated tenant payments surface
     tenants: [],              // tenant must NOT browse tenant list
     users: [],                // tenant cannot invite/manage users
   },

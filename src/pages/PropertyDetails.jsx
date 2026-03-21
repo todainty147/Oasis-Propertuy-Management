@@ -149,14 +149,16 @@ export default function PropertyDetails({
           </Card>
         </div>
 
-        <div className="pt-2">
-          <PropertyPerformanceCard
-            accountId={activeAccountId}
-            property={property}
-            payments={propertyPayments}
-            tenantCount={propertyTenants.length}
-          />
-        </div>
+        {canManageLease ? (
+          <div className="pt-2">
+            <PropertyPerformanceCard
+              accountId={activeAccountId}
+              property={property}
+              payments={propertyPayments}
+              tenantCount={propertyTenants.length}
+            />
+          </div>
+        ) : null}
 
         <div className="pt-2">
           <LeaseSummaryCard
