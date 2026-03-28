@@ -1,5 +1,11 @@
 import { supabase } from "../lib/supabase";
 import { assertEmail, assertRequiredText, normalizeText } from "../utils/validation";
+import {
+  firstRpcRow,
+  parseInvitationEligibilityRow,
+  parseInvitationRow,
+  parseRpcRows,
+} from "./rpcContracts";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 function friendly(err, fallback) {
@@ -97,7 +103,7 @@ export async function listAccountInvitations(accountId) {
     .limit(200);
 
   if (error) throw friendly(error, "Failed to load invitations");
-  return data ?? [];
+  return parseRpcRows(data || [], parseInvitationRow, "account invitation rows");
 }
 
 export async function createAccountInvitation({
@@ -149,7 +155,7 @@ export async function createAccountInvitation({
       });
       throw friendly(error, "Failed to create landlord invitation");
     }
-    const invite = Array.isArray(data) ? data[0] : data;
+    const invite = parseInvitationRow(firstRpcRow(data));
     if (!invite?.token) throw new Error("Landlord invitation token missing");
 
     const redirectUrl = `${window.location.origin}${redirectPath}?token=${invite.token}`;
@@ -204,7 +210,7 @@ export async function createAccountInvitation({
     throw friendly(otpErr, "Invitation created but failed to send email link");
   }
 
-  return data;
+  return parseInvitationRow(data);
 }
 
 export async function checkAccountInvitationEligibility({
@@ -231,7 +237,9 @@ export async function checkAccountInvitationEligibility({
     });
     throw friendly(error, "Failed to validate invitation");
   }
-  return data ?? { ok: false, code: "unknown", message: "Validation returned empty response" };
+  return data
+    ? parseInvitationEligibilityRow(data)
+    : { ok: false, code: "unknown", message: "Validation returned empty response" };
 }
 
 export async function resendInvitationEmail(invitation, redirectPath = "/invite") {

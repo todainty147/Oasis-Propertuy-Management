@@ -33,7 +33,7 @@ as $$
       updated_at
     from maintenance_requests
     cross join authz a
-    where account_id = a.account_id
+    where maintenance_requests.account_id = a.account_id
   ),
   wo as (
     select
@@ -49,7 +49,7 @@ as $$
       created_at,
       updated_at
     from work_orders
-    where account_id = p_account_id
+    where work_orders.account_id = p_account_id
   ),
   recent_repair_properties as (
     select property_id

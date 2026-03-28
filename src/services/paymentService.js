@@ -1,5 +1,6 @@
 // src/services/paymentService.js
 import { supabase } from "../lib/supabase";
+import { parseMyPaymentRow, parsePaymentRow, parseRpcRows } from "./rpcContracts";
 
 /* ======================
    TENANT: READ (RPC-only)
@@ -13,7 +14,7 @@ export async function fetchMyPayments(accountId) {
   });
 
   if (error) throw error;
-  return data ?? [];
+  return parseRpcRows(data || [], parseMyPaymentRow, "get_my_payments rows");
 }
 
 /* ======================
@@ -49,7 +50,7 @@ export async function createPayment({
   });
 
   if (error) throw error;
-  return data;
+  return parsePaymentRow(data);
 }
 
 /* ======================
@@ -72,7 +73,7 @@ export async function updatePayment(paymentId, { amount = null, dueDate = null }
   });
 
   if (error) throw error;
-  return data;
+  return parsePaymentRow(data);
 }
 
 /* ======================
@@ -102,7 +103,7 @@ export async function markPaymentPaid(paymentId, paidAt = null) {
   });
 
   if (error) throw error;
-  return data;
+  return parsePaymentRow(data);
 }
 
 export async function markPaymentUnpaid(paymentId) {
@@ -113,5 +114,5 @@ export async function markPaymentUnpaid(paymentId) {
   });
 
   if (error) throw error;
-  return data;
+  return parsePaymentRow(data);
 }

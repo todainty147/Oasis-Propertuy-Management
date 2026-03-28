@@ -7,6 +7,7 @@ import {
   normalizeText,
 } from "../utils/validation";
 import { getDefaultCurrency } from "../utils/currency";
+import { parseWorkOrderFinancialRow } from "./rpcContracts";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 function friendly(err, fallback) {
@@ -58,7 +59,7 @@ export async function upsertQuoteDraft({
     });
     throw friendly(error, "Nie udało się zapisać szkicu wyceny");
   }
-  return data;
+  return parseWorkOrderFinancialRow(data);
 }
 
 export async function submitQuote({ workOrderId } = {}) {
@@ -75,7 +76,7 @@ export async function submitQuote({ workOrderId } = {}) {
     });
     throw friendly(error, "Nie udało się wysłać wyceny");
   }
-  return data;
+  return parseWorkOrderFinancialRow(data);
 }
 
 export async function upsertInvoice({
@@ -107,7 +108,7 @@ export async function upsertInvoice({
     });
     throw friendly(error, "Nie udało się zapisać faktury");
   }
-  return data;
+  return parseWorkOrderFinancialRow(data);
 }
 
 /* =========================
@@ -128,7 +129,7 @@ export async function approveQuote({ workOrderId } = {}) {
     });
     throw friendly(error, "Nie udało się zatwierdzić wyceny");
   }
-  return data;
+  return parseWorkOrderFinancialRow(data);
 }
 
 export async function rejectQuote({ workOrderId, reason } = {}) {
@@ -147,7 +148,7 @@ export async function rejectQuote({ workOrderId, reason } = {}) {
     });
     throw friendly(error, "Nie udało się odrzucić wyceny");
   }
-  return data;
+  return parseWorkOrderFinancialRow(data);
 }
 // Back-compat aliases (safe)
 export const setQuoteDraft = upsertQuoteDraft;

@@ -1,6 +1,11 @@
 import { supabase } from "../lib/supabase";
 import { formatCurrencyAmount } from "../utils/currency";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
+import {
+  EMPTY_PORTFOLIO_HEALTH_SNAPSHOT,
+  firstRpcRow,
+  parsePortfolioHealthSnapshotRow,
+} from "./rpcContracts";
 
 let portfolioAttentionItemsUnavailable = false;
 
@@ -27,33 +32,7 @@ export async function getPortfolioHealthSnapshot(accountId, tenantId = null) {
   });
 
   if (error && isMissingBackendObject(error)) {
-    return {
-      property_count: 0,
-      occupied_count: 0,
-      vacant_count: 0,
-      occupancy_rate: 0,
-      paid_amount: 0,
-      due_amount: 0,
-      overdue_amount: 0,
-      due_soon_amount: 0,
-      outstanding_amount: 0,
-      overdue_0_7_amount: 0,
-      overdue_8_30_amount: 0,
-      overdue_30_plus_amount: 0,
-      open_requests: 0,
-      high_priority_open_requests: 0,
-      waiting_over_48h: 0,
-      active_work_orders: 0,
-      work_orders_without_contractor: 0,
-      contractor_ack_overdue: 0,
-      stalled_repairs: 0,
-      long_running_repairs: 0,
-      repeat_repair_properties: 0,
-      recent_open_created: 0,
-      prev_open_created: 0,
-      outstanding_current_month: 0,
-      outstanding_previous_month: 0,
-    };
+    return { ...EMPTY_PORTFOLIO_HEALTH_SNAPSHOT };
   }
   if (error) {
     logSecurityRelevantFailure("portfolio_health_snapshot", {
@@ -63,34 +42,7 @@ export async function getPortfolioHealthSnapshot(accountId, tenantId = null) {
     throw friendly(error, "Failed to load portfolio health snapshot");
   }
 
-  const row = Array.isArray(data) ? data[0] : data;
-  return row ?? {
-    property_count: 0,
-    occupied_count: 0,
-    vacant_count: 0,
-    occupancy_rate: 0,
-    paid_amount: 0,
-    due_amount: 0,
-    overdue_amount: 0,
-    due_soon_amount: 0,
-    outstanding_amount: 0,
-    overdue_0_7_amount: 0,
-    overdue_8_30_amount: 0,
-    overdue_30_plus_amount: 0,
-    open_requests: 0,
-    high_priority_open_requests: 0,
-    waiting_over_48h: 0,
-    active_work_orders: 0,
-    work_orders_without_contractor: 0,
-    contractor_ack_overdue: 0,
-    stalled_repairs: 0,
-    long_running_repairs: 0,
-    repeat_repair_properties: 0,
-    recent_open_created: 0,
-    prev_open_created: 0,
-    outstanding_current_month: 0,
-    outstanding_previous_month: 0,
-  };
+  return parsePortfolioHealthSnapshotRow(firstRpcRow(data));
 }
 
 export async function getPortfolioAttentionItems(accountId, tenantId = null, limit = 10) {

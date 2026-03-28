@@ -2,6 +2,7 @@ import { supabase } from "../lib/supabase";
 import { getDashboardSnapshot } from "./dashboardService";
 import { listPropertyOperationalHealthScores } from "./propertyHealthScoreService";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
+import { parseCommandCenterItemRow, parseRpcRows } from "./rpcContracts";
 
 function isMissingBackendObject(error) {
   const message = String(error?.message || "").toLowerCase();
@@ -16,29 +17,29 @@ function isMissingBackendObject(error) {
 
 function normalizeRpcItem(row) {
   return {
-    id: row?.item_key || "",
-    kind: row?.item_type || "",
-    category: row?.category || "general",
-    severity: row?.severity || "info",
-    bucket: row?.bucket || "action",
-    entityType: row?.entity_type || "portfolio",
-    entityId: row?.entity_id || null,
-    title: row?.title || row?.item_type || "Signal",
-    body: row?.body || "",
-    linkPath: row?.link_path || "",
-    createdAt: row?.created_at || null,
-    resolvedState: !!row?.resolved_state,
-    source: row?.source_table || "",
-    propertyId: row?.property_id || null,
-    propertyLabel: row?.property_label || "",
-    tenantId: row?.tenant_id || null,
-    tenantLabel: row?.tenant_label || "",
-    entityLabel: row?.entity_label || "",
-    contractorLabel: row?.contractor_label || "",
-    amount: Number(row?.amount || 0),
-    ageHours: Number.isFinite(Number(row?.age_hours)) ? Number(row.age_hours) : null,
-    dueDays: Number.isFinite(Number(row?.due_days)) ? Number(row.due_days) : null,
-    sourceLabel: row?.source_table || "",
+    id: row.item_key,
+    kind: row.item_type,
+    category: row.category,
+    severity: row.severity,
+    bucket: row.bucket,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    title: row.title,
+    body: row.body,
+    linkPath: row.link_path,
+    createdAt: row.created_at,
+    resolvedState: row.resolved_state,
+    source: row.source_table,
+    propertyId: row.property_id,
+    propertyLabel: row.property_label,
+    tenantId: row.tenant_id,
+    tenantLabel: row.tenant_label,
+    entityLabel: row.entity_label,
+    contractorLabel: row.contractor_label,
+    amount: row.amount,
+    ageHours: row.age_hours,
+    dueDays: row.due_days,
+    sourceLabel: row.source_table,
   };
 }
 
@@ -110,7 +111,11 @@ export async function getCommandCenterData(accountId) {
     throw rpcRes.error;
   }
 
-  const items = (rpcRes.data || []).map(normalizeRpcItem);
+  const items = parseRpcRows(
+    rpcRes.data || [],
+    parseCommandCenterItemRow,
+    "command_center_items rows",
+  ).map(normalizeRpcItem);
   const urgent = sortItems(items.filter((item) => item.bucket === "urgent")).slice(0, 12);
   const action = sortItems(items.filter((item) => item.bucket === "action")).slice(0, 12);
   const upcoming = sortItems(items.filter((item) => item.bucket === "upcoming")).slice(0, 12);

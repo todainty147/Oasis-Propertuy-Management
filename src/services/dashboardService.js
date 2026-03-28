@@ -1,5 +1,12 @@
 import { supabase } from "../lib/supabase";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
+import {
+  EMPTY_DASHBOARD_SNAPSHOT,
+  firstRpcRow,
+  parseDashboardHubExtraRow,
+  parseDashboardSnapshotRow,
+  parseRpcRows,
+} from "./rpcContracts";
 
 let dashboardHubExtrasUnavailable = false;
 
@@ -27,25 +34,7 @@ export async function getDashboardSnapshot(accountId, { tenantId = null, horizon
   });
 
   if (error && isMissingBackendObject(error)) {
-    return {
-      property_count: 0,
-      occupied_count: 0,
-      vacant_count: 0,
-      occupancy_rate: 0,
-      tenant_paid_total: 0,
-      tenant_due_total: 0,
-      tenant_overdue_total: 0,
-      tenant_due_overdue_count: 0,
-      overdue_amount: 0,
-      due_soon_count: 0,
-      due_soon_amount: 0,
-      overdue_current_window_amount: 0,
-      overdue_previous_window_amount: 0,
-      open_requests: 0,
-      open_high_priority: 0,
-      waiting_over_48h: 0,
-      unassigned_work_orders: 0,
-    };
+    return { ...EMPTY_DASHBOARD_SNAPSHOT };
   }
   if (error) {
     logSecurityRelevantFailure("dashboard_snapshot", {
@@ -55,26 +44,7 @@ export async function getDashboardSnapshot(accountId, { tenantId = null, horizon
     throw friendly(error, "Failed to load dashboard snapshot");
   }
 
-  const row = Array.isArray(data) ? data[0] : data;
-  return row ?? {
-    property_count: 0,
-    occupied_count: 0,
-    vacant_count: 0,
-    occupancy_rate: 0,
-    tenant_paid_total: 0,
-    tenant_due_total: 0,
-    tenant_overdue_total: 0,
-    tenant_due_overdue_count: 0,
-    overdue_amount: 0,
-    due_soon_count: 0,
-    due_soon_amount: 0,
-    overdue_current_window_amount: 0,
-    overdue_previous_window_amount: 0,
-    open_requests: 0,
-    open_high_priority: 0,
-    waiting_over_48h: 0,
-    unassigned_work_orders: 0,
-  };
+  return parseDashboardSnapshotRow(firstRpcRow(data));
 }
 
 export async function getDashboardHubExtras(accountId, { tenantId = null, horizonDays = 1 } = {}) {
@@ -98,7 +68,7 @@ export async function getDashboardHubExtras(accountId, { tenantId = null, horizo
     });
     throw friendly(error, "Failed to load dashboard hub extras");
   }
-  return Array.isArray(data) ? data : [];
+  return parseRpcRows(data || [], parseDashboardHubExtraRow, "dashboard_hub_extras rows");
 }
 
 export function mapDashboardHubItems({

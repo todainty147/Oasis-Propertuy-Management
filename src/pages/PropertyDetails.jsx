@@ -54,6 +54,7 @@ export default function PropertyDetails({
   properties = [],
   tenants = [],
   payments = [],
+  onEditProperty = null,
 }) {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -124,7 +125,18 @@ export default function PropertyDetails({
             <p className="text-slate-600 mt-1">{property.city}</p>
           </div>
 
-          <Badge status={isOccupied ? t("status.occupied") : t("status.vacant")} />
+          <div className="flex items-center gap-3">
+            {canManageLease && typeof onEditProperty === "function" ? (
+              <button
+                type="button"
+                onClick={() => onEditProperty(property)}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                {t("properties.edit")}
+              </button>
+            ) : null}
+            <Badge status={isOccupied ? t("status.occupied") : t("status.vacant")} />
+          </div>
         </div>
 
         {/* ---------- STATS ---------- */}

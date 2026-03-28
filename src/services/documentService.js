@@ -1,6 +1,7 @@
 // src/services/documentService.js
 import { supabase } from "../lib/supabase";
 import { assertFiles, assertUuid } from "../utils/validation";
+import { parseDocumentRow } from "./rpcContracts";
 import { createSignedStorageUrl } from "./storageUrlService";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
@@ -192,7 +193,7 @@ export async function uploadDocument({
     throw friendlyError(finalizeError, "Nie udało się sfinalizować uploadu");
   }
 
-  return finalized;
+  return parseDocumentRow(finalized);
 }
 
 /* ======================
@@ -391,7 +392,7 @@ export async function updateDocumentTags({ documentId, tags }) {
     });
     throw error;
   }
-  return data;
+  return parseDocumentRow(data);
 }
 
 /* ======================

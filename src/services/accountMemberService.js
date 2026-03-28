@@ -1,5 +1,6 @@
 // src/services/accountMemberService.js
 import { supabase } from "../lib/supabase";
+import { parseAccountMemberRoleResult } from "./rpcContracts";
 
 /**
  * Returns auth user_ids for members of an account.
@@ -43,5 +44,5 @@ export async function setAccountMemberRole({ accountId, targetUserId, role } = {
   });
 
   if (error) throw error;
-  return data;
+  return parseAccountMemberRoleResult(data);
 }

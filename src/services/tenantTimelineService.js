@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { parseRpcRows, parseTenantActivityFeedRow } from "./rpcContracts";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 import { getDerivedLeaseStatus, getPrimaryLease } from "./leaseService";
 
@@ -214,19 +215,21 @@ export async function getTenantTimeline({
       } else {
         ledgerPaymentEvents = (paymentEventsRes.data || []).map(mapPaymentLedgerEvent);
       }
-      const nonPaymentFeedItems = Array.isArray(data)
-        ? data
-            .filter((row) => !String(row?.event_type || "").startsWith("payment_"))
-            .map((row) => ({
-              key: row.event_key,
-              type: row.event_type,
-              at: row.occurred_at,
-              title: row.title,
-              detail: row.detail,
-              status: row.status,
-              linkPath: row.link_path,
-            }))
-        : [];
+      const nonPaymentFeedItems = parseRpcRows(
+        data || [],
+        parseTenantActivityFeedRow,
+        "tenant_activity_feed rows",
+      )
+        .filter((row) => !String(row.event_type || "").startsWith("payment_"))
+        .map((row) => ({
+          key: row.event_key,
+          type: row.event_type,
+          at: row.occurred_at,
+          title: row.title,
+          detail: row.detail,
+          status: row.status,
+          linkPath: row.link_path,
+        }));
       const merged = [...ledgerPaymentEvents, ...nonPaymentFeedItems]
         .sort((a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime())
         .slice(0, limit);

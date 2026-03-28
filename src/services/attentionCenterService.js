@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { getDashboardSnapshot } from "./dashboardService";
 import { listPropertyOperationalHealthScores } from "./propertyHealthScoreService";
+import { parseAttentionCenterItemRow, parseRpcRows } from "./rpcContracts";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 function isMissingBackendObject(error) {
@@ -72,22 +73,22 @@ function deriveAttentionSeverity(kind, bucket) {
 
 function normalizeRpcItem(row) {
   return {
-    id: row?.item_key || `${row?.item_type || "item"}-${row?.source_table || "src"}`,
-    kind: row?.item_type || "",
-    title: row?.title || "",
-    body: row?.body || "",
-    createdAt: row?.created_at || null,
-    metadata: row?.metadata || {},
-    propertyId: row?.property_id || null,
-    propertyLabel: row?.property_label || "",
-    tenantLabel: row?.tenant_label || "",
-    entityLabel: row?.entity_label || "",
-    amount: Number(row?.amount || 0),
-    ageHours: Number.isFinite(Number(row?.age_hours)) ? Number(row.age_hours) : null,
-    dueDays: Number.isFinite(Number(row?.due_days)) ? Number(row.due_days) : null,
-    linkPath: row?.link_path || "",
-    source: row?.source_table || "",
-    bucket: row?.bucket || "action",
+    id: row.item_key || `${row.item_type || "item"}-${row.source_table || "src"}`,
+    kind: row.item_type || "",
+    title: row.title || "",
+    body: row.body || "",
+    createdAt: row.created_at || null,
+    metadata: row.metadata || {},
+    propertyId: row.property_id || null,
+    propertyLabel: row.property_label || "",
+    tenantLabel: row.tenant_label || "",
+    entityLabel: row.entity_label || "",
+    amount: row.amount || 0,
+    ageHours: row.age_hours,
+    dueDays: row.due_days,
+    linkPath: row.link_path || "",
+    source: row.source_table || "",
+    bucket: row.bucket || "action",
     resolvedState: false,
   };
 }
@@ -161,9 +162,13 @@ export async function getAttentionCenterData(accountId) {
     throw rpcRes.error;
   }
 
-  const items = Array.isArray(rpcRes.data)
-    ? rpcRes.data.map(normalizeRpcItem).map(enrichAttentionItem)
-    : [];
+  const items = parseRpcRows(
+    rpcRes.data || [],
+    parseAttentionCenterItemRow,
+    "attention_center_items rows",
+  )
+    .map(normalizeRpcItem)
+    .map(enrichAttentionItem);
 
   const groups = {
     urgent: items.filter((item) => item.bucket === "urgent").slice(0, 12),

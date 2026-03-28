@@ -78,7 +78,7 @@ describe("RPC service isolation contracts", () => {
 
     const { getFinanceSnapshot } = await import("../../src/services/financeService.js");
 
-    await getFinanceSnapshot(accountA.id, tenantA1.tenantId);
+    const result = await getFinanceSnapshot(accountA.id, tenantA1.tenantId);
 
     expect(rpcMock).toHaveBeenCalledWith("finance_snapshot", {
       p_account_id: accountA.id,
@@ -88,13 +88,65 @@ describe("RPC service isolation contracts", () => {
       "finance_snapshot",
       expect.objectContaining({ p_tenant_id: tenantB1.tenantId }),
     );
+    expect(result.property_finance).toEqual([]);
+  });
+
+  it("returns parsed dashboard hub extras rows from the RPC layer", async () => {
+    const { accountA } = isolationFixtures.accounts;
+
+    rpcMock.mockResolvedValueOnce({
+      data: [
+        {
+          item_key: "due-soon",
+          item_type: "due_soon_summary",
+          count_value: "3",
+          property_label: null,
+          city: null,
+          days_vacant: null,
+          link_path: "/finance?status=due&range=7d",
+          sort_order: "20",
+        },
+      ],
+      error: null,
+    });
+
+    const { getDashboardHubExtras } = await import("../../src/services/dashboardService.js");
+    const result = await getDashboardHubExtras(accountA.id, { horizonDays: 7 });
+
+    expect(result).toEqual([
+      {
+        item_key: "due-soon",
+        item_type: "due_soon_summary",
+        count_value: 3,
+        property_label: "",
+        city: "",
+        days_vacant: null,
+        link_path: "/finance?status=due&range=7d",
+        sort_order: 20,
+      },
+    ]);
   });
 
   it("uses tenant_activity_feed with the requesting tenant fixture and never falls through without scope", async () => {
     const { accountA } = isolationFixtures.accounts;
     const { tenantA1, tenantB1 } = isolationFixtures.users;
 
-    rpcMock.mockResolvedValueOnce({ data: [], error: null });
+    rpcMock.mockResolvedValueOnce({
+      data: [
+        {
+          event_key: "notification-1",
+          event_type: "notification_sent",
+          occurred_at: "2026-03-24T09:00:00Z",
+          title: "Notice",
+          detail: "Body",
+          status: "info",
+          link_path: "/tenant/payments",
+          source_table: "notifications",
+          source_id: "event-1",
+        },
+      ],
+      error: null,
+    });
     fromMock.mockImplementation((table) => {
       if (table === "payments") {
         return createThenableQuery({ data: [], error: null, count: 0 });
@@ -113,7 +165,7 @@ describe("RPC service isolation contracts", () => {
 
     const { getTenantTimeline } = await import("../../src/services/tenantTimelineService.js");
 
-    await getTenantTimeline({
+    const result = await getTenantTimeline({
       accountId: accountA.id,
       tenant: {
         id: tenantA1.tenantId,
@@ -123,6 +175,14 @@ describe("RPC service isolation contracts", () => {
         id: tenantA1.propertyId,
       },
       limit: 25,
+    });
+
+    expect(result.items[0]).toMatchObject({
+      key: "notification-1",
+      type: "notification_sent",
+      at: "2026-03-24T09:00:00Z",
+      title: "Notice",
+      linkPath: "/tenant/payments",
     });
 
     expect(rpcMock).toHaveBeenCalledWith("tenant_activity_feed", {
@@ -156,5 +216,163 @@ describe("RPC service isolation contracts", () => {
     });
     expect(rpcMock).not.toHaveBeenCalled();
     expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it("returns parsed invitation list and eligibility shapes", async () => {
+    const { accountA } = isolationFixtures.accounts;
+
+    fromMock.mockImplementation((table) => {
+      if (table === "account_invitations") {
+        return createThenableQuery({
+          data: [
+            {
+              id: "invite-1",
+              account_id: accountA.id,
+              email: "Tenant.A1@Oasis.Test",
+              role: "TENANT",
+              token: "token-1",
+              invited_by: "owner-1",
+              created_at: "2026-03-24T10:00:00Z",
+              accepted_at: null,
+              revoked_at: null,
+            },
+          ],
+          error: null,
+        });
+      }
+
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    rpcMock.mockResolvedValueOnce({
+      data: { ok: true, code: "eligible", message: "Eligible" },
+      error: null,
+    });
+
+    const {
+      checkAccountInvitationEligibility,
+      listAccountInvitations,
+    } = await import("../../src/services/invitationService.js");
+
+    const invites = await listAccountInvitations(accountA.id);
+    const eligibility = await checkAccountInvitationEligibility({
+      accountId: accountA.id,
+      email: "Tenant.A1@Oasis.Test",
+      role: "TENANT",
+    });
+
+    expect(invites).toEqual([
+      {
+        id: "invite-1",
+        account_id: accountA.id,
+        account_name: "",
+        email: "tenant.a1@oasis.test",
+        role: "tenant",
+        token: "token-1",
+        invited_by: "owner-1",
+        created_at: "2026-03-24T10:00:00Z",
+        accepted_at: null,
+        revoked_at: null,
+      },
+    ]);
+    expect(eligibility).toEqual({
+      ok: true,
+      code: "eligible",
+      message: "Eligible",
+    });
+  });
+
+  it("returns parsed root/admin mutation payloads from RPCs", async () => {
+    const { accountA } = isolationFixtures.accounts;
+
+    rpcMock
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: "root-target-1",
+            name: "Target Account",
+            is_root: false,
+            is_disabled: false,
+            disabled_at: null,
+            created_at: "2026-03-24T11:00:00Z",
+          },
+        ],
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { ok: true, account_id: "root-target-1", is_disabled: true },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          ok: true,
+          account_id: accountA.id,
+          user_id: "user-1",
+          old_role: "staff",
+          role: "admin",
+          changed: true,
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          ok: true,
+          created: true,
+          account_id: "self-serve-1",
+          account_name: "My Account",
+          role: "owner",
+        },
+        error: null,
+      });
+
+    const { rootListAccounts, rootSetAccountDisabled } = await import(
+      "../../src/services/rootAccountService.js"
+    );
+    const { setAccountMemberRole } = await import("../../src/services/accountMemberService.js");
+    const { finalizeSelfServeLandlordAccount } = await import(
+      "../../src/services/selfServeSignupService.js"
+    );
+
+    const accounts = await rootListAccounts(accountA.id);
+    const disableResult = await rootSetAccountDisabled({
+      rootAccountId: accountA.id,
+      targetAccountId: "root-target-1",
+      disabled: true,
+    });
+    const roleResult = await setAccountMemberRole({
+      accountId: accountA.id,
+      targetUserId: "user-1",
+      role: "admin",
+    });
+    const selfServeResult = await finalizeSelfServeLandlordAccount("My Account");
+
+    expect(accounts[0]).toEqual({
+      id: "root-target-1",
+      name: "Target Account",
+      is_root: false,
+      is_disabled: false,
+      disabled_at: null,
+      created_at: "2026-03-24T11:00:00Z",
+    });
+    expect(disableResult).toEqual({
+      ok: true,
+      account_id: "root-target-1",
+      is_disabled: true,
+    });
+    expect(roleResult).toEqual({
+      ok: true,
+      account_id: accountA.id,
+      user_id: "user-1",
+      old_role: "staff",
+      role: "admin",
+      changed: true,
+    });
+    expect(selfServeResult).toEqual({
+      ok: true,
+      created: true,
+      account_id: "self-serve-1",
+      account_name: "My Account",
+      role: "owner",
+    });
   });
 });

@@ -175,16 +175,16 @@ export default function AddPropertyModal({
               >
                 <option value="">{t("properties.noTenant")}</option>
 
-                {tenants.map((t) => {
-                  const disabled = isTenantDisabled(t);
+                {tenants.map((tenant) => {
+                  const disabled = isTenantDisabled(tenant);
 
                   return (
                     <option
-                      key={t.id}
-                      value={t.id}
+                      key={tenant.id}
+                      value={tenant.id}
                       disabled={disabled}
                     >
-                      {t.name}
+                      {tenant.name}
                       {disabled
                         ? ` (${t("properties.rentsOther")})`
                         : ""}

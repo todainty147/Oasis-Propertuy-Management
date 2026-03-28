@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { parseRpcRows, parseSecurityObservabilityEventRow } from "./rpcContracts";
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
@@ -36,5 +37,9 @@ export async function listSecurityObservabilityEvents(
   });
 
   if (error) throw friendly(error, "Failed to load security observability events");
-  return Array.isArray(data) ? data : [];
+  return parseRpcRows(
+    data || [],
+    parseSecurityObservabilityEventRow,
+    "security_observability_event_feed rows",
+  );
 }

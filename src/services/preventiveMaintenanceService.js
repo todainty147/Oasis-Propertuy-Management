@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { parsePreventiveMaintenanceTaskRow } from "./rpcContracts";
 import { createWorkOrder } from "./workOrderService";
 import {
   assertMaxLength,
@@ -184,7 +185,7 @@ export async function upsertPreventiveMaintenanceTask(input = {}) {
     .single();
 
   if (error) throw friendly(error, "Failed to create preventive maintenance task");
-  return mapTaskRow(data);
+  return mapTaskRow(parsePreventiveMaintenanceTaskRow(data));
 }
 
 export async function completePreventiveMaintenanceTask(taskId, { completedAt = new Date().toISOString() } = {}) {

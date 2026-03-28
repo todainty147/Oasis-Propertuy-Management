@@ -3216,43 +3216,51 @@ CREATE FUNCTION public.command_center_items(p_account_id uuid, p_limit integer D
     union all select * from notification_items
     union all select * from automation_items
     union all select * from security_alert_items
+  ),
+  ordered as (
+    select
+      u.*,
+      case u.bucket
+        when 'urgent' then 1
+        when 'action' then 2
+        when 'upcoming' then 3
+        else 4
+      end as bucket_rank,
+      coalesce(u.age_hours, 999999) as age_rank,
+      coalesce(u.due_days, 999999) as due_rank
+    from unioned u
   )
   select
-    u.item_key,
-    u.item_type,
-    u.category,
-    u.severity,
-    u.bucket,
-    u.entity_type,
-    u.entity_id,
-    u.title,
-    u.body,
-    u.link_path,
-    u.property_id,
-    u.property_label,
-    u.tenant_id,
-    u.tenant_label,
-    u.entity_label,
-    u.contractor_label,
-    u.amount,
-    u.age_hours,
-    u.due_days,
-    u.created_at,
-    u.resolved_state,
-    u.source_table,
-    u.sort_order
-  from unioned u
+    o.item_key,
+    o.item_type,
+    o.category,
+    o.severity,
+    o.bucket,
+    o.entity_type,
+    o.entity_id,
+    o.title,
+    o.body,
+    o.link_path,
+    o.property_id,
+    o.property_label,
+    o.tenant_id,
+    o.tenant_label,
+    o.entity_label,
+    o.contractor_label,
+    o.amount,
+    o.age_hours,
+    o.due_days,
+    o.created_at,
+    o.resolved_state,
+    o.source_table,
+    o.sort_order
+  from ordered o
   order by
-    case u.bucket
-      when 'urgent' then 1
-      when 'action' then 2
-      when 'upcoming' then 3
-      else 4
-    end,
-    u.sort_order,
-    coalesce(u.age_hours, 999999),
-    coalesce(u.due_days, 999999),
-    u.item_key
+    o.bucket_rank,
+    o.sort_order,
+    o.age_rank,
+    o.due_rank,
+    o.item_key
   limit (select max_items from cfg);
 $$;
 
@@ -6753,7 +6761,7 @@ begin
       created_at,
       updated_at
     from maintenance_requests
-    where account_id = p_account_id
+    where maintenance_requests.account_id = p_account_id
   ),
   wo as (
     select
@@ -6769,7 +6777,7 @@ begin
       created_at,
       updated_at
     from work_orders
-    where account_id = p_account_id
+    where work_orders.account_id = p_account_id
   ),
   recent_repair_properties as (
     select property_id

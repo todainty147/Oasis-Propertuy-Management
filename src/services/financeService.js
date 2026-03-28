@@ -1,5 +1,10 @@
 import { supabase } from "../lib/supabase";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
+import {
+  EMPTY_FINANCE_SNAPSHOT,
+  firstRpcRow,
+  parseFinanceSnapshotRow,
+} from "./rpcContracts";
 
 function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -24,13 +29,7 @@ export async function getFinanceSnapshot(accountId, tenantId = null) {
   });
 
   if (error && isMissingBackendObject(error)) {
-    return {
-      total_income: 0,
-      overdue_income: 0,
-      due_soon_income: 0,
-      outstanding_income: 0,
-      property_finance: [],
-    };
+    return { ...EMPTY_FINANCE_SNAPSHOT };
   }
   if (error) {
     logSecurityRelevantFailure("finance_snapshot", {
@@ -40,12 +39,5 @@ export async function getFinanceSnapshot(accountId, tenantId = null) {
     throw friendly(error, "Failed to load finance snapshot");
   }
 
-  const row = Array.isArray(data) ? data[0] : data;
-  return row ?? {
-    total_income: 0,
-    overdue_income: 0,
-    due_soon_income: 0,
-    outstanding_income: 0,
-    property_finance: [],
-  };
+  return parseFinanceSnapshotRow(firstRpcRow(data));
 }

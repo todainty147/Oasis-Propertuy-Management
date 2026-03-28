@@ -24,6 +24,7 @@
     "staging:seed:fixtures": "node scripts/seedStagingFixtures.js",
     "db:bootstrap": "node scripts/dbBootstrap.js",
     "db:verify": "node scripts/dbVerify.js",
+    "db:apply:repo": "node scripts/dbApplyRepoSql.js",
     "db:ready": "npm run db:bootstrap && npm run db:verify && npm run test:integration:seed",
     "schema:baseline:refresh": "node scripts/schema/refresh-baseline.mjs refresh",
     "schema:baseline:check": "node scripts/schema/refresh-baseline.mjs check",

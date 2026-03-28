@@ -221,21 +221,43 @@ as $$
       and sr.updated_at <= now() - interval '48 hours'
   ),
   limited_request_items as (
-    select * from request_without_work_order
-    union all select * from triage_overdue
-    union all select * from high_priority_unresolved
-    union all select * from stuck_waiting
+    select
+      ranked.item_key,
+      ranked.item_type,
+      ranked.bucket,
+      ranked.property_label,
+      ranked.tenant_label,
+      ranked.entity_label,
+      ranked.amount,
+      ranked.age_hours,
+      ranked.due_days,
+      ranked.link_path,
+      ranked.source_table,
+      ranked.sort_order
+    from (
+      select
+        x.*,
+        case x.bucket
+          when 'urgent' then 1
+          when 'action' then 2
+          when 'upcoming' then 3
+          else 4
+        end as bucket_rank,
+        coalesce(x.age_hours, 999999) as age_rank,
+        coalesce(x.due_days, 999999) as due_rank
+      from (
+        select * from request_without_work_order
+        union all select * from triage_overdue
+        union all select * from high_priority_unresolved
+        union all select * from stuck_waiting
+      ) x
+    ) ranked
     order by
-      case bucket
-        when 'urgent' then 1
-        when 'action' then 2
-        when 'upcoming' then 3
-        else 4
-      end,
-      sort_order,
-      coalesce(age_hours, 999999),
-      coalesce(due_days, 999999),
-      item_key
+      ranked.bucket_rank,
+      ranked.sort_order,
+      ranked.age_rank,
+      ranked.due_rank,
+      ranked.item_key
     limit (select max_items from cfg)
   ),
   work_order_without_contractor as (
@@ -389,25 +411,47 @@ as $$
       and coalesce(swo.updated_at, swo.created_at) >= now() - interval '72 hours'
   ),
   limited_work_order_items as (
-    select * from work_order_without_contractor
-    union all select * from contractor_no_response
-    union all select * from work_order_overdue
-    union all select * from blocked_work_orders
-    union all select * from stalled_work_orders
-    union all select * from long_running_repairs
-    union all select * from repeated_repairs
-    union all select * from recently_updated_open
+    select
+      ranked.item_key,
+      ranked.item_type,
+      ranked.bucket,
+      ranked.property_label,
+      ranked.tenant_label,
+      ranked.entity_label,
+      ranked.amount,
+      ranked.age_hours,
+      ranked.due_days,
+      ranked.link_path,
+      ranked.source_table,
+      ranked.sort_order
+    from (
+      select
+        x.*,
+        case x.bucket
+          when 'urgent' then 1
+          when 'action' then 2
+          when 'upcoming' then 3
+          else 4
+        end as bucket_rank,
+        coalesce(x.age_hours, 999999) as age_rank,
+        coalesce(x.due_days, 999999) as due_rank
+      from (
+        select * from work_order_without_contractor
+        union all select * from contractor_no_response
+        union all select * from work_order_overdue
+        union all select * from blocked_work_orders
+        union all select * from stalled_work_orders
+        union all select * from long_running_repairs
+        union all select * from repeated_repairs
+        union all select * from recently_updated_open
+      ) x
+    ) ranked
     order by
-      case bucket
-        when 'urgent' then 1
-        when 'action' then 2
-        when 'upcoming' then 3
-        else 4
-      end,
-      sort_order,
-      coalesce(age_hours, 999999),
-      coalesce(due_days, 999999),
-      item_key
+      ranked.bucket_rank,
+      ranked.sort_order,
+      ranked.age_rank,
+      ranked.due_rank,
+      ranked.item_key
     limit (select max_items from cfg)
   ),
   lease_items as (
@@ -625,19 +669,41 @@ as $$
       )
   ),
   limited_compliance_items as (
-    select * from compliance_items
-    union all select * from compliance_missing_setup
+    select
+      ranked.item_key,
+      ranked.item_type,
+      ranked.bucket,
+      ranked.property_label,
+      ranked.tenant_label,
+      ranked.entity_label,
+      ranked.amount,
+      ranked.age_hours,
+      ranked.due_days,
+      ranked.link_path,
+      ranked.source_table,
+      ranked.sort_order
+    from (
+      select
+        x.*,
+        case x.bucket
+          when 'urgent' then 1
+          when 'action' then 2
+          when 'upcoming' then 3
+          else 4
+        end as bucket_rank,
+        coalesce(x.age_hours, 999999) as age_rank,
+        coalesce(x.due_days, 999999) as due_rank
+      from (
+        select * from compliance_items
+        union all select * from compliance_missing_setup
+      ) x
+    ) ranked
     order by
-      case bucket
-        when 'urgent' then 1
-        when 'action' then 2
-        when 'upcoming' then 3
-        else 4
-      end,
-      sort_order,
-      coalesce(age_hours, 999999),
-      coalesce(due_days, 999999),
-      item_key
+      ranked.bucket_rank,
+      ranked.sort_order,
+      ranked.age_rank,
+      ranked.due_rank,
+      ranked.item_key
     limit (select max_items from cfg)
   ),
   notification_items as (
@@ -682,32 +748,40 @@ as $$
     union all select * from limited_preventive_items
     union all select * from limited_compliance_items
     union all select * from limited_notification_items
+  ),
+  ordered as (
+    select
+      u.*,
+      case u.bucket
+        when 'urgent' then 1
+        when 'action' then 2
+        when 'upcoming' then 3
+        else 4
+      end as bucket_rank,
+      coalesce(u.age_hours, 999999) as age_rank,
+      coalesce(u.due_days, 999999) as due_rank
+    from unioned u
   )
   select
-    u.item_key,
-    u.item_type,
-    u.bucket,
-    u.property_label,
-    u.tenant_label,
-    u.entity_label,
-    u.amount,
-    u.age_hours,
-    u.due_days,
-    u.link_path,
-    u.source_table,
-    u.sort_order
-  from unioned u
+    o.item_key,
+    o.item_type,
+    o.bucket,
+    o.property_label,
+    o.tenant_label,
+    o.entity_label,
+    o.amount,
+    o.age_hours,
+    o.due_days,
+    o.link_path,
+    o.source_table,
+    o.sort_order
+  from ordered o
   order by
-    case u.bucket
-      when 'urgent' then 1
-      when 'action' then 2
-      when 'upcoming' then 3
-      else 4
-    end,
-    u.sort_order,
-    coalesce(u.age_hours, 999999),
-    coalesce(u.due_days, 999999),
-    u.item_key
+    o.bucket_rank,
+    o.sort_order,
+    o.age_rank,
+    o.due_rank,
+    o.item_key
   limit (select max_items from cfg);
 $$;
 

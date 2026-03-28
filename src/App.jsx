@@ -356,12 +356,44 @@ export default function App() {
         <Route
           path="properties/:id"
           element={
-            <PropertyDetails
-              loading={propertiesLoading || tenantsLoading}
-              properties={ownerProperties}
-              tenants={ownerTenants}
-              payments={ownerPayments}
-            />
+            <>
+              <PropertyDetails
+                loading={propertiesLoading || tenantsLoading}
+                properties={ownerProperties}
+                tenants={ownerTenants}
+                payments={ownerPayments}
+                onEditProperty={(p) => {
+                  setEditingProperty(p);
+                  setIsAddPropertyOpen(true);
+                }}
+              />
+
+              <AddPropertyModal
+                isOpen={isAddPropertyOpen}
+                onClose={() => {
+                  setIsAddPropertyOpen(false);
+                  setEditingProperty(null);
+                }}
+                onSave={async (property) => {
+                  const payload = {
+                    ...property,
+                    accountId: activeAccountId,
+                  };
+
+                  if (property.id) {
+                    await updateProperty(property.id, payload);
+                  } else {
+                    await createProperty(payload);
+                  }
+
+                  setIsAddPropertyOpen(false);
+                  setEditingProperty(null);
+                }}
+                property={editingProperty}
+                tenants={ownerTenants}
+                owners={owners}
+              />
+            </>
           }
         />
 

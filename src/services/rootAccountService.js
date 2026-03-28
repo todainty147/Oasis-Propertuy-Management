@@ -1,4 +1,9 @@
 import { supabase } from "../lib/supabase";
+import {
+  parseRootAccountMutationRow,
+  parseRootAccountRow,
+  parseRpcRows,
+} from "./rpcContracts";
 
 function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -10,7 +15,7 @@ export async function rootListAccounts(rootAccountId) {
     p_root_account_id: rootAccountId,
   });
   if (error) throw friendly(error, "Failed to load root accounts");
-  return data ?? [];
+  return parseRpcRows(data || [], parseRootAccountRow, "root_list_accounts rows");
 }
 
 export async function rootSetAccountDisabled({
@@ -26,7 +31,7 @@ export async function rootSetAccountDisabled({
     p_disabled: Boolean(disabled),
   });
   if (error) throw friendly(error, "Failed to update account status");
-  return data;
+  return parseRootAccountMutationRow(data);
 }
 
 export async function rootDeleteAccount({
@@ -40,5 +45,5 @@ export async function rootDeleteAccount({
     p_target_account_id: targetAccountId,
   });
   if (error) throw friendly(error, "Failed to delete account");
-  return data;
+  return parseRootAccountMutationRow(data);
 }
