@@ -50,7 +50,7 @@ as $$
       ) as is_vacant
     from properties p
     cross join authz a
-    where p.account_id = p_account_id
+    where p.account_id = a.account_id
       and (
         a.tenant_id is null
         or p.id = (select property_id from tenant_scope)

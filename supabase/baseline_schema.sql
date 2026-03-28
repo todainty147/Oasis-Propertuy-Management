@@ -5409,8 +5409,14 @@ CREATE FUNCTION public.finance_snapshot(p_account_id uuid, p_tenant_id uuid DEFA
     AS $$
 declare
   v_tenant_id uuid;
+  v_account_id uuid;
 begin
   v_tenant_id := public.assert_tenant_scope_access(p_account_id, p_tenant_id);
+  if p_tenant_id is null then
+    v_account_id := public.assert_manage_account_access(p_account_id);
+  else
+    v_account_id := p_account_id;
+  end if;
 
   return query
   with tenant_scope as (
@@ -7196,7 +7202,7 @@ begin
         where t.property_id = p.id
       ) as is_vacant
     from properties p
-    where p.account_id = p_account_id
+    where p.account_id = v_account_id
       and (
         v_tenant_id is null
         or p.id = (select property_id from tenant_scope)
