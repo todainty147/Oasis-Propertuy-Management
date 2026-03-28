@@ -5,10 +5,17 @@ import Card from "../components/Card";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
-import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
 import { getContractorRatingByWorkOrder, upsertContractorRating } from "../services/contractorRatingService";
-import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
+import {
+  assignWorkOrderContractor,
+  fetchWorkOrderById,
+  getWorkOrderAllowedActions,
+  listAssignableContractors,
+  listWorkOrderAuditLog,
+  listWorkOrderStatusDefinitions,
+  setWorkOrderStatus as updateWorkOrderStatus,
+} from "../services/workOrderService";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount, getDefaultCurrency } from "../utils/currency";
 import { isManageRole } from "../utils/permissions";
@@ -24,16 +31,7 @@ function useWorkOrderStatusLabels() {
 
     async function load() {
       try {
-        const { data, error } = await supabase
-          .from("work_order_status_definitions")
-          .select("status, label");
-
-        if (error) throw error;
-
-        const map = {};
-        for (const r of data ?? []) {
-          map[String(r.status ?? "").toLowerCase()] = r.label;
-        }
+        const map = await listWorkOrderStatusDefinitions();
         if (!cancelled) setLabels(map);
       } catch {
         if (!cancelled) setLabels({});
@@ -160,11 +158,6 @@ function workOrderSlaState(workOrder) {
   };
 }
 
-function isMissingAckColumnError(error) {
-  const message = String(error?.message || "").toLowerCase();
-  return error?.code === "42703" || message.includes("column");
-}
-
 function StatusPill({ status, labels, t }) {
   const base = "text-xs px-2 py-0.5 rounded border";
   const s = normalizeWorkOrderStatus(status);
@@ -245,53 +238,8 @@ export default function WorkOrderDetails() {
     if (!id) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("work_orders_with_flags")
-        .select(
-          `
-          id,
-          account_id,
-          property_id,
-          maintenance_request_id,
-          contractor_user_id,
-          contractor_name,
-          contractor_phone,
-          status,
-          scheduled_at,
-          notes,
-          quote_amount,
-          invoice_amount,
-          created_by,
-          created_at,
-          updated_at,
-          pending_cancel_request,
-          last_cancel_request_at,
-          last_cancel_request_by,
-          last_cancel_resolution_at,
-          last_cancel_resolution_action,
-          last_cancel_resolution_by,
-          maintenance_requests:maintenance_request_id ( id, title, status, priority )
-        `
-        )
-        .eq("id", id)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      let ackFields = null;
-      if (data?.id) {
-        const { data: ackRow, error: ackError } = await supabase
-          .from("work_orders")
-          .select("id, assigned_at, acknowledged_at, acknowledgement_due_at, acknowledgement_status")
-          .eq("id", data.id)
-          .maybeSingle();
-        if (!ackError || isMissingAckColumnError(ackError)) {
-          ackFields = ackRow || null;
-        }
-      }
-
-      // If RLS hides it, data can be null
-      setWo(data ? { ...data, ...(ackFields || {}) } : null);
+      const data = await fetchWorkOrderById(id);
+      setWo(data || null);
     } catch (e) {
       console.error(e);
       setWo(null);
@@ -307,14 +255,8 @@ export default function WorkOrderDetails() {
     if (!id) return;
     setAuditLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("work_order_audit_log")
-        .select("id, action, actor_user_id, old_value, new_value, created_at")
-        .eq("work_order_id", id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setAudit(data ?? []);
+      const rows = await listWorkOrderAuditLog(id);
+      setAudit(rows);
     } catch (e) {
       console.error(e);
       setAudit([]);
@@ -334,11 +276,10 @@ export default function WorkOrderDetails() {
     }
     setActionsLoading(true);
     try {
-      const { data, error } = await supabase.rpc("work_order_allowed_actions", {
-        p_work_order_id: id,
+      const actions = await getWorkOrderAllowedActions(id, {
+        accountId: activeAccountId,
       });
-      if (error) throw error;
-      setAllowedActions(Array.isArray(data) ? data : []);
+      setAllowedActions(actions);
     } catch (e) {
       console.error(e);
       setAllowedActions([]);
@@ -357,15 +298,8 @@ export default function WorkOrderDetails() {
     }
     setContractorsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("contractors")
-        .select("id, name, phone, email, user_id, active")
-        .eq("account_id", activeAccountId)
-        .eq("active", true)
-        .order("name", { ascending: true });
-
-      if (error) throw error;
-      setContractors(data ?? []);
+      const rows = await listAssignableContractors(activeAccountId);
+      setContractors(rows);
     } catch (e) {
       console.error(e);
       setContractors([]);
@@ -398,25 +332,21 @@ export default function WorkOrderDetails() {
     if (!id) return;
     setBusy(true);
     try {
-      const { error } = await supabase.rpc("work_order_set_status", {
-        p_work_order_id: id,
-        p_new_status: nextStatus,
-        p_apply_if_tenant_allowed: false,
-      });
-      if (error) throw error;
+      await updateWorkOrderStatus(
+        {
+          workOrderId: id,
+          newStatus: nextStatus,
+          applyIfTenantAllowed: false,
+        },
+        {
+          accountId: activeAccountId,
+        },
+      );
 
       await loadWorkOrder();
       await loadAllowedActions();
       await loadAudit();
     } catch (e) {
-      logSecurityRelevantFailure("work_order_set_status", {
-        error: e,
-        context: {
-          accountId: activeAccountId,
-          workOrderId: id,
-          requestedStatus: nextStatus,
-        },
-      });
       alert(e?.message ?? t("workOrders.statusChangeError"));
     } finally {
       setBusy(false);
@@ -427,11 +357,15 @@ export default function WorkOrderDetails() {
     if (!id || !assignContractorId) return;
     setBusy(true);
     try {
-      const { error } = await supabase.rpc("work_order_assign_contractor", {
-        p_work_order_id: id,
-        p_contractor_id: assignContractorId,
-      });
-      if (error) throw error;
+      await assignWorkOrderContractor(
+        {
+          workOrderId: id,
+          contractorId: assignContractorId,
+        },
+        {
+          accountId: activeAccountId,
+        },
+      );
 
       await loadWorkOrder();
       await loadAllowedActions();

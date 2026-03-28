@@ -1,4 +1,21 @@
 import { supabase } from "../lib/supabase";
+import {
+  parsePropertyFinancialProfileRow,
+  parsePropertyOperatingExpenseRow,
+  parseRpcRows,
+} from "./rpcContracts";
+import {
+  listMaintenanceExpensesByProperty,
+  listMaintenanceRequestsByProperty,
+} from "./maintenanceService";
+import { fetchWorkOrders } from "./workOrderService";
+import { listLeases } from "./leaseService";
+import { listPreventiveMaintenanceTasks } from "./preventiveMaintenanceService";
+import {
+  listComplianceItems,
+  listMissingComplianceSetup,
+} from "./complianceService";
+import { listPropertyOperationalHealthScores } from "./propertyHealthScoreService";
 
 function isMissingBackendObject(error) {
   const message = String(error?.message || "").toLowerCase();
@@ -40,7 +57,7 @@ export async function listPropertyOperatingExpenses({
     if (isMissingBackendObject(error)) return [];
     throw error;
   }
-  return Array.isArray(data) ? data : [];
+  return parseRpcRows(data || [], parsePropertyOperatingExpenseRow, "property operating expense rows");
 }
 
 export async function createPropertyOperatingExpense({
@@ -79,7 +96,7 @@ export async function createPropertyOperatingExpense({
     .single();
 
   if (error) throw error;
-  return data;
+  return parsePropertyOperatingExpenseRow(data);
 }
 
 export async function getPropertyFinancialProfile({ accountId, propertyId } = {}) {
@@ -96,7 +113,7 @@ export async function getPropertyFinancialProfile({ accountId, propertyId } = {}
     if (isMissingBackendObject(error)) return null;
     throw error;
   }
-  return data || null;
+  return data ? parsePropertyFinancialProfileRow(data) : null;
 }
 
 export async function upsertPropertyFinancialProfile({
@@ -141,5 +158,82 @@ export async function upsertPropertyFinancialProfile({
     .single();
 
   if (error) throw error;
-  return data;
+  return parsePropertyFinancialProfileRow(data);
+}
+
+export async function getPropertyPerformanceBundle({
+  accountId,
+  propertyId,
+} = {}) {
+  if (!accountId || !propertyId) {
+    return {
+      requests: [],
+      workOrders: [],
+      maintenanceExpenses: [],
+      operatingExpenses: [],
+      financialProfile: null,
+      leases: [],
+      preventiveTasks: [],
+      complianceItems: [],
+      missingComplianceItems: [],
+      healthRows: [],
+    };
+  }
+
+  const [
+    requestPage,
+    workOrderRows,
+    maintenanceExpenses,
+    operatingExpenses,
+    financialProfile,
+    leases,
+    preventiveTasks,
+    complianceItems,
+    missingComplianceItems,
+    healthRows,
+  ] = await Promise.all([
+    listMaintenanceRequestsByProperty({
+      accountId,
+      propertyId,
+      page: 1,
+      pageSize: 100,
+    }),
+    fetchWorkOrders({
+      accountId,
+      propertyId,
+      limit: 100,
+    }),
+    listMaintenanceExpensesByProperty({
+      accountId,
+      propertyId,
+      limit: 120,
+    }),
+    listPropertyOperatingExpenses({
+      accountId,
+      propertyId,
+      limit: 120,
+    }),
+    getPropertyFinancialProfile({
+      accountId,
+      propertyId,
+    }),
+    listLeases({ accountId, propertyId, limit: 20 }),
+    listPreventiveMaintenanceTasks({ accountId, propertyId, limit: 50 }),
+    listComplianceItems({ accountId, propertyId, includeClosed: false, limit: 50 }),
+    listMissingComplianceSetup(accountId, { propertyId, limit: 10 }),
+    listPropertyOperationalHealthScores(accountId, { propertyId, limit: 1 }),
+  ]);
+
+  return {
+    requests: requestPage?.data || [],
+    workOrders: Array.isArray(workOrderRows) ? workOrderRows : [],
+    maintenanceExpenses,
+    operatingExpenses,
+    financialProfile,
+    leases: leases || [],
+    preventiveTasks: preventiveTasks || [],
+    complianceItems: complianceItems || [],
+    missingComplianceItems: missingComplianceItems || [],
+    healthRows: Array.isArray(healthRows) ? healthRows : [],
+  };
 }

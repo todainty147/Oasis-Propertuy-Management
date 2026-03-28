@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { parseLeaseAttentionItemRow, parseLeaseRow, parseRpcRows } from "./rpcContracts";
 
 export const LEASE_EXPIRING_SOON_DAYS = 60;
 
@@ -108,7 +109,7 @@ export async function listLeases({
   const { data, error } = await query;
   if (error && isMissingBackendObject(error)) return [];
   if (error) throw friendly(error, "Failed to load leases");
-  return (data || []).map(normalizeLease).filter(Boolean);
+  return parseRpcRows(data || [], parseLeaseRow, "lease rows").map(normalizeLease).filter(Boolean);
 }
 
 export async function getPrimaryLease({
@@ -196,7 +197,7 @@ export async function upsertLease({
   `).single();
 
   if (error) throw friendly(error, "Failed to save lease");
-  return normalizeLease(data);
+  return normalizeLease(parseLeaseRow(data));
 }
 
 export async function getLeaseSummary(accountId, expiringSoonDays = LEASE_EXPIRING_SOON_DAYS) {
@@ -253,7 +254,7 @@ export async function getLeaseAttentionItems(
     } else if (error) {
       throw friendly(error, "Failed to load lease attention items");
     } else {
-      return Array.isArray(data) ? data : [];
+      return parseRpcRows(data || [], parseLeaseAttentionItemRow, "lease attention items");
     }
   }
 

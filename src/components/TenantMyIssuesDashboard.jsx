@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
-import { supabase } from "../lib/supabase";
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
+import { listTenantIssueRows } from "../services/maintenanceService";
 
 function Pill({ children, tone = "slate" }) {
   const tones = {
@@ -47,32 +47,12 @@ export default function TenantMyIssuesDashboard({ propertyId, onOpenIssue }) {
 
     setLoading(true);
     try {
-      let q = supabase
-        .from("tenant_my_issues")
-        .select(
-          `
-          maintenance_request_id,
-          account_id,
-          property_id,
-          title,
-          maintenance_status,
-          priority,
-          created_at,
-          latest_work_order_status,
-          latest_work_order_id
-        `
-        )
-        .eq("account_id", activeAccountId)
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-      // If you are on a property details page, keep it scoped
-      if (propertyId) q = q.eq("property_id", propertyId);
-
-      const { data, error } = await q;
-      if (error) throw error;
-
-      setRows(data ?? []);
+      const nextRows = await listTenantIssueRows({
+        accountId: activeAccountId,
+        propertyId,
+        limit: 20,
+      });
+      setRows(nextRows);
     } catch {
       setRows([]);
     } finally {

@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
-import { supabase } from "../lib/supabase";
 import Skeleton from "../components/ui/Skeleton";
 import MaintenanceColumn from "../components/maintenance-inbox/MaintenanceColumn";
 import CreateWorkOrderDrawer from "../components/maintenance-inbox/CreateWorkOrderDrawer";
+import { loadMaintenanceInboxData } from "../services/maintenanceInboxService";
 import { updateMaintenanceRequest } from "../services/maintenanceService";
 import { createWorkOrder } from "../services/workOrderService";
 import { useI18n } from "../context/I18nContext";
@@ -153,58 +153,12 @@ export default function MaintenanceInboxPage() {
     setError("");
 
     try {
-      const [{ data: reqRows, error: reqErr }, { data: propsRows, error: propErr }, { data: contractorsRows, error: cErr }] =
-        await Promise.all([
-          supabase
-            .from("maintenance_requests")
-            .select(
-              "id, account_id, property_id, reported_by_tenant_id, title, description, priority, status, waiting_reason, created_at, updated_at"
-            )
-            .eq("account_id", activeAccountId)
-            .order("created_at", { ascending: false }),
-          supabase.from("properties").select("id, address, city").eq("account_id", activeAccountId),
-          supabase.from("contractors").select("id, name, phone, active").eq("account_id", activeAccountId).eq("active", true),
-        ]);
-
-      if (reqErr) throw reqErr;
-      if (propErr) throw propErr;
-      if (cErr) throw cErr;
-
-      const rows = reqRows ?? [];
-      setRequests(rows);
-      setTotalCount(rows.length);
-
-      const propMap = {};
-      for (const p of propsRows ?? []) {
-        const city = p.city ? `, ${p.city}` : "";
-        propMap[p.id] = `${p.address || t("common.property")}${city}`;
-      }
-      setPropertyLabelById(propMap);
-      setContractors(contractorsRows ?? []);
-
-      const requestIds = rows.map((r) => r.id).filter(Boolean);
-      if (requestIds.length === 0) {
-        setWorkOrdersByRequestId({});
-        return;
-      }
-
-      const { data: woRows, error: woErr } = await supabase
-        .from("work_orders_with_flags")
-        .select("id, maintenance_request_id, status, contractor_user_id, contractor_name, contractor_phone, created_at")
-        .eq("account_id", activeAccountId)
-        .in("maintenance_request_id", requestIds)
-        .order("created_at", { ascending: false });
-
-      if (woErr) throw woErr;
-
-      const woMap = {};
-      for (const wo of woRows ?? []) {
-        const k = wo.maintenance_request_id;
-        if (!k) continue;
-        if (!woMap[k]) woMap[k] = [];
-        woMap[k].push(wo);
-      }
-      setWorkOrdersByRequestId(woMap);
+      const result = await loadMaintenanceInboxData(activeAccountId, t("common.property"));
+      setRequests(result.requests);
+      setTotalCount(result.totalCount);
+      setPropertyLabelById(result.propertyLabelById);
+      setContractors(result.contractors);
+      setWorkOrdersByRequestId(result.workOrdersByRequestId);
     } catch (e) {
       setError(e?.message || t("maintenance.inbox.loadError"));
       setRequests([]);

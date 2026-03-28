@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { parseContractorRatingRow } from "./rpcContracts";
 
 function isMissingRatingsTableError(err) {
   const msg = String(err?.message || "").toLowerCase();
@@ -28,7 +29,7 @@ export async function getContractorRatingByWorkOrder(workOrderId) {
     .eq("work_order_id", workOrderId)
     .maybeSingle();
   if (error) throw friendly(error, "Nie udało się pobrać oceny wykonawcy");
-  return data ?? null;
+  return data ? parseContractorRatingRow(data) : null;
 }
 
 export async function upsertContractorRating({
@@ -60,5 +61,5 @@ export async function upsertContractorRating({
     .single();
 
   if (error) throw friendly(error, "Nie udało się zapisać oceny wykonawcy");
-  return data;
+  return parseContractorRatingRow(data);
 }

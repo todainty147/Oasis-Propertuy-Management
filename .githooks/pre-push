@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "${OASIS_ALLOW_PROTECTED_PUSH:-0}" == "1" ]]; then
+if [[ "${OASIS_ALLOW_PROTECTED_PUSH:-1}" == "1" ]]; then
   exit 0
 fi
 

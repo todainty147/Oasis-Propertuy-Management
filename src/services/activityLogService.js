@@ -1,5 +1,6 @@
 // src/services/activityLogService.js
 import { supabase } from "../lib/supabase";
+import { parseActivityLogRow, parseRpcRows } from "./rpcContracts";
 
 export async function fetchActivityLog({
   accountId,
@@ -45,5 +46,5 @@ export async function fetchActivityLog({
   const { data, error } = await q;
   if (error) throw error;
 
-  return data ?? [];
+  return parseRpcRows(data ?? [], parseActivityLogRow, "activity log rows");
 }

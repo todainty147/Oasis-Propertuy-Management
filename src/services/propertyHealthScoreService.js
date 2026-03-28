@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { getDerivedLeaseStatus } from "./leaseService";
 import { listMissingComplianceSetup } from "./complianceService";
+import { parsePropertyOperationalHealthSnapshotRow, parseRpcRows } from "./rpcContracts";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 const HEALTH_SCORE_BASE = 100;
@@ -316,35 +317,11 @@ export async function listPropertyOperationalHealthScores(accountId, { propertyI
   );
 
   if (!snapshotError) {
-    return (Array.isArray(snapshotRows) ? snapshotRows : []).map((row) => ({
-      propertyId: row.property_id,
-      propertyLabel: row.property_label || "",
-      score: Number(row.score || 0),
-      category: row.category || getPropertyOperationalHealthCategory(row.score),
-      reasons: Array.isArray(row.reasons)
-        ? row.reasons.map(normalizeSnapshotReason).filter(Boolean)
-        : [],
-      signals: {
-        overdueRentAmount: Number(row.overdue_rent_amount || 0),
-        openRequestCount: Number(row.open_request_count || 0),
-        activeWorkOrderCount: Number(row.active_work_order_count || 0),
-        stalledRepairCount: Number(row.stalled_repair_count || 0),
-        ackOverdueCount: Number(row.ack_overdue_count || 0),
-        longRunningRepairCount: Number(row.long_running_repair_count || 0),
-        requests90Count: Number(row.requests_90_count || 0),
-        overduePreventiveCount: Number(row.overdue_preventive_count || 0),
-        dueSoonPreventiveCount: Number(row.due_soon_preventive_count || 0),
-        overdueComplianceCount: Number(row.overdue_compliance_count || 0),
-        dueSoonComplianceCount: Number(row.due_soon_compliance_count || 0),
-        missingComplianceCount: Number(row.missing_compliance_count || 0),
-        hasExpiredLease: Number(row.expired_lease_count || 0) > 0,
-        hasExpiringLease: Number(row.expiring_lease_count || 0) > 0,
-        hasRenewalInProgress: Number(row.renewal_in_progress_count || 0) > 0,
-        recentOperatingExpenses: Number(row.recent_operating_expenses || 0),
-        recentMaintenanceCost: Number(row.recent_maintenance_cost || 0),
-        tenantCount: Number(row.tenant_count || 0),
-      },
-    }));
+    return parseRpcRows(
+      snapshotRows || [],
+      parsePropertyOperationalHealthSnapshotRow,
+      "property operational health snapshot rows",
+    );
   }
 
   if (snapshotError && !isMissingBackendObject(snapshotError)) {

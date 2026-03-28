@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
-import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
+import { acceptAccountInvite } from "../services/invitationService";
 
 export default function Invite() {
   const [params] = useSearchParams();
@@ -20,24 +20,17 @@ export default function Invite() {
       return;
     }
     setBusy(true);
-    const { data, error } = await supabase.rpc(
-      "accept_account_invite",
-      { invite_token: token }
-    );
-
-    if (!error) {
-      if (data?.account_id) {
-        localStorage.setItem("activeAccountId", data.account_id);
+    try {
+      const result = await acceptAccountInvite(token);
+      if (result?.account_id) {
+        localStorage.setItem("activeAccountId", result.account_id);
       }
       navigate("/dashboard", { replace: true });
       return;
+    } catch (error) {
+      alert(error.message);
+      setBusy(false);
     }
-    logSecurityRelevantFailure("accept_account_invite", {
-      error,
-      context: { inviteFlow: "accept" },
-    });
-    alert(error.message);
-    setBusy(false);
   }
 
   async function sendMagicLink() {

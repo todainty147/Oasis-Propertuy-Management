@@ -5,6 +5,7 @@ import { useTenant } from "../context/TenantContext";
 import { useRealtimeTables } from "./useRealtimeTables";
 import {
   createTenant as createTenantRecord,
+  listAccountTenants,
   updateTenant as updateTenantRecord,
   deleteTenant as deleteTenantRecord,
 } from "../services/tenantService";
@@ -30,37 +31,12 @@ export function useTenants({ enabled = true } = {}) {
     setLoading(true);
     setError(null);
 
-    const { data, error } = await supabase
-      .from("tenants")
-      .select(`
-          id,
-          name,
-          email,
-          phone,
-          property_id,
-          created_at
-        `)
-      .eq("account_id", activeAccountId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
+    try {
+      const data = await listAccountTenants(activeAccountId);
+      setTenants(activeTenantId ? data.filter((tenant) => tenant.id === activeTenantId) : data);
+    } catch (error) {
       setError(error);
       setTenants([]);
-    } else {
-      const mapped = data.map((t) => ({
-        id: t.id,
-        name: t.name,
-        email: t.email,
-        phone: t.phone,
-        propertyId: t.property_id,
-        createdAt: t.created_at,
-      }));
-
-      setTenants(
-        activeTenantId
-          ? mapped.filter((t) => t.id === activeTenantId)
-          : mapped
-      );
     }
 
     setLoading(false);

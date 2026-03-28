@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
-import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount } from "../utils/currency";
+import { fetchWorkOrders } from "../services/workOrderService";
 
 export default function PropertyMaintenanceCostsCard({ accountId, propertyId }) {
   const { t } = useI18n();
@@ -22,14 +22,12 @@ export default function PropertyMaintenanceCostsCard({ accountId, propertyId }) 
     setLoading(true);
     setError("");
     try {
-      const { data, error: queryError } = await supabase
-        .from("work_orders_with_flags")
-        .select("id, status, quote_amount, invoice_amount, maintenance_request_id")
-        .eq("account_id", accountId)
-        .eq("property_id", propertyId);
-
-      if (queryError) throw queryError;
-      setRows(data || []);
+      const nextRows = await fetchWorkOrders({
+        accountId,
+        propertyId,
+        limit: 200,
+      });
+      setRows(Array.isArray(nextRows) ? nextRows : []);
     } catch (e) {
       setRows([]);
       setError(e?.message || t("propertyDetails.maintenanceCostsLoadError"));

@@ -8,10 +8,21 @@ import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
 import { createNotifications } from "../services/notificationService";
 import { recordAutomationExecution } from "../services/automationExecutionService";
-import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
+import {
+  getContractorJobDetailsBundle,
+  getContractorAllowedActions,
+  updateContractorWorkOrder,
+} from "../services/contractorWorkOrderService";
 import { useI18n } from "../context/I18nContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount, getCurrencyOptions, getDefaultCurrency } from "../utils/currency";
+import {
+  submitQuote as submitWorkOrderQuote,
+  upsertInvoice,
+  upsertQuoteDraft,
+} from "../services/workOrderFinancialsService";
+import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
+import { listWorkOrderAuditLog } from "../services/workOrderService";
 
 function formatDateTime(ts) {
   if (!ts) return "—";
@@ -203,131 +214,45 @@ export default function ContractorJobDetails() {
   async function loadAll() {
     setLoading(true);
     try {
-      let { data, error } = await supabase
-        .from("work_orders")
-        .select(
-          "id, maintenance_request_id, property_id, status, scheduled_at, notes, contractor_name, contractor_phone, created_at, updated_at, assigned_at, acknowledged_at, acknowledgement_due_at, acknowledgement_status"
-        )
-        .eq("id", id)
-        .maybeSingle();
-
-      if (error && isMissingAckColumnError(error)) {
-        ({ data, error } = await supabase
-          .from("work_orders")
-          .select("id, maintenance_request_id, property_id, status, scheduled_at, notes, contractor_name, contractor_phone, created_at, updated_at")
-          .eq("id", id)
-          .maybeSingle());
-      }
-
-      if (error) throw error;
-      setRow(data ?? null);
-      setScheduleInput(toLocal(data?.scheduled_at));
-      setProgressNote("");
-
-      // Financials: may not exist yet
-      const { data: f, error: fe } = await supabase
-        .from("work_order_financials")
-        .select(
-          "id, account_id, work_order_id, quote_amount, quote_currency, quote_notes, quote_status, quote_submitted_at, quote_submitted_by, invoice_amount, invoice_currency, invoice_issued_at, invoice_due_at, approved_at, approved_by, rejected_at, rejected_by, rejection_reason, created_at, updated_at"
-        )
-        .eq("work_order_id", id)
-        .maybeSingle();
-
-      if (!fe) {
-        setFin(f ?? null);
-        syncFinInputs(f ?? null);
-      } else {
-        setFin(null);
-      }
-
-      let resolvedRequest = null;
-      let resolvedPropertyLabel = "";
-
-      if (data?.maintenance_request_id) {
-        const { data: req } = await supabase
-          .from("maintenance_requests")
-          .select("id, title, description, priority, property_id")
-          .eq("id", data.maintenance_request_id)
-          .maybeSingle();
-        resolvedRequest = req || null;
-        setRequestRow(resolvedRequest);
-
-        const propertyId = req?.property_id || data?.property_id;
-        if (propertyId) {
-          const { data: prop } = await supabase
-            .from("properties")
-            .select("id, address, city")
-            .eq("id", propertyId)
-            .maybeSingle();
-          if (prop) {
-            resolvedPropertyLabel = `${prop.address || t("common.property")}${prop.city ? `, ${prop.city}` : ""}`;
-            setPropertyLabel(resolvedPropertyLabel);
-          } else {
-            setPropertyLabel("");
-          }
-        } else {
-          setPropertyLabel("");
-        }
-      } else {
-        setRequestRow(null);
-        setPropertyLabel("");
-      }
-
-      if ((!resolvedPropertyLabel || !resolvedRequest?.title) && data?.id) {
-        try {
-          const { data: cardRows, error: cardErr } = await supabase.rpc("contractor_work_order_cards", {
-            p_work_order_ids: [data.id],
-          });
-          if (cardErr) {
-            logSecurityRelevantFailure("contractor_work_order_cards", {
-              error: cardErr,
-              context: {
-                accountId: data?.account_id || activeAccountId || null,
-                workOrderId: data?.id || id || null,
-              },
-            });
-          }
-          if (!cardErr && Array.isArray(cardRows) && cardRows[0]) {
-            const c = cardRows[0];
-            if (!String(resolvedPropertyLabel || "").trim() && String(c.property_label || "").trim()) {
-              setPropertyLabel(String(c.property_label).trim());
-            }
-            setRequestRow((prev) => ({
-              ...(prev || {}),
-              id: prev?.id || data?.maintenance_request_id || null,
-              title: String(prev?.title || "").trim() || String(c.issue_title || "").trim() || prev?.title || "",
-              description:
-                String(prev?.description || "").trim() ||
-                String(c.issue_description || "").trim() ||
-                prev?.description ||
-                "",
-              priority:
-                String(prev?.priority || "").trim() ||
-                String(c.issue_priority || "").trim() ||
-                prev?.priority ||
-                "normal",
-            }));
-          }
-        } catch {
-          // Optional fallback RPC; ignore if not deployed yet.
-        }
-      }
-
-      const { data: acts, error: aErr } = await supabase.rpc("contractor_allowed_actions", {
-        p_work_order_id: id,
+      const bundle = await getContractorJobDetailsBundle(id, {
+        accountId: activeAccountId,
+        workOrderId: id,
+        source: "ContractorJobDetails",
       });
-      if (aErr) {
+
+      setRow(bundle.row ?? null);
+      setScheduleInput(toLocal(bundle.row?.scheduled_at));
+      setProgressNote("");
+      setFin(bundle.financials ?? null);
+      syncFinInputs(bundle.financials ?? null);
+      setRequestRow(bundle.requestRow ?? null);
+      setPropertyLabel(bundle.propertyLabel || "");
+
+      try {
+        const acts = await getContractorAllowedActions(id, {
+          accountId: bundle.row?.account_id || activeAccountId || null,
+        });
+        setAllowedActions(acts);
+      } catch (error) {
         logSecurityRelevantFailure("contractor_allowed_actions", {
-          error: aErr,
+          error,
           context: {
-            accountId: data?.account_id || activeAccountId || null,
+            accountId: bundle.row?.account_id || activeAccountId || null,
             workOrderId: id,
+            source: "ContractorJobDetails",
           },
         });
+        setAllowedActions([]);
       }
-      if (!aErr) setAllowedActions(Array.isArray(acts) ? acts : []);
-      else setAllowedActions([]);
     } catch (e) {
+      logSecurityRelevantFailure("contractor_work_order_cards", {
+        error: e,
+        context: {
+          accountId: activeAccountId || null,
+          workOrderId: id,
+          source: "ContractorJobDetails",
+        },
+      });
       console.error(e);
       setRow(null);
       setFin(null);
@@ -365,13 +290,12 @@ export default function ContractorJobDetails() {
 
     setSaving(true);
     try {
-      const { data, error } = await supabase.rpc("wo_fin_upsert_quote_draft", {
-        p_work_order_id: id,
-        p_quote_amount: amt,
-        p_quote_currency: quoteCurrency || getDefaultCurrency(),
-        p_quote_notes: quoteNotes || null,
+      const data = await upsertQuoteDraft({
+        workOrderId: id,
+        quoteAmount: amt,
+        quoteCurrency: quoteCurrency || getDefaultCurrency(),
+        quoteNotes: quoteNotes || null,
       });
-      if (error) throw error;
 
       setFin(data ?? null);
       syncFinInputs(data ?? null);
@@ -396,10 +320,7 @@ export default function ContractorJobDetails() {
   async function submitQuote() {
     setSaving(true);
     try {
-      const { data, error } = await supabase.rpc("wo_fin_submit_quote", {
-        p_work_order_id: id,
-      });
-      if (error) throw error;
+      const data = await submitWorkOrderQuote({ workOrderId: id });
       setFin(data ?? null);
       syncFinInputs(data ?? null);
     } catch (e) {
@@ -422,14 +343,13 @@ export default function ContractorJobDetails() {
 
     setSaving(true);
     try {
-      const { data, error } = await supabase.rpc("wo_fin_upsert_invoice", {
-        p_work_order_id: id,
-        p_invoice_amount: amt,
-        p_invoice_currency: invoiceCurrency || getDefaultCurrency(),
-        p_invoice_issued_at: toIsoOrNullFromLocalInput(invoiceIssuedAt),
-        p_invoice_due_at: toIsoOrNullFromLocalInput(invoiceDueAt),
+      const data = await upsertInvoice({
+        workOrderId: id,
+        invoiceAmount: amt,
+        invoiceCurrency: invoiceCurrency || getDefaultCurrency(),
+        invoiceIssuedAt: toIsoOrNullFromLocalInput(invoiceIssuedAt),
+        invoiceDueAt: toIsoOrNullFromLocalInput(invoiceDueAt),
       });
-      if (error) throw error;
 
       setFin(data ?? null);
       syncFinInputs(data ?? null);
@@ -454,13 +374,15 @@ export default function ContractorJobDetails() {
   async function setStatus(nextStatus) {
     setSaving(true);
     try {
-      const { error } = await supabase.rpc("contractor_update_work_order", {
-        p_work_order_id: id,
-        p_status: nextStatus,
-        p_notes: null,
-        p_scheduled_at: null,
-      });
-      if (error) throw error;
+      await updateContractorWorkOrder(
+        {
+          workOrderId: id,
+          status: nextStatus,
+          notes: null,
+          scheduledAt: null,
+        },
+        { accountId: activeAccountId },
+      );
 
       if (nextStatus === "in_progress") {
         const { error: ackError } = await supabase
@@ -538,13 +460,15 @@ export default function ContractorJobDetails() {
 
     setSaving(true);
     try {
-      const { error } = await supabase.rpc("contractor_update_work_order", {
-        p_work_order_id: id,
-        p_status: null,
-        p_notes: mergedNotes,
-        p_scheduled_at: toIsoOrNullFromLocalInput(scheduleInput),
-      });
-      if (error) throw error;
+      await updateContractorWorkOrder(
+        {
+          workOrderId: id,
+          status: null,
+          notes: mergedNotes,
+          scheduledAt: toIsoOrNullFromLocalInput(scheduleInput),
+        },
+        { accountId: activeAccountId },
+      );
 
       if (acknowledge) {
         const { error: ackError } = await supabase
@@ -587,14 +511,8 @@ export default function ContractorJobDetails() {
     if (!id) return;
     setTimelineLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("work_order_audit_log")
-        .select("id, action, old_value, new_value, created_at")
-        .eq("work_order_id", id)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      if (error) throw error;
-      setTimelineRows(data || []);
+      const rows = await listWorkOrderAuditLog(id, { limit: 20 });
+      setTimelineRows(rows);
     } catch {
       setTimelineRows([]);
     } finally {

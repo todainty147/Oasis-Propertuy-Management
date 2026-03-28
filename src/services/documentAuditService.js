@@ -1,5 +1,6 @@
 // src/services/documentAuditService.js
 import { supabase } from "../lib/supabase";
+import { parseDocumentAuditRow, parseRpcRows } from "./rpcContracts";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 export async function fetchDocumentAudit({
@@ -33,5 +34,5 @@ export async function fetchDocumentAudit({
     });
     throw error;
   }
-  return data ?? [];
+  return parseRpcRows(data ?? [], parseDocumentAuditRow, "document audit rows");
 }

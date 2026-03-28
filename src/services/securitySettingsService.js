@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { parseAccountSecuritySettingsRow } from "./rpcContracts";
 
 const DEFAULT_SECURITY_SETTINGS = {
   role_change_target_threshold: 3,
@@ -14,11 +15,11 @@ const DEFAULT_SECURITY_SETTINGS = {
 };
 
 function withDefaults(accountId, row = null) {
-  return {
+  return parseAccountSecuritySettingsRow({
     account_id: accountId,
     ...DEFAULT_SECURITY_SETTINGS,
     ...(row || {}),
-  };
+  });
 }
 
 function isMissingBackendObject(error) {

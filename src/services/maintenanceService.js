@@ -7,9 +7,225 @@ import {
   assertRequiredText,
   normalizeText,
 } from "../utils/validation";
+import {
+  parseMaintenanceRequestRow,
+  parseRpcRows,
+  parseMaintenanceExpenseRow,
+  parseTenantIssueRow,
+  parseTenantRow,
+  parseWorkOrderRow,
+} from "./rpcContracts";
+import { fetchWorkOrders } from "./workOrderService";
 
 function friendlyError(err, fallback) {
   return new Error(err?.message ?? fallback);
+}
+
+export async function listMaintenanceRequestsByProperty({
+  accountId,
+  propertyId,
+  page = 1,
+  pageSize = 20,
+} = {}) {
+  if (!accountId || !propertyId) {
+    return {
+      data: [],
+      count: 0,
+      page: Math.max(1, Number(page) || 1),
+      pageSize: Math.max(1, Math.min(200, Number(pageSize) || 20)),
+    };
+  }
+
+  const safePage = Math.max(1, Number(page) || 1);
+  const safePageSize = Math.max(1, Math.min(200, Number(pageSize) || 20));
+  const from = (safePage - 1) * safePageSize;
+  const to = from + safePageSize - 1;
+
+  const { data, error, count } = await supabase
+    .from("maintenance_requests")
+    .select(
+      "id, account_id, property_id, reported_by_tenant_id, title, description, priority, status, created_at, updated_at",
+      { count: "exact" },
+    )
+    .eq("account_id", accountId)
+    .eq("property_id", propertyId)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (error) throw friendlyError(error, "Nie udało się załadować zgłoszeń");
+
+  return {
+    data: parseRpcRows(data || [], parseMaintenanceRequestRow, "maintenance request rows"),
+    count: count ?? 0,
+    page: safePage,
+    pageSize: safePageSize,
+  };
+}
+
+export async function listLinkedWorkOrdersForRequests({
+  accountId,
+  propertyId,
+  requests,
+} = {}) {
+  const requestIds = (requests ?? []).map((row) => row.id).filter(Boolean);
+  if (!accountId || !propertyId || requestIds.length === 0) return {};
+
+  const workOrders = await fetchWorkOrders({
+    accountId,
+    propertyId,
+    page: 1,
+    pageSize: Math.max(20, requestIds.length * 10),
+  });
+
+  const grouped = {};
+  for (const workOrder of workOrders.data ?? []) {
+    const key = workOrder.maintenance_request_id;
+    if (!key || !requestIds.includes(key)) continue;
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(workOrder);
+  }
+
+  return grouped;
+}
+
+export async function listMaintenanceExpensesByProperty({
+  accountId,
+  propertyId,
+  limit = 120,
+} = {}) {
+  if (!accountId || !propertyId) return [];
+
+  const { data, error } = await supabase
+    .from("maintenance_expenses")
+    .select("id, account_id, property_id, amount, approval_state, expense_date, posted_at, created_at, updated_at")
+    .eq("account_id", accountId)
+    .eq("property_id", propertyId)
+    .order("expense_date", { ascending: false })
+    .limit(limit);
+
+  if (error) throw friendlyError(error, "Nie udało się załadować kosztów utrzymania");
+  return parseRpcRows(data || [], parseMaintenanceExpenseRow, "maintenance expense rows");
+}
+
+export async function resolveTenantReporterId({
+  accountId,
+  propertyId,
+  userId,
+} = {}) {
+  if (!accountId || !propertyId || !userId) return null;
+
+  const { data, error } = await supabase
+    .from("tenants")
+    .select("id")
+    .eq("account_id", accountId)
+    .eq("property_id", propertyId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) throw friendlyError(error, "Nie udało się ustalić tenant scope");
+  return data?.id || null;
+}
+
+export async function getTenantMaintenanceDashboardData({
+  accountId,
+  propertyId = null,
+  limit = 5,
+} = {}) {
+  if (!accountId) {
+    return {
+      requests: [],
+      workOrders: [],
+    };
+  }
+
+  const {
+    data: { user },
+    error: userErr,
+  } = await supabase.auth.getUser();
+
+  if (userErr) throw friendlyError(userErr, "Nie udało się ustalić użytkownika");
+  if (!user?.id) return { requests: [], workOrders: [] };
+
+  const { data: tenantRows, error: tenantError } = await supabase
+    .from("tenants")
+    .select("id, account_id, property_id, user_id, status, name, email, phone, created_at, updated_at")
+    .eq("account_id", accountId)
+    .eq("user_id", user.id);
+
+  if (tenantError) throw friendlyError(tenantError, "Nie udało się ustalić scope tenant");
+
+  const parsedTenants = parseRpcRows(tenantRows || [], parseTenantRow, "tenant maintenance dashboard tenants");
+  const tenantIds = parsedTenants.map((row) => row.id).filter(Boolean);
+  const allowedPropertyIds = parsedTenants.map((row) => row.property_id).filter(Boolean);
+  const scopedPropertyIds = propertyId
+    ? allowedPropertyIds.filter((id) => id === propertyId)
+    : allowedPropertyIds;
+
+  if (tenantIds.length === 0 || scopedPropertyIds.length === 0) {
+    return {
+      requests: [],
+      workOrders: [],
+    };
+  }
+
+  const [requestRes, workOrderRes] = await Promise.all([
+    supabase
+      .from("maintenance_requests")
+      .select("id, account_id, property_id, reported_by_tenant_id, title, description, priority, status, created_at, updated_at")
+      .eq("account_id", accountId)
+      .in("property_id", scopedPropertyIds)
+      .in("reported_by_tenant_id", tenantIds)
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    supabase
+      .from("work_orders_with_flags")
+      .select(
+        "id, account_id, property_id, maintenance_request_id, contractor_user_id, contractor_name, contractor_phone, status, scheduled_at, notes, quote_amount, invoice_amount, created_by, created_at, updated_at, pending_cancel_request, last_cancel_request_at, last_cancel_request_by, last_cancel_resolution_at, last_cancel_resolution_action, last_cancel_resolution_by, assigned_at, acknowledged_at, acknowledgement_due_at, acknowledgement_status",
+      )
+      .eq("account_id", accountId)
+      .in("property_id", scopedPropertyIds)
+      .order("created_at", { ascending: false })
+      .limit(limit),
+  ]);
+
+  if (requestRes.error) throw friendlyError(requestRes.error, "Nie udało się załadować zgłoszeń tenant");
+  if (workOrderRes.error) throw friendlyError(workOrderRes.error, "Nie udało się załadować zleceń tenant");
+
+  return {
+    requests: parseRpcRows(
+      requestRes.data || [],
+      parseMaintenanceRequestRow,
+      "tenant maintenance dashboard request rows",
+    ),
+    workOrders: parseRpcRows(
+      workOrderRes.data || [],
+      parseWorkOrderRow,
+      "tenant maintenance dashboard work order rows",
+    ),
+  };
+}
+
+export async function listTenantIssueRows({
+  accountId,
+  propertyId = null,
+  limit = 20,
+} = {}) {
+  if (!accountId) return [];
+
+  let query = supabase
+    .from("tenant_my_issues")
+    .select(
+      "maintenance_request_id, account_id, property_id, title, maintenance_status, priority, created_at, latest_work_order_status, latest_work_order_id",
+    )
+    .eq("account_id", accountId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (propertyId) query = query.eq("property_id", propertyId);
+
+  const { data, error } = await query;
+  if (error) throw friendlyError(error, "Nie udało się załadować usterek tenant");
+  return parseRpcRows(data || [], parseTenantIssueRow, "tenant issue rows");
 }
 
 /* ======================

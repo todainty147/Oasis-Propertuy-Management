@@ -1,4 +1,15 @@
 import { supabase } from "../lib/supabase";
+import {
+  EMPTY_MAINTENANCE_KPI_SNAPSHOT,
+  firstRpcRow,
+  parseActivityLogRow,
+  parseMaintenanceAttentionRow,
+  parseMaintenanceKpiSnapshotRow,
+  parseRpcRows,
+  parseWorkOrderAttachmentRow,
+  parseWorkOrderAuditLogRow,
+  parseWorkOrderFinancialRow,
+} from "./rpcContracts";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 function isMissingBackendObject(error) {
@@ -35,7 +46,7 @@ export async function getMaintenanceAttention(accountId) {
     return fallbackAnalytics.attentionRows;
   }
   if (error) throw error;
-  const baseRows = Array.isArray(data) ? data : [];
+  const baseRows = parseRpcRows(data || [], parseMaintenanceAttentionRow, "maintenance attention rows");
   const derived = await getMaintenanceSlaAnalytics(accountId);
   const deduped = new Map();
   for (const row of [...baseRows, ...(derived.attentionRows || [])]) {
@@ -108,43 +119,212 @@ export async function getMaintenanceRecentActivity(accountId, t, limit = 10) {
     .slice(0, limit);
 }
 
+function formatTimelineAction(action = "", t) {
+  const normalized = String(action || "").toLowerCase();
+  if (normalized === "insert" || normalized === "create") return t("activity.action.created");
+  if (normalized === "update") return t("activity.action.updated");
+  if (normalized === "delete") return t("activity.action.deleted");
+  if (normalized === "status_change") return t("activity.action.statusChanged");
+  if (normalized === "assign") return t("activity.action.assigned");
+  return action || t("activity.action.changed");
+}
+
+function safeTimelineAt(value) {
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+export async function getMaintenanceTimelineEvents({
+  accountId,
+  request,
+  linkedWorkOrders = [],
+  t,
+} = {}) {
+  if (!accountId || !request?.id) return [];
+
+  const requestId = String(request.id);
+  const workOrderMap = new Map();
+  for (const workOrder of Array.isArray(linkedWorkOrders) ? linkedWorkOrders : []) {
+    if (!workOrder?.id) continue;
+    workOrderMap.set(workOrder.id, workOrder);
+  }
+  const workOrderIds = Array.from(workOrderMap.keys());
+
+  const [activityRes, auditRes, attachmentRes, financialRes] = await Promise.all([
+    supabase
+      .from("activity_log")
+      .select("id, account_id, entity_type, entity_id, action, field, old_value, new_value, actor_user_id, actor_role, meta, created_at")
+      .eq("account_id", accountId)
+      .in("entity_type", ["maintenance_request", "maintenance_requests"])
+      .eq("entity_id", requestId)
+      .order("created_at", { ascending: true })
+      .limit(100),
+    workOrderIds.length > 0
+      ? supabase
+          .from("work_order_audit_log")
+          .select("id, work_order_id, action, actor_user_id, old_value, new_value, created_at")
+          .in("work_order_id", workOrderIds)
+          .order("created_at", { ascending: true })
+          .limit(500)
+      : Promise.resolve({ data: [], error: null }),
+    workOrderIds.length > 0
+      ? supabase
+          .from("work_order_attachments")
+          .select("id, account_id, work_order_id, uploaded_by, file_name, mime_type, file_size, storage_bucket, storage_path, kind, created_at")
+          .in("work_order_id", workOrderIds)
+          .order("created_at", { ascending: true })
+          .limit(500)
+      : Promise.resolve({ data: [], error: null }),
+    workOrderIds.length > 0
+      ? supabase
+          .from("work_order_financials")
+          .select("id, account_id, work_order_id, quote_amount, quote_currency, quote_notes, quote_submitted_at, quote_submitted_by, quote_status, invoice_amount, invoice_currency, invoice_issued_at, invoice_due_at, approved_at, approved_by, rejected_at, rejected_by, rejection_reason, created_at, updated_at")
+          .in("work_order_id", workOrderIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (activityRes?.error) throw activityRes.error;
+  if (auditRes?.error) throw auditRes.error;
+  if (attachmentRes?.error) throw attachmentRes.error;
+  if (financialRes?.error) throw financialRes.error;
+
+  const activityRows = parseRpcRows(activityRes.data || [], parseActivityLogRow, "maintenance timeline activity rows");
+  const auditRows = parseRpcRows(auditRes.data || [], parseWorkOrderAuditLogRow, "maintenance timeline audit rows");
+  const attachmentRows = parseRpcRows(
+    attachmentRes.data || [],
+    parseWorkOrderAttachmentRow,
+    "maintenance timeline attachment rows",
+  );
+  const financialRows = parseRpcRows(
+    financialRes.data || [],
+    parseWorkOrderFinancialRow,
+    "maintenance timeline financial rows",
+  );
+
+  const events = [
+    {
+      key: `req-created-${request.id}`,
+      at: request.created_at,
+      title: t("maintenance.timeline.requestCreated"),
+      detail: request.title || t("maintenance.requestFallbackTitle"),
+      source: "request",
+    },
+    ...workOrderIds.map((workOrderId) => ({
+      key: `wo-created-${workOrderId}`,
+      at: workOrderMap.get(workOrderId)?.created_at,
+      title: t("maintenance.timeline.workOrderCreated"),
+      detail: `WO: ${workOrderId}`,
+      woId: workOrderId,
+      source: "work_order",
+    })),
+    ...activityRows.map((row) => {
+      const field = String(row.field || "").toLowerCase();
+      const isNoteChange = field === "description";
+      const isStatusChange = field === "status" || String(row.action || "").toLowerCase() === "status_change";
+      return {
+        key: `activity-${row.id}`,
+        at: row.created_at,
+        title: isNoteChange
+          ? t("maintenance.timeline.staffNote")
+          : isStatusChange
+            ? t("maintenance.timeline.requestStatusChanged")
+            : formatTimelineAction(row.action, t),
+        detail: row.field ? `field: ${row.field}` : row.actor_role ? `role: ${row.actor_role}` : "",
+        source: "request",
+      };
+    }),
+    ...auditRows.map((row) => {
+      const action = String(row.action || "").toLowerCase();
+      const isAssign = action.includes("assign") || action.includes("contractor");
+      const isComplete = action.includes("complete") || action.includes("completed");
+      return {
+        key: `wo-audit-${row.work_order_id || "na"}-${row.id}`,
+        at: row.created_at,
+        title: isAssign
+          ? t("maintenance.timeline.contractorAssigned")
+          : isComplete
+            ? t("maintenance.timeline.workCompleted")
+            : t("maintenance.timeline.workOrderAction", { action: formatTimelineAction(row.action, t) }),
+        detail: row.action || "",
+        woId: row.work_order_id || null,
+        source: "work_order",
+      };
+    }),
+    ...attachmentRows.map((row) => ({
+      key: `att-${row.work_order_id || "na"}-${row.id}`,
+      at: row.created_at,
+      title: t("maintenance.timeline.photoUploaded"),
+      detail: row.file_name || row.kind || t("maintenance.timeline.attachment"),
+      attachmentRow: row,
+      woId: row.work_order_id || null,
+      source: "work_order",
+    })),
+    ...financialRows.flatMap((row) => {
+      const next = [];
+      if (row.quote_submitted_at) {
+        next.push({
+          key: `fin-quote-submitted-${row.work_order_id}`,
+          at: row.quote_submitted_at,
+          title: t("maintenance.timeline.quoteSubmitted"),
+          detail: "",
+          woId: row.work_order_id,
+          source: "work_order",
+        });
+      }
+      if (row.approved_at) {
+        next.push({
+          key: `fin-quote-approved-${row.work_order_id}`,
+          at: row.approved_at,
+          title: t("maintenance.timeline.quoteApproved"),
+          detail: "",
+          woId: row.work_order_id,
+          source: "work_order",
+        });
+      }
+      if (row.rejected_at) {
+        next.push({
+          key: `fin-quote-rejected-${row.work_order_id}`,
+          at: row.rejected_at,
+          title: t("maintenance.timeline.quoteRejected"),
+          detail: row.rejection_reason || "",
+          woId: row.work_order_id,
+          source: "work_order",
+        });
+      }
+      if (row.invoice_issued_at) {
+        next.push({
+          key: `fin-invoice-issued-${row.work_order_id}`,
+          at: row.invoice_issued_at,
+          title: t("maintenance.timeline.invoiceIssued"),
+          detail: "",
+          woId: row.work_order_id,
+          source: "work_order",
+        });
+      }
+      return next;
+    }),
+  ];
+
+  if (String(request.status || "").toLowerCase() === "closed") {
+    events.push({
+      key: `req-closed-${request.id}`,
+      at: request.updated_at || request.created_at,
+      title: t("maintenance.timeline.requestClosed"),
+      detail: "",
+      source: "request",
+    });
+  }
+
+  return events.sort((left, right) => safeTimelineAt(left.at) - safeTimelineAt(right.at));
+}
+
 export async function getMaintenanceKpiSnapshot(accountId) {
   if (!accountId) return null;
   const { data, error } = await supabase.rpc("maintenance_kpi_snapshot", {
     p_account_id: accountId,
   });
   if (error && isMissingBackendObject(error)) {
-    return {
-      open_requests: 0,
-      active_work_orders: 0,
-      awaiting_action: 0,
-      resolved_pending_closure: 0,
-      open_high_priority: 0,
-      triage_over_24h: 0,
-      contractor_ack_overdue: 0,
-      stalled_repairs: 0,
-      long_running_repairs: 0,
-      repeat_repair_properties: 0,
-      req_by_status: {
-        open: 0,
-        in_progress: 0,
-        waiting: 0,
-        resolved: 0,
-        closed: 0,
-      },
-      wo_by_status: {
-        assigned: 0,
-        in_progress: 0,
-        completed: 0,
-        cancelled: 0,
-      },
-      aging: {
-        b0_24: 0,
-        b24_48: 0,
-        b48_72: 0,
-        b72_plus: 0,
-      },
-    };
+    return { ...EMPTY_MAINTENANCE_KPI_SNAPSHOT };
   }
   if (error) {
     logSecurityRelevantFailure("maintenance_kpi_snapshot", {
@@ -153,7 +333,7 @@ export async function getMaintenanceKpiSnapshot(accountId) {
     });
     throw error;
   }
-  return Array.isArray(data) ? (data[0] ?? null) : (data ?? null);
+  return parseMaintenanceKpiSnapshotRow(firstRpcRow(data));
 }
 
 function chooseSpendAmount(row) {

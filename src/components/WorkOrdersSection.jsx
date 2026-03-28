@@ -5,8 +5,21 @@ import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
 import ContractorAttachmentsPanel from "./work-orders/ContractorAttachmentsPanel";
 import { useAccount } from "../context/AccountContext";
-import { createWorkOrder, deleteWorkOrder } from "../services/workOrderService";
-import { supabase } from "../lib/supabase";
+import {
+  approveWorkOrderTenantCancellation,
+  assignWorkOrderContractor,
+  createWorkOrder,
+  deleteWorkOrder,
+  denyWorkOrderTenantCancellation,
+  fetchWorkOrders,
+  getWorkOrderAllowedActions,
+  getWorkOrderAllowedActionsBulk,
+  listAssignableContractors,
+  listPendingCancellationWorkOrders,
+  listWorkOrderAuditLog,
+  listWorkOrderStatusDefinitions,
+  setWorkOrderStatus,
+} from "../services/workOrderService";
 import {
   listWorkOrderAttachments,
   uploadWorkOrderAttachments,
@@ -26,6 +39,7 @@ import { getContractorRatingByWorkOrder, upsertContractorRating } from "../servi
 import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount, getCurrencyOptions, getDefaultCurrency } from "../utils/currency";
 import { isManageRole } from "../utils/permissions";
+import { listMaintenanceRequestsByProperty } from "../services/maintenanceService";
 /* -----------------------------
    UI helpers
 ----------------------------- */
@@ -308,14 +322,9 @@ export default function WorkOrdersSection({ propertyId }) {
         return;
       }
 
-      const { data, error } = await supabase.rpc("work_order_allowed_actions_bulk", {
-        p_work_order_ids: ids,
+      const map = await getWorkOrderAllowedActionsBulk(ids, {
+        accountId: activeAccountId,
       });
-
-      if (error) throw error;
-
-      const map = {};
-      for (const r of data ?? []) map[r.work_order_id] = r.actions ?? [];
       if (mountedRef.current) setAllowedActionsById(map);
     } catch {
       if (mountedRef.current) setAllowedActionsById({});
@@ -328,12 +337,9 @@ export default function WorkOrdersSection({ propertyId }) {
     if (allowedActionsById?.[workOrderId]) return;
 
     try {
-      const { data, error } = await supabase.rpc("work_order_allowed_actions", {
-        p_work_order_id: workOrderId,
+      const actions = await getWorkOrderAllowedActions(workOrderId, {
+        accountId: activeAccountId,
       });
-      if (error) throw error;
-
-      const actions = Array.isArray(data) ? data : [];
       if (mountedRef.current) {
         setAllowedActionsById((prev) => ({
           ...(prev || {}),
@@ -348,14 +354,8 @@ export default function WorkOrdersSection({ propertyId }) {
   async function loadAudit(workOrderId) {
     setAuditLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("work_order_audit_log")
-        .select("id, action, actor_user_id, old_value, new_value, created_at")
-        .eq("work_order_id", workOrderId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      if (mountedRef.current) setAudit(data ?? []);
+      const rows = await listWorkOrderAuditLog(workOrderId);
+      if (mountedRef.current) setAudit(rows);
     } catch {
       if (mountedRef.current) setAudit([]);
     } finally {
@@ -548,11 +548,7 @@ export default function WorkOrdersSection({ propertyId }) {
   async function finSubmit(workOrderId) {
     setFinSaving(true);
     try {
-      const { error } = await supabase.rpc("wo_fin_submit_quote", {
-        p_work_order_id: workOrderId,
-      });
-      if (error) throw error;
-
+      await submitQuote({ workOrderId });
       await loadFinancials(workOrderId);
     } catch (e) {
       alert(e?.message ?? t("workOrders.quoteSubmitError"));
@@ -566,11 +562,7 @@ export default function WorkOrdersSection({ propertyId }) {
 
     setFinSaving(true);
     try {
-      const { error } = await supabase.rpc("wo_fin_approve_quote", {
-        p_work_order_id: workOrderId,
-      });
-      if (error) throw error;
-
+      await approveQuote({ workOrderId });
       await loadFinancials(workOrderId);
     } catch (e) {
       alert(e?.message ?? t("workOrders.quoteApproveError"));
@@ -692,15 +684,8 @@ export default function WorkOrdersSection({ propertyId }) {
 
     setContractorsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("contractors")
-        .select("id, name, phone, email, user_id, active")
-        .eq("account_id", activeAccountId)
-        .eq("active", true)
-        .order("name", { ascending: true });
-
-      if (error) throw error;
-      if (mountedRef.current) setContractors(data ?? []);
+      const rows = await listAssignableContractors(activeAccountId);
+      if (mountedRef.current) setContractors(rows);
     } catch {
       if (mountedRef.current) setContractors([]);
     } finally {
@@ -754,49 +739,17 @@ export default function WorkOrdersSection({ propertyId }) {
     setError(null);
 
     try {
-      const from = (page - 1) * pageSize;
-      const to = from + pageSize - 1;
+      const result = await fetchWorkOrders({
+        accountId: activeAccountId,
+        propertyId,
+        page,
+        pageSize,
+      });
 
-      const { data, error, count } = await supabase
-        .from("work_orders_with_flags")
-        .select(
-          `
-          id,
-          account_id,
-          property_id,
-          maintenance_request_id,
-          contractor_user_id,
-          contractor_name,
-          contractor_phone,
-          status,
-          scheduled_at,
-          notes,
-          quote_amount,
-          invoice_amount,
-          created_by,
-          created_at,
-          updated_at,
-          pending_cancel_request,
-          last_cancel_request_at,
-          last_cancel_request_by,
-          last_cancel_resolution_at,
-          last_cancel_resolution_action,
-          last_cancel_resolution_by,
-          maintenance_requests:maintenance_request_id ( id, title, status, priority )
-        `,
-          { count: "exact" }
-        )
-        .eq("account_id", activeAccountId)
-        .eq("property_id", propertyId)
-        .order("created_at", { ascending: false })
-        .range(from, to);
-
-      if (error) throw error;
-
-      const rows = data ?? [];
+      const rows = result.data ?? [];
       if (mountedRef.current) {
         setWorkOrders(rows);
-        setTotalCount(count ?? 0);
+        setTotalCount(result.count ?? 0);
       }
 
       await loadAllowedActionsForRows(rows);
@@ -827,31 +780,12 @@ export default function WorkOrdersSection({ propertyId }) {
     setPendingLoading(true);
 
     try {
-      let q = supabase
-        .from("work_orders_pending_cancellation")
-        .select(
-          `
-          id,
-          account_id,
-          property_id,
-          status,
-          contractor_name,
-          contractor_phone,
-          scheduled_at,
-          last_cancel_request_at,
-          last_cancel_request_by
-        `
-        )
-        .eq("account_id", activeAccountId)
-        .order("last_cancel_request_at", { ascending: false })
-        .limit(20);
-
-      if (propertyId) q = q.eq("property_id", propertyId);
-
-      const { data, error } = await q;
-      if (error) throw error;
-
-      if (mountedRef.current) setPendingInbox(data ?? []);
+      const rows = await listPendingCancellationWorkOrders({
+        accountId: activeAccountId,
+        propertyId,
+        limit: 20,
+      });
+      if (mountedRef.current) setPendingInbox(rows);
     } catch {
       if (mountedRef.current) setPendingInbox([]);
     } finally {
@@ -869,19 +803,9 @@ export default function WorkOrdersSection({ propertyId }) {
 
     async function loadStatusDefs() {
       try {
-        const { data, error } = await supabase
-          .from("work_order_status_definitions")
-          .select("status,label");
-
-        if (error) throw error;
+        const map = await listWorkOrderStatusDefinitions();
 
         if (cancelled || !mountedRef.current) return;
-
-        const map = {};
-        for (const r of data ?? []) {
-          const key = String(r.status ?? "").toLowerCase();
-          if (key) map[key] = r.label ?? r.status;
-        }
         setStatusLabelByKey(map);
         statusLabelsLoadedRef.current = true;
       } catch {
@@ -927,16 +851,13 @@ export default function WorkOrdersSection({ propertyId }) {
     async function loadRequests() {
       setRequestsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from("maintenance_requests")
-          .select("id,title,status,priority,created_at")
-          .eq("account_id", activeAccountId)
-          .eq("property_id", propertyId)
-          .order("created_at", { ascending: false })
-          .limit(100);
-
-        if (error) throw error;
-        if (!cancelled && mountedRef.current) setRequests(data ?? []);
+        const result = await listMaintenanceRequestsByProperty({
+          accountId: activeAccountId,
+          propertyId,
+          page: 1,
+          pageSize: 100,
+        });
+        if (!cancelled && mountedRef.current) setRequests(result.data ?? []);
       } catch {
         if (!cancelled && mountedRef.current) setRequests([]);
       } finally {
@@ -1074,11 +995,15 @@ export default function WorkOrdersSection({ propertyId }) {
 
     setAssigningContractor(true);
     try {
-      const { error } = await supabase.rpc("work_order_assign_contractor", {
-        p_work_order_id: workOrderId,
-        p_contractor_id: contractorId,
-      });
-      if (error) throw error;
+      await assignWorkOrderContractor(
+        {
+          workOrderId,
+          contractorId,
+        },
+        {
+          accountId: activeAccountId,
+        },
+      );
 
       // refresh row + actions + audit
       await reload();
@@ -1098,13 +1023,16 @@ export default function WorkOrdersSection({ propertyId }) {
   async function setStatus(id, nextStatus) {
     setActionBusyId(id);
     try {
-      const { error } = await supabase.rpc("work_order_set_status", {
-        p_work_order_id: id,
-        p_new_status: nextStatus,
-        p_apply_if_tenant_allowed: false,
-      });
-
-      if (error) throw error;
+      await setWorkOrderStatus(
+        {
+          workOrderId: id,
+          newStatus: nextStatus,
+          applyIfTenantAllowed: false,
+        },
+        {
+          accountId: activeAccountId,
+        },
+      );
 
       await reload();
       if (detailOpen && selectedWO?.id === id) {
@@ -1120,13 +1048,16 @@ export default function WorkOrdersSection({ propertyId }) {
   async function requestCancellation(id) {
     setActionBusyId(id);
     try {
-      const { error } = await supabase.rpc("work_order_set_status", {
-        p_work_order_id: id,
-        p_new_status: "cancelled",
-        p_apply_if_tenant_allowed: true,
-      });
-
-      if (error) throw error;
+      await setWorkOrderStatus(
+        {
+          workOrderId: id,
+          newStatus: "cancelled",
+          applyIfTenantAllowed: true,
+        },
+        {
+          accountId: activeAccountId,
+        },
+      );
 
       await reload();
       if (detailOpen && selectedWO?.id === id) {
@@ -1144,10 +1075,9 @@ export default function WorkOrdersSection({ propertyId }) {
   async function approveCancellation(id) {
     setActionBusyId(id);
     try {
-      const { error } = await supabase.rpc("work_order_approve_tenant_cancellation", {
-        p_work_order_id: id,
+      await approveWorkOrderTenantCancellation(id, {
+        accountId: activeAccountId,
       });
-      if (error) throw error;
 
       await reload();
       if (canManage) await loadPendingInbox();
@@ -1166,11 +1096,15 @@ export default function WorkOrdersSection({ propertyId }) {
     try {
       const reason = denyReasonById[id] || null;
 
-      const { error } = await supabase.rpc("work_order_deny_tenant_cancellation", {
-        p_work_order_id: id,
-        p_reason: reason,
-      });
-      if (error) throw error;
+      await denyWorkOrderTenantCancellation(
+        {
+          workOrderId: id,
+          reason,
+        },
+        {
+          accountId: activeAccountId,
+        },
+      );
 
       setDenyReasonById((prev) => {
         const copy = { ...prev };

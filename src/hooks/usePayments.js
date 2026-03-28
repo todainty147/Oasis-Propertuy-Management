@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
+import { listAccountPayments } from "../services/paymentService";
 
 export function usePayments({ enabled = true } = {}) {
   const { activeAccountId } = useAccount();
@@ -24,49 +25,17 @@ export function usePayments({ enabled = true } = {}) {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase
-        .from("payments")
-        .select(
-          `
-          id,
-          amount,
-          status,
-          due_date,
-          paid_at,
-          tenant_id,
-          property_id,
-          tenants ( name ),
-          properties ( address )
-        `
-        )
-        .eq("account_id", activeAccountId)
-        .order("due_date", { ascending: false });
-
-      if (error) {
+      try {
+        const data = await listAccountPayments(activeAccountId);
+        setPayments(
+          activeTenantId ? data.filter((payment) => payment.tenantId === activeTenantId) : data,
+        );
+        setLoading(false);
+      } catch (error) {
         setError(error);
         setPayments([]);
         setLoading(false);
-        return;
       }
-
-      const mapped = (data ?? []).map((p) => ({
-        id: p.id,
-        amount: Number(p.amount ?? 0),
-        status: p.status, // DB status (paid/due/overdue/void) OR legacy labels
-        dueDate: p.due_date, // keep as ISO string/date
-        paidAt: p.paid_at, // keep as ISO string/date
-        tenantId: p.tenant_id,
-        propertyId: p.property_id,
-        tenantName: p.tenants?.name ?? "—",
-        propertyAddress: p.properties?.address ?? "—",
-      }));
-
-      // ✅ TENANT SWITCH FILTER (unchanged behavior)
-      setPayments(
-        activeTenantId ? mapped.filter((p) => p.tenantId === activeTenantId) : mapped
-      );
-
-      setLoading(false);
     }
 
     loadPayments();

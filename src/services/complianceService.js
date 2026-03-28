@@ -1,4 +1,9 @@
 import { supabase } from "../lib/supabase";
+import {
+  parseComplianceDocumentLinkRow,
+  parseComplianceItemRow,
+  parseRpcRows,
+} from "./rpcContracts";
 
 function normalizeCategory(category) {
   const value = String(category || "").trim().toLowerCase();
@@ -44,7 +49,7 @@ export async function listComplianceItems({
     if (isMissingBackendObject(error)) return [];
     throw error;
   }
-  const rows = Array.isArray(data) ? data : [];
+  const rows = parseRpcRows(data ?? [], parseComplianceItemRow, "compliance items");
   if (includeClosed) return rows;
   return rows.filter((row) => normalizeStatus(row?.status) === "active");
 }
@@ -81,7 +86,7 @@ export async function createComplianceItem({
     .single();
 
   if (error) throw error;
-  return data;
+  return parseComplianceItemRow(data);
 }
 
 export async function updateComplianceItem(id, patch = {}) {
@@ -110,7 +115,7 @@ export async function updateComplianceItem(id, patch = {}) {
     .single();
 
   if (error) throw error;
-  return data;
+  return parseComplianceItemRow(data);
 }
 
 function addMonths(dateValue, months) {
@@ -326,7 +331,7 @@ export async function listComplianceDocumentLinks({
     throw error;
   }
 
-  const rows = Array.isArray(data) ? data : [];
+  const rows = parseRpcRows(data ?? [], parseComplianceDocumentLinkRow, "compliance document links");
   if (!propertyId) return rows;
 
   return rows.filter((row) => {

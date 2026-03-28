@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { parseAccountBrandingRow } from "./rpcContracts";
 
 function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -13,7 +14,7 @@ export async function getAccountBranding(accountId) {
     .maybeSingle();
 
   if (error) throw friendly(error, "Failed to load branding");
-  return data ?? null;
+  return data ? parseAccountBrandingRow(data) : null;
 }
 
 export async function upsertAccountBranding(payload = {}) {
@@ -25,6 +26,5 @@ export async function upsertAccountBranding(payload = {}) {
     .single();
 
   if (error) throw friendly(error, "Failed to save branding");
-  return data;
+  return parseAccountBrandingRow(data);
 }
-

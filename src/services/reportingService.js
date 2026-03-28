@@ -5,6 +5,11 @@ import {
   listPropertyOperationalHealthScores,
   summarizePropertyOperationalHealth,
 } from "./propertyHealthScoreService";
+import {
+  EMPTY_WEEKLY_PORTFOLIO_SUMMARY,
+  firstRpcRow,
+  parseWeeklyPortfolioSummaryRow,
+} from "./rpcContracts";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 function friendly(err, fallback) {
@@ -32,10 +37,7 @@ export async function getWeeklyPortfolioSummary(accountId) {
   if (error && isMissingBackendObject(error)) {
     const healthSummary = summarizePropertyOperationalHealth(propertyHealthRows);
     return {
-      occupancy_rate: 0,
-      open_requests: 0,
-      waiting_over_48h: 0,
-      overdue_balance: 0,
+      ...EMPTY_WEEKLY_PORTFOLIO_SUMMARY,
       average_property_health_score: healthSummary.averageScore,
       high_risk_property_count: healthSummary.highRiskCount,
     };
@@ -47,15 +49,10 @@ export async function getWeeklyPortfolioSummary(accountId) {
     });
     throw friendly(error, "Failed to load weekly summary");
   }
-  const row = Array.isArray(data) ? data[0] : data;
+  const row = parseWeeklyPortfolioSummaryRow(firstRpcRow(data));
   const healthSummary = summarizePropertyOperationalHealth(propertyHealthRows);
   return {
-    ...(row ?? {
-      occupancy_rate: 0,
-      open_requests: 0,
-      waiting_over_48h: 0,
-      overdue_balance: 0,
-    }),
+    ...row,
     average_property_health_score: healthSummary.averageScore,
     high_risk_property_count: healthSummary.highRiskCount,
   };

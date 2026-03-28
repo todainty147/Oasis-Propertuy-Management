@@ -1,4 +1,14 @@
 import { supabase } from "../lib/supabase";
+import {
+  parseRpcRows,
+  parseSecurityAlertAssigneeRow,
+  parseSecurityAnomalyAlertRow,
+  parseSecurityAuditLedgerRow,
+  parseSecurityAuditExportJobViewRow,
+  parseSecurityAuditExportRunResult,
+  parseSecurityAlertWorkflowRow,
+  parseSecurityAuditExportJobRow,
+} from "./rpcContracts";
 import { createSignedStorageUrl } from "./storageUrlService";
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -426,7 +436,11 @@ export async function listSecurityAuditEvents(accountId, filters = {}) {
   const { data, error, count } = await query;
   if (error) throw error;
 
-  const rows = await resolveSecurityAuditLabels(accountId, data ?? []);
+  const rows = parseRpcRows(
+    await resolveSecurityAuditLabels(accountId, data ?? []),
+    parseSecurityAuditLedgerRow,
+    "security audit ledger rows",
+  );
 
   return {
     rows,
@@ -604,7 +618,7 @@ export async function listSecurityAnomalyAlerts(
   const enrichedRows = await resolveSecurityAuditLabels(accountId, data ?? []);
 
   return {
-    rows: enrichedRows.map((row) => ({
+    rows: parseRpcRows(enrichedRows.map((row) => ({
       id: row.id,
       accountId: row.account_id,
       alertType: row.alert_type,
@@ -637,7 +651,7 @@ export async function listSecurityAnomalyAlerts(
       createdAt: row.created_at,
       lastSeenAt: row.last_seen_at,
       updatedAt: row.updated_at,
-    })),
+    })), parseSecurityAnomalyAlertRow, "security anomaly alerts"),
     total: Number(count || 0),
   };
 }
@@ -673,13 +687,13 @@ export async function listSecurityAlertAssignees(accountId) {
 
   if (error) throw error;
 
-  return (data ?? [])
+  return parseRpcRows((data ?? [])
     .filter((row) => ["owner", "admin", "staff"].includes(String(row?.role || "").toLowerCase()))
     .map((row) => ({
       userId: row.user_id,
       role: row.role,
       label: `${row.role} • ${row.user_id}`,
-    }));
+    })), parseSecurityAlertAssigneeRow, "security alert assignees");
 }
 
 export async function applySecurityAlertWorkflow({
@@ -701,7 +715,7 @@ export async function applySecurityAlertWorkflow({
   });
 
   if (error) throw error;
-  return data;
+  return parseSecurityAlertWorkflowRow(data);
 }
 
 export async function listSecurityAuditExportJobs(
@@ -754,7 +768,7 @@ export async function listSecurityAuditExportJobs(
   );
 
   return {
-    rows: enrichedRows.map((row) => ({
+    rows: parseRpcRows(enrichedRows.map((row) => ({
       id: row.id,
       accountId: row.account_id,
       requestedByUserId: row.requested_by_user_id,
@@ -774,7 +788,7 @@ export async function listSecurityAuditExportJobs(
       startedAt: row.started_at,
       completedAt: row.completed_at,
       expiresAt: row.expires_at,
-    })),
+    })), parseSecurityAuditExportJobViewRow, "security audit export jobs"),
     total: Number(count || 0),
   };
 }
@@ -806,12 +820,13 @@ export async function requestSecurityAuditBackendExport(
   if (error) throw error;
   if (!data?.id) throw new Error("Failed to create export job");
 
-  return data;
+  return parseSecurityAuditExportJobRow(data);
 }
 
 export async function runSecurityAuditExportJob(jobId) {
   if (!jobId) throw new Error("Missing export job id");
-  return invokeEdgeFunction("generate-security-audit-export", { jobId });
+  const payload = await invokeEdgeFunction("generate-security-audit-export", { jobId });
+  return parseSecurityAuditExportRunResult(payload || {});
 }
 
 export async function getSecurityAuditExportDownloadUrl(job) {

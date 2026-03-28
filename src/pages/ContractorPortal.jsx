@@ -4,9 +4,13 @@ import Card from "../components/Card";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
-import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
+import {
+  getContractorAllowedActions,
+  loadContractorPortalRows,
+  updateContractorWorkOrder,
+} from "../services/contractorWorkOrderService";
 import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
 import OnboardingHintCard from "../components/OnboardingHintCard";
 
@@ -117,164 +121,42 @@ export default function ContractorPortal() {
   async function load() {
     setLoading(true);
     try {
-      const { data: authData, error: authErr } = await supabase.auth.getUser();
-      if (authErr) throw authErr;
-      const authedUserId = authData?.user?.id || "";
-
-      // Prefer richer view first (may include related data depending on RLS/view grants)
-      let list = [];
-      const baseSelect = `
-        id,
-        account_id,
-        property_id,
-        maintenance_request_id,
-        contractor_user_id,
-        contractor_name,
-        contractor_phone,
-        status,
-        scheduled_at,
-        notes,
-        created_at,
-        updated_at,
-        maintenance_requests:maintenance_request_id ( id, title, description, priority ),
-        properties:property_id ( id, address, city )
-      `;
-
-      const { data: fromView, error: fromViewErr } = await supabase
-        .from("work_orders_with_flags")
-        .select(baseSelect)
-        .order("created_at", { ascending: false });
-
-      if (fromViewErr) {
-        const { data: fallbackRows, error: fallbackErr } = await supabase
-          .from("work_orders")
-          .select(
-            `
-            id,
-            account_id,
-            property_id,
-            maintenance_request_id,
-            contractor_user_id,
-            contractor_name,
-            contractor_phone,
-            status,
-            scheduled_at,
-            notes,
-            created_at,
-            updated_at
-          `
-          )
-          .order("created_at", { ascending: false });
-        if (fallbackErr) throw fallbackErr;
-        list = fallbackRows ?? [];
-      } else {
-        list = fromView ?? [];
-      }
-
-      if (authedUserId) {
-        list = list.filter((row) => String(row?.contractor_user_id || "") === authedUserId);
-      }
-
-      const requestIds = list.map((x) => x.maintenance_request_id).filter(Boolean);
-      const propertyIds = list.map((x) => x.property_id).filter(Boolean);
-
-      let reqById = {};
-      let propById = {};
-
-      if (requestIds.length > 0) {
-        const { data: reqRows } = await supabase
-          .from("maintenance_requests")
-          .select("id, property_id, title, description, priority")
-          .in("id", requestIds);
-        reqById = Object.fromEntries((reqRows || []).map((r) => [r.id, r]));
-      }
-
-      if (propertyIds.length > 0) {
-        const { data: propRows } = await supabase
-          .from("properties")
-          .select("id, address, city")
-          .in("id", propertyIds);
-        propById = Object.fromEntries((propRows || []).map((p) => [p.id, p]));
-      }
-
-      const hydrated = list.map((wo) => {
-        const req = wo.maintenance_requests || reqById[wo.maintenance_request_id] || null;
-        const prop = wo.properties || propById[wo.property_id] || null;
-        return {
-          ...wo,
-          issueTitle: req?.title || "",
-          issueDescription: req?.description || "",
-          issuePriority: req?.priority || "normal",
-          propertyLabel: prop ? `${prop.address || t("common.property")}${prop.city ? `, ${prop.city}` : ""}` : t("common.property"),
-        };
+      const list = await loadContractorPortalRows({
+        source: "ContractorPortal",
       });
 
-      let merged = hydrated;
-      const missing = hydrated.some(
-        (x) =>
-          !String(x.propertyLabel || "").trim() ||
-          String(x.propertyLabel || "").trim().toLowerCase() === String(t("common.property")).trim().toLowerCase() ||
-          !String(x.issueTitle || "").trim()
-      );
-
-      if (missing) {
-        try {
-          const { data: cardRows, error: cardErr } = await supabase.rpc("contractor_work_order_cards", {
-            p_work_order_ids: hydrated.map((x) => x.id).filter(Boolean),
-          });
-          if (cardErr) {
-            logSecurityRelevantFailure("contractor_work_order_cards", {
-              error: cardErr,
-              context: {
-                accountId: hydrated[0]?.account_id || null,
-                workOrderId: hydrated[0]?.id || null,
-              },
-            });
-          }
-          if (!cardErr && Array.isArray(cardRows)) {
-            const byId = Object.fromEntries(cardRows.map((r) => [r.work_order_id, r]));
-            merged = hydrated.map((wo) => {
-              const extra = byId[wo.id];
-              if (!extra) return wo;
-              return {
-                ...wo,
-                issueTitle: String(extra.issue_title || "").trim() || wo.issueTitle,
-                issueDescription:
-                  String(extra.issue_description || "").trim() || wo.issueDescription,
-                issuePriority: String(extra.issue_priority || "").trim() || wo.issuePriority,
-                propertyLabel: String(extra.property_label || "").trim() || wo.propertyLabel,
-              };
-            });
-          }
-        } catch {
-          // Optional fallback RPC; ignore when not deployed yet.
-        }
-      }
-
-      setRows(merged);
+      setRows(list);
 
       // Optional: allowed actions per row
       const ids = list.map((x) => x.id).filter(Boolean);
       const pairs = await Promise.all(
         ids.map(async (id) => {
-          const { data: a, error: e } = await supabase.rpc("contractor_allowed_actions", {
-            p_work_order_id: id,
-          });
-          if (e) {
+          try {
+            const actions = await getContractorAllowedActions(id, {
+              accountId: list.find((row) => row.id === id)?.account_id || null,
+            });
+            return [id, actions];
+          } catch (error) {
             logSecurityRelevantFailure("contractor_allowed_actions", {
-              error: e,
+              error,
               context: {
                 accountId: list.find((row) => row.id === id)?.account_id || null,
                 workOrderId: id,
+                source: "ContractorPortal",
               },
             });
+            return [id, []];
           }
-          if (e) return [id, []];
-          return [id, Array.isArray(a) ? a : []];
         })
       );
       setAllowedById(Object.fromEntries(pairs));
     } catch (e) {
+      logSecurityRelevantFailure("contractor_work_order_cards", {
+        error: e,
+        context: {
+          source: "ContractorPortal",
+        },
+      });
       console.error(e);
       setRows([]);
       setAllowedById({});
@@ -301,14 +183,15 @@ export default function ContractorPortal() {
   async function updateWorkOrder(id, patch) {
     setSavingId(id);
     try {
-      // SECURITY DEFINER RPC (your existing contractor flow)
-      const { error } = await supabase.rpc("contractor_update_work_order", {
-        p_work_order_id: id,
-        p_status: patch.status ?? null,
-        p_notes: patch.notes ?? null,
-        p_scheduled_at: patch.scheduled_at ?? null,
-      });
-      if (error) throw error;
+      await updateContractorWorkOrder(
+        {
+          workOrderId: id,
+          status: patch.status ?? null,
+          notes: patch.notes ?? null,
+          scheduledAt: patch.scheduled_at ?? null,
+        },
+        { accountId: rows.find((row) => row.id === id)?.account_id || null },
+      );
 
       await load();
     } catch (e) {

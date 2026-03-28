@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { parseTenantRow } from "./rpcContracts";
 import {
   assertEmail,
   assertMaxLength,
@@ -7,6 +8,30 @@ import {
   normalizeText,
 } from "../utils/validation";
 import { OCCUPANCY_STATUS } from "../utils/statuses";
+
+export async function listAccountTenants(accountId) {
+  if (!accountId) return [];
+
+  const { data, error } = await supabase
+    .from("tenants")
+    .select("id, name, email, phone, property_id, created_at")
+    .eq("account_id", accountId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+
+  return (data ?? []).map((tenant) => {
+    const parsed = parseTenantRow(tenant);
+    return {
+      id: parsed.id,
+      name: parsed.name,
+      email: parsed.email,
+      phone: parsed.phone,
+      propertyId: parsed.property_id,
+      createdAt: parsed.created_at,
+    };
+  });
+}
 
 /* ======================
    CREATE TENANT
@@ -47,7 +72,7 @@ export async function createTenant({
       .eq("id", propertyId);
   }
 
-  return tenant;
+  return parseTenantRow(tenant);
 }
 
 /* ======================
@@ -69,7 +94,7 @@ export async function updateTenant(id, data) {
 
   if (currentError) throw currentError;
 
-  const { error } = await supabase
+  const { data: tenant, error } = await supabase
     .from("tenants")
     .update({
       name: normalizeText(data.name),
@@ -77,7 +102,9 @@ export async function updateTenant(id, data) {
       phone: cleanPhone || null,
       property_id: data.propertyId ?? null,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select()
+    .single();
 
   if (error) throw error;
 
@@ -97,6 +124,8 @@ export async function updateTenant(id, data) {
         .eq("id", data.propertyId);
     }
   }
+
+  return tenant ? parseTenantRow(tenant) : null;
 }
 
 /* ======================
@@ -125,4 +154,6 @@ export async function deleteTenant(id) {
       .update({ status: OCCUPANCY_STATUS.VACANT })
       .eq("id", tenant.property_id);
   }
+
+  return tenant ? { property_id: tenant.property_id ?? null } : null;
 }

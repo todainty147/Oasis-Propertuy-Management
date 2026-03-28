@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
 import { createAttachmentSignedUrlForRow } from "../../services/workOrderAttachmentsService";
+import { getMaintenanceTimelineEvents } from "../../services/maintenanceDashboardService";
 import Skeleton from "../ui/Skeleton";
 import { useI18n } from "../../context/I18nContext";
 
@@ -10,21 +10,6 @@ function fmtDate(ts) {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleString();
-}
-
-function safeAt(ts) {
-  const t = new Date(ts).getTime();
-  return Number.isFinite(t) ? t : 0;
-}
-
-function formatAction(action = "", t) {
-  const a = String(action || "").toLowerCase();
-  if (a === "insert" || a === "create") return t("activity.action.created");
-  if (a === "update") return t("activity.action.updated");
-  if (a === "delete") return t("activity.action.deleted");
-  if (a === "status_change") return t("activity.action.statusChanged");
-  if (a === "assign") return t("activity.action.assigned");
-  return action || t("activity.action.changed");
 }
 
 export default function MaintenanceTimeline({ accountId, request, linkedWorkOrders = [] }) {
@@ -45,183 +30,14 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
       setError("");
 
       try {
-        const reqId = String(request.id);
-        const woRows = Array.isArray(linkedWorkOrders) ? linkedWorkOrders : [];
-        const woMap = new Map();
-        for (const wo of woRows) {
-          if (!wo?.id) continue;
-          woMap.set(wo.id, wo);
-        }
-        const woIds = Array.from(woMap.keys());
-
-        const [activityRes, auditRes, attachRes, finRes] = await Promise.all([
-          supabase
-            .from("activity_log")
-            .select("id, action, field, old_value, new_value, actor_role, created_at")
-            .eq("account_id", accountId)
-            .in("entity_type", ["maintenance_request", "maintenance_requests"])
-            .eq("entity_id", reqId)
-            .order("created_at", { ascending: true })
-            .limit(100),
-          woIds.length > 0
-            ? supabase
-                .from("work_order_audit_log")
-                .select("id, work_order_id, action, old_value, new_value, created_at")
-                .in("work_order_id", woIds)
-                .order("created_at", { ascending: true })
-                .limit(500)
-            : Promise.resolve({ data: [], error: null }),
-          woIds.length > 0
-            ? supabase
-                .from("work_order_attachments")
-                .select("id, work_order_id, file_name, kind, created_at")
-                .in("work_order_id", woIds)
-                .order("created_at", { ascending: true })
-                .limit(500)
-            : Promise.resolve({ data: [], error: null }),
-          woIds.length > 0
-            ? supabase
-                .from("work_order_financials")
-                .select("work_order_id, quote_submitted_at, approved_at, rejected_at, rejection_reason, invoice_issued_at")
-                .in("work_order_id", woIds)
-            : Promise.resolve({ data: [], error: null }),
-        ]);
-
-        if (activityRes?.error) throw activityRes.error;
-        if (auditRes?.error) throw auditRes.error;
-        if (attachRes?.error) throw attachRes.error;
-        if (finRes?.error) throw finRes.error;
-
-        const next = [];
-
-        // Baseline lifecycle events
-        next.push({
-          key: `req-created-${request.id}`,
-          at: request.created_at,
-          title: t("maintenance.timeline.requestCreated"),
-          detail: request.title || t("maintenance.requestFallbackTitle"),
-          source: "request",
+        const nextEvents = await getMaintenanceTimelineEvents({
+          accountId,
+          request,
+          linkedWorkOrders,
+          t,
         });
 
-        for (const woId of woIds) {
-          const wo = woMap.get(woId);
-          next.push({
-            key: `wo-created-${woId}`,
-            at: wo?.created_at,
-            title: t("maintenance.timeline.workOrderCreated"),
-            detail: `WO: ${woId}`,
-            woId,
-            source: "work_order",
-          });
-        }
-
-        for (const row of activityRes?.data ?? []) {
-          const field = String(row.field || "").toLowerCase();
-          const isNoteChange = field === "description";
-          const isStatusChange = field === "status" || String(row.action || "").toLowerCase() === "status_change";
-          next.push({
-            key: `activity-${row.id}`,
-            at: row.created_at,
-            title: isNoteChange
-              ? t("maintenance.timeline.staffNote")
-              : isStatusChange
-                ? t("maintenance.timeline.requestStatusChanged")
-                : formatAction(row.action, t),
-            detail: row.field ? `field: ${row.field}` : row.actor_role ? `role: ${row.actor_role}` : "",
-            source: "request",
-          });
-        }
-
-        for (const row of auditRes?.data ?? []) {
-          const action = String(row.action || "").toLowerCase();
-          const isAssign = action.includes("assign") || action.includes("contractor");
-          const isComplete = action.includes("complete") || action.includes("completed");
-          const rowWoId = row.work_order_id || null;
-          next.push({
-            key: `wo-audit-${rowWoId || "na"}-${row.id}`,
-            at: row.created_at,
-            title: isAssign
-              ? t("maintenance.timeline.contractorAssigned")
-              : isComplete
-                ? t("maintenance.timeline.workCompleted")
-                : t("maintenance.timeline.workOrderAction", { action: formatAction(row.action) }),
-            detail: row.action || "",
-            woId: rowWoId,
-            source: "work_order",
-          });
-        }
-
-        for (const row of attachRes?.data ?? []) {
-          const rowWoId = row.work_order_id || null;
-          next.push({
-            key: `att-${rowWoId || "na"}-${row.id}`,
-            at: row.created_at,
-            title: t("maintenance.timeline.photoUploaded"),
-            detail: row.file_name || row.kind || t("maintenance.timeline.attachment"),
-            attachmentRow: row,
-            woId: rowWoId,
-            source: "work_order",
-          });
-        }
-
-        for (const fin of finRes?.data ?? []) {
-          const rowWoId = fin.work_order_id || null;
-          if (fin?.quote_submitted_at) {
-            next.push({
-              key: `fin-quote-submitted-${rowWoId}`,
-              at: fin.quote_submitted_at,
-              title: t("maintenance.timeline.quoteSubmitted"),
-              detail: "",
-              woId: rowWoId,
-              source: "work_order",
-            });
-          }
-          if (fin?.approved_at) {
-            next.push({
-              key: `fin-quote-approved-${rowWoId}`,
-              at: fin.approved_at,
-              title: t("maintenance.timeline.quoteApproved"),
-              detail: "",
-              woId: rowWoId,
-              source: "work_order",
-            });
-          }
-          if (fin?.rejected_at) {
-            next.push({
-              key: `fin-quote-rejected-${rowWoId}`,
-              at: fin.rejected_at,
-              title: t("maintenance.timeline.quoteRejected"),
-              detail: fin.rejection_reason || "",
-              woId: rowWoId,
-              source: "work_order",
-            });
-          }
-          if (fin?.invoice_issued_at) {
-            next.push({
-              key: `fin-invoice-issued-${rowWoId}`,
-              at: fin.invoice_issued_at,
-              title: t("maintenance.timeline.invoiceIssued"),
-              detail: "",
-              woId: rowWoId,
-              source: "work_order",
-            });
-          }
-        }
-
-        // If request is closed, emit a clear endpoint event.
-        if (String(request.status || "").toLowerCase() === "closed") {
-          next.push({
-            key: `req-closed-${request.id}`,
-            at: request.updated_at || request.created_at,
-            title: t("maintenance.timeline.requestClosed"),
-            detail: "",
-            source: "request",
-          });
-        }
-
-        next.sort((a, b) => safeAt(a.at) - safeAt(b.at));
-
-        if (alive) setEvents(next);
+        if (alive) setEvents(nextEvents);
       } catch (e) {
         if (alive) {
           setError(e?.message || t("maintenance.timeline.loadError"));

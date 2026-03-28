@@ -56,4 +56,11 @@ export async function createNotifications({
     });
     throw error;
   }
+
+  return {
+    ok: true,
+    accountId,
+    recipientCount: recipientUserIds.length,
+    type,
+  };
 }

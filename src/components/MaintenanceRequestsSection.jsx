@@ -6,7 +6,13 @@ import Skeleton from "./ui/Skeleton";
 import MaintenanceRequestAttachmentsPanel from "./maintenance/MaintenanceRequestAttachmentsPanel";
 import { useAccount } from "../context/AccountContext";
 import { supabase } from "../lib/supabase";
-import { createMaintenanceRequest, updateMaintenanceRequest } from "../services/maintenanceService";
+import {
+  createMaintenanceRequest,
+  listLinkedWorkOrdersForRequests,
+  listMaintenanceRequestsByProperty,
+  resolveTenantReporterId,
+  updateMaintenanceRequest,
+} from "../services/maintenanceService";
 import { createWorkOrder } from "../services/workOrderService";
 import { useI18n } from "../context/I18nContext";
 import { isManageRole } from "../utils/permissions";
@@ -256,23 +262,14 @@ export default function MaintenanceRequestsSection({ propertyId }) {
     setError(null);
 
     try {
-      const from = (page - 1) * pageSize;
-      const to = from + pageSize - 1;
-
-      const { data, error, count } = await supabase
-        .from("maintenance_requests")
-        .select(
-          "id, account_id, property_id, reported_by_tenant_id, title, description, priority, status, created_at, updated_at",
-          { count: "exact" }
-        )
-        .eq("account_id", activeAccountId)
-        .eq("property_id", propertyId)
-        .order("created_at", { ascending: false })
-        .range(from, to);
-
-      if (error) throw error;
-      setRequests(data ?? []);
-      setTotalCount(count ?? 0);
+      const result = await listMaintenanceRequestsByProperty({
+        accountId: activeAccountId,
+        propertyId,
+        page,
+        pageSize,
+      });
+      setRequests(result.data ?? []);
+      setTotalCount(result.count ?? 0);
     } catch (e) {
       setRequests([]);
       setTotalCount(0);
@@ -293,39 +290,11 @@ export default function MaintenanceRequestsSection({ propertyId }) {
 
     setWoLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("work_orders_with_flags")
-        .select(
-          `
-          id,
-          account_id,
-          property_id,
-          maintenance_request_id,
-          status,
-          contractor_name,
-          contractor_phone,
-          scheduled_at,
-          created_at,
-          pending_cancel_request,
-          last_cancel_request_at,
-          last_cancel_resolution_action,
-          last_cancel_resolution_at
-        `
-        )
-        .eq("account_id", activeAccountId)
-        .eq("property_id", propertyId)
-        .in("maintenance_request_id", ids)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      const grouped = {};
-      for (const wo of data ?? []) {
-        const k = wo.maintenance_request_id;
-        if (!k) continue;
-        if (!grouped[k]) grouped[k] = [];
-        grouped[k].push(wo);
-      }
+      const grouped = await listLinkedWorkOrdersForRequests({
+        accountId: activeAccountId,
+        propertyId,
+        requests: requestRows,
+      });
       setWorkOrdersByRequestId(grouped);
     } catch {
       setWorkOrdersByRequestId({});
@@ -365,14 +334,11 @@ export default function MaintenanceRequestsSection({ propertyId }) {
           data: { user },
         } = await supabase.auth.getUser();
         if (user?.id) {
-          const { data: tenantRow } = await supabase
-            .from("tenants")
-            .select("id")
-            .eq("account_id", activeAccountId)
-            .eq("property_id", propertyId)
-            .eq("user_id", user.id)
-            .maybeSingle();
-          reportedByTenantId = tenantRow?.id || null;
+          reportedByTenantId = await resolveTenantReporterId({
+            accountId: activeAccountId,
+            propertyId,
+            userId: user.id,
+          });
         }
       }
 

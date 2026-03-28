@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
+import { parseBillingSubscriptionRow, parseEdgeUrlResult } from "./rpcContracts";
 
-async function invokeFunction(name, body) {
+async function invokeFunction(name, body, parser = null) {
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -32,15 +33,15 @@ async function invokeFunction(name, body) {
   if (!res.ok) {
     throw new Error(payload?.error || `Failed to call ${name}`);
   }
-  return payload;
+  return parser ? parser(payload || {}) : payload;
 }
 
 export async function startCheckout({ accountId, planKey }) {
-  return invokeFunction("create-checkout-session", { accountId, planKey });
+  return invokeFunction("create-checkout-session", { accountId, planKey }, parseEdgeUrlResult);
 }
 
 export async function openCustomerPortal({ accountId }) {
-  return invokeFunction("create-customer-portal-session", { accountId });
+  return invokeFunction("create-customer-portal-session", { accountId }, parseEdgeUrlResult);
 }
 
 export async function getBillingSubscription(accountId) {
@@ -57,7 +58,7 @@ export async function getBillingSubscription(accountId) {
     throw error;
   }
 
-  return data;
+  return data ? parseBillingSubscriptionRow(data) : null;
 }
 
 export function canWriteForBilling(status) {

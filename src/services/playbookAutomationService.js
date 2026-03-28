@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { firstRpcRow, parsePlaybookStatusSnapshotRow } from "./rpcContracts";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 let automationRuleSettingsUnavailable = false;
@@ -294,16 +295,16 @@ export async function getPlaybookAutomationOverview(accountId) {
     throw error;
   }
 
-  const row = Array.isArray(data) ? data[0] : data;
-  const settingsRows = parseJsonArray(row?.settings);
+  const row = parsePlaybookStatusSnapshotRow(firstRpcRow(data));
+  const settingsRows = parseJsonArray(row.settings);
   const settingsByRuleId = new Map(settingsRows.map((entry) => [entry.rule_id, entry]));
-  const openRunCounts = parseJsonObject(row?.open_run_counts);
+  const openRunCounts = parseJsonObject(row.open_run_counts);
   const rules = RULE_DEFS.map((rule) =>
     mergeRuleWithSetting(rule, settingsByRuleId.get(rule.id), Number(openRunCounts?.[rule.id] || 0)),
   );
-  const recentRuns = parseJsonArray(row?.recent_runs).map(mapRunForUi);
-  const recentResolvedRuns = parseJsonArray(row?.recent_resolved_runs).map(mapRunForUi);
-  const recentExecutions = parseJsonArray(row?.recent_executions).map(mapExecutionForUi);
+  const recentRuns = parseJsonArray(row.recent_runs).map(mapRunForUi);
+  const recentResolvedRuns = parseJsonArray(row.recent_resolved_runs).map(mapRunForUi);
+  const recentExecutions = parseJsonArray(row.recent_executions).map(mapExecutionForUi);
   const activeRules = rules.filter((rule) => rule.enabled && rule.currentCount > 0).length;
   const totalSignals = rules.reduce((sum, rule) => sum + Number(rule.currentCount || 0), 0);
 
@@ -313,9 +314,9 @@ export async function getPlaybookAutomationOverview(accountId) {
       enabledRules: rules.filter((rule) => rule.enabled).length,
       activeRules,
       totalSignals,
-      openRuns: Number(row?.open_runs || 0),
-      lastRunAt: row?.last_run_at || null,
-      lastRunStatus: row?.last_run_status || "recorded",
+      openRuns: row.open_runs,
+      lastRunAt: row.last_run_at,
+      lastRunStatus: row.last_run_status,
     },
     recentRuns,
     recentResolvedRuns,

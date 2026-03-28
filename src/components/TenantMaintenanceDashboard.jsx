@@ -2,9 +2,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
-import { supabase } from "../lib/supabase";
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
+import { getTenantMaintenanceDashboardData } from "../services/maintenanceService";
 
 function pillClass(kind) {
   const base = "text-xs px-2 py-0.5 rounded border";
@@ -74,79 +74,15 @@ export default function TenantMaintenanceDashboard({
       setLoading(true);
 
       try {
-        // 1) Get current auth user
-        const {
-          data: { user },
-          error: userErr,
-        } = await supabase.auth.getUser();
-
-        if (userErr) throw userErr;
-        if (!user?.id) throw new Error(t("auth.noUser"));
-
-        // 2) Find tenant row for this user+account (assumes tenants.user_id exists)
-        const tenantRes = await supabase
-          .from("tenants")
-          .select("id, property_id")
-          .eq("account_id", activeAccountId)
-          .eq("user_id", user.id);
-
-        if (tenantRes.error) throw tenantRes.error;
-
-        const tenantRows = tenantRes.data ?? [];
-        const tenantIds = tenantRows.map((t) => t.id).filter(Boolean);
-
-        // If the tenant is not linked yet, show empty (no crash)
-        if (tenantIds.length === 0) {
-          if (!cancelled) {
-            setRequests([]);
-            setWorkOrders([]);
-          }
-          return;
-        }
-
-        // Determine property scope
-        const allowedPropertyIds = tenantRows.map((t) => t.property_id).filter(Boolean);
-        const scopedPropertyIds = propertyId ? [propertyId] : allowedPropertyIds;
-
-        if (scopedPropertyIds.length === 0) {
-          if (!cancelled) {
-            setRequests([]);
-            setWorkOrders([]);
-          }
-          return;
-        }
-
-        // 3) Load MR + WO in parallel
-        // - MR: by tenant id(s) + property scope (and account)
-        // - WO: by property scope (and account) using the view
-        const [mrRes, woRes] = await Promise.all([
-          supabase
-            .from("maintenance_requests")
-            .select("id,title,status,priority,created_at,updated_at,property_id")
-            .eq("account_id", activeAccountId)
-            .in("property_id", scopedPropertyIds)
-            // if you have reported_by_tenant_id, keep it tight:
-            .in("reported_by_tenant_id", tenantIds)
-            .order("created_at", { ascending: false })
-            .limit(limit),
-
-          supabase
-            .from("work_orders_with_flags")
-            .select(
-              "id,maintenance_request_id,status,scheduled_at,created_at,pending_cancel_request,last_cancel_request_at,last_cancel_resolution_action,last_cancel_resolution_at,property_id"
-            )
-            .eq("account_id", activeAccountId)
-            .in("property_id", scopedPropertyIds)
-            .order("created_at", { ascending: false })
-            .limit(limit),
-        ]);
-
-        if (mrRes.error) throw mrRes.error;
-        if (woRes.error) throw woRes.error;
+        const nextData = await getTenantMaintenanceDashboardData({
+          accountId: activeAccountId,
+          propertyId,
+          limit,
+        });
 
         if (!cancelled) {
-          setRequests(mrRes.data ?? []);
-          setWorkOrders(woRes.data ?? []);
+          setRequests(nextData.requests || []);
+          setWorkOrders(nextData.workOrders || []);
         }
       } catch {
         if (!cancelled) {

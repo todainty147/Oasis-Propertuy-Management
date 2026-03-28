@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
-import { supabase } from "../lib/supabase";
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
@@ -13,6 +12,7 @@ import {
   updatePreventiveMaintenanceTaskStatus,
   upsertPreventiveMaintenanceTask,
 } from "../services/preventiveMaintenanceService";
+import { listActiveContractors } from "../services/contractorDirectoryService";
 import { isManageRole } from "../utils/permissions";
 
 function normalizeCategory(value) {
@@ -104,18 +104,11 @@ export default function PropertyPreventiveMaintenanceCard({ accountId, propertyI
           limit: 100,
           includePaused: true,
         }),
-        supabase
-          .from("contractors")
-          .select("id, name, phone, active")
-          .eq("account_id", accountId)
-          .eq("active", true)
-          .order("name", { ascending: true }),
+        listActiveContractors(accountId),
       ]);
 
-      if (contractorRes.error) throw contractorRes.error;
-
-      const contractorMap = new Map((contractorRes.data || []).map((row) => [row.id, row]));
-      setContractors(contractorRes.data || []);
+      const contractorMap = new Map((contractorRes || []).map((row) => [row.id, row]));
+      setContractors(contractorRes || []);
       setTasks(
         (taskRows || []).map((row) => ({
           ...row,

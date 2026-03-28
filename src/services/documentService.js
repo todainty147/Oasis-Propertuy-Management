@@ -1,7 +1,7 @@
 // src/services/documentService.js
 import { supabase } from "../lib/supabase";
 import { assertFiles, assertUuid } from "../utils/validation";
-import { parseDocumentRow } from "./rpcContracts";
+import { parseDocumentRow, parseRpcRows } from "./rpcContracts";
 import { createSignedStorageUrl } from "./storageUrlService";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
@@ -241,7 +241,7 @@ export async function fetchDocuments({
     throw error;
   }
 
-  return data ?? [];
+  return parseRpcRows(data ?? [], parseDocumentRow, "document rows");
 }
 
 /* ======================
@@ -291,7 +291,7 @@ export async function searchDocuments({
     throw error;
   }
 
-  return data ?? [];
+  return parseRpcRows(data ?? [], parseDocumentRow, "document search rows");
 }
 
 /* ======================

@@ -28,7 +28,7 @@ export async function getWorkOrderFinancials({ accountId, workOrderId } = {}) {
     .maybeSingle();
 
   if (error) throw friendly(error, "Nie udało się pobrać finansów zlecenia");
-  return data || null;
+  return data ? parseWorkOrderFinancialRow(data) : null;
 }
 
 /* =========================

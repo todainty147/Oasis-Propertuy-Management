@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { assertEmail, assertRequiredText, normalizeText } from "../utils/validation";
 import {
+  parseAcceptAccountInviteResult,
   firstRpcRow,
   parseInvitationEligibilityRow,
   parseInvitationRow,
@@ -290,4 +291,22 @@ export async function revokeInvitation({ invitationId, accountId } = {}) {
     });
     throw friendly(delErr, "Failed to revoke invitation");
   }
+}
+
+export async function acceptAccountInvite(token) {
+  if (!token) throw new Error("Missing invite token");
+
+  const { data, error } = await supabase.rpc("accept_account_invite", {
+    invite_token: token,
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("accept_account_invite", {
+      error,
+      context: { inviteFlow: "accept" },
+    });
+    throw friendly(error, "Failed to accept invitation");
+  }
+
+  return parseAcceptAccountInviteResult(data);
 }

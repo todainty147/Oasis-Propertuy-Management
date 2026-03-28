@@ -8,7 +8,6 @@ import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
 import { useI18n } from "../context/I18nContext";
-import { supabase } from "../lib/supabase";
 import { getMaintenanceAttention } from "../services/maintenanceDashboardService";
 import {
   getLeaseAttentionItems,
@@ -22,6 +21,7 @@ import {
   getDashboardSnapshot,
   mapDashboardHubItems,
 } from "../services/dashboardService";
+import { countActiveContractors } from "../services/contractorDirectoryService";
 import { isManageRole } from "../utils/permissions";
 import OnboardingHintCard from "../components/OnboardingHintCard";
 
@@ -126,12 +126,8 @@ export default function Dashboard({
         return;
       }
       try {
-        const { count } = await supabase
-          .from("contractors")
-          .select("id", { count: "exact", head: true })
-          .eq("account_id", activeAccountId)
-          .eq("active", true);
-        if (!dead) setContractorCount(Number(count || 0));
+        const nextCount = await countActiveContractors(activeAccountId);
+        if (!dead) setContractorCount(nextCount);
       } catch {
         if (!dead) setContractorCount(0);
       }

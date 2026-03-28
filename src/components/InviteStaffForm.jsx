@@ -1,12 +1,12 @@
 // src/components/InviteStaffForm.jsx
 import { useState } from "react";
-import { supabase } from "../lib/supabase";
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
 import { assertEmail, assertRequiredText } from "../utils/validation";
+import { createAccountInvitation } from "../services/invitationService";
 
 export default function InviteStaffForm() {
-  const { activeAccountId } = useAccount();
+  const { activeAccountId, activeRole } = useAccount();
   const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,23 +18,16 @@ export default function InviteStaffForm() {
       assertRequiredText(activeAccountId, "Missing accountId");
       const cleanEmail = assertEmail(email, "Valid email required");
 
-      const { error } = await supabase
-        .from("account_invitations")
-        .insert({
-          account_id: activeAccountId,
-          email: cleanEmail,
-          role: "staff",
-          token: crypto.randomUUID(),
-        });
+      await createAccountInvitation({
+        accountId: activeAccountId,
+        email: cleanEmail,
+        role: "staff",
+        inviterRole: activeRole,
+      });
 
       setLoading(false);
-
-      if (error) {
-        alert(error.message);
-      } else {
-        alert(t("inviteStaff.sent"));
-        setEmail("");
-      }
+      alert(t("inviteStaff.sent"));
+      setEmail("");
     } catch (err) {
       setLoading(false);
       alert(err?.message || t("common.error"));

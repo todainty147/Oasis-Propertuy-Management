@@ -6,8 +6,24 @@ import {
   assertRequiredText,
   normalizeText,
 } from "../utils/validation";
+import {
+  parseAllowedActions,
+  parseAllowedActionsBulkRow,
+  parsePendingCancellationWorkOrderRow,
+  parseRpcRows,
+  parseWorkOrderAuditLogRow,
+  parseWorkOrderMutationAck,
+  parseWorkOrderStatusDefinitionRow,
+  parseWorkOrderRow,
+} from "./rpcContracts";
+import { listActiveContractors } from "./contractorDirectoryService";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 function friendlyError(err, fallback) {
+  return new Error(err?.message ?? fallback);
+}
+
+function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
 }
 
@@ -105,17 +121,262 @@ export async function fetchWorkOrders({
 
   const { data, error, count } = await q;
   if (error) throw error;
+  const rows = (data ?? []).map(parseWorkOrderRow);
 
   if (page != null) {
     return {
-      data: data ?? [],
+      data: rows,
       count: count ?? 0,
       page: Math.max(1, Number(page) || 1),
       pageSize: Math.max(1, Math.min(200, Number(pageSize) || 20)),
     };
   }
 
-  return data ?? [];
+  return rows;
+}
+
+export async function fetchWorkOrderById(id, { signal } = {}) {
+  if (!id) throw new Error("Brak ID zlecenia");
+
+  let q = supabase
+    .from("work_orders_with_flags")
+    .select(
+      `
+      id,
+      account_id,
+      property_id,
+      maintenance_request_id,
+      contractor_user_id,
+      contractor_name,
+      contractor_phone,
+      status,
+      scheduled_at,
+      notes,
+      quote_amount,
+      invoice_amount,
+      created_by,
+      created_at,
+      updated_at,
+      pending_cancel_request,
+      last_cancel_request_at,
+      last_cancel_request_by,
+      last_cancel_resolution_at,
+      last_cancel_resolution_action,
+      last_cancel_resolution_by,
+      assigned_at,
+      acknowledged_at,
+      acknowledgement_due_at,
+      acknowledgement_status,
+      maintenance_requests:maintenance_request_id ( id, title, status, priority )
+      `
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (signal) q = q.abortSignal(signal);
+
+  const { data, error } = await q;
+  if (error) throw error;
+  return data ? parseWorkOrderRow(data) : null;
+}
+
+export async function listWorkOrderAuditLog(workOrderId, { limit = 100, signal } = {}) {
+  if (!workOrderId) return [];
+
+  let query = supabase
+    .from("work_order_audit_log")
+    .select("id, work_order_id, action, actor_user_id, old_value, new_value, created_at")
+    .eq("work_order_id", workOrderId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (signal) query = query.abortSignal(signal);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return parseRpcRows(data || [], parseWorkOrderAuditLogRow, "work order audit rows");
+}
+
+export async function listWorkOrderStatusDefinitions() {
+  const { data, error } = await supabase
+    .from("work_order_status_definitions")
+    .select("status, label");
+
+  if (error) throw error;
+  const rows = parseRpcRows(data || [], parseWorkOrderStatusDefinitionRow, "work order status definition rows");
+  return Object.fromEntries(rows.map((row) => [row.status, row.label || row.status]));
+}
+
+export async function listPendingCancellationWorkOrders({
+  accountId,
+  propertyId = null,
+  limit = 20,
+} = {}) {
+  if (!accountId) return [];
+
+  let query = supabase
+    .from("work_orders_pending_cancellation")
+    .select(
+      "id, account_id, property_id, status, contractor_name, contractor_phone, scheduled_at, last_cancel_request_at, last_cancel_request_by",
+    )
+    .eq("account_id", accountId)
+    .order("last_cancel_request_at", { ascending: false })
+    .limit(limit);
+
+  if (propertyId) query = query.eq("property_id", propertyId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return parseRpcRows(
+    data || [],
+    parsePendingCancellationWorkOrderRow,
+    "pending cancellation work order rows",
+  );
+}
+
+export async function listAssignableContractors(accountId) {
+  return listActiveContractors(accountId);
+}
+
+export async function getWorkOrderAllowedActions(workOrderId, context = {}) {
+  if (!workOrderId) throw new Error("Missing workOrderId");
+
+  const { data, error } = await supabase.rpc("work_order_allowed_actions", {
+    p_work_order_id: workOrderId,
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("work_order_allowed_actions", {
+      error,
+      context: { ...context, workOrderId },
+    });
+    throw friendly(error, "Failed to load work order allowed actions");
+  }
+
+  return parseAllowedActions(data);
+}
+
+export async function getWorkOrderAllowedActionsBulk(workOrderIds = [], context = {}) {
+  const ids = (workOrderIds ?? []).filter(Boolean);
+  if (ids.length === 0) return {};
+
+  const { data, error } = await supabase.rpc("work_order_allowed_actions_bulk", {
+    p_work_order_ids: ids,
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("work_order_allowed_actions_bulk", {
+      error,
+      context: { ...context, workOrderIds: ids },
+    });
+    throw friendly(error, "Failed to load work order allowed actions");
+  }
+
+  const rows = parseRpcRows(data || [], parseAllowedActionsBulkRow, "work order allowed actions bulk");
+  return Object.fromEntries(rows.map((row) => [row.work_order_id, row.actions]));
+}
+
+export async function setWorkOrderStatus(
+  { workOrderId, newStatus, applyIfTenantAllowed = false } = {},
+  context = {},
+) {
+  if (!workOrderId) throw new Error("Missing workOrderId");
+  if (!newStatus) throw new Error("Missing newStatus");
+
+  const { error } = await supabase.rpc("work_order_set_status", {
+    p_work_order_id: workOrderId,
+    p_new_status: newStatus,
+    p_apply_if_tenant_allowed: applyIfTenantAllowed,
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("work_order_set_status", {
+      error,
+      context: { ...context, workOrderId, requestedStatus: newStatus },
+    });
+    throw friendly(error, "Failed to update work order status");
+  }
+
+  return parseWorkOrderMutationAck({
+    ok: true,
+    work_order_id: workOrderId,
+    status: newStatus,
+  });
+}
+
+export async function assignWorkOrderContractor(
+  { workOrderId, contractorId } = {},
+  context = {},
+) {
+  if (!workOrderId) throw new Error("Missing workOrderId");
+  if (!contractorId) throw new Error("Missing contractorId");
+
+  const { error } = await supabase.rpc("work_order_assign_contractor", {
+    p_work_order_id: workOrderId,
+    p_contractor_id: contractorId,
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("work_order_assign_contractor", {
+      error,
+      context: { ...context, workOrderId, contractorId },
+    });
+    throw friendly(error, "Failed to assign contractor");
+  }
+
+  return parseWorkOrderMutationAck({
+    ok: true,
+    work_order_id: workOrderId,
+    contractor_id: contractorId,
+  });
+}
+
+export async function approveWorkOrderTenantCancellation(workOrderId, context = {}) {
+  if (!workOrderId) throw new Error("Missing workOrderId");
+
+  const { error } = await supabase.rpc("work_order_approve_tenant_cancellation", {
+    p_work_order_id: workOrderId,
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("work_order_approve_tenant_cancellation", {
+      error,
+      context: { ...context, workOrderId },
+    });
+    throw friendly(error, "Failed to approve tenant cancellation");
+  }
+
+  return parseWorkOrderMutationAck({
+    ok: true,
+    work_order_id: workOrderId,
+    status: "cancelled",
+  });
+}
+
+export async function denyWorkOrderTenantCancellation(
+  { workOrderId, reason = null } = {},
+  context = {},
+) {
+  if (!workOrderId) throw new Error("Missing workOrderId");
+
+  const { error } = await supabase.rpc("work_order_deny_tenant_cancellation", {
+    p_work_order_id: workOrderId,
+    p_reason: reason,
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("work_order_deny_tenant_cancellation", {
+      error,
+      context: { ...context, workOrderId, reason },
+    });
+    throw friendly(error, "Failed to deny tenant cancellation");
+  }
+
+  return parseWorkOrderMutationAck({
+    ok: true,
+    work_order_id: workOrderId,
+    reason,
+  });
 }
 /* ======================
    CREATE (RPC-driven)
@@ -202,7 +463,7 @@ export async function createWorkOrder({
   const { data: row, error: readErr } = await read;
 
   if (readErr || !row) return { id: workOrderId };
-  return row;
+  return parseWorkOrderRow(row);
 }
 
 /* ======================
@@ -250,7 +511,7 @@ export async function updateWorkOrder(id, patch = {}, { signal } = {}) {
   const { data, error } = await q;
 
   if (error) throw friendlyError(error, "Nie udało się zaktualizować zlecenia");
-  return data;
+  return parseWorkOrderRow(data);
 }
 
 /* ======================

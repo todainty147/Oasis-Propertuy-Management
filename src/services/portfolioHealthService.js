@@ -4,7 +4,9 @@ import { logSecurityRelevantFailure } from "./securityFailureLogger";
 import {
   EMPTY_PORTFOLIO_HEALTH_SNAPSHOT,
   firstRpcRow,
+  parsePortfolioAttentionItemRow,
   parsePortfolioHealthSnapshotRow,
+  parseRpcRows,
 } from "./rpcContracts";
 
 let portfolioAttentionItemsUnavailable = false;
@@ -66,7 +68,7 @@ export async function getPortfolioAttentionItems(accountId, tenantId = null, lim
     });
     throw friendly(error, "Failed to load portfolio attention items");
   }
-  return Array.isArray(data) ? data : [];
+  return parseRpcRows(data || [], parsePortfolioAttentionItemRow, "portfolio attention items");
 }
 
 export function mapPortfolioAttentionItems(items = [], t) {

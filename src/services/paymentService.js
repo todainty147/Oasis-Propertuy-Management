@@ -2,6 +2,49 @@
 import { supabase } from "../lib/supabase";
 import { parseMyPaymentRow, parsePaymentRow, parseRpcRows } from "./rpcContracts";
 
+function parsePaymentListRow(row) {
+  const payment = parsePaymentRow(row);
+  return {
+    id: payment.id,
+    amount: payment.amount,
+    status: payment.status,
+    dueDate: payment.due_date,
+    paidAt: payment.paid_at,
+    tenantId: payment.tenant_id,
+    propertyId: payment.property_id,
+    tenantName: row?.tenants?.name ?? "—",
+    propertyAddress: row?.properties?.address ?? "—",
+  };
+}
+
+export async function listAccountPayments(accountId) {
+  if (!accountId) return [];
+
+  const { data, error } = await supabase
+    .from("payments")
+    .select(
+      `
+      id,
+      account_id,
+      property_id,
+      tenant_id,
+      owner_id,
+      amount,
+      due_date,
+      paid_at,
+      created_at,
+      status,
+      tenants ( name ),
+      properties ( address )
+    `,
+    )
+    .eq("account_id", accountId)
+    .order("due_date", { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []).map(parsePaymentListRow);
+}
+
 /* ======================
    TENANT: READ (RPC-only)
    ====================== */

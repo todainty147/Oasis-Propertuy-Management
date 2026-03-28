@@ -1,24 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
-import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount } from "../utils/currency";
-import {
-  getPropertyFinancialProfile,
-  listPropertyOperatingExpenses,
-} from "../services/propertyOperationsService";
-import { listLeases } from "../services/leaseService";
-import { listPreventiveMaintenanceTasks } from "../services/preventiveMaintenanceService";
-import {
-  listComplianceItems,
-  listMissingComplianceSetup,
-} from "../services/complianceService";
+import { getPropertyPerformanceBundle } from "../services/propertyOperationsService";
 import {
   calculatePropertyOperationalHealth,
   getPropertyOperationalHealthCategory,
-  listPropertyOperationalHealthScores,
 } from "../services/propertyHealthScoreService";
 import { buildPaymentCycles, calculatePropertyFinance } from "../utils/finance";
 
@@ -77,16 +66,6 @@ function buildRecentMonths(count = 4) {
   return months;
 }
 
-function isMissingBackendObject(error) {
-  const message = String(error?.message || "").toLowerCase();
-  return (
-    error?.code === "PGRST404" ||
-    message.includes("could not find the function") ||
-    message.includes("relation") ||
-    message.includes("does not exist")
-  );
-}
-
 export default function PropertyPerformanceCard({
   accountId,
   property,
@@ -126,60 +105,21 @@ export default function PropertyPerformanceCard({
     setLoading(true);
     setError("");
     try {
-      const [
-        requestsRes,
-        workOrdersRes,
-        maintenanceExpensesRes,
-        operatingExpenses,
-        profile,
-        leases,
-        preventiveTasks,
-        complianceItems,
-        missingCompliance,
-        healthRows,
-      ] = await Promise.all([
-        supabase
-          .from("maintenance_requests")
-          .select("id, status, created_at")
-          .eq("account_id", accountId)
-          .eq("property_id", property.id),
-        supabase
-          .from("work_orders")
-          .select("id, status, quote_amount, invoice_amount, created_at, updated_at, maintenance_request_id, acknowledgement_status, acknowledgement_due_at")
-          .eq("account_id", accountId)
-          .eq("property_id", property.id),
-        supabase
-          .from("maintenance_expenses")
-          .select("id, amount, approval_state, expense_date, posted_at")
-          .eq("account_id", accountId)
-          .eq("property_id", property.id)
-          .order("expense_date", { ascending: false })
-          .limit(120),
-        listPropertyOperatingExpenses({ accountId, propertyId: property.id, limit: 120 }),
-        getPropertyFinancialProfile({ accountId, propertyId: property.id }),
-        listLeases({ accountId, propertyId: property.id, limit: 20 }),
-        listPreventiveMaintenanceTasks({ accountId, propertyId: property.id, limit: 50 }),
-        listComplianceItems({ accountId, propertyId: property.id, includeClosed: false, limit: 50 }),
-        listMissingComplianceSetup(accountId, { propertyId: property.id, limit: 10 }),
-        listPropertyOperationalHealthScores(accountId, { propertyId: property.id, limit: 1 }),
-      ]);
+      const bundle = await getPropertyPerformanceBundle({
+        accountId,
+        propertyId: property.id,
+      });
 
-      if (requestsRes.error) throw requestsRes.error;
-      if (workOrdersRes.error) throw workOrdersRes.error;
-      if (maintenanceExpensesRes.error && !isMissingBackendObject(maintenanceExpensesRes.error)) {
-        throw maintenanceExpensesRes.error;
-      }
-
-      setRequestRows(requestsRes.data || []);
-      setWorkOrderRows(workOrdersRes.data || []);
-      setMaintenanceExpenseRows(maintenanceExpensesRes.data || []);
-      setOperatingExpenseRows(operatingExpenses || []);
-      setFinancialProfile(profile || null);
-      setLeaseRows(leases || []);
-      setPreventiveRows(preventiveTasks || []);
-      setComplianceRows(complianceItems || []);
-      setMissingComplianceRows(missingCompliance || []);
-      setHealthSnapshot(Array.isArray(healthRows) ? healthRows[0] || null : null);
+      setRequestRows(bundle.requests || []);
+      setWorkOrderRows(bundle.workOrders || []);
+      setMaintenanceExpenseRows(bundle.maintenanceExpenses || []);
+      setOperatingExpenseRows(bundle.operatingExpenses || []);
+      setFinancialProfile(bundle.financialProfile || null);
+      setLeaseRows(bundle.leases || []);
+      setPreventiveRows(bundle.preventiveTasks || []);
+      setComplianceRows(bundle.complianceItems || []);
+      setMissingComplianceRows(bundle.missingComplianceItems || []);
+      setHealthSnapshot(Array.isArray(bundle.healthRows) ? bundle.healthRows[0] || null : null);
     } catch (e) {
       setRequestRows([]);
       setWorkOrderRows([]);
