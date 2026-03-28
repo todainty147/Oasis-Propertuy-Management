@@ -47,6 +47,7 @@ const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const FinancePage = lazy(() => import("./pages/FinancePage"));
 const PlaybooksPage = lazy(() => import("./pages/PlaybooksPage"));
 const SecurityAuditPage = lazy(() => import("./pages/SecurityAuditPage"));
+const RootTelemetryPage = lazy(() => import("./pages/RootTelemetryPage"));
 const AddPropertyModal = lazy(() => import("./components/AddPropertyModal"));
 
 export default function App() {
@@ -444,6 +445,7 @@ export default function App() {
               <Route path="settings/billing" element={<BillingPage />} />
               <Route path="settings/playbooks" element={<PlaybooksPage />} />
               <Route path="settings/security-audit" element={<SecurityAuditPage />} />
+              <Route path="settings/root-telemetry" element={<RootTelemetryPage />} />
         <Route
           path="portfolio-health"
           element={<PortfolioHealthDashboardPage />}

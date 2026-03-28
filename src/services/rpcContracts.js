@@ -1065,6 +1065,34 @@ export function parseSecurityAlertWorkflowRow(row) {
   };
 }
 
+export function parseRootTelemetrySupportAccessRow(row) {
+  const value = assertRecord(row, "root telemetry support access row");
+  return {
+    userId: toNullableString(value.userId ?? value.user_id),
+    userEmail: toStringOr(value.userEmail ?? value.user_email),
+    capability: toStringOr(value.capability).trim().toLowerCase(),
+    notes: toStringOr(value.notes),
+    grantedByUserId: toNullableString(value.grantedByUserId ?? value.granted_by_user_id),
+    grantedByEmail: toStringOr(value.grantedByEmail ?? value.granted_by_email),
+    createdAt: toNullableString(value.createdAt ?? value.created_at),
+    expiresAt: toNullableString(value.expiresAt ?? value.expires_at),
+    revokedAt: toNullableString(value.revokedAt ?? value.revoked_at),
+  };
+}
+
+export function parseRootTelemetrySupportOperatorRow(row) {
+  const value = assertRecord(row, "root telemetry support operator row");
+  return {
+    userId: toNullableString(value.userId ?? value.user_id),
+    userEmail: toStringOr(value.userEmail ?? value.user_email),
+    source: toStringOr(value.source).trim().toLowerCase(),
+    hasRootTelemetry: toBooleanOr(value.hasRootTelemetry ?? value.has_root_telemetry, false),
+    currentAccountGranted: toBooleanOr(value.currentAccountGranted ?? value.current_account_granted, false),
+    currentExpiresAt: toNullableString(value.currentExpiresAt ?? value.current_expires_at),
+    lastTelemetryAccessAt: toNullableString(value.lastTelemetryAccessAt ?? value.last_telemetry_access_at),
+  };
+}
+
 export function parseSecurityAuditExportJobRow(row) {
   const value = assertRecord(row, "security audit export job row");
   return {

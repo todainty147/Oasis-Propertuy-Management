@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   ChevronDown,
   ChevronUp,
@@ -279,8 +279,13 @@ export function InvestigationContextStrip({
   focusedAnomalyAlert,
   selectedEvent,
   onClear,
+  onAcknowledgeAlert,
+  onResolveAlert,
+  onShowWorkflow,
+  busyAlertAction,
   t,
 }) {
+  const alertStatus = String(focusedAnomalyAlert?.status || "").toLowerCase();
   return (
     <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-900/60 dark:bg-blue-950/30">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -315,13 +320,535 @@ export function InvestigationContextStrip({
             ) : null}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onClear}
-          className="rounded-lg border border-blue-300 bg-white/70 px-3 py-2 text-sm text-blue-700 transition hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-100 dark:hover:bg-blue-900/60"
-        >
-          {t("securityAudit.investigationContext.clear")}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {focusedAnomalyAlert ? (
+            <>
+              <button
+                type="button"
+                onClick={onShowWorkflow}
+                className="rounded-lg border border-blue-300 bg-white/70 px-3 py-2 text-sm text-blue-700 transition hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-100 dark:hover:bg-blue-900/60"
+              >
+                {t("securityAudit.investigationContext.showAlertWorkflow")}
+              </button>
+              <button
+                type="button"
+                onClick={onAcknowledgeAlert}
+                disabled={!onAcknowledgeAlert || busyAlertAction === "acknowledge" || alertStatus !== "open"}
+                className="rounded-lg border border-blue-300 bg-white/70 px-3 py-2 text-sm text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-100 dark:hover:bg-blue-900/60"
+              >
+                {t("securityAudit.alert.actions.acknowledge")}
+              </button>
+              <button
+                type="button"
+                onClick={onResolveAlert}
+                disabled={!onResolveAlert || busyAlertAction === "resolve" || alertStatus === "resolved"}
+                className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-950/60"
+              >
+                {t("securityAudit.alert.actions.resolve")}
+              </button>
+            </>
+          ) : null}
+          <button
+            type="button"
+            onClick={onClear}
+            className="rounded-lg border border-blue-300 bg-white/70 px-3 py-2 text-sm text-blue-700 transition hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-100 dark:hover:bg-blue-900/60"
+          >
+            {t("securityAudit.investigationContext.clear")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function buildTimelineDetail(parts) {
+  return parts.filter(Boolean).join(" • ");
+}
+
+function hasActiveHostedEventFilters(filters) {
+  return Boolean(filters?.category || filters?.kind || filters?.surface);
+}
+
+export function buildHostedEventsEmptyGuidance(filters, t) {
+  if (hasActiveHostedEventFilters(filters)) {
+    return {
+      title: t("securityAudit.hostedEvents.emptyGuidance.filteredTitle"),
+      body: t("securityAudit.hostedEvents.emptyGuidance.filteredBody"),
+      checks: [
+        t("securityAudit.hostedEvents.emptyGuidance.checkFilters"),
+        t("securityAudit.hostedEvents.emptyGuidance.checkLimit"),
+      ],
+    };
+  }
+
+  return {
+    title: t("securityAudit.hostedEvents.emptyGuidance.quietTitle"),
+    body: t("securityAudit.hostedEvents.emptyGuidance.quietBody"),
+    checks: [
+      t("securityAudit.hostedEvents.emptyGuidance.tryNotificationDenial"),
+      t("securityAudit.hostedEvents.emptyGuidance.tryStorageDenial"),
+      t("securityAudit.hostedEvents.emptyGuidance.tryScopeDenial"),
+    ],
+  };
+}
+
+export function buildAnomalyEmptyGuidance(t) {
+  return {
+    title: t("securityAudit.anomaliesEmptyGuidance.title"),
+    body: t("securityAudit.anomaliesEmptyGuidance.body"),
+    checks: [
+      t("securityAudit.anomaliesEmptyGuidance.checkThresholds"),
+      t("securityAudit.anomaliesEmptyGuidance.tryDeletePattern"),
+      t("securityAudit.anomaliesEmptyGuidance.tryRolePattern"),
+    ],
+  };
+}
+
+export function buildAnomalyFlagContext(alert, t) {
+  const recommended = alert?.metadata?.recommended_filters || {};
+  const entityType = startCase(alert?.entityType || recommended.entityType);
+  const entityId = String(alert?.entityId || recommended.entityId || "").trim();
+  const actorUserId = String(alert?.actorUserId || recommended.actorUserId || "").trim();
+  const actorLabel = String(alert?.actorLabel || "").trim();
+  const action = String(recommended.action || "").trim();
+  const parts = [];
+
+  if (entityType) {
+    parts.push(
+      t("securityAudit.anomaly.flagContext.entity", {
+        entityType,
+        entityId: entityId ? shortenId(entityId) : "—",
+      }),
+    );
+  }
+  if (alert?.alertCount > 1) {
+    parts.push(t("securityAudit.anomaly.flagContext.repeatCount", { count: String(alert.alertCount) }));
+  }
+  if (action) {
+    parts.push(t("securityAudit.anomaly.flagContext.action", { action }));
+  }
+  if (actorLabel || actorUserId) {
+    parts.push(
+      t("securityAudit.anomaly.flagContext.actor", {
+        actor: actorLabel || shortenId(actorUserId),
+      }),
+    );
+  }
+  if (alert?.lastSeenAt) {
+    parts.push(
+      t("securityAudit.anomaly.flagContext.lastSeen", {
+        timestamp: formatDateTime(alert.lastSeenAt),
+      }),
+    );
+  }
+
+  return parts.filter(Boolean).join(" • ");
+}
+
+function buildAlertWorkflowSummary(alert, t) {
+  const parts = [];
+  if (alert?.status) {
+    parts.push(t("securityAudit.alert.workflowSummary.status", { status: String(alert.status) }));
+  }
+  if (alert?.assignedToLabel || alert?.assignedToUserId) {
+    parts.push(
+      t("securityAudit.alert.workflowSummary.assignee", {
+        assignee: alert.assignedToLabel || shortenId(alert.assignedToUserId),
+      }),
+    );
+  }
+  if (alert?.classification) {
+    parts.push(
+      t("securityAudit.alert.workflowSummary.classification", {
+        classification: String(alert.classification),
+      }),
+    );
+  }
+  return parts.filter(Boolean).join(" • ");
+}
+
+export function buildInvestigationEntityContext({ hostedEvent, anomalyAlert, selectedEvent, t }) {
+  const recommended = anomalyAlert?.metadata?.recommended_filters || {};
+  const entityType =
+    hostedEvent?.entity_type ||
+    anomalyAlert?.entityType ||
+    selectedEvent?.entity_type ||
+    recommended.entityType ||
+    "";
+  const entityId =
+    hostedEvent?.entity_id ||
+    anomalyAlert?.entityId ||
+    selectedEvent?.entity_id ||
+    recommended.entityId ||
+    "";
+  const entityLabel =
+    anomalyAlert?.entityLabel ||
+    selectedEvent?.entityLabel ||
+    "";
+  const actor =
+    anomalyAlert?.actorLabel ||
+    anomalyAlert?.actorUserId ||
+    selectedEvent?.actorLabel ||
+    selectedEvent?.actor_user_id ||
+    "";
+  const correlationId =
+    hostedEvent?.correlation_id ||
+    selectedEvent?.metadata?.correlation_id ||
+    "";
+  const reason =
+    hostedEvent?.reason ||
+    selectedEvent?.metadata?.reason ||
+    selectedEvent?.metadata?.code ||
+    "";
+  const surface = hostedEvent?.surface || "";
+  const details = [
+    {
+      label: t("securityAudit.entityContext.entity"),
+      value: entityType ? `${startCase(entityType)}${entityId ? ` (${shortenId(entityId)})` : ""}` : "—",
+    },
+    {
+      label: t("securityAudit.entityContext.label"),
+      value: entityLabel || "—",
+    },
+    {
+      label: t("securityAudit.columns.actor"),
+      value: actor || t("securityAudit.systemActor"),
+    },
+    {
+      label: t("securityAudit.entityContext.surface"),
+      value: surface ? describeHostedEventSurface(surface, t) : "—",
+    },
+    {
+      label: t("securityAudit.detail.reason"),
+      value: reason ? describeHostedEventReason(reason, t) : "—",
+    },
+    {
+      label: t("securityAudit.entityContext.correlation"),
+      value: correlationId ? shortenId(correlationId) : "—",
+    },
+  ];
+
+  if (anomalyAlert) {
+    details.push({
+      label: t("securityAudit.entityContext.alertStatus"),
+      value: anomalyAlert.status || "—",
+    });
+    details.push({
+      label: t("securityAudit.alert.classification"),
+      value: anomalyAlert.classification || "—",
+    });
+  }
+
+  if (selectedEvent?.action) {
+    details.push({
+      label: t("securityAudit.entityContext.latestLedgerAction"),
+      value: selectedEvent.action,
+    });
+  }
+
+  return details;
+}
+
+function pushUniqueLink(links, seen, item) {
+  if (!item?.to || !item?.label) return;
+  const key = `${item.to}:${item.label}`;
+  if (seen.has(key)) return;
+  seen.add(key);
+  links.push(item);
+}
+
+function withLinkDetail(label, detail, t) {
+  const nextDetail = String(detail || "").trim();
+  if (!nextDetail) return label;
+  return t("securityAudit.relatedLinks.named", { label, detail: nextDetail });
+}
+
+export function buildInvestigationEntityLinks({ hostedEvent, anomalyAlert, selectedEvent, t }) {
+  const recommended = anomalyAlert?.metadata?.recommended_filters || {};
+  const eventMetadata = selectedEvent?.metadata || {};
+  const links = [];
+  const seen = new Set();
+  const entityType = String(
+    hostedEvent?.entity_type ||
+      anomalyAlert?.entityType ||
+      selectedEvent?.entity_type ||
+      recommended.entityType ||
+      "",
+  )
+    .trim()
+    .toLowerCase();
+  const entityId = String(
+    hostedEvent?.entity_id ||
+      anomalyAlert?.entityId ||
+      selectedEvent?.entity_id ||
+      recommended.entityId ||
+      "",
+  ).trim();
+  const entityLabel = String(anomalyAlert?.entityLabel || selectedEvent?.entityLabel || "").trim();
+  const propertyLabel = String(eventMetadata.property_label || eventMetadata.property_address || "").trim();
+  const tenantLabel = String(eventMetadata.tenant_label || "").trim();
+  const workOrderLabel = String(eventMetadata.work_order_label || eventMetadata.contractor_name || "").trim();
+  const documentLabel = String(eventMetadata.document_name || "").trim();
+
+  if (entityType === "property" && entityId) {
+    pushUniqueLink(links, seen, {
+      label: withLinkDetail(t("securityAudit.relatedLinks.property"), entityLabel, t),
+      to: `/properties/${entityId}`,
+    });
+  }
+  if (entityType === "tenant" && entityId) {
+    pushUniqueLink(links, seen, {
+      label: withLinkDetail(t("securityAudit.relatedLinks.tenant"), entityLabel, t),
+      to: `/tenants/${entityId}`,
+    });
+  }
+  if (entityType === "work_order" && entityId) {
+    pushUniqueLink(links, seen, {
+      label: withLinkDetail(t("securityAudit.relatedLinks.workOrder"), entityLabel, t),
+      to: `/work-orders/${entityId}`,
+    });
+  }
+  if (entityType === "document" && entityId) {
+    pushUniqueLink(links, seen, {
+      label: withLinkDetail(t("securityAudit.relatedLinks.document"), entityLabel, t),
+      to: `/documents?doc=${entityId}`,
+    });
+  }
+  if (entityType === "account_invitation" || entityType === "account_member") {
+    pushUniqueLink(links, seen, {
+      label: t("securityAudit.relatedLinks.invitations"),
+      to: "/invitations",
+    });
+  }
+  if (entityType === "payment") {
+    pushUniqueLink(links, seen, {
+      label: t("securityAudit.relatedLinks.finance"),
+      to: "/finance",
+    });
+  }
+  if (entityType === "maintenance_request") {
+    pushUniqueLink(links, seen, {
+      label: t("securityAudit.relatedLinks.maintenance"),
+      to: "/maintenance-inbox",
+    });
+  }
+
+  const propertyId = String(eventMetadata.property_id || "").trim();
+  if (propertyId) {
+    pushUniqueLink(links, seen, {
+      label: withLinkDetail(t("securityAudit.relatedLinks.property"), propertyLabel, t),
+      to: `/properties/${propertyId}`,
+    });
+  }
+  const tenantId = String(eventMetadata.tenant_id || "").trim();
+  if (tenantId) {
+    pushUniqueLink(links, seen, {
+      label: withLinkDetail(t("securityAudit.relatedLinks.tenant"), tenantLabel, t),
+      to: `/tenants/${tenantId}`,
+    });
+  }
+  const workOrderId = String(eventMetadata.work_order_id || eventMetadata.entity_work_order_id || "").trim();
+  if (workOrderId) {
+    pushUniqueLink(links, seen, {
+      label: withLinkDetail(t("securityAudit.relatedLinks.workOrder"), workOrderLabel, t),
+      to: `/work-orders/${workOrderId}`,
+    });
+  }
+  const documentId = String(eventMetadata.document_id || "").trim();
+  if (documentId) {
+    pushUniqueLink(links, seen, {
+      label: withLinkDetail(t("securityAudit.relatedLinks.document"), documentLabel, t),
+      to: `/documents?doc=${documentId}`,
+    });
+  }
+  const maintenanceRequestId = String(eventMetadata.maintenance_request_id || "").trim();
+  if (maintenanceRequestId) {
+    pushUniqueLink(links, seen, {
+      label: t("securityAudit.relatedLinks.maintenance"),
+      to: "/maintenance-inbox",
+    });
+  }
+
+  const surface = String(hostedEvent?.surface || "").trim().toLowerCase();
+  if (surface === "finance") {
+    pushUniqueLink(links, seen, {
+      label: t("securityAudit.relatedLinks.finance"),
+      to: "/finance",
+    });
+  }
+  if (["maintenance", "command_center", "attention_center"].includes(surface)) {
+    pushUniqueLink(links, seen, {
+      label: t("securityAudit.relatedLinks.maintenance"),
+      to: "/maintenance-inbox",
+    });
+  }
+  if (surface === "documents") {
+    pushUniqueLink(links, seen, {
+      label: t("securityAudit.relatedLinks.documents"),
+      to: "/documents",
+    });
+  }
+
+  return links.slice(0, 6);
+}
+
+export function buildInvestigationTimelineItems({ hostedEvent, anomalyAlert, selectedEvent, t }) {
+  const items = [];
+
+  if (hostedEvent?.created_at) {
+    items.push({
+      id: `hosted:${hostedEvent.id || hostedEvent.created_at}`,
+      type: "hosted",
+      timestamp: hostedEvent.created_at,
+      title: t("securityAudit.timeline.hostedEvent"),
+      badge: describeHostedEventSeverity(hostedEventSeverity(hostedEvent), t),
+      detail: buildTimelineDetail([
+        describeHostedEventKind(hostedEvent.kind, t),
+        describeHostedEventSurface(hostedEvent.surface, t),
+        describeHostedEventReason(hostedEvent.reason, t),
+      ]),
+    });
+  }
+
+  if (anomalyAlert?.createdAt) {
+    items.push({
+      id: `anomaly-opened:${anomalyAlert.id || anomalyAlert.createdAt}`,
+      type: "anomaly",
+      timestamp: anomalyAlert.createdAt,
+      title: t("securityAudit.timeline.anomalyOpened"),
+      badge: t(`securityAudit.severity.${String(anomalyAlert.severity || "info").toLowerCase()}`),
+      detail: buildTimelineDetail([anomalyAlert.title, anomalyAlert.summary]),
+    });
+  }
+
+  if (anomalyAlert?.lastSeenAt) {
+    items.push({
+      id: `anomaly-last-seen:${anomalyAlert.id || anomalyAlert.lastSeenAt}`,
+      type: "anomaly",
+      timestamp: anomalyAlert.lastSeenAt,
+      title: t("securityAudit.timeline.anomalyLastSeen"),
+      badge: t(`securityAudit.alertStatus.${String(anomalyAlert.status || "open").toLowerCase()}`),
+      detail: buildAnomalyFlagContext(anomalyAlert, t),
+    });
+  }
+
+  if (selectedEvent?.created_at) {
+    items.push({
+      id: `ledger:${selectedEvent.id || selectedEvent.created_at}`,
+      type: "ledger",
+      timestamp: selectedEvent.created_at,
+      title: t("securityAudit.timeline.ledgerEvent"),
+      badge: t("securityAudit.investigationContext.badgeLedger"),
+      detail: buildTimelineDetail([
+        selectedEvent.action || "—",
+        startCase(selectedEvent.entity_type) || "",
+        selectedEvent.entity_id ? shortenId(selectedEvent.entity_id) : "",
+      ]),
+    });
+  }
+
+  return items
+    .filter((item) => item.timestamp)
+    .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)));
+}
+
+function timelineTone(type) {
+  if (type === "hosted") {
+    return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200";
+  }
+  if (type === "anomaly") {
+    return "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200";
+  }
+  return "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200";
+}
+
+function InvestigationTimeline({ items, t }) {
+  if (!items.length) return null;
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            {t("securityAudit.timeline.title")}
+          </h3>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {t("securityAudit.timeline.subtitle")}
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 space-y-3">
+        {items.map((item) => (
+          <div
+            key={item.id}
+            className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-950/40"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{item.title}</p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{item.detail || "—"}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {item.badge ? (
+                  <span className={`rounded-full border px-2 py-1 text-xs ${timelineTone(item.type)}`}>
+                    {item.badge}
+                  </span>
+                ) : null}
+                <span className="text-xs text-slate-500 dark:text-slate-400">{formatDateTime(item.timestamp)}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function InvestigationEntityPanel({ details, t }) {
+  if (!details.length) return null;
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <div>
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          {t("securityAudit.entityContext.title")}
+        </h3>
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          {t("securityAudit.entityContext.subtitle")}
+        </p>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {details.map((item) => (
+          <DetailField key={`${item.label}:${item.value}`} label={item.label} value={item.value} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function InvestigationRelatedLinks({ links, t }) {
+  if (!links.length) return null;
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <div>
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          {t("securityAudit.relatedLinks.title")}
+        </h3>
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          {t("securityAudit.relatedLinks.subtitle")}
+        </p>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {links.map((item) => (
+          <Link
+            key={`${item.to}:${item.label}`}
+            to={item.to}
+            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+          >
+            {item.label}
+          </Link>
+        ))}
       </div>
     </div>
   );
@@ -851,7 +1378,11 @@ export default function SecurityAuditPage() {
       setExportJobsTotal(nextJobs.total);
       setAlertAssignees(nextAssignees);
       setSecuritySettings(nextSecuritySettings);
-      setHostedEvents(nextHostedEvents);
+      setHostedEvents(
+        isRootOperator
+          ? nextHostedEvents
+          : nextHostedEvents.filter((row) => String(row?.category || "").trim().toLowerCase() !== "root_telemetry"),
+      );
       setSecuritySettingsDraft((prev) => {
         if (!nextSecuritySettings) return prev;
         if (!prev || prev.account_id !== nextSecuritySettings.account_id) {
@@ -1042,6 +1573,17 @@ export default function SecurityAuditPage() {
     setSelectedEventId("");
     setSelectedEvent(null);
     setInfo("");
+  }
+
+  function openFocusedAlertWorkflow() {
+    if (!focusedAnomalyAlert?.id) return;
+    setExpandedAlerts((prev) => ({
+      ...prev,
+      [focusedAnomalyAlert.id]: true,
+    }));
+    if (!alertHistoryById[focusedAnomalyAlert.id]) {
+      loadAlertHistory(focusedAnomalyAlert.id);
+    }
   }
 
   useEffect(() => {
@@ -1501,6 +2043,36 @@ from public.security_observability_event_feed(
       }),
     [filters, focusedAnomalyAlert, focusedHostedEvent, selectedEvent, t],
   );
+  const investigationTimelineItems = useMemo(
+    () =>
+      buildInvestigationTimelineItems({
+        hostedEvent: focusedHostedEvent,
+        anomalyAlert: focusedAnomalyAlert,
+        selectedEvent,
+        t,
+      }),
+    [focusedAnomalyAlert, focusedHostedEvent, selectedEvent, t],
+  );
+  const investigationEntityContext = useMemo(
+    () =>
+      buildInvestigationEntityContext({
+        hostedEvent: focusedHostedEvent,
+        anomalyAlert: focusedAnomalyAlert,
+        selectedEvent,
+        t,
+      }),
+    [focusedAnomalyAlert, focusedHostedEvent, selectedEvent, t],
+  );
+  const investigationEntityLinks = useMemo(
+    () =>
+      buildInvestigationEntityLinks({
+        hostedEvent: focusedHostedEvent,
+        anomalyAlert: focusedAnomalyAlert,
+        selectedEvent,
+        t,
+      }),
+    [focusedAnomalyAlert, focusedHostedEvent, selectedEvent, t],
+  );
   const hostedEventCategories = useMemo(
     () => Array.from(new Set(hostedEvents.map((row) => String(row.category || "").trim()).filter(Boolean))).sort(),
     [hostedEvents],
@@ -1509,6 +2081,11 @@ from public.security_observability_event_feed(
     () => Array.from(new Set(hostedEvents.map((row) => String(row.surface || "").trim()).filter(Boolean))).sort(),
     [hostedEvents],
   );
+  const hostedEventsEmptyGuidance = useMemo(
+    () => buildHostedEventsEmptyGuidance(hostedEventFilters, t),
+    [hostedEventFilters, t],
+  );
+  const anomalyEmptyGuidance = useMemo(() => buildAnomalyEmptyGuidance(t), [t]);
 
   if (!canManage) {
     return (
@@ -1577,8 +2154,26 @@ from public.security_observability_event_feed(
           focusedAnomalyAlert={focusedAnomalyAlert}
           selectedEvent={selectedEvent}
           onClear={clearInvestigationContext}
+          onShowWorkflow={focusedAnomalyAlert ? openFocusedAlertWorkflow : null}
+          onAcknowledgeAlert={
+            focusedAnomalyAlert ? () => handleAlertAction(focusedAnomalyAlert, "acknowledge") : null
+          }
+          onResolveAlert={focusedAnomalyAlert ? () => handleAlertAction(focusedAnomalyAlert, "resolve") : null}
+          busyAlertAction={focusedAnomalyAlert ? alertBusyKey.split(":")[1] || "" : ""}
           t={t}
         />
+      ) : null}
+
+      {focusedAlertId || focusedHostedEventId || selectedEventId ? (
+        <InvestigationTimeline items={investigationTimelineItems} t={t} />
+      ) : null}
+
+      {focusedAlertId || focusedHostedEventId || selectedEventId ? (
+        <InvestigationEntityPanel details={investigationEntityContext} t={t} />
+      ) : null}
+
+      {focusedAlertId || focusedHostedEventId || selectedEventId ? (
+        <InvestigationRelatedLinks links={investigationEntityLinks} t={t} />
       ) : null}
 
       <Card className="p-4">
@@ -2054,7 +2649,19 @@ from public.security_observability_event_feed(
 
         {hostedEvents.length === 0 ? (
           <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-300">
-            {t("securityAudit.hostedEvents.empty")}
+            <p className="font-medium text-slate-900 dark:text-slate-100">{t("securityAudit.hostedEvents.empty")}</p>
+            <p className="mt-2">{hostedEventsEmptyGuidance.title}</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hostedEventsEmptyGuidance.body}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {hostedEventsEmptyGuidance.checks.map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
@@ -2365,7 +2972,19 @@ from public.security_observability_event_feed(
 
         {anomalyAlerts.length === 0 ? (
           <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-300">
-            {t("securityAudit.anomaliesEmpty")}
+            <p className="font-medium text-slate-900 dark:text-slate-100">{t("securityAudit.anomaliesEmpty")}</p>
+            <p className="mt-2">{anomalyEmptyGuidance.title}</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{anomalyEmptyGuidance.body}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {anomalyEmptyGuidance.checks.map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
           </div>
         ) : (
           <>
@@ -2415,6 +3034,24 @@ from public.security_observability_event_feed(
                     />
                   </div>
 
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      {t("securityAudit.anomaly.flagContext.title")}
+                    </p>
+                    <p className="mt-1">
+                      {buildAnomalyFlagContext(alert, t) || t("securityAudit.anomaly.flagContext.empty")}
+                    </p>
+                  </div>
+
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      {t("securityAudit.alert.workflowSummary.title")}
+                    </p>
+                    <p className="mt-1">
+                      {buildAlertWorkflowSummary(alert, t) || t("securityAudit.alert.workflowSummary.empty")}
+                    </p>
+                  </div>
+
                   <div className="mt-4 flex flex-wrap gap-2">
                     <div className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
                       <div className="mb-2 flex flex-wrap gap-2">
@@ -2435,8 +3072,16 @@ from public.security_observability_event_feed(
                     </button>
                     <button
                       type="button"
+                      onClick={() => handleAlertAction(alert, "acknowledge")}
+                      disabled={alertBusyKey === `${alert.id}:acknowledge` || String(alert.status || "").toLowerCase() !== "open"}
+                      className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-950/60"
+                    >
+                      {t("securityAudit.alert.actions.acknowledge")}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => toggleAlertExpanded(alert.id)}
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-700"
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-700"
                     >
                       {expandedAlerts[alert.id]
                         ? t("securityAudit.alert.hideWorkflow")

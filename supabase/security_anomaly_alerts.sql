@@ -63,6 +63,96 @@ with check (public.user_can_manage_account(account_id));
 
 grant select, insert, update on table public.security_anomaly_alerts to authenticated;
 
+create or replace function public.security_root_telemetry_active_alerts(
+  p_account_id uuid,
+  p_status text default 'active',
+  p_limit integer default 5,
+  p_offset integer default 0
+)
+returns table (
+  id uuid,
+  account_id uuid,
+  alert_type text,
+  severity text,
+  status text,
+  actor_user_id uuid,
+  entity_type text,
+  entity_id uuid,
+  title text,
+  summary text,
+  metadata jsonb,
+  alert_count integer,
+  created_at timestamptz,
+  last_seen_at timestamptz,
+  total_count bigint
+)
+language sql
+security definer
+set search_path = public
+as $$
+  with authz as (
+    select public.assert_root_telemetry_access(p_account_id) as account_id
+  ),
+  cfg as (
+    select
+      greatest(1, least(coalesce(p_limit, 5), 25)) as row_limit,
+      greatest(coalesce(p_offset, 0), 0) as row_offset,
+      nullif(lower(trim(coalesce(p_status, 'active'))), '') as requested_status
+  ),
+  filtered as (
+    select
+      saa.id,
+      saa.account_id,
+      saa.alert_type,
+      saa.severity,
+      saa.status,
+      saa.actor_user_id,
+      saa.entity_type,
+      saa.entity_id,
+      saa.title,
+      saa.summary,
+      saa.metadata,
+      saa.alert_count,
+      saa.created_at,
+      saa.last_seen_at
+    from public.security_anomaly_alerts saa
+    cross join authz a
+    cross join cfg c
+    where saa.account_id = a.account_id
+      and (
+        c.requested_status is null
+        or (c.requested_status = 'active' and lower(saa.status) in ('open', 'acknowledged'))
+        or lower(saa.status) = c.requested_status
+      )
+  )
+  select
+    f.id,
+    f.account_id,
+    f.alert_type,
+    f.severity,
+    f.status,
+    f.actor_user_id,
+    f.entity_type,
+    f.entity_id,
+    f.title,
+    f.summary,
+    f.metadata,
+    f.alert_count,
+    f.created_at,
+    f.last_seen_at,
+    count(*) over () as total_count
+  from filtered f
+  order by f.last_seen_at desc
+  limit (select row_limit from cfg)
+  offset (select row_offset from cfg);
+$$;
+
+comment on function public.security_root_telemetry_active_alerts(uuid, text, integer, integer) is
+  'Root/support-safe anomaly alert feed for root telemetry surfaces, with bounded pagination and total count.';
+
+revoke all on function public.security_root_telemetry_active_alerts(uuid, text, integer, integer) from public;
+grant execute on function public.security_root_telemetry_active_alerts(uuid, text, integer, integer) to authenticated;
+
 create or replace function public.upsert_security_anomaly_alert(
   p_account_id uuid,
   p_alert_type text,

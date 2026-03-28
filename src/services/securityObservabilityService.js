@@ -13,6 +13,13 @@ function normalizeFilter(value) {
   return next || null;
 }
 
+function normalizeDateFilter(value) {
+  if (!value) return null;
+  const next = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(next.getTime())) return null;
+  return next.toISOString();
+}
+
 function friendly(error, fallback) {
   return new Error(error?.message || fallback);
 }
@@ -24,6 +31,8 @@ export async function listSecurityObservabilityEvents(
     kind = null,
     surface = null,
     limit = DEFAULT_LIMIT,
+    since = null,
+    until = null,
   } = {},
 ) {
   if (!accountId) return [];
@@ -34,6 +43,8 @@ export async function listSecurityObservabilityEvents(
     p_kind: normalizeFilter(kind),
     p_surface: normalizeFilter(surface),
     p_limit: clampLimit(limit),
+    p_since: normalizeDateFilter(since),
+    p_until: normalizeDateFilter(until),
   });
 
   if (error) throw friendly(error, "Failed to load security observability events");

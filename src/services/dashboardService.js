@@ -1,5 +1,10 @@
 import { supabase } from "../lib/supabase";
-import { logSecurityRelevantFailure } from "./securityFailureLogger";
+import {
+  logOperationalLatencySample,
+  logSecurityRelevantFailure,
+  logSlowOperationalTelemetry,
+  startOperationalTimer,
+} from "./securityFailureLogger";
 import {
   EMPTY_DASHBOARD_SNAPSHOT,
   firstRpcRow,
@@ -26,6 +31,8 @@ function isMissingBackendObject(error) {
 
 export async function getDashboardSnapshot(accountId, { tenantId = null, horizonDays = 1 } = {}) {
   if (!accountId) throw new Error("Missing accountId");
+  const startedAt = startOperationalTimer();
+  const thresholdMs = 1200;
 
   const { data, error } = await supabase.rpc("dashboard_snapshot", {
     p_account_id: accountId,
@@ -44,6 +51,21 @@ export async function getDashboardSnapshot(accountId, { tenantId = null, horizon
     throw friendly(error, "Failed to load dashboard snapshot");
   }
 
+  const durationMs = startOperationalTimer() - startedAt;
+  logOperationalLatencySample("dashboard_snapshot", {
+    accountId,
+    surface: "dashboard",
+    durationMs,
+    targetMs: thresholdMs,
+    context: { horizonDays, hasTenantScope: Boolean(tenantId) },
+  });
+  logSlowOperationalTelemetry("dashboard_snapshot", {
+    accountId,
+    surface: "dashboard",
+    durationMs,
+    thresholdMs,
+    context: { horizonDays, hasTenantScope: Boolean(tenantId) },
+  });
   return parseDashboardSnapshotRow(firstRpcRow(data));
 }
 

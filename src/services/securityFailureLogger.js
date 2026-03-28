@@ -34,6 +34,8 @@ const authFailurePatterns = [
 let deniedEventRpcUnavailable = false;
 let hostedSinkUnavailable = false;
 let hostedSinkEnabledOverride = null;
+const operationalTelemetryThrottle = new Map();
+const operationalLatencySampleThrottle = new Map();
 
 function pickSafeContext(context = {}) {
   return Object.fromEntries(
@@ -127,6 +129,13 @@ function randomCorrelationId() {
   return `sec-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function monotonicNow() {
+  if (typeof performance !== "undefined" && typeof performance.now === "function") {
+    return performance.now();
+  }
+  return Date.now();
+}
+
 function resolveCorrelationId(detailPayload = null, safeContext = {}) {
   const explicit =
     safeContext.correlationId ||
@@ -151,6 +160,15 @@ function hostedSinkFunctionName() {
 }
 
 export async function invokeHostedSecurityLogSink(body) {
+  if (!supabase?.functions || typeof supabase.functions.invoke !== "function") {
+    return {
+      data: null,
+      error: {
+        code: "FunctionsUnavailable",
+        message: "Supabase edge functions client is unavailable",
+      },
+    };
+  }
   return supabase.functions.invoke(hostedSinkFunctionName(), { body });
 }
 
@@ -329,11 +347,45 @@ async function persistDeniedEvent(event, { error, context } = {}) {
 function isMissingHostedSink(error) {
   const message = String(error?.message || "").toLowerCase();
   return (
+    error?.code === "FunctionsUnavailable" ||
     error?.code === "FunctionsHttpError" ||
+    message.includes("edge functions client is unavailable") ||
     message.includes("function not found") ||
     message.includes("failed to send a request to the edge function") ||
     message.includes("ingest-security-observability")
   );
+}
+
+function shouldThrottleOperationalTelemetry(key, intervalMs = 60000) {
+  const now = Date.now();
+  const lastAt = operationalTelemetryThrottle.get(key) || 0;
+  if (now - lastAt < intervalMs) return true;
+  operationalTelemetryThrottle.set(key, now);
+  return false;
+}
+
+function shouldThrottleOperationalLatencySample(key, intervalMs = 15000) {
+  const now = Date.now();
+  const lastAt = operationalLatencySampleThrottle.get(key) || 0;
+  if (now - lastAt < intervalMs) return true;
+  operationalLatencySampleThrottle.set(key, now);
+  return false;
+}
+
+async function pushHostedOperationalTelemetry(payload) {
+  if (hostedSinkUnavailable || !shouldUseHostedSink()) return;
+
+  const { error } = await invokeHostedSecurityLogSink(payload);
+  if (!error) return;
+  if (isMissingHostedSink(error)) {
+    hostedSinkUnavailable = true;
+    return;
+  }
+
+  console.warn("[security-observe] hosted_operational_telemetry_failed", {
+    surface: payload.surface,
+    error: normalizeError(error),
+  });
 }
 
 async function pushHostedSecurityLog(classification) {
@@ -378,4 +430,111 @@ export function logSecurityRelevantFailure(event, { error, context } = {}) {
     context: classification.safeContext,
   });
   void pushHostedSecurityLog(classification);
+}
+
+export function startOperationalTimer() {
+  return monotonicNow();
+}
+
+export function logOperationalLatencySample(
+  event,
+  {
+    accountId,
+    surface,
+    durationMs,
+    targetMs,
+    entityType = null,
+    entityId = null,
+    context = {},
+  } = {},
+) {
+  const duration = Number(durationMs);
+  const target = Number(targetMs);
+  if (!accountId || !surface) return;
+  if (!Number.isFinite(duration)) return;
+
+  const safeContext = pickSafeContext({
+    ...context,
+    duration_ms: Math.round(duration),
+    target_ms: Number.isFinite(target) ? Math.round(target) : null,
+    operation: event,
+  });
+
+  const throttleKey = `${accountId}:${String(surface).trim().toLowerCase()}:${event}`;
+  if (shouldThrottleOperationalLatencySample(throttleKey)) return;
+
+  const payload = {
+    category: "root_telemetry",
+    kind: "latency_sample",
+    surface: String(surface).trim().toLowerCase(),
+    reason: "operational_latency",
+    outcome: Number.isFinite(target) && duration > target ? "degraded" : "ok",
+    code: null,
+    hint: null,
+    accountId,
+    entityType,
+    entityId,
+    correlationId: randomCorrelationId(),
+    source: "app_client_telemetry",
+    guardDenied: false,
+    context: safeContext,
+  };
+
+  void pushHostedOperationalTelemetry(payload);
+}
+
+export function logSlowOperationalTelemetry(
+  event,
+  {
+    accountId,
+    surface,
+    durationMs,
+    thresholdMs,
+    entityType = null,
+    entityId = null,
+    context = {},
+  } = {},
+) {
+  const duration = Number(durationMs);
+  const threshold = Number(thresholdMs);
+  if (!accountId || !surface) return;
+  if (!Number.isFinite(duration) || !Number.isFinite(threshold)) return;
+  if (duration < threshold) return;
+
+  const safeContext = pickSafeContext({
+    ...context,
+    duration_ms: Math.round(duration),
+    threshold_ms: Math.round(threshold),
+    operation: event,
+  });
+
+  const throttleKey = `${accountId}:${String(surface).trim().toLowerCase()}:${event}`;
+  if (shouldThrottleOperationalTelemetry(throttleKey)) return;
+
+  const payload = {
+    category: "root_telemetry",
+    kind: "latency_threshold_exceeded",
+    surface: String(surface).trim().toLowerCase(),
+    reason: "slow_response",
+    outcome: "slow",
+    code: null,
+    hint: null,
+    accountId,
+    entityType,
+    entityId,
+    correlationId: randomCorrelationId(),
+    source: "app_client_telemetry",
+    guardDenied: false,
+    context: safeContext,
+  };
+
+  console.warn("[security-observe] slow_operational_telemetry", {
+    event,
+    surface: payload.surface,
+    accountId,
+    durationMs: Math.round(duration),
+    thresholdMs: Math.round(threshold),
+  });
+
+  void pushHostedOperationalTelemetry(payload);
 }

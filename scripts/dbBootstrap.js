@@ -153,6 +153,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply support telemetry access overlay",
+    file: path.join(supabaseDir, "support_telemetry_access.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply security observability overlay",
     file: path.join(supabaseDir, "security_observability_events.sql"),
     onErrorStop: true,

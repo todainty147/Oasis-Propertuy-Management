@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
 import { rootListAccounts } from "../services/rootAccountService";
 import { finalizeSelfServeLandlordAccount } from "../services/selfServeSignupService";
+import { canAccessRootTelemetry, getRootTelemetryAccessMode } from "../utils/telemetryAccess";
 
 const AccountContext = createContext(null);
 
@@ -363,6 +364,12 @@ export function AccountProvider({ children }) {
     return null;
   }, [activeAccount, tenantContext, contractorContext, activeAccountId]);
 
+  const rootTelemetryAccessMode = useMemo(
+    () => getRootTelemetryAccessMode({ isRootOperator, activeRole, user }),
+    [activeRole, isRootOperator, user],
+  );
+  const canAccessTelemetry = rootTelemetryAccessMode !== "denied";
+
   /* ======================
      ACTIONS
      ====================== */
@@ -389,6 +396,9 @@ export function AccountProvider({ children }) {
         accountLoading,
 
         activeRole,
+        canAccessTelemetry,
+        rootTelemetryAccessMode,
+        isRootTelemetryAdmin: rootTelemetryAccessMode === "root",
 
         tenantContext,
         contractorContext,

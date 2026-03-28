@@ -1,5 +1,10 @@
 import { supabase } from "../lib/supabase";
-import { logSecurityRelevantFailure } from "./securityFailureLogger";
+import {
+  logOperationalLatencySample,
+  logSecurityRelevantFailure,
+  logSlowOperationalTelemetry,
+  startOperationalTimer,
+} from "./securityFailureLogger";
 import {
   EMPTY_FINANCE_SNAPSHOT,
   firstRpcRow,
@@ -22,6 +27,8 @@ function isMissingBackendObject(error) {
 
 export async function getFinanceSnapshot(accountId, tenantId = null) {
   if (!accountId) throw new Error("Missing accountId");
+  const startedAt = startOperationalTimer();
+  const thresholdMs = 1200;
 
   const { data, error } = await supabase.rpc("finance_snapshot", {
     p_account_id: accountId,
@@ -39,5 +46,20 @@ export async function getFinanceSnapshot(accountId, tenantId = null) {
     throw friendly(error, "Failed to load finance snapshot");
   }
 
+  const durationMs = startOperationalTimer() - startedAt;
+  logOperationalLatencySample("finance_snapshot", {
+    accountId,
+    surface: "finance",
+    durationMs,
+    targetMs: thresholdMs,
+    context: { hasTenantScope: Boolean(tenantId) },
+  });
+  logSlowOperationalTelemetry("finance_snapshot", {
+    accountId,
+    surface: "finance",
+    durationMs,
+    thresholdMs,
+    context: { hasTenantScope: Boolean(tenantId) },
+  });
   return parseFinanceSnapshotRow(firstRpcRow(data));
 }

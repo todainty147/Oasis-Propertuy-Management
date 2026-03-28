@@ -17,8 +17,9 @@ import {
   ChevronDown,
   ChevronRight,
   AlertCircle,
-  Zap,
-  Shield,
+    Zap,
+    Shield,
+    Activity,
 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
@@ -81,7 +82,7 @@ function AccountSwitcher() {
    ====================== */
 
 function SidebarContent({ onNavigate }) {
-  const { activeRole, activeAccountId, isRootOperator } = useAccount();
+  const { activeRole, activeAccountId, isRootOperator, canAccessTelemetry } = useAccount();
   const { user } = useAuth();
   const { t, lang, setLang } = useI18n();
   const { theme, setTheme } = useTheme();
@@ -293,6 +294,9 @@ function SidebarContent({ onNavigate }) {
                     <Item to="/settings/billing" icon={CreditCard} label={t("sidebar.billing")} onNavigate={onNavigate} />
                     <Item to="/settings/playbooks" icon={Zap} label={t("sidebar.playbooks")} onNavigate={onNavigate} />
                     <Item to="/settings/security-audit" icon={Shield} label={t("sidebar.securityAudit")} onNavigate={onNavigate} />
+                    {canAccessTelemetry ? (
+                      <Item to="/settings/root-telemetry" icon={Activity} label={t("sidebar.rootTelemetry")} onNavigate={onNavigate} />
+                    ) : null}
                     {role === "owner" && (
                       <Item to="/settings/branding" icon={Palette} label={t("sidebar.branding")} onNavigate={onNavigate} />
                     )}

@@ -10,7 +10,12 @@ import {
   firstRpcRow,
   parseWeeklyPortfolioSummaryRow,
 } from "./rpcContracts";
-import { logSecurityRelevantFailure } from "./securityFailureLogger";
+import {
+  logOperationalLatencySample,
+  logSecurityRelevantFailure,
+  logSlowOperationalTelemetry,
+  startOperationalTimer,
+} from "./securityFailureLogger";
 
 function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -28,6 +33,8 @@ function isMissingBackendObject(error) {
 
 export async function getWeeklyPortfolioSummary(accountId) {
   if (!accountId) throw new Error("Missing accountId");
+  const startedAt = startOperationalTimer();
+  const thresholdMs = 1800;
   const [{ data, error }, propertyHealthRows] = await Promise.all([
     supabase.rpc("portfolio_weekly_summary", {
       p_account_id: accountId,
@@ -51,6 +58,19 @@ export async function getWeeklyPortfolioSummary(accountId) {
   }
   const row = parseWeeklyPortfolioSummaryRow(firstRpcRow(data));
   const healthSummary = summarizePropertyOperationalHealth(propertyHealthRows);
+  const durationMs = startOperationalTimer() - startedAt;
+  logOperationalLatencySample("portfolio_weekly_summary", {
+    accountId,
+    surface: "portfolio_health",
+    durationMs,
+    targetMs: thresholdMs,
+  });
+  logSlowOperationalTelemetry("portfolio_weekly_summary", {
+    accountId,
+    surface: "portfolio_health",
+    durationMs,
+    thresholdMs,
+  });
   return {
     ...row,
     average_property_health_score: healthSummary.averageScore,

@@ -10,7 +10,12 @@ import {
   parseWorkOrderAuditLogRow,
   parseWorkOrderFinancialRow,
 } from "./rpcContracts";
-import { logSecurityRelevantFailure } from "./securityFailureLogger";
+import {
+  logOperationalLatencySample,
+  logSecurityRelevantFailure,
+  logSlowOperationalTelemetry,
+  startOperationalTimer,
+} from "./securityFailureLogger";
 
 function isMissingBackendObject(error) {
   const message = String(error?.message || "").toLowerCase();
@@ -320,6 +325,8 @@ export async function getMaintenanceTimelineEvents({
 
 export async function getMaintenanceKpiSnapshot(accountId) {
   if (!accountId) return null;
+  const startedAt = startOperationalTimer();
+  const thresholdMs = 1500;
   const { data, error } = await supabase.rpc("maintenance_kpi_snapshot", {
     p_account_id: accountId,
   });
@@ -333,6 +340,19 @@ export async function getMaintenanceKpiSnapshot(accountId) {
     });
     throw error;
   }
+  const durationMs = startOperationalTimer() - startedAt;
+  logOperationalLatencySample("maintenance_kpi_snapshot", {
+    accountId,
+    surface: "maintenance",
+    durationMs,
+    targetMs: thresholdMs,
+  });
+  logSlowOperationalTelemetry("maintenance_kpi_snapshot", {
+    accountId,
+    surface: "maintenance",
+    durationMs,
+    thresholdMs,
+  });
   return parseMaintenanceKpiSnapshotRow(firstRpcRow(data));
 }
 

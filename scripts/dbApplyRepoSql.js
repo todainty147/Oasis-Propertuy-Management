@@ -48,6 +48,7 @@ const OVERLAY_SEQUENCE = [
   "create_notifications.sql",
   "notifications_rpc_grants.sql",
   "payment_write_authorization.sql",
+  "support_telemetry_access.sql",
   "security_denied_event_stream.sql",
   "security_observability_events.sql",
   "security_failure_observability.sql",

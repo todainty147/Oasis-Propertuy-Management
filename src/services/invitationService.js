@@ -7,7 +7,12 @@ import {
   parseInvitationRow,
   parseRpcRows,
 } from "./rpcContracts";
-import { logSecurityRelevantFailure } from "./securityFailureLogger";
+import {
+  logOperationalLatencySample,
+  logSecurityRelevantFailure,
+  logSlowOperationalTelemetry,
+  startOperationalTimer,
+} from "./securityFailureLogger";
 
 function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -295,6 +300,8 @@ export async function revokeInvitation({ invitationId, accountId } = {}) {
 
 export async function acceptAccountInvite(token) {
   if (!token) throw new Error("Missing invite token");
+  const startedAt = startOperationalTimer();
+  const thresholdMs = 1500;
 
   const { data, error } = await supabase.rpc("accept_account_invite", {
     invite_token: token,
@@ -308,5 +315,21 @@ export async function acceptAccountInvite(token) {
     throw friendly(error, "Failed to accept invitation");
   }
 
-  return parseAcceptAccountInviteResult(data);
+  const result = parseAcceptAccountInviteResult(data);
+  const durationMs = startOperationalTimer() - startedAt;
+  logOperationalLatencySample("accept_account_invite", {
+    accountId: result.account_id,
+    surface: "invitations",
+    durationMs,
+    targetMs: thresholdMs,
+    context: { membershipCreated: Boolean(result.membership_created) },
+  });
+  logSlowOperationalTelemetry("accept_account_invite", {
+    accountId: result.account_id,
+    surface: "invitations",
+    durationMs,
+    thresholdMs,
+    context: { membershipCreated: Boolean(result.membership_created) },
+  });
+  return result;
 }

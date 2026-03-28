@@ -1,6 +1,11 @@
 import { supabase } from "../lib/supabase";
 import { formatCurrencyAmount } from "../utils/currency";
-import { logSecurityRelevantFailure } from "./securityFailureLogger";
+import {
+  logOperationalLatencySample,
+  logSecurityRelevantFailure,
+  logSlowOperationalTelemetry,
+  startOperationalTimer,
+} from "./securityFailureLogger";
 import {
   EMPTY_PORTFOLIO_HEALTH_SNAPSHOT,
   firstRpcRow,
@@ -27,6 +32,8 @@ function isMissingBackendObject(error) {
 
 export async function getPortfolioHealthSnapshot(accountId, tenantId = null) {
   if (!accountId) throw new Error("Missing accountId");
+  const startedAt = startOperationalTimer();
+  const thresholdMs = 1500;
 
   const { data, error } = await supabase.rpc("portfolio_health_snapshot", {
     p_account_id: accountId,
@@ -44,6 +51,21 @@ export async function getPortfolioHealthSnapshot(accountId, tenantId = null) {
     throw friendly(error, "Failed to load portfolio health snapshot");
   }
 
+  const durationMs = startOperationalTimer() - startedAt;
+  logOperationalLatencySample("portfolio_health_snapshot", {
+    accountId,
+    surface: "portfolio_health",
+    durationMs,
+    targetMs: thresholdMs,
+    context: { hasTenantScope: Boolean(tenantId) },
+  });
+  logSlowOperationalTelemetry("portfolio_health_snapshot", {
+    accountId,
+    surface: "portfolio_health",
+    durationMs,
+    thresholdMs,
+    context: { hasTenantScope: Boolean(tenantId) },
+  });
   return parsePortfolioHealthSnapshotRow(firstRpcRow(data));
 }
 

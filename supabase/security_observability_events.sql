@@ -122,7 +122,9 @@ create or replace function public.security_observability_event_feed(
   p_category text default null,
   p_kind text default null,
   p_surface text default null,
-  p_limit integer default 100
+  p_limit integer default 100,
+  p_since timestamptz default null,
+  p_until timestamptz default null
 )
 returns table (
   id uuid,
@@ -148,7 +150,7 @@ security definer
 set search_path = public
 as $$
   with authz as (
-    select public.assert_manage_account_access(p_account_id) as account_id
+    select public.assert_security_observability_feed_access(p_account_id) as account_id
   ),
   cfg as (
     select greatest(1, least(coalesce(p_limit, 100), 200)) as row_limit
@@ -177,12 +179,196 @@ as $$
     and (nullif(lower(trim(coalesce(p_category, ''))), '') is null or e.category = lower(trim(p_category)))
     and (nullif(lower(trim(coalesce(p_kind, ''))), '') is null or e.kind = lower(trim(p_kind)))
     and (nullif(lower(trim(coalesce(p_surface, ''))), '') is null or e.surface = lower(trim(p_surface)))
+    and (p_since is null or e.created_at >= p_since)
+    and (p_until is null or e.created_at < p_until)
   order by e.created_at desc
   limit (select row_limit from cfg);
 $$;
 
-comment on function public.security_observability_event_feed(uuid, text, text, text, integer) is
-  'Manager-safe query surface for recent hosted security observability events scoped to a single account.';
+comment on function public.security_observability_event_feed(uuid, text, text, text, integer, timestamptz, timestamptz) is
+  'Account-operator-safe query surface for recent hosted security observability events scoped to a single account, with optional time-range filters.';
 
-revoke all on function public.security_observability_event_feed(uuid, text, text, text, integer) from public;
-grant execute on function public.security_observability_event_feed(uuid, text, text, text, integer) to authenticated;
+revoke all on function public.security_observability_event_feed(uuid, text, text, text, integer, timestamptz, timestamptz) from public;
+grant execute on function public.security_observability_event_feed(uuid, text, text, text, integer, timestamptz, timestamptz) to authenticated;
+
+create or replace function public.security_observability_latency_rollup(
+  p_account_id uuid,
+  p_since timestamptz,
+  p_until timestamptz,
+  p_surface text default null
+)
+returns table (
+  surface text,
+  sample_count bigint,
+  slow_count bigint,
+  p50_duration_ms numeric,
+  p95_duration_ms numeric,
+  max_duration_ms numeric,
+  target_ms integer,
+  latest_seen_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+  with authz as (
+    select public.assert_root_telemetry_access(p_account_id) as account_id
+  ),
+  filtered as (
+    select
+      e.surface,
+      e.kind,
+      e.created_at,
+      nullif(e.metadata->>'duration_ms', '')::numeric as duration_ms,
+      nullif(coalesce(e.metadata->>'target_ms', e.metadata->>'threshold_ms'), '')::integer as target_ms
+    from public.security_observability_events e
+    cross join authz a
+    where e.account_id = a.account_id
+      and e.created_at >= p_since
+      and e.created_at < p_until
+      and e.kind in ('latency_sample', 'latency_threshold_exceeded')
+      and (nullif(lower(trim(coalesce(p_surface, ''))), '') is null or e.surface = lower(trim(p_surface)))
+  )
+  select
+    f.surface,
+    count(*) filter (where f.kind = 'latency_sample') as sample_count,
+    count(*) filter (where f.kind = 'latency_threshold_exceeded') as slow_count,
+    percentile_disc(0.5) within group (order by f.duration_ms)
+      filter (where f.kind = 'latency_sample' and f.duration_ms is not null) as p50_duration_ms,
+    percentile_disc(0.95) within group (order by f.duration_ms)
+      filter (where f.kind = 'latency_sample' and f.duration_ms is not null) as p95_duration_ms,
+    max(f.duration_ms) as max_duration_ms,
+    max(f.target_ms) as target_ms,
+    max(f.created_at) as latest_seen_at
+  from filtered f
+  group by f.surface
+  order by
+    count(*) filter (where f.kind = 'latency_threshold_exceeded') desc,
+    percentile_disc(0.95) within group (order by f.duration_ms)
+      filter (where f.kind = 'latency_sample' and f.duration_ms is not null) desc nulls last,
+    max(f.created_at) desc;
+$$;
+
+comment on function public.security_observability_latency_rollup(uuid, timestamptz, timestamptz, text) is
+  'Root/support-safe aggregated latency rollup for hosted telemetry over a bounded time range.';
+
+revoke all on function public.security_observability_latency_rollup(uuid, timestamptz, timestamptz, text) from public;
+grant execute on function public.security_observability_latency_rollup(uuid, timestamptz, timestamptz, text) to authenticated;
+
+create or replace function public.security_observability_burst_rollup(
+  p_account_id uuid,
+  p_since timestamptz,
+  p_until timestamptz,
+  p_surface text default null
+)
+returns table (
+  surface text,
+  reason text,
+  burst_count bigint,
+  denials bigint,
+  failures bigint,
+  slow_count bigint,
+  latest_seen_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+  with authz as (
+    select public.assert_root_telemetry_access(p_account_id) as account_id
+  ),
+  filtered as (
+    select
+      e.surface,
+      coalesce(nullif(e.reason, ''), e.kind) as reason_key,
+      e.kind,
+      e.created_at
+    from public.security_observability_events e
+    cross join authz a
+    where e.account_id = a.account_id
+      and e.created_at >= p_since
+      and e.created_at < p_until
+      and e.kind in ('authorization_denied', 'unexpected_security_failure', 'latency_threshold_exceeded')
+      and (nullif(lower(trim(coalesce(p_surface, ''))), '') is null or e.surface = lower(trim(p_surface)))
+  )
+  select
+    f.surface,
+    f.reason_key as reason,
+    count(*) as burst_count,
+    count(*) filter (where f.kind = 'authorization_denied') as denials,
+    count(*) filter (where f.kind = 'unexpected_security_failure') as failures,
+    count(*) filter (where f.kind = 'latency_threshold_exceeded') as slow_count,
+    max(f.created_at) as latest_seen_at
+  from filtered f
+  group by f.surface, f.reason_key
+  having count(*) >= 2
+  order by count(*) desc, max(f.created_at) desc;
+$$;
+
+comment on function public.security_observability_burst_rollup(uuid, timestamptz, timestamptz, text) is
+  'Root/support-safe aggregated burst-pressure rollup for repeated denial, failure, and slow-threshold signals over a bounded time range.';
+
+revoke all on function public.security_observability_burst_rollup(uuid, timestamptz, timestamptz, text) from public;
+grant execute on function public.security_observability_burst_rollup(uuid, timestamptz, timestamptz, text) to authenticated;
+
+create or replace function public.security_observability_trend_series(
+  p_account_id uuid,
+  p_since timestamptz,
+  p_until timestamptz,
+  p_bucket_minutes integer default 10
+)
+returns table (
+  bucket_start timestamptz,
+  total_signals bigint,
+  denials bigint,
+  failures bigint,
+  slow_count bigint
+)
+language sql
+security definer
+set search_path = public
+as $$
+  with authz as (
+    select public.assert_root_telemetry_access(p_account_id) as account_id
+  ),
+  cfg as (
+    select greatest(1, least(coalesce(p_bucket_minutes, 10), 1440)) as bucket_minutes
+  ),
+  buckets as (
+    select generate_series(
+      p_since,
+      p_until - make_interval(mins => (select bucket_minutes from cfg)),
+      make_interval(mins => (select bucket_minutes from cfg))
+    ) as bucket_start
+  ),
+  grouped as (
+    select
+      date_bin(make_interval(mins => (select bucket_minutes from cfg)), e.created_at, p_since) as bucket_start,
+      count(*) as total_signals,
+      count(*) filter (where e.kind = 'authorization_denied') as denials,
+      count(*) filter (where e.kind = 'unexpected_security_failure') as failures,
+      count(*) filter (where e.kind = 'latency_threshold_exceeded') as slow_count
+    from public.security_observability_events e
+    cross join authz a
+    where e.account_id = a.account_id
+      and e.created_at >= p_since
+      and e.created_at < p_until
+      and e.kind in ('authorization_denied', 'unexpected_security_failure', 'latency_threshold_exceeded')
+    group by 1
+  )
+  select
+    b.bucket_start,
+    coalesce(g.total_signals, 0) as total_signals,
+    coalesce(g.denials, 0) as denials,
+    coalesce(g.failures, 0) as failures,
+    coalesce(g.slow_count, 0) as slow_count
+  from buckets b
+  left join grouped g on g.bucket_start = b.bucket_start
+  order by b.bucket_start asc;
+$$;
+
+comment on function public.security_observability_trend_series(uuid, timestamptz, timestamptz, integer) is
+  'Root/support-safe bucketed signal trend series for hosted observability telemetry over a bounded time range.';
+
+revoke all on function public.security_observability_trend_series(uuid, timestamptz, timestamptz, integer) from public;
+grant execute on function public.security_observability_trend_series(uuid, timestamptz, timestamptz, integer) to authenticated;
