@@ -4421,8 +4421,14 @@ CREATE FUNCTION public.dashboard_hub_extras(p_account_id uuid, p_tenant_id uuid 
     AS $$
 declare
   v_tenant_id uuid;
+  v_account_id uuid;
 begin
   v_tenant_id := public.assert_tenant_scope_access(p_account_id, p_tenant_id);
+  if p_tenant_id is null then
+    v_account_id := public.assert_manage_account_access(p_account_id);
+  else
+    v_account_id := p_account_id;
+  end if;
 
   return query
   with cfg as (
@@ -4527,7 +4533,7 @@ begin
         ) / 86400
       )::int as days_vacant
     from properties p
-    where p.account_id = p_account_id
+    where p.account_id = v_account_id
       and (
         v_tenant_id is null
         or p.id = (select property_id from tenant_scope)
@@ -4987,10 +4993,10 @@ begin
   end if;
 
   insert into public.document_audit_log (
-    document_id, action, performed_by, performed_at, account_id, created_at
+    document_id, action, performed_by, performed_at, account_id, property_id, tenant_id, created_at
   )
   values (
-    v_doc.id, 'delete', p_actor_user_id, now(), v_doc.account_id, now()
+    v_doc.id, 'delete', p_actor_user_id, now(), v_doc.account_id, v_doc.property_id, v_doc.tenant_id, now()
   );
 
   delete from public.documents where id = v_doc.id;
@@ -5371,6 +5377,8 @@ begin
     performed_by,
     performed_at,
     account_id,
+    property_id,
+    tenant_id,
     created_at
   )
   values (
@@ -5379,6 +5387,8 @@ begin
     p_actor_user_id,
     now(),
     v_doc.account_id,
+    v_doc.property_id,
+    v_doc.tenant_id,
     now()
   );
 
@@ -6311,6 +6321,8 @@ begin
     action,
     performed_by,
     account_id,
+    property_id,
+    tenant_id,
     created_at
   )
   values (
@@ -6318,6 +6330,8 @@ begin
     'delete',
     auth.uid(),
     old.account_id,
+    old.property_id,
+    old.tenant_id,
     now()
   );
 
@@ -7218,7 +7232,7 @@ begin
       coalesce(p.amount, 0) as amount
     from payments p
     left join properties pr on pr.id = p.property_id
-    where p.account_id = p_account_id
+    where p.account_id = v_account_id
       and (
         v_tenant_id is null
         or p.tenant_id = v_tenant_id
@@ -7242,7 +7256,7 @@ begin
       coalesce(p.amount, 0) as amount
     from payments p
     left join properties pr on pr.id = p.property_id
-    where p.account_id = p_account_id
+    where p.account_id = v_account_id
       and (
         v_tenant_id is null
         or p.tenant_id = v_tenant_id
@@ -7259,7 +7273,7 @@ begin
       r.id,
       r.title
     from maintenance_requests r
-    where r.account_id = p_account_id
+    where r.account_id = v_account_id
       and (
         v_tenant_id is null
         or r.property_id = (select property_id from tenant_scope)
@@ -9819,10 +9833,10 @@ begin
 
   -- Optional audit entry (uses allowed action values)
   insert into public.document_audit_log (
-    document_id, action, performed_by, performed_at, account_id, created_at
+    document_id, action, performed_by, performed_at, account_id, property_id, tenant_id, created_at
   )
   values (
-    v_doc.id, 'download', p_actor_user_id, now(), v_doc.account_id, now()
+    v_doc.id, 'download', p_actor_user_id, now(), v_doc.account_id, v_doc.property_id, v_doc.tenant_id, now()
   );
 
   return v_doc;
@@ -14535,6 +14549,8 @@ CREATE TABLE public.document_audit_log (
     performed_by uuid NOT NULL,
     performed_at timestamp with time zone DEFAULT now(),
     account_id uuid NOT NULL,
+    property_id uuid,
+    tenant_id uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT document_audit_log_action_check CHECK ((action = ANY (ARRAY['upload'::text, 'delete'::text, 'download'::text, 'update_tags'::text])))
 );
@@ -18400,6 +18416,20 @@ CREATE INDEX document_audit_log_account_id_idx ON public.document_audit_log USIN
 
 
 --
+-- Name: document_audit_log_property_id_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX document_audit_log_property_id_idx ON public.document_audit_log USING btree (property_id);
+
+
+--
+-- Name: document_audit_log_tenant_id_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX document_audit_log_tenant_id_idx ON public.document_audit_log USING btree (tenant_id);
+
+
+--
 -- Name: document_audit_owner_id_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -19875,6 +19905,22 @@ ALTER TABLE ONLY public.document_audit_log
 
 ALTER TABLE ONLY public.document_audit_log
     ADD CONSTRAINT document_audit_log_document_id_fkey FOREIGN KEY (document_id) REFERENCES public.documents(id) ON DELETE CASCADE;
+
+
+--
+-- Name: document_audit_log document_audit_log_property_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.document_audit_log
+    ADD CONSTRAINT document_audit_log_property_id_fkey FOREIGN KEY (property_id) REFERENCES public.properties(id);
+
+
+--
+-- Name: document_audit_log document_audit_log_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.document_audit_log
+    ADD CONSTRAINT document_audit_log_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --

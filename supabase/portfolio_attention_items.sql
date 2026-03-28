@@ -23,7 +23,10 @@ as $$
   ),
   authz as (
     select
-      p_account_id as account_id,
+      case
+        when p_tenant_id is null then public.assert_manage_account_access(p_account_id)
+        else p_account_id
+      end as account_id,
       public.assert_tenant_scope_access(p_account_id, p_tenant_id) as tenant_id
   ),
   tenant_scope as (
@@ -46,9 +49,10 @@ as $$
         where t.property_id = p.id
       ) as is_vacant
     from properties p
+    cross join authz a
     where p.account_id = p_account_id
       and (
-        p_tenant_id is null
+        a.tenant_id is null
         or p.id = (select property_id from tenant_scope)
       )
   ),
@@ -81,11 +85,12 @@ as $$
       coalesce(pr.city, '') as city,
       coalesce(p.amount, 0) as amount
     from payments p
+    cross join authz a
     left join properties pr on pr.id = p.property_id
-    where p.account_id = p_account_id
+    where p.account_id = a.account_id
       and (
-        p_tenant_id is null
-        or p.tenant_id = p_tenant_id
+        a.tenant_id is null
+        or p.tenant_id = a.tenant_id
       )
       and (
         lower(coalesce(p.status, '')) in ('overdue', 'zalegle', 'zaległe')
@@ -105,11 +110,12 @@ as $$
       coalesce(pr.city, '') as city,
       coalesce(p.amount, 0) as amount
     from payments p
+    cross join authz a
     left join properties pr on pr.id = p.property_id
-    where p.account_id = p_account_id
+    where p.account_id = a.account_id
       and (
-        p_tenant_id is null
-        or p.tenant_id = p_tenant_id
+        a.tenant_id is null
+        or p.tenant_id = a.tenant_id
       )
       and lower(coalesce(p.status, '')) not in ('paid', 'oplacone', 'opłacone')
       and p.due_date is not null
@@ -123,9 +129,10 @@ as $$
       r.id,
       r.title
     from maintenance_requests r
-    where r.account_id = p_account_id
+    cross join authz a
+    where r.account_id = a.account_id
       and (
-        p_tenant_id is null
+        a.tenant_id is null
         or r.property_id = (select property_id from tenant_scope)
       )
       and lower(coalesce(r.status, '')) not in ('closed', 'zamkniete', 'zamknięte')

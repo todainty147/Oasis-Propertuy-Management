@@ -20,6 +20,29 @@ The biggest gap is not schema capability. It is operational maturity:
 
 The only recommendation that looks genuinely heavy on the current schema is large-scale partitioning by account.
 
+## Current Milestone
+
+### Operator Observability UX
+
+Current objective:
+
+- turn security observability into an operator-friendly triage surface
+- improve investigation speed without changing schema semantics
+- build on the existing `security_denied_events`, `security_observability_events`, and manager-safe feed RPCs
+
+Scope for this milestone:
+
+- clearer hosted-event summaries
+- one-click investigation paths from hosted events into the account-scoped ledger
+- better correlation, entity, and reason context in the audit UI
+- keep the current lightweight contract layer as-is while this UX slice lands
+
+Success criteria:
+
+- managers can quickly tell what kind of security event happened
+- managers can focus the ledger to related entity context from the observability feed
+- hosted-event rows read like actionable incidents rather than raw machine output
+
 ## Roadmap Table
 
 | Idea | Current Schema Support | Effort | Recommended Timing | Why Now / Why Later |

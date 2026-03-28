@@ -4,6 +4,7 @@ import { isolationFixtures } from "../fixtures/isolationFixtures.js";
 import {
   ensureIsolationHarnessSeed,
   getIntegrationAdminClient,
+  isolationSeedDates,
   signInAsFixtureUser,
 } from "./helpers/localSupabaseHarness.js";
 import { isIntegrationHarnessConfigured } from "./helpers/env.js";
@@ -80,7 +81,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("finance_snapshot isolation",
 
     const { data: seededPayment, error: seededPaymentError } = await admin
       .from("payments")
-      .select("owner_id")
+      .select("owner_id,due_date")
       .eq("id", "66666666-6666-6666-6666-666666666661")
       .single();
 
@@ -93,8 +94,8 @@ describe.skipIf(!isIntegrationHarnessConfigured())("finance_snapshot isolation",
       tenant_id: isolationFixtures.users.tenantA1.tenantId,
       amount: 300,
       status: "paid",
-      due_date: "2026-03-20",
-      paid_at: "2026-03-20",
+      due_date: seededPayment.due_date,
+      paid_at: isolationSeedDates.partialPaymentPaidAt,
     }, {
       onConflict: "id",
     });
@@ -119,7 +120,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("finance_snapshot isolation",
     );
     expect(propertyRow.paid).toBe(Number(beforePropertyRow?.paid || 0) + expectedDelta);
     expect(propertyRow.remaining).toBe(Number(beforePropertyRow?.remaining || 0) - expectedDelta);
-    expect(propertyRow.paymentStatus).toBe("Częściowo");
+    expect(propertyRow.paymentStatus).toBe("partial");
   });
 
   it("returns zeroed finance data when account A owner passes a foreign tenant id", async () => {

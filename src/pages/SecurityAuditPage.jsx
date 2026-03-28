@@ -81,7 +81,15 @@ function alertStatusFromSearchParams(searchParams) {
   return ["active", "open", "acknowledged", "resolved"].includes(value) ? value : "active";
 }
 
-function buildSearchParams(filters, page, selectedEventId, alertStatus) {
+function focusedAlertIdFromSearchParams(searchParams) {
+  return searchParams.get("alert") || "";
+}
+
+function focusedHostedEventIdFromSearchParams(searchParams) {
+  return searchParams.get("hosted") || "";
+}
+
+export function buildSearchParams(filters, page, selectedEventId, alertStatus, focusedAlertId, focusedHostedEventId) {
   const params = new URLSearchParams();
   if (filters.dateFrom) params.set("from", filters.dateFrom);
   if (filters.dateTo) params.set("to", filters.dateTo);
@@ -92,6 +100,8 @@ function buildSearchParams(filters, page, selectedEventId, alertStatus) {
   if (alertStatus && alertStatus !== "active") params.set("alertStatus", alertStatus);
   if (page > 1) params.set("page", String(page));
   if (selectedEventId) params.set("event", selectedEventId);
+  if (focusedAlertId) params.set("alert", focusedAlertId);
+  if (focusedHostedEventId) params.set("hosted", focusedHostedEventId);
   return params;
 }
 
@@ -263,6 +273,60 @@ function DetailField({ label, value }) {
   );
 }
 
+export function InvestigationContextStrip({
+  summary,
+  focusedHostedEvent,
+  focusedAnomalyAlert,
+  selectedEvent,
+  onClear,
+  t,
+}) {
+  return (
+    <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-900/60 dark:bg-blue-950/30">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-blue-700 dark:text-blue-200">
+            {t("securityAudit.investigationContext.title")}
+          </p>
+          <p className="mt-1 text-sm text-blue-900 dark:text-blue-100">
+            {summary || t("securityAudit.investigationContext.empty")}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {focusedHostedEvent ? (
+              <span
+                className={`rounded-full border px-2 py-1 text-xs ${hostedEventSeverityTone(
+                  hostedEventSeverity(focusedHostedEvent),
+                )}`}
+              >
+                {describeHostedEventSeverity(hostedEventSeverity(focusedHostedEvent), t)}
+              </span>
+            ) : null}
+            {focusedAnomalyAlert ? (
+              <span className={`rounded-full border px-2 py-1 text-xs ${anomalySeverityTone(focusedAnomalyAlert.severity)}`}>
+                {t("securityAudit.investigationContext.badgeAnomaly", {
+                  severity: String(focusedAnomalyAlert.severity || "info"),
+                })}
+              </span>
+            ) : null}
+            {selectedEvent ? (
+              <span className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                {t("securityAudit.investigationContext.badgeLedger")}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClear}
+          className="rounded-lg border border-blue-300 bg-white/70 px-3 py-2 text-sm text-blue-700 transition hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-100 dark:hover:bg-blue-900/60"
+        >
+          {t("securityAudit.investigationContext.clear")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function anomalySeverityTone(severity) {
   const normalized = String(severity || "").toLowerCase();
   if (normalized === "urgent") {
@@ -293,6 +357,398 @@ function hostedEventKindTone(kind) {
   return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200";
 }
 
+function humanizeIdentifier(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function startCase(value) {
+  return humanizeIdentifier(value)
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function normalizeSecurityKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+}
+
+function describeHostedEventSurface(surface, t) {
+  const normalized = normalizeSecurityKey(surface);
+
+  if (!normalized) {
+    return t("securityAudit.hostedEvents.summary.unknownSurface");
+  }
+  if (normalized.includes("command_center")) {
+    return t("securityAudit.hostedEvents.surface.commandCenter");
+  }
+  if (normalized.includes("attention_center")) {
+    return t("securityAudit.hostedEvents.surface.attentionCenter");
+  }
+  if (normalized.includes("portfolio")) {
+    return t("securityAudit.hostedEvents.surface.portfolioHealth");
+  }
+  if (normalized.includes("dashboard")) {
+    return t("securityAudit.hostedEvents.surface.dashboard");
+  }
+  if (normalized.includes("finance") || normalized.includes("payment")) {
+    return t("securityAudit.hostedEvents.surface.finance");
+  }
+  if (normalized.includes("document") || normalized.includes("storage")) {
+    return t("securityAudit.hostedEvents.surface.documents");
+  }
+  if (normalized.includes("invite")) {
+    return t("securityAudit.hostedEvents.surface.invitations");
+  }
+  if (normalized.includes("maintenance")) {
+    return t("securityAudit.hostedEvents.surface.maintenance");
+  }
+  if (normalized.includes("work_order")) {
+    return t("securityAudit.hostedEvents.surface.workOrders");
+  }
+  if (normalized.includes("contractor")) {
+    return t("securityAudit.hostedEvents.surface.contractorPortal");
+  }
+  if (normalized.includes("tenant")) {
+    return t("securityAudit.hostedEvents.surface.tenantPortal");
+  }
+  if (normalized.includes("notification")) {
+    return t("securityAudit.hostedEvents.surface.notifications");
+  }
+  if (normalized.includes("security_audit")) {
+    return t("securityAudit.hostedEvents.surface.securityAudit");
+  }
+
+  return startCase(surface);
+}
+
+function describeHostedEventReason(reason, t) {
+  const normalized = normalizeSecurityKey(reason);
+
+  if (!normalized) {
+    return "—";
+  }
+  if (normalized.includes("guard") || normalized.includes("denied")) {
+    return t("securityAudit.hostedEvents.reason.guardDenied");
+  }
+  if (normalized.includes("rls") || normalized.includes("policy")) {
+    return t("securityAudit.hostedEvents.reason.rlsDenied");
+  }
+  if (normalized.includes("scope")) {
+    return t("securityAudit.hostedEvents.reason.scopeMismatch");
+  }
+  if (normalized.includes("auth")) {
+    return t("securityAudit.hostedEvents.reason.authRequired");
+  }
+  if (normalized.includes("not_found") || normalized.includes("missing")) {
+    return t("securityAudit.hostedEvents.reason.recordUnavailable");
+  }
+  if (normalized.includes("timeout")) {
+    return t("securityAudit.hostedEvents.reason.timeout");
+  }
+  if (normalized.includes("invalid") || normalized.includes("validation")) {
+    return t("securityAudit.hostedEvents.reason.invalidRequest");
+  }
+  if (normalized.includes("error") || normalized.includes("unexpected")) {
+    return t("securityAudit.hostedEvents.reason.unexpectedFailure");
+  }
+
+  return startCase(reason);
+}
+
+function describeHostedEventKind(kind, t) {
+  const normalized = normalizeSecurityKey(kind);
+  if (normalized === "authorization_denied") {
+    return t("securityAudit.hostedEvents.kind.authorizationDenied");
+  }
+  if (normalized === "unexpected_security_failure") {
+    return t("securityAudit.hostedEvents.kind.unexpectedFailure");
+  }
+  return startCase(kind) || "—";
+}
+
+function hostedEventSeverity(row) {
+  const normalizedKind = normalizeSecurityKey(row?.kind);
+  if (row?.guard_denied || normalizedKind === "authorization_denied") {
+    return "urgent";
+  }
+  if (normalizedKind === "unexpected_security_failure") {
+    return "action";
+  }
+  return "info";
+}
+
+function hostedEventSeverityTone(level) {
+  if (level === "urgent") {
+    return anomalySeverityTone("urgent");
+  }
+  if (level === "action") {
+    return anomalySeverityTone("action");
+  }
+  return "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300";
+}
+
+function describeHostedEventSeverity(level, t) {
+  if (level === "urgent") return t("securityAudit.severity.urgent");
+  if (level === "action") return t("securityAudit.severity.action");
+  return t("securityAudit.severity.info");
+}
+
+function hostedEventRecommendationTone(kind) {
+  const normalized = normalizeSecurityKey(kind);
+  if (normalized === "authorization_denied") {
+    return "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200";
+  }
+  return "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/60 dark:bg-violet-950/40 dark:text-violet-200";
+}
+
+function describeHostedEventRecommendation(row, t) {
+  const normalizedKind = normalizeSecurityKey(row?.kind);
+  if (normalizedKind === "authorization_denied") {
+    return t("securityAudit.hostedEvents.recommendation.verifyScope");
+  }
+  return t("securityAudit.hostedEvents.recommendation.traceFailure");
+}
+
+function buildHostedEventSummary(row, t) {
+  const kind = String(row?.kind || "").trim().toLowerCase();
+  const surface = describeHostedEventSurface(row?.surface, t);
+  const entityType = startCase(row?.entity_type) || t("securityAudit.hostedEvents.summary.unknownEntity");
+
+  if (kind === "authorization_denied") {
+    return t("securityAudit.hostedEvents.summary.authorizationDenied", {
+      surface,
+      entityType,
+    });
+  }
+
+  return t("securityAudit.hostedEvents.summary.unexpectedFailure", {
+    surface,
+    entityType,
+  });
+}
+
+function buildHostedEventContext(row, t) {
+  const parts = [];
+
+  if (row?.guard_denied) {
+    parts.push(t("securityAudit.hostedEvents.context.guardDenied"));
+  }
+  if (row?.reason) {
+    parts.push(t("securityAudit.hostedEvents.context.reason", { reason: describeHostedEventReason(row.reason, t) }));
+  }
+  if (row?.entity_type || row?.entity_id) {
+    parts.push(
+      t("securityAudit.hostedEvents.context.entity", {
+        entityType: startCase(row?.entity_type) || t("securityAudit.hostedEvents.summary.unknownEntity"),
+        entityId: shortenId(row?.entity_id),
+      }),
+    );
+  }
+  if (row?.correlation_id) {
+    parts.push(
+      t("securityAudit.hostedEvents.context.correlation", {
+        correlationId: shortenId(row.correlation_id),
+      }),
+    );
+  }
+
+  return parts.filter(Boolean).join(" • ") || t("securityAudit.metadata.empty");
+}
+
+function summarizeHostedEvents(rows) {
+  const summary = {
+    total: rows.length,
+    denied: 0,
+    unexpected: 0,
+    guardDenied: 0,
+    topSurface: "",
+  };
+
+  const surfaceCounts = new Map();
+  for (const row of rows) {
+    const kind = String(row?.kind || "").trim().toLowerCase();
+    const surface = String(row?.surface || "").trim();
+    if (kind === "authorization_denied") summary.denied += 1;
+    if (kind === "unexpected_security_failure") summary.unexpected += 1;
+    if (row?.guard_denied) summary.guardDenied += 1;
+    if (surface) {
+      surfaceCounts.set(surface, (surfaceCounts.get(surface) || 0) + 1);
+    }
+  }
+
+  summary.topSurface =
+    Array.from(surfaceCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+
+  return summary;
+}
+
+function buildHostedEventRecommendedAction(row, t) {
+  const kind = String(row?.kind || "").trim().toLowerCase();
+  const surface = describeHostedEventSurface(row?.surface, t);
+
+  if (kind === "authorization_denied") {
+    return t("securityAudit.hostedEvents.recommendedAction.authorizationDenied", {
+      surface: surface || t("securityAudit.hostedEvents.summary.unknownSurface"),
+    });
+  }
+
+  return t("securityAudit.hostedEvents.recommendedAction.unexpectedFailure", {
+    surface: surface || t("securityAudit.hostedEvents.summary.unknownSurface"),
+  });
+}
+
+function buildAnomalyRecommendedAction(alert, t) {
+  const severity = String(alert?.severity || "").trim().toLowerCase();
+  const classification = String(alert?.classification || "").trim().toLowerCase();
+
+  if (severity === "urgent") {
+    return t("securityAudit.anomaly.recommendedAction.urgent");
+  }
+  if (classification === "suspicious") {
+    return t("securityAudit.anomaly.recommendedAction.suspicious");
+  }
+  if (classification === "false_positive") {
+    return t("securityAudit.anomaly.recommendedAction.falsePositive");
+  }
+  return t("securityAudit.anomaly.recommendedAction.default");
+}
+
+function groupHostedEventCorrelations(rows, limit = 4) {
+  const groups = new Map();
+
+  for (const row of rows) {
+    const surface = String(row?.surface || "").trim().toLowerCase();
+    const entityType = String(row?.entity_type || "").trim().toLowerCase();
+    const reason = String(row?.reason || "").trim().toLowerCase();
+    const key = `${surface}::${entityType}::${reason}`;
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        surface,
+        entityType,
+        reason,
+        count: 0,
+        latestAt: "",
+        latestRow: null,
+      });
+    }
+
+    const group = groups.get(key);
+    group.count += 1;
+    if (!group.latestAt || String(row?.created_at || "") > group.latestAt) {
+      group.latestAt = String(row?.created_at || "");
+      group.latestRow = row;
+    }
+  }
+
+  return Array.from(groups.values())
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return String(b.latestAt).localeCompare(String(a.latestAt));
+    })
+    .slice(0, limit);
+}
+
+export function findRelatedAnomalyAlertForHostedEvent(row, alerts) {
+  const entityType = normalizeSecurityKey(row?.entity_type);
+  const entityId = String(row?.entity_id || "").trim();
+  const eventId = String(row?.id || "").trim();
+
+  return (
+    alerts.find((alert) => {
+      const recommended = alert?.metadata?.recommended_filters || {};
+      const alertEntityType = normalizeSecurityKey(alert?.entityType || recommended.entityType);
+      const alertEntityId = String(recommended.entityId || "").trim();
+      const latestEventId = String(alert?.metadata?.latest_event_id || "").trim();
+
+      if (eventId && latestEventId && eventId === latestEventId) return true;
+      return Boolean(entityType && entityId && alertEntityType === entityType && alertEntityId === entityId);
+    }) || null
+  );
+}
+
+export function findRelatedHostedEventForAnomalyAlert(alert, rows) {
+  const recommended = alert?.metadata?.recommended_filters || {};
+  const entityType = normalizeSecurityKey(alert?.entityType || recommended.entityType);
+  const entityId = String(recommended.entityId || "").trim();
+  const latestEventId = String(alert?.metadata?.latest_event_id || "").trim();
+
+  return (
+    rows.find((row) => {
+      const rowId = String(row?.id || "").trim();
+      if (latestEventId && rowId && latestEventId === rowId) return true;
+
+      const rowEntityType = normalizeSecurityKey(row?.entity_type);
+      const rowEntityId = String(row?.entity_id || "").trim();
+      return Boolean(entityType && entityId && rowEntityType === entityType && rowEntityId === entityId);
+    }) || null
+  );
+}
+
+function buildInvestigationContextSummary({
+  hostedEvent,
+  anomalyAlert,
+  selectedEvent,
+  filters,
+  t,
+}) {
+  const entityType =
+    hostedEvent?.entity_type ||
+    anomalyAlert?.entityType ||
+    selectedEvent?.entity_type ||
+    filters.entityType ||
+    "";
+  const entityId =
+    hostedEvent?.entity_id ||
+    anomalyAlert?.metadata?.recommended_filters?.entityId ||
+    selectedEvent?.entity_id ||
+    filters.entityId ||
+    "";
+
+  const parts = [];
+
+  if (entityType) {
+    parts.push(
+      t("securityAudit.investigationContext.entity", {
+        entityType: startCase(entityType),
+        entityId: entityId ? shortenId(entityId) : "—",
+      }),
+    );
+  }
+  if (hostedEvent) {
+    parts.push(
+      t("securityAudit.investigationContext.hostedEvent", {
+        kind: describeHostedEventKind(hostedEvent.kind, t),
+      }),
+    );
+  }
+  if (anomalyAlert) {
+    parts.push(
+      t("securityAudit.investigationContext.anomaly", {
+        title: anomalyAlert.title || t("securityAudit.anomaliesTitle"),
+      }),
+    );
+  }
+  if (selectedEvent) {
+    parts.push(
+      t("securityAudit.investigationContext.ledgerEvent", {
+        action: selectedEvent.action || "—",
+      }),
+    );
+  }
+
+  return parts.join(" • ");
+}
+
 export default function SecurityAuditPage() {
   const { setTitle } = usePageTitle();
   const { t } = useI18n();
@@ -320,6 +776,8 @@ export default function SecurityAuditPage() {
   const [anomalyAlertsTotal, setAnomalyAlertsTotal] = useState(0);
   const [anomalyAlertsPage, setAnomalyAlertsPage] = useState(1);
   const [anomalyAlertsPageSize, setAnomalyAlertsPageSize] = useState(5);
+  const [focusedAlertId, setFocusedAlertId] = useState(() => focusedAlertIdFromSearchParams(searchParams));
+  const [focusedHostedEventId, setFocusedHostedEventId] = useState(() => focusedHostedEventIdFromSearchParams(searchParams));
   const [exportJobsTotal, setExportJobsTotal] = useState(0);
   const [exportJobsPage, setExportJobsPage] = useState(1);
   const [exportJobsPageSize, setExportJobsPageSize] = useState(5);
@@ -347,8 +805,18 @@ export default function SecurityAuditPage() {
   }, [setTitle, t]);
 
   useEffect(() => {
-    setSearchParams(buildSearchParams(filters, page, selectedEventId, alertStatus), { replace: true });
-  }, [alertStatus, filters, page, selectedEventId, setSearchParams]);
+    setSearchParams(
+      buildSearchParams(
+        filters,
+        page,
+        selectedEventId,
+        alertStatus,
+        focusedAlertId,
+        focusedHostedEventId,
+      ),
+      { replace: true },
+    );
+  }, [alertStatus, filters, focusedAlertId, focusedHostedEventId, page, selectedEventId, setSearchParams]);
 
   async function load() {
     if (!activeAccountId || !canManage) return;
@@ -568,6 +1036,14 @@ export default function SecurityAuditPage() {
     setSelectedEvent(null);
   }
 
+  function clearInvestigationContext() {
+    setFocusedAlertId("");
+    setFocusedHostedEventId("");
+    setSelectedEventId("");
+    setSelectedEvent(null);
+    setInfo("");
+  }
+
   useEffect(() => {
     setAlertDrafts((prev) => {
       const next = { ...prev };
@@ -700,6 +1176,31 @@ from public.security_observability_event_feed(
     }
   }
 
+  async function handleCopyInvestigationLink() {
+    try {
+      if (!navigator.clipboard?.writeText || !window?.location) {
+        throw new Error(t("securityAudit.copyUnsupported"));
+      }
+
+      const params = buildSearchParams(
+        filters,
+        page,
+        selectedEventId,
+        alertStatus,
+        focusedAlertId,
+        focusedHostedEventId,
+      );
+      const search = params.toString();
+      const link = `${window.location.origin}${window.location.pathname}${search ? `?${search}` : ""}`;
+
+      await navigator.clipboard.writeText(link);
+      setInfo(t("securityAudit.investigationContext.copyLinkSuccess"));
+      setError("");
+    } catch (e) {
+      setError(e?.message || t("securityAudit.investigationContext.copyLinkError"));
+    }
+  }
+
   async function handleExport() {
     if (!activeAccountId) return;
     try {
@@ -797,6 +1298,42 @@ from public.security_observability_event_feed(
     } finally {
       setHostedExporting(false);
     }
+  }
+
+  function focusHostedEventInvestigation(row) {
+    const relatedAlert = findRelatedAnomalyAlertForHostedEvent(row, anomalyAlerts);
+
+    setPage(1);
+    setAnomalyAlertsPage(1);
+    setSelectedEventId("");
+    setSelectedEvent(null);
+    setFocusedHostedEventId(String(row?.id || ""));
+    setFocusedAlertId(relatedAlert?.id || "");
+    setFilters((prev) => ({
+      ...prev,
+      entityType: row?.entity_type || "",
+      entityId: row?.entity_id || "",
+    }));
+    if (relatedAlert) {
+      setAlertStatus(String(relatedAlert.status || "active").toLowerCase());
+      setExpandedAlerts((prev) => ({
+        ...prev,
+        [relatedAlert.id]: true,
+      }));
+      if (!alertHistoryById[relatedAlert.id]) {
+        loadAlertHistory(relatedAlert.id);
+      }
+    }
+    setInfo(
+      t(
+        relatedAlert
+          ? "securityAudit.hostedEvents.focusAppliedWithAlert"
+          : "securityAudit.hostedEvents.focusApplied",
+        {
+          entityType: startCase(row?.entity_type) || t("securityAudit.hostedEvents.summary.unknownEntity"),
+        },
+      ),
+    );
   }
 
   async function handleDownloadBackendExport(job) {
@@ -898,6 +1435,8 @@ from public.security_observability_event_feed(
 
   function focusAnomalyAlert(alert) {
     const recommended = alert?.metadata?.recommended_filters || {};
+    const relatedHostedEvent = findRelatedHostedEventForAnomalyAlert(alert, hostedEvents);
+
     setFilters({
       dateFrom: "",
       dateTo: "",
@@ -907,9 +1446,30 @@ from public.security_observability_event_feed(
       entityId: recommended.entityId || "",
     });
     setPage(1);
+    setFocusedAlertId(alert?.id || "");
+    setFocusedHostedEventId(relatedHostedEvent?.id || "");
+    setExpandedAlerts((prev) => ({
+      ...prev,
+      [alert.id]: true,
+    }));
+    if (!alertHistoryById[alert.id]) {
+      loadAlertHistory(alert.id);
+    }
     if (alert?.metadata?.latest_event_id) {
       setSelectedEventId(String(alert.metadata.latest_event_id));
     }
+    setInfo(
+      t(
+        relatedHostedEvent
+          ? "securityAudit.anomaly.focusAppliedWithHosted"
+          : "securityAudit.anomaly.focusApplied",
+        {
+          entityType:
+            startCase(alert?.entityType || recommended.entityType) ||
+            t("securityAudit.hostedEvents.summary.unknownEntity"),
+        },
+      ),
+    );
   }
 
   const totalPages = Math.max(Math.ceil(total / pageSize), 1);
@@ -917,6 +1477,30 @@ from public.security_observability_event_feed(
   const visibleExportJobs = exportJobs.filter((job) => !hiddenExportJobIds.includes(job.id));
   const anomalyAlertPages = Math.max(Math.ceil(anomalyAlertsTotal / anomalyAlertsPageSize), 1);
   const exportJobPages = Math.max(Math.ceil(exportJobsTotal / exportJobsPageSize), 1);
+  const hostedEventSummary = useMemo(() => summarizeHostedEvents(hostedEvents), [hostedEvents]);
+  const hostedEventCorrelations = useMemo(
+    () => groupHostedEventCorrelations(hostedEvents),
+    [hostedEvents],
+  );
+  const focusedHostedEvent = useMemo(
+    () => hostedEvents.find((row) => row.id === focusedHostedEventId) || null,
+    [focusedHostedEventId, hostedEvents],
+  );
+  const focusedAnomalyAlert = useMemo(
+    () => anomalyAlerts.find((alert) => alert.id === focusedAlertId) || null,
+    [anomalyAlerts, focusedAlertId],
+  );
+  const investigationContextSummary = useMemo(
+    () =>
+      buildInvestigationContextSummary({
+        hostedEvent: focusedHostedEvent,
+        anomalyAlert: focusedAnomalyAlert,
+        selectedEvent,
+        filters,
+        t,
+      }),
+    [filters, focusedAnomalyAlert, focusedHostedEvent, selectedEvent, t],
+  );
   const hostedEventCategories = useMemo(
     () => Array.from(new Set(hostedEvents.map((row) => String(row.category || "").trim()).filter(Boolean))).sort(),
     [hostedEvents],
@@ -984,6 +1568,17 @@ from public.security_observability_event_feed(
             </button>
           </div>
         </div>
+      ) : null}
+
+      {focusedAlertId || focusedHostedEventId || selectedEventId ? (
+        <InvestigationContextStrip
+          summary={investigationContextSummary}
+          focusedHostedEvent={focusedHostedEvent}
+          focusedAnomalyAlert={focusedAnomalyAlert}
+          selectedEvent={selectedEvent}
+          onClear={clearInvestigationContext}
+          t={t}
+        />
       ) : null}
 
       <Card className="p-4">
@@ -1195,23 +1790,33 @@ from public.security_observability_event_feed(
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {t("securityAudit.hostedEvents.retentionNote")}
             </p>
-            <button
-              type="button"
-              onClick={handleCopyHostedEventsSql}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-700"
-            >
-              <Copy size={16} />
-              {t("securityAudit.hostedEvents.copySql")}
-            </button>
-            <button
-              type="button"
-              onClick={handleHostedEventsExport}
-              disabled={hostedExporting || hostedEvents.length === 0}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-700"
-            >
-              <Download size={16} />
-              {hostedExporting ? t("securityAudit.exporting") : t("securityAudit.hostedEvents.export")}
-            </button>
+            <div className="inline-flex flex-wrap items-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-800">
+              <button
+                type="button"
+                onClick={handleCopyHostedEventsSql}
+                className="inline-flex items-center gap-2 border-r border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-50 dark:hover:bg-slate-700"
+              >
+                <Copy size={16} />
+                {t("securityAudit.hostedEvents.copySql")}
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyInvestigationLink}
+                className="inline-flex items-center gap-2 border-r border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-50 dark:hover:bg-slate-700"
+              >
+                <Copy size={16} />
+                {t("securityAudit.investigationContext.copyLink")}
+              </button>
+              <button
+                type="button"
+                onClick={handleHostedEventsExport}
+                disabled={hostedExporting || hostedEvents.length === 0}
+                className="inline-flex items-center gap-2 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-50 dark:hover:bg-slate-700"
+              >
+                <Download size={16} />
+                {hostedExporting ? t("securityAudit.exporting") : t("securityAudit.hostedEvents.export")}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1233,7 +1838,7 @@ from public.security_observability_event_feed(
               <option value="">{t("securityAudit.hostedEvents.filters.allCategories")}</option>
               {hostedEventCategories.map((value) => (
                 <option key={value} value={value}>
-                  {value}
+                  {startCase(value)}
                 </option>
               ))}
             </select>
@@ -1256,7 +1861,7 @@ from public.security_observability_event_feed(
               <option value="">{t("securityAudit.hostedEvents.filters.allKinds")}</option>
               {HOSTED_EVENT_KINDS.map((value) => (
                 <option key={value} value={value}>
-                  {value}
+                  {describeHostedEventKind(value, t)}
                 </option>
               ))}
             </select>
@@ -1279,7 +1884,7 @@ from public.security_observability_event_feed(
               <option value="">{t("securityAudit.hostedEvents.filters.allSurfaces")}</option>
               {hostedEventSurfaces.map((value) => (
                 <option key={value} value={value}>
-                  {value}
+                  {describeHostedEventSurface(value, t)}
                 </option>
               ))}
             </select>
@@ -1308,6 +1913,145 @@ from public.security_observability_event_feed(
           </label>
         </div>
 
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950/40">
+            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              {t("securityAudit.hostedEvents.summary.total")}
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+              {hostedEventSummary.total}
+            </p>
+          </div>
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 dark:border-rose-900/60 dark:bg-rose-950/30">
+            <p className="text-xs uppercase tracking-wide text-rose-600 dark:text-rose-200">
+              {t("securityAudit.hostedEvents.summary.denied")}
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-rose-700 dark:text-rose-100">
+              {hostedEventSummary.denied}
+            </p>
+          </div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/60 dark:bg-amber-950/30">
+            <p className="text-xs uppercase tracking-wide text-amber-700 dark:text-amber-200">
+              {t("securityAudit.hostedEvents.summary.unexpected")}
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-amber-700 dark:text-amber-100">
+              {hostedEventSummary.unexpected}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950/40">
+            <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              {t("securityAudit.hostedEvents.summary.topSurface")}
+            </p>
+            <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {hostedEventSummary.topSurface
+                ? describeHostedEventSurface(hostedEventSummary.topSurface, t)
+                : t("securityAudit.hostedEvents.summary.none")}
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {t("securityAudit.hostedEvents.summary.guardDenied", {
+                count: hostedEventSummary.guardDenied,
+              })}
+            </p>
+          </div>
+        </div>
+
+        {hostedEvents.length > 0 ? (
+          <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100">
+            <p className="font-medium">{t("securityAudit.hostedEvents.recommendedAction.title")}</p>
+            <p className="mt-1">
+              {buildHostedEventRecommendedAction(hostedEvents[0], t)}
+            </p>
+          </div>
+        ) : null}
+
+        {hostedEventCorrelations.length > 0 ? (
+          <div className="mt-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {t("securityAudit.hostedEvents.correlations.title")}
+                </h4>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {t("securityAudit.hostedEvents.correlations.subtitle")}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 grid gap-3 xl:grid-cols-2">
+              {hostedEventCorrelations.map((group) => (
+                <div
+                  key={group.key}
+                  className={`rounded-xl border bg-white p-4 dark:bg-slate-950/40 ${
+                    focusedAlertId &&
+                    group.latestRow &&
+                    findRelatedAnomalyAlertForHostedEvent(group.latestRow, anomalyAlerts)?.id === focusedAlertId
+                      ? "border-blue-300 ring-2 ring-blue-200 dark:border-blue-700 dark:ring-blue-900/50"
+                      : "border-slate-200 dark:border-slate-800"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {t("securityAudit.hostedEvents.correlations.pattern", {
+                          surface:
+                            describeHostedEventSurface(group.surface, t) ||
+                            t("securityAudit.hostedEvents.summary.unknownSurface"),
+                          entityType:
+                            startCase(group.entityType) || t("securityAudit.hostedEvents.summary.unknownEntity"),
+                        })}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {t("securityAudit.hostedEvents.correlations.reason", {
+                          reason: describeHostedEventReason(group.reason, t),
+                        })}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <span className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                        {t("securityAudit.hostedEvents.correlations.count", { count: group.count })}
+                      </span>
+                      <span
+                        className={`rounded-full border px-2 py-1 text-xs ${hostedEventSeverityTone(
+                          hostedEventSeverity(group.latestRow),
+                        )}`}
+                      >
+                        {describeHostedEventSeverity(hostedEventSeverity(group.latestRow), t)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                    {t("securityAudit.hostedEvents.correlations.latestSeen", {
+                      timestamp: formatDateTime(group.latestAt),
+                    })}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span
+                      className={`rounded-lg border px-2 py-2 text-xs ${hostedEventRecommendationTone(
+                        group.latestRow?.kind,
+                      )}`}
+                    >
+                      {describeHostedEventRecommendation(group.latestRow, t)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => focusHostedEventInvestigation(group.latestRow)}
+                      className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                      {t("securityAudit.hostedEvents.focusLedger")}
+                    </button>
+                    {group.latestRow?.correlation_id ? (
+                      <span className="rounded-lg bg-slate-100 px-2 py-2 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        {t("securityAudit.hostedEvents.correlations.correlation", {
+                          correlationId: shortenId(group.latestRow.correlation_id),
+                        })}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {hostedEvents.length === 0 ? (
           <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-300">
             {t("securityAudit.hostedEvents.empty")}
@@ -1318,28 +2062,81 @@ from public.security_observability_event_feed(
               <thead className="bg-slate-50 dark:bg-slate-900/70">
                 <tr className="text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   <th className="px-3 py-2">{t("securityAudit.columns.timestamp")}</th>
-                  <th className="px-3 py-2">{t("securityAudit.hostedEvents.columns.category")}</th>
-                  <th className="px-3 py-2">{t("securityAudit.hostedEvents.columns.kind")}</th>
+                  <th className="px-3 py-2">{t("securityAudit.hostedEvents.columns.summary")}</th>
                   <th className="px-3 py-2">{t("securityAudit.hostedEvents.columns.surface")}</th>
                   <th className="px-3 py-2">{t("securityAudit.hostedEvents.columns.role")}</th>
-                  <th className="px-3 py-2">{t("securityAudit.hostedEvents.columns.reason")}</th>
+                  <th className="px-3 py-2">{t("securityAudit.hostedEvents.columns.context")}</th>
                   <th className="px-3 py-2">{t("securityAudit.hostedEvents.columns.outcome")}</th>
+                  <th className="px-3 py-2">{t("securityAudit.hostedEvents.columns.investigate")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-950/40">
                 {hostedEvents.map((row) => (
-                  <tr key={row.id} className="align-top">
+                  <tr
+                    key={row.id}
+                    className={`align-top ${
+                      focusedHostedEventId && focusedHostedEventId === row.id
+                        ? "bg-blue-50/70 dark:bg-blue-950/20"
+                        : ""
+                    }`}
+                  >
                     <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{formatDateTime(row.created_at)}</td>
-                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{row.category || "—"}</td>
                     <td className="px-3 py-2">
-                      <span className={`rounded-full border px-2 py-1 text-xs ${hostedEventKindTone(row.kind)}`}>
-                        {row.kind || "—"}
-                      </span>
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`rounded-full border px-2 py-1 text-xs ${hostedEventKindTone(row.kind)}`}>
+                            {describeHostedEventKind(row.kind, t)}
+                          </span>
+                          <span
+                            className={`rounded-full border px-2 py-1 text-xs ${hostedEventSeverityTone(
+                              hostedEventSeverity(row),
+                            )}`}
+                          >
+                            {describeHostedEventSeverity(hostedEventSeverity(row), t)}
+                          </span>
+                          {row.category ? (
+                            <span className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300">
+                              {startCase(row.category)}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                          {buildHostedEventSummary(row, t)}
+                        </p>
+                      </div>
                     </td>
-                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{row.surface || "—"}</td>
+                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300">
+                      <div className="space-y-1">
+                        <p>{describeHostedEventSurface(row.surface, t) || "—"}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {describeHostedEventReason(row.reason, t)}
+                        </p>
+                      </div>
+                    </td>
                     <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{row.actor_role || "—"}</td>
-                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{row.reason || "—"}</td>
+                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{buildHostedEventContext(row, t)}</td>
                     <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{row.outcome || "—"}</td>
+                    <td className="px-3 py-2">
+                      <div className="space-y-2">
+                        <span
+                          className={`inline-flex rounded-full border px-2 py-1 text-xs ${hostedEventRecommendationTone(
+                            row.kind,
+                          )}`}
+                        >
+                          {describeHostedEventRecommendation(row, t)}
+                        </span>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {buildHostedEventRecommendedAction(row, t)}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => focusHostedEventInvestigation(row)}
+                          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                        >
+                          {t("securityAudit.hostedEvents.focusLedger")}
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1574,7 +2371,14 @@ from public.security_observability_event_feed(
           <>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {anomalyAlerts.map((alert) => (
-                <div key={alert.id} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                <div
+                  key={alert.id}
+                  className={`rounded-xl border bg-white p-4 dark:bg-slate-900 ${
+                    focusedAlertId && focusedAlertId === alert.id
+                      ? "border-blue-300 ring-2 ring-blue-200 dark:border-blue-700 dark:ring-blue-900/50"
+                      : "border-slate-200 dark:border-slate-800"
+                  }`}
+                >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{alert.title}</p>
@@ -1612,6 +2416,16 @@ from public.security_observability_event_feed(
                   </div>
 
                   <div className="mt-4 flex flex-wrap gap-2">
+                    <div className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
+                      <div className="mb-2 flex flex-wrap gap-2">
+                        <span className={`rounded-full border px-2 py-1 text-[11px] ${anomalySeverityTone(alert.severity)}`}>
+                          {t("securityAudit.anomaly.recommendedAction.badge", {
+                            severity: String(alert.severity || "info"),
+                          })}
+                        </span>
+                      </div>
+                      {buildAnomalyRecommendedAction(alert, t)}
+                    </div>
                     <button
                       type="button"
                       onClick={() => focusAnomalyAlert(alert)}
@@ -2157,6 +2971,14 @@ from public.security_observability_event_feed(
                       <DetailField label={t("securityAudit.detail.entity")} value={selectedEvent.entityLabel || selectedEvent.entity_id} />
                       <DetailField label={t("securityAudit.detail.entityId")} value={selectedEvent.entity_id} />
                       <DetailField label={t("securityAudit.detail.eventId")} value={selectedEvent.id} />
+                      <DetailField
+                        label={t("securityAudit.detail.reason")}
+                        value={describeHostedEventReason(selectedEvent.metadata?.reason || selectedEvent.metadata?.code, t)}
+                      />
+                      <DetailField
+                        label={t("securityAudit.detail.correlationId")}
+                        value={selectedEvent.metadata?.correlation_id || "—"}
+                      />
                     </div>
                   </Card>
 

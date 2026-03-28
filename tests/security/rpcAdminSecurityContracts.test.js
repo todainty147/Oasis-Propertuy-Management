@@ -203,12 +203,12 @@ describe("admin/security reporting service contracts", () => {
         return createThenableQuery({
           data: [
             {
-              id: "audit-1",
-              account_id: "account-1",
-              document_id: "doc-1",
-              property_id: "property-1",
+              id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1",
+              account_id: "11111111-1111-1111-1111-111111111111",
+              document_id: "66666666-6666-6666-6666-666666666661",
+              property_id: "44444444-4444-4444-4444-444444444441",
               tenant_id: null,
-              user_id: "user-1",
+              user_id: "99999999-9999-9999-9999-999999999991",
               action: "DOWNLOAD",
               details: { via: "preview" },
               metadata: { request_id: "req-1" },
@@ -224,21 +224,88 @@ describe("admin/security reporting service contracts", () => {
     });
 
     const { fetchDocumentAudit } = await import("../../src/services/documentAuditService.js");
-    const rows = await fetchDocumentAudit({ accountId: "account-1", documentId: "doc-1" });
+    const rows = await fetchDocumentAudit({
+      accountId: "11111111-1111-1111-1111-111111111111",
+      documentId: "66666666-6666-6666-6666-666666666661",
+    });
 
     expect(rows).toEqual([
       {
-        id: "audit-1",
-        account_id: "account-1",
-        document_id: "doc-1",
-        property_id: "property-1",
+        id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1",
+        account_id: "11111111-1111-1111-1111-111111111111",
+        document_id: "66666666-6666-6666-6666-666666666661",
+        property_id: "44444444-4444-4444-4444-444444444441",
         tenant_id: null,
-        user_id: "user-1",
+        user_id: "99999999-9999-9999-9999-999999999991",
         action: "download",
         details: { via: "preview" },
         metadata: { request_id: "req-1" },
         performed_at: "2026-03-28T12:30:00Z",
       },
     ]);
+  });
+
+  it("scopes document audit reads by property and tenant when provided", async () => {
+    const eqCalls = [];
+
+    fromMock.mockImplementation((table) => {
+      if (table === "document_audit_log") {
+        const query = createThenableQuery({
+          data: [],
+          error: null,
+          count: 0,
+        });
+
+        const originalEq = query.eq.bind(query);
+        query.eq = (column, value) => {
+          eqCalls.push([column, value]);
+          return originalEq(column, value);
+        };
+
+        return query;
+      }
+
+      return createThenableQuery({ data: [], error: null, count: 0 });
+    });
+
+    const { fetchDocumentAudit } = await import("../../src/services/documentAuditService.js");
+    await fetchDocumentAudit({
+      accountId: "11111111-1111-1111-1111-111111111111",
+      propertyId: "44444444-4444-4444-4444-444444444441",
+      tenantId: "33333333-3333-3333-3333-333333333331",
+    });
+
+    expect(eqCalls).toEqual(
+      expect.arrayContaining([
+        ["account_id", "11111111-1111-1111-1111-111111111111"],
+        ["property_id", "44444444-4444-4444-4444-444444444441"],
+        ["tenant_id", "33333333-3333-3333-3333-333333333331"],
+      ]),
+    );
+  });
+
+  it("fails closed when scoped document audit columns are not available yet", async () => {
+    fromMock.mockImplementation((table) => {
+      if (table === "document_audit_log") {
+        return createThenableQuery({
+          data: null,
+          error: {
+            code: "42703",
+            message: 'column document_audit_log.property_id does not exist',
+          },
+          count: 0,
+        });
+      }
+
+      return createThenableQuery({ data: [], error: null, count: 0 });
+    });
+
+    const { fetchDocumentAudit } = await import("../../src/services/documentAuditService.js");
+    const rows = await fetchDocumentAudit({
+      accountId: "11111111-1111-1111-1111-111111111111",
+      propertyId: "44444444-4444-4444-4444-444444444441",
+    });
+
+    expect(rows).toEqual([]);
   });
 });

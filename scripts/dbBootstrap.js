@@ -13,13 +13,138 @@ const bootstrapSteps = [
     onErrorStop: false,
   },
   {
+    label: "Apply account branding overlay",
+    file: path.join(supabaseDir, "account_branding.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply invite and membership overlay",
     file: path.join(supabaseDir, "account_invitations_saas.sql"),
     onErrorStop: true,
   },
   {
+    label: "Apply account owner contact overlay",
+    file: path.join(supabaseDir, "account_owner_contact.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply account report settings overlay",
+    file: path.join(supabaseDir, "account_report_settings.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply operations foundations overlay",
+    file: path.join(supabaseDir, "operations_foundations.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply leases overlay",
+    file: path.join(supabaseDir, "leases.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply maintenance waiting reason overlay",
+    file: path.join(supabaseDir, "maintenance_waiting_reason.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply maintenance expense facts overlay",
+    file: path.join(supabaseDir, "maintenance_expense_facts.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply maintenance KPI snapshot overlay",
+    file: path.join(supabaseDir, "maintenance_kpi_snapshot.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply prevent-close-if-work-order-open overlay",
+    file: path.join(supabaseDir, "prevent_close_if_work_order_open.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply preventive maintenance overlay",
+    file: path.join(supabaseDir, "preventive_maintenance.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply property operational health overlay",
+    file: path.join(supabaseDir, "property_operational_health_snapshot.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply contractor work-order cards overlay",
+    file: path.join(supabaseDir, "contractor_work_order_cards.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply contractor ratings overlay",
+    file: path.join(supabaseDir, "contractor_ratings.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply dashboard snapshot overlay",
+    file: path.join(supabaseDir, "dashboard_snapshot.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply finance snapshot overlay",
+    file: path.join(supabaseDir, "finance_snapshot.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply portfolio health snapshot overlay",
+    file: path.join(supabaseDir, "portfolio_health_snapshot.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply dashboard hub extras overlay",
+    file: path.join(supabaseDir, "dashboard_hub_extras.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply tenant activity feed overlay",
+    file: path.join(supabaseDir, "tenant_activity_feed.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply command center items overlay",
+    file: path.join(supabaseDir, "command_center_items.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply attention center items overlay",
+    file: path.join(supabaseDir, "attention_center_items.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply portfolio attention items overlay",
+    file: path.join(supabaseDir, "portfolio_attention_items.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply portfolio weekly summary overlay",
+    file: path.join(supabaseDir, "portfolio_weekly_summary.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply playbook status snapshot overlay",
+    file: path.join(supabaseDir, "playbook_status_snapshot.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply automation playbooks overlay",
+    file: path.join(supabaseDir, "automation_playbooks.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply notifications overlay",
     file: path.join(supabaseDir, "create_notifications.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply notifications RPC grants overlay",
+    file: path.join(supabaseDir, "notifications_rpc_grants.sql"),
     onErrorStop: true,
   },
   {
@@ -33,8 +158,68 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply security failure observability overlay",
+    file: path.join(supabaseDir, "security_failure_observability.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply security log event overlay",
+    file: path.join(supabaseDir, "log_security_event.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply security audit ledger overlay",
+    file: path.join(supabaseDir, "security_audit_ledger.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply security audit settings overlay",
+    file: path.join(supabaseDir, "security_audit_settings.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply security audit export jobs overlay",
+    file: path.join(supabaseDir, "security_audit_export_jobs.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply security audit event wiring overlay",
+    file: path.join(supabaseDir, "security_audit_event_wiring.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply security anomaly alerts overlay",
+    file: path.join(supabaseDir, "security_anomaly_alerts.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply security anomaly alert workflow overlay",
+    file: path.join(supabaseDir, "security_anomaly_alert_workflow.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply payment write authorization overlay",
     file: path.join(supabaseDir, "payment_write_authorization.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply self-serve landlord signup overlay",
+    file: path.join(supabaseDir, "self_serve_landlord_signup.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply compliance document links overlay",
+    file: path.join(supabaseDir, "compliance_document_links.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply document audit scope overlay",
+    file: path.join(supabaseDir, "document_audit_scope.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply compliance calendar upgrade overlay",
+    file: path.join(supabaseDir, "compliance_calendar_upgrade.sql"),
     onErrorStop: true,
   },
   {
@@ -55,6 +240,11 @@ const bootstrapSteps = [
   {
     label: "Apply work-order attachment storage overlay",
     file: path.join(supabaseDir, "storage_work_order_attachments_policies.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply performance RPC indexes overlay",
+    file: path.join(supabaseDir, "performance_rpc_indexes.sql"),
     onErrorStop: true,
   },
 ];

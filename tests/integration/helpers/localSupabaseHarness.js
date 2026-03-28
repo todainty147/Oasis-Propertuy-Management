@@ -23,6 +23,19 @@ const workOrderIds = {
   accountB: "88888888-8888-8888-8888-888888888882",
 };
 
+function formatUtcDateOffset(days) {
+  const date = new Date();
+  date.setUTCHours(12, 0, 0, 0);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+export const isolationSeedDates = {
+  accountADueDate: formatUtcDateOffset(3),
+  accountBOverdueDate: formatUtcDateOffset(-27),
+  partialPaymentPaidAt: formatUtcDateOffset(0),
+};
+
 export const isolationSeedIds = {
   propertyIds,
   paymentIds,
@@ -445,7 +458,7 @@ export async function ensureIsolationHarnessSeed() {
         tenant_id: isolationFixtures.users.tenantA1.tenantId,
         amount: 1200,
         status: "due",
-        due_date: "2026-03-25",
+        due_date: isolationSeedDates.accountADueDate,
       },
       {
         id: paymentIds.accountB,
@@ -455,7 +468,7 @@ export async function ensureIsolationHarnessSeed() {
         tenant_id: isolationFixtures.users.tenantB1.tenantId,
         amount: 980,
         status: "overdue",
-        due_date: "2026-03-01",
+        due_date: isolationSeedDates.accountBOverdueDate,
       },
     ]);
   } catch (error) {
