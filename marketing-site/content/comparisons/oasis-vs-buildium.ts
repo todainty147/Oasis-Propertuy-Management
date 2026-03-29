@@ -11,13 +11,17 @@ export const oasisVsBuildiumContent = {
     eyebrow: "Comparison",
     title: "OASIS vs Buildium",
     body:
-      "Both OASIS and Buildium are designed to help landlords and property operators move beyond manual admin. The main difference is that Buildium is positioned as a broader property management platform, while OASIS is focused on giving modern landlords a cleaner, more connected operational workflow.",
+      "Both OASIS and Buildium help operators move beyond manual admin. The main difference is that Buildium is positioned as a broader property management platform, while OASIS is built as a cleaner operating system for landlords who want connected workflows and faster action.",
+    imageSrc: "/screenshots/command-center.png",
+    imageAlt: "OASIS Command Center showing urgent operational queues and overdue balance.",
   },
   summary: {
     eyebrow: "High-level comparison",
     title: "This choice often comes down to simplicity versus broader platform depth",
     body:
       "Buildium is a well-known option for operators who want a more established, wider property management platform. OASIS is a strong fit for landlords who want a more focused operating system centered on tenant workflows, maintenance follow-through, finance visibility, and day-to-day clarity.",
+    imageSrc: "/screenshots/portfolio-health.png",
+    imageAlt: "OASIS Portfolio Health dashboard showing occupancy, arrears, and maintenance pressure.",
   },
   comparisonTable: {
     title: "Side-by-side comparison",
@@ -57,6 +61,9 @@ export const oasisVsBuildiumContent = {
     title: "Why some landlords will prefer OASIS over a broader platform",
     body:
       "OASIS is intentionally shaped around the workflows landlords deal with every week, with a product direction that emphasizes clarity, connected records, and less admin sprawl.",
+    imageSrc: "/screenshots/security-audit.png",
+    imageAlt: "OASIS Security Audit screen showing controls and operational trust tooling.",
+    imageAlign: "left" as const,
     items: [
       {
         title: "Cleaner operating experience",
@@ -92,7 +99,7 @@ export const oasisVsBuildiumContent = {
   finalCta: {
     title: "See whether OASIS is the better fit for your rental workflow",
     body:
-      "If you want a more connected landlord operating system with strong maintenance and portfolio visibility, OASIS is worth exploring.",
+      "If you want a more connected landlord operating system with strong maintenance, finance, and portfolio visibility, OASIS is worth exploring.",
     primaryCta: { label: "View Pricing", href: "/pricing" },
     secondaryCta: { label: "Open the App", href: siteConfig.appUrl },
   },

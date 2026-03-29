@@ -12,12 +12,16 @@ export const oasisVsTenantCloudContent = {
     title: "OASIS vs TenantCloud",
     body:
       "Both OASIS and TenantCloud aim to help landlords replace disconnected admin with software. The key distinction is that TenantCloud is often chosen as a general all-in-one landlord tool, while OASIS is positioned around a more connected and operations-focused workflow.",
+    imageSrc: "/screenshots/command-center.png",
+    imageAlt: "OASIS Command Center showing operations queues, overdue balance, and urgent actions.",
   },
   summary: {
     eyebrow: "High-level comparison",
     title: "This comparison is really about workflow style",
     body:
       "TenantCloud can suit landlords who want a familiar all-in-one toolset. OASIS is a better fit for landlords who want stronger operational visibility across maintenance, tenant context, rent tracking, documents, and portfolio health in one clearer system.",
+    imageSrc: "/screenshots/portfolio-health.png",
+    imageAlt: "OASIS Portfolio Health dashboard showing finance mix and maintenance pressure.",
   },
   comparisonTable: {
     title: "Side-by-side comparison",
@@ -57,6 +61,9 @@ export const oasisVsTenantCloudContent = {
     title: "Why some landlords will prefer OASIS over a general all-in-one tool",
     body:
       "OASIS is aimed at landlords who want more than a place to store records. It is built to give clearer operational visibility across the workflows that most often create friction.",
+    imageSrc: "/screenshots/security-audit.png",
+    imageAlt: "OASIS Security Audit page reinforcing operational trust and control.",
+    imageAlign: "left" as const,
     items: [
       {
         title: "More operational visibility",

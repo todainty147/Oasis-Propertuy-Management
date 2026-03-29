@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { FaqList } from "../../components/marketing/faq-list";
 import { FinalCta } from "../../components/marketing/final-cta";
 import { IncludedFeatures } from "../../components/marketing/included-features";
+import { ContentSection } from "../../components/marketing/content-section";
 import { PageHero } from "../../components/marketing/page-hero";
 import { PricingCards } from "../../components/marketing/pricing-cards";
 import { pricingContent } from "../../content/pricing";
@@ -14,14 +15,7 @@ export default function PricingPage() {
   return (
     <>
       <PageHero {...pricingContent.hero} />
-      <section className="section">
-        <div className="container">
-          <div className="card content-block">
-            <h2>{pricingContent.intro.title}</h2>
-            <p className="muted">{pricingContent.intro.body}</p>
-          </div>
-        </div>
-      </section>
+      <ContentSection {...pricingContent.intro} />
       <PricingCards plans={pricingContent.plans} />
       <IncludedFeatures {...pricingContent.included} />
       <FaqList items={pricingContent.faqs} />

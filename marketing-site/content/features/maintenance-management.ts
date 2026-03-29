@@ -9,9 +9,11 @@ export const maintenanceManagementContent = {
   },
   hero: {
     eyebrow: "Maintenance management",
-    title: "Track maintenance requests and work orders without losing visibility",
+    title: "Track maintenance requests and work orders before they turn into repeat complaints",
     body:
-      "OASIS helps landlords move maintenance from scattered messages and ad hoc follow-up into a clearer workflow for requests, work orders, contractors, and status tracking.",
+      "OASIS helps landlords move maintenance from scattered messages and ad hoc follow-up into a clearer workflow for requests, work orders, contractors, status tracking, and early operational signals.",
+    imageSrc: "/screenshots/maintenance-inbox.png",
+    imageAlt: "OASIS Maintenance Inbox showing request status columns, SLA age, and linked work orders.",
   },
   painPoints: {
     eyebrow: "Landlord pain points",
@@ -32,12 +34,14 @@ export const maintenanceManagementContent = {
         body: "Without clear statuses and ownership, it is harder to see which repairs are blocked, overdue, or waiting on action.",
       },
     ],
+    imageSrc: "/screenshots/property-requests.png",
+    imageAlt: "OASIS property request view showing service requests and linked work-order actions.",
   },
   solution: {
     eyebrow: "How OASIS helps",
     title: "A maintenance workflow built for visibility and follow-through",
     body:
-      "OASIS connects requests, work orders, and operational status so landlords can manage repairs with less guesswork and more control.",
+      "OASIS connects requests, work orders, contractor activity, and operational status so landlords can manage repairs with less guesswork and more control.",
     items: [
       {
         title: "Track requests from intake to resolution",
@@ -49,9 +53,12 @@ export const maintenanceManagementContent = {
       },
       {
         title: "See bottlenecks early",
-        body: "Spot overdue actions, unassigned work, and stalled repairs before they become bigger tenant issues.",
+        body: "Spot overdue actions, unassigned work, stalled repairs, and slow response loops before they become bigger tenant issues.",
       },
     ],
+    imageSrc: "/screenshots/command-center.png",
+    imageAlt: "OASIS Command Center showing urgent maintenance and action queues.",
+    imageAlign: "left" as const,
   },
   benefits: {
     title: "What landlords gain with better maintenance visibility",
@@ -66,18 +73,18 @@ export const maintenanceManagementContent = {
       },
       {
         title: "Fewer overlooked issues",
-        body: "Surface stalled requests before they turn into repeated complaints or bigger costs.",
+        body: "Surface stalled requests before they turn into repeated complaints, contractor churn, or bigger costs.",
       },
       {
         title: "More confidence in operations",
-        body: "Run maintenance with a process that is easier to monitor and improve over time.",
+        body: "Run maintenance with a process that is easier to monitor, improve, and stay ahead of over time.",
       },
     ],
   },
   finalCta: {
     title: "See maintenance in one connected workflow",
     body:
-      "Explore how OASIS helps landlords manage requests, work orders, and repair progress with more visibility.",
+      "Explore how OASIS helps landlords manage requests, work orders, and repair progress with more visibility and earlier warning when something is slipping.",
     primaryCta: { label: "View Pricing", href: "/pricing" },
     secondaryCta: { label: "Open the App", href: siteConfig.appUrl },
   },

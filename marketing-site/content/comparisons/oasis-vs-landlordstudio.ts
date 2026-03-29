@@ -11,13 +11,17 @@ export const oasisVsLandlordStudioContent = {
     eyebrow: "Comparison",
     title: "OASIS vs Landlord Studio",
     body:
-      "Both tools help landlords move beyond spreadsheets, but they are optimized for slightly different operating styles. OASIS is aimed at landlords who want stronger operational visibility across tenants, maintenance, finances, and documents in one connected workflow.",
+      "Both tools help landlords move beyond spreadsheets, but they are optimized for different operating styles. OASIS is aimed at landlords who want stronger operational visibility across tenants, maintenance, finances, documents, and action queues in one connected workflow.",
+    imageSrc: "/screenshots/command-center.png",
+    imageAlt: "OASIS Command Center showing urgent items and connected portfolio actions.",
   },
   summary: {
     eyebrow: "High-level comparison",
     title: "The difference comes down to operational depth",
     body:
       "If you want a lighter landlord tool with core finance and record-keeping features, Landlord Studio may fit. If you want a more connected operating system for tenant workflows, maintenance follow-through, work orders, documents, and portfolio visibility, OASIS is built for that direction.",
+    imageSrc: "/screenshots/property-performance.png",
+    imageAlt: "OASIS property performance view showing connected rent and operational context.",
   },
   comparisonTable: {
     title: "Side-by-side comparison",
@@ -57,6 +61,9 @@ export const oasisVsLandlordStudioContent = {
     title: "Why some landlords will prefer OASIS",
     body:
       "OASIS is designed for landlords who want clearer operational control, especially when maintenance activity, overdue follow-up, and portfolio complexity start to grow.",
+    imageSrc: "/screenshots/maintenance-inbox.png",
+    imageAlt: "OASIS Maintenance Inbox showing structured request workflow and linked work orders.",
+    imageAlign: "left" as const,
     items: [
       {
         title: "Stronger maintenance visibility",

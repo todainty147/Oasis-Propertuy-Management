@@ -6,6 +6,8 @@ type WorkflowItem = {
   href: string;
   points: string[];
   label: string;
+  imageSrc: string;
+  imageAlt: string;
 };
 
 export function WorkflowShowcase({
@@ -45,16 +47,10 @@ export function WorkflowShowcase({
                   </Link>
                 </div>
               </div>
-              <div className="workflow-image" aria-hidden="true">
+              <div className="workflow-image">
                 <div className="workflow-image__window">
-                  <div className="workflow-image__toolbar" />
-                  <div className="workflow-image__panel" />
-                  <div className="workflow-image__panel workflow-image__panel--wide" />
-                  <div className="workflow-image__stats">
-                    <span />
-                    <span />
-                    <span />
-                  </div>
+                  <div className="workflow-image__toolbar">{item.label}</div>
+                  <img src={item.imageSrc} alt={item.imageAlt} className="workflow-image__img" />
                 </div>
               </div>
             </article>

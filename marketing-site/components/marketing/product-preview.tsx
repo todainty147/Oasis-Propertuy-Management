@@ -3,6 +3,8 @@ type PreviewItem = {
   body: string;
   points: string[];
   label: string;
+  imageSrc: string;
+  imageAlt: string;
 };
 
 export function ProductPreview({
@@ -24,20 +26,11 @@ export function ProductPreview({
         <div className="grid grid-3">
           {items.map((item) => (
             <article key={item.title} className="card preview-card">
-              <div className="preview-shot" aria-hidden="true">
+              <div className="preview-shot">
                 <div className="preview-shot__header">
                   <span>{item.label}</span>
                 </div>
-                <div className="preview-shot__body">
-                  <div className="preview-shot__chart" />
-                  <div className="preview-shot__row" />
-                  <div className="preview-shot__row preview-shot__row--short" />
-                  <div className="preview-shot__tiles">
-                    <span />
-                    <span />
-                    <span />
-                  </div>
-                </div>
+                <img src={item.imageSrc} alt={item.imageAlt} className="preview-shot__image" />
               </div>
               <h3>{item.title}</h3>
               <p className="muted">{item.body}</p>
