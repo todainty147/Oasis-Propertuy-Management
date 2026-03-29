@@ -51,13 +51,8 @@ on public.account_security_settings
 for select
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = account_security_settings.account_id
-      and am.user_id = auth.uid()
-  )
-  or public.user_is_root_operator()
+  public.user_can_manage_account(account_security_settings.account_id)
+  and public.account_has_feature(account_security_settings.account_id, 'security_audit')
 );
 
 drop policy if exists account_security_settings_upsert_managers on public.account_security_settings;
@@ -65,8 +60,14 @@ create policy account_security_settings_upsert_managers
 on public.account_security_settings
 for all
 to authenticated
-using (public.user_can_manage_account(account_security_settings.account_id))
-with check (public.user_can_manage_account(account_security_settings.account_id));
+using (
+  public.user_can_manage_account(account_security_settings.account_id)
+  and public.account_has_feature(account_security_settings.account_id, 'security_audit')
+)
+with check (
+  public.user_can_manage_account(account_security_settings.account_id)
+  and public.account_has_feature(account_security_settings.account_id, 'security_audit')
+);
 
 grant select, insert, update on table public.account_security_settings to authenticated;
 
@@ -98,6 +99,7 @@ declare
   v_job public.security_audit_export_jobs;
 begin
   v_account_id := public.assert_manage_account_access(p_account_id);
+  perform public.assert_account_feature_access(v_account_id, 'security_audit');
 
   select *
   into v_config

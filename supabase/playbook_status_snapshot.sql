@@ -22,7 +22,9 @@ as $$
     select greatest(1, least(coalesce(p_recent_limit, 12), 50)) as recent_limit
   ),
   authz as (
-    select public.assert_manage_account_access(p_account_id) as account_id
+    select
+      public.assert_manage_account_access(p_account_id) as account_id,
+      public.assert_account_feature_access(p_account_id, 'playbooks') as feature_account_id
   ),
   settings_rows as (
     select

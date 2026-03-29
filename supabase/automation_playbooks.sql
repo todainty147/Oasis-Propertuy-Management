@@ -115,13 +115,8 @@ on public.automation_rule_settings
 for select
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = automation_rule_settings.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(automation_rule_settings.account_id)
+  and public.account_has_feature(automation_rule_settings.account_id, 'playbooks')
 );
 
 drop policy if exists "automation_rule_settings_insert_managers" on public.automation_rule_settings;
@@ -130,13 +125,8 @@ on public.automation_rule_settings
 for insert
 to authenticated
 with check (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = automation_rule_settings.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(automation_rule_settings.account_id)
+  and public.account_has_feature(automation_rule_settings.account_id, 'playbooks')
 );
 
 drop policy if exists "automation_rule_settings_update_managers" on public.automation_rule_settings;
@@ -145,22 +135,12 @@ on public.automation_rule_settings
 for update
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = automation_rule_settings.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(automation_rule_settings.account_id)
+  and public.account_has_feature(automation_rule_settings.account_id, 'playbooks')
 )
 with check (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = automation_rule_settings.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(automation_rule_settings.account_id)
+  and public.account_has_feature(automation_rule_settings.account_id, 'playbooks')
 );
 
 drop policy if exists "automation_rule_settings_delete_managers" on public.automation_rule_settings;
@@ -169,13 +149,8 @@ on public.automation_rule_settings
 for delete
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = automation_rule_settings.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(automation_rule_settings.account_id)
+  and public.account_has_feature(automation_rule_settings.account_id, 'playbooks')
 );
 
 drop policy if exists "automation_runs_select_managers" on public.automation_runs;
@@ -184,13 +159,8 @@ on public.automation_runs
 for select
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = automation_runs.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(automation_runs.account_id)
+  and public.account_has_feature(automation_runs.account_id, 'playbooks')
 );
 
 drop policy if exists "automation_runs_insert_managers" on public.automation_runs;
@@ -199,13 +169,8 @@ on public.automation_runs
 for insert
 to authenticated
 with check (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = automation_runs.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(automation_runs.account_id)
+  and public.account_has_feature(automation_runs.account_id, 'playbooks')
 );
 
 drop policy if exists "automation_runs_update_managers" on public.automation_runs;
@@ -214,22 +179,12 @@ on public.automation_runs
 for update
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = automation_runs.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(automation_runs.account_id)
+  and public.account_has_feature(automation_runs.account_id, 'playbooks')
 )
 with check (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = automation_runs.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(automation_runs.account_id)
+  and public.account_has_feature(automation_runs.account_id, 'playbooks')
 );
 
 commit;

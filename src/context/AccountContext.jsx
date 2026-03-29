@@ -5,6 +5,7 @@ import { useAuth } from "./AuthContext";
 import { rootListAccounts } from "../services/rootAccountService";
 import { finalizeSelfServeLandlordAccount } from "../services/selfServeSignupService";
 import { canAccessRootTelemetry, getRootTelemetryAccessMode } from "../utils/telemetryAccess";
+import { assertFeature, hasFeature, normalizePlan } from "../lib/entitlements";
 
 const AccountContext = createContext(null);
 
@@ -76,7 +77,13 @@ export function AccountProvider({ children }) {
 
       let memberships = null;
       let membershipErr = null;
-      const fieldsPriority = ["id,name,is_root,is_disabled", "id,name,is_root", "id,name"];
+      const fieldsPriority = [
+        "id,name,is_root,is_disabled,subscription_plan,subscription_status,billing_locked_at",
+        "id,name,is_root,is_disabled,subscription_plan,subscription_status",
+        "id,name,is_root,is_disabled",
+        "id,name,is_root",
+        "id,name",
+      ];
       for (const fields of fieldsPriority) {
         const res = await queryMemberships(fields);
         memberships = res.data;
@@ -105,6 +112,9 @@ export function AccountProvider({ children }) {
             name: m.accounts.name,
             is_root: Boolean(m.accounts.is_root),
             is_disabled: Boolean(m.accounts.is_disabled),
+            subscription_plan: m.accounts.subscription_plan || null,
+            subscription_status: m.accounts.subscription_status || null,
+            billing_locked_at: m.accounts.billing_locked_at || null,
             role: m.role, // 🔐 SINGLE SOURCE OF TRUTH
           }));
         const rootMembership = membershipAccounts.find((a) => a.is_root);
@@ -123,6 +133,9 @@ export function AccountProvider({ children }) {
                 name: r.name,
                 is_root: Boolean(r.is_root),
                 is_disabled: Boolean(r.is_disabled),
+                subscription_plan: existing?.subscription_plan || null,
+                subscription_status: existing?.subscription_status || null,
+                billing_locked_at: existing?.billing_locked_at || null,
                 // Root operator can switch into any account; treat as owner-level in UI permissions.
                 role: "owner",
               };
@@ -255,7 +268,16 @@ export function AccountProvider({ children }) {
           const newId = row?.account_id || null;
           const newName = row?.account_name || user?.user_metadata?.signup_account_name || user?.email || "My Account";
           if (newId) {
-            setAccounts([{ id: newId, name: newName, is_root: false, is_disabled: false, role: "owner" }]);
+            setAccounts([{
+              id: newId,
+              name: newName,
+              is_root: false,
+              is_disabled: false,
+              subscription_plan: "starter",
+              subscription_status: "trialing",
+              billing_locked_at: null,
+              role: "owner",
+            }]);
             setActiveAccountId(newId);
             localStorage.setItem("activeAccountId", newId);
             setAccountLoading(false);
@@ -312,7 +334,15 @@ export function AccountProvider({ children }) {
 
       if (cancelled) return;
 
-      setAccounts([{ id: account.id, name: account.name, is_root: false, role: "owner" }]);
+      setAccounts([{
+        id: account.id,
+        name: account.name,
+        is_root: false,
+        subscription_plan: account.subscription_plan || "starter",
+        subscription_status: account.subscription_status || null,
+        billing_locked_at: account.billing_locked_at || null,
+        role: "owner",
+      }]);
       setActiveAccountId(account.id);
       localStorage.setItem("activeAccountId", account.id);
       setAccountLoading(false);
@@ -364,6 +394,23 @@ export function AccountProvider({ children }) {
     return null;
   }, [activeAccount, tenantContext, contractorContext, activeAccountId]);
 
+  const activePlan = useMemo(() => {
+    if (isRootOperator) return "pro";
+    return normalizePlan(activeAccount?.subscription_plan);
+  }, [activeAccount?.subscription_plan, isRootOperator]);
+
+  const activeSubscriptionStatus = activeAccount?.subscription_status || null;
+  const isBillingLocked = Boolean(activeAccount?.billing_locked_at);
+
+  const hasEntitlement = useMemo(
+    () => (feature) => hasFeature(activePlan, feature),
+    [activePlan],
+  );
+  const assertEntitlement = useMemo(
+    () => (feature) => assertFeature(activePlan, feature),
+    [activePlan],
+  );
+
   const rootTelemetryAccessMode = useMemo(
     () => getRootTelemetryAccessMode({ isRootOperator, activeRole, user }),
     [activeRole, isRootOperator, user],
@@ -396,6 +443,11 @@ export function AccountProvider({ children }) {
         accountLoading,
 
         activeRole,
+        activePlan,
+        activeSubscriptionStatus,
+        isBillingLocked,
+        hasEntitlement,
+        assertEntitlement,
         canAccessTelemetry,
         rootTelemetryAccessMode,
         isRootTelemetryAdmin: rootTelemetryAccessMode === "root",

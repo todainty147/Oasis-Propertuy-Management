@@ -62,7 +62,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("finance_snapshot isolation",
     const { client } = await signInAsFixtureUser("ownerA");
     const { data: existingPartialPayment, error: existingPartialPaymentError } = await admin
       .from("payments")
-      .select("id")
+      .select("id,amount,status,paid_at,due_date")
       .eq("id", partialPaymentId)
       .maybeSingle();
 
@@ -109,7 +109,12 @@ describe.skipIf(!isIntegrationHarnessConfigured())("finance_snapshot isolation",
     expect(result.error).toBeNull();
     const row = firstRow(result.data);
     expect(row).toBeTruthy();
-    const expectedDelta = existingPartialPayment ? 0 : 300;
+    const existingPaidAmount =
+      existingPartialPayment &&
+      (existingPartialPayment.paid_at || String(existingPartialPayment.status || "").toLowerCase() === "paid")
+        ? Number(existingPartialPayment.amount || 0)
+        : 0;
+    const expectedDelta = Math.max(300 - existingPaidAmount, 0);
     expect(Number(row.total_income)).toBe(Number(beforeRow.total_income) + expectedDelta);
     expect(Number(row.overdue_income)).toBe(0);
     expect(Number(row.due_soon_income)).toBe(Number(beforeRow.due_soon_income) - expectedDelta);
@@ -118,8 +123,17 @@ describe.skipIf(!isIntegrationHarnessConfigured())("finance_snapshot isolation",
     const propertyRow = row.property_finance.find(
       (entry) => entry.propertyId === isolationFixtures.users.tenantA1.propertyId,
     );
-    expect(propertyRow.paid).toBe(Number(beforePropertyRow?.paid || 0) + expectedDelta);
-    expect(propertyRow.remaining).toBe(Number(beforePropertyRow?.remaining || 0) - expectedDelta);
+    const currentMonthKey = String(isolationSeedDates.accountADueDate).slice(0, 7);
+    const existingPropertyPaidAmount =
+      existingPartialPayment &&
+      (existingPartialPayment.paid_at || String(existingPartialPayment.status || "").toLowerCase() === "paid") &&
+      String(existingPartialPayment.due_date || existingPartialPayment.paid_at || "").slice(0, 7) === currentMonthKey
+        ? Number(existingPartialPayment.amount || 0)
+        : 0;
+    const expectedPropertyDelta = Math.max(300 - existingPropertyPaidAmount, 0);
+
+    expect(propertyRow.paid).toBe(Number(beforePropertyRow?.paid || 0) + expectedPropertyDelta);
+    expect(propertyRow.remaining).toBe(Number(beforePropertyRow?.remaining || 0) - expectedPropertyDelta);
     expect(propertyRow.paymentStatus).toBe("partial");
   });
 

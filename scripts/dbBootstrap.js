@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 const repoRoot = process.cwd();
@@ -11,6 +12,11 @@ const bootstrapSteps = [
     label: "Load baseline schema",
     file: path.join(supabaseDir, "baseline_schema.sql"),
     onErrorStop: false,
+  },
+  {
+    label: "Apply account entitlements overlay",
+    file: path.join(supabaseDir, "account_entitlements.sql"),
+    onErrorStop: true,
   },
   {
     label: "Apply account branding overlay",
@@ -65,6 +71,11 @@ const bootstrapSteps = [
   {
     label: "Apply preventive maintenance overlay",
     file: path.join(supabaseDir, "preventive_maintenance.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply work-order workflow seed overlay",
+    file: path.join(supabaseDir, "work_order_workflow_seed.sql"),
     onErrorStop: true,
   },
   {
@@ -153,13 +164,13 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
-    label: "Apply support telemetry access overlay",
-    file: path.join(supabaseDir, "support_telemetry_access.sql"),
+    label: "Apply security observability overlay",
+    file: path.join(supabaseDir, "security_observability_events.sql"),
     onErrorStop: true,
   },
   {
-    label: "Apply security observability overlay",
-    file: path.join(supabaseDir, "security_observability_events.sql"),
+    label: "Apply support telemetry access overlay",
+    file: path.join(supabaseDir, "support_telemetry_access.sql"),
     onErrorStop: true,
   },
   {
@@ -284,6 +295,39 @@ function resolveSupabaseCommand() {
   return process.platform === "win32" ? "supabase.exe" : "supabase";
 }
 
+function createSanitizedBaselineFile(sourcePath) {
+  const original = fs.readFileSync(sourcePath, "utf8");
+  const lines = original.split(/\r?\n/);
+  const sanitized = [];
+  let skippingCopyData = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (skippingCopyData) {
+      if (trimmed === "\\.") {
+        skippingCopyData = false;
+      }
+      continue;
+    }
+
+    if (trimmed.startsWith("\\restrict") || trimmed.startsWith("\\unrestrict")) {
+      continue;
+    }
+
+    if (/^COPY\s+.+\s+FROM\s+stdin;$/i.test(trimmed)) {
+      skippingCopyData = true;
+      continue;
+    }
+
+    sanitized.push(line);
+  }
+
+  const tempPath = path.join(os.tmpdir(), `oasis-baseline-sanitized-${Date.now()}.sql`);
+  fs.writeFileSync(tempPath, `${sanitized.join("\n")}\n`, "utf8");
+  return tempPath;
+}
+
 function runPsql({ args, label }) {
   const cmd = resolvePsqlCommand();
   const result = spawnSync(cmd, args, {
@@ -296,15 +340,60 @@ function runPsql({ args, label }) {
     },
   });
 
+  const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
+
   if (result.status !== 0) {
-    const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
     throw new Error(`${label} failed using ${cmd}\n${output}`);
   }
 
-  const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
+  const filteredOutput = label === "Load baseline schema"
+    ? filterBaselineBootstrapOutput(output)
+    : output;
+
+  if (label === "Load baseline schema" && output && !filteredOutput) {
+    console.log("Baseline schema applied with expected local bootstrap noise suppressed.");
+    return;
+  }
+
+  if (label === "Load baseline schema" && output && filteredOutput && filteredOutput !== output) {
+    console.log(filteredOutput);
+    return;
+  }
+
   if (output) {
     console.log(output);
   }
+}
+
+function filterBaselineBootstrapOutput(output) {
+  if (!output) return output;
+
+  const noisyPatterns = [
+    /permission denied for schema auth/i,
+    /must be owner of/i,
+    /relation ".*" already exists/i,
+    /multiple primary keys .* are not allowed/i,
+    /constraint ".*" .* already exists/i,
+    /policy ".*" .* already exists/i,
+    /trigger ".*" .* already exists/i,
+    /grant options cannot be granted back to your own grantor/i,
+    /permission denied to change default privileges/i,
+    /no privileges were granted/i,
+    /type "extensions\.citext" does not exist/i,
+  ];
+
+  return output
+    .split(/\r?\n/)
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return false;
+      if (/^(SET|CREATE|ALTER|COMMENT|GRANT|REVOKE|BEGIN|COMMIT|DO|INSERT|UPDATE|DELETE|DROP)\b/i.test(trimmed)) {
+        return false;
+      }
+      return !noisyPatterns.some((pattern) => pattern.test(trimmed));
+    })
+    .join("\n")
+    .trim();
 }
 
 function runSupabase({ args, label }) {
@@ -329,6 +418,7 @@ function runSupabase({ args, label }) {
 
 function main() {
   const dbUrl = process.env.DB_BOOTSTRAP_URL || process.env.DATABASE_URL || defaultDbUrl;
+  const tempFiles = [];
 
   console.log("OASIS local DB bootstrap");
   console.log(`Target database: ${dbUrl}`);
@@ -355,6 +445,13 @@ function main() {
   for (const step of bootstrapSteps) {
     console.log("");
     console.log(`==> ${step.label}`);
+    const filePath = path.basename(step.file) === "baseline_schema.sql"
+      ? (() => {
+          const sanitizedPath = createSanitizedBaselineFile(step.file);
+          tempFiles.push(sanitizedPath);
+          return sanitizedPath;
+        })()
+      : step.file;
     runPsql({
       label: step.label,
       args: [
@@ -363,7 +460,7 @@ function main() {
         "--dbname",
         dbUrl,
         "--file",
-        step.file,
+        filePath,
       ],
     });
   }
@@ -373,6 +470,14 @@ function main() {
   console.log("Next steps:");
   console.log("  npm run test:integration:seed");
   console.log("  npm run test:integration:run");
+
+  for (const filePath of tempFiles) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch {
+      // best-effort cleanup
+    }
+  }
 }
 
 main();

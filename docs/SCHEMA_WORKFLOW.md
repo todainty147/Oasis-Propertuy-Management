@@ -6,6 +6,8 @@ The current source of truth for local schema bootstrapping is:
 
 1. [supabase/baseline_schema.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/baseline_schema.sql)
 2. additive overlay SQL files applied after baseline when they are newer or intentionally separate, for example:
+   - [supabase/20260315_billing.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/20260315_billing.sql)
+   - [supabase/account_entitlements.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/account_entitlements.sql)
    - [supabase/account_invitations_saas.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/account_invitations_saas.sql)
    - [supabase/security_failure_observability.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/security_failure_observability.sql)
    - [supabase/performance_rpc_indexes.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/performance_rpc_indexes.sql)
@@ -35,15 +37,18 @@ npm run db:bootstrap
 
 Example overlay order for the current repo:
 
-1. `supabase/account_invitations_saas.sql`
-2. `supabase/create_notifications.sql`
-3. `supabase/security_denied_event_stream.sql`
-4. `supabase/security_observability_events.sql`
-5. `supabase/payment_write_authorization.sql`
-6. `supabase/storage_buckets.sql`
-7. `supabase/storage_documents_policies.sql`
-8. `supabase/storage_maintenance_request_attachments_policies.sql`
-9. `supabase/storage_work_order_attachments_policies.sql`
+1. `supabase/20260315_billing.sql`
+2. `supabase/account_entitlements.sql`
+3. `supabase/account_invitations_saas.sql`
+4. `supabase/create_notifications.sql`
+5. `supabase/security_denied_event_stream.sql`
+6. `supabase/security_observability_events.sql`
+7. `supabase/payment_write_authorization.sql`
+8. `supabase/work_order_workflow_seed.sql`
+9. `supabase/storage_buckets.sql`
+10. `supabase/storage_documents_policies.sql`
+11. `supabase/storage_maintenance_request_attachments_policies.sql`
+12. `supabase/storage_work_order_attachments_policies.sql`
 
 This is intentionally explicit. Do not assume `supabase db reset` alone reconstructs the full app schema in this repo.
 
@@ -82,6 +87,7 @@ What it does:
 - gives a practical confidence signal on top of the intentionally noisy baseline replay
 
 The current verification set covers:
+- billing and entitlement launch fields/functions
 - invite lifecycle surface
 - security denied-event and observability surfaces
 - document storage access helper

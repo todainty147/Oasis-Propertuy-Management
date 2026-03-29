@@ -188,15 +188,43 @@ OASIS billing uses:
 - Stripe webhooks for subscription lifecycle sync
 - Supabase Edge Functions for secure server-side Stripe calls
 - account-scoped billing tied to `accounts.id`
+- shared plan entitlements and usage limits enforced in both app and SQL
+
+### Current plan model
+
+- `starter`
+  - core properties, tenants, maintenance, finance, and documents
+  - max `10` properties
+- `growth`
+  - everything in Starter
+  - adds Command Center, Portfolio Health, and Maintenance KPI
+  - max `50` properties
+- `pro`
+  - everything in Growth
+  - adds Security Audit, Playbooks, and Root Telemetry
+  - unlimited properties
+
+Billing and entitlement state is normalized onto:
+
+- `accounts.subscription_status`
+- `accounts.subscription_plan`
+- `billing_subscriptions`
+
+Feature and usage enforcement is driven from:
+
+- app config: [src/lib/entitlements.js](/mnt/c/Users/Home/oasisrentalmanagementapp/src/lib/entitlements.js)
+- SQL helpers: [supabase/account_entitlements.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/account_entitlements.sql)
 
 ### Files in this repo
 
 - SQL: [supabase/20260315_billing.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/20260315_billing.sql)
+- entitlement SQL: [supabase/account_entitlements.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/account_entitlements.sql)
 - checkout function: [supabase/functions/create-checkout-session/index.ts](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions/create-checkout-session/index.ts)
 - portal function: [supabase/functions/create-customer-portal-session/index.ts](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions/create-customer-portal-session/index.ts)
 - webhook function: [supabase/functions/stripe-webhook/index.ts](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions/stripe-webhook/index.ts)
 - frontend service: [src/services/billingService.js](/mnt/c/Users/Home/oasisrentalmanagementapp/src/services/billingService.js)
 - billing page: [src/pages/BillingPage.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/BillingPage.jsx)
+- app gating: [src/App.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/App.jsx), [src/layout/Sidebar.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/layout/Sidebar.jsx), [src/pages/Properties.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/Properties.jsx)
 
 ### Stripe prerequisites
 
@@ -214,9 +242,19 @@ Run:
 
 ```sql
 \i supabase/20260315_billing.sql
+\i supabase/account_entitlements.sql
 ```
 
-Or paste/apply the contents of [supabase/20260315_billing.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/20260315_billing.sql) in the Supabase SQL editor.
+Or paste/apply the contents of both:
+
+- [supabase/20260315_billing.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/20260315_billing.sql)
+- [supabase/account_entitlements.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/account_entitlements.sql)
+
+If you are bringing an environment fully up to the repo's current schema shape, prefer:
+
+```bash
+npm run db:apply:repo -- --db-url "postgresql://postgres@HOST:5432/postgres"
+```
 
 ### Required secrets
 
@@ -267,14 +305,21 @@ Subscribe to:
 ### Local testing checklist
 
 1. Confirm the billing SQL is applied.
-2. Confirm all Stripe secrets are set.
-3. Confirm `APP_URL` is a full URL like `http://localhost:5173`.
-4. Redeploy the billing functions after any secret change.
-5. Open `/settings/billing` in the app.
-6. Click a plan and verify Stripe Checkout opens.
-7. Complete a test checkout in Stripe test mode.
-8. Verify `billing_customers`, `billing_subscriptions`, and `accounts.subscription_status` update after webhook delivery.
-9. If `STRIPE_TEST_TRIAL_DAYS` is set, verify the resulting subscription lands in `trialing` status.
+2. Confirm the entitlement SQL is applied.
+3. Confirm all Stripe secrets are set.
+4. Confirm `APP_URL` is a full URL like `http://localhost:5173`.
+5. Redeploy the billing functions after any secret change.
+6. Rebuild and redeploy the frontend after billing or entitlement UI changes.
+7. Open `/settings/billing` in the app.
+8. Click a plan and verify Stripe Checkout opens.
+9. Complete a test checkout in Stripe test mode.
+10. Verify `billing_customers`, `billing_subscriptions`, `accounts.subscription_status`, and `accounts.subscription_plan` update after webhook delivery.
+11. Verify gated surfaces and property limits match the active plan:
+   - Starter cannot exceed `10` properties
+   - Growth cannot exceed `50` properties
+   - Starter cannot access Command Center / Portfolio Health / Maintenance KPI
+   - Growth cannot access Security Audit / Playbooks / Root Telemetry
+12. If `STRIPE_TEST_TRIAL_DAYS` is set, verify the resulting subscription lands in `trialing` status.
 
 ### Common errors
 

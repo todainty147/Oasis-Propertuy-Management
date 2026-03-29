@@ -14,6 +14,7 @@ Preflight behavior:
 What it does:
 - creates deterministic auth users by fixture email
 - seeds fixed account/property/tenant/contractor/payment/request/work-order rows
+- seeds account plan state needed for gated Growth/Pro surfaces
 - signs in as real users against the local Supabase Auth service
 - allows integration tests to call real RPCs under authenticated sessions
 
@@ -47,13 +48,21 @@ Behavior notes:
 
 Recommended local flow:
 1. Start local Supabase.
-2. Load `supabase/baseline_schema.sql` into your local database.
-3. Apply additive SQL overlays that are newer than the baseline you loaded. For the current suite, make sure invite, payment authorization, and storage overlays are applied after the baseline.
+2. Load `supabase/baseline_schema.sql` into your local database, or use `npm run db:bootstrap`.
+3. Apply additive SQL overlays that are newer than the baseline you loaded. For the current suite, make sure billing, entitlement, invite, payment authorization, work-order workflow seed, and storage overlays are applied after the baseline.
 4. Copy `.env.integration.example` to `.env.integration.local`.
 5. Set `TEST_SUPABASE_URL`, `TEST_SUPABASE_ANON_KEY`, and `TEST_SUPABASE_SERVICE_ROLE_KEY`.
-6. Apply the invite, payment authorization, and storage overlays if your local baseline does not already include them:
+6. Apply the billing, entitlement, invite, payment authorization, workflow seed, and storage overlays if your local baseline does not already include them:
 
 ```bash
+PGPASSWORD=postgres psql \
+  --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+  --file "supabase/20260315_billing.sql"
+
+PGPASSWORD=postgres psql \
+  --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+  --file "supabase/account_entitlements.sql"
+
 PGPASSWORD=postgres psql \
   --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
   --file "supabase/account_invitations_saas.sql"
@@ -61,6 +70,10 @@ PGPASSWORD=postgres psql \
 PGPASSWORD=postgres psql \
   --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
   --file "supabase/payment_write_authorization.sql"
+
+PGPASSWORD=postgres psql \
+  --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+  --file "supabase/work_order_workflow_seed.sql"
 
 PGPASSWORD=postgres psql \
   --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
@@ -141,7 +154,7 @@ Practical workflow:
 CI structure:
 - fast Vitest/source tests run via `npm run test:unit:run`
 - authenticated local Supabase integration tests run via `npm run test:integration:seed` and `npm run test:integration:run`
-- the GitHub Actions integration lane starts a local Supabase stack, loads `supabase/baseline_schema.sql`, applies invite, payment authorization, and storage overlays, seeds the harness, and then runs the integration suite
+- the GitHub Actions integration lane starts a local Supabase stack, loads `supabase/baseline_schema.sql`, applies billing, entitlement, invite, payment authorization, work-order workflow seed, and storage overlays, seeds the harness, and then runs the integration suite
 
 CI env and secrets:
 - the checked-in GitHub Actions workflow uses local Supabase in CI, so it does not require hosted Supabase secrets

@@ -10,6 +10,7 @@ import { can } from "../utils/permissions";
 import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount } from "../utils/currency";
 import OnboardingHintCard from "../components/OnboardingHintCard";
+import { getPlanUsageLimit, hasUsageCapacity } from "../lib/entitlements";
 
 /* ======================
    SKELETON
@@ -43,6 +44,7 @@ export default function Properties({
   onAddProperty,
   onEditProperty,
   onDeleteProperty,
+  activePlan = "starter",
 }) {
   const { setTitle } = usePageTitle();
   const { accountLoading, activeRole, isRootOperator } = useAccount();
@@ -78,6 +80,9 @@ export default function Properties({
   const canCreate = isRootOperator || can(activeRole, "properties", "create");
   const canUpdate = isRootOperator || can(activeRole, "properties", "update");
   const canDelete = isRootOperator || can(activeRole, "properties", "delete");
+  const propertyLimit = getPlanUsageLimit(activePlan, "properties");
+  const propertyCapacityAvailable = hasUsageCapacity(activePlan, "properties", properties.length);
+  const addDisabled = canCreate && !propertyCapacityAvailable;
 
   const statusFilter = useMemo(() => {
     const raw = String(searchParams.get("status") || "").toLowerCase();
@@ -182,11 +187,21 @@ export default function Properties({
         {canCreate && (
           <button
             onClick={onAddProperty}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
+            disabled={addDisabled}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:cursor-not-allowed disabled:opacity-60"
           >
             {t("properties.add")}
           </button>
         )}
+        {addDisabled ? (
+          <p className="mt-3 text-sm text-amber-700">
+            {t("properties.limitReached", {
+              plan: t(`billing.plan.${activePlan}`),
+              count: properties.length,
+              limit: propertyLimit,
+            })}
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -200,12 +215,24 @@ export default function Properties({
         {canCreate && (
           <button
             onClick={onAddProperty}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+            disabled={addDisabled}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:cursor-not-allowed disabled:opacity-60"
           >
             {t("properties.add")}
           </button>
         )}
       </div>
+
+      {addDisabled ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {t("properties.limitReached", {
+            plan: t(`billing.plan.${activePlan}`),
+            count: properties.length,
+            limit: propertyLimit,
+          })}{" "}
+          {t("properties.limitUpgradeHint")}
+        </div>
+      ) : null}
 
       <OnboardingHintCard
         title={t("onboarding.hints.properties.title")}

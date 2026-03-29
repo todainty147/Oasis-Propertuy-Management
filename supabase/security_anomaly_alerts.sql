@@ -44,22 +44,34 @@ create policy "security_anomaly_alerts_select_managers"
 on public.security_anomaly_alerts
 for select
 to authenticated
-using (public.user_can_manage_account(account_id));
+using (
+  public.user_can_manage_account(account_id)
+  and public.account_has_feature(account_id, 'security_audit')
+);
 
 drop policy if exists "security_anomaly_alerts_insert_managers" on public.security_anomaly_alerts;
 create policy "security_anomaly_alerts_insert_managers"
 on public.security_anomaly_alerts
 for insert
 to authenticated
-with check (public.user_can_manage_account(account_id));
+with check (
+  public.user_can_manage_account(account_id)
+  and public.account_has_feature(account_id, 'security_audit')
+);
 
 drop policy if exists "security_anomaly_alerts_update_managers" on public.security_anomaly_alerts;
 create policy "security_anomaly_alerts_update_managers"
 on public.security_anomaly_alerts
 for update
 to authenticated
-using (public.user_can_manage_account(account_id))
-with check (public.user_can_manage_account(account_id));
+using (
+  public.user_can_manage_account(account_id)
+  and public.account_has_feature(account_id, 'security_audit')
+)
+with check (
+  public.user_can_manage_account(account_id)
+  and public.account_has_feature(account_id, 'security_audit')
+);
 
 grant select, insert, update on table public.security_anomaly_alerts to authenticated;
 

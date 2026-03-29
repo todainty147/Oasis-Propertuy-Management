@@ -24,6 +24,10 @@ import AppLayout from "./layout/AppLayout";
 import { useAccount } from "./context/AccountContext";
 import { useI18n } from "./context/I18nContext";
 import { OCCUPANCY_STATUS } from "./utils/statuses";
+import { isManageRole } from "./utils/permissions";
+import { ENTITLEMENT_FEATURES } from "./lib/entitlements";
+import { assertUsageCapacity, getPlanUsageLimit, normalizePlan } from "./lib/entitlements";
+import FeatureAccessCard from "./components/FeatureAccessCard";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Properties = lazy(() => import("./pages/Properties"));
@@ -50,6 +54,19 @@ const SecurityAuditPage = lazy(() => import("./pages/SecurityAuditPage"));
 const RootTelemetryPage = lazy(() => import("./pages/RootTelemetryPage"));
 const AddPropertyModal = lazy(() => import("./components/AddPropertyModal"));
 
+function EntitledRoute({ feature, children }) {
+  const { activeRole, isRootOperator, canAccessTelemetry, hasEntitlement, activePlan } = useAccount();
+  const role = String(activeRole || "").toLowerCase();
+  const canManage = isManageRole(role, { isRootOperator });
+  const canEvaluate = feature === ENTITLEMENT_FEATURES.ROOT_TELEMETRY ? canAccessTelemetry : canManage;
+
+  if (!canEvaluate || hasEntitlement(feature)) {
+    return children;
+  }
+
+  return <FeatureAccessCard feature={feature} currentPlan={activePlan} />;
+}
+
 export default function App() {
   const { t } = useI18n();
   const location = useLocation();
@@ -61,7 +78,7 @@ export default function App() {
   /* ======================
      ACCOUNT (NEW)
      ====================== */
-  const { activeAccountId, activeAccount, activeRole, accountLoading } = useAccount();
+  const { activeAccountId, activeAccount, activeRole, accountLoading, activePlan } = useAccount();
 
   /* ======================
      DATA HOOKS
@@ -268,6 +285,25 @@ export default function App() {
     });
 
   const longVacantProperties = vacancyAging.filter((p) => p.daysVacant > 30);
+  const safeActivePlan = normalizePlan(activePlan);
+  const propertyPlanLimit = getPlanUsageLimit(safeActivePlan, "properties");
+  const canCreateMoreProperties =
+    propertyPlanLimit == null ? true : ownerProperties.length < propertyPlanLimit;
+
+  function openAddPropertyModal() {
+    if (!canCreateMoreProperties) {
+      window.alert(
+        t("properties.limitReached", {
+          plan: t(`billing.plan.${safeActivePlan}`),
+          count: ownerProperties.length,
+          limit: propertyPlanLimit,
+        }),
+      );
+      return;
+    }
+    setEditingProperty(null);
+    setIsAddPropertyOpen(true);
+  }
 
   /* ======================
      ROUTES
@@ -311,10 +347,8 @@ export default function App() {
                 loading={propertiesLoading}
                 properties={ownerProperties}
                 tenants={ownerTenants}
-                onAddProperty={() => {
-                  setEditingProperty(null);
-                  setIsAddPropertyOpen(true);
-                }}
+                activePlan={safeActivePlan}
+                onAddProperty={openAddPropertyModal}
                 onEditProperty={(p) => {
                   setEditingProperty(p);
                   setIsAddPropertyOpen(true);
@@ -332,6 +366,19 @@ export default function App() {
                   setEditingProperty(null);
                 }}
                 onSave={async (property) => {
+                  if (!property.id) {
+                    if (!canCreateMoreProperties) {
+                      window.alert(
+                        t("properties.limitReached", {
+                          plan: t(`billing.plan.${safeActivePlan}`),
+                          count: ownerProperties.length,
+                          limit: propertyPlanLimit,
+                        }),
+                      );
+                      return;
+                    }
+                    assertUsageCapacity(safeActivePlan, "properties", ownerProperties.length);
+                  }
                   const payload = {
                     ...property,
                     accountId: activeAccountId, // ✅ CRITICAL
@@ -376,6 +423,19 @@ export default function App() {
                   setEditingProperty(null);
                 }}
                 onSave={async (property) => {
+                  if (!property.id) {
+                    if (!canCreateMoreProperties) {
+                      window.alert(
+                        t("properties.limitReached", {
+                          plan: t(`billing.plan.${safeActivePlan}`),
+                          count: ownerProperties.length,
+                          limit: propertyPlanLimit,
+                        }),
+                      );
+                      return;
+                    }
+                    assertUsageCapacity(safeActivePlan, "properties", ownerProperties.length);
+                  }
                   const payload = {
                     ...property,
                     accountId: activeAccountId,
@@ -435,20 +495,66 @@ export default function App() {
           element={<Documents tenants={tenants} properties={properties} />}
         />
         <Route path="maintenance-inbox" element={<MaintenanceInboxPage />} />
-        <Route path="maintenance-kpi" element={<MaintenanceKPIDashboardPage />} />
-        <Route path="command-center" element={<CommandCenterPage />} />
-        <Route path="attention-center" element={<CommandCenterPage />} />
+        <Route
+          path="maintenance-kpi"
+          element={
+            <EntitledRoute feature={ENTITLEMENT_FEATURES.MAINTENANCE_KPI}>
+              <MaintenanceKPIDashboardPage />
+            </EntitledRoute>
+          }
+        />
+        <Route
+          path="command-center"
+          element={
+            <EntitledRoute feature={ENTITLEMENT_FEATURES.COMMAND_CENTER}>
+              <CommandCenterPage />
+            </EntitledRoute>
+          }
+        />
+        <Route
+          path="attention-center"
+          element={
+            <EntitledRoute feature={ENTITLEMENT_FEATURES.COMMAND_CENTER}>
+              <CommandCenterPage />
+            </EntitledRoute>
+          }
+        />
         <Route path="landlord-onboarding" element={<LandlordOnboardingPage />} />
         <Route path="invitations" element={<InvitationsPage />} />
               <Route path="settings/profile" element={<ProfilePage />} />
               <Route path="settings/branding" element={<AccountBrandingPage />} />
               <Route path="settings/billing" element={<BillingPage />} />
-              <Route path="settings/playbooks" element={<PlaybooksPage />} />
-              <Route path="settings/security-audit" element={<SecurityAuditPage />} />
-              <Route path="settings/root-telemetry" element={<RootTelemetryPage />} />
+              <Route
+                path="settings/playbooks"
+                element={
+                  <EntitledRoute feature={ENTITLEMENT_FEATURES.PLAYBOOKS}>
+                    <PlaybooksPage />
+                  </EntitledRoute>
+                }
+              />
+              <Route
+                path="settings/security-audit"
+                element={
+                  <EntitledRoute feature={ENTITLEMENT_FEATURES.SECURITY_AUDIT}>
+                    <SecurityAuditPage />
+                  </EntitledRoute>
+                }
+              />
+              <Route
+                path="settings/root-telemetry"
+                element={
+                  <EntitledRoute feature={ENTITLEMENT_FEATURES.ROOT_TELEMETRY}>
+                    <RootTelemetryPage />
+                  </EntitledRoute>
+                }
+              />
         <Route
           path="portfolio-health"
-          element={<PortfolioHealthDashboardPage />}
+          element={
+            <EntitledRoute feature={ENTITLEMENT_FEATURES.PORTFOLIO_HEALTH}>
+              <PortfolioHealthDashboardPage />
+            </EntitledRoute>
+          }
         />
         {/* ✅ Contractor routes (relative paths because they are inside AppLayout wrapper) */}
         <Route path="contractor" element={<ContractorPortal />} />

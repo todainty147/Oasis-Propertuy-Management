@@ -37,7 +37,9 @@ as $$
     select greatest(1, least(coalesce(p_limit, 80), 200)) as max_items
   ),
   authz as (
-    select public.assert_manage_account_access(p_account_id) as account_id
+    select
+      public.assert_manage_account_access(p_account_id) as account_id,
+      public.assert_account_feature_access(p_account_id, 'command_center') as feature_account_id
   ),
   security_cfg as (
     select

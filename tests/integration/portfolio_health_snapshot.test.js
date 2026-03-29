@@ -65,7 +65,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("portfolio_health_snapshot is
     const { client } = await signInAsFixtureUser("ownerA");
     const { data: existingPartialPayment, error: existingPartialPaymentError } = await admin
       .from("payments")
-      .select("id")
+      .select("id,amount,status,paid_at")
       .eq("id", partialPaymentId)
       .maybeSingle();
 
@@ -109,7 +109,12 @@ describe.skipIf(!isIntegrationHarnessConfigured())("portfolio_health_snapshot is
     expect(result.error).toBeNull();
     const row = firstRow(result.data);
     expect(row).toBeTruthy();
-    const expectedDelta = existingPartialPayment ? 0 : 300;
+    const existingPaidAmount =
+      existingPartialPayment &&
+      (existingPartialPayment.paid_at || String(existingPartialPayment.status || "").toLowerCase() === "paid")
+        ? Number(existingPartialPayment.amount || 0)
+        : 0;
+    const expectedDelta = Math.max(300 - existingPaidAmount, 0);
     expect(Number(row.paid_amount)).toBe(Number(beforeRow.paid_amount) + expectedDelta);
     expect(Number(row.due_amount)).toBe(Number(beforeRow.due_amount) - expectedDelta);
     expect(Number(row.due_soon_amount)).toBe(Number(beforeRow.due_soon_amount) - expectedDelta);

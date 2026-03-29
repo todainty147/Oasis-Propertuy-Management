@@ -202,6 +202,7 @@ begin
   end if;
 
   perform public.assert_manage_account_access(v_alert.account_id);
+  perform public.assert_account_feature_access(v_alert.account_id, 'security_audit');
 
   if v_operation = 'acknowledge' then
     if lower(v_alert.status) <> 'open' then

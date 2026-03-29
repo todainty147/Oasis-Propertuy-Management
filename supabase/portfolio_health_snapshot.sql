@@ -38,6 +38,7 @@ as $$
   with authz as (
     select
       p_account_id as account_id,
+      public.assert_account_feature_access(p_account_id, 'portfolio_health') as feature_account_id,
       public.assert_tenant_scope_access(p_account_id, p_tenant_id) as tenant_id
   ),
   tenant_scope as (

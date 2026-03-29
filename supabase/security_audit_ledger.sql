@@ -55,13 +55,19 @@ create policy "security_audit_ledger_select_managers"
 on public.security_audit_ledger
 for select
 to authenticated
-using (public.user_can_manage_account(account_id));
+using (
+  public.user_can_manage_account(account_id)
+  and public.account_has_feature(account_id, 'security_audit')
+);
 
 drop policy if exists "security_audit_ledger_insert_managers" on public.security_audit_ledger;
 create policy "security_audit_ledger_insert_managers"
 on public.security_audit_ledger
 for insert
 to authenticated
-with check (public.user_can_manage_account(account_id));
+with check (
+  public.user_can_manage_account(account_id)
+  and public.account_has_feature(account_id, 'security_audit')
+);
 
 grant select, insert on table public.security_audit_ledger to authenticated;

@@ -21,7 +21,9 @@ security definer
 set search_path = public
 as $$
   with authz as (
-    select public.assert_manage_account_access(p_account_id) as account_id
+    select
+      public.assert_manage_account_access(p_account_id) as account_id,
+      public.assert_account_feature_access(p_account_id, 'maintenance_kpi') as feature_account_id
   ),
   req as (
     select

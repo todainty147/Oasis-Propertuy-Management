@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 const repoRoot = process.cwd();
@@ -20,6 +21,7 @@ const EXCLUDED_FILES = new Map([
 // This intentionally prefers idempotent schema/function overlays over raw directory iteration.
 const OVERLAY_SEQUENCE = [
   "20260315_billing.sql",
+  "account_entitlements.sql",
   "account_branding.sql",
   "account_invitations_saas.sql",
   "account_owner_contact.sql",
@@ -31,6 +33,7 @@ const OVERLAY_SEQUENCE = [
   "maintenance_kpi_snapshot.sql",
   "prevent_close_if_work_order_open.sql",
   "preventive_maintenance.sql",
+  "work_order_workflow_seed.sql",
   "property_operational_health_snapshot.sql",
   "contractor_work_order_cards.sql",
   "contractor_ratings.sql",
@@ -48,9 +51,9 @@ const OVERLAY_SEQUENCE = [
   "create_notifications.sql",
   "notifications_rpc_grants.sql",
   "payment_write_authorization.sql",
-  "support_telemetry_access.sql",
   "security_denied_event_stream.sql",
   "security_observability_events.sql",
+  "support_telemetry_access.sql",
   "security_failure_observability.sql",
   "log_security_event.sql",
   "security_audit_ledger.sql",
@@ -144,6 +147,39 @@ function ensureFilesExist(files) {
   }
 }
 
+function createSanitizedBaselineFile(sourcePath) {
+  const original = fs.readFileSync(sourcePath, "utf8");
+  const lines = original.split(/\r?\n/);
+  const sanitized = [];
+  let skippingCopyData = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (skippingCopyData) {
+      if (trimmed === "\\.") {
+        skippingCopyData = false;
+      }
+      continue;
+    }
+
+    if (trimmed.startsWith("\\restrict") || trimmed.startsWith("\\unrestrict")) {
+      continue;
+    }
+
+    if (/^COPY\s+.+\s+FROM\s+stdin;$/i.test(trimmed)) {
+      skippingCopyData = true;
+      continue;
+    }
+
+    sanitized.push(line);
+  }
+
+  const tempPath = path.join(os.tmpdir(), `oasis-baseline-sanitized-${Date.now()}.sql`);
+  fs.writeFileSync(tempPath, `${sanitized.join("\n")}\n`, "utf8");
+  return tempPath;
+}
+
 function buildPlan({ includeBaseline }) {
   const files = includeBaseline ? [BASELINE_FILE, ...OVERLAY_SEQUENCE] : [...OVERLAY_SEQUENCE];
   ensureFilesExist(files);
@@ -173,17 +209,58 @@ function runPsql({ dbUrl, filePath, onErrorStop }) {
     env: process.env,
   });
 
+  const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
+
   if (result.status !== 0) {
-    const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
     throw new Error(`${path.basename(filePath)} failed\n${output}`);
   }
 
-  const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
-  if (output) console.log(output);
+  const filteredOutput = path.basename(filePath) === BASELINE_FILE
+    ? filterBaselineApplyOutput(output)
+    : output;
+
+  if (path.basename(filePath) === BASELINE_FILE && output && !filteredOutput) {
+    console.log("Baseline schema replay completed with expected noise suppressed.");
+    return;
+  }
+
+  if (filteredOutput) console.log(filteredOutput);
+}
+
+function filterBaselineApplyOutput(output) {
+  if (!output) return output;
+
+  const noisyPatterns = [
+    /permission denied for schema auth/i,
+    /must be owner of/i,
+    /relation ".*" already exists/i,
+    /multiple primary keys .* are not allowed/i,
+    /constraint ".*" .* already exists/i,
+    /policy ".*" .* already exists/i,
+    /trigger ".*" .* already exists/i,
+    /grant options cannot be granted back to your own grantor/i,
+    /permission denied to change default privileges/i,
+    /no privileges were granted/i,
+    /type "extensions\.citext" does not exist/i,
+  ];
+
+  return output
+    .split(/\r?\n/)
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return false;
+      if (/^(SET|CREATE|ALTER|COMMENT|GRANT|REVOKE|BEGIN|COMMIT|DO|INSERT|UPDATE|DELETE|DROP)\b/i.test(trimmed)) {
+        return false;
+      }
+      return !noisyPatterns.some((pattern) => pattern.test(trimmed));
+    })
+    .join("\n")
+    .trim();
 }
 
 function main() {
   const options = parseArgs(process.argv.slice(2));
+  const tempFiles = [];
   if (options.help) {
     printHelp();
     return;
@@ -218,15 +295,30 @@ function main() {
   for (const step of plan) {
     console.log("");
     console.log(`==> Applying supabase/${step.file}`);
+    const filePath = step.file === BASELINE_FILE
+      ? (() => {
+          const sanitizedPath = createSanitizedBaselineFile(step.path);
+          tempFiles.push(sanitizedPath);
+          return sanitizedPath;
+        })()
+      : step.path;
     runPsql({
       dbUrl: options.dbUrl,
-      filePath: step.path,
+      filePath,
       onErrorStop: step.onErrorStop,
     });
   }
 
   console.log("");
   console.log("Repo SQL apply complete.");
+
+  for (const filePath of tempFiles) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch {
+      // best-effort cleanup
+    }
+  }
 }
 
 main();

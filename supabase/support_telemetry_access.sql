@@ -87,6 +87,8 @@ begin
     raise exception 'Missing account id';
   end if;
 
+  perform public.assert_account_feature_access(p_account_id, 'root_telemetry');
+
   if public.user_can_access_root_telemetry(p_account_id) then
     return p_account_id;
   end if;
@@ -115,7 +117,13 @@ begin
     raise exception 'Missing account id';
   end if;
 
-  if public.user_can_manage_account(p_account_id) or public.user_can_access_root_telemetry(p_account_id) then
+  if public.user_can_manage_account(p_account_id) then
+    perform public.assert_account_feature_access(p_account_id, 'security_audit');
+    return p_account_id;
+  end if;
+
+  if public.user_can_access_root_telemetry(p_account_id) then
+    perform public.assert_account_feature_access(p_account_id, 'root_telemetry');
     return p_account_id;
   end if;
 
@@ -148,7 +156,7 @@ security definer
 set search_path = public
 as $$
   with authz as (
-    select p_account_id as account_id
+    select public.assert_account_feature_access(p_account_id, 'root_telemetry') as account_id
     where public.user_is_root_operator()
   )
   select
@@ -196,6 +204,8 @@ begin
   if not public.user_is_root_operator() then
     raise exception 'Only root operators can manage support telemetry access';
   end if;
+
+  perform public.assert_account_feature_access(p_account_id, 'root_telemetry');
 
   if p_account_id is null then
     raise exception 'Missing account id';
@@ -276,6 +286,8 @@ begin
     raise exception 'Only root operators can manage support telemetry access';
   end if;
 
+  perform public.assert_account_feature_access(p_account_id, 'root_telemetry');
+
   if p_account_id is null then
     raise exception 'Missing account id';
   end if;
@@ -325,7 +337,7 @@ security definer
 set search_path = public, auth
 as $$
   with authz as (
-    select p_account_id as account_id
+    select public.assert_account_feature_access(p_account_id, 'root_telemetry') as account_id
     where public.user_is_root_operator()
   ),
   cfg as (

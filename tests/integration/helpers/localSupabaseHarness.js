@@ -30,8 +30,29 @@ function formatUtcDateOffset(days) {
   return date.toISOString().slice(0, 10);
 }
 
+function formatStableDueSoonDate() {
+  const date = new Date();
+  date.setUTCHours(12, 0, 0, 0);
+
+  const currentDay = date.getUTCDate();
+  const lastDayOfMonth = new Date(Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    0,
+    12,
+    0,
+    0,
+    0,
+  )).getUTCDate();
+  const daysRemainingInMonth = Math.max(lastDayOfMonth - currentDay, 0);
+  const safeOffset = Math.min(3, daysRemainingInMonth);
+
+  date.setUTCDate(date.getUTCDate() + safeOffset);
+  return date.toISOString().slice(0, 10);
+}
+
 export const isolationSeedDates = {
-  accountADueDate: formatUtcDateOffset(3),
+  accountADueDate: formatStableDueSoonDate(),
   accountBOverdueDate: formatUtcDateOffset(-27),
   partialPaymentPaidAt: formatUtcDateOffset(0),
 };
@@ -310,12 +331,16 @@ export async function ensureIsolationHarnessSeed() {
         name: isolationFixtures.accounts.accountA.name,
         created_by: usersByKey.ownerA.id,
         is_root: false,
+        subscription_status: "active",
+        subscription_plan: "pro",
       },
       {
         id: isolationFixtures.accounts.accountB.id,
         name: isolationFixtures.accounts.accountB.name,
         created_by: usersByKey.ownerB.id,
         is_root: false,
+        subscription_status: "active",
+        subscription_plan: "pro",
       },
     ]);
   } catch (error) {

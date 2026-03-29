@@ -2,6 +2,22 @@
 
 OASIS helps you run the day-to-day work around your portfolio in one place: properties, tenants, rent, maintenance, contractors, and shared documents.
 
+## Plans and limits
+
+OASIS plan access is account-scoped.
+
+- `Starter`
+  - up to `10` properties
+  - core property, tenant, finance, maintenance, and document workflows
+- `Growth`
+  - up to `50` properties
+  - adds Command Center, Portfolio Health, and Maintenance KPI
+- `Pro`
+  - unlimited properties
+  - adds Security Audit, Playbooks, and Root Telemetry
+
+If you hit a property limit or open a locked page, OASIS will show upgrade guidance instead of silently failing.
+
 ## Start here
 
 1. Add your first property  

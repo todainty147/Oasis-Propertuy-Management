@@ -52,7 +52,10 @@ create policy "security_audit_export_jobs_select_managers"
 on public.security_audit_export_jobs
 for select
 to authenticated
-using (public.user_can_manage_account(account_id));
+using (
+  public.user_can_manage_account(account_id)
+  and public.account_has_feature(account_id, 'security_audit')
+);
 
 drop policy if exists "security_audit_export_jobs_insert_managers" on public.security_audit_export_jobs;
 create policy "security_audit_export_jobs_insert_managers"
@@ -61,6 +64,7 @@ for insert
 to authenticated
 with check (
   public.user_can_manage_account(account_id)
+  and public.account_has_feature(account_id, 'security_audit')
   and requested_by_user_id = auth.uid()
 );
 
@@ -81,6 +85,7 @@ using (
   and split_part(name, '/', 2) ~* '^[0-9a-f-]{36}$'
   and split_part(name, '/', 3) = 'security_audit_exports'
   and public.user_can_manage_account(split_part(name, '/', 2)::uuid)
+  and public.account_has_feature(split_part(name, '/', 2)::uuid, 'security_audit')
 );
 
 create or replace function public.request_security_audit_export(
@@ -104,6 +109,7 @@ declare
   v_job public.security_audit_export_jobs;
 begin
   v_account_id := public.assert_manage_account_access(p_account_id);
+  perform public.assert_account_feature_access(v_account_id, 'security_audit');
 
   if v_format <> 'csv' then
     raise exception 'Unsupported export format';

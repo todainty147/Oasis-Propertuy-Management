@@ -29,6 +29,7 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { isManageRole } from "../utils/permissions";
 import TenantSwitcher from "../components/TenantSwitcher";
+import { ENTITLEMENT_FEATURES } from "../lib/entitlements";
 
 /* ======================
    NAV ITEM
@@ -82,7 +83,7 @@ function AccountSwitcher() {
    ====================== */
 
 function SidebarContent({ onNavigate }) {
-  const { activeRole, activeAccountId, isRootOperator, canAccessTelemetry } = useAccount();
+  const { activeRole, activeAccountId, isRootOperator, canAccessTelemetry, hasEntitlement } = useAccount();
   const { user } = useAuth();
   const { t, lang, setLang } = useI18n();
   const { theme, setTheme } = useTheme();
@@ -269,10 +270,16 @@ function SidebarContent({ onNavigate }) {
                 </button>
                 {operationsOpen && (
                   <div className="space-y-1">
-                    <Item to="/command-center" icon={AlertCircle} label={t("sidebar.commandCenter")} onNavigate={onNavigate} />
                     <Item to="/maintenance-inbox" icon={Wrench} label={t("sidebar.maintenanceInbox")} onNavigate={onNavigate} />
-                    <Item to="/maintenance-kpi" icon={BarChart3} label={t("sidebar.maintenanceKpi")} onNavigate={onNavigate} />
-                    <Item to="/portfolio-health" icon={LineChart} label={t("sidebar.portfolioHealth")} onNavigate={onNavigate} />
+                    {hasEntitlement(ENTITLEMENT_FEATURES.COMMAND_CENTER) ? (
+                      <Item to="/command-center" icon={AlertCircle} label={t("sidebar.commandCenter")} onNavigate={onNavigate} />
+                    ) : null}
+                    {hasEntitlement(ENTITLEMENT_FEATURES.MAINTENANCE_KPI) ? (
+                      <Item to="/maintenance-kpi" icon={BarChart3} label={t("sidebar.maintenanceKpi")} onNavigate={onNavigate} />
+                    ) : null}
+                    {hasEntitlement(ENTITLEMENT_FEATURES.PORTFOLIO_HEALTH) ? (
+                      <Item to="/portfolio-health" icon={LineChart} label={t("sidebar.portfolioHealth")} onNavigate={onNavigate} />
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -292,9 +299,13 @@ function SidebarContent({ onNavigate }) {
                   <div className="space-y-1">
                     <Item to="/invitations" icon={UserPlus} label={t("sidebar.invitations")} onNavigate={onNavigate} />
                     <Item to="/settings/billing" icon={CreditCard} label={t("sidebar.billing")} onNavigate={onNavigate} />
-                    <Item to="/settings/playbooks" icon={Zap} label={t("sidebar.playbooks")} onNavigate={onNavigate} />
-                    <Item to="/settings/security-audit" icon={Shield} label={t("sidebar.securityAudit")} onNavigate={onNavigate} />
-                    {canAccessTelemetry ? (
+                    {hasEntitlement(ENTITLEMENT_FEATURES.PLAYBOOKS) ? (
+                      <Item to="/settings/playbooks" icon={Zap} label={t("sidebar.playbooks")} onNavigate={onNavigate} />
+                    ) : null}
+                    {hasEntitlement(ENTITLEMENT_FEATURES.SECURITY_AUDIT) ? (
+                      <Item to="/settings/security-audit" icon={Shield} label={t("sidebar.securityAudit")} onNavigate={onNavigate} />
+                    ) : null}
+                    {canAccessTelemetry && hasEntitlement(ENTITLEMENT_FEATURES.ROOT_TELEMETRY) ? (
                       <Item to="/settings/root-telemetry" icon={Activity} label={t("sidebar.rootTelemetry")} onNavigate={onNavigate} />
                     ) : null}
                     {role === "owner" && (
