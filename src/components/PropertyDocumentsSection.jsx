@@ -20,7 +20,7 @@ import { isUuid } from "../utils/validation";
 
 import {
   canUploadDocument,
-  canEditDocument,
+  canEditDocumentTags,
   canDeleteDocument,
 } from "../utils/permissions";
 
@@ -45,7 +45,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
   const fileInputRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
-  const { activeAccountId, accountLoading, activeRole } = useAccount(); // ✅ MULTI-TENANT
+  const { activeAccountId, accountLoading, activePermissionContext } = useAccount(); // ✅ MULTI-TENANT
 
   /* ---------- URL FILTER STATE ---------- */
   const filterTags =
@@ -109,14 +109,14 @@ async function loadAll() {
   }, [propertyId, authLoading, accountLoading, activeAccountId]);
 
   /* ---------- PERMISSIONS ---------- */
-  const canUpload = canUploadDocument(activeRole);
+  const canUpload = canUploadDocument(activePermissionContext);
 
   function canEdit(doc) {
-    return canEditDocument({ role: activeRole, userId: user?.id, doc });
+    return canEditDocumentTags(activePermissionContext);
   }
 
   function canDelete(doc) {
-    return canDeleteDocument({ role: activeRole, userId: user?.id, doc });
+    return canDeleteDocument(activePermissionContext);
   }
 
   /* ---------- URL FILTER ---------- */

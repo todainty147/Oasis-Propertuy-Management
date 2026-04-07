@@ -84,7 +84,7 @@ export default function Finance({
   onAddPayment,
   onDeletePayment,
 }) {
-  const { accountLoading, activeRole } = useAccount();
+  const { accountLoading, activeRole, activePermissionContext, isRootOperator } = useAccount();
   const { setTitle } = usePageTitle();
   const { t } = useI18n();
   const [searchParams] = useSearchParams();
@@ -97,9 +97,9 @@ export default function Finance({
     setTitle(t("finance.title"));
   }, [setTitle, t]);
 
-  const canCreate = can(activeRole, "finance", "create");
-  const canDelete = can(activeRole, "finance", "delete");
-  const canRead = can(activeRole, "finance", "read");
+  const canCreate = can(activePermissionContext, "finance", "create");
+  const canDelete = can(activePermissionContext, "finance", "delete");
+  const canRead = isRootOperator || can(activePermissionContext, "finance", "read");
 
   const statusFilterValues = useMemo(() => {
     const raw = String(searchParams.get("status") || "").toLowerCase().trim();

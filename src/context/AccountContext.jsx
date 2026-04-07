@@ -5,6 +5,7 @@ import { useAuth } from "./AuthContext";
 import { rootListAccounts } from "../services/rootAccountService";
 import { finalizeSelfServeLandlordAccount } from "../services/selfServeSignupService";
 import { canAccessRootTelemetry, getRootTelemetryAccessMode } from "../utils/telemetryAccess";
+import { getPermissionKeysForRole } from "../utils/permissions";
 import { assertFeature, hasFeature, normalizePlan } from "../lib/entitlements";
 
 const AccountContext = createContext(null);
@@ -67,6 +68,7 @@ export function AccountProvider({ children }) {
           .select(
             `
             role,
+            role_id,
             accounts (
               ${fields}
             )
@@ -105,6 +107,40 @@ export function AccountProvider({ children }) {
 
       // ✅ HAS ACCOUNTS (owner/admin/staff)
       if (memberships?.length > 0) {
+        async function loadPermissionKeys(accountId, role) {
+          const fallback = getPermissionKeysForRole(role);
+          try {
+            const { data, error } = await supabase.rpc("account_member_permission_keys", {
+              p_account_id: accountId,
+            });
+
+            if (error) {
+              console.warn("account_member_permission_keys failed, falling back to legacy permissions:", error);
+              return fallback;
+            }
+
+            if (!Array.isArray(data)) return fallback;
+
+            const normalized = data
+              .map((key) => String(key ?? "").trim().toLowerCase())
+              .filter(Boolean);
+
+            return normalized.length > 0 ? Array.from(new Set(normalized)) : fallback;
+          } catch (error) {
+            console.warn("account_member_permission_keys threw, falling back to legacy permissions:", error);
+            return fallback;
+          }
+        }
+
+        const membershipPermissionKeys = await Promise.all(
+          memberships.map(async (m) => {
+            const accountId = m.accounts?.id;
+            if (!accountId) return [null, []];
+            return [accountId, await loadPermissionKeys(accountId, m.role)];
+          }),
+        );
+        const permissionKeysByAccountId = new Map(membershipPermissionKeys.filter(([accountId]) => accountId));
+
         const membershipAccounts = memberships
           .filter((m) => m.accounts?.id)
           .map((m) => ({
@@ -116,6 +152,8 @@ export function AccountProvider({ children }) {
             subscription_status: m.accounts.subscription_status || null,
             billing_locked_at: m.accounts.billing_locked_at || null,
             role: m.role, // 🔐 SINGLE SOURCE OF TRUTH
+            role_id: m.role_id || null,
+            permissionKeys: permissionKeysByAccountId.get(m.accounts.id) || getPermissionKeysForRole(m.role),
           }));
         const rootMembership = membershipAccounts.find((a) => a.is_root);
         const rootOperator = Boolean(rootMembership);
@@ -136,8 +174,12 @@ export function AccountProvider({ children }) {
                 subscription_plan: existing?.subscription_plan || null,
                 subscription_status: existing?.subscription_status || null,
                 billing_locked_at: existing?.billing_locked_at || null,
-                // Root operator can switch into any account; treat as owner-level in UI permissions.
-                role: "owner",
+                // Keep root support switching distinct from normal landlord roles.
+                // Dedicated root/support surfaces still key off isRootOperator, while
+                // ordinary CRUD screens should reflect the target account's real role.
+                role: existing?.role || "root_support",
+                role_id: existing?.role_id || null,
+                permissionKeys: existing?.permissionKeys || [],
               };
             });
           } catch (e) {
@@ -401,6 +443,17 @@ export function AccountProvider({ children }) {
 
   const activeSubscriptionStatus = activeAccount?.subscription_status || null;
   const isBillingLocked = Boolean(activeAccount?.billing_locked_at);
+  const activePermissionKeys = useMemo(() => {
+    if (Array.isArray(activeAccount?.permissionKeys)) return activeAccount.permissionKeys;
+    return getPermissionKeysForRole(activeRole);
+  }, [activeAccount?.permissionKeys, activeRole]);
+  const activePermissionContext = useMemo(
+    () => ({
+      role: activeRole,
+      permissionKeys: activePermissionKeys,
+    }),
+    [activePermissionKeys, activeRole],
+  );
 
   const hasEntitlement = useMemo(
     () => (feature) => hasFeature(activePlan, feature),
@@ -443,6 +496,8 @@ export function AccountProvider({ children }) {
         accountLoading,
 
         activeRole,
+        activePermissionKeys,
+        activePermissionContext,
         activePlan,
         activeSubscriptionStatus,
         isBillingLocked,

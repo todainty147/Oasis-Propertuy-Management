@@ -111,13 +111,7 @@ on public.leases
 for select
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = leases.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(leases.account_id)
   or exists (
     select 1
     from public.tenants t
@@ -132,13 +126,7 @@ on public.leases
 for insert
 to authenticated
 with check (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = leases.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(leases.account_id)
 );
 
 drop policy if exists "leases_update_account_members" on public.leases;
@@ -147,22 +135,10 @@ on public.leases
 for update
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = leases.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(leases.account_id)
 )
 with check (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = leases.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(leases.account_id)
 );
 
 drop policy if exists "leases_delete_account_members" on public.leases;
@@ -171,13 +147,7 @@ on public.leases
 for delete
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = leases.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(leases.account_id)
 );
 
 create or replace function public.lease_attention_items(

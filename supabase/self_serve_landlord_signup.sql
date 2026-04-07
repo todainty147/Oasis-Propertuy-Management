@@ -41,7 +41,7 @@ begin
   from public.account_members am
   join public.accounts a on a.id = am.account_id
   where am.user_id = v_uid
-    and lower(am.role::text) = 'owner'
+    and public.account_member_effective_role(am.account_id, am.user_id) = 'owner'
   order by a.created_at asc nulls last, a.id
   limit 1;
 
@@ -60,7 +60,7 @@ begin
     select 1
     from public.account_members am
     where am.user_id = v_uid
-      and lower(am.role::text) <> 'owner'
+      and public.account_member_effective_role(am.account_id, am.user_id) <> 'owner'
   )
   into v_existing_any_non_owner;
 
@@ -74,7 +74,7 @@ begin
   from public.account_members am
   join auth.users u on u.id = am.user_id
   where lower(u.email::text) = v_email
-    and lower(am.role::text) = 'owner'
+    and public.account_member_effective_role(am.account_id, am.user_id) = 'owner'
     and am.user_id <> v_uid
   limit 1;
 
@@ -105,4 +105,3 @@ end;
 $$;
 
 grant execute on function public.create_self_serve_landlord_account(text) to authenticated;
-

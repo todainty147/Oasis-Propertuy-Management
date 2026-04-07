@@ -339,12 +339,7 @@ begin
     'account_invitation_created',
     'landlord_invitation_created'
   ) then
-    select lower(am.role::text)
-    into v_actor_member_role
-    from public.account_members am
-    where am.account_id = new.account_id
-      and am.user_id = new.actor_user_id
-    limit 1;
+    v_actor_member_role := public.account_member_effective_role(new.account_id, new.actor_user_id);
 
     select exists (
       select 1

@@ -104,13 +104,7 @@ on public.preventive_maintenance_tasks
 for insert
 to authenticated
 with check (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = preventive_maintenance_tasks.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(preventive_maintenance_tasks.account_id)
 );
 
 drop policy if exists "preventive_maintenance_tasks_update_managers" on public.preventive_maintenance_tasks;
@@ -119,22 +113,10 @@ on public.preventive_maintenance_tasks
 for update
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = preventive_maintenance_tasks.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(preventive_maintenance_tasks.account_id)
 )
 with check (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = preventive_maintenance_tasks.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(preventive_maintenance_tasks.account_id)
 );
 
 drop policy if exists "preventive_maintenance_tasks_delete_managers" on public.preventive_maintenance_tasks;
@@ -143,13 +125,7 @@ on public.preventive_maintenance_tasks
 for delete
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = preventive_maintenance_tasks.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(preventive_maintenance_tasks.account_id)
 );
 
 create or replace function public.preventive_maintenance_next_due_date(

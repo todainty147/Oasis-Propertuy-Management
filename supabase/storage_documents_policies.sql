@@ -21,18 +21,10 @@ as $$
     where d.id = p_document_id
       and d.account_id = p_account_id
       and (
-        exists (
-          select 1
-          from public.account_members am
-          where am.account_id = d.account_id
-            and am.user_id = auth.uid()
-            and (
-              lower(am.role::text) = any (array['owner','admin'])
-              or (
-                lower(am.role::text) = 'staff'
-                and d.visibility <> 'owner_admin'
-              )
-            )
+        public.account_member_effective_role(d.account_id, auth.uid()) = any (array['owner','admin'])
+        or (
+          public.account_member_effective_role(d.account_id, auth.uid()) = 'staff'
+          and d.visibility <> 'owner_admin'
         )
         or (
           d.visibility = 'tenant'
@@ -75,12 +67,10 @@ with check (
   bucket_id = 'documents'
   and split_part(name, '/', 1) ~* '^[0-9a-f-]{36}$'
   and split_part(name, '/', 2) ~* '^[0-9a-f-]{36}$'
-  and exists (
-    select 1
-    from public.account_members am
-    where am.user_id = auth.uid()
-      and am.account_id = split_part(name, '/', 1)::uuid
-      and lower(am.role::text) = any (array['owner','admin','staff'])
+  and public.account_member_has_permission(
+    split_part(name, '/', 1)::uuid,
+    'documents.upload',
+    auth.uid()
   )
 );
 
@@ -91,5 +81,5 @@ to authenticated
 using (
   bucket_id = 'documents'
   and split_part(name, '/', 1) ~* '^[0-9a-f-]{36}$'
-  and public.account_role_for(split_part(name, '/', 1)::uuid) = any (array['owner','admin'])
+  and public.account_member_effective_role(split_part(name, '/', 1)::uuid, auth.uid()) = any (array['owner','admin'])
 );

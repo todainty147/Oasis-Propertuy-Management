@@ -161,19 +161,11 @@ set search_path = public
 as $$
   select coalesce(
     (
-      select case
-        when exists (
-          select 1
-          from public.accounts a
-          where a.id = am.account_id
-            and coalesce(a.is_root, false) = true
-        ) then 'root'
-        else lower(am.role::text)
-      end
-      from public.account_members am
-      where am.account_id = p_account_id
-        and am.user_id = auth.uid()
-      limit 1
+      select 'root'
+      where public.user_is_root_operator()
+    ),
+    (
+      select public.account_member_effective_role(p_account_id, auth.uid())
     ),
     (
       select 'tenant'

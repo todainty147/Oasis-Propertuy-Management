@@ -1,6 +1,6 @@
 # OASIS Engineering Roadmap
 
-This roadmap evaluates the external engineering review against the current OASIS codebase and schema. It focuses on feasibility, effort, and recommended timing rather than generic SaaS advice.
+This roadmap evaluates the external engineering review against the current OASIS codebase and schema, while also tracking the actively selected product execution plan. It focuses on feasibility, effort, and recommended timing rather than generic SaaS advice.
 
 ## Summary
 
@@ -11,8 +11,9 @@ OASIS already has a stronger database-backed architecture than the review assume
 - structured denied-event and observability pipelines already exist
 - the schema is account-scoped enough to support most next-step maturity work
 
-The biggest gap is not schema capability. It is operational maturity:
+The biggest gap is not schema capability. It is product-operational maturity:
 
+- stronger role and permission flexibility
 - stronger typed contracts
 - clearer observability and SLOs
 - selective caching
@@ -22,35 +23,110 @@ The only recommendation that looks genuinely heavy on the current schema is larg
 
 ## Current Milestone
 
-### Operator Observability UX
+### Iteration 2A: Flexibility, Communication, and Trust
 
 Current objective:
 
-- turn security observability into an operator-friendly triage surface
-- improve investigation speed without changing schema semantics
-- build on the existing `security_denied_events`, `security_observability_events`, and manager-safe feed RPCs
+- strengthen account-level flexibility without undoing the existing SQL/RLS-first architecture
+- tighten trust boundaries across UI, RPCs, and RLS while expanding admin configurability
+- add lightweight communication and extensibility primitives that support future commercialization
 
 Scope for this milestone:
 
-- clearer hosted-event summaries
-- one-click investigation paths from hosted events into the account-scoped ledger
-- better correlation, entity, and reason context in the audit UI
-- keep the current lightweight contract layer as-is while this UX slice lands
+- permission hardening across UI, RPCs, and RLS
+- custom staff roles and assignment flows
+- custom fields for properties and tenants
+- outbound email/SMS triggers with communication logging
+
+Strategic themes:
+
+- Platform: permissions, custom roles, custom fields
+- Commercial: email/SMS, reports, insights
+
+Execution guardrails:
+
+- do not expand scope beyond the defined iteration features
+- keep implementations minimal and focused
+- avoid introducing new heavy frameworks
 
 Success criteria:
 
-- managers can quickly tell what kind of security event happened
-- managers can focus the ledger to related entity context from the observability feed
-- hosted-event rows read like actionable incidents rather than raw machine output
+- landlord-only surfaces are no longer reachable by tenant paths
+- staff permissions resolve consistently in UI, RPC, and RLS layers
+- account owners can create and assign custom roles without schema bypasses
+- properties and tenants support account-defined custom fields with stored per-entity values
+- OASIS can trigger and log basic outbound email/SMS events for selected workflows
+
+## Iteration 2A Epics
+
+### Epic 1: Permission Hardening
+
+Goal:
+
+- align UI, RPC, and RLS permissions
+- remove tenant access to landlord-only surfaces
+- add permission tests for key flows
+
+Recommended implementation notes:
+
+- treat SQL/RLS as the final authority and make UI/service checks mirror, not replace, backend rules
+- prioritize the highest-risk surfaces first: dashboard, finance, reporting, audit, documents, and management settings
+- add regression coverage for tenant, manager, and owner roles on the main gated workflows
+
+### Epic 2: Custom Staff Roles
+
+Goal:
+
+- create `roles` and `role_permissions` support
+- assign roles per account member
+- add UI for role creation and assignment
+
+Recommended implementation notes:
+
+- keep the default seeded roles working while layering custom roles on top
+- model permissions as explicit capabilities so they can be enforced both in app logic and SQL helpers
+- keep role editing account-scoped and auditable
+
+### Epic 3: Custom Fields
+
+Goal:
+
+- support custom fields for properties and tenants
+- store values per entity
+- render dynamic forms
+
+Recommended implementation notes:
+
+- start with a small supported field set such as text, number, date, boolean, and select
+- make definitions account-scoped and entity-type-specific
+- preserve a stable read/write contract so dynamic fields can later feed reports and insights
+
+### Epic 4: Email and SMS Integration
+
+Goal:
+
+- add trigger-based outbound communication
+- integrate an email provider and SMS provider
+- log communication events
+
+Recommended implementation notes:
+
+- begin with narrow workflow triggers rather than a general automation builder
+- keep provider choice behind a thin service boundary so it can change later
+- write durable communication logs that can support future delivery status, audit, and reporting views
 
 ## Roadmap Table
 
 | Idea | Current Schema Support | Effort | Recommended Timing | Why Now / Why Later |
 | --- | --- | --- | --- | --- |
+| Iteration 2A: Permission hardening | Strong | Small to Medium | Now | The current stack already uses SQL/RLS and RPC boundaries, so tightening role checks and removing tenant overreach is a high-confidence, high-trust improvement. |
+| Iteration 2A: Custom staff roles | Partial | Medium | Now | `account_members` and account scoping already exist, but custom role definitions and capability mapping still need to be added in schema, services, and UI. |
+| Iteration 2A: Custom fields | Partial | Medium | Now | OASIS already has account-scoped entities for properties and tenants; the missing layer is configurable field definitions, per-entity values, and dynamic form rendering. |
+| Iteration 2A: Email/SMS integration | Partial | Medium | Now | Notification and workflow patterns already exist, so the next practical step is narrow provider-backed outbound communication with durable logs. |
 | Typed API/RPC contracts | Strong | Medium | Next | The app already has a stable RPC surface for finance, dashboard, portfolio, command center, attention center, documents, and security observability. Adding Zod or typed contract wrappers would improve drift resistance without changing schema semantics. |
 | Clear BFF / edge orchestration for critical writes | Strong | Medium | Next | OASIS already keeps a lot of auth in SQL/RPC. The next step is to move remaining orchestration-heavy client flows into edge functions or stricter RPC wrappers where it meaningfully reduces trust in client logic. |
 | Frontend SWR / cache-on-read for high-traffic pages | Strong | Small to Medium | Next | Snapshot-style RPCs are already good cache inputs. This can improve perceived performance with limited risk and no schema redesign. |
-| Operator-friendly security observability dashboard | Strong | Small to Medium | Next | The schema already includes `security_denied_events`, `security_observability_events`, and a manager-safe feed RPC. This is mainly a UX and workflow improvement, not a data-model problem. |
+| Operator-friendly security observability dashboard | Strong | Small to Medium | Next | The schema already includes `security_denied_events`, `security_observability_events`, and a manager-safe feed RPC. This remains valuable, but now follows the flexibility and permissions work in Iteration 2A. |
 | Golden signals / SLIs / SLOs | Strong | Small to Medium | Next | OASIS already captures useful security and workflow events. The missing layer is metrics and alert thresholds for latency, errors, traffic, and saturation across critical workflows. |
 | Fault injection / degraded-path testing | Not schema-dependent | Medium | Soon after | The current integration and staging discipline is strong enough to support targeted failure-mode tests. This is mostly test-harness work, not schema work. |
 | Accessibility automation | Not schema-dependent | Small to Medium | Soon after | A11y testing fits cleanly into the existing test culture and does not require backend changes. |

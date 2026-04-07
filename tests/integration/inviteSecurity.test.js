@@ -200,6 +200,62 @@ describe.skipIf(!isIntegrationHarnessConfigured())("invite lifecycle security", 
     expect(unchanged.revoked_at).toBeNull();
   });
 
+  it("uses effective role resolution for invite authorization when legacy role and role_id drift", async () => {
+    const accountId = isolationFixtures.accounts.accountA.id;
+    const adminRoleLookup = await admin
+      .from("roles")
+      .select("id, name")
+      .eq("account_id", accountId)
+      .eq("name", "admin")
+      .single();
+
+    if (adminRoleLookup.error) throw adminRoleLookup.error;
+
+    const targetUserId = seededUsers.adminA.id;
+    const restoreMembership = async () => {
+      const { error } = await admin
+        .from("account_members")
+        .update({ role: "admin" })
+        .eq("account_id", accountId)
+        .eq("user_id", targetUserId);
+
+      if (error) throw error;
+    };
+
+    const { error: demoteError } = await admin
+      .from("account_members")
+      .update({ role: "staff" })
+      .eq("account_id", accountId)
+      .eq("user_id", targetUserId);
+
+    if (demoteError) throw demoteError;
+
+    const { error: driftError } = await admin
+      .from("account_members")
+      .update({ role_id: adminRoleLookup.data.id })
+      .eq("account_id", accountId)
+      .eq("user_id", targetUserId);
+
+    if (driftError) throw driftError;
+
+    try {
+      const result = await insertInviteAsActor("adminA", {
+        accountId,
+        email: `effective-role-${randomUUID()}@oasis.test`,
+        role: "admin",
+      });
+
+      expect(result.error).toBeNull();
+      expect(result.data).toMatchObject({
+        account_id: accountId,
+        role: "admin",
+        invited_by: targetUserId,
+      });
+    } finally {
+      await restoreMembership();
+    }
+  });
+
   it("enforces eligibility rules for duplicate, already-member, and revoked-then-eligible cases", async () => {
     const duplicateEmail = `duplicate-${randomUUID()}@oasis.test`;
     await insertInviteAsAdmin({
@@ -256,6 +312,122 @@ describe.skipIf(!isIntegrationHarnessConfigured())("invite lifecycle security", 
       normalized_email: revokedEmail,
       normalized_role: "staff",
     });
+  });
+
+  it("uses effective role resolution for invite eligibility when legacy role and role_id drift", async () => {
+    const accountId = isolationFixtures.accounts.accountA.id;
+    const adminRoleLookup = await admin
+      .from("roles")
+      .select("id, name")
+      .eq("account_id", accountId)
+      .eq("name", "admin")
+      .single();
+
+    if (adminRoleLookup.error) throw adminRoleLookup.error;
+
+    const targetUserId = seededUsers.adminA.id;
+    const restoreMembership = async () => {
+      const { error } = await admin
+        .from("account_members")
+        .update({ role: "admin" })
+        .eq("account_id", accountId)
+        .eq("user_id", targetUserId);
+
+      if (error) throw error;
+    };
+
+    const { error: demoteError } = await admin
+      .from("account_members")
+      .update({ role: "staff" })
+      .eq("account_id", accountId)
+      .eq("user_id", targetUserId);
+
+    if (demoteError) throw demoteError;
+
+    const { error: driftError } = await admin
+      .from("account_members")
+      .update({ role_id: adminRoleLookup.data.id })
+      .eq("account_id", accountId)
+      .eq("user_id", targetUserId);
+
+    if (driftError) throw driftError;
+
+    try {
+      const { client } = await signInAsFixtureUser("adminA");
+      const eligibility = await client.rpc("check_account_invitation_eligibility", {
+        p_account_id: accountId,
+        p_email: `eligibility-effective-${randomUUID()}@oasis.test`,
+        p_role: "admin",
+      });
+
+      expect(eligibility.error).toBeNull();
+      expect(eligibility.data).toMatchObject({
+        ok: true,
+        code: "ok",
+        normalized_role: "admin",
+      });
+    } finally {
+      await restoreMembership();
+    }
+  });
+
+  it("uses effective role resolution for invitation reads when legacy role and role_id drift", async () => {
+    const accountId = isolationFixtures.accounts.accountA.id;
+    const adminRoleLookup = await admin
+      .from("roles")
+      .select("id, name")
+      .eq("account_id", accountId)
+      .eq("name", "admin")
+      .single();
+
+    if (adminRoleLookup.error) throw adminRoleLookup.error;
+
+    const invite = await insertInviteAsAdmin({
+      accountId,
+      email: `read-effective-${randomUUID()}@oasis.test`,
+      role: "staff",
+      invitedBy: seededUsers.ownerA.id,
+    });
+
+    const targetUserId = seededUsers.adminA.id;
+    const restoreMembership = async () => {
+      const { error } = await admin
+        .from("account_members")
+        .update({ role: "admin" })
+        .eq("account_id", accountId)
+        .eq("user_id", targetUserId);
+
+      if (error) throw error;
+    };
+
+    const { error: demoteError } = await admin
+      .from("account_members")
+      .update({ role: "tenant" })
+      .eq("account_id", accountId)
+      .eq("user_id", targetUserId);
+
+    if (demoteError) throw demoteError;
+
+    const { error: driftError } = await admin
+      .from("account_members")
+      .update({ role_id: adminRoleLookup.data.id })
+      .eq("account_id", accountId)
+      .eq("user_id", targetUserId);
+
+    if (driftError) throw driftError;
+
+    try {
+      const { client } = await signInAsFixtureUser("adminA");
+      const listResult = await client
+        .from("account_invitations")
+        .select("id, account_id")
+        .eq("account_id", accountId);
+
+      expect(listResult.error).toBeNull();
+      expect((listResult.data || []).some((row) => row.id === invite.id)).toBe(true);
+    } finally {
+      await restoreMembership();
+    }
   });
 
   it("keeps pending invite visibility account-scoped", async () => {

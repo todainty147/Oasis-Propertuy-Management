@@ -264,12 +264,8 @@ begin
     end if;
 
     if p_assigned_to_user_id is not null then
-      select lower(am.role::text)
-      into v_assignee_role
-      from public.account_members am
-      where am.account_id = v_alert.account_id
-        and am.user_id = p_assigned_to_user_id
-      limit 1;
+      select public.account_member_effective_role(v_alert.account_id, p_assigned_to_user_id)
+      into v_assignee_role;
 
       if v_assignee_role is null or v_assignee_role not in ('owner', 'admin', 'staff') then
         raise exception 'Assignee must be a privileged account member';

@@ -82,10 +82,8 @@ begin
     then
       if not exists (
         select 1
-        from public.account_members am
-        where am.account_id = p_account_id
-          and am.user_id = v_actor_user_id
-          and lower(am.role::text) = lower(coalesce(p_metadata->>'new_role', ''))
+        where public.account_member_effective_role(p_account_id, v_actor_user_id)
+          = lower(coalesce(p_metadata->>'new_role', ''))
       ) then
         raise exception 'Access denied';
       end if;

@@ -5,6 +5,9 @@ type InvitePayload = {
   email: string;
   role: "owner" | "admin" | "staff" | "tenant" | "contractor";
   accountName?: string;
+  mode?: "create" | "resend";
+  invitationId?: string;
+  token?: string;
 };
 
 type SecurityClassification = {
@@ -52,6 +55,44 @@ function scrubContext(input: Record<string, unknown> = {}) {
       return true;
     }),
   );
+}
+
+async function logEmailEvent({
+  accountId,
+  templateKey,
+  status,
+  recipientEmail,
+  recipientUserId = null,
+  entityType = null,
+  entityId = null,
+  subject = null,
+  providerMessageId = null,
+  metadata = {},
+}: {
+  accountId: string | null;
+  templateKey: string;
+  status: "queued" | "sent" | "failed" | "skipped";
+  recipientEmail: string;
+  recipientUserId?: string | null;
+  entityType?: string | null;
+  entityId?: string | null;
+  subject?: string | null;
+  providerMessageId?: string | null;
+  metadata?: Record<string, unknown>;
+}) {
+  await admin.from("outbound_email_events").insert({
+    account_id: accountId,
+    template_key: templateKey,
+    provider: "resend",
+    status,
+    recipient_email: recipientEmail,
+    recipient_user_id: recipientUserId,
+    entity_type: entityType,
+    entity_id: entityId,
+    subject,
+    provider_message_id: providerMessageId,
+    metadata,
+  });
 }
 
 function classifyInviteFailure({
@@ -167,10 +208,12 @@ Deno.serve(async (req) => {
     }
 
     const body = (await req.json()) as InvitePayload;
+    const mode = body?.mode === "resend" ? "resend" : "create";
     const accountId = body?.accountId;
     const email = String(body?.email || "").trim().toLowerCase();
     const role = String(body?.role || "").trim().toLowerCase();
     const accountName = String(body?.accountName || "").trim();
+    const invitationId = body?.invitationId ? String(body.invitationId) : null;
 
     if (!accountId || !email || !role) {
       return json({ error: "accountId, email and role are required" }, 400);
@@ -180,11 +223,12 @@ Deno.serve(async (req) => {
       return json({ error: "Invalid role" }, 400);
     }
 
-    let token = "";
+    let token = String(body?.token || "").trim();
     let createdAccountId = accountId;
     let createdAccountName = accountName || null;
+    let inviteEntityId: string | null = invitationId;
 
-    if (role === "owner") {
+    if (mode === "create" && role === "owner") {
       // Must use user-scoped client so auth.uid() inside RPC resolves to caller.
       const { data, error } = await userClient.rpc("create_landlord_invitation", {
         p_root_account_id: accountId,
@@ -207,7 +251,7 @@ Deno.serve(async (req) => {
       token = invite.token;
       createdAccountId = invite.account_id ?? accountId;
       createdAccountName = invite.account_name ?? createdAccountName;
-    } else {
+    } else if (mode === "create") {
       // Must use user-scoped client so auth.uid() inside RPC resolves to caller.
       const { data: eligibility, error: eligibilityError } = await userClient.rpc(
         "check_account_invitation_eligibility",
@@ -263,6 +307,35 @@ Deno.serve(async (req) => {
         await recordSecurityObservabilityEvent(userClient, user.id, classification, { role });
         return json({ error: inviteError?.message || "Failed to create invitation", classification }, 400);
       }
+      inviteEntityId = inviteRow.id;
+    } else {
+      const { data: inviteRow, error: inviteError } = await userClient
+        .from("account_invitations")
+        .select("id, account_id, email, role, token")
+        .eq("account_id", accountId)
+        .eq("email", email)
+        .eq("role", role)
+        .is("accepted_at", null)
+        .is("revoked_at", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (inviteError || !inviteRow) {
+        const classification = classifyInviteFailure({
+          surface: "resend_account_invitation",
+          message: inviteError?.message || "Invitation not found",
+          accountId,
+          code: inviteError?.code || "404",
+          entityType: "account_invitation",
+          entityId: invitationId,
+        });
+        await recordSecurityObservabilityEvent(userClient, user.id, classification, { role });
+        return json({ error: inviteError?.message || "Invitation not found", classification }, 404);
+      }
+
+      token = inviteRow.token;
+      inviteEntityId = inviteRow.id;
     }
 
     const redirectTo = `${APP_URL || req.headers.get("origin") || ""}/invite?token=${token}`;
@@ -297,7 +370,7 @@ Deno.serve(async (req) => {
         branding?.invite_subject_template?.replaceAll("{{brand_name}}", brandName) ||
         `${brandName} invited you to OASIS`;
 
-      await resend.emails.send({
+      const resendResponse = await resend.emails.send({
         from: `${fromName} <${OASIS_INVITES_FROM}>`,
         to: [email],
         replyTo: replyTo ? [replyTo] : undefined,
@@ -311,6 +384,31 @@ Deno.serve(async (req) => {
           inviteUrl: actionLink,
           role,
         }),
+      });
+
+      await logEmailEvent({
+        accountId,
+        templateKey: mode === "resend" ? "account_invitation_resend" : "account_invitation",
+        status: "sent",
+        recipientEmail: email,
+        recipientUserId: null,
+        entityType: "account_invitation",
+        entityId: inviteEntityId,
+        subject,
+        providerMessageId: String(resendResponse?.data?.id || ""),
+        metadata: { role, mode, functionName: "invite-user" },
+      });
+    } else {
+      await logEmailEvent({
+        accountId,
+        templateKey: mode === "resend" ? "account_invitation_resend" : "account_invitation",
+        status: "skipped",
+        recipientEmail: email,
+        recipientUserId: null,
+        entityType: "account_invitation",
+        entityId: inviteEntityId,
+        subject: `${createdAccountName || "OASIS Rental"} invitation`,
+        metadata: { role, mode, reason: "resend_not_configured", functionName: "invite-user" },
       });
     }
 

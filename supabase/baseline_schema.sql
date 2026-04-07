@@ -353,12 +353,7 @@ begin
   end if;
   v_member_role := v_role;
 
-  select lower(am.role::text)
-  into v_previous_role
-  from public.account_members am
-  where am.account_id = v_inv.account_id
-    and am.user_id = v_uid
-  limit 1;
+  v_previous_role := public.account_member_effective_role(v_inv.account_id, v_uid);
 
   insert into public.account_members(account_id, user_id, role)
   values (v_inv.account_id, v_uid, v_member_role)
@@ -650,7 +645,7 @@ begin
       select 1
       from public.account_members am
       where am.user_id = v_existing_user_id
-        and lower(am.role::text) = 'owner'
+        and public.account_member_effective_role(am.account_id, am.user_id) = 'owner'
     ) then
       raise exception 'This email is already used by an existing landlord account';
     end if;
@@ -676,6 +671,7 @@ declare
   v_current_role text;
   v_new_role text := lower(trim(coalesce(p_new_role, '')));
   v_new_member_role public.account_members.role%type;
+  v_new_role_id uuid;
   v_has_admin boolean := false;
 begin
   if v_uid is null then
@@ -716,13 +712,9 @@ begin
   end if;
 
   v_new_member_role := v_new_role;
+  v_new_role_id := public.ensure_system_account_role(p_account_id, v_new_member_role);
 
-  select lower(am.role::text)
-  into v_current_role
-  from public.account_members am
-  where am.account_id = p_account_id
-    and am.user_id = p_target_user_id
-  limit 1;
+  v_current_role := public.account_member_effective_role(p_account_id, p_target_user_id);
 
   if v_current_role is null then
     raise exception 'Target member not found';
@@ -739,7 +731,8 @@ begin
   end if;
 
   update public.account_members am
-  set role = v_new_member_role
+  set role = v_new_member_role,
+      role_id = v_new_role_id
   where am.account_id = p_account_id
     and am.user_id = p_target_user_id;
 
@@ -2008,6 +2001,10 @@ begin
     return false;
   end if;
 
+  if public.user_is_root_operator() then
+    return v_target_role in ('admin', 'staff', 'tenant', 'contractor');
+  end if;
+
   select exists (
     select 1
     from pg_type t
@@ -2019,12 +2016,7 @@ begin
   )
   into v_has_admin;
 
-  select lower(am.role::text)
-  into v_inviter_role
-  from public.account_members am
-  where am.account_id = p_account_id
-    and am.user_id = auth.uid()
-  limit 1;
+  v_inviter_role := public.account_member_effective_role(p_account_id, auth.uid());
 
   if v_target_role = 'owner' then
     return false;
@@ -2206,14 +2198,9 @@ begin
     v_role := 'staff';
   end if;
 
-  select lower(am.role::text)
-  into v_member_role
-  from public.account_members am
-  where am.account_id = p_account_id
-    and am.user_id = v_uid
-  limit 1;
+  v_member_role := public.account_member_effective_role(p_account_id, v_uid);
 
-  if v_member_role is null then
+  if v_member_role is null and not public.user_is_root_operator() then
     return jsonb_build_object('ok', false, 'code', 'not_member', 'message', 'Not a member of this account');
   end if;
 
@@ -2267,7 +2254,7 @@ begin
     select 1
     from public.account_members am
     where am.user_id = v_existing_user_id
-      and lower(am.role::text) = 'owner'
+      and public.account_member_effective_role(am.account_id, am.user_id) = 'owner'
   ) then
     return jsonb_build_object('ok', false, 'code', 'owner_email_taken', 'message', 'This email is already used by an existing landlord account');
   end if;
@@ -3855,12 +3842,7 @@ begin
     raise exception 'Missing root account id';
   end if;
 
-  select lower(am.role::text)
-  into v_root_member_role
-  from public.account_members am
-  where am.account_id = p_root_account_id
-    and am.user_id = v_uid
-  limit 1;
+  v_root_member_role := public.account_member_effective_role(p_root_account_id, v_uid);
 
   if v_root_member_role is null then
     raise exception 'Not a member of root account';
@@ -3921,7 +3903,7 @@ begin
       select 1
       from public.account_members am
       where am.user_id = v_existing_user_id
-        and lower(am.role::text) = 'owner'
+        and public.account_member_effective_role(am.account_id, am.user_id) = 'owner'
     )
     into v_owner_membership_exists;
   end if;
@@ -4328,7 +4310,7 @@ begin
   from public.account_members am
   join public.accounts a on a.id = am.account_id
   where am.user_id = v_uid
-    and lower(am.role::text) = 'owner'
+    and public.account_member_effective_role(am.account_id, am.user_id) = 'owner'
   order by a.created_at asc nulls last, a.id
   limit 1;
 
@@ -4347,7 +4329,7 @@ begin
     select 1
     from public.account_members am
     where am.user_id = v_uid
-      and lower(am.role::text) <> 'owner'
+      and public.account_member_effective_role(am.account_id, am.user_id) <> 'owner'
   )
   into v_existing_any_non_owner;
 
@@ -4361,7 +4343,7 @@ begin
   from public.account_members am
   join auth.users u on u.id = am.user_id
   where lower(u.email::text) = v_email
-    and lower(am.role::text) = 'owner'
+    and public.account_member_effective_role(am.account_id, am.user_id) = 'owner'
     and am.user_id <> v_uid
   limit 1;
 
@@ -5046,6 +5028,7 @@ CREATE FUNCTION public.document_notify_uploaded() RETURNS trigger
     AS $$
 declare
   v_recipients uuid[];
+  v_safe_recipients uuid[];
   v_title text;
   v_body text;
   v_uploader uuid;
@@ -5121,10 +5104,41 @@ begin
     return new;
   end if;
 
+  select array_agg(distinct uid)
+    into v_safe_recipients
+  from unnest(v_recipients) as uid
+  where uid is not null
+    and (
+      exists (
+        select 1
+        from public.account_members am
+        where am.account_id = new.account_id
+          and am.user_id = uid
+      )
+      or exists (
+        select 1
+        from public.tenants t
+        where t.account_id = new.account_id
+          and t.user_id = uid
+          and coalesce(t.status, '') <> 'archived'
+      )
+      or exists (
+        select 1
+        from public.contractors c
+        where c.account_id = new.account_id
+          and c.user_id = uid
+          and coalesce(c.active, false) = true
+      )
+    );
+
+  if v_safe_recipients is null or array_length(v_safe_recipients, 1) is null then
+    return new;
+  end if;
+
   /* -----------------------------
      Send notifications (throttled)
   ----------------------------- */
-  foreach v_uid in array v_recipients loop
+  foreach v_uid in array v_safe_recipients loop
     if public.should_send_notification(
          new.account_id,
          v_uid,
@@ -5171,6 +5185,7 @@ CREATE FUNCTION public.documents_notify_uploaded_trg_fn() RETURNS trigger
     AS $$
 declare
   v_recipients uuid[];
+  v_safe_recipients uuid[];
   v_title text;
   v_body text;
   v_uploader uuid;
@@ -5231,6 +5246,37 @@ begin
   end if;
 
   if v_recipients is null or array_length(v_recipients, 1) is null then
+    return new;
+  end if;
+
+  select array_agg(distinct uid)
+    into v_safe_recipients
+  from unnest(v_recipients) as uid
+  where uid is not null
+    and (
+      exists (
+        select 1
+        from public.account_members am
+        where am.account_id = new.account_id
+          and am.user_id = uid
+      )
+      or exists (
+        select 1
+        from public.tenants t
+        where t.account_id = new.account_id
+          and t.user_id = uid
+          and coalesce(t.status, '') <> 'archived'
+      )
+      or exists (
+        select 1
+        from public.contractors c
+        where c.account_id = new.account_id
+          and c.user_id = uid
+          and coalesce(c.active, false) = true
+      )
+    );
+
+  if v_safe_recipients is null or array_length(v_safe_recipients, 1) is null then
     return new;
   end if;
 
@@ -5330,7 +5376,7 @@ begin
   end if;
 
   v_role := public.account_role_for(v_doc.account_id);
-  if coalesce(v_role, '') not in ('owner','admin') then
+  if coalesce(v_role, '') not in ('owner','admin','staff') then
     raise exception 'Not permitted';
   end if;
 
@@ -5632,6 +5678,7 @@ CREATE FUNCTION public.fn_documents_notify_uploaded() RETURNS trigger
     AS $$
 declare
   v_recipients uuid[];
+  v_safe_recipients uuid[];
   v_title text;
   v_body text;
   v_uploader uuid;
@@ -5692,6 +5739,37 @@ begin
     return new;
   end if;
 
+  select array_agg(distinct uid)
+    into v_safe_recipients
+  from unnest(v_recipients) as uid
+  where uid is not null
+    and (
+      exists (
+        select 1
+        from public.account_members am
+        where am.account_id = new.account_id
+          and am.user_id = uid
+      )
+      or exists (
+        select 1
+        from public.tenants t
+        where t.account_id = new.account_id
+          and t.user_id = uid
+          and coalesce(t.status, '') <> 'archived'
+      )
+      or exists (
+        select 1
+        from public.contractors c
+        where c.account_id = new.account_id
+          and c.user_id = uid
+          and coalesce(c.active, false) = true
+      )
+    );
+
+  if v_safe_recipients is null or array_length(v_safe_recipients, 1) is null then
+    return new;
+  end if;
+
   -- i18n vars
   v_vars := jsonb_build_object(
     'name', v_name,
@@ -5709,7 +5787,7 @@ begin
 
   perform public.create_notifications_system(
     new.account_id,
-    v_recipients,
+    v_safe_recipients,
     'document_uploaded',
     v_title,
     v_body,
@@ -5772,7 +5850,7 @@ begin
     from public.account_members am
     join auth.users u on u.id = am.user_id
     where am.account_id = p_account_id
-      and lower(am.role::text) = 'owner'
+      and public.account_member_effective_role(am.account_id, am.user_id) = 'owner'
     order by am.user_id
     limit 1
   ),
@@ -5973,10 +6051,8 @@ CREATE FUNCTION public.has_account_role(p_account_id uuid, p_roles text[]) RETUR
     AS $$
   select exists (
     select 1
-    from public.account_members am
-    where am.account_id = p_account_id
-      and am.user_id = auth.uid()
-      and lower((am.role)::text) = any (p_roles)
+    from unnest(coalesce(p_roles, array[]::text[])) requested(role_name)
+    where lower(requested.role_name) = public.account_member_effective_role(p_account_id, auth.uid())
   );
 $$;
 
@@ -5991,13 +6067,7 @@ CREATE FUNCTION public.is_account_manager(p_account_id uuid) RETURNS boolean
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
-  select exists (
-    select 1
-    from public.account_members am
-    where am.account_id = p_account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner','admin','staff')
-  );
+  select public.account_member_effective_role(p_account_id, auth.uid()) in ('owner', 'admin', 'staff');
 $$;
 
 
@@ -6010,13 +6080,7 @@ ALTER FUNCTION public.is_account_manager(p_account_id uuid) OWNER TO postgres;
 CREATE FUNCTION public.is_account_manager(p_account_id uuid, p_user_id uuid) RETURNS boolean
     LANGUAGE sql STABLE
     AS $$
-  select exists (
-    select 1
-    from public.account_members am
-    where am.account_id = p_account_id
-      and am.user_id = p_user_id
-      and lower(am.role::text) in ('owner','admin','staff')
-  );
+  select public.account_member_effective_role(p_account_id, p_user_id) in ('owner', 'admin', 'staff');
 $$;
 
 
@@ -6047,13 +6111,7 @@ ALTER FUNCTION public.is_account_member(p_account_id uuid) OWNER TO postgres;
 CREATE FUNCTION public.is_account_owner_or_staff(p_account_id uuid) RETURNS boolean
     LANGUAGE sql STABLE
     AS $$
-  select exists (
-    select 1
-    from public.account_members am
-    where am.account_id = p_account_id
-      and am.user_id = auth.uid()
-      and am.role in ('owner', 'staff')
-  );
+  select public.account_member_effective_role(p_account_id, auth.uid()) in ('owner', 'staff');
 $$;
 
 
@@ -6469,10 +6527,8 @@ begin
     then
       if not exists (
         select 1
-        from public.account_members am
-        where am.account_id = p_account_id
-          and am.user_id = v_actor_user_id
-          and lower(am.role::text) = lower(coalesce(p_metadata->>'new_role', ''))
+        where public.account_member_effective_role(p_account_id, v_actor_user_id)
+          = lower(coalesce(p_metadata->>'new_role', ''))
       ) then
         raise exception 'Access denied';
       end if;
@@ -8856,12 +8912,7 @@ begin
     raise exception 'Missing target account';
   end if;
 
-  select lower(am.role::text)
-  into v_member_role
-  from public.account_members am
-  where am.account_id = p_root_account_id
-    and am.user_id = v_uid
-  limit 1;
+  v_member_role := public.account_member_effective_role(p_root_account_id, v_uid);
 
   if v_member_role is null then
     raise exception 'Not a member of root account';
@@ -8930,12 +8981,7 @@ begin
     raise exception 'Not authenticated';
   end if;
 
-  select lower(am.role::text)
-  into v_member_role
-  from public.account_members am
-  where am.account_id = p_root_account_id
-    and am.user_id = v_uid
-  limit 1;
+  v_member_role := public.account_member_effective_role(p_root_account_id, v_uid);
 
   if v_member_role is null then
     raise exception 'Not a member of root account';
@@ -8989,12 +9035,7 @@ begin
     raise exception 'Missing target account';
   end if;
 
-  select lower(am.role::text)
-  into v_member_role
-  from public.account_members am
-  where am.account_id = p_root_account_id
-    and am.user_id = v_uid
-  limit 1;
+  v_member_role := public.account_member_effective_role(p_root_account_id, v_uid);
 
   if v_member_role is null then
     raise exception 'Not a member of root account';
@@ -9251,12 +9292,7 @@ begin
     end if;
 
     if p_assigned_to_user_id is not null then
-      select lower(am.role::text)
-      into v_assignee_role
-      from public.account_members am
-      where am.account_id = v_alert.account_id
-        and am.user_id = p_assigned_to_user_id
-      limit 1;
+      v_assignee_role := public.account_member_effective_role(v_alert.account_id, p_assigned_to_user_id);
 
       if v_assignee_role is null or v_assignee_role not in ('owner', 'admin', 'staff') then
         raise exception 'Assignee must be a privileged account member';
@@ -9523,12 +9559,7 @@ begin
     'account_invitation_created',
     'landlord_invitation_created'
   ) then
-    select lower(am.role::text)
-    into v_actor_member_role
-    from public.account_members am
-    where am.account_id = new.account_id
-      and am.user_id = new.actor_user_id
-    limit 1;
+    v_actor_member_role := public.account_member_effective_role(new.account_id, new.actor_user_id);
 
     select exists (
       select 1
@@ -12047,13 +12078,7 @@ CREATE FUNCTION public.user_can_manage_account(p_account_id uuid) RETURNS boolea
     AS $$
   select (
     public.user_is_root_operator()
-    or exists (
-      select 1
-      from public.account_members am
-      where am.account_id = p_account_id
-        and am.user_id = auth.uid()
-        and lower(am.role::text) in ('owner', 'admin', 'staff')
-    )
+    or public.account_member_effective_role(p_account_id, auth.uid()) in ('owner', 'admin', 'staff')
   );
 $$;
 
@@ -20746,9 +20771,7 @@ CREATE POLICY account_invitations_insert_managers ON public.account_invitations 
 -- Name: account_invitations account_invitations_select_members; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY account_invitations_select_members ON public.account_invitations FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = account_invitations.account_id) AND (am.user_id = auth.uid())))));
+CREATE POLICY account_invitations_select_members ON public.account_invitations FOR SELECT TO authenticated USING (public.user_can_manage_account(account_id));
 
 
 --
@@ -20811,11 +20834,7 @@ CREATE POLICY account_report_settings_select_members ON public.account_report_se
 -- Name: account_report_settings account_report_settings_upsert_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY account_report_settings_upsert_managers ON public.account_report_settings TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = account_report_settings.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text])))))) WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = account_report_settings.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY account_report_settings_upsert_managers ON public.account_report_settings TO authenticated USING (public.user_can_manage_account(account_id)) WITH CHECK (public.user_can_manage_account(account_id));
 
 
 --
@@ -20965,20 +20984,14 @@ ALTER TABLE public.automation_execution_log ENABLE ROW LEVEL SECURITY;
 -- Name: automation_execution_log automation_execution_log_select_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY automation_execution_log_select_managers ON public.automation_execution_log FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = automation_execution_log.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY automation_execution_log_select_managers ON public.automation_execution_log FOR SELECT TO authenticated USING (public.user_can_manage_account(account_id));
 
 
 --
 -- Name: automation_execution_log automation_execution_log_write_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY automation_execution_log_write_managers ON public.automation_execution_log TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = automation_execution_log.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text])))))) WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = automation_execution_log.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY automation_execution_log_write_managers ON public.automation_execution_log TO authenticated USING (public.user_can_manage_account(account_id)) WITH CHECK (public.user_can_manage_account(account_id));
 
 
 --
@@ -21070,9 +21083,7 @@ ALTER TABLE public.billing_customers ENABLE ROW LEVEL SECURITY;
 -- Name: billing_customers billing_customers_select_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY billing_customers_select_managers ON public.billing_customers FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = billing_customers.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY billing_customers_select_managers ON public.billing_customers FOR SELECT TO authenticated USING (public.user_can_manage_account(account_id));
 
 
 --
@@ -21091,9 +21102,7 @@ ALTER TABLE public.billing_subscriptions ENABLE ROW LEVEL SECURITY;
 -- Name: billing_subscriptions billing_subscriptions_select_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY billing_subscriptions_select_managers ON public.billing_subscriptions FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = billing_subscriptions.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY billing_subscriptions_select_managers ON public.billing_subscriptions FOR SELECT TO authenticated USING (public.user_can_manage_account(account_id));
 
 
 --
@@ -21106,20 +21115,14 @@ ALTER TABLE public.compliance_document_links ENABLE ROW LEVEL SECURITY;
 -- Name: compliance_document_links compliance_document_links_select_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY compliance_document_links_select_managers ON public.compliance_document_links FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = compliance_document_links.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY compliance_document_links_select_managers ON public.compliance_document_links FOR SELECT TO authenticated USING (public.user_can_manage_account(account_id));
 
 
 --
 -- Name: compliance_document_links compliance_document_links_write_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY compliance_document_links_write_managers ON public.compliance_document_links TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = compliance_document_links.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text])))))) WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = compliance_document_links.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY compliance_document_links_write_managers ON public.compliance_document_links TO authenticated USING (public.user_can_manage_account(account_id)) WITH CHECK (public.user_can_manage_account(account_id));
 
 
 --
@@ -21132,20 +21135,14 @@ ALTER TABLE public.compliance_items ENABLE ROW LEVEL SECURITY;
 -- Name: compliance_items compliance_items_select_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY compliance_items_select_managers ON public.compliance_items FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = compliance_items.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY compliance_items_select_managers ON public.compliance_items FOR SELECT TO authenticated USING (public.user_can_manage_account(account_id));
 
 
 --
 -- Name: compliance_items compliance_items_write_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY compliance_items_write_managers ON public.compliance_items TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = compliance_items.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text])))))) WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = compliance_items.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY compliance_items_write_managers ON public.compliance_items TO authenticated USING (public.user_can_manage_account(account_id)) WITH CHECK (public.user_can_manage_account(account_id));
 
 
 --
@@ -21187,11 +21184,7 @@ CREATE POLICY contractor_ratings_update_managers ON public.contractor_ratings FO
 -- Name: contractor_ratings contractor_ratings_upsert_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY contractor_ratings_upsert_managers ON public.contractor_ratings TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = contractor_ratings.account_id) AND (am.user_id = auth.uid()) AND (lower(COALESCE((am.role)::text, ''::text)) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text])))))) WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = contractor_ratings.account_id) AND (am.user_id = auth.uid()) AND (lower(COALESCE((am.role)::text, ''::text)) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY contractor_ratings_upsert_managers ON public.contractor_ratings TO authenticated USING (public.user_can_manage_account(account_id)) WITH CHECK (public.user_can_manage_account(account_id));
 
 
 --
@@ -21389,9 +21382,7 @@ ALTER TABLE public.leases ENABLE ROW LEVEL SECURITY;
 -- Name: leases leases_delete_account_members; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY leases_delete_account_members ON public.leases FOR DELETE TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = leases.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY leases_delete_account_members ON public.leases FOR DELETE TO authenticated USING (public.user_can_manage_account(account_id));
 
 
 --
@@ -21405,9 +21396,7 @@ CREATE POLICY leases_delete_owner_admin ON public.leases FOR DELETE TO authentic
 -- Name: leases leases_insert_account_members; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY leases_insert_account_members ON public.leases FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = leases.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY leases_insert_account_members ON public.leases FOR INSERT TO authenticated WITH CHECK (public.user_can_manage_account(account_id));
 
 
 --
@@ -21421,9 +21410,7 @@ CREATE POLICY leases_insert_owner_admin_staff ON public.leases FOR INSERT TO aut
 -- Name: leases leases_select_account_members; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY leases_select_account_members ON public.leases FOR SELECT TO authenticated USING (((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = leases.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))) OR (EXISTS ( SELECT 1
+CREATE POLICY leases_select_account_members ON public.leases FOR SELECT TO authenticated USING ((public.user_can_manage_account(account_id) OR (EXISTS ( SELECT 1
    FROM public.tenants t
   WHERE ((t.id = leases.tenant_id) AND (t.user_id = auth.uid()))))));
 
@@ -21439,11 +21426,7 @@ CREATE POLICY leases_select_member ON public.leases FOR SELECT TO authenticated 
 -- Name: leases leases_update_account_members; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY leases_update_account_members ON public.leases FOR UPDATE TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = leases.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text])))))) WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = leases.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY leases_update_account_members ON public.leases FOR UPDATE TO authenticated USING (public.user_can_manage_account(account_id)) WITH CHECK (public.user_can_manage_account(account_id));
 
 
 --
@@ -21494,20 +21477,14 @@ ALTER TABLE public.maintenance_budgets ENABLE ROW LEVEL SECURITY;
 -- Name: maintenance_budgets maintenance_budgets_select_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY maintenance_budgets_select_managers ON public.maintenance_budgets FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = maintenance_budgets.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY maintenance_budgets_select_managers ON public.maintenance_budgets FOR SELECT TO authenticated USING (public.user_can_manage_account(account_id));
 
 
 --
 -- Name: maintenance_budgets maintenance_budgets_write_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY maintenance_budgets_write_managers ON public.maintenance_budgets TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = maintenance_budgets.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text])))))) WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = maintenance_budgets.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY maintenance_budgets_write_managers ON public.maintenance_budgets TO authenticated USING (public.user_can_manage_account(account_id)) WITH CHECK (public.user_can_manage_account(account_id));
 
 
 --
@@ -21520,20 +21497,14 @@ ALTER TABLE public.maintenance_expenses ENABLE ROW LEVEL SECURITY;
 -- Name: maintenance_expenses maintenance_expenses_select_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY maintenance_expenses_select_managers ON public.maintenance_expenses FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = maintenance_expenses.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY maintenance_expenses_select_managers ON public.maintenance_expenses FOR SELECT TO authenticated USING (public.user_can_manage_account(account_id));
 
 
 --
 -- Name: maintenance_expenses maintenance_expenses_write_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY maintenance_expenses_write_managers ON public.maintenance_expenses TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = maintenance_expenses.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text])))))) WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = maintenance_expenses.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY maintenance_expenses_write_managers ON public.maintenance_expenses TO authenticated USING (public.user_can_manage_account(account_id)) WITH CHECK (public.user_can_manage_account(account_id));
 
 
 --
@@ -21646,9 +21617,7 @@ ALTER TABLE public.payment_events ENABLE ROW LEVEL SECURITY;
 -- Name: payment_events payment_events_select_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY payment_events_select_managers ON public.payment_events FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = payment_events.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY payment_events_select_managers ON public.payment_events FOR SELECT TO authenticated USING (public.user_can_manage_account(account_id));
 
 
 --
@@ -21675,7 +21644,7 @@ CREATE POLICY payments_insert_owner_admin ON public.payments FOR INSERT TO authe
 -- Name: payments payments_select_member; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY payments_select_member ON public.payments FOR SELECT TO authenticated USING (public.is_account_member(account_id));
+CREATE POLICY payments_select_member ON public.payments FOR SELECT TO authenticated USING (public.user_can_manage_account(account_id));
 
 
 --
@@ -21713,18 +21682,14 @@ ALTER TABLE public.preventive_maintenance_tasks ENABLE ROW LEVEL SECURITY;
 -- Name: preventive_maintenance_tasks preventive_maintenance_tasks_delete_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY preventive_maintenance_tasks_delete_managers ON public.preventive_maintenance_tasks FOR DELETE TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = preventive_maintenance_tasks.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY preventive_maintenance_tasks_delete_managers ON public.preventive_maintenance_tasks FOR DELETE TO authenticated USING (public.user_can_manage_account(account_id));
 
 
 --
 -- Name: preventive_maintenance_tasks preventive_maintenance_tasks_insert_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY preventive_maintenance_tasks_insert_managers ON public.preventive_maintenance_tasks FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = preventive_maintenance_tasks.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY preventive_maintenance_tasks_insert_managers ON public.preventive_maintenance_tasks FOR INSERT TO authenticated WITH CHECK (public.user_can_manage_account(account_id));
 
 
 --
@@ -21740,11 +21705,7 @@ CREATE POLICY preventive_maintenance_tasks_select_members ON public.preventive_m
 -- Name: preventive_maintenance_tasks preventive_maintenance_tasks_update_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY preventive_maintenance_tasks_update_managers ON public.preventive_maintenance_tasks FOR UPDATE TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = preventive_maintenance_tasks.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text])))))) WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = preventive_maintenance_tasks.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY preventive_maintenance_tasks_update_managers ON public.preventive_maintenance_tasks FOR UPDATE TO authenticated USING (public.user_can_manage_account(account_id)) WITH CHECK (public.user_can_manage_account(account_id));
 
 
 --
@@ -21791,7 +21752,7 @@ CREATE POLICY properties_insert_owner_admin ON public.properties FOR INSERT TO a
 -- Name: properties properties_select_member; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY properties_select_member ON public.properties FOR SELECT TO authenticated USING (public.is_account_member(account_id));
+CREATE POLICY properties_select_member ON public.properties FOR SELECT TO authenticated USING (public.user_can_manage_account(account_id));
 
 
 --
@@ -21820,20 +21781,14 @@ ALTER TABLE public.property_financial_profiles ENABLE ROW LEVEL SECURITY;
 -- Name: property_financial_profiles property_financial_profiles_select_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY property_financial_profiles_select_managers ON public.property_financial_profiles FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = property_financial_profiles.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY property_financial_profiles_select_managers ON public.property_financial_profiles FOR SELECT TO authenticated USING (public.user_can_manage_account(account_id));
 
 
 --
 -- Name: property_financial_profiles property_financial_profiles_write_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY property_financial_profiles_write_managers ON public.property_financial_profiles TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = property_financial_profiles.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text])))))) WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = property_financial_profiles.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY property_financial_profiles_write_managers ON public.property_financial_profiles TO authenticated USING (public.user_can_manage_account(account_id)) WITH CHECK (public.user_can_manage_account(account_id));
 
 
 --
@@ -21866,20 +21821,14 @@ ALTER TABLE public.property_operating_expenses ENABLE ROW LEVEL SECURITY;
 -- Name: property_operating_expenses property_operating_expenses_select_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY property_operating_expenses_select_managers ON public.property_operating_expenses FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = property_operating_expenses.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY property_operating_expenses_select_managers ON public.property_operating_expenses FOR SELECT TO authenticated USING (public.user_can_manage_account(account_id));
 
 
 --
 -- Name: property_operating_expenses property_operating_expenses_write_managers; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY property_operating_expenses_write_managers ON public.property_operating_expenses TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = property_operating_expenses.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text])))))) WITH CHECK ((EXISTS ( SELECT 1
-   FROM public.account_members am
-  WHERE ((am.account_id = property_operating_expenses.account_id) AND (am.user_id = auth.uid()) AND (lower((am.role)::text) = ANY (ARRAY['owner'::text, 'admin'::text, 'staff'::text]))))));
+CREATE POLICY property_operating_expenses_write_managers ON public.property_operating_expenses TO authenticated USING (public.user_can_manage_account(account_id)) WITH CHECK (public.user_can_manage_account(account_id));
 
 
 --

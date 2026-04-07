@@ -72,13 +72,7 @@ on public.billing_customers
 for select
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = billing_customers.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(billing_customers.account_id)
 );
 
 drop policy if exists "billing_subscriptions_select_managers" on public.billing_subscriptions;
@@ -87,13 +81,7 @@ on public.billing_subscriptions
 for select
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = billing_subscriptions.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(billing_subscriptions.account_id)
 );
 
 commit;

@@ -16,7 +16,7 @@ with owner_members as (
   from public.account_members am
   join auth.users u on u.id = am.user_id
   join public.accounts a on a.id = am.account_id
-  where lower(am.role::text) = 'owner'
+  where public.account_member_effective_role(am.account_id, am.user_id) = 'owner'
 )
 select *
 from owner_members
@@ -35,7 +35,7 @@ with owner_members as (
   from public.account_members am
   join auth.users u on u.id = am.user_id
   join public.accounts a on a.id = am.account_id
-  where lower(am.role::text) = 'owner'
+  where public.account_member_effective_role(am.account_id, am.user_id) = 'owner'
 ),
 dupes as (
   select account_id
@@ -68,4 +68,3 @@ set revoked_at = now()
 from ranked_owner_invites r
 where ai.id = r.id
   and r.rn > 1;
-

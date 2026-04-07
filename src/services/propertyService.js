@@ -27,7 +27,7 @@ export async function createProperty({
   assertMaxLength(size, 80, "Size is too long");
   const rentAmount = assertAmount(rent, { min: 0, message: "Invalid rent amount" });
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("properties")
     .insert({
       account_id: accountId,          // 🔐 tenant boundary
@@ -36,12 +36,16 @@ export async function createProperty({
       size: normalizeText(size),
       rent: rentAmount,
       tenant_id: tenantId,
-    });
+    })
+    .select("id, account_id, address, city, size, rent, tenant_id")
+    .single();
 
   if (error) {
     console.error("createProperty failed:", error);
     throw error;
   }
+
+  return data;
 }
 
 /* ======================
@@ -63,7 +67,7 @@ export async function updateProperty(id, {
   assertMaxLength(size, 80, "Size is too long");
   const rentAmount = assertAmount(rent, { min: 0, message: "Invalid rent amount" });
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("properties")
     .update({
       address: normalizeText(address),
@@ -72,12 +76,16 @@ export async function updateProperty(id, {
       rent: rentAmount,
       tenant_id: tenantId,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id, account_id, address, city, size, rent, tenant_id")
+    .single();
 
   if (error) {
     console.error("updateProperty failed:", error);
     throw error;
   }
+
+  return data;
 }
 
 /* ======================

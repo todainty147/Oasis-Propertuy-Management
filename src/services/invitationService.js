@@ -36,7 +36,7 @@ function buildStructuredEdgeFunctionError(payload, fallback, context = {}) {
   return error;
 }
 
-async function sendInviteViaEdge({ accountId, email, role, accountName }) {
+async function sendInviteViaEdge({ accountId, email, role, accountName, mode = "create", invitationId = null, token = null }) {
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError || !sessionData?.session?.access_token) {
     throw new Error("You must be signed in");
@@ -57,6 +57,9 @@ async function sendInviteViaEdge({ accountId, email, role, accountName }) {
       email,
       role,
       accountName,
+      mode,
+      invitationId,
+      token,
     }),
   });
 
@@ -85,6 +88,7 @@ const INVITE_ROLES_BY_INVITER = {
   owner: ["admin", "staff", "tenant", "contractor"],
   admin: ["admin", "staff", "tenant", "contractor"],
   staff: ["staff", "tenant", "contractor"],
+  root_support: ["admin", "staff", "tenant", "contractor"],
 };
 
 export function getAllowedInviteRoles(inviterRole, isRootAccount = false) {
@@ -252,6 +256,20 @@ export async function resendInvitationEmail(invitation, redirectPath = "/invite"
   const token = invitation?.token;
   const email = String(invitation?.email || "").trim().toLowerCase();
   if (!token || !email) throw new Error("Invalid invitation");
+
+  const useBrandedEdgeInvites = String(import.meta.env.VITE_USE_BRANDED_INVITES || "").toLowerCase() === "true";
+  if (useBrandedEdgeInvites) {
+    await sendInviteViaEdge({
+      accountId: invitation?.account_id,
+      email,
+      role: normalizeInviteRole(invitation?.role),
+      accountName: "",
+      mode: "resend",
+      invitationId: invitation?.id || null,
+      token,
+    });
+    return;
+  }
 
   const redirectUrl = `${window.location.origin}${redirectPath}?token=${token}`;
   const { error } = await supabase.auth.signInWithOtp({

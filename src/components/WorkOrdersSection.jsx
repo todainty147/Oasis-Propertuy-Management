@@ -209,7 +209,7 @@ function PaginationFooter({ page, totalPages, totalCount, pageSize, onPrev, onNe
 ----------------------------- */
 
 export default function WorkOrdersSection({ propertyId }) {
-  const { activeAccountId, activeRole, isRootOperator } = useAccount();
+  const { activeAccountId, activeRole } = useAccount();
   const { t } = useI18n();
 
   // ✅ NEXT-4: allow deep-link from Maintenance Requests list
@@ -222,7 +222,7 @@ export default function WorkOrdersSection({ propertyId }) {
   const isContractor = useMemo(() => role === "contractor", [role]);
   const isTenant = useMemo(() => role === "tenant", [role]);
 
-  const canManage = useMemo(() => isManageRole(role, { isRootOperator }), [isRootOperator, role]);
+  const canManage = useMemo(() => isManageRole(role), [role]);
 
   // ✅ per-row busy state (prevents double-click + shows feedback)
   const [actionBusyId, setActionBusyId] = useState(null);

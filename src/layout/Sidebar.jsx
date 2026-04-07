@@ -5,6 +5,8 @@ import {
   Home,
   Users,
   UserPlus,
+  UserCog,
+  Rows3,
   Wallet,
   CreditCard,
   FileText,
@@ -298,6 +300,8 @@ function SidebarContent({ onNavigate }) {
                 {adminOpen && (
                   <div className="space-y-1">
                     <Item to="/invitations" icon={UserPlus} label={t("sidebar.invitations")} onNavigate={onNavigate} />
+                    <Item to="/settings/roles" icon={UserCog} label="Roles" onNavigate={onNavigate} />
+                    <Item to="/settings/custom-fields" icon={Rows3} label="Custom fields" onNavigate={onNavigate} />
                     <Item to="/settings/billing" icon={CreditCard} label={t("sidebar.billing")} onNavigate={onNavigate} />
                     {hasEntitlement(ENTITLEMENT_FEATURES.PLAYBOOKS) ? (
                       <Item to="/settings/playbooks" icon={Zap} label={t("sidebar.playbooks")} onNavigate={onNavigate} />

@@ -35,7 +35,7 @@ export default function BillingPage() {
   const [error, setError] = useState("");
 
   const canManageBilling = useMemo(
-    () => isManageRole(activeRole, { isRootOperator }),
+    () => isRootOperator || isManageRole(activeRole),
     [activeRole, isRootOperator],
   );
 

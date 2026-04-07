@@ -64,7 +64,7 @@ export default function Documents({
   const { setTitle } = usePageTitle();
   const { t } = useI18n();
   const { loading: authLoading } = useAuth();
-  const { accounts, activeAccountId, accountLoading, activeRole } = useAccount();
+  const { accounts, activeAccountId, accountLoading, activeRole, activePermissionContext } = useAccount();
   const { activeTenantId } = useTenant();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -74,6 +74,7 @@ export default function Documents({
   }, [accounts, activeAccountId]);
 
   const role = activeRole ?? activeAccount?.role ?? null;
+  const permissionContext = activePermissionContext ?? { role };
 
   /* ---------- FALLBACK HOOKS ---------- */
   const useFallback = !tenantsProp || !propertiesProp;
@@ -331,7 +332,7 @@ export default function Documents({
 
   return (
     <div className="space-y-6">
-      {canUploadDocument(role) && (
+      {canUploadDocument(permissionContext) && (
         <Card className="p-4 space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -515,7 +516,7 @@ export default function Documents({
                   {t("attachments.download")}
                 </button>
 
-                {canDeleteDocument(role) && (
+                {canDeleteDocument(permissionContext) && (
                   <button
                     onClick={async () => {
                       if (confirm(t("documents.confirmDelete"))) {

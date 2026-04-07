@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Breadcrumbs from "../components/Breadcrumbs";
@@ -16,9 +16,12 @@ import PropertyPerformanceCard from "../components/PropertyPerformanceCard";
 import PropertyPreventiveMaintenanceCard from "../components/PropertyPreventiveMaintenanceCard";
 import PropertyOperatingExpensesCard from "../components/PropertyOperatingExpensesCard";
 import PropertyComplianceCard from "../components/PropertyComplianceCard";
+import CustomFieldsReadOnlySection from "../components/CustomFieldsReadOnlySection";
 import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount } from "../utils/currency";
 import { isManageRole } from "../utils/permissions";
+import { can } from "../utils/permissions";
+import { listEntityCustomFieldValues } from "../services/customFieldService";
 
 /* ======================
    SKELETON
@@ -59,9 +62,12 @@ export default function PropertyDetails({
   const { id } = useParams();
   const navigate = useNavigate();
   const { setTitle } = usePageTitle();
-  const { accountLoading, activeAccountId, activeRole, isRootOperator } = useAccount();
+  const { accountLoading, activeAccountId, activeRole, activePermissionContext } = useAccount();
   const { t } = useI18n();
-  const canManageLease = isManageRole(activeRole, { isRootOperator });
+  const canManageLease = isManageRole(activeRole);
+  const canUpdateProperty = can(activePermissionContext, "properties", "update");
+  const [customFieldRows, setCustomFieldRows] = useState([]);
+  const [customFieldsLoading, setCustomFieldsLoading] = useState(false);
 
   /* ---------- PROPERTY ---------- */
   const property = properties.find((p) => String(p.id) === String(id));
@@ -70,6 +76,36 @@ export default function PropertyDetails({
   useEffect(() => {
     if (property?.address) setTitle(property.address);
   }, [property?.address, setTitle]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCustomFields() {
+      if (!activeAccountId || !property?.id) {
+        if (!cancelled) setCustomFieldRows([]);
+        return;
+      }
+
+      setCustomFieldsLoading(true);
+      try {
+        const rows = await listEntityCustomFieldValues({
+          accountId: activeAccountId,
+          entityType: "property",
+          entityId: property.id,
+        });
+        if (!cancelled) setCustomFieldRows(rows);
+      } catch {
+        if (!cancelled) setCustomFieldRows([]);
+      } finally {
+        if (!cancelled) setCustomFieldsLoading(false);
+      }
+    }
+
+    loadCustomFields();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeAccountId, property?.id]);
 
   /* ---------- LOADING ---------- */
   if (loading || accountLoading) return <PropertyDetailsSkeleton />;
@@ -126,7 +162,7 @@ export default function PropertyDetails({
           </div>
 
           <div className="flex items-center gap-3">
-            {canManageLease && typeof onEditProperty === "function" ? (
+            {canUpdateProperty && typeof onEditProperty === "function" ? (
               <button
                 type="button"
                 onClick={() => onEditProperty(property)}
@@ -207,6 +243,14 @@ export default function PropertyDetails({
             />
           </div>
         ) : null}
+
+        <div className="pt-2">
+          <CustomFieldsReadOnlySection
+            title="Custom property fields"
+            rows={customFieldRows}
+            loading={customFieldsLoading}
+          />
+        </div>
 
         {/* ---------- DOCUMENTS ---------- */}
         <div className="pt-2">

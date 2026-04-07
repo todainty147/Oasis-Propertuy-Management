@@ -45,7 +45,7 @@ function TenantsSkeleton() {
 export default function Tenants() {
   const { setTitle } = usePageTitle();
   const { activeTenantId } = useTenant();
-  const { activeRole, activeAccountId } = useAccount();
+  const { activePermissionContext, activeAccountId } = useAccount();
   const { t } = useI18n();
 
   const { tenants, loading } = useTenants();
@@ -206,7 +206,7 @@ export default function Tenants() {
             : t("tenant.emptyAddFirst")}
         </p>
 
-        {canCreateTenant(activeRole) && (
+        {canCreateTenant(activePermissionContext) && (
           <Link
             to="/invitations"
             className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
@@ -226,7 +226,7 @@ export default function Tenants() {
           {t("sidebar.tenants")}
         </h2>
 
-        {canCreateTenant(activeRole) && (
+        {canCreateTenant(activePermissionContext) && (
           <Link
             to="/invitations"
             className="px-4 py-2 bg-blue-600 text-white rounded-lg"

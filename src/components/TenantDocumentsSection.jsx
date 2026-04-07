@@ -18,7 +18,7 @@ import { useI18n } from "../context/I18nContext";
 
 import {
   canUploadDocument,
-  canEditDocument,
+  canEditDocumentTags,
   canDeleteDocument,
 } from "../utils/permissions";
 
@@ -88,7 +88,7 @@ function getDocumentTagLabel(tag, t) {
 
 export default function TenantDocumentsSection({ tenantId }) {
   const { user, loading: authLoading } = useAuth();
-  const { activeAccountId, accountLoading, activeRole } = useAccount(); // ✅ MULTI-TENANT
+  const { activeAccountId, accountLoading, activePermissionContext } = useAccount(); // ✅ MULTI-TENANT
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   
@@ -171,14 +171,14 @@ export default function TenantDocumentsSection({ tenantId }) {
   }, [tenantId, pageSize, searchParams]);
 
   /* ---------- PERMISSIONS ---------- */
-  const canUpload = canUploadDocument(activeRole);
+  const canUpload = canUploadDocument(activePermissionContext);
 
   function canEdit(doc) {
-    return canEditDocument({ role: activeRole, userId: user?.id, doc });
+    return canEditDocumentTags(activePermissionContext);
   }
 
   function canDelete(doc) {
-    return canDeleteDocument({ role: activeRole, userId: user?.id, doc });
+    return canDeleteDocument(activePermissionContext);
   }
 
   /* ---------- PREVIEW ---------- */

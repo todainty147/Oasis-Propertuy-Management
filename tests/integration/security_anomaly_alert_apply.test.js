@@ -14,6 +14,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("security_anomaly_alert_apply
   const admin = getIntegrationAdminClient();
   let alertId;
   let dedupeKey;
+  let seededUsers;
 
   async function seedAlert() {
     const { error } = await admin.from("security_anomaly_alerts").upsert(
@@ -45,7 +46,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("security_anomaly_alert_apply
   }
 
   beforeAll(async () => {
-    await ensureIsolationHarnessSeed();
+    seededUsers = await ensureIsolationHarnessSeed();
   });
 
   beforeEach(async () => {
@@ -149,5 +150,93 @@ describe.skipIf(!isIntegrationHarnessConfigured())("security_anomaly_alert_apply
     expect(alertRow.status).toBe("resolved");
     expect(alertRow.resolved_by_user_id).toBe(user.id);
     expect(alertRow.resolution_note).toBe("integration resolution note");
+  });
+
+  it("allows owner A to assign an alert to staff A and records the assignment", async () => {
+    const { client, user } = await signInAsFixtureUser("ownerA");
+
+    const result = await client.rpc("security_anomaly_alert_apply", {
+      p_alert_id: alertId,
+      p_operation: "assign",
+      p_classification: null,
+      p_assigned_to_user_id: seededUsers.staffA.id,
+      p_resolution_note: null,
+    });
+
+    expect(result.error).toBeNull();
+    expect(result.data.assigned_to_user_id).toBe(seededUsers.staffA.id);
+    expect(result.data.assigned_by_user_id).toBe(user.id);
+
+    const { data: alertRow, error: alertError } = await admin
+      .from("security_anomaly_alerts")
+      .select("assigned_to_user_id, assigned_by_user_id")
+      .eq("id", alertId)
+      .single();
+
+    expect(alertError).toBeNull();
+    expect(alertRow.assigned_to_user_id).toBe(seededUsers.staffA.id);
+    expect(alertRow.assigned_by_user_id).toBe(user.id);
+
+    const { data: ledgerRows, error: ledgerError } = await admin
+      .from("security_audit_ledger")
+      .select("action, account_id, entity_type, entity_id")
+      .eq("entity_type", "security_alert")
+      .eq("entity_id", alertId)
+      .eq("action", "security_alert_assigned");
+
+    expect(ledgerError).toBeNull();
+    expect(ledgerRows).toHaveLength(1);
+    expect(ledgerRows[0].account_id).toBe(isolationFixtures.accounts.accountA.id);
+  });
+
+  it("classifies cross-role admin activity for staff-originated admin events", async () => {
+    const staffUserId = seededUsers.staffA.id;
+    const driftEntityId = randomUUID();
+
+    const { error: cleanupBeforeError } = await admin
+      .from("security_anomaly_alerts")
+      .delete()
+      .eq("account_id", isolationFixtures.accounts.accountA.id)
+      .eq("alert_type", "cross_role_admin_activity")
+      .eq("actor_user_id", staffUserId);
+
+    expect(cleanupBeforeError).toBeNull();
+
+    try {
+      const { error: ledgerError } = await admin
+        .from("security_audit_ledger")
+        .insert({
+          account_id: isolationFixtures.accounts.accountA.id,
+          actor_user_id: staffUserId,
+          action: "account_invitation_created",
+          entity_type: "account_invitation",
+          entity_id: driftEntityId,
+          metadata: { source: "integration-role-drift" },
+        });
+
+      expect(ledgerError).toBeNull();
+
+      const { data: alertRows, error: alertError } = await admin
+        .from("security_anomaly_alerts")
+        .select("alert_type, severity, actor_user_id, metadata")
+        .eq("account_id", isolationFixtures.accounts.accountA.id)
+        .eq("alert_type", "cross_role_admin_activity")
+        .eq("actor_user_id", staffUserId);
+
+      expect(alertError).toBeNull();
+      expect(alertRows).toHaveLength(1);
+      expect(alertRows[0].severity).toBe("action");
+      expect(alertRows[0].actor_user_id).toBe(staffUserId);
+    } finally {
+      const { error: alertCleanupError } = await admin
+        .from("security_anomaly_alerts")
+        .delete()
+        .eq("account_id", isolationFixtures.accounts.accountA.id)
+        .eq("alert_type", "cross_role_admin_activity")
+        .eq("actor_user_id", staffUserId);
+
+      expect(alertCleanupError).toBeNull();
+
+    }
   });
 });

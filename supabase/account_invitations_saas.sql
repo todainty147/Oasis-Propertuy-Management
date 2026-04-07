@@ -120,6 +120,10 @@ begin
     return false;
   end if;
 
+  if public.user_is_root_operator() then
+    return v_target_role in ('admin', 'staff', 'tenant', 'contractor');
+  end if;
+
   select exists (
     select 1
     from pg_type t
@@ -131,12 +135,7 @@ begin
   )
   into v_has_admin;
 
-  select lower(am.role::text)
-  into v_inviter_role
-  from public.account_members am
-  where am.account_id = p_account_id
-    and am.user_id = auth.uid()
-  limit 1;
+  v_inviter_role := public.account_member_effective_role(p_account_id, auth.uid());
 
   if v_target_role = 'owner' then
     return false;
@@ -231,7 +230,7 @@ begin
       select 1
       from public.account_members am
       where am.user_id = v_existing_user_id
-        and lower(am.role::text) = 'owner'
+        and public.account_member_effective_role(am.account_id, am.user_id) = 'owner'
     ) then
       raise exception 'This email is already used by an existing landlord account';
     end if;
@@ -292,14 +291,9 @@ begin
     v_role := 'staff';
   end if;
 
-  select lower(am.role::text)
-  into v_member_role
-  from public.account_members am
-  where am.account_id = p_account_id
-    and am.user_id = v_uid
-  limit 1;
+  v_member_role := public.account_member_effective_role(p_account_id, v_uid);
 
-  if v_member_role is null then
+  if v_member_role is null and not public.user_is_root_operator() then
     return jsonb_build_object('ok', false, 'code', 'not_member', 'message', 'Not a member of this account');
   end if;
 
@@ -353,7 +347,7 @@ begin
     select 1
     from public.account_members am
     where am.user_id = v_existing_user_id
-      and lower(am.role::text) = 'owner'
+      and public.account_member_effective_role(am.account_id, am.user_id) = 'owner'
   ) then
     return jsonb_build_object('ok', false, 'code', 'owner_email_taken', 'message', 'This email is already used by an existing landlord account');
   end if;
@@ -382,12 +376,7 @@ on public.account_invitations
 for select
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = account_invitations.account_id
-      and am.user_id = auth.uid()
-  )
+  public.user_can_manage_account(account_invitations.account_id)
 );
 
 drop policy if exists account_invitations_insert_managers on public.account_invitations;
@@ -464,12 +453,7 @@ begin
     raise exception 'Missing root account id';
   end if;
 
-  select lower(am.role::text)
-  into v_root_member_role
-  from public.account_members am
-  where am.account_id = p_root_account_id
-    and am.user_id = v_uid
-  limit 1;
+  v_root_member_role := public.account_member_effective_role(p_root_account_id, v_uid);
 
   if v_root_member_role is null then
     raise exception 'Not a member of root account';
@@ -530,7 +514,7 @@ begin
       select 1
       from public.account_members am
       where am.user_id = v_existing_user_id
-        and lower(am.role::text) = 'owner'
+        and public.account_member_effective_role(am.account_id, am.user_id) = 'owner'
     )
     into v_owner_membership_exists;
   end if;
@@ -620,12 +604,7 @@ begin
     raise exception 'Not authenticated';
   end if;
 
-  select lower(am.role::text)
-  into v_member_role
-  from public.account_members am
-  where am.account_id = p_root_account_id
-    and am.user_id = v_uid
-  limit 1;
+  v_member_role := public.account_member_effective_role(p_root_account_id, v_uid);
 
   if v_member_role is null then
     raise exception 'Not a member of root account';
@@ -679,12 +658,7 @@ begin
     raise exception 'Missing target account';
   end if;
 
-  select lower(am.role::text)
-  into v_member_role
-  from public.account_members am
-  where am.account_id = p_root_account_id
-    and am.user_id = v_uid
-  limit 1;
+  v_member_role := public.account_member_effective_role(p_root_account_id, v_uid);
 
   if v_member_role is null then
     raise exception 'Not a member of root account';
@@ -759,6 +733,7 @@ declare
   v_current_role text;
   v_new_role text := lower(trim(coalesce(p_new_role, '')));
   v_new_member_role public.account_members.role%type;
+  v_new_role_id uuid;
   v_has_admin boolean := false;
 begin
   if v_uid is null then
@@ -799,13 +774,9 @@ begin
   end if;
 
   v_new_member_role := v_new_role;
+  v_new_role_id := public.ensure_system_account_role(p_account_id, v_new_member_role);
 
-  select lower(am.role::text)
-  into v_current_role
-  from public.account_members am
-  where am.account_id = p_account_id
-    and am.user_id = p_target_user_id
-  limit 1;
+  v_current_role := public.account_member_effective_role(p_account_id, p_target_user_id);
 
   if v_current_role is null then
     raise exception 'Target member not found';
@@ -822,7 +793,8 @@ begin
   end if;
 
   update public.account_members am
-  set role = v_new_member_role
+  set role = v_new_member_role,
+      role_id = v_new_role_id
   where am.account_id = p_account_id
     and am.user_id = p_target_user_id;
 
@@ -873,12 +845,7 @@ begin
     raise exception 'Missing target account';
   end if;
 
-  select lower(am.role::text)
-  into v_member_role
-  from public.account_members am
-  where am.account_id = p_root_account_id
-    and am.user_id = v_uid
-  limit 1;
+  v_member_role := public.account_member_effective_role(p_root_account_id, v_uid);
 
   if v_member_role is null then
     raise exception 'Not a member of root account';
@@ -1030,12 +997,7 @@ begin
   end if;
   v_member_role := v_role;
 
-  select lower(am.role::text)
-  into v_previous_role
-  from public.account_members am
-  where am.account_id = v_inv.account_id
-    and am.user_id = v_uid
-  limit 1;
+  v_previous_role := public.account_member_effective_role(v_inv.account_id, v_uid);
 
   insert into public.account_members(account_id, user_id, role)
   values (v_inv.account_id, v_uid, v_member_role)

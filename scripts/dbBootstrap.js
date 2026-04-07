@@ -19,6 +19,46 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply custom staff roles schema overlay",
+    file: path.join(supabaseDir, "custom_staff_roles.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply custom staff roles membership overlay",
+    file: path.join(supabaseDir, "custom_staff_roles_membership.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply custom staff roles seed overlay",
+    file: path.join(supabaseDir, "custom_staff_roles_seed.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply custom staff roles helper overlay",
+    file: path.join(supabaseDir, "custom_staff_roles_helpers.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply custom staff roles management overlay",
+    file: path.join(supabaseDir, "custom_staff_roles_management.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply account member permission keys overlay",
+    file: path.join(supabaseDir, "account_member_permission_keys.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply account role compatibility helper overlay",
+    file: path.join(supabaseDir, "account_role_compatibility_helpers.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply account role helper custom-role overlay",
+    file: path.join(supabaseDir, "account_role_for_custom_roles.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply account branding overlay",
     file: path.join(supabaseDir, "account_branding.sql"),
     onErrorStop: true,
@@ -36,6 +76,21 @@ const bootstrapSteps = [
   {
     label: "Apply account report settings overlay",
     file: path.join(supabaseDir, "account_report_settings.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply custom fields overlay",
+    file: path.join(supabaseDir, "custom_fields.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply outbound email events overlay",
+    file: path.join(supabaseDir, "outbound_email_events.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply outbound sms events overlay",
+    file: path.join(supabaseDir, "outbound_sms_events.sql"),
     onErrorStop: true,
   },
   {
@@ -151,6 +206,11 @@ const bootstrapSteps = [
   {
     label: "Apply notifications overlay",
     file: path.join(supabaseDir, "create_notifications.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply document uploaded notification trigger patch",
+    file: path.join(supabaseDir, "fn_documents_notify_uploaded_patch.sql"),
     onErrorStop: true,
   },
   {

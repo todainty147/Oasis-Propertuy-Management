@@ -28,6 +28,7 @@ import { isManageRole } from "./utils/permissions";
 import { ENTITLEMENT_FEATURES } from "./lib/entitlements";
 import { assertUsageCapacity, getPlanUsageLimit, normalizePlan } from "./lib/entitlements";
 import FeatureAccessCard from "./components/FeatureAccessCard";
+import { saveEntityCustomFieldValues } from "./services/customFieldService";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Properties = lazy(() => import("./pages/Properties"));
@@ -47,6 +48,8 @@ const LandlordOnboardingPage = lazy(() => import("./pages/LandlordOnboardingPage
 const InvitationsPage = lazy(() => import("./pages/InvitationsPage"));
 const AccountBrandingPage = lazy(() => import("./pages/AccountBrandingPage"));
 const BillingPage = lazy(() => import("./pages/BillingPage"));
+const RolesManagementPage = lazy(() => import("./pages/RolesManagementPage"));
+const CustomFieldsManagementPage = lazy(() => import("./pages/CustomFieldsManagementPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const FinancePage = lazy(() => import("./pages/FinancePage"));
 const PlaybooksPage = lazy(() => import("./pages/PlaybooksPage"));
@@ -384,11 +387,16 @@ export default function App() {
                     accountId: activeAccountId, // ✅ CRITICAL
                   };
 
-                  if (property.id) {
-                    await updateProperty(property.id, payload);
-                  } else {
-                    await createProperty(payload);
-                  }
+                  const savedProperty = property.id
+                    ? await updateProperty(property.id, payload)
+                    : await createProperty(payload);
+
+                  await saveEntityCustomFieldValues({
+                    accountId: activeAccountId,
+                    entityId: savedProperty?.id || property.id,
+                    definitions: property.customFieldDefinitions,
+                    values: property.customFieldValues,
+                  });
 
                   setIsAddPropertyOpen(false);
                   setEditingProperty(null);
@@ -441,11 +449,16 @@ export default function App() {
                     accountId: activeAccountId,
                   };
 
-                  if (property.id) {
-                    await updateProperty(property.id, payload);
-                  } else {
-                    await createProperty(payload);
-                  }
+                  const savedProperty = property.id
+                    ? await updateProperty(property.id, payload)
+                    : await createProperty(payload);
+
+                  await saveEntityCustomFieldValues({
+                    accountId: activeAccountId,
+                    entityId: savedProperty?.id || property.id,
+                    definitions: property.customFieldDefinitions,
+                    values: property.customFieldValues,
+                  });
 
                   setIsAddPropertyOpen(false);
                   setEditingProperty(null);
@@ -524,6 +537,8 @@ export default function App() {
               <Route path="settings/profile" element={<ProfilePage />} />
               <Route path="settings/branding" element={<AccountBrandingPage />} />
               <Route path="settings/billing" element={<BillingPage />} />
+              <Route path="settings/roles" element={<RolesManagementPage />} />
+              <Route path="settings/custom-fields" element={<CustomFieldsManagementPage />} />
               <Route
                 path="settings/playbooks"
                 element={

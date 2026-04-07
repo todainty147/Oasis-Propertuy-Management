@@ -332,170 +332,66 @@ create policy "property_financial_profiles_select_managers"
 on public.property_financial_profiles
 for select
 to authenticated
-using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = property_financial_profiles.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
-);
+using (public.user_can_manage_account(property_financial_profiles.account_id));
 
 drop policy if exists "property_financial_profiles_write_managers" on public.property_financial_profiles;
 create policy "property_financial_profiles_write_managers"
 on public.property_financial_profiles
 for all
 to authenticated
-using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = property_financial_profiles.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
-)
-with check (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = property_financial_profiles.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
-);
+using (public.user_can_manage_account(property_financial_profiles.account_id))
+with check (public.user_can_manage_account(property_financial_profiles.account_id));
 
 drop policy if exists "property_operating_expenses_select_managers" on public.property_operating_expenses;
 create policy "property_operating_expenses_select_managers"
 on public.property_operating_expenses
 for select
 to authenticated
-using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = property_operating_expenses.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
-);
+using (public.user_can_manage_account(property_operating_expenses.account_id));
 
 drop policy if exists "property_operating_expenses_write_managers" on public.property_operating_expenses;
 create policy "property_operating_expenses_write_managers"
 on public.property_operating_expenses
 for all
 to authenticated
-using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = property_operating_expenses.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
-)
-with check (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = property_operating_expenses.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
-);
+using (public.user_can_manage_account(property_operating_expenses.account_id))
+with check (public.user_can_manage_account(property_operating_expenses.account_id));
 
 drop policy if exists "compliance_items_select_managers" on public.compliance_items;
 create policy "compliance_items_select_managers"
 on public.compliance_items
 for select
 to authenticated
-using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = compliance_items.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
-);
+using (public.user_can_manage_account(compliance_items.account_id));
 
 drop policy if exists "compliance_items_write_managers" on public.compliance_items;
 create policy "compliance_items_write_managers"
 on public.compliance_items
 for all
 to authenticated
-using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = compliance_items.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
-)
-with check (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = compliance_items.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
-);
+using (public.user_can_manage_account(compliance_items.account_id))
+with check (public.user_can_manage_account(compliance_items.account_id));
 
 drop policy if exists "payment_events_select_managers" on public.payment_events;
 create policy "payment_events_select_managers"
 on public.payment_events
 for select
 to authenticated
-using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = payment_events.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
-);
+using (public.user_can_manage_account(payment_events.account_id));
 
 drop policy if exists "automation_execution_log_select_managers" on public.automation_execution_log;
 create policy "automation_execution_log_select_managers"
 on public.automation_execution_log
 for select
 to authenticated
-using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = automation_execution_log.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
-);
+using (public.user_can_manage_account(automation_execution_log.account_id));
 
 drop policy if exists "automation_execution_log_write_managers" on public.automation_execution_log;
 create policy "automation_execution_log_write_managers"
 on public.automation_execution_log
 for all
 to authenticated
-using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = automation_execution_log.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
-)
-with check (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = automation_execution_log.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
-);
+using (public.user_can_manage_account(automation_execution_log.account_id))
+with check (public.user_can_manage_account(automation_execution_log.account_id));
 
 commit;

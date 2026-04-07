@@ -55,7 +55,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
   it("allows in-account owner to create a payment and persists account-scoped state", async () => {
     const payment = await createTempPaymentAs("ownerA", {
       amount: 1450.25,
-      dueDate: "2026-04-03",
+      dueDate: "2099-04-03",
     });
 
     const { data, error } = await admin
@@ -72,7 +72,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
       tenant_id: isolationFixtures.users.tenantA1.tenantId,
       amount: 1450.25,
       status: "due",
-      due_date: "2026-04-03",
+      due_date: "2099-04-03",
       paid_at: null,
     });
   });

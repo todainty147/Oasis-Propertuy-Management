@@ -48,22 +48,10 @@ on public.account_report_settings
 for all
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = account_report_settings.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(account_report_settings.account_id)
 )
 with check (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = account_report_settings.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(account_report_settings.account_id)
 );
 
 grant usage on schema public to authenticated;

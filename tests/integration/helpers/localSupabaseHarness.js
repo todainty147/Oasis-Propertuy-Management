@@ -327,6 +327,14 @@ export async function ensureIsolationHarnessSeed() {
   try {
     await upsertWithContext(admin, "accounts", [
       {
+        id: isolationFixtures.accounts.root.id,
+        name: isolationFixtures.accounts.root.name,
+        created_by: usersByKey.rootOwner.id,
+        is_root: true,
+        subscription_status: "active",
+        subscription_plan: "pro",
+      },
+      {
         id: isolationFixtures.accounts.accountA.id,
         name: isolationFixtures.accounts.accountA.name,
         created_by: usersByKey.ownerA.id,
@@ -348,6 +356,7 @@ export async function ensureIsolationHarnessSeed() {
   }
 
   const memberships = [
+    { account_id: isolationFixtures.accounts.root.id, user_id: usersByKey.rootOwner.id, role: "owner" },
     { account_id: isolationFixtures.accounts.accountA.id, user_id: usersByKey.ownerA.id, role: "owner" },
     { account_id: isolationFixtures.accounts.accountA.id, user_id: usersByKey.adminA.id, role: "admin" },
     { account_id: isolationFixtures.accounts.accountA.id, user_id: usersByKey.staffA.id, role: "staff" },
@@ -528,16 +537,8 @@ export async function ensureIsolationHarnessSeed() {
   }
 
   try {
-    const { data: existingRows, error: selectError } = await admin
-      .from("work_orders")
-      .select("id")
-      .in("id", [workOrderIds.accountA, workOrderIds.accountB]);
-
-    if (selectError) throw wrapStepError("select failed for work_orders", selectError);
-
-    const existingIds = new Set((existingRows || []).map((row) => row.id));
-    const missingRows = [
-      !existingIds.has(workOrderIds.accountA) && {
+    await upsertWithContext(admin, "work_orders", [
+      {
         id: workOrderIds.accountA,
         account_id: isolationFixtures.accounts.accountA.id,
         property_id: propertyIds.accountA,
@@ -548,7 +549,7 @@ export async function ensureIsolationHarnessSeed() {
         status: "assigned",
         created_by: usersByKey.ownerA.id,
       },
-      !existingIds.has(workOrderIds.accountB) && {
+      {
         id: workOrderIds.accountB,
         account_id: isolationFixtures.accounts.accountB.id,
         property_id: propertyIds.accountB,
@@ -559,12 +560,7 @@ export async function ensureIsolationHarnessSeed() {
         status: "assigned",
         created_by: usersByKey.ownerB.id,
       },
-    ].filter(Boolean);
-
-    if (missingRows.length > 0) {
-      const { error: insertError } = await admin.from("work_orders").insert(missingRows);
-      if (insertError) throw wrapStepError("insert failed for work_orders", insertError);
-    }
+    ]);
   } catch (error) {
     throw wrapStepError("work order seed failed", error);
   }

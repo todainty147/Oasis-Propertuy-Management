@@ -200,10 +200,10 @@ export default function WorkOrderDetails() {
   const navigate = useNavigate();
   const { setTitle } = usePageTitle();
 
-  const { activeAccountId, activeRole, isRootOperator } = useAccount();
+  const { activeAccountId, activeRole } = useAccount();
   const { t } = useI18n();
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
-  const canManage = useMemo(() => isManageRole(role, { isRootOperator }), [isRootOperator, role]);
+  const canManage = useMemo(() => isManageRole(role), [role]);
 
   const labels = useWorkOrderStatusLabels();
 

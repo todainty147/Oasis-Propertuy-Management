@@ -1,0 +1,46 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+function readSource(relativePath) {
+  return readFileSync(new URL(`../../${relativePath}`, import.meta.url), "utf8");
+}
+
+describe("outbound email contracts", () => {
+  it("keeps outbound email events in repo bootstrap/apply order", () => {
+    const bootstrapSource = readSource("scripts/dbBootstrap.js");
+    const applySource = readSource("scripts/dbApplyRepoSql.js");
+    const sql = readSource("supabase/outbound_email_events.sql");
+
+    expect(bootstrapSource).toContain("outbound_email_events.sql");
+    expect(applySource).toContain('"outbound_email_events.sql"');
+    expect(sql).toContain("create table if not exists public.outbound_email_events");
+    expect(sql).toContain("template_key text not null");
+    expect(sql).toContain("recipient_email text not null");
+    expect(sql).toContain("status text not null");
+    expect(sql).toContain("lower(trim(status)) in ('queued', 'sent', 'failed', 'skipped')");
+  });
+
+  it("logs invite emails and reminder emails through Resend-backed edge functions", () => {
+    const inviteFn = readSource("supabase/functions/invite-user/index.ts");
+    const reminderFn = readSource("supabase/functions/send-reminder-emails/index.ts");
+    const deployScript = readSource("scripts/deployCronFunctions.js");
+    const invitationService = readSource("src/services/invitationService.js");
+
+    expect(inviteFn).toContain('const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")');
+    expect(inviteFn).toContain('mode?: "create" | "resend"');
+    expect(inviteFn).toContain("logEmailEvent");
+    expect(inviteFn).toContain("outbound_email_events");
+    expect(inviteFn).toContain('templateKey: mode === "resend" ? "account_invitation_resend" : "account_invitation"');
+
+    expect(reminderFn).toContain("createClient");
+    expect(reminderFn).toContain("outbound_email_events");
+    expect(reminderFn).toContain("operational_reminder_summary");
+    expect(reminderFn).toContain('const OASIS_REMINDERS_FROM = Deno.env.get("OASIS_REMINDERS_FROM")');
+    expect(reminderFn).toContain("notifications");
+    expect(reminderFn).toContain("REMINDER_TYPES");
+
+    expect(deployScript).toContain('"send-reminder-emails"');
+    expect(invitationService).toContain('mode: "resend"');
+    expect(invitationService).toContain("sendInviteViaEdge");
+  });
+});

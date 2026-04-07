@@ -16,6 +16,7 @@ describe("security observability contracts", () => {
     const hostedSinkSql = readSql("supabase/security_observability_events.sql");
     const hostedSinkFn = readSql("supabase/functions/ingest-security-observability/index.ts");
     const inviteEdgeFn = readSql("supabase/functions/invite-user/index.ts");
+    const reminderEdgeFn = readSql("supabase/functions/send-reminder-emails/index.ts");
     const loggerSource = readSql("src/services/securityFailureLogger.js");
     const hostedSinkServiceSource = readSql("src/services/securityObservabilityService.js");
     const securityAuditPageSource = readSql("src/pages/SecurityAuditPage.jsx");
@@ -30,11 +31,15 @@ describe("security observability contracts", () => {
     expect(deniedEventSql).toContain("create or replace function public.record_security_denied_event");
     expect(deniedEventSql).toContain("create or replace function public.assert_manage_account_access");
     expect(deniedEventSql).toContain("create or replace function public.assert_tenant_scope_access");
+    expect(deniedEventSql).toContain("create or replace function public.security_denied_event_actor_role(");
+    expect(deniedEventSql).toContain("where public.user_is_root_operator()");
+    expect(deniedEventSql).toContain("select public.account_member_effective_role(p_account_id, auth.uid())");
     expect(hostedSinkSql).toContain("create table if not exists public.security_observability_events");
     expect(hostedSinkSql).toContain("create or replace function public.security_observability_event_feed");
     expect(hostedSinkSql).toContain("create or replace function public.cleanup_security_observability_events");
     expect(hostedSinkFn).toContain("security_observability_events");
     expect(inviteEdgeFn).toContain("recordSecurityObservabilityEvent");
+    expect(reminderEdgeFn).toContain("CRON_SECRET");
     expect(loggerSource).toContain("supabase.functions.invoke(");
     expect(loggerSource).toContain("correlationId: classification.correlationId");
     expect(hostedSinkServiceSource).toContain('supabase.rpc("security_observability_event_feed"');

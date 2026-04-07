@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { useAccount } from "../context/AccountContext";
 import Card from "./Card";
 import { useI18n } from "../context/I18nContext";
+import CustomFieldsFormSection from "./CustomFieldsFormSection";
+import {
+  listEntityCustomFieldEditorState,
+  validateCustomFieldEntries,
+  validateCustomFieldInput,
+} from "../services/customFieldService";
 
 export default function AddPropertyModal({
   isOpen,
@@ -13,6 +19,7 @@ export default function AddPropertyModal({
 }) {
   const { accountLoading } = useAccount();
   const { t } = useI18n();
+  const { activeAccountId } = useAccount();
 
   const [form, setForm] = useState({
     address: "",
@@ -22,6 +29,10 @@ export default function AddPropertyModal({
     tenantId: "",
     ownerId: "",
   });
+  const [customFieldDefinitions, setCustomFieldDefinitions] = useState([]);
+  const [customFieldValues, setCustomFieldValues] = useState({});
+  const [customFieldErrors, setCustomFieldErrors] = useState({});
+  const [customFieldsLoading, setCustomFieldsLoading] = useState(false);
 
   /* ======================
      INIT FORM
@@ -48,6 +59,47 @@ export default function AddPropertyModal({
     }
   }, [property, owners]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCustomFields() {
+      if (!isOpen || !activeAccountId) {
+        if (!cancelled) {
+          setCustomFieldDefinitions([]);
+          setCustomFieldValues({});
+        }
+        return;
+      }
+
+      setCustomFieldsLoading(true);
+      try {
+        const state = await listEntityCustomFieldEditorState({
+          accountId: activeAccountId,
+          entityType: "property",
+          entityId: property?.id ?? null,
+        });
+        if (!cancelled) {
+          setCustomFieldDefinitions(state.definitions);
+          setCustomFieldValues(state.values);
+          setCustomFieldErrors({});
+        }
+      } catch {
+        if (!cancelled) {
+          setCustomFieldDefinitions([]);
+          setCustomFieldValues({});
+          setCustomFieldErrors({});
+        }
+      } finally {
+        if (!cancelled) setCustomFieldsLoading(false);
+      }
+    }
+
+    loadCustomFields();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeAccountId, isOpen, property?.id]);
+
   /* ======================
      SAFETY
      ====================== */
@@ -59,6 +111,12 @@ export default function AddPropertyModal({
   function handleSubmit(e) {
     e.preventDefault();
 
+    const validation = validateCustomFieldEntries(customFieldDefinitions, customFieldValues);
+    if (!validation.isValid) {
+      setCustomFieldErrors(validation.errors);
+      return;
+    }
+
     onSave({
       ...(property ?? {}),
       address: form.address.trim(),
@@ -68,9 +126,24 @@ export default function AddPropertyModal({
       tenantId: form.tenantId || null,
       ownerId: form.ownerId,
       status: form.tenantId ? "Wynajęte" : "Wolne",
+      customFieldValues: validation.normalizedValues,
+      customFieldDefinitions,
     });
 
     onClose();
+  }
+
+  function handleCustomFieldChange(definition, value) {
+    const definitionId = String(definition?.id || "");
+    const validation = validateCustomFieldInput(definition, value);
+    setCustomFieldValues((current) => ({
+      ...current,
+      [definitionId]: value,
+    }));
+    setCustomFieldErrors((current) => ({
+      ...current,
+      [definitionId]: validation.error || "",
+    }));
   }
 
   /* ======================
@@ -194,6 +267,16 @@ export default function AddPropertyModal({
               </select>
             </div>
           )}
+
+          <CustomFieldsFormSection
+            title="Custom property fields"
+            definitions={customFieldDefinitions}
+            values={customFieldValues}
+            errors={customFieldErrors}
+            onChange={handleCustomFieldChange}
+            disabled={customFieldsLoading}
+            emptyMessage="No custom property fields configured yet."
+          />
 
           <div className="flex justify-end gap-3 pt-4">
             <button

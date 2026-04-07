@@ -47,7 +47,7 @@ begin
     from public.account_members am
     join auth.users u on u.id = am.user_id
     where am.account_id = p_account_id
-      and lower(am.role::text) = 'owner'
+      and public.account_member_effective_role(am.account_id, am.user_id) = 'owner'
     order by am.user_id
     limit 1
   ),

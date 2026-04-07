@@ -63,10 +63,10 @@ const CATEGORY_OPTIONS = [
 
 export default function PropertyPreventiveMaintenanceCard({ accountId, propertyId }) {
   const navigate = useNavigate();
-  const { activeRole, isRootOperator } = useAccount();
+  const { activeRole } = useAccount();
   const { t } = useI18n();
   const role = String(activeRole || "").toLowerCase();
-  const canManage = isManageRole(role, { isRootOperator });
+  const canManage = isManageRole(role);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

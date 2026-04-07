@@ -51,7 +51,8 @@ export default function InvitationsPage() {
   const rootAccountId = useMemo(() => accounts.find((a) => a.is_root)?.id || null, [accounts]);
 
   const role = useMemo(() => String(activeRole || "").toLowerCase(), [activeRole]);
-  const canManage = useMemo(() => isManageRole(role, { isRootOperator }), [isRootOperator, role]);
+  const canManage = useMemo(() => isManageRole(role), [role]);
+  const canManageInvitations = canManage || isRootOperator;
   const allowedInviteRoles = useMemo(() => getAllowedInviteRoles(role, isRootAccount), [role, isRootAccount]);
 
   const [loading, setLoading] = useState(false);
@@ -118,7 +119,10 @@ export default function InvitationsPage() {
   }, [activeAccountId, email, inviteRole, t]);
 
   async function loadInvites() {
-    if (!activeAccountId || !canManage) return;
+    if (!activeAccountId || !canManageInvitations) {
+      setRows([]);
+      return;
+    }
     setLoading(true);
     try {
       const data = await listAccountInvitations(activeAccountId);
@@ -148,7 +152,7 @@ export default function InvitationsPage() {
   useEffect(() => {
     loadInvites();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeAccountId, canManage]);
+  }, [activeAccountId, canManageInvitations]);
 
   useEffect(() => {
     loadRootAccounts();
@@ -258,7 +262,7 @@ export default function InvitationsPage() {
     }
   }
 
-  if (!canManage) {
+  if (!canManageInvitations) {
     return (
       <Card className="p-6">
         <p className="text-sm text-slate-600">{t("invites.accessDenied")}</p>
@@ -273,137 +277,141 @@ export default function InvitationsPage() {
         body={t("onboarding.hints.invites.body")}
       />
 
-      <Card className="p-5 border">
-        <h2 className="text-base font-semibold text-slate-900">{t("invites.title")}</h2>
-        <p className="text-sm text-slate-500 mt-1">{t("invites.subtitle")}</p>
+      {canManageInvitations ? (
+        <>
+          <Card className="p-5 border">
+            <h2 className="text-base font-semibold text-slate-900">{t("invites.title")}</h2>
+            <p className="text-sm text-slate-500 mt-1">{t("invites.subtitle")}</p>
 
-        <form className="mt-4 grid grid-cols-1 md:grid-cols-5 gap-3" onSubmit={onInvite}>
-          <label className={inviteRole === "owner" ? "md:col-span-2" : "md:col-span-3"}>
-            <span className="text-xs text-slate-500">{t("invites.email")}</span>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
-              className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
-            />
-            {emailValidation.message ? (
-              <p className={`mt-1 text-xs ${emailValidation.ok ? "text-emerald-700" : "text-rose-700"}`}>
-                {emailValidation.message}
-              </p>
-            ) : null}
-          </label>
+            <form className="mt-4 grid grid-cols-1 md:grid-cols-5 gap-3" onSubmit={onInvite}>
+              <label className={inviteRole === "owner" ? "md:col-span-2" : "md:col-span-3"}>
+                <span className="text-xs text-slate-500">{t("invites.email")}</span>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                />
+                {emailValidation.message ? (
+                  <p className={`mt-1 text-xs ${emailValidation.ok ? "text-emerald-700" : "text-rose-700"}`}>
+                    {emailValidation.message}
+                  </p>
+                ) : null}
+              </label>
 
-          {inviteRole === "owner" ? (
-            <label className="md:col-span-2">
-              <span className="text-xs text-slate-500">{t("invites.accountName")}</span>
-              <input
-                type="text"
-                required
-                value={accountName}
-                onChange={(e) => setAccountName(e.target.value)}
-                placeholder={t("invites.accountNamePlaceholder")}
-                className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
-              />
-            </label>
-          ) : null}
+              {inviteRole === "owner" ? (
+                <label className="md:col-span-2">
+                  <span className="text-xs text-slate-500">{t("invites.accountName")}</span>
+                  <input
+                    type="text"
+                    required
+                    value={accountName}
+                    onChange={(e) => setAccountName(e.target.value)}
+                    placeholder={t("invites.accountNamePlaceholder")}
+                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                  />
+                </label>
+              ) : null}
 
-          <label>
-            <span className="text-xs text-slate-500">{t("invites.role")}</span>
-            <select
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value)}
-              className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
-            >
-              {allowedInviteRoles.includes("owner") ? <option value="owner">{t("invites.roles.landlord")}</option> : null}
-              {allowedInviteRoles.includes("admin") ? <option value="admin">{t("invites.roles.admin")}</option> : null}
-              {allowedInviteRoles.includes("staff") ? <option value="staff">{t("invites.roles.manager")}</option> : null}
-              {allowedInviteRoles.includes("tenant") ? <option value="tenant">{t("invites.roles.tenant")}</option> : null}
-              {allowedInviteRoles.includes("contractor") ? <option value="contractor">{t("invites.roles.contractor")}</option> : null}
-            </select>
-          </label>
+              <label>
+                <span className="text-xs text-slate-500">{t("invites.role")}</span>
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value)}
+                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                >
+                  {allowedInviteRoles.includes("owner") ? <option value="owner">{t("invites.roles.landlord")}</option> : null}
+                  {allowedInviteRoles.includes("admin") ? <option value="admin">{t("invites.roles.admin")}</option> : null}
+                  {allowedInviteRoles.includes("staff") ? <option value="staff">{t("invites.roles.manager")}</option> : null}
+                  {allowedInviteRoles.includes("tenant") ? <option value="tenant">{t("invites.roles.tenant")}</option> : null}
+                  {allowedInviteRoles.includes("contractor") ? <option value="contractor">{t("invites.roles.contractor")}</option> : null}
+                </select>
+              </label>
 
-          <div className="flex items-end md:col-span-1">
-            <button
-              type="submit"
-              disabled={saving || allowedInviteRoles.length === 0}
-              className={`w-full px-3 py-2 text-sm rounded-lg text-white ${saving || allowedInviteRoles.length === 0 ? "bg-slate-400" : "bg-blue-600"}`}
-            >
-              {saving ? t("common.sending") : t("invites.send")}
-            </button>
-          </div>
-        </form>
-      </Card>
+              <div className="flex items-end md:col-span-1">
+                <button
+                  type="submit"
+                  disabled={saving || allowedInviteRoles.length === 0}
+                  className={`w-full px-3 py-2 text-sm rounded-lg text-white ${saving || allowedInviteRoles.length === 0 ? "bg-slate-400" : "bg-blue-600"}`}
+                >
+                  {saving ? t("common.sending") : t("invites.send")}
+                </button>
+              </div>
+            </form>
+          </Card>
 
-      <Card className="p-5 border">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-slate-900">{t("invites.pending")}</h3>
-          <button
-            type="button"
-            onClick={loadInvites}
-            className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50"
-            disabled={loading}
-          >
-            {t("common.refresh")}
-          </button>
-        </div>
+          <Card className="p-5 border">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-slate-900">{t("invites.pending")}</h3>
+              <button
+                type="button"
+                onClick={loadInvites}
+                className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50"
+                disabled={loading}
+              >
+                {t("common.refresh")}
+              </button>
+            </div>
 
-        {loading ? (
-          <div className="mt-3 space-y-2">
-            <Skeleton className="h-12" />
-            <Skeleton className="h-12" />
-          </div>
-        ) : rows.length === 0 ? (
-          <p className="text-sm text-slate-500 mt-3">{t("invites.empty")}</p>
-        ) : (
-          <div className="mt-3 space-y-2">
-            {rows.map((row) => {
-              const pending = !row.accepted_at && !row.revoked_at;
-              const inviteLink = `${window.location.origin}/invite?token=${row.token}`;
-              return (
-                <div key={row.id || row.token} className="rounded-lg border border-slate-200 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">{row.email}</p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {t("invites.role")}: {roleLabel(row.role, t)} • {t("common.createdAt")}: {fmt(row.created_at)}
-                      </p>
+            {loading ? (
+              <div className="mt-3 space-y-2">
+                <Skeleton className="h-12" />
+                <Skeleton className="h-12" />
+              </div>
+            ) : rows.length === 0 ? (
+              <p className="text-sm text-slate-500 mt-3">{t("invites.empty")}</p>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {rows.map((row) => {
+                  const pending = !row.accepted_at && !row.revoked_at;
+                  const inviteLink = `${window.location.origin}/invite?token=${row.token}`;
+                  return (
+                    <div key={row.id || row.token} className="rounded-lg border border-slate-200 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">{row.email}</p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {t("invites.role")}: {roleLabel(row.role, t)} • {t("common.createdAt")}: {fmt(row.created_at)}
+                          </p>
+                        </div>
+                        <InvitationStatus row={row} t={t} />
+                      </div>
+
+                      {pending ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onResend(row)}
+                            className="px-2.5 py-1.5 text-xs rounded border border-slate-300 hover:bg-slate-50"
+                          >
+                            {t("invites.resend")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => navigator.clipboard?.writeText(inviteLink)}
+                            className="px-2.5 py-1.5 text-xs rounded border border-slate-300 hover:bg-slate-50"
+                          >
+                            {t("invites.copyLink")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onRevoke(row)}
+                            className="px-2.5 py-1.5 text-xs rounded border border-rose-300 text-rose-700 hover:bg-rose-50"
+                          >
+                            {t("invites.revoke")}
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
-                    <InvitationStatus row={row} t={t} />
-                  </div>
-
-                  {pending ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onResend(row)}
-                        className="px-2.5 py-1.5 text-xs rounded border border-slate-300 hover:bg-slate-50"
-                      >
-                        {t("invites.resend")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => navigator.clipboard?.writeText(inviteLink)}
-                        className="px-2.5 py-1.5 text-xs rounded border border-slate-300 hover:bg-slate-50"
-                      >
-                        {t("invites.copyLink")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onRevoke(row)}
-                        className="px-2.5 py-1.5 text-xs rounded border border-rose-300 text-rose-700 hover:bg-rose-50"
-                      >
-                        {t("invites.revoke")}
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </Card>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        </>
+      ) : null}
 
       {isRootOperator ? (
         <Card className="p-5 border">

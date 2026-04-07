@@ -47,7 +47,7 @@ export default function Properties({
   activePlan = "starter",
 }) {
   const { setTitle } = usePageTitle();
-  const { accountLoading, activeRole, isRootOperator } = useAccount();
+  const { accountLoading, activePermissionContext, isRootOperator } = useAccount();
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
@@ -66,7 +66,9 @@ export default function Properties({
   }
 
   /* 🔒 READ ACCESS */
-  if (!can(activeRole, "properties", "read")) {
+  const canRead = isRootOperator || can(activePermissionContext, "properties", "read");
+
+  if (!canRead) {
     return (
       <div className="bg-white border rounded-xl p-6">
         <h2 className="text-lg font-semibold text-slate-900">{t("common.noAccess")}</h2>
@@ -77,9 +79,9 @@ export default function Properties({
     );
   }
 
-  const canCreate = isRootOperator || can(activeRole, "properties", "create");
-  const canUpdate = isRootOperator || can(activeRole, "properties", "update");
-  const canDelete = isRootOperator || can(activeRole, "properties", "delete");
+  const canCreate = can(activePermissionContext, "properties", "create");
+  const canUpdate = can(activePermissionContext, "properties", "update");
+  const canDelete = can(activePermissionContext, "properties", "delete");
   const propertyLimit = getPlanUsageLimit(activePlan, "properties");
   const propertyCapacityAvailable = hasUsageCapacity(activePlan, "properties", properties.length);
   const addDisabled = canCreate && !propertyCapacityAvailable;

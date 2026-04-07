@@ -199,6 +199,87 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document and storage securit
     expect(downloaded.data).toBeTruthy();
   });
 
+  it("allows staff to finalize uploaded documents for their own account", async () => {
+    const { client } = await signInAsFixtureUser("staffA");
+    const doc = await createUploadedDocument(client, {
+      accountId: isolationFixtures.accounts.accountA.id,
+      propertyId: isolationSeedIds.propertyIds.accountA,
+      scope: "property",
+      visibility: "staff",
+      filename: "staff-finalize.pdf",
+    });
+
+    const result = await client
+      .from("documents")
+      .select("id, account_id, upload_status, uploaded_by")
+      .eq("id", doc.id)
+      .single();
+
+    expect(result.error).toBeNull();
+    expect(result.data?.account_id).toBe(isolationFixtures.accounts.accountA.id);
+    expect(result.data?.upload_status).toBe("uploaded");
+    expect(result.data?.uploaded_by).toBeTruthy();
+
+    const downloaded = await client.storage.from("documents").download(doc.storage_path);
+    expect(downloaded.error).toBeNull();
+    expect(downloaded.data).toBeTruthy();
+  });
+
+  it("uses effective role resolution for full document upload authorization when legacy role and role_id drift", async () => {
+    const accountId = isolationFixtures.accounts.accountA.id;
+    const adminRoleLookup = await admin
+      .from("roles")
+      .select("id, name")
+      .eq("account_id", accountId)
+      .eq("name", "admin")
+      .single();
+
+    if (adminRoleLookup.error) throw adminRoleLookup.error;
+
+    const targetUserId = seededUsers.adminA.id;
+    const restoreMembership = async () => {
+      const { error } = await admin
+        .from("account_members")
+        .update({ role: "admin" })
+        .eq("account_id", accountId)
+        .eq("user_id", targetUserId);
+
+      if (error) throw error;
+    };
+
+    const { error: demoteError } = await admin
+      .from("account_members")
+      .update({ role: "tenant" })
+      .eq("account_id", accountId)
+      .eq("user_id", targetUserId);
+
+    if (demoteError) throw demoteError;
+
+    const { error: driftError } = await admin
+      .from("account_members")
+      .update({ role_id: adminRoleLookup.data.id })
+      .eq("account_id", accountId)
+      .eq("user_id", targetUserId);
+
+    if (driftError) throw driftError;
+
+    try {
+      const { client } = await signInAsFixtureUser("adminA");
+      const doc = await createUploadedDocument(client, {
+        accountId,
+        propertyId: isolationSeedIds.propertyIds.accountA,
+        scope: "property",
+        visibility: "staff",
+        filename: "effective-role-doc.pdf",
+      });
+
+      expect(doc?.account_id).toBe(accountId);
+      expect(doc?.id).toBeTruthy();
+    } finally {
+      await restoreMembership();
+    }
+  });
+
   it("denies cross-account document metadata and downloads", async () => {
     const { client: ownerBClient } = await signInAsFixtureUser("ownerB");
     const doc = await createUploadedDocument(ownerBClient, {

@@ -210,7 +210,7 @@ function PaginationFooter({
 ----------------------------- */
 
 export default function MaintenanceRequestsSection({ propertyId }) {
-  const { activeAccountId, activeRole, isRootOperator } = useAccount();
+  const { activeAccountId, activeRole } = useAccount();
   const { t } = useI18n();
   const navigate = useNavigate();
 
@@ -220,8 +220,8 @@ export default function MaintenanceRequestsSection({ propertyId }) {
   );
 
   const canManage = useMemo(() => {
-    return isManageRole(activeRole, { isRootOperator });
-  }, [activeRole, isRootOperator]);
+    return isManageRole(activeRole);
+  }, [activeRole]);
 
   const canCreate = canManage || isTenant;
 

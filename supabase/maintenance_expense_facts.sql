@@ -85,13 +85,7 @@ on public.maintenance_expenses
 for select
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = maintenance_expenses.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(maintenance_expenses.account_id)
 );
 
 drop policy if exists "maintenance_expenses_write_managers" on public.maintenance_expenses;
@@ -100,22 +94,10 @@ on public.maintenance_expenses
 for all
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = maintenance_expenses.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(maintenance_expenses.account_id)
 )
 with check (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = maintenance_expenses.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(maintenance_expenses.account_id)
 );
 
 drop policy if exists "maintenance_budgets_select_managers" on public.maintenance_budgets;
@@ -124,13 +106,7 @@ on public.maintenance_budgets
 for select
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = maintenance_budgets.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(maintenance_budgets.account_id)
 );
 
 drop policy if exists "maintenance_budgets_write_managers" on public.maintenance_budgets;
@@ -139,22 +115,10 @@ on public.maintenance_budgets
 for all
 to authenticated
 using (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = maintenance_budgets.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(maintenance_budgets.account_id)
 )
 with check (
-  exists (
-    select 1
-    from public.account_members am
-    where am.account_id = maintenance_budgets.account_id
-      and am.user_id = auth.uid()
-      and lower(am.role::text) in ('owner', 'admin', 'staff')
-  )
+  public.user_can_manage_account(maintenance_budgets.account_id)
 );
 
 create or replace function public.sync_work_order_expense_fact(p_work_order_id uuid)

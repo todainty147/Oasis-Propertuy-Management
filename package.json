@@ -22,6 +22,7 @@
     "test:staging:run": "vitest run --config vitest.staging.config.js",
     "test:staging:file": "vitest run --config vitest.staging.config.js",
     "staging:seed:fixtures": "node scripts/seedStagingFixtures.js",
+    "functions:cron:deploy": "node scripts/deployCronFunctions.js",
     "db:bootstrap": "node scripts/dbBootstrap.js",
     "db:verify": "node scripts/dbVerify.js",
     "db:apply:repo": "node scripts/dbApplyRepoSql.js",

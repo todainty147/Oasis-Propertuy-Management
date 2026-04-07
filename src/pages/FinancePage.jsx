@@ -25,6 +25,9 @@ export default function FinancePage() {
   const [editingPayment, setEditingPayment] = useState(null);
 
   if (String(activeRole || "").toLowerCase() === "tenant") {
+    // Tenant finance is only supported through tenant-scoped views.
+    // Backend tenant finance support (for example finance_snapshot) is intentional,
+    // but this landlord finance surface is not exposed to tenants.
     return <Navigate to="/tenant/payments" replace />;
   }
 

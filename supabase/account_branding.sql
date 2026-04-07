@@ -59,13 +59,7 @@ set search_path = public
 as $$
   select (
     public.user_is_root_operator()
-    or exists (
-      select 1
-      from public.account_members am
-      where am.account_id = p_account_id
-        and am.user_id = auth.uid()
-        and lower(am.role::text) in ('owner', 'admin', 'staff')
-    )
+    or public.account_member_effective_role(p_account_id, auth.uid()) in ('owner', 'admin', 'staff')
   );
 $$;
 

@@ -134,7 +134,7 @@ begin
   end if;
 
   v_role := public.account_role_for(v_doc.account_id);
-  if coalesce(v_role, '') not in ('owner','admin') then
+  if coalesce(v_role, '') not in ('owner','admin','staff') then
     raise exception 'Not permitted';
   end if;
 

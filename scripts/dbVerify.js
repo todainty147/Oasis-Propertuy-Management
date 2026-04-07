@@ -27,7 +27,7 @@ const verificationChecks = [
   {
     label: "Observability feed RPC",
     why: "Confirms the manager-safe hosted event feed exists.",
-    sql: "select to_regprocedure('public.security_observability_event_feed(uuid,text,text,text,integer)') is not null;",
+    sql: "select to_regprocedure('public.security_observability_event_feed(uuid,text,text,text,integer,timestamptz,timestamptz)') is not null;",
   },
   {
     label: "Document storage access helper",

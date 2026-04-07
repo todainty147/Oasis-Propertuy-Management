@@ -268,6 +268,12 @@ supabase secrets set STRIPE_PRICE_GROWTH=price_xxx
 supabase secrets set STRIPE_PRICE_PRO=price_xxx
 supabase secrets set APP_URL=http://localhost:5173
 supabase secrets set STRIPE_TEST_TRIAL_DAYS=14
+supabase secrets set RESEND_API_KEY=re_xxx
+supabase secrets set OASIS_INVITES_FROM=invites@auth.oasisrental.app
+supabase secrets set OASIS_REMINDERS_FROM=reminders@auth.oasisrental.app
+supabase secrets set TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+supabase secrets set TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+supabase secrets set TWILIO_FROM_NUMBER=+15555550123
 ```
 
 Notes:
@@ -284,7 +290,27 @@ Notes:
 supabase functions deploy create-checkout-session
 supabase functions deploy create-customer-portal-session
 supabase functions deploy stripe-webhook
+supabase functions deploy invite-user
+supabase functions deploy send-reminder-emails
+supabase functions deploy send-sms-notifications
 ```
+
+### Outbound email
+
+- `invite-user` sends branded invite emails through Resend when `RESEND_API_KEY` is configured.
+- `send-reminder-emails` is a cron-safe outbound reminder sender that emails managers a summary of active operational reminders.
+- Both flows append delivery outcomes to `public.outbound_email_events`.
+- `APP_URL` should be set to the full app base URL so invite and reminder links resolve correctly.
+
+### Outbound SMS
+
+- `send-sms-notifications` is a cron-safe outbound sender for Twilio.
+- It currently supports rent reminders and maintenance alerts only.
+- Delivery outcomes are appended to `public.outbound_sms_events`.
+- Required Twilio secrets:
+  - `TWILIO_ACCOUNT_SID`
+  - `TWILIO_AUTH_TOKEN`
+  - `TWILIO_FROM_NUMBER`
 
 ### Stripe webhook
 
