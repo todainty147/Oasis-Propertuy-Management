@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
+import { requestPasswordResetEmail } from "../services/passwordResetService";
 
 export default function ResetPassword() {
   const { t } = useI18n();
@@ -85,10 +86,7 @@ export default function ResetPassword() {
       const clean = String(email || "").trim().toLowerCase();
       if (!clean) throw new Error(t("reset.requiredEmail"));
 
-      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(clean, {
-        redirectTo: `${window.location.origin}/reset-password?flow=recovery`,
-      });
-      if (resetErr) throw resetErr;
+      await requestPasswordResetEmail(clean);
       setMessage(t("reset.emailSent"));
     } catch (e2) {
       setError(e2?.message || t("reset.requestError"));

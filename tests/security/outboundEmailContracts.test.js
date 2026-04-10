@@ -23,8 +23,11 @@ describe("outbound email contracts", () => {
   it("logs invite emails and reminder emails through Resend-backed edge functions", () => {
     const inviteFn = readSource("supabase/functions/invite-user/index.ts");
     const reminderFn = readSource("supabase/functions/send-reminder-emails/index.ts");
+    const resetFn = readSource("supabase/functions/send-password-reset-email/index.ts");
     const deployScript = readSource("scripts/deployCronFunctions.js");
     const invitationService = readSource("src/services/invitationService.js");
+    const passwordResetService = readSource("src/services/passwordResetService.js");
+    const resetPage = readSource("src/pages/ResetPassword.jsx");
 
     expect(inviteFn).toContain('const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")');
     expect(inviteFn).toContain('mode?: "create" | "resend"');
@@ -42,8 +45,17 @@ describe("outbound email contracts", () => {
     expect(reminderFn).toContain("notifications");
     expect(reminderFn).toContain("REMINDER_TYPES");
 
+    expect(resetFn).toContain('type: "recovery"');
+    expect(resetFn).toContain("outbound_email_events");
+    expect(resetFn).toContain('template_key: "password_reset"');
+    expect(resetFn).toContain('const OASIS_PASSWORD_RESETS_FROM =');
+    expect(resetFn).toContain('const redirectTo = appBaseUrl ? `${appBaseUrl}/reset-password?flow=recovery` : ""');
+    expect(resetFn).toContain('https://api.resend.com/emails');
+
     expect(deployScript).toContain('"send-reminder-emails"');
     expect(invitationService).toContain('mode: "resend"');
     expect(invitationService).toContain("sendInviteViaEdge");
+    expect(passwordResetService).toContain("/functions/v1/send-password-reset-email");
+    expect(resetPage).toContain("requestPasswordResetEmail(clean)");
   });
 });
