@@ -32,12 +32,17 @@ describe("tenant surface isolation contracts", () => {
 
   it("keeps switched root support sessions distinct while restoring active-account read access", () => {
     const accountContextSource = readSource("src/context/AccountContext.jsx");
+    const sidebarSource = readSource("src/layout/Sidebar.jsx");
+    const brandingSqlSource = readSource("supabase/account_branding.sql");
     const propertiesSource = readSource("src/pages/Properties.jsx");
     const financeSource = readSource("src/pages/Finance.jsx");
 
     expect(accountContextSource).toContain('role: existing?.role || "root_support"');
+    expect(accountContextSource).toContain('a.is_root && String(a.role || "").toLowerCase() === "owner"');
     expect(accountContextSource).toContain("const rootRows = await rootListAccounts(rootMembership.id);");
     expect(accountContextSource).toContain("const activePermissionContext = useMemo(");
+    expect(sidebarSource).toContain("if (accountLoading || !isRootOperator || accounts.length <= 1) return null;");
+    expect(brandingSqlSource).toContain("and public.account_member_effective_role(am.account_id, am.user_id) = 'owner'");
     expect(propertiesSource).toContain('const canRead = isRootOperator || can(activePermissionContext, "properties", "read");');
     expect(propertiesSource).toContain('const canCreate = can(activePermissionContext, "properties", "create");');
     expect(propertiesSource).toContain('const canUpdate = can(activePermissionContext, "properties", "update");');
@@ -61,6 +66,9 @@ describe("tenant surface isolation contracts", () => {
     expect(invitationServiceSource).toContain('root_support: ["admin", "staff", "tenant", "contractor"]');
     expect(invitationSqlSource).toContain("public.user_can_manage_account(account_invitations.account_id)");
     expect(invitationSqlSource).toContain("if public.user_is_root_operator() then");
+    expect(invitationSqlSource).toContain("Only root owner can list accounts");
+    expect(invitationSqlSource).toContain("Only root owner can update account status");
+    expect(invitationSqlSource).toContain("Only root owner can delete accounts");
     expect(rootSupportSqlSource).toContain("create policy payments_select_member");
     expect(rootSupportSqlSource).toContain("create policy properties_select_member");
   });

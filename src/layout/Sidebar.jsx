@@ -61,9 +61,9 @@ function Item({ to, icon: Icon, label, onNavigate }) {
    ====================== */
 
 function AccountSwitcher() {
-  const { accounts, activeAccountId, switchAccount, accountLoading } = useAccount();
+  const { accounts, activeAccountId, switchAccount, accountLoading, isRootOperator } = useAccount();
 
-  if (accountLoading || accounts.length <= 1) return null;
+  if (accountLoading || !isRootOperator || accounts.length <= 1) return null;
 
   return (
     <select

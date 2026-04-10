@@ -3858,7 +3858,7 @@ begin
     raise exception 'Only root account can invite landlords';
   end if;
 
-  if v_root_member_role not in ('owner', 'admin', 'staff') then
+  if v_root_member_role <> 'owner' then
     raise exception 'Insufficient role for landlord invite';
   end if;
 
@@ -8918,6 +8918,10 @@ begin
     raise exception 'Not a member of root account';
   end if;
 
+  if v_member_role <> 'owner' then
+    raise exception 'Only root owner can list accounts';
+  end if;
+
   select coalesce(a.is_root, false)
   into v_is_root
   from public.accounts a
@@ -8987,6 +8991,10 @@ begin
     raise exception 'Not a member of root account';
   end if;
 
+  if v_member_role <> 'owner' then
+    raise exception 'Only root owner can update account status';
+  end if;
+
   select coalesce(a.is_root, false)
   into v_is_root
   from public.accounts a
@@ -9039,6 +9047,10 @@ begin
 
   if v_member_role is null then
     raise exception 'Not a member of root account';
+  end if;
+
+  if v_member_role <> 'owner' then
+    raise exception 'Only root owner can delete accounts';
   end if;
 
   select coalesce(a.is_root, false)
@@ -12099,6 +12111,7 @@ CREATE FUNCTION public.user_is_root_operator() RETURNS boolean
     join public.accounts a on a.id = am.account_id
     where am.user_id = auth.uid()
       and coalesce(a.is_root, false) = true
+      and public.account_member_effective_role(am.account_id, am.user_id) = 'owner'
   );
 $$;
 

@@ -469,7 +469,7 @@ begin
     raise exception 'Only root account can invite landlords';
   end if;
 
-  if v_root_member_role not in ('owner', 'admin', 'staff') then
+  if v_root_member_role <> 'owner' then
     raise exception 'Insufficient role for landlord invite';
   end if;
 
@@ -610,6 +610,10 @@ begin
     raise exception 'Not a member of root account';
   end if;
 
+  if v_member_role <> 'owner' then
+    raise exception 'Only root owner can list accounts';
+  end if;
+
   select coalesce(a.is_root, false)
   into v_is_root
   from public.accounts a
@@ -662,6 +666,10 @@ begin
 
   if v_member_role is null then
     raise exception 'Not a member of root account';
+  end if;
+
+  if v_member_role <> 'owner' then
+    raise exception 'Only root owner can update account status';
   end if;
 
   select coalesce(a.is_root, false)
@@ -849,6 +857,10 @@ begin
 
   if v_member_role is null then
     raise exception 'Not a member of root account';
+  end if;
+
+  if v_member_role <> 'owner' then
+    raise exception 'Only root owner can delete accounts';
   end if;
 
   select coalesce(a.is_root, false)

@@ -46,6 +46,7 @@ as $$
     join public.accounts a on a.id = am.account_id
     where am.user_id = auth.uid()
       and coalesce(a.is_root, false) = true
+      and public.account_member_effective_role(am.account_id, am.user_id) = 'owner'
   );
 $$;
 

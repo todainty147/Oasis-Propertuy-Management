@@ -155,7 +155,9 @@ export function AccountProvider({ children }) {
             role_id: m.role_id || null,
             permissionKeys: permissionKeysByAccountId.get(m.accounts.id) || getPermissionKeysForRole(m.role),
           }));
-        const rootMembership = membershipAccounts.find((a) => a.is_root);
+        const rootMembership = membershipAccounts.find(
+          (a) => a.is_root && String(a.role || "").toLowerCase() === "owner",
+        );
         const rootOperator = Boolean(rootMembership);
         setIsRootOperator(rootOperator);
         const membershipById = new Map(membershipAccounts.map((a) => [a.id, a]));
