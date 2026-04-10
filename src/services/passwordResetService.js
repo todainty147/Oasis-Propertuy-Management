@@ -11,19 +11,24 @@ export async function requestPasswordResetEmail(email) {
   }
 
   const baseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_PROJECT_URL;
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
   if (!baseUrl) {
     throw new Error("Missing VITE_SUPABASE_URL for password reset email function");
+  }
+  if (!anonKey) {
+    throw new Error("Missing VITE_SUPABASE_ANON_KEY for password reset email function");
   }
 
   const functionUrl = `${baseUrl}/functions/v1/send-password-reset-email`;
   const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData?.session?.access_token || null;
+  const authToken = sessionData?.session?.access_token || anonKey;
 
   const res = await fetch(functionUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      apikey: anonKey,
+      Authorization: `Bearer ${authToken}`,
     },
     body: JSON.stringify({ email: cleanEmail }),
   });

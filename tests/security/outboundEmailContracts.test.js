@@ -56,6 +56,9 @@ describe("outbound email contracts", () => {
     expect(invitationService).toContain('mode: "resend"');
     expect(invitationService).toContain("sendInviteViaEdge");
     expect(passwordResetService).toContain("/functions/v1/send-password-reset-email");
+    expect(passwordResetService).toContain("const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY");
+    expect(passwordResetService).toContain("apikey: anonKey");
+    expect(passwordResetService).toContain("const authToken = sessionData?.session?.access_token || anonKey");
     expect(resetPage).toContain("requestPasswordResetEmail(clean)");
   });
 });
