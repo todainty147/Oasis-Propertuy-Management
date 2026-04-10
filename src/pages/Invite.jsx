@@ -52,7 +52,7 @@ export default function Invite() {
       return;
     }
     if (USE_BRANDED_INVITES) {
-      navigate("/login", { replace: false });
+      navigate(`/login?invite_token=${encodeURIComponent(token)}`, { replace: false });
       return;
     }
     if (!email) return;

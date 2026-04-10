@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
 import { requestPasswordResetEmail } from "../services/passwordResetService";
+import { acceptAccountInvite } from "../services/invitationService";
 
 export default function ResetPassword() {
+  const [params] = useSearchParams();
   const { t } = useI18n();
   const navigate = useNavigate();
+  const inviteToken = String(params.get("invite_token") || "").trim();
 
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -86,7 +89,7 @@ export default function ResetPassword() {
       const clean = String(email || "").trim().toLowerCase();
       if (!clean) throw new Error(t("reset.requiredEmail"));
 
-      await requestPasswordResetEmail(clean);
+      await requestPasswordResetEmail(clean, { inviteToken });
       setMessage(t("reset.emailSent"));
     } catch (e2) {
       setError(e2?.message || t("reset.requestError"));
@@ -106,6 +109,16 @@ export default function ResetPassword() {
 
       const { error: updErr } = await supabase.auth.updateUser({ password: newPassword });
       if (updErr) throw updErr;
+
+      if (inviteToken) {
+        const result = await acceptAccountInvite(inviteToken);
+        if (result?.account_id) {
+          localStorage.setItem("activeAccountId", result.account_id);
+        }
+        setMessage(t("reset.success"));
+        setTimeout(() => navigate("/dashboard", { replace: true }), 800);
+        return;
+      }
 
       setMessage(t("reset.success"));
       setTimeout(() => navigate("/login", { replace: true }), 800);

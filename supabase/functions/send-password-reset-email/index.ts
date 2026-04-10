@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 type PasswordResetPayload = {
   email: string;
+  inviteToken?: string;
 };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -91,6 +92,7 @@ Deno.serve(async (req) => {
 
     const body = (await req.json().catch(() => ({}))) as PasswordResetPayload;
     const email = normalizeEmail(body?.email);
+    const inviteToken = String(body?.inviteToken || "").trim();
     if (!email) {
       return json({ error: "Email is required" }, 400);
     }
@@ -105,7 +107,9 @@ Deno.serve(async (req) => {
     }
 
     const appBaseUrl = normalizeAppUrl(APP_URL) || normalizeAppUrl(req.headers.get("origin") || "");
-    const redirectTo = appBaseUrl ? `${appBaseUrl}/reset-password?flow=recovery` : "";
+    const redirectTo = appBaseUrl
+      ? `${appBaseUrl}/reset-password?flow=recovery${inviteToken ? `&invite_token=${encodeURIComponent(inviteToken)}` : ""}`
+      : "";
 
     const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
       type: "recovery",

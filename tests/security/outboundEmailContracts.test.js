@@ -28,6 +28,8 @@ describe("outbound email contracts", () => {
     const invitationService = readSource("src/services/invitationService.js");
     const passwordResetService = readSource("src/services/passwordResetService.js");
     const resetPage = readSource("src/pages/ResetPassword.jsx");
+    const loginPage = readSource("src/pages/Login.jsx");
+    const invitePage = readSource("src/pages/Invite.jsx");
 
     expect(inviteFn).toContain('const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")');
     expect(inviteFn).toContain('mode?: "create" | "resend"');
@@ -49,16 +51,22 @@ describe("outbound email contracts", () => {
     expect(resetFn).toContain("outbound_email_events");
     expect(resetFn).toContain('template_key: "password_reset"');
     expect(resetFn).toContain('const OASIS_PASSWORD_RESETS_FROM =');
-    expect(resetFn).toContain('const redirectTo = appBaseUrl ? `${appBaseUrl}/reset-password?flow=recovery` : ""');
+    expect(resetFn).toContain('const redirectTo = appBaseUrl');
+    expect(resetFn).toContain("inviteToken");
+    expect(resetFn).toContain("invite_token=");
     expect(resetFn).toContain('https://api.resend.com/emails');
 
     expect(deployScript).toContain('"send-reminder-emails"');
     expect(invitationService).toContain('mode: "resend"');
     expect(invitationService).toContain("sendInviteViaEdge");
     expect(passwordResetService).toContain("/functions/v1/send-password-reset-email");
+    expect(passwordResetService).toContain("inviteToken");
     expect(passwordResetService).toContain("const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY");
     expect(passwordResetService).toContain("apikey: anonKey");
     expect(passwordResetService).toContain("const authToken = sessionData?.session?.access_token || anonKey");
-    expect(resetPage).toContain("requestPasswordResetEmail(clean)");
+    expect(resetPage).toContain("requestPasswordResetEmail(clean, { inviteToken })");
+    expect(resetPage).toContain("acceptAccountInvite(inviteToken)");
+    expect(loginPage).toContain("invite_token");
+    expect(invitePage).toContain('/login?invite_token=');
   });
 });

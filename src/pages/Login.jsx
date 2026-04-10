@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
 
@@ -8,11 +8,16 @@ function langFlag(lang) {
 }
 
 export default function Login() {
+  const [params] = useSearchParams();
   const { t, lang, setLang } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const inviteToken = String(params.get("invite_token") || "").trim();
+  const forgotPasswordHref = inviteToken
+    ? `/reset-password?invite_token=${encodeURIComponent(inviteToken)}`
+    : "/reset-password";
 
   const submit = async (e) => {
     e.preventDefault();
@@ -87,7 +92,7 @@ export default function Login() {
         </button>
 
         <div className="mt-4 text-sm text-center">
-          <Link to="/reset-password" className="text-slate-600 dark:text-slate-300 hover:underline">
+          <Link to={forgotPasswordHref} className="text-slate-600 dark:text-slate-300 hover:underline">
             {t("login.forgotPassword")}
           </Link>
         </div>

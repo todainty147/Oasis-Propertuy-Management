@@ -4,8 +4,9 @@ function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
 }
 
-export async function requestPasswordResetEmail(email) {
+export async function requestPasswordResetEmail(email, { inviteToken = "" } = {}) {
   const cleanEmail = String(email || "").trim().toLowerCase();
+  const cleanInviteToken = String(inviteToken || "").trim();
   if (!cleanEmail) {
     throw new Error("Email is required");
   }
@@ -30,7 +31,10 @@ export async function requestPasswordResetEmail(email) {
       apikey: anonKey,
       Authorization: `Bearer ${authToken}`,
     },
-    body: JSON.stringify({ email: cleanEmail }),
+    body: JSON.stringify({
+      email: cleanEmail,
+      ...(cleanInviteToken ? { inviteToken: cleanInviteToken } : {}),
+    }),
   });
 
   const payload = await res.json().catch(() => ({}));
