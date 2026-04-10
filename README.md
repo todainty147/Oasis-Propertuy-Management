@@ -332,6 +332,49 @@ Subscribe to:
 
 1. Confirm the billing SQL is applied.
 2. Confirm the entitlement SQL is applied.
+
+### Playwright E2E
+
+The repo now includes a lightweight Playwright environment for the main OASIS app.
+
+Install Playwright browsers once:
+
+```bash
+npx playwright install chromium
+```
+
+Node note:
+
+- the current Vite toolchain requires Node `20.19+` or `22.12+`
+- if `npm run test:e2e` fails before the browser opens, check `node -v` first
+
+Run the browser suite:
+
+```bash
+npm run test:e2e
+```
+
+If your shell resolves `npm` through a Windows shim before the local managed Node install, use the repo launcher instead:
+
+```bash
+./oasis dev
+./oasis test:e2e
+./oasis test:e2e:local
+```
+
+Helpful variants:
+
+```bash
+npm run test:e2e:headed
+npm run test:e2e:ui
+npm run test:e2e:debug
+```
+
+Run the full local browser flow against local Supabase:
+
+```bash
+npm run test:e2e:local
+```
 3. Confirm all Stripe secrets are set.
 4. Confirm `APP_URL` is a full URL like `http://localhost:5173`.
 5. Redeploy the billing functions after any secret change.

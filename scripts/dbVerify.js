@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 
-const defaultDbUrl = "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+const defaultDbUrl = "postgresql://postgres:postgres@127.0.0.1:61022/postgres";
 
 const verificationChecks = [
   {

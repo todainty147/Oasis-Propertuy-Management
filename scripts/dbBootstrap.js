@@ -5,7 +5,7 @@ import path from "node:path";
 
 const repoRoot = process.cwd();
 const supabaseDir = path.join(repoRoot, "supabase");
-const defaultDbUrl = "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+const defaultDbUrl = "postgresql://postgres:postgres@127.0.0.1:61022/postgres";
 
 const bootstrapSteps = [
   {

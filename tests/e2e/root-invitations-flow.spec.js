@@ -1,0 +1,14 @@
+import { expect, test } from "@playwright/test";
+import { seededUsers, signInAs } from "./helpers/auth.js";
+
+test("root can open the invitations admin view and see scoped SaaS accounts", async ({ page }) => {
+  await signInAs(page, seededUsers.rootOwner);
+
+  await page.getByRole("link", { name: "Invitations" }).click();
+  await expect(page).toHaveURL(/\/invitations$/);
+  await expect(page.getByText("User invitations")).toBeVisible();
+  await expect(page.getByText("SaaS accounts (root)")).toBeVisible();
+  await expect(
+    page.locator("div.rounded-lg.border.border-slate-200").filter({ hasText: "Starlight Properties" }).first(),
+  ).toBeVisible();
+});
