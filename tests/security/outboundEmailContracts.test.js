@@ -34,8 +34,11 @@ describe("outbound email contracts", () => {
     expect(inviteFn).toContain('const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")');
     expect(inviteFn).toContain('mode?: "create" | "resend"');
     expect(inviteFn).toContain("function normalizeAppUrl(value: string)");
+    expect(inviteFn).toContain("function buildDirectInviteUrl");
     expect(inviteFn).toContain('const appBaseUrl = normalizeAppUrl(APP_URL) || normalizeAppUrl(req.headers.get("origin") || "")');
     expect(inviteFn).toContain('const redirectTo = appBaseUrl ? `${appBaseUrl}/invite?token=${token}` : ""');
+    expect(inviteFn).toContain("token_hash");
+    expect(inviteFn).toContain('params.set("type", "invite")');
     expect(inviteFn).toContain("logEmailEvent");
     expect(inviteFn).toContain("outbound_email_events");
     expect(inviteFn).toContain('templateKey: mode === "resend" ? "account_invitation_resend" : "account_invitation"');

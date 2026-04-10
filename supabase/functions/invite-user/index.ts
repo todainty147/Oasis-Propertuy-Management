@@ -59,6 +59,29 @@ function normalizeText(value: unknown) {
   return next || null;
 }
 
+function buildDirectInviteUrl({
+  appBaseUrl,
+  inviteToken,
+  hashedToken,
+}: {
+  appBaseUrl: string;
+  inviteToken: string;
+  hashedToken: string | null;
+}) {
+  if (!appBaseUrl) return "";
+
+  const params = new URLSearchParams({
+    token: inviteToken,
+  });
+
+  if (hashedToken) {
+    params.set("token_hash", hashedToken);
+    params.set("type", "invite");
+  }
+
+  return `${appBaseUrl}/invite?${params.toString()}`;
+}
+
 function scrubContext(input: Record<string, unknown> = {}) {
   return Object.fromEntries(
     Object.entries(input).filter(([key, value]) => {
@@ -361,7 +384,14 @@ Deno.serve(async (req) => {
     });
 
     if (linkError) return json({ error: linkError.message }, 400);
-    const actionLink = linkData?.properties?.action_link || redirectTo;
+    const actionLink =
+      buildDirectInviteUrl({
+        appBaseUrl,
+        inviteToken: token,
+        hashedToken: linkData?.properties?.hashed_token || null,
+      }) ||
+      linkData?.properties?.action_link ||
+      redirectTo;
 
     // Optional branded provider email via Resend.
     if (RESEND_API_KEY) {
