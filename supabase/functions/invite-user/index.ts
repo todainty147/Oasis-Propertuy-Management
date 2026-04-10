@@ -40,6 +40,20 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+function normalizeAppUrl(value: string) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+
+  try {
+    const url = new URL(withProtocol);
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return "";
+  }
+}
+
 function normalizeText(value: unknown) {
   const next = String(value || "").trim().toLowerCase();
   return next || null;
@@ -338,7 +352,8 @@ Deno.serve(async (req) => {
       inviteEntityId = inviteRow.id;
     }
 
-    const redirectTo = `${APP_URL || req.headers.get("origin") || ""}/invite?token=${token}`;
+    const appBaseUrl = normalizeAppUrl(APP_URL) || normalizeAppUrl(req.headers.get("origin") || "");
+    const redirectTo = appBaseUrl ? `${appBaseUrl}/invite?token=${token}` : "";
     const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
       type: "invite",
       email,
