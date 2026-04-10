@@ -19,12 +19,14 @@ export default function Invite() {
   const { user, loading } = useAuth();
   const { t, lang, setLang } = useI18n();
   const [email, setEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sessionReady, setSessionReady] = useState(false);
-  const autoAcceptStarted = useRef(false);
+  const sessionHydrated = useRef(false);
 
-  async function acceptInvite() {
+  async function completeInviteSetup() {
     if (!token) {
       alert(t("invite.missingToken"));
       return;
@@ -32,16 +34,26 @@ export default function Invite() {
     setBusy(true);
     setError("");
     try {
+      if (!newPassword || !confirmPassword) {
+        throw new Error(t("reset.requiredPassword"));
+      }
+      if (newPassword !== confirmPassword) {
+        throw new Error(t("reset.passwordMismatch"));
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+      if (updateError) throw updateError;
+
       const result = await acceptAccountInvite(token);
       if (result?.account_id) {
         localStorage.setItem("activeAccountId", result.account_id);
       }
-      navigate("/dashboard", { replace: true });
+      await supabase.auth.signOut().catch(() => {});
+      navigate("/login", { replace: true });
       return;
     } catch (error) {
       const message = error?.message || t("invite.invalidToken");
       setError(message);
-      alert(message);
       setBusy(false);
     }
   }
@@ -103,16 +115,19 @@ export default function Invite() {
         }
 
         if (!cancelled) {
+          sessionHydrated.current = true;
           setSessionReady(true);
         }
       } catch (sessionError) {
         if (!cancelled) {
+          sessionHydrated.current = true;
           setError(sessionError?.message || "Failed to verify invitation link");
           setSessionReady(true);
         }
       }
 
       if (hasImplicitToken && !cancelled) {
+        sessionHydrated.current = true;
         setSessionReady(true);
       }
     }
@@ -122,13 +137,6 @@ export default function Invite() {
       cancelled = true;
     };
   }, []);
-
-  useEffect(() => {
-    if (loading || !sessionReady || !user || !token || busy || autoAcceptStarted.current) return;
-
-    autoAcceptStarted.current = true;
-    acceptInvite();
-  }, [loading, sessionReady, user, token, busy]);
 
   if (loading) return null;
 
@@ -203,15 +211,34 @@ export default function Invite() {
             </>
           ) : (
             <>
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                {t("invite.setPasswordHelp")}
+              </p>
+              <input
+                type="password"
+                placeholder={t("reset.newPassword")}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+              <input
+                type="password"
+                placeholder={t("reset.confirmPassword")}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
               <button
                 type="button"
-                onClick={acceptInvite}
-                disabled={busy || !token}
+                onClick={completeInviteSetup}
+                disabled={busy || !token || !sessionReady || !sessionHydrated.current}
                 className={`w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow ${
-                  busy || !token ? "bg-slate-400 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700"
+                  busy || !token || !sessionReady || !sessionHydrated.current
+                    ? "bg-slate-400 cursor-not-allowed"
+                    : "bg-emerald-600 hover:bg-emerald-700"
                 }`}
               >
-                {busy ? t("common.processing") : t("invite.acceptInvitation")}
+                {busy ? t("common.processing") : t("invite.completeSetup")}
               </button>
             </>
           )}
