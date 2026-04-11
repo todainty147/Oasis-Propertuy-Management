@@ -205,4 +205,96 @@ describe.skipIf(!isIntegrationHarnessConfigured())("account owner contact and se
     expect(deniedResult.data ?? null).toBeNull();
     expect(String(deniedResult.error?.message || "").toLowerCase()).toContain("self-signup is not allowed");
   });
+
+  it("creates exactly one non-root owner membership for self-serve landlords", async () => {
+    const password = getIntegrationEnv().userPassword;
+    const anon = createAnonClient();
+    const email = `selfserve-owner-shape.${randomUUID()}@oasis.test`;
+
+    const signUp = await anon.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          fixture_key: "self_serve_owner_shape",
+          oasis_role: "owner",
+        },
+      },
+    });
+    if (signUp.error) throw signUp.error;
+
+    const tempUserId = signUp.data.user?.id;
+    expect(tempUserId).toBeTruthy();
+    tempUserIds.add(tempUserId);
+
+    const signIn = await anon.auth.signInWithPassword({ email, password });
+    if (signIn.error) throw signIn.error;
+
+    const createResult = await anon.rpc("create_self_serve_landlord_account", {
+      p_account_name: "Shape Checked Self Serve Account",
+    });
+
+    expect(createResult.error).toBeNull();
+    const createdRow = Array.isArray(createResult.data) ? createResult.data[0] : createResult.data;
+    expect(createdRow).toMatchObject({
+      ok: true,
+      created: true,
+      account_name: "Shape Checked Self Serve Account",
+      role: "owner",
+    });
+
+    tempAccountIds.add(createdRow.account_id);
+
+    const accountLookup = await admin
+      .from("accounts")
+      .select("id, name, is_root, is_disabled, created_by")
+      .eq("id", createdRow.account_id)
+      .single();
+
+    expect(accountLookup.error).toBeNull();
+    expect(accountLookup.data).toMatchObject({
+      id: createdRow.account_id,
+      name: "Shape Checked Self Serve Account",
+      is_root: false,
+      is_disabled: false,
+      created_by: tempUserId,
+    });
+
+    const memberships = await admin
+      .from("account_members")
+      .select("account_id, user_id, role, role_id, roles(name)")
+      .eq("user_id", tempUserId);
+
+    expect(memberships.error).toBeNull();
+    expect(memberships.data).toHaveLength(1);
+    expect(memberships.data[0]).toMatchObject({
+      account_id: createdRow.account_id,
+      user_id: tempUserId,
+      role: "owner",
+      roles: {
+        name: "owner",
+      },
+    });
+    expect(memberships.data[0].role_id).toBeTruthy();
+
+    const rootMembership = await admin
+      .from("account_members")
+      .select("account_id, user_id")
+      .eq("account_id", isolationFixtures.accounts.root.id)
+      .eq("user_id", tempUserId);
+
+    expect(rootMembership.error).toBeNull();
+    expect(rootMembership.data).toHaveLength(0);
+  });
+
+  it("denies anonymous self-serve account creation", async () => {
+    const anon = createAnonClient();
+
+    const result = await anon.rpc("create_self_serve_landlord_account", {
+      p_account_name: "Anonymous Attempt",
+    });
+
+    expect(result.data ?? null).toBeNull();
+    expect(String(result.error?.message || "").toLowerCase()).toContain("not authenticated");
+  });
 });

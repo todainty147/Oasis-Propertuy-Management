@@ -54,11 +54,11 @@ Coverage status legend:
 | `payments` write RPCs (`create_payment`, `update_payment`, `delete_payment`, `mark_payment_paid`, `mark_payment_unpaid`) | Write RPCs | owner, admin; tenant read only | RPC guards + table RLS | Partial | In-account owner/admin create-update-status flows are now covered, along with cross-account denial and tenant/contractor denial. `delete_payment`, `reopen_payment`, and `void_payment` still need direct integration coverage. | Add delete/void/reopen integration tests |
 | `maintenance_requests` direct insert/update/read table flows | Table RLS + app flow | tenant(self property), owner, admin, staff | RLS policies | Gap | Tenant insert/read/update security is important; current suite only covers downstream snapshot/feed reads | Add maintenance request direct table integration tests |
 | `work_order_assign_contractor` / `work_order_approve_tenant_cancellation` / `work_order_deny_tenant_cancellation` | Write RPCs | owner, admin, staff | manager-only RPC guard | Gap | Related work order paths are covered, but assignment and tenant cancellation decision flows are not | Add direct work order workflow integration tests |
-| `root_list_accounts` / `root_set_account_disabled` / `root_delete_account` | Root-only write/read RPCs | root operator | root + active account model | Gap | Very sensitive admin surfaces with no local integration coverage | Add root operator integration tests |
-| `create_self_serve_landlord_account` | Write RPC | authenticated signup actor | self-serve provisioning RPC | Gap | High-impact account creation path not yet covered | Add self-serve signup integration tests |
+| `root_list_accounts` / `root_set_account_disabled` / `root_delete_account` | Root-only write/read RPCs | root operator | root + active account model | Integrated | Root list/disable/restore/delete, root self-protection, non-root denial, related-data delete denial, and audit append behavior covered | Keep current coverage |
+| `create_self_serve_landlord_account` | Write RPC | authenticated signup actor | self-serve provisioning RPC | Integrated | Clean-user creation, idempotence, non-owner self-escalation denial, anonymous denial, non-root account shape, owner role assignment, and no root membership covered | Keep current coverage |
 | `contractor_update_work_order` | Write RPC | assigned contractor | contractor-only RPC guard | Gap | Contractor portal uses this broader mutation path; current suite only covers the stricter status RPC | Add direct contractor update integration tests |
 | `contractor_allowed_actions` / `work_order_allowed_actions` / `work_order_allowed_actions_bulk` | Read RPCs | contractor/member/tenant depending on work order | permission computation RPCs | Gap | UI depends on these for action gating; only downstream writes are covered today | Add action-gating integration tests |
-| `account_invitations` direct table CRUD via RLS + `check_account_invitation_eligibility` | Table policies + eligibility RPC | owner, admin, staff; root owner invite path separate | table RLS policies + RPC guard | Partial | Create/revoke/list account scoping and eligibility duplicate/member checks are now covered, and `accept_account_invite` already has a dedicated integration file. Root landlord invitation creation and root account lifecycle remain separate follow-up surfaces. | Add root landlord invite integration tests |
+| `account_invitations` direct table CRUD via RLS + `check_account_invitation_eligibility` + `create_landlord_invitation` | Table policies + eligibility/provisioning RPCs | owner, admin, staff; root owner for landlord invite path | table RLS policies + RPC guards | Integrated | Create/revoke/list account scoping, eligibility duplicate/member checks, invite acceptance, root landlord provisioning, root-only denial, owner invitation shape, duplicate landlord invite denial, existing-owner denial, and support membership behavior are covered. | Keep current coverage |
 
 ## Covered vs uncovered summary
 
@@ -75,8 +75,6 @@ Coverage status legend:
 - document lifecycle and attachment policy paths
 - payments delete/void/reopen flows
 - direct maintenance request table/RLS behavior
-- root operator / self-serve provisioning flows
-- root landlord invitation creation and root account invitation lifecycle
 - broader work-order permission helper RPCs and assignment flows
 
 ## Top 5 remaining high-risk gaps
@@ -90,16 +88,16 @@ Coverage status legend:
 3. **Attachment and storage policy enforcement**  
    Contractor attachment reads are now covered, but maintenance-request attachment policies still need direct integration coverage.
 
-4. **Root landlord invitation lifecycle**  
-   Standard account invite create/revoke/list/eligibility coverage now exists, but root-only landlord invitation creation and related root account invitation lifecycle still need direct integration tests.
+4. **Work-order assignment and tenant-cancellation decisions**  
+   Work-order status changes and contractor quote/invoice paths are covered, but manager assignment and tenant-cancellation decision RPCs still need direct authorization coverage.
 
-5. **Root / account-provisioning surfaces**  
-   `create_landlord_invitation`, `root_list_accounts`, `root_set_account_disabled`, `root_delete_account`, and `create_self_serve_landlord_account` are privileged account-boundary surfaces with no automated integration checks yet.
+5. **Contractor action helper coverage**  
+   The UI depends on allowed-action helper RPCs for gating, but direct helper coverage still needs to prove tenant/member/contractor outputs cannot drift from write guards.
 
 ## Recommended next actions
 
 1. Add document lifecycle and attachment integration tests.
 2. Add payment delete/void/reopen authorization tests.
-3. Add root landlord invitation integration tests.
+3. Add maintenance-request attachment integration tests.
 4. Add work-order assignment / tenant-cancellation decision integration tests.
-5. Add root/operator and self-serve provisioning integration tests.
+5. Add contractor/work-order allowed-action helper integration tests.
