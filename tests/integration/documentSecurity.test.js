@@ -26,6 +26,18 @@ function pdfBlob(label) {
   return new Blob([`%PDF-1.4\n${label}\n%%EOF`], { type: "application/pdf" });
 }
 
+function expectRpcDenied(result) {
+  expect(result.data ?? null).toBeNull();
+  const message = String(result.error?.message || "").toLowerCase();
+  expect(
+    message.includes("not permitted") ||
+      message.includes("not authenticated") ||
+      message.includes("document not found") ||
+      message.includes("access denied") ||
+      message.includes("row-level security"),
+  ).toBe(true);
+}
+
 async function createUploadedDocument(client, {
   accountId,
   propertyId = null,
@@ -223,6 +235,165 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document and storage securit
     const downloaded = await client.storage.from("documents").download(doc.storage_path);
     expect(downloaded.error).toBeNull();
     expect(downloaded.data).toBeTruthy();
+  });
+
+  it("allows managers to tag documents and records scoped tag audit rows", async () => {
+    const { client } = await signInAsFixtureUser("staffA");
+    const doc = await createUploadedDocument(client, {
+      accountId: isolationFixtures.accounts.accountA.id,
+      propertyId: isolationSeedIds.propertyIds.accountA,
+      scope: "property",
+      visibility: "staff",
+      filename: "staff-tagged.pdf",
+    });
+
+    const tagged = await client.rpc("set_document_tags", {
+      p_document_id: doc.id,
+      p_tags: ["UMOWA", "INNE"],
+    });
+
+    expect(tagged.error).toBeNull();
+    expect(tagged.data).toMatchObject({
+      id: doc.id,
+      account_id: isolationFixtures.accounts.accountA.id,
+      property_id: isolationSeedIds.propertyIds.accountA,
+    });
+    expect(tagged.data.tags).toEqual(["UMOWA", "INNE"]);
+
+    const audit = await admin
+      .from("document_audit_log")
+      .select("document_id, action, account_id, property_id, tenant_id, performed_by")
+      .eq("document_id", doc.id)
+      .eq("action", "update_tags")
+      .maybeSingle();
+
+    expect(audit.error).toBeNull();
+    expect(audit.data).toMatchObject({
+      document_id: doc.id,
+      action: "update_tags",
+      account_id: isolationFixtures.accounts.accountA.id,
+      property_id: isolationSeedIds.propertyIds.accountA,
+      tenant_id: null,
+      performed_by: seededUsers.staffA.id,
+    });
+  });
+
+  it("denies tenants and contractors from tagging documents", async () => {
+    const { client: ownerClient } = await signInAsFixtureUser("ownerA");
+    const doc = await createUploadedDocument(ownerClient, {
+      accountId: isolationFixtures.accounts.accountA.id,
+      propertyId: isolationSeedIds.propertyIds.accountA,
+      tenantId: isolationFixtures.users.tenantA1.tenantId,
+      scope: "shared",
+      visibility: "tenant",
+      filename: "tenant-tag-denied.pdf",
+    });
+
+    const { client: tenantClient } = await signInAsFixtureUser("tenantA1");
+    const tenantTag = await tenantClient.rpc("set_document_tags", {
+      p_document_id: doc.id,
+      p_tags: ["ID"],
+    });
+    expectRpcDenied(tenantTag);
+
+    const { client: contractorClient } = await signInAsFixtureUser("contractorA1");
+    const contractorTag = await contractorClient.rpc("set_document_tags", {
+      p_document_id: doc.id,
+      p_tags: ["PROTOKOL"],
+    });
+    expectRpcDenied(contractorTag);
+
+    const unchanged = await admin.from("documents").select("id, tags").eq("id", doc.id).single();
+    expect(unchanged.error).toBeNull();
+    expect(unchanged.data.tags).toEqual([]);
+  });
+
+  it("allows owner document deletion and records security audit context", async () => {
+    const { client } = await signInAsFixtureUser("ownerA");
+    const doc = await createUploadedDocument(client, {
+      accountId: isolationFixtures.accounts.accountA.id,
+      propertyId: isolationSeedIds.propertyIds.accountA,
+      tenantId: isolationFixtures.users.tenantA1.tenantId,
+      scope: "shared",
+      visibility: "tenant",
+      filename: "owner-delete-audit.pdf",
+    });
+
+    const deleted = await client.rpc("delete_document_and_audit", {
+      p_document_id: doc.id,
+    });
+
+    expect(deleted.error).toBeNull();
+
+    const lookup = await admin.from("documents").select("id").eq("id", doc.id);
+    expect(lookup.error).toBeNull();
+    expect(lookup.data).toEqual([]);
+
+    const securityAudit = await admin
+      .from("security_audit_ledger")
+      .select("action, account_id, actor_user_id, entity_type, entity_id, metadata")
+      .eq("account_id", isolationFixtures.accounts.accountA.id)
+      .eq("entity_id", doc.id)
+      .eq("action", "document_deleted")
+      .maybeSingle();
+
+    expect(securityAudit.error).toBeNull();
+    expect(securityAudit.data).toMatchObject({
+      action: "document_deleted",
+      account_id: isolationFixtures.accounts.accountA.id,
+      actor_user_id: seededUsers.ownerA.id,
+      entity_type: "document",
+      entity_id: doc.id,
+      metadata: {
+        document_id: doc.id,
+        storage_path: doc.storage_path,
+        property_id: isolationSeedIds.propertyIds.accountA,
+        tenant_id: isolationFixtures.users.tenantA1.tenantId,
+        scope: "shared",
+        visibility: "tenant",
+      },
+    });
+  });
+
+  it("denies staff and tenants from deleting documents", async () => {
+    const { client: ownerClient } = await signInAsFixtureUser("ownerA");
+    const staffDeniedDoc = await createUploadedDocument(ownerClient, {
+      accountId: isolationFixtures.accounts.accountA.id,
+      propertyId: isolationSeedIds.propertyIds.accountA,
+      scope: "property",
+      visibility: "staff",
+      filename: "staff-delete-denied.pdf",
+    });
+    const tenantDeniedDoc = await createUploadedDocument(ownerClient, {
+      accountId: isolationFixtures.accounts.accountA.id,
+      propertyId: isolationSeedIds.propertyIds.accountA,
+      tenantId: isolationFixtures.users.tenantA1.tenantId,
+      scope: "shared",
+      visibility: "tenant",
+      filename: "tenant-delete-denied.pdf",
+    });
+
+    const { client: staffClient } = await signInAsFixtureUser("staffA");
+    const staffDelete = await staffClient.rpc("delete_document_and_audit", {
+      p_document_id: staffDeniedDoc.id,
+    });
+    expectRpcDenied(staffDelete);
+
+    const { client: tenantClient } = await signInAsFixtureUser("tenantA1");
+    const tenantDelete = await tenantClient.rpc("delete_document_and_audit", {
+      p_document_id: tenantDeniedDoc.id,
+    });
+    expectRpcDenied(tenantDelete);
+
+    const lookup = await admin
+      .from("documents")
+      .select("id")
+      .in("id", [staffDeniedDoc.id, tenantDeniedDoc.id]);
+
+    expect(lookup.error).toBeNull();
+    expect(lookup.data.map((row) => row.id).sort()).toEqual(
+      [staffDeniedDoc.id, tenantDeniedDoc.id].sort(),
+    );
   });
 
   it("uses effective role resolution for full document upload authorization when legacy role and role_id drift", async () => {

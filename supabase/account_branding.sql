@@ -58,10 +58,10 @@ stable
 security definer
 set search_path = public
 as $$
-  select (
+  select coalesce((
     public.user_is_root_operator()
     or public.account_member_effective_role(p_account_id, auth.uid()) in ('owner', 'admin', 'staff')
-  );
+  ), false);
 $$;
 
 create or replace function public.assert_manage_account_access(p_account_id uuid)

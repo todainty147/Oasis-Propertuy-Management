@@ -52,14 +52,18 @@ set search_path to 'public'
 as $$
 declare
   v_doc public.documents;
-  v_role text;
+  v_actor_user_id uuid := auth.uid();
 begin
   if p_document_id is null then
     raise exception 'document_id is required';
   end if;
 
-  if p_actor_user_id is null then
+  if v_actor_user_id is null then
     raise exception 'Not authenticated';
+  end if;
+
+  if p_actor_user_id is not null and p_actor_user_id <> v_actor_user_id then
+    raise exception 'Actor mismatch';
   end if;
 
   select * into v_doc
@@ -70,8 +74,7 @@ begin
     raise exception 'Document not found';
   end if;
 
-  v_role := public.account_role_for(v_doc.account_id);
-  if v_role not in ('owner','admin') then
+  if not public.account_member_has_permission(v_doc.account_id, 'documents.delete', v_actor_user_id) then
     raise exception 'Not permitted';
   end if;
 
@@ -88,7 +91,7 @@ begin
   values (
     v_doc.id,
     'delete',
-    p_actor_user_id,
+    v_actor_user_id,
     now(),
     v_doc.account_id,
     v_doc.property_id,
@@ -241,14 +244,18 @@ set search_path to 'public'
 as $$
 declare
   v_doc public.documents;
-  v_role text;
+  v_actor_user_id uuid := auth.uid();
 begin
   if p_document_id is null then
     raise exception 'document_id is required';
   end if;
 
-  if p_actor_user_id is null then
+  if v_actor_user_id is null then
     raise exception 'Not authenticated';
+  end if;
+
+  if p_actor_user_id is not null and p_actor_user_id <> v_actor_user_id then
+    raise exception 'Actor mismatch';
   end if;
 
   select * into v_doc
@@ -259,8 +266,7 @@ begin
     raise exception 'Document not found';
   end if;
 
-  v_role := public.account_role_for(v_doc.account_id);
-  if v_role not in ('owner','admin','staff') then
+  if not public.account_member_has_permission(v_doc.account_id, 'documents.tag', v_actor_user_id) then
     raise exception 'Not permitted';
   end if;
 
@@ -282,8 +288,8 @@ begin
   )
   values (
     v_doc.id,
-    'download',
-    p_actor_user_id,
+    'update_tags',
+    v_actor_user_id,
     now(),
     v_doc.account_id,
     v_doc.property_id,

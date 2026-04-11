@@ -228,13 +228,14 @@ begin
     next_event_type := 'payment_deleted';
     next_old_status := old.status;
     next_new_status := null;
-    next_payment_id := old.id;
+    next_payment_id := null;
     next_account_id := old.account_id;
     next_property_id := old.property_id;
     next_tenant_id := old.tenant_id;
     next_amount := old.amount;
     next_event_at := now();
     next_metadata := jsonb_build_object(
+      'payment_id', old.id,
       'due_date', old.due_date,
       'paid_at', old.paid_at
     );

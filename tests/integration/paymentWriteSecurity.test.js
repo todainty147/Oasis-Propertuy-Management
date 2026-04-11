@@ -24,6 +24,7 @@ function expectWriteDenied(result) {
 
 describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization", () => {
   const admin = getIntegrationAdminClient();
+  const createdPaymentIds = new Set();
 
   async function createTempPaymentAs(fixtureKey, overrides = {}) {
     const { client } = await signInAsFixtureUser(fixtureKey);
@@ -40,6 +41,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
     expect(result.error).toBeNull();
     const row = Array.isArray(result.data) ? result.data[0] : result.data;
     expect(row?.id).toBeTruthy();
+    createdPaymentIds.add(row.id);
     return row;
   }
 
@@ -47,9 +49,18 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
     await ensureIsolationHarnessSeed();
   });
 
-  afterEach(() => {
-    // Payment deletes emit audit events, so direct cleanup is not a safe generic
-    // pattern for this suite. Each test uses fresh ids and exact payment_id filters.
+  afterEach(async () => {
+    if (createdPaymentIds.size === 0) return;
+
+    const ids = Array.from(createdPaymentIds);
+    createdPaymentIds.clear();
+
+    const { error } = await admin
+      .from("payments")
+      .delete()
+      .in("id", ids);
+
+    expect(error).toBeNull();
   });
 
   it("allows in-account owner to create a payment and persists account-scoped state", async () => {
@@ -80,14 +91,14 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
   it("allows in-account admin to update payment amount and due date", async () => {
     const payment = await createTempPaymentAs("ownerA", {
       amount: 1000,
-      dueDate: "2026-04-05",
+      dueDate: "2099-04-05",
     });
     const { client } = await signInAsFixtureUser("adminA");
 
     const result = await client.rpc("update_payment", {
       p_payment_id: payment.id,
       p_amount: 1325.5,
-      p_due_date: "2026-04-09",
+      p_due_date: "2099-04-09",
       p_notes: null,
     });
 
@@ -103,7 +114,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
     expect(data).toMatchObject({
       amount: 1325.5,
       status: "due",
-      due_date: "2026-04-09",
+      due_date: "2099-04-09",
     });
   });
 
@@ -152,13 +163,13 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
   it("allows admin payment status mutation and records ledger/event side effects", async () => {
     const payment = await createTempPaymentAs("ownerA", {
       amount: 1650,
-      dueDate: "2026-04-06",
+      dueDate: "2099-04-06",
     });
     const { client } = await signInAsFixtureUser("adminA");
 
     const paidResult = await client.rpc("mark_payment_paid", {
       p_payment_id: payment.id,
-      p_paid_at: "2026-04-07",
+      p_paid_at: "2099-04-07",
     });
 
     expect(paidResult.error).toBeNull();
@@ -172,7 +183,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
     expect(paidRowError).toBeNull();
     expect(paidRow).toMatchObject({
       status: "paid",
-      paid_at: "2026-04-07",
+      paid_at: "2099-04-07",
     });
 
     const { data: ledgerRows, error: ledgerError } = await admin
@@ -241,7 +252,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
   it("denies staff status mutation and leaves payment plus side effects unchanged", async () => {
     const payment = await createTempPaymentAs("ownerA", {
       amount: 880,
-      dueDate: "2026-04-10",
+      dueDate: "2099-04-10",
     });
 
     const { data: beforeEvents, error: beforeEventsError } = await admin
@@ -255,7 +266,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
     const { client } = await signInAsFixtureUser("staffA");
     const result = await client.rpc("mark_payment_paid", {
       p_payment_id: payment.id,
-      p_paid_at: "2026-04-11",
+      p_paid_at: "2099-04-11",
     });
 
     expectWriteDenied(result);
@@ -288,5 +299,201 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
 
     expect(afterEventsError).toBeNull();
     expect(afterEvents?.length ?? 0).toBe(beforeEventCount);
+  });
+
+  it("allows an owner to delete a payment and records a deletion event without leaking the row", async () => {
+    const payment = await createTempPaymentAs("ownerA", {
+      amount: 990,
+      dueDate: "2099-04-12",
+    });
+    const { client } = await signInAsFixtureUser("ownerA");
+
+    const result = await client.rpc("delete_payment", {
+      p_payment_id: payment.id,
+    });
+
+    expect(result.error).toBeNull();
+
+    const { data: paymentRows, error: paymentError } = await admin
+      .from("payments")
+      .select("id")
+      .eq("id", payment.id);
+
+    expect(paymentError).toBeNull();
+    expect(paymentRows || []).toEqual([]);
+
+    const { data: ledgerRows, error: ledgerError } = await admin
+      .from("ledger_entries")
+      .select("id")
+      .eq("source_table", "payments")
+      .eq("source_id", payment.id);
+
+    expect(ledgerError).toBeNull();
+    expect(ledgerRows || []).toEqual([]);
+
+    const { data: events, error: eventsError } = await admin
+      .from("payment_events")
+      .select("event_type, payment_id, account_id, old_status, new_status, amount, metadata")
+      .eq("account_id", isolationFixtures.accounts.accountA.id)
+      .eq("event_type", "payment_deleted")
+      .order("created_at", { ascending: false });
+
+    expect(eventsError).toBeNull();
+    const deleteEvent = (events || []).find((row) => row.metadata?.payment_id === payment.id);
+    expect(deleteEvent).toMatchObject({
+      event_type: "payment_deleted",
+      payment_id: null,
+      account_id: isolationFixtures.accounts.accountA.id,
+      old_status: "due",
+      new_status: null,
+      amount: 990,
+    });
+  });
+
+  it("denies admin, staff, tenant, contractor, and cross-account owners from deleting payments", async () => {
+    const cases = [
+      { fixtureKey: "adminA", label: "admin" },
+      { fixtureKey: "staffA", label: "staff" },
+      { fixtureKey: "tenantA1", label: "tenant" },
+      { fixtureKey: "contractorA1", label: "contractor" },
+      { fixtureKey: "ownerB", label: "cross-account owner" },
+    ];
+
+    for (const [index, testCase] of cases.entries()) {
+      const payment = await createTempPaymentAs("ownerA", {
+        amount: 700 + index,
+        dueDate: "2099-04-13",
+      });
+      const { client } = await signInAsFixtureUser(testCase.fixtureKey);
+
+      const result = await client.rpc("delete_payment", {
+        p_payment_id: payment.id,
+      });
+
+      expectWriteDenied(result);
+
+      const { data: paymentRow, error: paymentError } = await admin
+        .from("payments")
+        .select("id, status, paid_at")
+        .eq("id", payment.id)
+        .single();
+
+      expect(paymentError).toBeNull();
+      expect(paymentRow, testCase.label).toMatchObject({
+        id: payment.id,
+        status: "due",
+        paid_at: null,
+      });
+    }
+  });
+
+  it("allows admins to void and reopen payments while recording status events", async () => {
+    const payment = await createTempPaymentAs("ownerA", {
+      amount: 1205,
+      dueDate: "2099-04-14",
+    });
+    const { client } = await signInAsFixtureUser("adminA");
+
+    const voidResult = await client.rpc("void_payment", {
+      p_payment_id: payment.id,
+    });
+
+    expect(voidResult.error).toBeNull();
+    expect(voidResult.data).toMatchObject({
+      id: payment.id,
+      status: "void",
+      paid_at: null,
+    });
+
+    const { data: voidedRow, error: voidedError } = await admin
+      .from("payments")
+      .select("status, paid_at")
+      .eq("id", payment.id)
+      .single();
+
+    expect(voidedError).toBeNull();
+    expect(voidedRow).toMatchObject({
+      status: "void",
+      paid_at: null,
+    });
+
+    const reopenResult = await client.rpc("reopen_payment", {
+      p_payment_id: payment.id,
+    });
+
+    expect(reopenResult.error).toBeNull();
+    expect(reopenResult.data).toMatchObject({
+      id: payment.id,
+      status: "due",
+      paid_at: null,
+    });
+
+    const { data: reopenedRow, error: reopenedError } = await admin
+      .from("payments")
+      .select("status, paid_at")
+      .eq("id", payment.id)
+      .single();
+
+    expect(reopenedError).toBeNull();
+    expect(reopenedRow).toMatchObject({
+      status: "due",
+      paid_at: null,
+    });
+
+    const { data: events, error: eventsError } = await admin
+      .from("payment_events")
+      .select("event_type, old_status, new_status")
+      .eq("payment_id", payment.id)
+      .order("created_at", { ascending: false });
+
+    expect(eventsError).toBeNull();
+    expect((events || []).some((row) => row.event_type === "payment_status_changed" && row.new_status === "void")).toBe(true);
+    expect((events || []).some((row) => row.event_type === "payment_status_changed" && row.old_status === "void" && row.new_status === "due")).toBe(true);
+  });
+
+  it("denies staff, tenant, contractor, and cross-account owners from voiding or reopening payments", async () => {
+    const deniedCases = [
+      { fixtureKey: "staffA", label: "staff" },
+      { fixtureKey: "tenantA1", label: "tenant" },
+      { fixtureKey: "contractorA1", label: "contractor" },
+      { fixtureKey: "ownerB", label: "cross-account owner" },
+    ];
+    const { client: ownerClient } = await signInAsFixtureUser("ownerA");
+
+    for (const [index, testCase] of deniedCases.entries()) {
+      const payment = await createTempPaymentAs("ownerA", {
+        amount: 840 + index,
+        dueDate: "2099-04-15",
+      });
+      const { client } = await signInAsFixtureUser(testCase.fixtureKey);
+
+      const voidResult = await client.rpc("void_payment", {
+        p_payment_id: payment.id,
+      });
+      expectWriteDenied(voidResult);
+
+      const { error: ownerVoidError } = await ownerClient.rpc("void_payment", {
+        p_payment_id: payment.id,
+      });
+      expect(ownerVoidError).toBeNull();
+
+      const reopenResult = await client.rpc("reopen_payment", {
+        p_payment_id: payment.id,
+      });
+      expectWriteDenied(reopenResult);
+
+      const { data: paymentRow, error: paymentError } = await admin
+        .from("payments")
+        .select("id, status, paid_at")
+        .eq("id", payment.id)
+        .single();
+
+      expect(paymentError).toBeNull();
+      expect(paymentRow, testCase.label).toMatchObject({
+        id: payment.id,
+        status: "void",
+        paid_at: null,
+      });
+    }
   });
 });

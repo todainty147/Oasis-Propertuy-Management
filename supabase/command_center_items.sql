@@ -36,7 +36,7 @@ as $$
   with cfg as (
     select greatest(1, least(coalesce(p_limit, 80), 200)) as max_items
   ),
-  authz as (
+  authz as materialized (
     select
       public.assert_manage_account_access(p_account_id) as account_id,
       public.assert_account_feature_access(p_account_id, 'command_center') as feature_account_id
@@ -1243,6 +1243,7 @@ as $$
     o.source_table,
     o.sort_order
   from ordered o
+  cross join authz a
   order by
     o.bucket_rank,
     o.sort_order,

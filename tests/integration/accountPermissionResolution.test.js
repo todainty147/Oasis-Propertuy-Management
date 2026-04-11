@@ -33,6 +33,34 @@ describe.skipIf(!isIntegrationHarnessConfigured())("account permission resolutio
     expect(result.data).not.toContain("documents.delete");
   });
 
+  it("resolves non-member manager access to false rather than a nullable allow", async () => {
+    await ensureIsolationHarnessSeed();
+
+    const { client: ownerClient } = await signInAsFixtureUser("ownerA");
+    const ownerCrossAccountResult = await ownerClient.rpc("user_can_manage_account", {
+      p_account_id: isolationFixtures.accounts.accountB.id,
+    });
+
+    expect(ownerCrossAccountResult.error).toBeNull();
+    expect(ownerCrossAccountResult.data).toBe(false);
+
+    const { client: tenantClient } = await signInAsFixtureUser("tenantA1");
+    const tenantManagerResult = await tenantClient.rpc("user_can_manage_account", {
+      p_account_id: isolationFixtures.accounts.accountA.id,
+    });
+
+    expect(tenantManagerResult.error).toBeNull();
+    expect(tenantManagerResult.data).toBe(false);
+
+    const { client: rootClient } = await signInAsFixtureUser("rootOwner");
+    const rootResult = await rootClient.rpc("user_can_manage_account", {
+      p_account_id: isolationFixtures.accounts.accountB.id,
+    });
+
+    expect(rootResult.error).toBeNull();
+    expect(rootResult.data).toBe(true);
+  });
+
   it("follows role_id-backed permissions when legacy role and role_id drift", async () => {
     const users = await ensureIsolationHarnessSeed();
     const accountId = isolationFixtures.accounts.accountA.id;

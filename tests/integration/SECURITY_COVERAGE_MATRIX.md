@@ -49,10 +49,10 @@ Coverage status legend:
 
 | Surface | Type | Expected roles | Enforcement layer | Automated coverage status | Notes / known gaps | Recommended next action |
 | --- | --- | --- | --- | --- | --- | --- |
-| `documents` + `create_document_stub` / `finalize_document_upload` / `delete_document_and_audit` / `set_document_tags` | App flow + write RPCs + table RLS | owner, admin, staff; tenant/member depending on flow | RPC guards + document/storage audit path | Partial | Cross-account document reads, tenant self-scope reads, tenant cross-scope denial, download access, and wrong-account uploads are now covered. Raw client `createSignedUrl()` on the local `documents` bucket still returns `Object not found` even when the object exists and service-role download succeeds, so signed-URL behavior remains a local/provider-specific gap. Delete/tag mutation paths are still not directly integration tested. | Add document delete/tag integration tests and separately investigate local `documents` signed-url behavior |
+| `documents` + `create_document_stub` / `finalize_document_upload` / `delete_document_and_audit` / `set_document_tags` | App flow + write RPCs + table RLS | owner, admin, staff; tenant/member depending on flow | RPC guards + document/storage audit path | Partial | Cross-account document reads, tenant self-scope reads, tenant cross-scope denial, download access, wrong-account uploads, tag mutation audit, tenant/contractor tag denial, owner deletion audit, and staff/tenant delete denial are now covered. Raw client `createSignedUrl()` on the local `documents` bucket still returns `Object not found` even when the object exists and service-role download succeeds, so signed-URL behavior remains a local/provider-specific gap. | Separately investigate local `documents` signed-url behavior |
 | `work_order_attachments` / maintenance attachment storage policies | Table/storage policies | owner, admin, staff, tenant uploader, assigned contractor | RLS + storage bucket policies | Partial | Assigned-contractor attachment reads, cross-work-order denial, and storage signed URL enforcement are now covered. Maintenance-request attachment policies are still not directly integration tested. | Add maintenance-request attachment integration tests |
-| `payments` write RPCs (`create_payment`, `update_payment`, `delete_payment`, `mark_payment_paid`, `mark_payment_unpaid`) | Write RPCs | owner, admin; tenant read only | RPC guards + table RLS | Partial | In-account owner/admin create-update-status flows are now covered, along with cross-account denial and tenant/contractor denial. `delete_payment`, `reopen_payment`, and `void_payment` still need direct integration coverage. | Add delete/void/reopen integration tests |
-| `maintenance_requests` direct insert/update/read table flows | Table RLS + app flow | tenant(self property), owner, admin, staff | RLS policies | Gap | Tenant insert/read/update security is important; current suite only covers downstream snapshot/feed reads | Add maintenance request direct table integration tests |
+| `payments` write RPCs (`create_payment`, `update_payment`, `delete_payment`, `mark_payment_paid`, `mark_payment_unpaid`, `void_payment`, `reopen_payment`) | Write RPCs | owner, admin; owner-only delete; tenant read only | RPC guards + table RLS + payment/ledger event triggers | Integrated | In-account owner/admin create-update-status flows, owner-only delete, admin delete denial, staff/tenant/contractor/cross-account denial, ledger cleanup, and payment event side effects are covered. | Keep current coverage |
+| `maintenance_requests` direct insert/update/read table flows | Table RLS + app flow | tenant(self property), owner, admin, staff | RLS policies + tenant auto-stamp trigger | Integrated | Manager in-account read/write/delete, tenant self-property read/create with auto `reported_by_tenant_id`, tenant spoof/cross-property denial, contractor invisibility, tenant/contractor/cross-account mutation denial, and persisted unchanged state are covered. | Keep current coverage |
 | `work_order_assign_contractor` / `work_order_approve_tenant_cancellation` / `work_order_deny_tenant_cancellation` | Write RPCs | owner, admin, staff | manager-only RPC guard | Gap | Related work order paths are covered, but assignment and tenant cancellation decision flows are not | Add direct work order workflow integration tests |
 | `root_list_accounts` / `root_set_account_disabled` / `root_delete_account` | Root-only write/read RPCs | root operator | root + active account model | Integrated | Root list/disable/restore/delete, root self-protection, non-root denial, related-data delete denial, and audit append behavior covered | Keep current coverage |
 | `create_self_serve_landlord_account` | Write RPC | authenticated signup actor | self-serve provisioning RPC | Integrated | Clean-user creation, idempotence, non-owner self-escalation denial, anonymous denial, non-root account shape, owner role assignment, and no root membership covered | Keep current coverage |
@@ -72,32 +72,30 @@ Coverage status legend:
 - contractor quote / invoice workflow mutations
 
 ### Still mostly uncovered
-- document lifecycle and attachment policy paths
-- payments delete/void/reopen flows
-- direct maintenance request table/RLS behavior
+- attachment policy paths and local document signed-url behavior
 - broader work-order permission helper RPCs and assignment flows
 
 ## Top 5 remaining high-risk gaps
 
-1. **Document lifecycle security**  
-   Core document read/upload/download boundaries are now covered, but `set_document_tags` and `delete_document_and_audit` still need direct integration coverage, and local `documents` signed-url behavior still needs targeted follow-up.
-
-2. **Payment deletion and reversal authorization**  
-   Core payment create/update/status mutation coverage now exists, but `delete_payment`, `void_payment`, and `reopen_payment` still need direct authenticated integration coverage to close the remaining finance write gap.
-
-3. **Attachment and storage policy enforcement**  
+1. **Attachment and storage policy enforcement**  
    Contractor attachment reads are now covered, but maintenance-request attachment policies still need direct integration coverage.
 
-4. **Work-order assignment and tenant-cancellation decisions**  
+2. **Work-order assignment and tenant-cancellation decisions**  
    Work-order status changes and contractor quote/invoice paths are covered, but manager assignment and tenant-cancellation decision RPCs still need direct authorization coverage.
 
-5. **Contractor action helper coverage**  
+3. **Contractor action helper coverage**  
    The UI depends on allowed-action helper RPCs for gating, but direct helper coverage still needs to prove tenant/member/contractor outputs cannot drift from write guards.
+
+4. **Direct account/member mutation utilities**  
+   Membership role mutation, invite eligibility preflight, security audit export request, and operational manager-only read RPCs still have partial rather than direct matrix coverage.
+
+5. **Manager-only operational snapshot RPCs**  
+   Preventive maintenance, maintenance KPI, playbook status, lease attention, and dashboard hub extras still have partial coverage rather than direct isolation tests.
 
 ## Recommended next actions
 
-1. Add document lifecycle and attachment integration tests.
-2. Add payment delete/void/reopen authorization tests.
-3. Add maintenance-request attachment integration tests.
-4. Add work-order assignment / tenant-cancellation decision integration tests.
-5. Add contractor/work-order allowed-action helper integration tests.
+1. Add maintenance-request attachment integration tests.
+2. Add work-order assignment / tenant-cancellation decision integration tests.
+3. Add contractor/work-order allowed-action helper integration tests.
+4. Add account/member mutation and security-audit export integration tests.
+5. Add manager-only operational snapshot RPC isolation tests.

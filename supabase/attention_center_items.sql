@@ -23,7 +23,7 @@ as $$
   with cfg as (
     select greatest(1, least(coalesce(p_limit, 60), 200)) as max_items
   ),
-  authz as (
+  authz as materialized (
     select public.assert_manage_account_access(p_account_id) as account_id
   ),
   scoped_payments as (
@@ -776,6 +776,7 @@ as $$
     o.source_table,
     o.sort_order
   from ordered o
+  cross join authz a
   order by
     o.bucket_rank,
     o.sort_order,
