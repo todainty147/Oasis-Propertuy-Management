@@ -36,10 +36,11 @@ as $$
   due_soon as (
     select count(*)::bigint as due_soon_count
     from payments p
+    cross join authz a
     where p.account_id = p_account_id
       and (
-        p_tenant_id is null
-        or p.tenant_id = p_tenant_id
+        a.tenant_id is null
+        or p.tenant_id = a.tenant_id
       )
       and lower(coalesce(p.status, '')) not in ('paid', 'oplacone', 'opłacone')
       and p.due_date is not null
@@ -49,7 +50,12 @@ as $$
   preventive_due_soon as (
     select count(*)::bigint as task_count
     from public.preventive_maintenance_tasks t
+    cross join authz a
     where t.account_id = p_account_id
+      and (
+        a.tenant_id is null
+        or t.property_id = (select property_id from tenant_scope)
+      )
       and lower(coalesce(t.status, 'active')) = 'active'
       and t.next_due_date is not null
       and t.next_due_date >= current_date
@@ -58,7 +64,12 @@ as $$
   preventive_overdue as (
     select count(*)::bigint as task_count
     from public.preventive_maintenance_tasks t
+    cross join authz a
     where t.account_id = p_account_id
+      and (
+        a.tenant_id is null
+        or t.property_id = (select property_id from tenant_scope)
+      )
       and lower(coalesce(t.status, 'active')) = 'active'
       and t.next_due_date is not null
       and t.next_due_date < current_date
@@ -66,13 +77,23 @@ as $$
   blocked_work_orders as (
     select count(*)::bigint as blocked_count
     from public.work_orders_with_flags w
+    cross join authz a
     where w.account_id = p_account_id
+      and (
+        a.tenant_id is null
+        or w.property_id = (select property_id from tenant_scope)
+      )
       and lower(coalesce(w.status, '')) in ('blocked', 'zablokowane')
   ),
   contractor_ack_overdue as (
     select count(*)::bigint as overdue_count
     from public.work_orders w
+    cross join authz a
     where w.account_id = p_account_id
+      and (
+        a.tenant_id is null
+        or w.property_id = (select property_id from tenant_scope)
+      )
       and (w.contractor_user_id is not null or nullif(coalesce(w.contractor_name, ''), '') is not null)
       and lower(coalesce(w.status, '')) not in ('completed', 'cancelled', 'zakończone', 'anulowane')
       and coalesce(lower(w.acknowledgement_status), 'pending') <> 'acknowledged'
@@ -82,14 +103,24 @@ as $$
   compliance_overdue as (
     select count(*)::bigint as item_count
     from public.compliance_items c
+    cross join authz a
     where c.account_id = p_account_id
+      and (
+        a.tenant_id is null
+        or c.property_id = (select property_id from tenant_scope)
+      )
       and lower(coalesce(c.status, 'active')) = 'active'
       and c.due_date < current_date
   ),
   compliance_due_soon as (
     select count(*)::bigint as item_count
     from public.compliance_items c
+    cross join authz a
     where c.account_id = p_account_id
+      and (
+        a.tenant_id is null
+        or c.property_id = (select property_id from tenant_scope)
+      )
       and lower(coalesce(c.status, 'active')) = 'active'
       and c.due_date >= current_date
       and c.due_date <= current_date + interval '30 days'
@@ -97,7 +128,12 @@ as $$
   compliance_missing_setup as (
     select count(*)::bigint as property_count
     from public.properties p
+    cross join authz a
     where p.account_id = p_account_id
+      and (
+        a.tenant_id is null
+        or p.id = (select property_id from tenant_scope)
+      )
       and not exists (
         select 1
         from public.compliance_items c
@@ -125,9 +161,10 @@ as $$
         ) / 86400
       )::int as days_vacant
     from properties p
+    cross join authz a
     where p.account_id = p_account_id
       and (
-        p_tenant_id is null
+        a.tenant_id is null
         or p.id = (select property_id from tenant_scope)
       )
       and not exists (

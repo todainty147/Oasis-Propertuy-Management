@@ -134,6 +134,16 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply work-order assignment authorization overlay",
+    file: path.join(supabaseDir, "work_order_assignment_authorization.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply work-order allowed-actions authorization overlay",
+    file: path.join(supabaseDir, "work_order_allowed_actions_authorization.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply property operational health overlay",
     file: path.join(supabaseDir, "property_operational_health_snapshot.sql"),
     onErrorStop: true,
