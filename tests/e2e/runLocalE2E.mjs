@@ -11,7 +11,8 @@ const supabaseStopCommand = "npx -y supabase@2.84.2 stop --project-id oasisrenta
 const dbBootstrapCommand = "npm run db:bootstrap";
 const dbVerifyCommand = "npm run db:verify";
 const integrationSeedCommand = "npm run test:integration:seed";
-const e2eCommand = "npm run test:e2e";
+const e2eArgs = process.argv.slice(2);
+const e2eCommand = ["npm run test:e2e", e2eArgs.length > 0 ? "--" : "", ...e2eArgs].filter(Boolean).join(" ");
 
 function runCommand(command, extraEnv = {}) {
   return new Promise((resolvePromise, rejectPromise) => {
