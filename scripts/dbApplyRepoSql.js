@@ -46,6 +46,8 @@ const OVERLAY_SEQUENCE = [
   "prevent_close_if_work_order_open.sql",
   "preventive_maintenance.sql",
   "work_order_workflow_seed.sql",
+  "work_order_assignment_authorization.sql",
+  "work_order_allowed_actions_authorization.sql",
   "property_operational_health_snapshot.sql",
   "contractor_work_order_cards.sql",
   "contractor_ratings.sql",

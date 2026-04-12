@@ -1,3 +1,5 @@
+drop function if exists public.dashboard_snapshot(uuid, uuid, integer);
+
 create or replace function public.dashboard_snapshot(
   p_account_id uuid,
   p_tenant_id uuid default null,
