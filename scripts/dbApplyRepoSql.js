@@ -1,3 +1,4 @@
+/* global process */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -65,6 +66,7 @@ const OVERLAY_SEQUENCE = [
   "payment_write_authorization.sql",
   "security_denied_event_stream.sql",
   "security_observability_events.sql",
+  "api_rate_limits.sql",
   "support_telemetry_access.sql",
   "security_failure_observability.sql",
   "log_security_event.sql",

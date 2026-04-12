@@ -134,7 +134,7 @@ Recommended implementation notes:
 | Golden signals / SLIs / SLOs | Strong | Small to Medium | Next | OASIS already captures useful security and workflow events. The missing layer is metrics and alert thresholds for latency, errors, traffic, and saturation across critical workflows. |
 | Fault injection / degraded-path testing | Not schema-dependent | Medium | Soon after | The current integration and staging discipline is strong enough to support targeted failure-mode tests. This is mostly test-harness work, not schema work. |
 | Accessibility automation | Not schema-dependent | Small to Medium | Soon after | A11y testing fits cleanly into the existing test culture and does not require backend changes. |
-| Tenant/account rate limiting | Partial | Medium | Later, after traffic evidence | `account_id` scoping exists everywhere, so the identity model supports quotas and limits. Enforcement likely belongs at edge/API infrastructure rather than deep in relational schema. |
+| Tenant/account rate limiting | Partial | Medium | Now, limited Edge/API scope | `account_id` scoping exists everywhere, so the identity model supports quotas and limits. Start with narrow provider/API abuse protection before considering infrastructure-level quotas. |
 | Demo data / self-service sandbox | Strong | Medium | Later, product-driven | The current schema already supports seeded accounts, properties, tenants, payments, work orders, and documents. What is missing is a productized onboarding experience around those fixtures. |
 | Materialized feed caching / Redis/KV caching | Strong | Medium | Later, after measurement | Technically feasible now, but should be driven by real latency/traffic evidence. Snapshot RPCs and account scoping make this viable when needed. |
 | Declarative partitioning by account | Partial but expensive | High | Much later, only with proven scale pain | Most core tables carry `account_id`, so partitioning is possible in principle. In practice, retrofitting partitioning into an existing RLS-heavy Supabase/Postgres app would be expensive and operationally risky unless production scale clearly demands it. |
@@ -391,7 +391,7 @@ Small to Medium.
 
 **Assessment**
 
-Feasible, but this is more infra than schema.
+In progress with a deliberately limited Edge/API scope.
 
 **Current fit**
 
@@ -404,6 +404,19 @@ Start with:
 - account-level request limiting
 - high-cost RPC guardrails
 - per-surface throttles for abuse-prone flows
+
+**Current progress**
+
+- Added a SQL-backed limiter in [API_RATE_LIMITING.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/API_RATE_LIMITING.md).
+- `public.api_rate_limit_events` records append-only attempts without storing raw emails or phone numbers.
+- `public.record_api_rate_limit_attempt(...)` returns allow/block decisions and emits hosted observability rows for `rate_limit_exceeded` blocks.
+- Protected first-pass Edge/API surfaces:
+  - `invite-user`
+  - `send-password-reset-email`
+  - `send-reminder-emails`
+  - `send-sms-notifications`
+  - `ingest-security-observability`
+- This is intentionally not distributed rate limiting yet; Redis/KV or gateway-level quotas should wait for real traffic evidence.
 
 **Effort**
 
@@ -502,7 +515,7 @@ Possible, but costly enough that it should be evidence-driven.
 
 - fault injection on critical workflows, with first service-level coverage now in place
 - accessibility automation
-- limited edge/API rate limiting
+- limited edge/API rate limiting, with first provider/API abuse guardrails now in place
 
 ### Phase 3
 

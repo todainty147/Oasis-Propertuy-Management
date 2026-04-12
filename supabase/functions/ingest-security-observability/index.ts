@@ -1,4 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  buildRateLimitBody,
+  recordRateLimitAttempt,
+} from "../_shared/rateLimit.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
@@ -132,6 +136,23 @@ Deno.serve(async (req) => {
       if (canRecordError || !canRecord) {
         return json({ error: "Forbidden" }, 403);
       }
+    }
+
+    const rateLimit = await recordRateLimitAttempt(admin, {
+      surface: "ingest-security-observability",
+      accountId,
+      actorUserId: user.id,
+      windowSeconds: 60,
+      maxAttempts: 120,
+      metadata: {
+        correlation_id: correlationId,
+        limit_scope: "actor_account",
+        event_surface: surface,
+        event_kind: kind,
+      },
+    });
+    if (!rateLimit.allowed) {
+      return json(buildRateLimitBody(rateLimit), 429);
     }
 
     const { data: actorRole } = accountId

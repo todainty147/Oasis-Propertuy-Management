@@ -1,4 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  buildRateLimitBody,
+  recordRateLimitAttempt,
+} from "../_shared/rateLimit.ts";
 
 type PasswordResetPayload = {
   email: string;
@@ -95,6 +99,21 @@ Deno.serve(async (req) => {
     const inviteToken = String(body?.inviteToken || "").trim();
     if (!email) {
       return json({ error: "Email is required" }, 400);
+    }
+
+    const rateLimit = await recordRateLimitAttempt(admin, {
+      surface: "send-password-reset-email:email",
+      identifier: email,
+      windowSeconds: 3600,
+      maxAttempts: 5,
+      metadata: {
+        correlation_id: crypto.randomUUID(),
+        limit_scope: "target_email",
+        function_name: "send-password-reset-email",
+      },
+    });
+    if (!rateLimit.allowed) {
+      return json(buildRateLimitBody(rateLimit), 429);
     }
 
     if (!RESEND_API_KEY) {

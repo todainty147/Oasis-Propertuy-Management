@@ -1,4 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  buildRateLimitBody,
+  recordRateLimitAttempt,
+} from "../_shared/rateLimit.ts";
 
 type InvitePayload = {
   accountId: string;
@@ -258,6 +262,40 @@ Deno.serve(async (req) => {
 
     if (!["owner", "admin", "staff", "tenant", "contractor"].includes(role)) {
       return json({ error: "Invalid role" }, 400);
+    }
+
+    const requestId = crypto.randomUUID();
+    const accountLimit = await recordRateLimitAttempt(admin, {
+      surface: "invite-user:account",
+      accountId,
+      windowSeconds: 3600,
+      maxAttempts: 10,
+      metadata: {
+        correlation_id: requestId,
+        limit_scope: "account",
+        mode,
+        role,
+      },
+    });
+    if (!accountLimit.allowed) {
+      return json(buildRateLimitBody(accountLimit), 429);
+    }
+
+    const emailLimit = await recordRateLimitAttempt(admin, {
+      surface: "invite-user:email",
+      accountId,
+      identifier: email,
+      windowSeconds: 3600,
+      maxAttempts: 3,
+      metadata: {
+        correlation_id: requestId,
+        limit_scope: "target_email",
+        mode,
+        role,
+      },
+    });
+    if (!emailLimit.allowed) {
+      return json(buildRateLimitBody(emailLimit), 429);
     }
 
     let token = String(body?.token || "").trim();

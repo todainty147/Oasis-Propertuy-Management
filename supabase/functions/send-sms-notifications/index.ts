@@ -5,6 +5,10 @@ import {
   recordScheduledFunctionEvent,
   serializeError,
 } from "../_shared/scheduledObservability.ts";
+import {
+  buildRateLimitBody,
+  recordRateLimitAttempt,
+} from "../_shared/rateLimit.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -99,6 +103,27 @@ Deno.serve(async (req) => {
 
     for (const accountId of accountIds) {
       try {
+        const rateLimit = await recordRateLimitAttempt(admin, {
+          surface: "send-sms-notifications:account",
+          accountId,
+          windowSeconds: 86400,
+          maxAttempts: 25,
+          metadata: {
+            correlation_id: requestId,
+            limit_scope: "account",
+            dry_run: dryRun,
+          },
+        });
+        if (!rateLimit.allowed) {
+          results.push({
+            accountId,
+            ok: false,
+            status: 429,
+            ...buildRateLimitBody(rateLimit),
+          });
+          continue;
+        }
+
         results.push(await processAccount(accountId, { dryRun }));
       } catch (error) {
         const serialized = serializeError(error);
@@ -214,6 +239,40 @@ async function processAccount(accountId: string, { dryRun }: { dryRun: boolean }
     }
 
     const smsBody = buildSmsBody(row);
+    if (!dryRun) {
+      const phoneLimit = await recordRateLimitAttempt(admin, {
+        surface: "send-sms-notifications:phone",
+        accountId,
+        identifier: recipient.phone,
+        windowSeconds: 3600,
+        maxAttempts: 5,
+        metadata: {
+          limit_scope: "recipient_phone",
+          notification_type: row.type,
+        },
+      });
+      if (!phoneLimit.allowed) {
+        await logSmsEvent({
+          accountId,
+          templateKey: classifyTemplateKey(row.type),
+          status: "skipped",
+          recipientPhone: recipient.phone,
+          recipientUserId: recipient.userId,
+          entityType: row.entity_type,
+          entityId: row.entity_id,
+          body: smsBody,
+          metadata: {
+            reason: "rate_limit_exceeded",
+            notification_id: row.id,
+            notification_type: row.type,
+            retry_after_seconds: phoneLimit.retryAfterSeconds,
+          },
+        });
+        skipped += 1;
+        continue;
+      }
+    }
+
     if (dryRun) {
       await logSmsEvent({
         accountId,

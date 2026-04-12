@@ -1,3 +1,4 @@
+/* global process */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 
@@ -18,6 +19,11 @@ const verificationChecks = [
     label: "Observability sink table",
     why: "Confirms hosted security observability storage exists for manager-safe diagnostics.",
     sql: "select to_regclass('public.security_observability_events') is not null;",
+  },
+  {
+    label: "API rate-limit table",
+    why: "Confirms limited Edge/API abuse protection can persist rate-limit attempts.",
+    sql: "select to_regclass('public.api_rate_limit_events') is not null;",
   },
   {
     label: "Denied-event recorder RPC",
@@ -63,6 +69,11 @@ const verificationChecks = [
     label: "System notification RPC",
     why: "Confirms write-side notification fan-out exists for invite/document/payment side effects.",
     sql: "select to_regprocedure('public.create_notifications_system(uuid,uuid[],text,text,text,text,uuid,text,jsonb)') is not null;",
+  },
+  {
+    label: "API rate-limit RPC",
+    why: "Confirms Edge Functions can enforce account/actor/identifier scoped throttles.",
+    sql: "select to_regprocedure('public.record_api_rate_limit_attempt(text,uuid,uuid,text,integer,integer,jsonb)') is not null;",
   },
   {
     label: "Documents bucket",

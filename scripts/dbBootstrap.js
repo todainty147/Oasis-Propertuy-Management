@@ -1,3 +1,4 @@
+/* global process */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -236,6 +237,11 @@ const bootstrapSteps = [
   {
     label: "Apply security observability overlay",
     file: path.join(supabaseDir, "security_observability_events.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply API rate limits overlay",
+    file: path.join(supabaseDir, "api_rate_limits.sql"),
     onErrorStop: true,
   },
   {

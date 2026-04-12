@@ -4,6 +4,10 @@ import {
   recordScheduledFunctionEvent,
   serializeError,
 } from "../_shared/scheduledObservability.ts";
+import {
+  buildRateLimitBody,
+  recordRateLimitAttempt,
+} from "../_shared/rateLimit.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -90,6 +94,27 @@ Deno.serve(async (req) => {
 
     for (const accountId of accountIds) {
       try {
+        const rateLimit = await recordRateLimitAttempt(admin, {
+          surface: "send-reminder-emails:account",
+          accountId,
+          windowSeconds: 3600,
+          maxAttempts: 1,
+          metadata: {
+            correlation_id: requestId,
+            limit_scope: "account",
+            dry_run: dryRun,
+          },
+        });
+        if (!rateLimit.allowed) {
+          results.push({
+            accountId,
+            ok: false,
+            status: 429,
+            ...buildRateLimitBody(rateLimit),
+          });
+          continue;
+        }
+
         results.push(await processAccount(accountId, { dryRun }));
       } catch (error) {
         const serialized = serializeError(error);
