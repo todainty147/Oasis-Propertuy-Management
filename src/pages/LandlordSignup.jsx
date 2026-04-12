@@ -120,16 +120,16 @@ export default function LandlordSignup() {
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          <label className="flex items-start gap-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-3 text-sm text-slate-700">
+          <label className="flex items-start gap-3 rounded-xl border border-blue-400 bg-blue-950/70 px-3 py-3 text-sm text-blue-50 shadow-sm ring-1 ring-blue-300/20">
             <input
               type="checkbox"
               checked={sandboxMode}
               onChange={(e) => setSandboxMode(e.target.checked)}
-              className="mt-1"
+              className="mt-1 h-4 w-4 rounded border-blue-200 bg-slate-950 text-blue-500 accent-blue-500"
             />
             <span>
-              <span className="block font-semibold text-slate-900">{t("signup.sandboxMode")}</span>
-              <span className="block text-xs leading-5 text-slate-600">{t("signup.sandboxModeHint")}</span>
+              <span className="block font-semibold text-white">{t("signup.sandboxMode")}</span>
+              <span className="block text-xs leading-5 text-blue-100">{t("signup.sandboxModeHint")}</span>
             </span>
           </label>
 
