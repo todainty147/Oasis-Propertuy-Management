@@ -52,6 +52,7 @@ describe("security observability contracts", () => {
     const propertyHealthSource = readSql("src/services/propertyHealthScoreService.js");
     const reportingSource = readSql("src/services/reportingService.js");
     const playbookSource = readSql("src/services/playbookAutomationService.js");
+    const contractorServiceSource = readSql("src/services/contractorWorkOrderService.js");
     const contractorPortalSource = readSql("src/pages/ContractorPortal.jsx");
     const contractorJobDetailsSource = readSql("src/pages/ContractorJobDetails.jsx");
 
@@ -63,10 +64,12 @@ describe("security observability contracts", () => {
     expect(playbookSource).not.toContain(
       'if (isMissingBackendObject(error) || isPermissionDenied(error)) {\n      throw new Error("playbook_status_snapshot RPC is not deployed. Run supabase/playbook_status_snapshot.sql.");',
     );
-    expect(contractorPortalSource).toContain('logSecurityRelevantFailure("contractor_work_order_cards"');
-    expect(contractorPortalSource).toContain('logSecurityRelevantFailure("contractor_allowed_actions"');
-    expect(contractorJobDetailsSource).toContain('logSecurityRelevantFailure("contractor_work_order_cards"');
-    expect(contractorJobDetailsSource).toContain('logSecurityRelevantFailure("contractor_allowed_actions"');
+    expect(contractorServiceSource).toContain('logSecurityRelevantFailure("contractor_work_order_cards"');
+    expect(contractorServiceSource).toContain('logSecurityRelevantFailure("contractor_allowed_actions"');
+    expect(contractorPortalSource).not.toContain('logSecurityRelevantFailure("contractor_work_order_cards"');
+    expect(contractorPortalSource).not.toContain('logSecurityRelevantFailure("contractor_allowed_actions"');
+    expect(contractorJobDetailsSource).not.toContain('logSecurityRelevantFailure("contractor_work_order_cards"');
+    expect(contractorJobDetailsSource).not.toContain('logSecurityRelevantFailure("contractor_allowed_actions"');
   });
 
   it("scrubs sensitive invite data from client-side security failure logs", () => {

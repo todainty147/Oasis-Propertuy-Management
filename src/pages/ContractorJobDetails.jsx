@@ -231,28 +231,13 @@ export default function ContractorJobDetails() {
       try {
         const acts = await getContractorAllowedActions(id, {
           accountId: bundle.row?.account_id || activeAccountId || null,
+          source: "ContractorJobDetails",
         });
         setAllowedActions(acts);
-      } catch (error) {
-        logSecurityRelevantFailure("contractor_allowed_actions", {
-          error,
-          context: {
-            accountId: bundle.row?.account_id || activeAccountId || null,
-            workOrderId: id,
-            source: "ContractorJobDetails",
-          },
-        });
+      } catch {
         setAllowedActions([]);
       }
     } catch (e) {
-      logSecurityRelevantFailure("contractor_work_order_cards", {
-        error: e,
-        context: {
-          accountId: activeAccountId || null,
-          workOrderId: id,
-          source: "ContractorJobDetails",
-        },
-      });
       console.error(e);
       setRow(null);
       setFin(null);

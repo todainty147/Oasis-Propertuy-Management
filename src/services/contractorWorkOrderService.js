@@ -184,11 +184,8 @@ export async function loadContractorPortalRows(context = {}) {
           propertyLabel: String(card.property_label || "").trim() || row.propertyLabel,
         };
       });
-    } catch (error) {
-      logSecurityRelevantFailure("contractor_work_order_cards", {
-        error,
-        context,
-      });
+    } catch {
+      // Keep the contractor portal usable after the shared RPC wrapper records the failure.
     }
   }
 
@@ -263,11 +260,8 @@ export async function getContractorJobDetailsBundle(workOrderId, context = {}) {
           priority: String(request?.priority || "").trim() || String(card.issue_priority || "").trim() || "normal",
         };
       }
-    } catch (error) {
-      logSecurityRelevantFailure("contractor_work_order_cards", {
-        error,
-        context,
-      });
+    } catch {
+      // Keep the job details page usable after the shared RPC wrapper records the failure.
     }
   }
 

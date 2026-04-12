@@ -11,7 +11,6 @@ import {
   loadContractorPortalRows,
   updateContractorWorkOrder,
 } from "../services/contractorWorkOrderService";
-import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
 import OnboardingHintCard from "../components/OnboardingHintCard";
 
 /* -----------------------------
@@ -134,29 +133,16 @@ export default function ContractorPortal() {
           try {
             const actions = await getContractorAllowedActions(id, {
               accountId: list.find((row) => row.id === id)?.account_id || null,
+              source: "ContractorPortal",
             });
             return [id, actions];
-          } catch (error) {
-            logSecurityRelevantFailure("contractor_allowed_actions", {
-              error,
-              context: {
-                accountId: list.find((row) => row.id === id)?.account_id || null,
-                workOrderId: id,
-                source: "ContractorPortal",
-              },
-            });
+          } catch {
             return [id, []];
           }
         })
       );
       setAllowedById(Object.fromEntries(pairs));
     } catch (e) {
-      logSecurityRelevantFailure("contractor_work_order_cards", {
-        error: e,
-        context: {
-          source: "ContractorPortal",
-        },
-      });
       console.error(e);
       setRows([]);
       setAllowedById({});
@@ -167,7 +153,6 @@ export default function ContractorPortal() {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useRealtimeTables({

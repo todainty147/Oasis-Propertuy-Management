@@ -40,8 +40,8 @@ Important scope note:
 | `documents_select` / `documents_search` | document read | durable row + structured exception + app log | owner, admin, staff, tenant, contractor | account, document/property/tenant scope, reason, code | raw SQL/table callers still bypass durable path | keep as-is |
 | `document_preview_url` / `document_storage_download` | document read / storage | durable row + app log, sometimes structured exception | owner, admin, staff, tenant, contractor | account, document id, scope, visibility, reason | provider/storage policy root cause may still sit outside Postgres | next pass should improve provider correlation IDs |
 | `set_document_tags` / `delete_document_and_audit` / `document_audit_log_select` | document workflow | durable row + structured exception + app log | owner, admin, staff, tenant, contractor | account, document entity, reason, code, hint | best-effort storage delete cleanup is not a denied-event row | keep as-is |
-| `contractor_work_order_cards` | contractor read RPC | durable row + structured exception/app log when called through current contractor pages | contractor, owner/admin/staff/tenant deny paths | account, work order entity, reason, code | direct raw callers still bypass page-level follow-up logging | next pass should move this into a shared service wrapper |
-| `contractor_allowed_actions` | contractor read RPC | durable row + structured exception/app log when called through current contractor pages | contractor, owner/admin/staff/tenant deny paths | account, work order entity, reason, code | empty-array fallback still intentionally preserved for UX | keep as-is for now |
+| `contractor_work_order_cards` | contractor read RPC | durable row + structured exception/app log through shared service wrapper | contractor, owner/admin/staff/tenant deny paths | account, work order entity, reason, code | raw RPC callers still bypass app follow-up logging | keep as-is |
+| `contractor_allowed_actions` | contractor read RPC | durable row + structured exception/app log through shared service wrapper | contractor, owner/admin/staff/tenant deny paths | account, work order entity, reason, code | page UX still intentionally falls back to empty actions after the shared service logs the denial | keep as-is |
 
 ## Structured Exception / App Log Only
 
@@ -59,8 +59,7 @@ Important scope note:
 
 ## Highest-Value Remaining Gaps
 
-1. `contractor_work_order_cards` and `contractor_allowed_actions` are durably captured from the current contractor pages, but still lack a shared service wrapper for all callers.
-2. Raw SQL callers that hit guarded RPCs still do not create durable denied rows unless they add the follow-up request themselves.
-3. Storage/provider-side authorization failures still need external logs for full root-cause analysis, even when OASIS app logs contain safe correlation context.
-4. Edge Function and non-UI callers still vary in how consistently they classify denials before forwarding them into durable streams.
-5. Hosted event retention/export is now defined, but no automated scheduler or archive dashboard exists in-repo yet.
+1. Raw SQL callers that hit guarded RPCs still do not create durable denied rows unless they add the follow-up request themselves.
+2. Storage/provider-side authorization failures still need external logs for full root-cause analysis, even when OASIS app logs contain safe correlation context.
+3. Edge Function and non-UI callers still vary in how consistently they classify denials before forwarding them into durable streams.
+4. Hosted event retention/export is now defined, but no automated scheduler or archive dashboard exists in-repo yet.
