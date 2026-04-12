@@ -1,5 +1,5 @@
 // src/hooks/useFinance.js
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
@@ -21,7 +21,7 @@ export function useFinance({ enabled = true } = {}) {
   const [propertyFinance, setPropertyFinance] = useState([]);
   const [loading, setLoading] = useState(enabled);
 
-  async function loadFinance({ forceRefresh = false } = {}) {
+  const loadFinance = useCallback(async ({ forceRefresh = false } = {}) => {
     if (!enabled || !activeAccountId) {
       setLoading(false);
       return;
@@ -93,7 +93,7 @@ export function useFinance({ enabled = true } = {}) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [activeAccountId, activeTenantId, enabled]);
 
   useEffect(() => {
     if (!enabled || !activeAccountId) {
@@ -102,7 +102,7 @@ export function useFinance({ enabled = true } = {}) {
     }
 
     loadFinance();
-  }, [enabled, activeAccountId, activeTenantId]);
+  }, [enabled, activeAccountId, activeTenantId, loadFinance]);
 
   useRealtimeTables({
     enabled: enabled && !!activeAccountId,

@@ -62,14 +62,18 @@ function StatCard({ title, value, hint = "", to = "", tone = "blue" }) {
 function DonutCard({ title, totalLabel, rows = [], toByKey = {}, labels = {} }) {
   const total = rows.reduce((sum, r) => sum + Number(r.value || 0), 0);
   const palette = ["#0ea5e9", "#22c55e", "#f59e0b", "#ef4444", "#6366f1"];
-  let start = 0;
-  const segments = rows.map((r, idx) => {
-    const pct = total > 0 ? (Number(r.value || 0) / total) * 100 : 0;
-    const from = start;
-    const to = start + pct;
-    start = to;
-    return { ...r, pct, color: palette[idx % palette.length], from, to };
-  });
+  const segments = rows.reduce(
+    (acc, r, idx) => {
+      const pct = total > 0 ? (Number(r.value || 0) / total) * 100 : 0;
+      const from = acc.nextStart;
+      const to = from + pct;
+      return {
+        nextStart: to,
+        rows: [...acc.rows, { ...r, pct, color: palette[idx % palette.length], from, to }],
+      };
+    },
+    { nextStart: 0, rows: [] },
+  ).rows;
 
   const gradient = segments.length
     ? `conic-gradient(${segments
@@ -306,33 +310,37 @@ export default function PortfolioHealthDashboardPage() {
     }
   }
 
-  const snapshotView = snapshot ?? {
-    property_count: 0,
-    occupied_count: 0,
-    vacant_count: 0,
-    occupancy_rate: 0,
-    paid_amount: 0,
-    due_amount: 0,
-    overdue_amount: 0,
-    due_soon_amount: 0,
-    outstanding_amount: 0,
-    overdue_0_7_amount: 0,
-    overdue_8_30_amount: 0,
-    overdue_30_plus_amount: 0,
-    open_requests: 0,
-    high_priority_open_requests: 0,
-    waiting_over_48h: 0,
-    active_work_orders: 0,
-    work_orders_without_contractor: 0,
-    contractor_ack_overdue: 0,
-    stalled_repairs: 0,
-    long_running_repairs: 0,
-    repeat_repair_properties: 0,
-    recent_open_created: 0,
-    prev_open_created: 0,
-    outstanding_current_month: 0,
-    outstanding_previous_month: 0,
-  };
+  const snapshotView = useMemo(
+    () =>
+      snapshot ?? {
+        property_count: 0,
+        occupied_count: 0,
+        vacant_count: 0,
+        occupancy_rate: 0,
+        paid_amount: 0,
+        due_amount: 0,
+        overdue_amount: 0,
+        due_soon_amount: 0,
+        outstanding_amount: 0,
+        overdue_0_7_amount: 0,
+        overdue_8_30_amount: 0,
+        overdue_30_plus_amount: 0,
+        open_requests: 0,
+        high_priority_open_requests: 0,
+        waiting_over_48h: 0,
+        active_work_orders: 0,
+        work_orders_without_contractor: 0,
+        contractor_ack_overdue: 0,
+        stalled_repairs: 0,
+        long_running_repairs: 0,
+        repeat_repair_properties: 0,
+        recent_open_created: 0,
+        prev_open_created: 0,
+        outstanding_current_month: 0,
+        outstanding_previous_month: 0,
+      },
+    [snapshot],
+  );
 
   const occupancyRows = useMemo(
     () => [

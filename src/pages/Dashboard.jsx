@@ -88,7 +88,7 @@ export default function Dashboard({
   const [snapshot, setSnapshot] = useState(null);
   const [hubExtras, setHubExtras] = useState([]);
   const [contractorCount, setContractorCount] = useState(0);
-  const [checklistDismissed, setChecklistDismissed] = useState(false);
+  const [dismissedChecklistKeys, setDismissedChecklistKeys] = useState({});
   const hubHorizon = useMemo(() => {
     const h = String(searchParams.get("horizon") || "").toLowerCase();
     return h === "today" ? "today" : "week";
@@ -109,14 +109,14 @@ export default function Dashboard({
     setSearchParams(params, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  useEffect(() => {
-    const key = activeAccountId ? `dashboard_onboarding_hidden:${activeAccountId}:${role}` : "";
-    if (!key) {
-      setChecklistDismissed(false);
-      return;
+  const checklistKey = activeAccountId ? `dashboard_onboarding_hidden:${activeAccountId}:${role}` : "";
+  const checklistDismissed = useMemo(() => {
+    if (!checklistKey) return false;
+    if (Object.prototype.hasOwnProperty.call(dismissedChecklistKeys, checklistKey)) {
+      return Boolean(dismissedChecklistKeys[checklistKey]);
     }
-    setChecklistDismissed(localStorage.getItem(key) === "1");
-  }, [activeAccountId, role]);
+    return localStorage.getItem(checklistKey) === "1";
+  }, [checklistKey, dismissedChecklistKeys]);
 
   useEffect(() => {
     let dead = false;
@@ -314,6 +314,9 @@ export default function Dashboard({
     expiredCount: 0,
     renewalInProgressCount: 0,
   };
+  const hasProperties = (properties || []).length > 0;
+  const hasTenants = (tenants || []).length > 0;
+  const hasPayments = (payments || []).length > 0;
 
   const onboardingItems = useMemo(
     () => [
@@ -321,7 +324,7 @@ export default function Dashboard({
         key: "property",
         title: t("dashboard.onboarding.items.property.title"),
         body: t("dashboard.onboarding.items.property.body"),
-        complete: (properties || []).length > 0,
+        complete: hasProperties,
         href: "/properties",
         icon: Home,
       },
@@ -329,7 +332,7 @@ export default function Dashboard({
         key: "tenant",
         title: t("dashboard.onboarding.items.tenant.title"),
         body: t("dashboard.onboarding.items.tenant.body"),
-        complete: (tenants || []).length > 0,
+        complete: hasTenants,
         href: "/invitations",
         icon: UserPlus,
       },
@@ -337,7 +340,7 @@ export default function Dashboard({
         key: "payment",
         title: t("dashboard.onboarding.items.payment.title"),
         body: t("dashboard.onboarding.items.payment.body"),
-        complete: (payments || []).length > 0,
+        complete: hasPayments,
         href: "/finance",
         icon: Wallet,
       },
@@ -358,7 +361,7 @@ export default function Dashboard({
         icon: BriefcaseBusiness,
       },
     ],
-    [contractorCount, maintenanceStarted, payments, properties, t, tenants]
+    [contractorCount, hasPayments, hasProperties, hasTenants, maintenanceStarted, t]
   );
   const onboardingCompleteCount = onboardingItems.filter((item) => item.complete).length;
 
@@ -489,9 +492,9 @@ export default function Dashboard({
      ========================================================= */
 
   function dismissChecklist() {
-    if (!activeAccountId) return;
-    localStorage.setItem(`dashboard_onboarding_hidden:${activeAccountId}:${role}`, "1");
-    setChecklistDismissed(true);
+    if (!checklistKey) return;
+    localStorage.setItem(checklistKey, "1");
+    setDismissedChecklistKeys((prev) => ({ ...prev, [checklistKey]: true }));
   }
 
   return (
