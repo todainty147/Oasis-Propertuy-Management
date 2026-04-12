@@ -279,7 +279,7 @@ Small to Medium.
 
 **Assessment**
 
-Good “Day 2” improvement.
+In progress.
 
 **Current fit**
 
@@ -299,6 +299,20 @@ Test degraded behavior for:
 - missing backend object
 - storage failure
 - notification write failure
+
+**Current progress**
+
+- Added focused fault-injection contracts in `tests/security/faultInjectionContracts.test.js`.
+- Covered zeroed snapshot fallbacks for missing dashboard, finance, and portfolio RPCs.
+- Covered timeout/non-missing RPC failures staying loud through `logSecurityRelevantFailure(...)` instead of silently falling back.
+- Covered notification write failure logging with account, entity, and recipient-count scope.
+- Covered document storage upload and signed-URL failures with safe document/storage context.
+- Covered Edge Function failure normalization so hosted/scheduled failures retain surface, reason, account/entity, and correlation context.
+
+**Remaining follow-up**
+
+- Add browser-level degraded UX checks once we intentionally expose visible fallback states for critical cards/pages.
+- Add provider-level chaos tests only after production telemetry shows repeated Resend, Twilio, Stripe, or Supabase Storage incidents.
 
 **Effort**
 
@@ -474,7 +488,7 @@ Possible, but costly enough that it should be evidence-driven.
 
 ### Phase 2
 
-- fault injection on critical workflows
+- fault injection on critical workflows, with first service-level coverage now in place
 - accessibility automation
 - limited edge/API rate limiting
 

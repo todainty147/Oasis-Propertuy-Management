@@ -11,7 +11,7 @@ Important scope note:
 Last repo sweep:
 - `2026-04-12`
 - Swept `src/services`, `src/pages`, `supabase/functions`, `docs`, `docs/runbooks`, `tests/security`, and the integration security matrix for denied-event, hosted observability, provider correlation, and remaining-gap references.
-- Result: core app/service security-sensitive flows are now covered by shared app-side classification or documented architectural limits. Scheduled Edge Functions now share hosted observability classification for cron auth/config/runtime/provider failures, leaving only intentionally provider-led and raw-SQL limitations outside the centralized app/edge path.
+- Result: core app/service security-sensitive flows are now covered by shared app-side classification or documented architectural limits. Scheduled Edge Functions now share hosted observability classification for cron auth/config/runtime/provider failures, and targeted fault-injection contracts now exercise missing RPC, timeout, notification-write, storage-upload, signed-URL, and Edge-failure normalization paths. Remaining gaps are intentionally provider-led or raw-SQL limitations outside the centralized app/edge path.
 
 ## Durable Follow-Up Coverage
 
