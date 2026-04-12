@@ -198,6 +198,11 @@ Minimal in-repo helper:
   - `cleanup-security-observability-events`
   - protected by `CRON_SECRET`
   - accepts optional `retentionDays`, `batchSize`, `maxBatches`, and `dryRun`
+- Shared scheduled-function helper:
+  - `supabase/functions/_shared/scheduledObservability.ts`
+  - normalizes cron auth checks for scheduled functions
+  - writes scrubbed `scheduled_workflow` hosted rows for cron auth/config/runtime/provider failures
+  - keeps platform-level failures account-null while preserving account ids for per-account processing/provider failures
 
 Recommended operational pattern:
 
@@ -243,4 +248,5 @@ Example scheduled function payload:
 
 - Edge Function aggregation is still application-path dependent; failures outside app/edge catch paths will not appear here
 - this is not a full analytics or SIEM pipeline
+- Stripe webhook signature verification remains provider-led by design; mirror it here only if billing incident workflows need hosted correlation
 - long-term alerting, trend dashboards, and archive dashboards remain future work

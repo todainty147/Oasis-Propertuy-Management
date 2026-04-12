@@ -1,5 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import twilio from "npm:twilio";
+import {
+  getCronAuthResult,
+  recordScheduledFunctionEvent,
+  serializeError,
+} from "../_shared/scheduledObservability.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -50,6 +55,8 @@ const MAINTENANCE_ALERT_TYPES = [
 const SMS_NOTIFICATION_TYPES = [...RENT_REMINDER_TYPES, ...MAINTENANCE_ALERT_TYPES];
 
 Deno.serve(async (req) => {
+  const requestId = crypto.randomUUID();
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -60,12 +67,28 @@ Deno.serve(async (req) => {
     }
 
     if (!CRON_SECRET) {
+      await recordScheduledFunctionEvent(admin, {
+        surface: "send-sms-notifications",
+        reason: "cron_secret_not_configured",
+        code: "cron_secret_not_configured",
+        correlationId: requestId,
+      });
       return json({ ok: false, error: "CRON_SECRET is not configured" }, 500);
     }
 
-    const headerSecret = req.headers.get("x-cron-secret") || "";
-    const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
-    if (headerSecret !== CRON_SECRET && bearer !== CRON_SECRET) {
+    const auth = getCronAuthResult(req, CRON_SECRET);
+    if (!auth.ok) {
+      await recordScheduledFunctionEvent(admin, {
+        surface: "send-sms-notifications",
+        reason: "unauthorized_cron_invocation",
+        code: "unauthorized",
+        outcome: "denied",
+        correlationId: requestId,
+        metadata: {
+          auth_method: auth.method,
+          method: req.method,
+        },
+      });
       return json({ ok: false, error: "Unauthorized" }, 401);
     }
 
@@ -75,7 +98,27 @@ Deno.serve(async (req) => {
     const results = [];
 
     for (const accountId of accountIds) {
-      results.push(await processAccount(accountId, { dryRun }));
+      try {
+        results.push(await processAccount(accountId, { dryRun }));
+      } catch (error) {
+        const serialized = serializeError(error);
+        await recordScheduledFunctionEvent(admin, {
+          surface: "send-sms-notifications",
+          reason: "account_processing_failed",
+          code: serialized.name,
+          accountId,
+          correlationId: requestId,
+          metadata: {
+            error: serialized.message,
+            dry_run: dryRun,
+          },
+        });
+        results.push({
+          accountId,
+          ok: false,
+          error: serialized.message,
+        });
+      }
     }
 
     return json({
@@ -85,10 +128,20 @@ Deno.serve(async (req) => {
       results,
     });
   } catch (error) {
+    const serialized = serializeError(error);
+    await recordScheduledFunctionEvent(admin, {
+      surface: "send-sms-notifications",
+      reason: "unexpected_function_failure",
+      code: serialized.name,
+      correlationId: requestId,
+      metadata: {
+        error: serialized.message,
+      },
+    });
     return json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : "Unexpected SMS notification error",
+        error: serialized.message || "Unexpected SMS notification error",
       },
       500,
     );
@@ -182,6 +235,19 @@ async function processAccount(accountId: string, { dryRun }: { dryRun: boolean }
     }
 
     if (!client || !TWILIO_FROM_NUMBER) {
+      await recordScheduledFunctionEvent(admin, {
+        surface: "send-sms-notifications",
+        reason: "provider_not_configured",
+        code: "twilio_not_configured",
+        accountId,
+        entityType: row.entity_type,
+        entityId: row.entity_id,
+        metadata: {
+          notification_id: row.id,
+          notification_type: row.type,
+          template_key: classifyTemplateKey(row.type),
+        },
+      });
       await logSmsEvent({
         accountId,
         templateKey: classifyTemplateKey(row.type),
@@ -225,6 +291,21 @@ async function processAccount(accountId: string, { dryRun }: { dryRun: boolean }
       });
       sent += 1;
     } catch (error) {
+      const serialized = serializeError(error);
+      await recordScheduledFunctionEvent(admin, {
+        surface: "send-sms-notifications",
+        reason: "provider_send_failed",
+        code: serialized.name,
+        accountId,
+        entityType: row.entity_type,
+        entityId: row.entity_id,
+        metadata: {
+          error: serialized.message,
+          notification_id: row.id,
+          notification_type: row.type,
+          template_key: classifyTemplateKey(row.type),
+        },
+      });
       await logSmsEvent({
         accountId,
         templateKey: classifyTemplateKey(row.type),
@@ -235,7 +316,7 @@ async function processAccount(accountId: string, { dryRun }: { dryRun: boolean }
         entityId: row.entity_id,
         body: smsBody,
         metadata: {
-          error: error instanceof Error ? error.message : "Unknown SMS send error",
+          error: serialized.message,
           notification_id: row.id,
           notification_type: row.type,
         },

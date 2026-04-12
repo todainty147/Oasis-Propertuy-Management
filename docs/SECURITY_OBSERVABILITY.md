@@ -108,6 +108,13 @@ This note tracks how security-sensitive denied paths currently surface in OASIS 
   - `create-checkout-session`
   - `create-customer-portal-session`
   - `generate-security-audit-export`
+- scheduled/provider-led Edge Functions now share hosted scheduled-workflow classification for:
+  - `sync-operational-automation`
+  - `send-reminder-emails`
+  - `send-sms-notifications`
+  - `cleanup-security-audit-exports`
+  - `cleanup-security-observability-events`
+  - covered reasons include cron-secret misconfiguration, unauthorized cron invocation, per-account processing failures, provider-not-configured, provider-send failure, cleanup workflow signals, and unexpected runtime failures
 
 ## Safety Rules
 
@@ -119,6 +126,7 @@ This note tracks how security-sensitive denied paths currently surface in OASIS 
 - backend `detail` payloads use account/work-order/invite ids and reason codes, not secrets
 - denied-event rows are short-window deduped and only store scrubbed correlation metadata
 - durable denied-event inserts are allowed only for authenticated actors that can be linked back to the target account or entity scope
+- scheduled Edge Function hosted events use scrubbed metadata and intentionally remove obvious email, phone, token, secret, authorization, password, key, signature, body, HTML, and recipient fields
 
 ## Remaining Gaps
 
@@ -126,8 +134,8 @@ This note tracks how security-sensitive denied paths currently surface in OASIS 
 - because PostgreSQL exceptions roll back the original transaction, pure SQL-only callers that do not perform that follow-up still will not create durable denied rows
 - missing-auth browser failures are still mostly console/runtime visible, because anonymous callers are intentionally not allowed to write to the denied-event stream
 - surfaces that still call guard-protected RPCs without the shared app service wrappers will only benefit from structured guard exceptions, not the richer client-side classification block
-- Edge Functions and browser UI still rely on console/runtime logs rather than a centralized hosted log sink
-- the highest-signal invite Edge Function denial paths now classify and persist hosted events consistently, but other non-UI callers still vary
+- browser UI and raw direct callers still need to pass through app/edge catch paths before a hosted event is persisted
+- account-scoped and scheduled Edge Function paths now persist hosted events for the highest-value failures, but provider-owned webhook verification remains provider-led
 - direct provider-side storage policy denials can still require Supabase Storage logs for full root-cause analysis
 - provider request/trace ids can now be carried into app-side diagnostics when the SDK exposes them, which makes cross-checking Storage logs easier
 - best-effort storage cleanup failures after a successful document delete are now structured in app logs, but they are not authorization denials and are not persisted as denied events

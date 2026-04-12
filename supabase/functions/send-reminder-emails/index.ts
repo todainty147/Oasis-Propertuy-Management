@@ -1,4 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  getCronAuthResult,
+  recordScheduledFunctionEvent,
+  serializeError,
+} from "../_shared/scheduledObservability.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -41,6 +46,8 @@ const REMINDER_TYPES = [
 ];
 
 Deno.serve(async (req) => {
+  const requestId = crypto.randomUUID();
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -51,12 +58,28 @@ Deno.serve(async (req) => {
     }
 
     if (!CRON_SECRET) {
+      await recordScheduledFunctionEvent(admin, {
+        surface: "send-reminder-emails",
+        reason: "cron_secret_not_configured",
+        code: "cron_secret_not_configured",
+        correlationId: requestId,
+      });
       return json({ ok: false, error: "CRON_SECRET is not configured" }, 500);
     }
 
-    const headerSecret = req.headers.get("x-cron-secret") || "";
-    const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
-    if (headerSecret !== CRON_SECRET && bearer !== CRON_SECRET) {
+    const auth = getCronAuthResult(req, CRON_SECRET);
+    if (!auth.ok) {
+      await recordScheduledFunctionEvent(admin, {
+        surface: "send-reminder-emails",
+        reason: "unauthorized_cron_invocation",
+        code: "unauthorized",
+        outcome: "denied",
+        correlationId: requestId,
+        metadata: {
+          auth_method: auth.method,
+          method: req.method,
+        },
+      });
       return json({ ok: false, error: "Unauthorized" }, 401);
     }
 
@@ -66,7 +89,27 @@ Deno.serve(async (req) => {
     const results = [];
 
     for (const accountId of accountIds) {
-      results.push(await processAccount(accountId, { dryRun }));
+      try {
+        results.push(await processAccount(accountId, { dryRun }));
+      } catch (error) {
+        const serialized = serializeError(error);
+        await recordScheduledFunctionEvent(admin, {
+          surface: "send-reminder-emails",
+          reason: "account_processing_failed",
+          code: serialized.name,
+          accountId,
+          correlationId: requestId,
+          metadata: {
+            error: serialized.message,
+            dry_run: dryRun,
+          },
+        });
+        results.push({
+          accountId,
+          ok: false,
+          error: serialized.message,
+        });
+      }
     }
 
     return json({
@@ -76,10 +119,20 @@ Deno.serve(async (req) => {
       results,
     });
   } catch (error) {
+    const serialized = serializeError(error);
+    await recordScheduledFunctionEvent(admin, {
+      surface: "send-reminder-emails",
+      reason: "unexpected_function_failure",
+      code: serialized.name,
+      correlationId: requestId,
+      metadata: {
+        error: serialized.message,
+      },
+    });
     return json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : "Unexpected reminder email error",
+        error: serialized.message || "Unexpected reminder email error",
       },
       500,
     );
@@ -176,6 +229,18 @@ async function processAccount(accountId: string, { dryRun }: { dryRun: boolean }
     }
 
     if (!resend) {
+      await recordScheduledFunctionEvent(admin, {
+        surface: "send-reminder-emails",
+        reason: "provider_not_configured",
+        code: "resend_not_configured",
+        accountId,
+        entityType: "user",
+        entityId: userId,
+        metadata: {
+          notification_count: notifications.length,
+          template_key: "operational_reminder_summary",
+        },
+      });
       await logEmailEvent({
         accountId,
         templateKey: "operational_reminder_summary",
@@ -220,6 +285,20 @@ async function processAccount(accountId: string, { dryRun }: { dryRun: boolean }
       });
       sent += 1;
     } catch (error) {
+      const serialized = serializeError(error);
+      await recordScheduledFunctionEvent(admin, {
+        surface: "send-reminder-emails",
+        reason: "provider_send_failed",
+        code: serialized.name,
+        accountId,
+        entityType: "user",
+        entityId: userId,
+        metadata: {
+          error: serialized.message,
+          notification_count: notifications.length,
+          template_key: "operational_reminder_summary",
+        },
+      });
       await logEmailEvent({
         accountId,
         templateKey: "operational_reminder_summary",
@@ -228,7 +307,7 @@ async function processAccount(accountId: string, { dryRun }: { dryRun: boolean }
         recipientUserId: userId,
         subject,
         metadata: {
-          error: error instanceof Error ? error.message : "Unknown reminder email error",
+          error: serialized.message,
           notification_count: notifications.length,
         },
       });

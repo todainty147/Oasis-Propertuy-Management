@@ -4,13 +4,14 @@ This matrix tracks which OASIS security-sensitive surfaces currently produce dur
 
 Important scope note:
 - `durable row` means the denial is captured only when the caller goes through an app/service flow that uses `logSecurityRelevantFailure(...)` and the follow-up `record_security_denied_event(...)` RPC succeeds.
+- `hosted observability row` means the signal is persisted in `public.security_observability_events`; this is used for operational Edge Function failures that should not be modeled as account-user denied events.
 - `structured exception` means the backend emits machine-readable `detail` / `hint`, but no durable denied row is guaranteed.
 - `provider/app log only` means diagnosis is still mainly console/runtime/provider-side rather than durable in Postgres.
 
 Last repo sweep:
 - `2026-04-12`
 - Swept `src/services`, `src/pages`, `supabase/functions`, `docs`, `docs/runbooks`, `tests/security`, and the integration security matrix for denied-event, hosted observability, provider correlation, and remaining-gap references.
-- Result: core app/service security-sensitive flows are now covered by shared app-side classification or documented architectural limits. The main actionable remaining gap is consistency across Edge Function and scheduled/non-UI callers.
+- Result: core app/service security-sensitive flows are now covered by shared app-side classification or documented architectural limits. Scheduled Edge Functions now share hosted observability classification for cron auth/config/runtime/provider failures, leaving only intentionally provider-led and raw-SQL limitations outside the centralized app/edge path.
 
 ## Durable Follow-Up Coverage
 
@@ -57,8 +58,11 @@ Last repo sweep:
 | raw SQL callers to guarded RPCs | mixed | structured exception only | depends on caller | varies | no durable denied row without explicit follow-up request | document as architectural limitation |
 | `create-checkout-session` / `create-customer-portal-session` | billing Edge Functions | app-side structured classification + hosted/denied follow-up when billing service catches a failed response | owner, admin, staff expected; non-member denied | account, edge function name, HTTP status, plan key where applicable | raw/direct Edge Function callers still receive only HTTP JSON errors | keep as-is |
 | `generate-security-audit-export` | audit/export Edge Function | app-side structured classification + hosted/denied follow-up when security audit service catches a failed response | manager/export requester | account, export job entity, edge function name, HTTP status | raw/direct Edge Function callers still receive only HTTP JSON errors | keep as-is |
-| `cleanup-security-observability-events` | hosted observability retention Edge Function | cron-secret protected scheduled cleanup + SQL retention helper | cron operator / service role | retention days, batch size, batch count, deleted rows | cron auth/provider/runtime failures remain scheduler/runtime visible rather than account-user denials | keep as-is |
+| `cleanup-security-observability-events` | hosted observability retention Edge Function | cron-secret protected scheduled cleanup + SQL retention helper + hosted scheduled-workflow rows | cron operator / service role | retention days, batch size, batch count, deleted rows, correlation id | platform-level cron auth/config failures are stored with null account scope and therefore are not returned by account-scoped manager feeds | keep as-is |
 | `send-password-reset-email` | auth email Edge Function | outbound email event rows + HTTP status | anonymous or authenticated requester | recipient user id when resolvable, provider message id when available | intentionally does not write denied events because missing users and resets are auth/email workflow signals, not account-scoped authorization denials | keep low-noise; revisit only if reset abuse/diagnosis requires hosted events |
+| `send-reminder-emails` / `send-sms-notifications` | scheduled outbound communication | hosted scheduled-workflow rows + outbound email/SMS event rows + HTTP output | cron operator / service role | account id where resolved, notification/entity ids, provider/config reason, correlation id | platform-level cron auth/config failures are stored with null account scope; per-recipient provider details stay scrubbed | keep as-is |
+| `sync-operational-automation` | scheduled automation sync | hosted scheduled-workflow rows + execution rows + structured runtime logs | cron operator / service role | account id, account-processing failure reason, correlation id, dry-run flag | platform-level cron auth/config failures are stored with null account scope; normal per-rule results remain in automation execution rows | keep as-is |
+| `cleanup-security-audit-exports` | scheduled export cleanup | hosted scheduled-workflow rows + export job state changes | cron operator / service role | expired job count, bucket count, cleanup reason, correlation id | platform-level cron auth/config failures are stored with null account scope | keep as-is |
 
 ## Provider / Manual Diagnosis Heavy
 
@@ -66,11 +70,10 @@ Last repo sweep:
 | --- | --- | --- | --- | --- | --- | --- |
 | Supabase Storage policy denials behind upload/download/signing | storage | provider log + app log | all app roles | account/document context, provider request/trace when available, app storage operation id | some provider internals still require Supabase Storage logs | keep as-is for document storage; extend the same pattern to attachment buckets if needed |
 | OTP / invite email delivery failures | invite / email | app log only, sometimes durable if classified as auth-like | invited user / inviter roles | account + invitation context only | provider delivery/auth details remain external | keep low-noise; improve only if delivery failures become frequent |
-| `send-reminder-emails` / `send-sms-notifications` / `sync-operational-automation` / `cleanup-security-audit-exports` | scheduled Edge Functions | cron auth response + runtime/provider logs + workflow output rows where implemented | cron operator / service role | account ids and notification/automation entities are available per processed row where applicable | cron-secret denials and provider failures are not normalized into hosted security events | add shared scheduled-function classification only if operational support needs centralized cron-denial tracking |
 | `stripe-webhook` | provider webhook | Stripe/Supabase runtime response + billing/audit side effects | Stripe provider | Stripe event id and account/customer metadata | webhook signature failures and provider retries should stay provider-led; not account-user authorization denials | keep provider-led unless billing incident workflow needs hosted mirroring |
 
 ## Highest-Value Remaining Gaps
 
-1. Scheduled/provider-led Edge Functions still rely on cron/provider/runtime logs instead of hosted security events; this is acceptable unless support needs centralized scheduler-denial tracking.
-2. Hosted event archive/dashboard workflow is intentionally lightweight: retention cleanup is now deployable, but long-term archive dashboards remain future work.
-3. Raw SQL callers that hit guarded RPCs still do not create durable denied rows unless they add the follow-up request themselves; this is a documented architectural limitation rather than a product-flow blocker.
+1. Hosted event archive/dashboard workflow is intentionally lightweight: retention cleanup is now deployable, but long-term archive dashboards remain future work.
+2. Raw SQL callers that hit guarded RPCs still do not create durable denied rows unless they add the follow-up request themselves; this is a documented architectural limitation rather than a product-flow blocker.
+3. Provider-led webhook verification, especially Stripe signature failures and retries, should remain provider-led unless billing incident workflows need hosted mirroring.

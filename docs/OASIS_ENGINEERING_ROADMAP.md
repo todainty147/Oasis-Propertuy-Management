@@ -200,6 +200,17 @@ Directionally good, but the current app is already more DB-authoritative than th
 
 Move only the highest-value orchestration paths into edge functions or stricter RPCs. Do not force everything into a BFF indiscriminately.
 
+**Current progress**
+
+- Scheduled/provider-led Edge Functions now use a shared hosted-observability helper for cron-secret auth checks, platform config failures, per-account processing failures, provider-not-configured states, provider-send failures, cleanup workflow signals, and unexpected runtime failures.
+- The hardened scheduled surfaces are:
+  - `sync-operational-automation`
+  - `send-reminder-emails`
+  - `send-sms-notifications`
+  - `cleanup-security-audit-exports`
+  - `cleanup-security-observability-events`
+- This closes the main non-UI consistency gap without converting operational cron/provider failures into account-user denied events.
+
 **Effort**
 
 Medium.

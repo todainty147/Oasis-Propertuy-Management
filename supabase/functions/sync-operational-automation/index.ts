@@ -1,4 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  getCronAuthResult,
+  recordScheduledFunctionEvent,
+  serializeError,
+} from "../_shared/scheduledObservability.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -65,11 +70,6 @@ type SyncBody = {
   dryRun?: boolean;
 };
 
-type AuthResult = {
-  ok: boolean;
-  method: "x-cron-secret" | "authorization" | "none";
-};
-
 type RuleId = keyof typeof RULE_DEFS;
 
 type AutomationSignal = {
@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const auth = getAuthResult(req);
+    const auth = getCronAuthResult(req, CRON_SECRET);
     logInfo(requestId, "sync_invoked", {
       method: req.method,
       path: new URL(req.url).pathname,
@@ -108,6 +108,12 @@ Deno.serve(async (req) => {
 
     if (!CRON_SECRET) {
       logError(requestId, "missing_cron_secret", { configured: false });
+      await recordScheduledFunctionEvent(admin, {
+        surface: "sync-operational-automation",
+        reason: "cron_secret_not_configured",
+        code: "cron_secret_not_configured",
+        correlationId: requestId,
+      });
       return jsonError(
         500,
         "cron_secret_not_configured",
@@ -118,6 +124,17 @@ Deno.serve(async (req) => {
 
     if (!auth.ok) {
       logWarn(requestId, "unauthorized", { authMethod: auth.method });
+      await recordScheduledFunctionEvent(admin, {
+        surface: "sync-operational-automation",
+        reason: "unauthorized_cron_invocation",
+        code: "unauthorized",
+        outcome: "denied",
+        correlationId: requestId,
+        metadata: {
+          auth_method: auth.method,
+          method: req.method,
+        },
+      });
       return jsonError(
         401,
         "unauthorized",
@@ -167,6 +184,7 @@ Deno.serve(async (req) => {
           executionRowsInserted: result.executionRowsInserted,
         });
       } catch (error) {
+        const serialized = serializeError(error);
         totals.errors += 1;
         if (!dryRun) {
           try {
@@ -180,7 +198,7 @@ Deno.serve(async (req) => {
                 title: "Account automation sync failed",
                 details: {
                   request_id: requestId,
-                  error: error instanceof Error ? error.message : "Unknown account sync error",
+                  error: serialized.message,
                 },
               }),
             ]);
@@ -194,12 +212,23 @@ Deno.serve(async (req) => {
         logError(requestId, "account_sync_failed", {
           accountId,
           dryRun,
-          error: error instanceof Error ? error.message : "Unknown account sync error",
+          error: serialized.message,
+        });
+        await recordScheduledFunctionEvent(admin, {
+          surface: "sync-operational-automation",
+          reason: "account_processing_failed",
+          code: serialized.name,
+          accountId,
+          correlationId: requestId,
+          metadata: {
+            error: serialized.message,
+            dry_run: dryRun,
+          },
         });
         results.push({
           accountId,
           ok: false,
-          error: error instanceof Error ? error.message : "Unknown account sync error",
+          error: serialized.message,
         });
       }
     }
@@ -220,13 +249,23 @@ Deno.serve(async (req) => {
     });
     return json(response);
   } catch (error) {
+    const serialized = serializeError(error);
     logError(requestId, "sync_failed", {
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: serialized.message,
+    });
+    await recordScheduledFunctionEvent(admin, {
+      surface: "sync-operational-automation",
+      reason: "unexpected_function_failure",
+      code: serialized.name,
+      correlationId: requestId,
+      metadata: {
+        error: serialized.message,
+      },
     });
     return jsonError(
       500,
       "unexpected_error",
-      error instanceof Error ? error.message : "Unexpected sync error",
+      serialized.message || "Unexpected sync error",
       requestId,
     );
   }
@@ -281,31 +320,6 @@ async function readJson(req: Request) {
   } catch {
     return {};
   }
-}
-
-function getAuthResult(req: Request): AuthResult {
-  const headerSecret = req.headers.get("x-cron-secret") || "";
-  const authHeader = req.headers.get("Authorization") || "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-
-  if (headerSecret) {
-    return {
-      ok: headerSecret === CRON_SECRET,
-      method: "x-cron-secret",
-    };
-  }
-
-  if (token) {
-    return {
-      ok: token === CRON_SECRET,
-      method: "authorization",
-    };
-  }
-
-  return {
-    ok: false,
-    method: "none",
-  };
 }
 
 async function resolveAccountIds(accountId: string | null) {

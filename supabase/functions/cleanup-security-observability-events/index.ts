@@ -1,4 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  getCronAuthResult,
+  recordScheduledFunctionEvent,
+  serializeError,
+} from "../_shared/scheduledObservability.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -20,6 +25,8 @@ type CleanupBody = {
 };
 
 Deno.serve(async (req) => {
+  const requestId = crypto.randomUUID();
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -30,13 +37,28 @@ Deno.serve(async (req) => {
     }
 
     if (!CRON_SECRET) {
+      await recordScheduledFunctionEvent(admin, {
+        surface: "cleanup-security-observability-events",
+        reason: "cron_secret_not_configured",
+        code: "cron_secret_not_configured",
+        correlationId: requestId,
+      });
       return json({ ok: false, error: "CRON_SECRET is not configured" }, 500);
     }
 
-    const authHeader = req.headers.get("Authorization");
-    const cronSecret = req.headers.get("x-cron-secret");
-    const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-    if (cronSecret !== CRON_SECRET && bearer !== CRON_SECRET) {
+    const auth = getCronAuthResult(req, CRON_SECRET);
+    if (!auth.ok) {
+      await recordScheduledFunctionEvent(admin, {
+        surface: "cleanup-security-observability-events",
+        reason: "unauthorized_cron_invocation",
+        code: "unauthorized",
+        outcome: "denied",
+        correlationId: requestId,
+        metadata: {
+          auth_method: auth.method,
+          method: req.method,
+        },
+      });
       return json({ ok: false, error: "Unauthorized" }, 401);
     }
 
@@ -53,7 +75,7 @@ Deno.serve(async (req) => {
         .lt("created_at", cutoffIso(retentionDays));
       if (error) throw error;
 
-      return json({
+      const response = {
         ok: true,
         dryRun,
         retentionDays,
@@ -61,7 +83,24 @@ Deno.serve(async (req) => {
         maxBatches,
         expiredRows: count || 0,
         deletedRows: 0,
-      });
+      };
+
+      if ((count || 0) > 0) {
+        await recordScheduledFunctionEvent(admin, {
+          surface: "cleanup-security-observability-events",
+          reason: "expired_observability_rows_detected",
+          code: "dry_run",
+          kind: "workflow_signal",
+          outcome: "recorded",
+          correlationId: requestId,
+          metadata: {
+            retention_days: retentionDays,
+            expired_rows: count || 0,
+          },
+        });
+      }
+
+      return json(response);
     }
 
     let deletedRows = 0;
@@ -80,7 +119,7 @@ Deno.serve(async (req) => {
       if (deletedThisBatch <= 0) break;
     }
 
-    return json({
+    const response = {
       ok: true,
       dryRun,
       retentionDays,
@@ -88,10 +127,38 @@ Deno.serve(async (req) => {
       maxBatches,
       batches,
       deletedRows,
-    });
+    };
+
+    if (deletedRows > 0) {
+      await recordScheduledFunctionEvent(admin, {
+        surface: "cleanup-security-observability-events",
+        reason: "expired_observability_rows_cleaned",
+        code: "cleanup_completed",
+        kind: "workflow_signal",
+        outcome: "recorded",
+        correlationId: requestId,
+        metadata: {
+          retention_days: retentionDays,
+          batches,
+          deleted_rows: deletedRows,
+        },
+      });
+    }
+
+    return json(response);
   } catch (error) {
+    const serialized = serializeError(error);
+    await recordScheduledFunctionEvent(admin, {
+      surface: "cleanup-security-observability-events",
+      reason: "unexpected_function_failure",
+      code: serialized.name,
+      correlationId: requestId,
+      metadata: {
+        error: serialized.message,
+      },
+    });
     return json(
-      { ok: false, error: error instanceof Error ? error.message : "Unknown observability cleanup error" },
+      { ok: false, error: serialized.message || "Unknown observability cleanup error" },
       500,
     );
   }

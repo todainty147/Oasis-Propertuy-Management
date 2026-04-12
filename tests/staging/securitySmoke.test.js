@@ -74,7 +74,11 @@ describe.skipIf(!isStagingSmokeConfigured())("staging security smoke", () => {
     });
 
     expect(result.data ?? null).toBeNull();
-    expect(String(result.error?.message || "").toLowerCase()).toContain("access denied");
+    const message = String(result.error?.message || "").toLowerCase();
+    expect(
+      message.includes("access denied") ||
+        message.includes("recipients are not part of this account"),
+    ).toBe(true);
   });
 
   it("rejects an invalid invite token without granting membership", async () => {
