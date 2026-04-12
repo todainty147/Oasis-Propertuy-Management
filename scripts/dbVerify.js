@@ -26,6 +26,11 @@ const verificationChecks = [
     sql: "select to_regclass('public.api_rate_limit_events') is not null;",
   },
   {
+    label: "Account sandbox profile table",
+    why: "Confirms demo/sandbox account lifecycle metadata exists before demo reset tooling is enabled.",
+    sql: "select to_regclass('public.account_sandbox_profiles') is not null;",
+  },
+  {
     label: "Denied-event recorder RPC",
     why: "Confirms app-side durable denied logging can be invoked.",
     sql: "select to_regprocedure('public.record_security_denied_event(text,uuid,text,uuid,text,jsonb)') is not null;",
@@ -74,6 +79,11 @@ const verificationChecks = [
     label: "API rate-limit RPC",
     why: "Confirms Edge Functions can enforce account/actor/identifier scoped throttles.",
     sql: "select to_regprocedure('public.record_api_rate_limit_attempt(text,uuid,uuid,text,integer,integer,jsonb)') is not null;",
+  },
+  {
+    label: "Account sandbox status RPC",
+    why: "Confirms managers can safely read whether the active account is production or demo/sandbox.",
+    sql: "select to_regprocedure('public.get_account_sandbox_status(uuid)') is not null;",
   },
   {
     label: "Documents bucket",

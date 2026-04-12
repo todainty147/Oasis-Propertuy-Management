@@ -430,11 +430,11 @@ Feasible and product-useful.
 
 **Current fit**
 
-OASIS already has deterministic fixture patterns locally and in staging. The schema supports this well.
+OASIS already has deterministic fixture patterns locally and in staging. The schema supports this well. Phase 3 now has the first production-safe sandbox identity layer: `account_sandbox_profiles`, `get_account_sandbox_status(...)`, and an optional self-serve signup flag that can mark new landlord accounts as demo/sandbox without changing existing production account behavior.
 
 **What is missing**
 
-- onboarding product flow
+- demo fixture seeding behind the sandbox flag
 - sandbox lifecycle UX
 - demo reset semantics
 

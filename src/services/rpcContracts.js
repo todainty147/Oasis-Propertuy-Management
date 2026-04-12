@@ -393,6 +393,24 @@ export function parseSelfServeLandlordAccountResult(row) {
     account_id: toNullableString(value.account_id),
     account_name: toStringOr(value.account_name),
     role: toStringOr(value.role).trim().toLowerCase(),
+    sandbox_mode: toStringOr(value.sandbox_mode, "production").trim().toLowerCase(),
+    sandbox_lifecycle_status: toStringOr(value.sandbox_lifecycle_status, "active").trim().toLowerCase(),
+    demo_expires_at: toNullableString(value.demo_expires_at),
+  };
+}
+
+export function parseAccountSandboxStatusRow(row) {
+  const value = assertRecord(row, "account sandbox status row");
+  return {
+    account_id: toNullableString(value.account_id),
+    mode: toStringOr(value.mode, "production").trim().toLowerCase(),
+    lifecycle_status: toStringOr(value.lifecycle_status, "active").trim().toLowerCase(),
+    seeded_fixture_version: toNullableString(value.seeded_fixture_version),
+    demo_expires_at: toNullableString(value.demo_expires_at),
+    reset_requested_at: toNullableString(value.reset_requested_at),
+    reset_completed_at: toNullableString(value.reset_completed_at),
+    is_demo: toBooleanOr(value.is_demo),
+    reset_pending: toBooleanOr(value.reset_pending),
   };
 }
 

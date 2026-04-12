@@ -48,6 +48,7 @@ The core browser journeys use `@axe-core/playwright` through [helpers/accessibil
 The helper currently blocks `critical` and `serious` WCAG 2.0/2.1 A/AA violations on:
 
 - sign-in shell
+- self-serve signup shell
 - owner property details
 - tenant-scoped property details
 - root invitations admin

@@ -3,8 +3,10 @@
 -- Invite-only roles (tenant/contractor/admin/staff) remain invitation-based.
 
 drop function if exists public.create_self_serve_landlord_account(text);
+drop function if exists public.create_self_serve_landlord_account(text, boolean);
 create or replace function public.create_self_serve_landlord_account(
-  p_account_name text default null
+  p_account_name text default null,
+  p_sandbox_mode boolean default false
 )
 returns jsonb
 language plpgsql
@@ -20,6 +22,9 @@ declare
   v_existing_any_non_owner boolean := false;
   v_existing_other_owner_user uuid;
   v_new_account_id uuid;
+  v_sandbox_mode text;
+  v_sandbox_lifecycle_status text;
+  v_demo_expires_at timestamptz;
 begin
   if v_uid is null then
     raise exception 'Not authenticated';
@@ -46,12 +51,23 @@ begin
   limit 1;
 
   if v_existing_owner_account_id is not null then
+    select
+      coalesce(asp.mode, 'production'),
+      coalesce(asp.lifecycle_status, 'active'),
+      asp.demo_expires_at
+    into v_sandbox_mode, v_sandbox_lifecycle_status, v_demo_expires_at
+    from (select v_existing_owner_account_id as account_id) scope
+    left join public.account_sandbox_profiles asp on asp.account_id = scope.account_id;
+
     return jsonb_build_object(
       'ok', true,
       'created', false,
       'account_id', v_existing_owner_account_id,
       'account_name', v_existing_owner_account_name,
-      'role', 'owner'
+      'role', 'owner',
+      'sandbox_mode', v_sandbox_mode,
+      'sandbox_lifecycle_status', v_sandbox_lifecycle_status,
+      'demo_expires_at', v_demo_expires_at
     );
   end if;
 
@@ -94,14 +110,46 @@ begin
   values (v_new_account_id, v_uid, 'owner')
   on conflict (account_id, user_id) do update set role = excluded.role;
 
+  insert into public.account_sandbox_profiles(
+    account_id,
+    mode,
+    lifecycle_status,
+    seeded_fixture_version,
+    demo_expires_at,
+    created_by,
+    updated_by
+  )
+  values (
+    v_new_account_id,
+    case when coalesce(p_sandbox_mode, false) then 'demo' else 'production' end,
+    'active',
+    case when coalesce(p_sandbox_mode, false) then 'self-serve-v1' else null end,
+    case when coalesce(p_sandbox_mode, false) then now() + interval '14 days' else null end,
+    v_uid,
+    v_uid
+  )
+  on conflict (account_id) do nothing;
+
+  select
+    coalesce(asp.mode, 'production'),
+    coalesce(asp.lifecycle_status, 'active'),
+    asp.demo_expires_at
+  into v_sandbox_mode, v_sandbox_lifecycle_status, v_demo_expires_at
+  from (select v_new_account_id as account_id) scope
+  left join public.account_sandbox_profiles asp on asp.account_id = scope.account_id;
+
   return jsonb_build_object(
     'ok', true,
     'created', true,
     'account_id', v_new_account_id,
     'account_name', v_name,
-    'role', 'owner'
+    'role', 'owner',
+    'sandbox_mode', v_sandbox_mode,
+    'sandbox_lifecycle_status', v_sandbox_lifecycle_status,
+    'demo_expires_at', v_demo_expires_at
   );
 end;
 $$;
 
-grant execute on function public.create_self_serve_landlord_account(text) to authenticated;
+grant execute on function public.create_self_serve_landlord_account(text, boolean) to anon;
+grant execute on function public.create_self_serve_landlord_account(text, boolean) to authenticated;

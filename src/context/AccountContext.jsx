@@ -305,8 +305,10 @@ export function AccountProvider({ children }) {
       const signupIntent = String(user?.user_metadata?.signup_intent || "").toLowerCase();
       if (signupIntent === "landlord_owner") {
         try {
+          const signupSandboxMode = String(user?.user_metadata?.signup_sandbox_mode || "").toLowerCase() === "true";
           const row = await finalizeSelfServeLandlordAccount(
-            user?.user_metadata?.signup_account_name || user?.email || ""
+            user?.user_metadata?.signup_account_name || user?.email || "",
+            { sandboxMode: signupSandboxMode },
           );
 
           const newId = row?.account_id || null;
@@ -321,6 +323,7 @@ export function AccountProvider({ children }) {
               subscription_status: "trialing",
               billing_locked_at: null,
               role: "owner",
+              sandbox_mode: row?.sandbox_mode || "production",
             }]);
             setActiveAccountId(newId);
             localStorage.setItem("activeAccountId", newId);

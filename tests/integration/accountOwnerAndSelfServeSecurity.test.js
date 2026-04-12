@@ -287,11 +287,95 @@ describe.skipIf(!isIntegrationHarnessConfigured())("account owner contact and se
     expect(rootMembership.data).toHaveLength(0);
   });
 
+  it("marks optional self-serve sandbox accounts without changing ordinary production signups", async () => {
+    const password = getIntegrationEnv().userPassword;
+    const anon = createAnonClient();
+    const email = `selfserve-sandbox.${randomUUID()}@oasis.test`;
+
+    const signUp = await anon.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          fixture_key: "self_serve_sandbox",
+          oasis_role: "owner",
+        },
+      },
+    });
+    if (signUp.error) throw signUp.error;
+
+    const tempUserId = signUp.data.user?.id;
+    expect(tempUserId).toBeTruthy();
+    tempUserIds.add(tempUserId);
+
+    const signIn = await anon.auth.signInWithPassword({ email, password });
+    if (signIn.error) throw signIn.error;
+
+    const createResult = await anon.rpc("create_self_serve_landlord_account", {
+      p_account_name: "Sandbox Self Serve Account",
+      p_sandbox_mode: true,
+    });
+
+    expect(createResult.error).toBeNull();
+    const createdRow = Array.isArray(createResult.data) ? createResult.data[0] : createResult.data;
+    expect(createdRow).toMatchObject({
+      ok: true,
+      created: true,
+      account_name: "Sandbox Self Serve Account",
+      role: "owner",
+      sandbox_mode: "demo",
+      sandbox_lifecycle_status: "active",
+    });
+    expect(createdRow.demo_expires_at).toBeTruthy();
+    tempAccountIds.add(createdRow.account_id);
+
+    const statusResult = await anon.rpc("get_account_sandbox_status", {
+      p_account_id: createdRow.account_id,
+    });
+
+    expect(statusResult.error).toBeNull();
+    const statusRow = Array.isArray(statusResult.data) ? statusResult.data[0] : statusResult.data;
+    expect(statusRow).toMatchObject({
+      account_id: createdRow.account_id,
+      mode: "demo",
+      lifecycle_status: "active",
+      seeded_fixture_version: "self-serve-v1",
+      is_demo: true,
+      reset_pending: false,
+    });
+    expect(statusRow.demo_expires_at).toBeTruthy();
+
+    const profileLookup = await admin
+      .from("account_sandbox_profiles")
+      .select("account_id, mode, lifecycle_status, seeded_fixture_version")
+      .eq("account_id", createdRow.account_id)
+      .single();
+
+    expect(profileLookup.error).toBeNull();
+    expect(profileLookup.data).toMatchObject({
+      account_id: createdRow.account_id,
+      mode: "demo",
+      lifecycle_status: "active",
+      seeded_fixture_version: "self-serve-v1",
+    });
+  });
+
   it("denies anonymous self-serve account creation", async () => {
     const anon = createAnonClient();
 
     const result = await anon.rpc("create_self_serve_landlord_account", {
       p_account_name: "Anonymous Attempt",
+    });
+
+    expect(result.data ?? null).toBeNull();
+    expect(String(result.error?.message || "").toLowerCase()).toContain("not authenticated");
+  });
+
+  it("denies anonymous sandbox status reads", async () => {
+    const anon = createAnonClient();
+
+    const result = await anon.rpc("get_account_sandbox_status", {
+      p_account_id: isolationFixtures.accounts.accountA.id,
     });
 
     expect(result.data ?? null).toBeNull();

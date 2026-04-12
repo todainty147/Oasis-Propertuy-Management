@@ -15,6 +15,7 @@ export default function LandlordSignup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [accountName, setAccountName] = useState("");
+  const [sandboxMode, setSandboxMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -39,6 +40,7 @@ export default function LandlordSignup() {
           data: {
             signup_intent: "landlord_owner",
             signup_account_name: cleanName,
+            signup_sandbox_mode: String(sandboxMode),
           },
         },
       });
@@ -51,7 +53,7 @@ export default function LandlordSignup() {
 
       // If auth is instantly signed in (email confirm off), create account immediately.
       if (session?.user) {
-        const row = await finalizeSelfServeLandlordAccount(cleanName);
+        const row = await finalizeSelfServeLandlordAccount(cleanName, { sandboxMode });
         const accountId = row?.account_id;
         if (accountId) localStorage.setItem("activeAccountId", accountId);
         navigate("/dashboard", { replace: true });
@@ -117,6 +119,19 @@ export default function LandlordSignup() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+
+          <label className="flex items-start gap-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-3 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={sandboxMode}
+              onChange={(e) => setSandboxMode(e.target.checked)}
+              className="mt-1"
+            />
+            <span>
+              <span className="block font-semibold text-slate-900">{t("signup.sandboxMode")}</span>
+              <span className="block text-xs leading-5 text-slate-600">{t("signup.sandboxModeHint")}</span>
+            </span>
+          </label>
 
           <button
             type="submit"

@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { createElement, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, BriefcaseBusiness, CreditCard, Home, LayoutDashboard, UserPlus, Wrench } from "lucide-react";
 import Card from "../components/Card";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useI18n } from "../context/I18nContext";
 import { useAccount } from "../context/AccountContext";
+import { getAccountSandboxStatus } from "../services/selfServeSignupService";
 
 const STEP_META = [
   { key: "step1", icon: Home, ctaPath: "/properties", ctaKey: "cta.addProperty" },
@@ -17,7 +18,8 @@ const STEP_META = [
 export default function LandlordOnboardingPage() {
   const { t } = useI18n();
   const { setTitle } = usePageTitle();
-  const { activeRole } = useAccount();
+  const { activeAccountId, activeRole } = useAccount();
+  const [sandboxStatus, setSandboxStatus] = useState(null);
 
   const role = String(activeRole ?? "").toLowerCase();
   const isOwner = role === "owner";
@@ -25,6 +27,31 @@ export default function LandlordOnboardingPage() {
   useEffect(() => {
     setTitle(t("onboarding.pageTitle"));
   }, [setTitle, t]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSandboxStatus() {
+      if (!activeAccountId || !isOwner) {
+        setSandboxStatus(null);
+        return;
+      }
+
+      try {
+        const status = await getAccountSandboxStatus(activeAccountId);
+        if (!cancelled) setSandboxStatus(status);
+      } catch (error) {
+        console.warn("Sandbox status load failed:", error);
+        if (!cancelled) setSandboxStatus(null);
+      }
+    }
+
+    loadSandboxStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeAccountId, isOwner]);
 
   if (!isOwner) {
     return (
@@ -60,6 +87,27 @@ export default function LandlordOnboardingPage() {
         </div>
       </section>
 
+      {sandboxStatus?.is_demo ? (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-200">
+            {t("onboarding.sandbox.eyebrow")}
+          </p>
+          <h2 className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
+            {t("onboarding.sandbox.title")}
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700 dark:text-slate-200">
+            {t("onboarding.sandbox.body")}
+          </p>
+          {sandboxStatus.demo_expires_at ? (
+            <p className="mt-3 text-xs font-medium text-amber-800 dark:text-amber-100">
+              {t("onboarding.sandbox.expires", {
+                date: new Date(sandboxStatus.demo_expires_at).toLocaleDateString(),
+              })}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {STEP_META.map(({ key, icon: Icon, ctaPath, ctaKey }, idx) => (
           <Card
@@ -72,7 +120,7 @@ export default function LandlordOnboardingPage() {
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700 shadow-sm dark:bg-blue-500/15 dark:text-blue-300">
-                  <Icon size={18} />
+                  {createElement(Icon, { size: 18 })}
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">

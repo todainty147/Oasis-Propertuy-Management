@@ -35,6 +35,7 @@ const OVERLAY_SEQUENCE = [
   "account_invitations_saas.sql",
   "account_owner_contact.sql",
   "account_report_settings.sql",
+  "account_sandbox_profiles.sql",
   "custom_fields.sql",
   "outbound_email_events.sql",
   "outbound_sms_events.sql",

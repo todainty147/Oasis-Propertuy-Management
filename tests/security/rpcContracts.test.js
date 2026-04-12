@@ -17,6 +17,7 @@ import {
   parseFinanceSnapshotRow,
   parseAccountMemberRoleResult,
   parseAccountMemberRoleAssignmentResult,
+  parseAccountSandboxStatusRow,
   parseAccountOwnerContactRow,
   parseAccountRoleAssignmentMemberRow,
   parseAccountRoleRow,
@@ -231,6 +232,18 @@ describe("rpc contracts", () => {
       account_id: "account-3",
       account_name: "My Account",
       role: "OWNER",
+      sandbox_mode: "DEMO",
+      sandbox_lifecycle_status: "ACTIVE",
+      demo_expires_at: "2026-04-26T00:00:00Z",
+    });
+    const sandboxStatus = parseAccountSandboxStatusRow({
+      account_id: "account-3",
+      mode: "DEMO",
+      lifecycle_status: "RESET_REQUESTED",
+      seeded_fixture_version: "self-serve-v1",
+      demo_expires_at: "2026-04-26T00:00:00Z",
+      reset_pending: "true",
+      is_demo: "true",
     });
 
     expect(rootAccount.is_root).toBe(true);
@@ -239,6 +252,9 @@ describe("rpc contracts", () => {
     expect(memberRole.role).toBe("admin");
     expect(selfServe.role).toBe("owner");
     expect(selfServe.created).toBe(false);
+    expect(selfServe.sandbox_mode).toBe("demo");
+    expect(sandboxStatus.mode).toBe("demo");
+    expect(sandboxStatus.reset_pending).toBe(true);
   });
 
   it("normalizes custom role management rpc rows", () => {
