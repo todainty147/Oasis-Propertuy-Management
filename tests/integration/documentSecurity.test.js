@@ -209,6 +209,10 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document and storage securit
     const downloaded = await client.storage.from("documents").download(doc.storage_path);
     expect(downloaded.error).toBeNull();
     expect(downloaded.data).toBeTruthy();
+
+    const signed = await client.storage.from("documents").createSignedUrl(doc.storage_path, 60);
+    expect(signed.error).toBeNull();
+    expect(signed.data?.signedUrl).toContain("/storage/v1/object/sign/documents/");
   });
 
   it("allows staff to finalize uploaded documents for their own account", async () => {
@@ -470,6 +474,10 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document and storage securit
     const downloaded = await ownerAClient.storage.from("documents").download(doc.storage_path);
     expect(downloaded.data ?? null).toBeNull();
     expect(downloaded.error).toBeTruthy();
+
+    const signed = await ownerAClient.storage.from("documents").createSignedUrl(doc.storage_path, 60);
+    expect(signed.data ?? null).toBeNull();
+    expect(signed.error).toBeTruthy();
   });
 
   it("allows tenant access only to tenant-visible documents in their own property scope", async () => {
@@ -492,6 +500,10 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document and storage securit
     const downloaded = await tenantClient.storage.from("documents").download(doc.storage_path);
     expect(downloaded.error).toBeNull();
     expect(downloaded.data).toBeTruthy();
+
+    const signed = await tenantClient.storage.from("documents").createSignedUrl(doc.storage_path, 60);
+    expect(signed.error).toBeNull();
+    expect(signed.data?.signedUrl).toContain("/storage/v1/object/sign/documents/");
   });
 
   it("denies tenant access to tenant-visible documents outside their property/tenant scope", async () => {
@@ -513,6 +525,10 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document and storage securit
     const downloaded = await tenantClient.storage.from("documents").download(doc.storage_path);
     expect(downloaded.data ?? null).toBeNull();
     expect(downloaded.error).toBeTruthy();
+
+    const signed = await tenantClient.storage.from("documents").createSignedUrl(doc.storage_path, 60);
+    expect(signed.data ?? null).toBeNull();
+    expect(signed.error).toBeTruthy();
   });
 
   it("allows contractor access only to attachments on their assigned work orders", async () => {

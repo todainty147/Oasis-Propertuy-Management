@@ -49,14 +49,14 @@ Coverage status legend:
 
 | Surface | Type | Expected roles | Enforcement layer | Automated coverage status | Notes / known gaps | Recommended next action |
 | --- | --- | --- | --- | --- | --- | --- |
-| `documents` + `create_document_stub` / `finalize_document_upload` / `delete_document_and_audit` / `set_document_tags` | App flow + write RPCs + table RLS | owner, admin, staff; tenant/member depending on flow | RPC guards + document/storage audit path | Partial | Cross-account document reads, tenant self-scope reads, tenant cross-scope denial, download access, wrong-account uploads, tag mutation audit, tenant/contractor tag denial, owner deletion audit, and staff/tenant delete denial are now covered. Raw client `createSignedUrl()` on the local `documents` bucket still returns `Object not found` even when the object exists and service-role download succeeds, so signed-URL behavior remains a local/provider-specific gap. | Separately investigate local `documents` signed-url behavior |
+| `documents` + `create_document_stub` / `finalize_document_upload` / `delete_document_and_audit` / `set_document_tags` | App flow + write RPCs + table RLS | owner, admin, staff; tenant/member depending on flow | RPC guards + document/storage audit path | Integrated | Cross-account document reads, tenant self-scope reads, tenant cross-scope denial, direct download allow/deny behavior, signed URL allow/deny behavior, wrong-account uploads, tag mutation audit, tenant/contractor tag denial, owner deletion audit, and staff/tenant delete denial are covered. | Keep current coverage |
 | `work_order_attachments` / maintenance attachment storage policies | Table/storage policies | owner, admin, staff, tenant uploader, assigned contractor | RLS + storage bucket policies | Integrated | Work-order assigned-contractor reads, cross-work-order denial, maintenance-request tenant/manager upload-read-sign-delete, assigned-contractor read-only access, tenant foreign/closed-request denial, contractor upload/delete denial, and malformed-path denial are covered. | Keep current coverage |
 | `payments` write RPCs (`create_payment`, `update_payment`, `delete_payment`, `mark_payment_paid`, `mark_payment_unpaid`, `void_payment`, `reopen_payment`) | Write RPCs | owner, admin; owner-only delete; tenant read only | RPC guards + table RLS + payment/ledger event triggers | Integrated | In-account owner/admin create-update-status flows, owner-only delete, admin delete denial, staff/tenant/contractor/cross-account denial, ledger cleanup, and payment event side effects are covered. | Keep current coverage |
 | `maintenance_requests` direct insert/update/read table flows | Table RLS + app flow | tenant(self property), owner, admin, staff | RLS policies + tenant auto-stamp trigger | Integrated | Manager in-account read/write/delete, tenant self-property read/create with auto `reported_by_tenant_id`, tenant spoof/cross-property denial, contractor invisibility, tenant/contractor/cross-account mutation denial, and persisted unchanged state are covered. | Keep current coverage |
 | `work_order_assign_contractor` / `work_order_approve_tenant_cancellation` / `work_order_deny_tenant_cancellation` | Write RPCs | owner, admin, staff | manager-only RPC guard | Integrated | Manager contractor assignment, cross-role/cross-account assignment denial, foreign contractor denial, tenant cancellation approve/deny, non-manager decision denial, cross-account decision denial, missing pending request denial, audit rows, and unchanged-state assertions are covered. | Keep current coverage |
 | `root_list_accounts` / `root_set_account_disabled` / `root_delete_account` | Root-only write/read RPCs | root operator | root + active account model | Integrated | Root list/disable/restore/delete, root self-protection, non-root denial, related-data delete denial, and audit append behavior covered | Keep current coverage |
 | `create_self_serve_landlord_account` | Write RPC | authenticated signup actor | self-serve provisioning RPC | Integrated | Clean-user creation, idempotence, non-owner self-escalation denial, anonymous denial, non-root account shape, owner role assignment, and no root membership covered | Keep current coverage |
-| `contractor_update_work_order` | Write RPC | assigned contractor | contractor-only RPC guard | Gap | Contractor portal uses this broader mutation path; current suite only covers the stricter status RPC | Add direct contractor update integration tests |
+| `contractor_update_work_order` | Write RPC | assigned contractor | contractor-only RPC guard | Integrated | Assigned contractor status/notes/schedule success, note-only update, invalid status rollback, wrong-role denial, foreign contractor denial, and cross-account denial covered | Keep current coverage |
 | `contractor_allowed_actions` / `work_order_allowed_actions` / `work_order_allowed_actions_bulk` | Read RPCs | contractor/member/tenant depending on work order | permission computation RPCs | Integrated | Manager, tenant, assigned-contractor, foreign-work-order, terminal-state, and bulk foreign-ID omission behavior covered | Keep current coverage |
 | `account_invitations` direct table CRUD via RLS + `check_account_invitation_eligibility` + `create_landlord_invitation` | Table policies + eligibility/provisioning RPCs | owner, admin, staff; root owner for landlord invite path | table RLS policies + RPC guards | Integrated | Create/revoke/list account scoping, eligibility duplicate/member checks, invite acceptance, root landlord provisioning, root-only denial, owner invitation shape, duplicate landlord invite denial, existing-owner denial, and support membership behavior are covered. | Keep current coverage |
 
@@ -72,18 +72,12 @@ Coverage status legend:
 - contractor quote / invoice workflow mutations
 
 ### Still mostly uncovered
-- local document signed-url behavior
-- broader contractor update RPC
+- No high-risk app-flow gaps are currently tracked in this matrix.
 
 ## Top remaining high-risk gaps
 
-1. **Local document signed-url behavior**  
-   Document upload/download/security coverage exists, but local `documents` bucket signed URLs still behave differently from service-role downloads and need separate provider/local-storage investigation.
-
-2. **Contractor broader update RPC**  
-   `contractor_update_work_order_status` is covered, but the broader `contractor_update_work_order` helper still needs direct assigned-contractor and cross-role authorization coverage.
+No high-risk gaps remain in this matrix after the current coverage pass.
 
 ## Recommended next actions
 
-1. Investigate local document signed-url behavior separately from authorization coverage.
-2. Add broader `contractor_update_work_order` authorization tests.
+1. Keep running the focused integration suites when changing security-sensitive SQL, RLS, RPC, or storage policy paths.
