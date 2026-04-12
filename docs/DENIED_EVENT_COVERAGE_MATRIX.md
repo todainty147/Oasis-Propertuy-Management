@@ -7,6 +7,11 @@ Important scope note:
 - `structured exception` means the backend emits machine-readable `detail` / `hint`, but no durable denied row is guaranteed.
 - `provider/app log only` means diagnosis is still mainly console/runtime/provider-side rather than durable in Postgres.
 
+Last repo sweep:
+- `2026-04-12`
+- Swept `src/services`, `src/pages`, `supabase/functions`, `docs`, `docs/runbooks`, `tests/security`, and the integration security matrix for denied-event, hosted observability, provider correlation, and remaining-gap references.
+- Result: core app/service security-sensitive flows are now covered by shared app-side classification or documented architectural limits. The main actionable remaining gap is consistency across Edge Function and scheduled/non-UI callers.
+
 ## Durable Follow-Up Coverage
 
 | Surface | Type | Current denial signal | Actor types covered | Correlation richness | Known limitations | Recommended next action |
@@ -42,12 +47,17 @@ Important scope note:
 | `set_document_tags` / `delete_document_and_audit` / `document_audit_log_select` | document workflow | durable row + structured exception + app log | owner, admin, staff, tenant, contractor | account, document entity, reason, code, hint | best-effort storage delete cleanup is not a denied-event row | keep as-is |
 | `contractor_work_order_cards` | contractor read RPC | durable row + structured exception/app log through shared service wrapper | contractor, owner/admin/staff/tenant deny paths | account, work order entity, reason, code | raw RPC callers still bypass app follow-up logging | keep as-is |
 | `contractor_allowed_actions` | contractor read RPC | durable row + structured exception/app log through shared service wrapper | contractor, owner/admin/staff/tenant deny paths | account, work order entity, reason, code | page UX still intentionally falls back to empty actions after the shared service logs the denial | keep as-is |
+| `ingest-security-observability` | hosted sink Edge Function | validates caller and inserts hosted row when app logger invokes it | authenticated account-linked callers | account, actor, role, category, kind, surface, entity, correlation id, scrubbed metadata | this is the sink itself, not a denied-event producer for its own failures | keep as-is |
+| `invite-user` Edge Function | invite workflow | function-side classification + hosted observability insert for highest-signal invite denials | owner, admin, staff, root flows | account, role intent, invitation entity, correlation id | invite email provider delivery details remain in outbound email events/provider logs | keep as-is |
 
 ## Structured Exception / App Log Only
 
 | Surface | Type | Current denial signal | Actor types covered | Correlation richness | Known limitations | Recommended next action |
 | --- | --- | --- | --- | --- | --- | --- |
 | raw SQL callers to guarded RPCs | mixed | structured exception only | depends on caller | varies | no durable denied row without explicit follow-up request | document as architectural limitation |
+| `create-checkout-session` / `create-customer-portal-session` | billing Edge Functions | HTTP status + JSON error returned to client | owner, admin, staff expected; non-member denied | account and caller are known in function, but no shared security classification payload | billing service throws plain errors today; denials do not enter hosted/denied streams unless caller adds classification | add shared Edge Function classification helper if billing denial diagnosis becomes launch-critical |
+| `generate-security-audit-export` / `cleanup-security-audit-exports` | audit/export Edge Functions | HTTP status + JSON error returned to client/cron | manager/export requester or cron secret | job/account context is available in function | export denial/failure diagnosis depends on function response/runtime logs, not durable hosted events | add shared Edge Function classification helper before broad audit-export operations |
+| `send-password-reset-email` | auth email Edge Function | outbound email event rows + HTTP status | anonymous or authenticated requester | recipient user id when resolvable, provider message id when available | intentionally does not write denied events because missing users and resets are auth/email workflow signals, not account-scoped authorization denials | keep low-noise; revisit only if reset abuse/diagnosis requires hosted events |
 
 ## Provider / Manual Diagnosis Heavy
 
@@ -55,10 +65,11 @@ Important scope note:
 | --- | --- | --- | --- | --- | --- | --- |
 | Supabase Storage policy denials behind upload/download/signing | storage | provider log + app log | all app roles | account/document context, provider request/trace when available, app storage operation id | some provider internals still require Supabase Storage logs | keep as-is for document storage; extend the same pattern to attachment buckets if needed |
 | OTP / invite email delivery failures | invite / email | app log only, sometimes durable if classified as auth-like | invited user / inviter roles | account + invitation context only | provider delivery/auth details remain external | keep low-noise; improve only if delivery failures become frequent |
-| Edge Function callers outside app wrappers | function / workflow | provider/runtime log only | depends on caller | varies | durable denied rows depend on explicit app follow-up or function-side recording | standardize function-side classification gradually |
+| `send-reminder-emails` / `send-sms-notifications` / `sync-operational-automation` | scheduled Edge Functions | cron auth response + runtime/provider logs + workflow output rows where implemented | cron operator / service role | account ids and notification/automation entities are available per processed row | cron-secret denials and provider failures are not normalized into hosted security events | add shared scheduled-function classification only if operational support needs centralized cron-denial tracking |
+| `stripe-webhook` | provider webhook | Stripe/Supabase runtime response + billing/audit side effects | Stripe provider | Stripe event id and account/customer metadata | webhook signature failures and provider retries should stay provider-led; not account-user authorization denials | keep provider-led unless billing incident workflow needs hosted mirroring |
 
 ## Highest-Value Remaining Gaps
 
-1. Raw SQL callers that hit guarded RPCs still do not create durable denied rows unless they add the follow-up request themselves.
-2. Edge Function and non-UI callers still vary in how consistently they classify denials before forwarding them into durable streams.
-3. Hosted event retention/export is now defined, but no automated scheduler or archive dashboard exists in-repo yet.
+1. Edge Function and non-UI callers still vary in how consistently they classify denials before forwarding them into hosted observability streams.
+2. Hosted event retention/export is now defined, but no automated scheduler or archive dashboard exists in-repo yet.
+3. Raw SQL callers that hit guarded RPCs still do not create durable denied rows unless they add the follow-up request themselves; this is a documented architectural limitation rather than a product-flow blocker.
