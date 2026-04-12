@@ -167,6 +167,69 @@ describe("RPC mutation contracts", () => {
     expect(updated.tags).toEqual(["agreement", "id"]);
   });
 
+  it("logs safe document storage operation correlation when upload fails", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const uploadError = {
+      message: "Access denied",
+      name: "StorageApiError",
+      error: "AccessDenied",
+      statusCode: 403,
+      response: {
+        headers: {
+          get(name) {
+            const lower = String(name).toLowerCase();
+            if (lower === "x-request-id") return "storage-req-1";
+            return null;
+          },
+        },
+      },
+    };
+
+    rpcMock.mockResolvedValue({ data: null, error: null });
+    rpcMock.mockResolvedValueOnce({
+      data: {
+        id: "doc-1",
+        account_id: "account-1",
+        property_id: null,
+        tenant_id: "tenant-1",
+        scope: "tenant",
+        visibility: "tenant",
+        name: "lease.pdf",
+        original_filename: "",
+        mime_type: "application/pdf",
+        size_bytes: "123",
+        storage_path: "account/account-1/documents/doc-1/lease.pdf",
+        upload_status: "pending",
+        tags: ["agreement"],
+      },
+      error: null,
+    });
+    storageUploadMock.mockResolvedValueOnce({ error: uploadError });
+
+    const file = new File(["test"], "lease.pdf", { type: "application/pdf" });
+    const { uploadDocument } = await import("../../src/services/documentService.js");
+
+    await expect(uploadDocument({
+      file,
+      accountId: "account-1",
+      tenantId: "tenant-1",
+      tags: ["agreement"],
+    })).rejects.toThrow("Access denied");
+
+    const [, payload] = spy.mock.calls[0];
+    expect(payload.context.accountId).toBe("account-1");
+    expect(payload.context.documentId).toBe("doc-1");
+    expect(payload.context.storageBucket).toBe("documents");
+    expect(payload.context.storageProvider).toBe("supabase_storage");
+    expect(payload.context.storageOperationId).toMatch(/^document_storage_upload-/);
+    expect(payload.context.providerStatus).toBe(403);
+    expect(payload.context.providerRequestId).toBe("storage-req-1");
+    expect(payload.context.storagePath).toBeUndefined();
+    expect(payload.context.filename).toBeUndefined();
+
+    spy.mockRestore();
+  });
+
   it("returns parsed work-order financial and preventive mutation rows", async () => {
     rpcMock
       .mockResolvedValueOnce({

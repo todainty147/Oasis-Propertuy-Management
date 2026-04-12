@@ -38,7 +38,7 @@ Important scope note:
 | `wo_fin_approve_quote` / `wo_fin_reject_quote` | contractor workflow write | durable row + structured exception + app log | owner, admin, staff, contractor (deny paths) | account, work order entity, reason, code, hint | same as above | keep as-is |
 | `create_document_stub` / `finalize_document_upload` | document write | durable row + structured exception + app log | owner, admin, staff, tenant, contractor | account, document/property/tenant scope, reason, code | storage provider-side failures may still need provider logs | keep as-is |
 | `documents_select` / `documents_search` | document read | durable row + structured exception + app log | owner, admin, staff, tenant, contractor | account, document/property/tenant scope, reason, code | raw SQL/table callers still bypass durable path | keep as-is |
-| `document_preview_url` / `document_storage_download` | document read / storage | durable row + app log, sometimes structured exception | owner, admin, staff, tenant, contractor | account, document id, scope, visibility, reason | provider/storage policy root cause may still sit outside Postgres | next pass should improve provider correlation IDs |
+| `document_preview_url` / `document_storage_upload` / `document_storage_download` / `document_storage_delete` | document storage | durable row + app log, sometimes structured exception | owner, admin, staff, tenant, contractor | account, document id, scope, visibility, reason, provider request/trace when available, app storage operation id | provider/storage policy root cause may still sit outside Postgres, but app logs now carry safe provider/app correlation handles | keep as-is |
 | `set_document_tags` / `delete_document_and_audit` / `document_audit_log_select` | document workflow | durable row + structured exception + app log | owner, admin, staff, tenant, contractor | account, document entity, reason, code, hint | best-effort storage delete cleanup is not a denied-event row | keep as-is |
 | `contractor_work_order_cards` | contractor read RPC | durable row + structured exception/app log through shared service wrapper | contractor, owner/admin/staff/tenant deny paths | account, work order entity, reason, code | raw RPC callers still bypass app follow-up logging | keep as-is |
 | `contractor_allowed_actions` | contractor read RPC | durable row + structured exception/app log through shared service wrapper | contractor, owner/admin/staff/tenant deny paths | account, work order entity, reason, code | page UX still intentionally falls back to empty actions after the shared service logs the denial | keep as-is |
@@ -53,13 +53,12 @@ Important scope note:
 
 | Surface | Type | Current denial signal | Actor types covered | Correlation richness | Known limitations | Recommended next action |
 | --- | --- | --- | --- | --- | --- | --- |
-| Supabase Storage policy denials behind upload/download/signing | storage | provider log + app log | all app roles | account/document context from app, provider specifics outside app | root cause often remains in Storage logs rather than Postgres | add provider correlation id capture where available |
+| Supabase Storage policy denials behind upload/download/signing | storage | provider log + app log | all app roles | account/document context, provider request/trace when available, app storage operation id | some provider internals still require Supabase Storage logs | keep as-is for document storage; extend the same pattern to attachment buckets if needed |
 | OTP / invite email delivery failures | invite / email | app log only, sometimes durable if classified as auth-like | invited user / inviter roles | account + invitation context only | provider delivery/auth details remain external | keep low-noise; improve only if delivery failures become frequent |
 | Edge Function callers outside app wrappers | function / workflow | provider/runtime log only | depends on caller | varies | durable denied rows depend on explicit app follow-up or function-side recording | standardize function-side classification gradually |
 
 ## Highest-Value Remaining Gaps
 
 1. Raw SQL callers that hit guarded RPCs still do not create durable denied rows unless they add the follow-up request themselves.
-2. Storage/provider-side authorization failures still need external logs for full root-cause analysis, even when OASIS app logs contain safe correlation context.
-3. Edge Function and non-UI callers still vary in how consistently they classify denials before forwarding them into durable streams.
-4. Hosted event retention/export is now defined, but no automated scheduler or archive dashboard exists in-repo yet.
+2. Edge Function and non-UI callers still vary in how consistently they classify denials before forwarding them into durable streams.
+3. Hosted event retention/export is now defined, but no automated scheduler or archive dashboard exists in-repo yet.

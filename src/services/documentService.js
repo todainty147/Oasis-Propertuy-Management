@@ -34,6 +34,21 @@ function friendlyError(err, fallback) {
   return new Error(err?.message ?? fallback);
 }
 
+function createStorageOperationId(operation) {
+  const safeOperation = String(operation || "storage")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/^_+|_+$/g, "") || "storage";
+
+  const randomPart =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  return `${safeOperation}-${randomPart}`;
+}
+
 function buildDocumentContext({
   accountId = null,
   documentId = null,
@@ -43,6 +58,8 @@ function buildDocumentContext({
   visibility = null,
   operation = null,
   storageBucket = null,
+  storageOperationId = null,
+  storageProvider = null,
 } = {}) {
   return {
     accountId,
@@ -53,6 +70,8 @@ function buildDocumentContext({
     visibility,
     operation,
     storageBucket,
+    storageOperationId,
+    storageProvider,
   };
 }
 
@@ -136,6 +155,7 @@ export async function uploadDocument({
   /* ======================
      2) UPLOAD FILE TO STORAGE
      ====================== */
+  const uploadOperationId = createStorageOperationId("document_storage_upload");
   const { error: uploadError } = await supabase.storage
     .from("documents")
     .upload(doc.storage_path, file, {
@@ -155,6 +175,8 @@ export async function uploadDocument({
         visibility,
         operation: "storage_upload",
         storageBucket: "documents",
+        storageOperationId: uploadOperationId,
+        storageProvider: "supabase_storage",
       }),
     });
     // Stub will remain; optional mark-failed RPC can be added later.
@@ -299,6 +321,7 @@ export async function searchDocuments({
    ====================== */
 
 export async function getDocumentPreviewUrl(storagePath, context = {}) {
+  const previewOperationId = createStorageOperationId("document_preview_url");
   try {
     return await createSignedStorageUrl("documents", storagePath, 60 * 10);
   } catch (error) {
@@ -313,6 +336,8 @@ export async function getDocumentPreviewUrl(storagePath, context = {}) {
         visibility: context.visibility || null,
         operation: "create_preview_url",
         storageBucket: "documents",
+        storageOperationId: previewOperationId,
+        storageProvider: "supabase_storage",
       }),
     });
     throw error;
@@ -335,6 +360,7 @@ export async function downloadDocument({
 }) {
   if (!storagePath) throw new Error("Brak ścieżki dokumentu");
 
+  const downloadOperationId = createStorageOperationId("document_storage_download");
   const { data, error } = await supabase.storage
     .from("documents")
     .download(storagePath);
@@ -351,6 +377,8 @@ export async function downloadDocument({
         visibility,
         operation: "download_document",
         storageBucket: "documents",
+        storageOperationId: downloadOperationId,
+        storageProvider: "supabase_storage",
       }),
     });
     throw error;
@@ -440,6 +468,7 @@ export async function deleteDocument({
   }
 
   // 2) Best-effort storage delete
+  const deleteOperationId = createStorageOperationId("document_storage_delete");
   const { error: storageError } = await supabase.storage
     .from("documents")
     .remove([storagePath]);
@@ -457,6 +486,8 @@ export async function deleteDocument({
         visibility,
         operation: "storage_delete_after_document_delete",
         storageBucket: "documents",
+        storageOperationId: deleteOperationId,
+        storageProvider: "supabase_storage",
       }),
     });
   }
