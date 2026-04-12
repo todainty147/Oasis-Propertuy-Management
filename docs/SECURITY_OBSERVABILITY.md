@@ -23,7 +23,7 @@ This note tracks how security-sensitive denied paths currently surface in OASIS 
   - a manager-safe read RPC: `public.security_observability_event_feed(...)`
   - a lightweight retention helper: `public.cleanup_security_observability_events(...)`
   - a cron-safe cleanup Edge Function: `cleanup-security-observability-events`
-  - a minimal read-only operator view inside the Security Audit page
+  - an operator view inside the Security Audit page with summaries, repeated-pattern grouping, investigation context, CSV export, and SQL copy helpers
 - Guard-function denials are surfaced with stable correlation fields:
   - `surface`
   - `reason`
@@ -131,9 +131,10 @@ This note tracks how security-sensitive denied paths currently surface in OASIS 
 - direct provider-side storage policy denials can still require Supabase Storage logs for full root-cause analysis
 - provider request/trace ids can now be carried into app-side diagnostics when the SDK exposes them, which makes cross-checking Storage logs easier
 - best-effort storage cleanup failures after a successful document delete are now structured in app logs, but they are not authorization denials and are not persisted as denied events
-- hosted aggregation is intentionally minimal in this pass; trend dashboards, alerting, and archive dashboards are still future work
+- hosted aggregation now has a usable operator workflow; trend dashboards, SLO/alert thresholds, and archive dashboards are still future work
 
 See also:
 - [HOSTED_SECURITY_LOG_SINK.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/HOSTED_SECURITY_LOG_SINK.md)
 - [DENIED_EVENT_COVERAGE_MATRIX.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/DENIED_EVENT_COVERAGE_MATRIX.md)
+- [OPERATIONAL_GOLDEN_SIGNALS.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OPERATIONAL_GOLDEN_SIGNALS.md)
 - [runbooks/README.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/README.md)

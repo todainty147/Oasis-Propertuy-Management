@@ -224,7 +224,7 @@ export default function PortfolioHealthDashboardPage() {
       if (!activeAccountId || !canManage) return;
       try {
         const [snapshotRow, attention, leaseAttention, leaseSummaryRow, reportingRow, healthRows] = await Promise.all([
-          getPortfolioHealthSnapshot(activeAccountId, activeTenantId || null),
+          getPortfolioHealthSnapshot(activeAccountId, activeTenantId || null, { forceRefresh: true }),
           getPortfolioAttentionItems(activeAccountId, activeTenantId || null, 10),
           getLeaseAttentionItems(activeAccountId, 6),
           getLeaseSummary(activeAccountId),

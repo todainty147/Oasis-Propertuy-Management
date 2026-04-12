@@ -34,5 +34,8 @@ describe("roles management page contracts", () => {
     expect(serviceSource).toContain('supabase.rpc("update_account_role_permissions"');
     expect(serviceSource).toContain('supabase.rpc("assign_account_member_role_id"');
     expect(serviceSource).toContain('supabase.rpc("list_account_members_for_role_assignment"');
+    expect(serviceSource).toContain("parseAccountRoleRow");
+    expect(serviceSource).toContain("parseAccountRoleAssignmentMemberRow");
+    expect(serviceSource).toContain("parseAccountMemberRoleAssignmentResult");
   });
 });

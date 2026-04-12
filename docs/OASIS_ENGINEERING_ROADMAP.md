@@ -23,13 +23,14 @@ The only recommendation that looks genuinely heavy on the current schema is larg
 
 ## Current Milestone
 
-### Iteration 2A: Flexibility, Communication, and Trust
+### Iteration 2A Close-Out / Phase 1 Maturity Hardening
 
 Current objective:
 
 - strengthen account-level flexibility without undoing the existing SQL/RLS-first architecture
 - tighten trust boundaries across UI, RPCs, and RLS while expanding admin configurability
 - add lightweight communication and extensibility primitives that support future commercialization
+- start the next maturity layer: typed service contracts, operator observability, golden signals, and selective caching
 
 Scope for this milestone:
 
@@ -37,11 +38,13 @@ Scope for this milestone:
 - custom staff roles and assignment flows
 - custom fields for properties and tenants
 - outbound email/SMS triggers with communication logging
+- Phase 1 hardening over high-value service/RPC boundaries
 
 Strategic themes:
 
 - Platform: permissions, custom roles, custom fields
 - Commercial: email/SMS, reports, insights
+- Operations: typed contracts, observability, SLOs, reliability
 
 Execution guardrails:
 
@@ -56,6 +59,7 @@ Success criteria:
 - account owners can create and assign custom roles without schema bypasses
 - properties and tenants support account-defined custom fields with stored per-entity values
 - OASIS can trigger and log basic outbound email/SMS events for selected workflows
+- high-value service/RPC responses are normalized through shared runtime contracts before reaching UI state
 
 ## Iteration 2A Epics
 
@@ -160,9 +164,15 @@ Those are good contract boundaries already.
 
 **What to build**
 
-- Zod schemas for RPC inputs and outputs
-- typed service adapters around the existing RPCs
+- lightweight runtime contracts for RPC inputs and outputs
+- typed service adapters around the existing RPCs and table-backed service boundaries
 - light contract tests for signature and shape stability
+
+**Current progress**
+
+- `src/services/rpcContracts.js` now covers the core snapshot, command/attention, maintenance, document, security audit, hosted observability, billing, invite, custom role, and account owner contact response shapes.
+- Custom staff role management RPCs now normalize through the shared contract layer instead of local inline row mappers.
+- Account owner contact lookup now uses the same contract boundary as the other RPC-backed service adapters.
 
 **Effort**
 
@@ -210,6 +220,16 @@ OASIS already uses snapshot-oriented RPCs, which are much easier to cache safely
 - account-scoped cache keys
 - no distributed cache until actual load justifies it
 
+**Current progress**
+
+- A small in-memory read-through snapshot cache now covers the highest-value read-heavy surfaces:
+  - `dashboard_snapshot`
+  - `finance_snapshot`
+  - `portfolio_health_snapshot`
+- Cache keys include account and tenant scope, plus dashboard horizon where relevant.
+- Realtime refresh paths explicitly bypass the cache so payment/property/tenant/workflow changes do not keep stale dashboard, finance, or portfolio totals on screen.
+- This remains intentionally local and short-lived; Redis/KV or materialized cache layers should still wait for production traffic evidence.
+
 **Effort**
 
 Small to Medium.
@@ -233,6 +253,12 @@ Define signals for:
 - auth failures
 - storage failures
 - error rate on critical workflows
+
+**Current progress**
+
+- Phase 1 golden signals are now defined in [OPERATIONAL_GOLDEN_SIGNALS.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OPERATIONAL_GOLDEN_SIGNALS.md).
+- Existing hosted telemetry already supports latency samples, slow-threshold events, burst-pressure rollups, and trend series for root/support telemetry views.
+- Alerting should start with lightweight thresholds over critical read latency, unexpected failure bursts, provider delivery failures, document storage failures, and consecutive scheduled-job failures.
 
 **Effort**
 
@@ -313,6 +339,12 @@ Improve operator UX:
 - better explanations
 - one-click investigation paths
 - grouped correlations by account, entity, and reason
+
+**Current progress**
+
+- The Security Audit page now includes an operator-facing hosted observability section with summary cards, filters, repeated-pattern grouping, recommended next actions, CSV export, SQL copy, and shareable investigation links.
+- Hosted events can be correlated with anomaly alerts and ledger rows so a support/operator user can move from signal to investigation context without manually reconstructing the account/entity scope.
+- Remaining dashboard work should focus on trend views, alert thresholds, and longer-term archive reporting rather than basic event visibility.
 
 **Effort**
 

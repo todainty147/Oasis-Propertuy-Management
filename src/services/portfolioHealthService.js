@@ -13,6 +13,11 @@ import {
   parsePortfolioHealthSnapshotRow,
   parseRpcRows,
 } from "./rpcContracts";
+import {
+  buildSnapshotCacheKey,
+  getSnapshotCacheValue,
+  setSnapshotCacheValue,
+} from "./snapshotCache";
 
 let portfolioAttentionItemsUnavailable = false;
 
@@ -30,8 +35,14 @@ function isMissingBackendObject(error) {
   );
 }
 
-export async function getPortfolioHealthSnapshot(accountId, tenantId = null) {
+export async function getPortfolioHealthSnapshot(accountId, tenantId = null, { forceRefresh = false } = {}) {
   if (!accountId) throw new Error("Missing accountId");
+  const cacheKey = buildSnapshotCacheKey("portfolio_health_snapshot", { accountId, tenantId });
+  if (!forceRefresh) {
+    const cached = getSnapshotCacheValue(cacheKey);
+    if (cached) return cached;
+  }
+
   const startedAt = startOperationalTimer();
   const thresholdMs = 1500;
 
@@ -66,7 +77,7 @@ export async function getPortfolioHealthSnapshot(accountId, tenantId = null) {
     thresholdMs,
     context: { hasTenantScope: Boolean(tenantId) },
   });
-  return parsePortfolioHealthSnapshotRow(firstRpcRow(data));
+  return setSnapshotCacheValue(cacheKey, parsePortfolioHealthSnapshotRow(firstRpcRow(data)));
 }
 
 export async function getPortfolioAttentionItems(accountId, tenantId = null, limit = 10) {

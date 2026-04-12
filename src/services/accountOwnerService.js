@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { firstRpcRow, parseAccountOwnerContactRow } from "./rpcContracts";
 
 function isMissingBackendObject(error) {
   const message = String(error?.message || "").toLowerCase();
@@ -32,10 +33,7 @@ export async function getAccountOwnerContact(accountId) {
     }
     throw error;
   }
-  const row = Array.isArray(data) ? data[0] : data;
+  const row = firstRpcRow(data);
   if (!row) return null;
-  return {
-    ownerUserId: row.owner_user_id,
-    ownerEmail: row.owner_email,
-  };
+  return parseAccountOwnerContactRow(row);
 }

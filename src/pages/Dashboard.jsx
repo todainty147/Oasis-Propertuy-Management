@@ -213,6 +213,7 @@ export default function Dashboard({
         getDashboardSnapshot(activeAccountId, {
           tenantId: activeTenantId || null,
           horizonDays,
+          forceRefresh: true,
         }),
         getDashboardHubExtras(activeAccountId, {
           tenantId: activeTenantId || null,

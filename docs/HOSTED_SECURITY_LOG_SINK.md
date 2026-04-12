@@ -111,9 +111,15 @@ This is enough for:
 
 without committing to a full dashboard or analytics subsystem.
 
-The existing Security Audit page now includes a small read-only hosted-event section backed by this RPC.
-That section also supports a lightweight CSV export of the currently filtered hosted rows.
-It now also includes a `Copy SQL` helper that generates a manager-safe `security_observability_event_feed(...)` query matching the current UI filters.
+The existing Security Audit page now includes an operator-facing hosted-event section backed by this RPC.
+That section supports:
+
+- summary cards for visible hosted events, authorization denials, unexpected failures, and guard-denied counts
+- repeated-pattern grouping by surface, entity type, and reason
+- recommended next actions for authorization denials and unexpected backend failures
+- focused investigation links that correlate hosted events with anomaly alerts and ledger rows
+- lightweight CSV export of the currently filtered hosted rows
+- a `Copy SQL` helper that generates a manager-safe `security_observability_event_feed(...)` query matching the current UI filters
 
 Example SQL:
 

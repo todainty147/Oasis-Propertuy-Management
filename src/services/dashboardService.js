@@ -12,6 +12,11 @@ import {
   parseDashboardSnapshotRow,
   parseRpcRows,
 } from "./rpcContracts";
+import {
+  buildSnapshotCacheKey,
+  getSnapshotCacheValue,
+  setSnapshotCacheValue,
+} from "./snapshotCache";
 
 let dashboardHubExtrasUnavailable = false;
 
@@ -29,8 +34,21 @@ function isMissingBackendObject(error) {
   );
 }
 
-export async function getDashboardSnapshot(accountId, { tenantId = null, horizonDays = 1 } = {}) {
+export async function getDashboardSnapshot(
+  accountId,
+  { tenantId = null, horizonDays = 1, forceRefresh = false } = {},
+) {
   if (!accountId) throw new Error("Missing accountId");
+  const cacheKey = buildSnapshotCacheKey("dashboard_snapshot", {
+    accountId,
+    tenantId,
+    horizonDays,
+  });
+  if (!forceRefresh) {
+    const cached = getSnapshotCacheValue(cacheKey);
+    if (cached) return cached;
+  }
+
   const startedAt = startOperationalTimer();
   const thresholdMs = 1200;
 
@@ -66,7 +84,7 @@ export async function getDashboardSnapshot(accountId, { tenantId = null, horizon
     thresholdMs,
     context: { horizonDays, hasTenantScope: Boolean(tenantId) },
   });
-  return parseDashboardSnapshotRow(firstRpcRow(data));
+  return setSnapshotCacheValue(cacheKey, parseDashboardSnapshotRow(firstRpcRow(data)));
 }
 
 export async function getDashboardHubExtras(accountId, { tenantId = null, horizonDays = 1 } = {}) {

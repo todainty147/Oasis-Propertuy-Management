@@ -341,6 +341,50 @@ export function parseAccountMemberRoleResult(row) {
   };
 }
 
+export function parseAccountRoleRow(row) {
+  const value = assertRecord(row, "account role row");
+  return {
+    id: toStringOr(value.role_id ?? value.id),
+    name: toStringOr(value.name),
+    permissionKeys: toArrayOr(value.permission_keys)
+      .map((key) => toStringOr(key).trim().toLowerCase())
+      .filter(Boolean),
+    memberCount: toNumberOr(value.member_count),
+    isSystem: toBooleanOr(value.is_system),
+  };
+}
+
+export function parseAccountRoleAssignmentMemberRow(row) {
+  const value = assertRecord(row, "account role assignment member row");
+  return {
+    userId: toStringOr(value.user_id),
+    email: toStringOr(value.email).trim().toLowerCase(),
+    legacyRole: toStringOr(value.legacy_role).trim().toLowerCase(),
+    roleId: toNullableString(value.role_id),
+    roleName: toNullableString(value.role_name),
+  };
+}
+
+export function parseAccountMemberRoleAssignmentResult(row) {
+  const value = assertRecord(row, "account member role assignment result");
+  return {
+    ok: toBooleanOr(value.ok, true),
+    accountId: toNullableString(value.account_id),
+    userId: toNullableString(value.user_id ?? value.target_user_id),
+    roleId: toNullableString(value.role_id),
+    roleName: toNullableString(value.role_name),
+    legacyRole: toStringOr(value.legacy_role ?? value.role).trim().toLowerCase(),
+  };
+}
+
+export function parseAccountOwnerContactRow(row) {
+  const value = assertRecord(row, "account owner contact row");
+  return {
+    ownerUserId: toNullableString(value.owner_user_id),
+    ownerEmail: toStringOr(value.owner_email).trim().toLowerCase(),
+  };
+}
+
 export function parseSelfServeLandlordAccountResult(row) {
   const value = assertRecord(row, "self-serve landlord account result");
   return {

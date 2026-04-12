@@ -10,6 +10,11 @@ import {
   firstRpcRow,
   parseFinanceSnapshotRow,
 } from "./rpcContracts";
+import {
+  buildSnapshotCacheKey,
+  getSnapshotCacheValue,
+  setSnapshotCacheValue,
+} from "./snapshotCache";
 
 function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -25,8 +30,14 @@ function isMissingBackendObject(error) {
   );
 }
 
-export async function getFinanceSnapshot(accountId, tenantId = null) {
+export async function getFinanceSnapshot(accountId, tenantId = null, { forceRefresh = false } = {}) {
   if (!accountId) throw new Error("Missing accountId");
+  const cacheKey = buildSnapshotCacheKey("finance_snapshot", { accountId, tenantId });
+  if (!forceRefresh) {
+    const cached = getSnapshotCacheValue(cacheKey);
+    if (cached) return cached;
+  }
+
   const startedAt = startOperationalTimer();
   const thresholdMs = 1200;
 
@@ -61,5 +72,5 @@ export async function getFinanceSnapshot(accountId, tenantId = null) {
     thresholdMs,
     context: { hasTenantScope: Boolean(tenantId) },
   });
-  return parseFinanceSnapshotRow(firstRpcRow(data));
+  return setSnapshotCacheValue(cacheKey, parseFinanceSnapshotRow(firstRpcRow(data)));
 }

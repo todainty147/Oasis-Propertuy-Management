@@ -1,4 +1,11 @@
 import { supabase } from "../lib/supabase";
+import {
+  firstRpcRow,
+  parseAccountMemberRoleAssignmentResult,
+  parseAccountRoleAssignmentMemberRow,
+  parseAccountRoleRow,
+  parseRpcRows,
+} from "./rpcContracts";
 
 function friendly(error, fallback) {
   return new Error(error?.message ?? fallback);
@@ -35,32 +42,12 @@ export const ROLE_PERMISSION_OPTIONS = [
   "users.role",
 ];
 
-function normalizeRoleRow(row) {
-  return {
-    id: String(row?.role_id || row?.id || ""),
-    name: String(row?.name || ""),
-    permissionKeys: normalizePermissionKeys(row?.permission_keys),
-    memberCount: Number(row?.member_count || 0),
-    isSystem: Boolean(row?.is_system),
-  };
-}
-
-function normalizeMemberRow(row) {
-  return {
-    userId: String(row?.user_id || ""),
-    email: String(row?.email || ""),
-    legacyRole: String(row?.legacy_role || ""),
-    roleId: row?.role_id ? String(row.role_id) : null,
-    roleName: row?.role_name ? String(row.role_name) : null,
-  };
-}
-
 export async function listAccountRoles(accountId) {
   const { data, error } = await supabase.rpc("list_account_roles", {
     p_account_id: accountId,
   });
   if (error) throw friendly(error, "Failed to load roles");
-  return (data || []).map(normalizeRoleRow);
+  return parseRpcRows(data || [], parseAccountRoleRow, "account role rows");
 }
 
 export async function createAccountRole({ accountId, name, permissionKeys } = {}) {
@@ -70,7 +57,7 @@ export async function createAccountRole({ accountId, name, permissionKeys } = {}
     p_permission_keys: normalizePermissionKeys(permissionKeys),
   });
   if (error) throw friendly(error, "Failed to create role");
-  return normalizeRoleRow(Array.isArray(data) ? data[0] : data);
+  return parseAccountRoleRow(firstRpcRow(data));
 }
 
 export async function updateAccountRolePermissions({ accountId, roleId, permissionKeys } = {}) {
@@ -80,7 +67,7 @@ export async function updateAccountRolePermissions({ accountId, roleId, permissi
     p_permission_keys: normalizePermissionKeys(permissionKeys),
   });
   if (error) throw friendly(error, "Failed to update role permissions");
-  return normalizeRoleRow(Array.isArray(data) ? data[0] : data);
+  return parseAccountRoleRow(firstRpcRow(data));
 }
 
 export async function assignAccountMemberRoleId({ accountId, targetUserId, roleId = null } = {}) {
@@ -90,7 +77,7 @@ export async function assignAccountMemberRoleId({ accountId, targetUserId, roleI
     p_role_id: roleId,
   });
   if (error) throw friendly(error, "Failed to assign role");
-  return Array.isArray(data) ? data[0] ?? null : data;
+  return parseAccountMemberRoleAssignmentResult(firstRpcRow(data));
 }
 
 export async function listAccountMembersForRoleAssignment(accountId) {
@@ -98,5 +85,9 @@ export async function listAccountMembersForRoleAssignment(accountId) {
     p_account_id: accountId,
   });
   if (error) throw friendly(error, "Failed to load account members");
-  return (data || []).map(normalizeMemberRow);
+  return parseRpcRows(
+    data || [],
+    parseAccountRoleAssignmentMemberRow,
+    "account role assignment member rows",
+  );
 }

@@ -16,6 +16,10 @@ import {
   parseDashboardSnapshotRow,
   parseFinanceSnapshotRow,
   parseAccountMemberRoleResult,
+  parseAccountMemberRoleAssignmentResult,
+  parseAccountOwnerContactRow,
+  parseAccountRoleAssignmentMemberRow,
+  parseAccountRoleRow,
   parseInvitationEligibilityRow,
   parseInvitationRow,
   parseRpcRows,
@@ -235,6 +239,66 @@ describe("rpc contracts", () => {
     expect(memberRole.role).toBe("admin");
     expect(selfServe.role).toBe("owner");
     expect(selfServe.created).toBe(false);
+  });
+
+  it("normalizes custom role management rpc rows", () => {
+    const role = parseAccountRoleRow({
+      role_id: "role-1",
+      name: "Portfolio Ops",
+      permission_keys: [" Finance.Read ", "documents.upload", "", null],
+      member_count: "3",
+      is_system: "false",
+    });
+    const member = parseAccountRoleAssignmentMemberRow({
+      user_id: "user-1",
+      email: " Staff.A1@Oasis.Test ",
+      legacy_role: "STAFF",
+      role_id: "role-1",
+      role_name: "portfolio ops",
+    });
+    const assignment = parseAccountMemberRoleAssignmentResult({
+      ok: "true",
+      account_id: "account-1",
+      user_id: "user-1",
+      legacy_role: "ADMIN",
+      role_id: "role-1",
+      role_name: "portfolio ops",
+    });
+
+    expect(role).toEqual({
+      id: "role-1",
+      name: "Portfolio Ops",
+      permissionKeys: ["finance.read", "documents.upload"],
+      memberCount: 3,
+      isSystem: false,
+    });
+    expect(member).toEqual({
+      userId: "user-1",
+      email: "staff.a1@oasis.test",
+      legacyRole: "staff",
+      roleId: "role-1",
+      roleName: "portfolio ops",
+    });
+    expect(assignment).toEqual({
+      ok: true,
+      accountId: "account-1",
+      userId: "user-1",
+      legacyRole: "admin",
+      roleId: "role-1",
+      roleName: "portfolio ops",
+    });
+  });
+
+  it("normalizes account owner contact rpc rows", () => {
+    expect(
+      parseAccountOwnerContactRow({
+        owner_user_id: "owner-1",
+        owner_email: " Owner@Oasis.Test ",
+      }),
+    ).toEqual({
+      ownerUserId: "owner-1",
+      ownerEmail: "owner@oasis.test",
+    });
   });
 
   it("fails clearly when an RPC rowset is not an array", () => {

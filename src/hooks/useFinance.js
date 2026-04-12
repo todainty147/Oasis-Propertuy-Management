@@ -21,7 +21,7 @@ export function useFinance({ enabled = true } = {}) {
   const [propertyFinance, setPropertyFinance] = useState([]);
   const [loading, setLoading] = useState(enabled);
 
-  async function loadFinance() {
+  async function loadFinance({ forceRefresh = false } = {}) {
     if (!enabled || !activeAccountId) {
       setLoading(false);
       return;
@@ -31,7 +31,7 @@ export function useFinance({ enabled = true } = {}) {
 
     try {
       const [snapshot, paymentsRes] = await Promise.all([
-        getFinanceSnapshot(activeAccountId, activeTenantId || null),
+        getFinanceSnapshot(activeAccountId, activeTenantId || null, { forceRefresh }),
         (() => {
           let paymentsQuery = supabase
             .from("payments")
@@ -123,7 +123,7 @@ export function useFinance({ enabled = true } = {}) {
         filter: `account_id=eq.${activeAccountId}`,
       },
     ],
-    onChange: loadFinance,
+    onChange: () => loadFinance({ forceRefresh: true }),
   });
 
   return {
