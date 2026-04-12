@@ -15,8 +15,10 @@ describe("security observability contracts", () => {
     const deniedEventSql = readSql("supabase/security_denied_event_stream.sql");
     const hostedSinkSql = readSql("supabase/security_observability_events.sql");
     const hostedSinkFn = readSql("supabase/functions/ingest-security-observability/index.ts");
+    const hostedCleanupFn = readSql("supabase/functions/cleanup-security-observability-events/index.ts");
     const inviteEdgeFn = readSql("supabase/functions/invite-user/index.ts");
     const reminderEdgeFn = readSql("supabase/functions/send-reminder-emails/index.ts");
+    const deployCronScript = readSql("scripts/deployCronFunctions.js");
     const loggerSource = readSql("src/services/securityFailureLogger.js");
     const hostedSinkServiceSource = readSql("src/services/securityObservabilityService.js");
     const securityAuditPageSource = readSql("src/pages/SecurityAuditPage.jsx");
@@ -38,6 +40,9 @@ describe("security observability contracts", () => {
     expect(hostedSinkSql).toContain("create or replace function public.security_observability_event_feed");
     expect(hostedSinkSql).toContain("create or replace function public.cleanup_security_observability_events");
     expect(hostedSinkFn).toContain("security_observability_events");
+    expect(hostedCleanupFn).toContain("cleanup_security_observability_events");
+    expect(hostedCleanupFn).toContain("CRON_SECRET");
+    expect(deployCronScript).toContain('"cleanup-security-observability-events"');
     expect(inviteEdgeFn).toContain("recordSecurityObservabilityEvent");
     expect(reminderEdgeFn).toContain("CRON_SECRET");
     expect(loggerSource).toContain("supabase.functions.invoke(");

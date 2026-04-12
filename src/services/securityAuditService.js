@@ -10,6 +10,8 @@ import {
   parseSecurityAuditExportJobRow,
 } from "./rpcContracts";
 import { createSignedStorageUrl } from "./storageUrlService";
+import { buildEdgeFunctionFailure } from "./edgeFunctionFailure";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
@@ -60,7 +62,7 @@ function buildExportDisplayLabel(row) {
   return "security-audit-export";
 }
 
-async function invokeEdgeFunction(name, body) {
+async function invokeEdgeFunction(name, body, context = {}) {
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -87,7 +89,25 @@ async function invokeEdgeFunction(name, body) {
   }
 
   if (!res.ok) {
-    throw new Error(payload?.error || `Failed to call ${name}`);
+    const error = buildEdgeFunctionFailure({
+      payload,
+      status: res.status,
+      surface: name,
+      fallback: `Failed to call ${name}`,
+      accountId: context.accountId || null,
+      entityType: context.entityType || null,
+      entityId: context.entityId || null,
+    });
+    logSecurityRelevantFailure(name, {
+      error,
+      context: {
+        accountId: context.accountId || null,
+        exportJobId: context.exportJobId || body?.jobId || null,
+        providerStatus: res.status,
+        edgeFunction: name,
+      },
+    });
+    throw error;
   }
 
   return payload;
@@ -823,9 +843,23 @@ export async function requestSecurityAuditBackendExport(
   return parseSecurityAuditExportJobRow(data);
 }
 
-export async function runSecurityAuditExportJob(jobId) {
+export async function runSecurityAuditExportJob(jobOrId) {
+  const jobId = typeof jobOrId === "object" && jobOrId !== null ? jobOrId.id : jobOrId;
+  const accountId =
+    typeof jobOrId === "object" && jobOrId !== null
+      ? jobOrId.accountId || jobOrId.account_id || null
+      : null;
   if (!jobId) throw new Error("Missing export job id");
-  const payload = await invokeEdgeFunction("generate-security-audit-export", { jobId });
+  const payload = await invokeEdgeFunction(
+    "generate-security-audit-export",
+    { jobId },
+    {
+      accountId,
+      entityType: "security_audit_export_job",
+      entityId: jobId,
+      exportJobId: jobId,
+    },
+  );
   return parseSecurityAuditExportRunResult(payload || {});
 }
 

@@ -40,11 +40,12 @@ limit 50;
 ```
 
 3. If no durable row exists, check the app/browser log for `[security-observe]`.
-4. If the row shows `event = assert_manage_account_access`:
+4. If the action was run directly in SQL or by a script that calls a guarded RPC without the app wrapper, expect a structured exception but not a durable denied row. PostgreSQL rolls back the denied transaction, so the caller must perform a separate follow-up write through `record_security_denied_event(...)` if durable tracking is required.
+5. If the row shows `event = assert_manage_account_access`:
    - check `account_members` for the actor and target account.
-5. If the row shows `event = assert_tenant_scope_access`:
+6. If the row shows `event = assert_tenant_scope_access`:
    - check tenant linkage and whether the requested `tenant_id` matches the signed-in user’s tenant.
-6. If the row references `entity_type` and `entity_id`, inspect that row directly and confirm its `account_id`.
+7. If the row references `entity_type` and `entity_id`, inspect that row directly and confirm its `account_id`.
 
 ## Safe Remediation
 

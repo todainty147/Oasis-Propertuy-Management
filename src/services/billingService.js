@@ -1,7 +1,9 @@
 import { supabase } from "../lib/supabase";
+import { buildEdgeFunctionFailure } from "./edgeFunctionFailure";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 import { parseBillingSubscriptionRow, parseEdgeUrlResult } from "./rpcContracts";
 
-async function invokeFunction(name, body, parser = null) {
+async function invokeFunction(name, body, parser = null, context = {}) {
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -31,17 +33,45 @@ async function invokeFunction(name, body, parser = null) {
   }
 
   if (!res.ok) {
-    throw new Error(payload?.error || `Failed to call ${name}`);
+    const error = buildEdgeFunctionFailure({
+      payload,
+      status: res.status,
+      surface: name,
+      fallback: `Failed to call ${name}`,
+      accountId: context.accountId || body?.accountId || null,
+      entityType: "account",
+      entityId: context.accountId || body?.accountId || null,
+    });
+    logSecurityRelevantFailure(name, {
+      error,
+      context: {
+        accountId: context.accountId || body?.accountId || null,
+        planKey: body?.planKey || null,
+        providerStatus: res.status,
+        edgeFunction: name,
+      },
+    });
+    throw error;
   }
   return parser ? parser(payload || {}) : payload;
 }
 
 export async function startCheckout({ accountId, planKey }) {
-  return invokeFunction("create-checkout-session", { accountId, planKey }, parseEdgeUrlResult);
+  return invokeFunction(
+    "create-checkout-session",
+    { accountId, planKey },
+    parseEdgeUrlResult,
+    { accountId },
+  );
 }
 
 export async function openCustomerPortal({ accountId }) {
-  return invokeFunction("create-customer-portal-session", { accountId }, parseEdgeUrlResult);
+  return invokeFunction(
+    "create-customer-portal-session",
+    { accountId },
+    parseEdgeUrlResult,
+    { accountId },
+  );
 }
 
 export async function getBillingSubscription(accountId) {

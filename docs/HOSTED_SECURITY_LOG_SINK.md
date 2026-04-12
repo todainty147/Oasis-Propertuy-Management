@@ -83,7 +83,8 @@ Required deployment steps:
 
 1. apply [security_observability_events.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/security_observability_events.sql)
 2. deploy [index.ts](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions/ingest-security-observability/index.ts)
-3. enable `VITE_ENABLE_HOSTED_SECURITY_LOG_SINK=true` in staging/production
+3. deploy [cleanup-security-observability-events](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions/cleanup-security-observability-events/index.ts) if hosted row retention should run on a schedule
+4. enable `VITE_ENABLE_HOSTED_SECURITY_LOG_SINK=true` in staging/production
 
 ## Minimal Admin / Reporting Query Surface
 
@@ -187,15 +188,16 @@ Minimal in-repo helper:
 
 - SQL function:
   - `public.cleanup_security_observability_events(p_retention_days integer default 90, p_batch_size integer default 5000)`
+- Scheduled Edge Function:
+  - `cleanup-security-observability-events`
+  - protected by `CRON_SECRET`
+  - accepts optional `retentionDays`, `batchSize`, `maxBatches`, and `dryRun`
 
 Recommended operational pattern:
 
 1. export any window you want to retain longer-term with a filtered SQL query or CSV export
-2. run `cleanup_security_observability_events(...)` in batches until it returns `0`
-3. repeat on a schedule outside the app, for example:
-   - manual SQL editor run
-   - a lightweight cron / scheduled job
-   - a privileged admin maintenance task
+2. run `cleanup-security-observability-events` from Supabase Cron / pg_net using the shared `CRON_SECRET`
+3. use `dryRun: true` before enabling recurring cleanup in a new environment
 
 Example export query:
 
@@ -213,6 +215,17 @@ Example cleanup:
 select public.cleanup_security_observability_events(90, 5000);
 ```
 
+Example scheduled function payload:
+
+```json
+{
+  "retentionDays": 90,
+  "batchSize": 5000,
+  "maxBatches": 5,
+  "dryRun": false
+}
+```
+
 ## Why This Is Minimal
 
 - no external SaaS dependency is required in this pass
@@ -224,4 +237,4 @@ select public.cleanup_security_observability_events(90, 5000);
 
 - Edge Function aggregation is still application-path dependent; failures outside app/edge catch paths will not appear here
 - this is not a full analytics or SIEM pipeline
-- long-term alerting, trend dashboards, and automated archive scheduling remain future work
+- long-term alerting, trend dashboards, and archive dashboards remain future work

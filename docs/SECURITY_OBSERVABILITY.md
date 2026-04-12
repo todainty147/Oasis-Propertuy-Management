@@ -22,6 +22,7 @@ This note tracks how security-sensitive denied paths currently surface in OASIS 
 - Hosted sink rows now also have:
   - a manager-safe read RPC: `public.security_observability_event_feed(...)`
   - a lightweight retention helper: `public.cleanup_security_observability_events(...)`
+  - a cron-safe cleanup Edge Function: `cleanup-security-observability-events`
   - a minimal read-only operator view inside the Security Audit page
 - Guard-function denials are surfaced with stable correlation fields:
   - `surface`
@@ -103,6 +104,10 @@ This note tracks how security-sensitive denied paths currently surface in OASIS 
   - `wo_fin_approve_quote`
   - `wo_fin_reject_quote`
   - `contractor_update_work_order`
+- account-scoped Edge Function failures now classify through app service wrappers for:
+  - `create-checkout-session`
+  - `create-customer-portal-session`
+  - `generate-security-audit-export`
 
 ## Safety Rules
 
@@ -126,7 +131,7 @@ This note tracks how security-sensitive denied paths currently surface in OASIS 
 - direct provider-side storage policy denials can still require Supabase Storage logs for full root-cause analysis
 - provider request/trace ids can now be carried into app-side diagnostics when the SDK exposes them, which makes cross-checking Storage logs easier
 - best-effort storage cleanup failures after a successful document delete are now structured in app logs, but they are not authorization denials and are not persisted as denied events
-- hosted aggregation is intentionally minimal in this pass; trend dashboards, alerting, and automated archive scheduling are still future work
+- hosted aggregation is intentionally minimal in this pass; trend dashboards, alerting, and archive dashboards are still future work
 
 See also:
 - [HOSTED_SECURITY_LOG_SINK.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/HOSTED_SECURITY_LOG_SINK.md)

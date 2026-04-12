@@ -1789,7 +1789,7 @@ from public.security_observability_event_feed(
       const job = await requestSecurityAuditBackendExport(activeAccountId, filters, {
         requestedLabel: backendExportLabel,
       });
-      await runSecurityAuditExportJob(job.id);
+      await runSecurityAuditExportJob(job);
       await load();
       setBackendExportLabel("");
       setInfo(t("securityAudit.backendExportRequested"));

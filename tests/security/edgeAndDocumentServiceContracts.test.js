@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const fromMock = vi.fn();
 const getSessionMock = vi.fn();
+const rpcMock = vi.fn();
 
 vi.mock("../../src/lib/supabase.js", () => ({
   supabase: {
     from: (...args) => fromMock(...args),
+    rpc: (...args) => rpcMock(...args),
     auth: {
       getSession: (...args) => getSessionMock(...args),
     },
@@ -31,6 +33,7 @@ describe("edge and document service contracts", () => {
   beforeEach(() => {
     fromMock.mockReset();
     getSessionMock.mockReset();
+    rpcMock.mockReset();
     vi.restoreAllMocks();
     getSessionMock.mockResolvedValue({
       data: {
@@ -39,6 +42,7 @@ describe("edge and document service contracts", () => {
         },
       },
     });
+    rpcMock.mockResolvedValue({ data: null, error: null });
   });
 
   it("returns parsed document rows from list and search helpers", async () => {
@@ -113,6 +117,31 @@ describe("edge and document service contracts", () => {
     });
   });
 
+  it("logs structured billing edge authorization failures", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: "No permission for this account" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { startCheckout } = await import("../../src/services/billingService.js");
+
+    await expect(startCheckout({ accountId: "account-1", planKey: "growth" })).rejects.toThrow(
+      "No permission for this account",
+    );
+
+    const [, payload] = spy.mock.calls[0];
+    expect(payload.classification.kind).toBe("authorization_denied");
+    expect(payload.classification.surface).toBe("create-checkout-session");
+    expect(payload.classification.accountId).toBe("account-1");
+    expect(payload.context.edgeFunction).toBe("create-checkout-session");
+    expect(payload.context.providerStatus).toBe(403);
+
+    spy.mockRestore();
+  });
+
   it("returns parsed security audit export run responses", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -138,5 +167,33 @@ describe("edge and document service contracts", () => {
       artifactBucket: "security-audit-exports",
       artifactPath: "account/account-1/security_audit_exports/job-1/export.csv",
     });
+  });
+
+  it("logs structured security audit export edge failures with job context", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: "Access denied" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { runSecurityAuditExportJob } = await import("../../src/services/securityAuditService.js");
+
+    await expect(runSecurityAuditExportJob({
+      id: "job-1",
+      accountId: "account-1",
+    })).rejects.toThrow("Access denied");
+
+    const [, payload] = spy.mock.calls[0];
+    expect(payload.classification.kind).toBe("authorization_denied");
+    expect(payload.classification.surface).toBe("generate-security-audit-export");
+    expect(payload.classification.accountId).toBe("account-1");
+    expect(payload.classification.entityType).toBe("security_audit_export_job");
+    expect(payload.classification.entityId).toBe("job-1");
+    expect(payload.context.exportJobId).toBe("job-1");
+    expect(payload.context.providerStatus).toBe(403);
+
+    spy.mockRestore();
   });
 });
