@@ -24,7 +24,7 @@ import {
     Activity,
 } from "lucide-react";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
 import { useAuth } from "../context/AuthContext";
@@ -37,7 +37,9 @@ import { ENTITLEMENT_FEATURES } from "../lib/entitlements";
    NAV ITEM
    ====================== */
 
-function Item({ to, icon: Icon, label, onNavigate }) {
+function Item({ to, icon, label, onNavigate }) {
+  const NavIcon = icon;
+
   return (
     <NavLink
       to={to}
@@ -50,7 +52,7 @@ function Item({ to, icon: Icon, label, onNavigate }) {
         }`
       }
     >
-      <Icon size={20} />
+      <NavIcon size={20} />
       <span className="font-medium">{label}</span>
     </NavLink>
   );
@@ -70,6 +72,7 @@ function AccountSwitcher() {
       value={activeAccountId ?? ""}
       onChange={(e) => switchAccount(e.target.value)}
       className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+      aria-label="Account"
     >
       {accounts.map((a) => (
         <option key={a.id} value={a.id}>
@@ -97,28 +100,25 @@ function SidebarContent({ onNavigate }) {
   const isOwner = role === "owner";
   const [operationsOpen, setOperationsOpen] = useState(true);
   const [adminOpen, setAdminOpen] = useState(true);
-  const [onboardingHidden, setOnboardingHidden] = useState(false);
-
-  const onboardingHiddenKey = useMemo(() => {
-    if (!activeAccountId || !user?.id) return null;
-    return `sidebar_onboarding_hidden:${activeAccountId}:${user.id}`;
-  }, [activeAccountId, user?.id]);
-
-  useEffect(() => {
-    if (!isOwner || !onboardingHiddenKey) {
-      setOnboardingHidden(false);
-      return;
-    }
+  const [dismissedOnboardingKey, setDismissedOnboardingKey] = useState(null);
+  const userId = user?.id || null;
+  const onboardingHiddenKey = activeAccountId && userId
+    ? `sidebar_onboarding_hidden:${activeAccountId}:${userId}`
+    : null;
+  let onboardingHidden = false;
+  if (isOwner && onboardingHiddenKey) {
     try {
-      setOnboardingHidden(localStorage.getItem(onboardingHiddenKey) === "1");
+      onboardingHidden =
+        dismissedOnboardingKey === onboardingHiddenKey ||
+        localStorage.getItem(onboardingHiddenKey) === "1";
     } catch {
-      setOnboardingHidden(false);
+      onboardingHidden = dismissedOnboardingKey === onboardingHiddenKey;
     }
-  }, [isOwner, onboardingHiddenKey]);
+  }
 
   function dismissOnboarding() {
-    setOnboardingHidden(true);
     if (!onboardingHiddenKey) return;
+    setDismissedOnboardingKey(onboardingHiddenKey);
     try {
       localStorage.setItem(onboardingHiddenKey, "1");
     } catch {

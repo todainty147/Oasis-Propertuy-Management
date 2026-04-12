@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { expectNoBlockingAccessibilityViolations } from "./helpers/accessibility.js";
 import { prepareEnglishLocale } from "./helpers/auth.js";
 
 test("loads the Oasis app shell", async ({ page }) => {
@@ -8,4 +9,5 @@ test("loads the Oasis app shell", async ({ page }) => {
   await expect(page).toHaveTitle(/oasis/i);
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   await expect(page.locator('input[type="email"]')).toBeVisible();
+  await expectNoBlockingAccessibilityViolations(page, "sign-in shell");
 });

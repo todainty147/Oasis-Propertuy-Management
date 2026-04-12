@@ -7,7 +7,6 @@ import ContractorAttachmentsPanel from "./work-orders/ContractorAttachmentsPanel
 import { useAccount } from "../context/AccountContext";
 import {
   approveWorkOrderTenantCancellation,
-  assignWorkOrderContractor,
   createWorkOrder,
   deleteWorkOrder,
   denyWorkOrderTenantCancellation,
@@ -166,6 +165,7 @@ function PaginationFooter({ page, totalPages, totalCount, pageSize, onPrev, onNe
           value={pageSize}
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
           className="border rounded-lg px-2 py-1 text-sm bg-white"
+          aria-label={t("common.perPage")}
         >
           {[10, 20, 30, 50, 100].map((n) => (
             <option key={n} value={n}>
@@ -711,7 +711,6 @@ export default function WorkOrdersSection({ propertyId }) {
     setDetailOpen(false);
     setSelectedWO(null);
     setAudit([]);
-    setAssignContractorId("");
 
     // ✅ A4
     setAttachments([]);
@@ -772,12 +771,10 @@ export default function WorkOrdersSection({ propertyId }) {
   // -----------------------------------------
   // Pending cancellation inbox
   // -----------------------------------------
-  const [pendingInbox, setPendingInbox] = useState([]);
-  const [pendingLoading, setPendingLoading] = useState(false);
+  const [, setPendingInbox] = useState([]);
 
   async function loadPendingInbox() {
     if (!activeAccountId || !canManage) return;
-    setPendingLoading(true);
 
     try {
       const rows = await listPendingCancellationWorkOrders({
@@ -788,8 +785,6 @@ export default function WorkOrdersSection({ propertyId }) {
       if (mountedRef.current) setPendingInbox(rows);
     } catch {
       if (mountedRef.current) setPendingInbox([]);
-    } finally {
-      if (mountedRef.current) setPendingLoading(false);
     }
   }
 
@@ -984,40 +979,6 @@ export default function WorkOrdersSection({ propertyId }) {
   }
 
   // -----------------------------
-  // Contractor assignment (RPC)
-  // -----------------------------
-  const [assigningContractor, setAssigningContractor] = useState(false);
-  const [assignContractorId, setAssignContractorId] = useState("");
-
-  async function assignContractorToWorkOrder(workOrderId, contractorId) {
-    if (!canManage) return;
-    if (!workOrderId || !contractorId) return;
-
-    setAssigningContractor(true);
-    try {
-      await assignWorkOrderContractor(
-        {
-          workOrderId,
-          contractorId,
-        },
-        {
-          accountId: activeAccountId,
-        },
-      );
-
-      // refresh row + actions + audit
-      await reload();
-      if (detailOpen && selectedWO?.id === workOrderId) {
-        await loadAudit(workOrderId);
-      }
-    } catch (e) {
-      alert(e?.message ?? t("workOrders.assignError"));
-    } finally {
-      setAssigningContractor(false);
-    }
-  }
-
-  // -----------------------------
   // DB-driven actions
   // -----------------------------
   async function setStatus(id, nextStatus) {
@@ -1168,6 +1129,7 @@ export default function WorkOrdersSection({ propertyId }) {
                 setPageSize(Number.isFinite(n) && n > 0 ? n : 20);
               }}
               className="border rounded-lg px-2 py-2 text-sm bg-white"
+              aria-label={t("common.perPage")}
             >
               {[10, 20, 30, 50, 100].map((n) => (
                 <option key={n} value={n}>
@@ -1219,6 +1181,7 @@ export default function WorkOrdersSection({ propertyId }) {
                 onChange={(e) => setMaintenanceRequestId(e.target.value)}
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm bg-white disabled:bg-slate-50"
                 disabled={requestsLoading || saving}
+                aria-label={t("workOrders.linkedRequestOptional")}
               >
                 <option value="">{`— ${t("common.none")} —`}</option>
                 {(openRequests ?? []).map((r) => (
@@ -1237,6 +1200,7 @@ export default function WorkOrdersSection({ propertyId }) {
                 onChange={(e) => onSelectContractor(e.target.value)}
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm bg-white disabled:bg-slate-50"
                 disabled={contractorsLoading || saving}
+                aria-label={t("workOrders.contractorOptional")}
               >
                 <option value="">{t("workOrders.contractorManualLater")}</option>
                 {(contractors ?? []).map((c) => (

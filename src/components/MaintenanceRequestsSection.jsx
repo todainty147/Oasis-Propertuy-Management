@@ -167,6 +167,7 @@ function PaginationFooter({
           value={pageSize}
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
           className="border rounded-lg px-2 py-1 text-sm bg-white"
+          aria-label={t("common.perPage")}
         >
           {[10, 20, 30, 50, 100].map((n) => (
             <option key={n} value={n}>
@@ -567,15 +568,16 @@ export default function MaintenanceRequestsSection({ propertyId }) {
           {/* ✅ Page size selector (header convenience) */}
           <div className="hidden md:flex items-center gap-2">
             <span className="text-xs text-slate-500">{t("common.perPage")}</span>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                setPage(1);
-                setPageSize(Number.isFinite(n) && n > 0 ? n : 20);
-              }}
-              className="border rounded-lg px-2 py-2 text-sm bg-white"
-            >
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  setPage(1);
+                  setPageSize(Number.isFinite(n) && n > 0 ? n : 20);
+                }}
+                className="border rounded-lg px-2 py-2 text-sm bg-white"
+                aria-label={t("common.perPage")}
+              >
               {[10, 20, 30, 50, 100].map((n) => (
                 <option key={n} value={n}>
                   {n}
@@ -621,6 +623,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                aria-label={t("common.priority")}
               >
                 <option value="low">{t("priority.low")}</option>
                 <option value="normal">{t("priority.normal")}</option>

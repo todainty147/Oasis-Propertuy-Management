@@ -82,6 +82,7 @@ export default function Topbar({ onMenuClick }) {
               value={activeAccountId}
               onChange={(e) => switchAccount(e.target.value)} // ✅ FIX
               className="text-sm bg-transparent focus:outline-none text-slate-800 dark:text-slate-200"
+              aria-label="Account"
             >
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -117,6 +118,7 @@ export default function Topbar({ onMenuClick }) {
                   : clearTenant()
               }
               className="text-sm bg-transparent focus:outline-none text-slate-800 dark:text-slate-200"
+              aria-label={t("tenant.allTenants")}
             >
               <option value="">{t("tenant.allTenants")}</option>
               {tenants.map((tenant) => (

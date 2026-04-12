@@ -322,7 +322,7 @@ Medium.
 
 **Assessment**
 
-Good recommendation and easy to justify.
+In progress.
 
 **Current fit**
 
@@ -337,6 +337,18 @@ Add Playwright + Axe for:
 - finance
 - tenant portal
 - contractor portal
+
+**Current progress**
+
+- Added `@axe-core/playwright` and shared E2E helper coverage in `tests/e2e/helpers/accessibility.js`.
+- The first blocking-violation checks now run on sign-in, owner property details, tenant-scoped property details, and root invitations admin.
+- Fixed critical missing accessible names on account/tenant switchers and property-detail workflow selects surfaced by Axe.
+- The first pass intentionally blocks `critical` and `serious` WCAG 2.0/2.1 A/AA violations while avoiding broad selector exclusions.
+
+**Remaining follow-up**
+
+- Extend Axe coverage to dashboard, finance, contractor portal, and security/root telemetry once each flow has stable Playwright navigation.
+- Add a documented exception list only for confirmed false positives or unavoidable third-party widgets.
 
 **Effort**
 

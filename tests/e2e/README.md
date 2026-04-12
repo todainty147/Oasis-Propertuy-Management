@@ -41,6 +41,19 @@ That command will:
 5. run Playwright
 6. stop local Supabase
 
+## Accessibility checks
+
+The core browser journeys use `@axe-core/playwright` through [helpers/accessibility.js](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/e2e/helpers/accessibility.js).
+
+The helper currently blocks `critical` and `serious` WCAG 2.0/2.1 A/AA violations on:
+
+- sign-in shell
+- owner property details
+- tenant-scoped property details
+- root invitations admin
+
+If a new Axe failure appears, prefer fixing the markup or accessible name first. Only exclude a selector when the issue belongs to an unavoidable third-party widget or a deliberately documented false positive.
+
 ## Environment
 
 - `PLAYWRIGHT_PORT`
@@ -50,7 +63,7 @@ That command will:
 
 ## Suggested next tests
 
-- authenticated owner dashboard smoke
-- property details happy path
-- invitation flow smoke
-- maintenance inbox smoke
+- dashboard accessibility scan after key cards settle
+- finance accessibility scan
+- contractor portal accessibility scan
+- security/root telemetry accessibility scan

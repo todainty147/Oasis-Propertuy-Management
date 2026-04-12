@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { expectNoBlockingAccessibilityViolations } from "./helpers/accessibility.js";
 import { seededEntityIds, seededUsers, signInAs } from "./helpers/auth.js";
 
 test("tenant sees the restricted surface and does not get manager-only property performance", async ({ page }) => {
@@ -14,4 +15,5 @@ test("tenant sees the restricted surface and does not get manager-only property 
   await expect(page.getByRole("heading", { name: "11 Starlight Avenue" })).toBeVisible();
   await expect(page.getByText("Property performance")).toHaveCount(0);
   await expect(page.getByText("Custom property fields")).toBeVisible();
+  await expectNoBlockingAccessibilityViolations(page, "tenant property details");
 });

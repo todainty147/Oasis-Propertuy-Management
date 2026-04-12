@@ -24,6 +24,7 @@ export default function TenantSwitcher({ className = "", showWhenEmpty = false }
           : clearTenant()
       }
       className={`border rounded-lg px-3 py-2 text-sm bg-white ${className}`.trim()}
+      aria-label={t("tenant.allTenants")}
     >
       <option value="">{t("tenant.allTenants")}</option>
       {tenants.map((t) => (

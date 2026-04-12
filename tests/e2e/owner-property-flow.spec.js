@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { expectNoBlockingAccessibilityViolations } from "./helpers/accessibility.js";
 import { seededUsers, signInAs } from "./helpers/auth.js";
 
 test("owner can browse properties and open the property detail experience", async ({ page }) => {
@@ -13,4 +14,5 @@ test("owner can browse properties and open the property detail experience", asyn
   await expect(page.getByRole("heading", { name: "11 Starlight Avenue" })).toBeVisible();
   await expect(page.getByText("Property performance")).toBeVisible();
   await expect(page.getByText("Custom property fields")).toBeVisible();
+  await expectNoBlockingAccessibilityViolations(page, "owner property details");
 });
