@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 
 import Card from "../components/Card";
+import FeatureAccessCard from "../components/FeatureAccessCard";
 import OnboardingHintCard from "../components/OnboardingHintCard";
 import Skeleton from "../components/ui/Skeleton";
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
 import { usePageTitle } from "../layout/PageTitleContext";
+import { ENTITLEMENT_FEATURES, hasFeature, normalizePlan } from "../lib/entitlements";
 import { loadRootTelemetryBundle } from "../services/rootTelemetryService";
 import {
   grantRootTelemetrySupportAccess,
@@ -548,6 +550,11 @@ export default function RootTelemetryPage() {
   });
   const [selectedWindowKey, setSelectedWindowKey] = useState("1h");
   const [selectedTrendBucketStart, setSelectedTrendBucketStart] = useState("");
+  const activeAccountPlan = normalizePlan(activeAccount?.subscription_plan);
+  const accountHasRootTelemetryEntitlement =
+    !activeAccountId ||
+    !activeAccount ||
+    hasFeature(activeAccountPlan, ENTITLEMENT_FEATURES.ROOT_TELEMETRY);
 
   const canAccessTelemetryView = useMemo(
     () => canAccessRootTelemetryView({ isRootOperator, activeRole, user: null }) || canAccessTelemetry,
@@ -559,7 +566,22 @@ export default function RootTelemetryPage() {
   }, [setTitle, t]);
 
   useEffect(() => {
-    if (!activeAccountId || !canAccessTelemetryView) return;
+    if (!activeAccountId || !canAccessTelemetryView || !accountHasRootTelemetryEntitlement) {
+      setLoading(false);
+      setError("");
+      setBundle({
+        events: [],
+        previousEvents: [],
+        latencyRollups: [],
+        burstRollups: [],
+        trendSeries: [],
+        activeAlerts: [],
+        activeAlertsTotal: 0,
+        limit: DEFAULT_SIGNAL_LIMIT,
+        windowKey: selectedWindowKey,
+      });
+      return;
+    }
     let cancelled = false;
 
     async function load() {
@@ -597,11 +619,12 @@ export default function RootTelemetryPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeAccountId, canAccessTelemetryView, selectedWindowKey, t]);
+  }, [accountHasRootTelemetryEntitlement, activeAccountId, canAccessTelemetryView, selectedWindowKey, t]);
 
   useEffect(() => {
-    if (!activeAccountId || !isRootTelemetryAdmin) {
+    if (!activeAccountId || !isRootTelemetryAdmin || !accountHasRootTelemetryEntitlement) {
       setSupportAccessRows([]);
+      setSupportAccessLoading(false);
       return;
     }
 
@@ -622,11 +645,12 @@ export default function RootTelemetryPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeAccountId, isRootTelemetryAdmin, t]);
+  }, [accountHasRootTelemetryEntitlement, activeAccountId, isRootTelemetryAdmin, t]);
 
   useEffect(() => {
-    if (!isRootTelemetryAdmin) {
+    if (!isRootTelemetryAdmin || !accountHasRootTelemetryEntitlement) {
       setSupportDirectoryRows([]);
+      setSupportDirectoryLoading(false);
       return;
     }
 
@@ -657,7 +681,7 @@ export default function RootTelemetryPage() {
       cancelled = true;
       clearTimeout(handle);
     };
-  }, [activeAccountId, isRootTelemetryAdmin, supportGrantForm.userEmail]);
+  }, [accountHasRootTelemetryEntitlement, activeAccountId, isRootTelemetryAdmin, supportGrantForm.userEmail]);
 
   const summary = useMemo(
     () => buildRootTelemetrySummary(bundle.events, { activeAlertsTotal: bundle.activeAlertsTotal }),
@@ -721,14 +745,14 @@ export default function RootTelemetryPage() {
   }, [selectedTrendBucketStart, trendBars]);
 
   async function refreshSupportAccess() {
-    if (!activeAccountId || !isRootTelemetryAdmin) return;
+    if (!activeAccountId || !isRootTelemetryAdmin || !accountHasRootTelemetryEntitlement) return;
     const rows = await listRootTelemetrySupportAccess(activeAccountId);
     setSupportAccessRows(rows);
   }
 
   async function handleGrantSupportAccess(event) {
     event.preventDefault();
-    if (!activeAccountId) return;
+    if (!activeAccountId || !accountHasRootTelemetryEntitlement) return;
 
     setGrantError("");
     setGrantInfo("");
@@ -752,7 +776,7 @@ export default function RootTelemetryPage() {
   }
 
   async function handleRevokeSupportAccess(userId) {
-    if (!activeAccountId || !userId) return;
+    if (!activeAccountId || !userId || !accountHasRootTelemetryEntitlement) return;
 
     setGrantError("");
     setGrantInfo("");
@@ -773,6 +797,37 @@ export default function RootTelemetryPage() {
 
   if (!canAccessTelemetryView) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  if (!accountHasRootTelemetryEntitlement) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t("rootTelemetry.title")}</h1>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{t("rootTelemetry.subtitle")}</p>
+          <p className="mt-2 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            {t("rootTelemetry.accountScoped")} {activeAccount?.name || "—"}
+          </p>
+        </div>
+
+        <OnboardingHintCard
+          title={t("pageHints.rootTelemetry.title")}
+          body={t("pageHints.rootTelemetry.body")}
+        />
+
+        <Card className="p-4 border border-blue-200 bg-blue-50/70 dark:border-blue-900 dark:bg-blue-950/20">
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("rootTelemetry.visibility.title")}</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300">{t("rootTelemetry.visibility.body")}</p>
+          </div>
+        </Card>
+
+        <FeatureAccessCard
+          feature={ENTITLEMENT_FEATURES.ROOT_TELEMETRY}
+          currentPlan={activeAccountPlan}
+        />
+      </div>
+    );
   }
 
   return (

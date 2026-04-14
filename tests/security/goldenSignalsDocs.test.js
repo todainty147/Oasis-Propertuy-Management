@@ -27,4 +27,14 @@ describe("golden signals documentation contracts", () => {
     expect(observabilitySql).toContain("security_observability_trend_series");
     expect(rootTelemetryPage).toContain("LATENCY_SLO_TARGETS");
   });
+
+  it("does not call root telemetry RPCs when the active account lacks the root telemetry entitlement", () => {
+    const rootTelemetryPage = readSource("src/pages/RootTelemetryPage.jsx");
+
+    expect(rootTelemetryPage).toContain("accountHasRootTelemetryEntitlement");
+    expect(rootTelemetryPage).toContain("hasFeature(activeAccountPlan, ENTITLEMENT_FEATURES.ROOT_TELEMETRY)");
+    expect(rootTelemetryPage).toContain("!canAccessTelemetryView || !accountHasRootTelemetryEntitlement");
+    expect(rootTelemetryPage).toContain("!isRootTelemetryAdmin || !accountHasRootTelemetryEntitlement");
+    expect(rootTelemetryPage).toContain("<FeatureAccessCard");
+  });
 });
