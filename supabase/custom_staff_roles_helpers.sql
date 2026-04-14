@@ -62,6 +62,7 @@ as $$
 declare
   v_permission_key text := lower(trim(coalesce(p_permission_key, '')));
   v_role_id uuid;
+  v_role_name text;
   v_effective_role text;
 begin
   if p_account_id is null or p_user_id is null or v_permission_key = '' then
@@ -71,12 +72,25 @@ begin
   v_role_id := public.account_member_role_id_for(p_account_id, p_user_id);
 
   if v_role_id is not null then
-    return exists (
+    select lower(trim(r.name))
+      into v_role_name
+    from public.roles r
+    where r.id = v_role_id
+      and r.account_id = p_account_id
+    limit 1;
+
+    if exists (
       select 1
       from public.role_permissions rp
       where rp.role_id = v_role_id
         and lower(trim(rp.permission_key)) = v_permission_key
-    );
+    ) then
+      return true;
+    end if;
+
+    if coalesce(v_role_name, '') not in ('owner', 'admin', 'staff') then
+      return false;
+    end if;
   end if;
 
   v_effective_role := public.account_member_effective_role(p_account_id, p_user_id);

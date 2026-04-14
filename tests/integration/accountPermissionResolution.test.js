@@ -33,6 +33,62 @@ describe.skipIf(!isIntegrationHarnessConfigured())("account permission resolutio
     expect(result.data).not.toContain("documents.delete");
   });
 
+  it("keeps built-in system roles backward compatible when seeded role permissions are partial", async () => {
+    const users = await ensureIsolationHarnessSeed();
+    const accountId = isolationFixtures.accounts.accountA.id;
+
+    const membershipResult = await admin
+      .from("account_members")
+      .select("role, role_id")
+      .eq("account_id", accountId)
+      .eq("user_id", users.ownerA.id)
+      .single();
+
+    expect(membershipResult.error).toBeNull();
+    expect(membershipResult.data.role).toBe("owner");
+    expect(membershipResult.data.role_id).toBeTruthy();
+
+    const removedPermissionsResult = await admin
+      .from("role_permissions")
+      .delete()
+      .eq("role_id", membershipResult.data.role_id)
+      .in("permission_key", ["properties.create", "tenants.create", "users.invite"])
+      .select("role_id, permission_key");
+
+    expect(removedPermissionsResult.error).toBeNull();
+
+    try {
+      const { client } = await signInAsFixtureUser("ownerA");
+
+      const permissionKeysResult = await client.rpc("account_member_permission_keys", {
+        p_account_id: accountId,
+      });
+
+      expect(permissionKeysResult.error).toBeNull();
+      expect(permissionKeysResult.data).toEqual(
+        expect.arrayContaining(["properties.create", "tenants.create", "users.invite"]),
+      );
+
+      const hasCreatePermissionResult = await client.rpc("account_member_has_permission", {
+        p_account_id: accountId,
+        p_permission_key: "properties.create",
+      });
+
+      expect(hasCreatePermissionResult.error).toBeNull();
+      expect(hasCreatePermissionResult.data).toBe(true);
+    } finally {
+      if ((removedPermissionsResult.data?.length ?? 0) > 0) {
+        const restoreResult = await admin
+          .from("role_permissions")
+          .upsert(removedPermissionsResult.data, {
+            onConflict: "role_id,permission_key",
+          });
+
+        expect(restoreResult.error).toBeNull();
+      }
+    }
+  });
+
   it("resolves non-member manager access to false rather than a nullable allow", async () => {
     await ensureIsolationHarnessSeed();
 

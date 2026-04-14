@@ -63,6 +63,7 @@ describe("custom roles SQL contracts", () => {
     expect(sql).toContain("create or replace function public.account_member_has_permission(");
     expect(sql).toContain("v_role_id := public.account_member_role_id_for");
     expect(sql).toContain("v_effective_role := public.account_member_effective_role");
+    expect(sql).toContain("coalesce(v_role_name, '') not in ('owner', 'admin', 'staff')");
     expect(bootstrapSource).toContain("custom_staff_roles_helpers.sql");
     expect(applySource).toContain('"custom_staff_roles_helpers.sql"');
   });
@@ -75,6 +76,8 @@ describe("custom roles SQL contracts", () => {
     expect(sql).toContain("create or replace function public.account_member_permission_keys(");
     expect(sql).toContain("from public.role_permissions rp");
     expect(sql).toContain("v_effective_role := public.account_member_effective_role");
+    expect(sql).toContain("v_legacy_permission_keys");
+    expect(sql).toContain("coalesce(v_role_name, '') not in ('owner', 'admin', 'staff')");
     expect(bootstrapSource).toContain("account_member_permission_keys.sql");
     expect(applySource).toContain('"account_member_permission_keys.sql"');
   });

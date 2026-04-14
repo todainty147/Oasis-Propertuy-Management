@@ -125,7 +125,7 @@ export function AccountProvider({ children }) {
               .map((key) => String(key ?? "").trim().toLowerCase())
               .filter(Boolean);
 
-            return normalized.length > 0 ? Array.from(new Set(normalized)) : fallback;
+            return Array.from(new Set(normalized));
           } catch (error) {
             console.warn("account_member_permission_keys threw, falling back to legacy permissions:", error);
             return fallback;

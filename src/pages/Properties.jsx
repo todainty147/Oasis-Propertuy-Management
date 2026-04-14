@@ -61,24 +61,8 @@ export default function Properties({
     setTitle(t("properties.title"));
   }, [setTitle, t]);
 
-  if (loading || accountLoading) {
-    return <PropertiesSkeleton />;
-  }
-
   /* 🔒 READ ACCESS */
   const canRead = isRootOperator || can(activePermissionContext, "properties", "read");
-
-  if (!canRead) {
-    return (
-      <div className="bg-white border rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-slate-900">{t("common.noAccess")}</h2>
-        <p className="text-sm text-slate-600 mt-1">
-          {t("properties.noAccessBody")}
-        </p>
-      </div>
-    );
-  }
-
   const canCreate = can(activePermissionContext, "properties", "create");
   const canUpdate = can(activePermissionContext, "properties", "update");
   const canDelete = can(activePermissionContext, "properties", "delete");
@@ -175,6 +159,21 @@ export default function Properties({
     const to = from + pageSize;
     return visibleProperties.slice(from, to);
   }, [visibleProperties, page, pageSize]);
+
+  if (loading || accountLoading) {
+    return <PropertiesSkeleton />;
+  }
+
+  if (!canRead) {
+    return (
+      <div className="bg-white border rounded-xl p-6">
+        <h2 className="text-lg font-semibold text-slate-900">{t("common.noAccess")}</h2>
+        <p className="text-sm text-slate-600 mt-1">
+          {t("properties.noAccessBody")}
+        </p>
+      </div>
+    );
+  }
 
   if (statusFilteredProperties.length === 0) {
     return (

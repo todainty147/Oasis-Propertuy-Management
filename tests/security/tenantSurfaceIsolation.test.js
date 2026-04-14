@@ -95,8 +95,12 @@ describe("tenant surface isolation contracts", () => {
     expect(accountContextSource).toContain('a.is_root && String(a.role || "").toLowerCase() === "owner"');
     expect(accountContextSource).toContain("const rootRows = await rootListAccounts(rootMembership.id);");
     expect(accountContextSource).toContain("const activePermissionContext = useMemo(");
+    expect(accountContextSource).not.toContain("normalized.length > 0 ? Array.from(new Set(normalized)) : fallback");
     expect(sidebarSource).toContain("if (accountLoading || !isRootOperator || accounts.length <= 1) return null;");
     expect(brandingSqlSource).toContain("and public.account_member_effective_role(am.account_id, am.user_id) = 'owner'");
+    expect(propertiesSource.indexOf("const statusFilter = useMemo")).toBeLessThan(
+      propertiesSource.indexOf("if (loading || accountLoading)"),
+    );
     expect(propertiesSource).toContain('const canRead = isRootOperator || can(activePermissionContext, "properties", "read");');
     expect(propertiesSource).toContain('const canCreate = can(activePermissionContext, "properties", "create");');
     expect(propertiesSource).toContain('const canUpdate = can(activePermissionContext, "properties", "update");');
