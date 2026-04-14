@@ -32,9 +32,20 @@ describe("golden signals documentation contracts", () => {
     const rootTelemetryPage = readSource("src/pages/RootTelemetryPage.jsx");
 
     expect(rootTelemetryPage).toContain("accountHasRootTelemetryEntitlement");
+    expect(rootTelemetryPage).toContain("isRootOperator ||");
     expect(rootTelemetryPage).toContain("hasFeature(activeAccountPlan, ENTITLEMENT_FEATURES.ROOT_TELEMETRY)");
     expect(rootTelemetryPage).toContain("!canAccessTelemetryView || !accountHasRootTelemetryEntitlement");
     expect(rootTelemetryPage).toContain("!isRootTelemetryAdmin || !accountHasRootTelemetryEntitlement");
     expect(rootTelemetryPage).toContain("<FeatureAccessCard");
+  });
+
+  it("keeps backend feature gates aligned with root operator entitlement bypass", () => {
+    const entitlementSql = readSource("supabase/account_entitlements.sql");
+    const rootBypassIndex = entitlementSql.indexOf("public.user_is_root_operator()");
+    const planGateIndex = entitlementSql.indexOf("public.account_has_feature(p_account_id, v_feature)");
+
+    expect(rootBypassIndex).toBeGreaterThan(-1);
+    expect(planGateIndex).toBeGreaterThan(-1);
+    expect(rootBypassIndex).toBeLessThan(planGateIndex);
   });
 });

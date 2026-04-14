@@ -552,6 +552,7 @@ export default function RootTelemetryPage() {
   const [selectedTrendBucketStart, setSelectedTrendBucketStart] = useState("");
   const activeAccountPlan = normalizePlan(activeAccount?.subscription_plan);
   const accountHasRootTelemetryEntitlement =
+    isRootOperator ||
     !activeAccountId ||
     !activeAccount ||
     hasFeature(activeAccountPlan, ENTITLEMENT_FEATURES.ROOT_TELEMETRY);

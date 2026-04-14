@@ -112,6 +112,10 @@ begin
     raise exception 'Missing feature key';
   end if;
 
+  if public.user_is_root_operator() then
+    return p_account_id;
+  end if;
+
   if public.account_has_feature(p_account_id, v_feature) then
     return p_account_id;
   end if;
