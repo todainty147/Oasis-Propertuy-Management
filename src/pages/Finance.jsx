@@ -10,7 +10,9 @@ import { formatCurrencyAmount } from "../utils/currency";
 import { sumDueSoon, sumExpected, sumOverdue, sumPaid } from "../utils/finance";
 import OnboardingHintCard from "../components/OnboardingHintCard";
 import {
+  normalizeOccupancyStatus,
   normalizePaymentStatus,
+  occupancyStatusLabelKey,
   paymentStatusLabelKey,
 } from "../utils/statuses";
 
@@ -440,11 +442,14 @@ function PaginationFooter({
 function translatePaymentStatus(status, t) {
   const labelKey = paymentStatusLabelKey(status);
   if (labelKey) return t(labelKey);
+  const occupancyLabelKey = occupancyStatusLabelKey(status);
+  if (occupancyLabelKey) return t(occupancyLabelKey);
   return status || "—";
 }
 
 function StatusBadge({ status, t }) {
   const normalized = normalizePaymentStatus(status);
+  const occupancy = normalizeOccupancyStatus(status);
   const styles =
     normalized === "paid"
       ? "bg-green-100 text-green-700"
@@ -452,7 +457,11 @@ function StatusBadge({ status, t }) {
         ? "bg-amber-100 text-amber-700"
         : normalized === "pending"
           ? "bg-blue-100 text-blue-700"
-          : "bg-red-100 text-red-700";
+          : normalized === "overdue"
+            ? "bg-red-100 text-red-700"
+            : occupancy === "vacant"
+              ? "bg-slate-100 text-slate-600"
+              : "bg-slate-100 text-slate-600";
 
   return (
     <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles}`}>

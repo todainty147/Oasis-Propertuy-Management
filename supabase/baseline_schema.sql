@@ -5477,6 +5477,7 @@ begin
       pr.id,
       pr.address,
       pr.city,
+      pr.tenant_id,
       coalesce(pr.rent, 0) as rent
     from properties pr
     where pr.account_id = p_account_id
@@ -5484,6 +5485,21 @@ begin
         v_tenant_id is null
         or pr.id = (select property_id from tenant_scope)
       )
+  ),
+  property_occupancy as (
+    select
+      sp.id as property_id,
+      (
+        sp.tenant_id is not null
+        or exists (
+          select 1
+          from public.tenants t
+          where t.account_id = p_account_id
+            and t.property_id = sp.id
+            and t.archived_at is null
+        )
+      ) as has_assigned_tenant
+    from scoped_properties sp
   ),
   scoped_payments as (
     select
@@ -5597,6 +5613,8 @@ begin
       pr.address,
       pr.city,
       pr.rent,
+      po.has_assigned_tenant,
+      coalesce(bool_or(pc.property_id is not null), false) as has_payment_cycle,
       coalesce(
         sum(
           case
@@ -5607,30 +5625,57 @@ begin
         ),
         0
       ) as paid,
-      greatest(
-        pr.rent - coalesce(
-          sum(
-            case
-              when pc.cycle_month = date_trunc('month', current_date::timestamp)
-              then pc.paid_amount
-              else 0
-            end
-          ),
-          0
-        ),
-        0
-      ) as remaining,
-      coalesce(
-        bool_or(
-          greatest(pc.billed_amount - pc.paid_amount, 0) > 0
-          and pc.has_overdue
-        ),
-        false
-      ) as has_overdue_balance
+      case
+        when po.has_assigned_tenant or coalesce(bool_or(pc.property_id is not null), false) then
+          greatest(
+            pr.rent - coalesce(
+              sum(
+                case
+                  when pc.cycle_month = date_trunc('month', current_date::timestamp)
+                  then pc.paid_amount
+                  else 0
+                end
+              ),
+              0
+            ),
+            0
+          )
+        else 0
+      end as remaining,
+      case
+        when po.has_assigned_tenant or coalesce(bool_or(pc.property_id is not null), false) then
+          coalesce(
+            bool_or(
+              greatest(pc.billed_amount - pc.paid_amount, 0) > 0
+              and pc.has_overdue
+            ),
+            false
+          )
+        else false
+      end as has_overdue_balance
     from scoped_properties pr
+    join property_occupancy po
+      on po.property_id = pr.id
     left join payment_cycles pc
       on pc.property_id = pr.id
-    group by pr.id, pr.address, pr.city, pr.rent
+    group by pr.id, pr.address, pr.city, pr.rent, po.has_assigned_tenant
+  ),
+  property_status_rows as (
+    select
+      property_id,
+      address,
+      city,
+      rent,
+      paid,
+      remaining,
+      case
+        when not has_assigned_tenant and not has_payment_cycle then 'vacant'
+        when remaining <= 0 then 'paid'
+        when has_overdue_balance then 'overdue'
+        when paid > 0 then 'partial'
+        else 'pending'
+      end as payment_status
+    from property_rows
   ),
   property_json as (
     select coalesce(
@@ -5642,19 +5687,13 @@ begin
           'rent', rent,
           'paid', paid,
           'remaining', remaining,
-          'paymentStatus',
-            case
-              when remaining <= 0 then 'paid'
-              when has_overdue_balance then 'overdue'
-              when paid > 0 then 'partial'
-              else 'pending'
-            end
+          'paymentStatus', payment_status
         )
         order by address
       ),
       '[]'::jsonb
     ) as property_finance
-    from property_rows
+    from property_status_rows
   )
   select
     finance_totals.total_income,

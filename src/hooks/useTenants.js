@@ -12,7 +12,7 @@ import {
 
 export function useTenants({ enabled = true } = {}) {
   const { activeAccountId } = useAccount();
-  const { activeTenantId } = useTenant();
+  const { activeTenantId, clearTenant } = useTenant();
 
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(enabled);
@@ -33,7 +33,17 @@ export function useTenants({ enabled = true } = {}) {
 
     try {
       const data = await listAccountTenants(activeAccountId);
-      setTenants(activeTenantId ? data.filter((tenant) => tenant.id === activeTenantId) : data);
+      if (activeTenantId) {
+        const scopedTenants = data.filter((tenant) => tenant.id === activeTenantId);
+        if (scopedTenants.length === 0) {
+          clearTenant();
+          setTenants(data);
+        } else {
+          setTenants(scopedTenants);
+        }
+      } else {
+        setTenants(data);
+      }
     } catch (error) {
       setError(error);
       setTenants([]);
@@ -49,7 +59,7 @@ export function useTenants({ enabled = true } = {}) {
     }
 
     loadTenants();
-  }, [enabled, activeAccountId, activeTenantId]);
+  }, [enabled, activeAccountId, activeTenantId, clearTenant]);
 
   useRealtimeTables({
     enabled: enabled && !!activeAccountId,

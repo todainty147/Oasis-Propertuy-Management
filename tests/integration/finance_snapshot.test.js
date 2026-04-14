@@ -137,6 +137,46 @@ describe.skipIf(!isIntegrationHarnessConfigured())("finance_snapshot isolation",
     expect(propertyRow.paymentStatus).toBe("partial");
   });
 
+  it("does not mark vacant properties with configured rent as pending income", async () => {
+    const vacantPropertyId = "44444444-4444-4444-4444-444444444499";
+    const { client, user } = await signInAsFixtureUser("ownerA");
+
+    await admin.from("payments").delete().eq("property_id", vacantPropertyId);
+    await admin.from("properties").delete().eq("id", vacantPropertyId);
+
+    const { error: insertError } = await admin.from("properties").insert({
+      id: vacantPropertyId,
+      account_id: isolationFixtures.accounts.accountA.id,
+      owner_id: user.id,
+      address: "99 Empty Lane",
+      city: "Cardiff",
+      size: "1 bed",
+      rent: 950,
+      tenant_id: null,
+    });
+
+    expect(insertError).toBeNull();
+
+    try {
+      const result = await client.rpc("finance_snapshot", {
+        p_account_id: isolationFixtures.accounts.accountA.id,
+        p_tenant_id: null,
+      });
+
+      expect(result.error).toBeNull();
+      const row = firstRow(result.data);
+      const propertyRow = row.property_finance.find(
+        (entry) => entry.propertyId === vacantPropertyId,
+      );
+
+      expect(propertyRow).toBeTruthy();
+      expect(Number(propertyRow.remaining)).toBe(0);
+      expect(propertyRow.paymentStatus).toBe("vacant");
+    } finally {
+      await admin.from("properties").delete().eq("id", vacantPropertyId);
+    }
+  });
+
   it("returns zeroed finance data when account A owner passes a foreign tenant id", async () => {
     const { client } = await signInAsFixtureUser("ownerA");
 

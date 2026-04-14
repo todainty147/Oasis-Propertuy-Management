@@ -10,7 +10,7 @@ import { useTenant } from "../context/TenantContext";
 
 export function useProperties({ enabled = true } = {}) {
   const { activeAccountId } = useAccount();
-  const { activeTenantId } = useTenant();
+  const { activeTenantId, clearTenant } = useTenant();
 
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(enabled);
@@ -24,6 +24,37 @@ export function useProperties({ enabled = true } = {}) {
 
     let channel;
 
+    function mapPropertyRow(p) {
+      return {
+        id: p.id,
+        address: p.address,
+        city: p.city,
+        size: p.size ?? "",
+        rent: Number(p.rent ?? 0),
+        tenantId: p.tenant_id ?? null,
+        createdAt: p.created_at,
+      };
+    }
+
+    async function loadAccountProperties() {
+      const { data, error } = await supabase
+        .from("properties")
+        .select(`
+          id,
+          address,
+          city,
+          size,
+          rent,
+          tenant_id,
+          created_at
+        `)
+        .eq("account_id", activeAccountId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setProperties((data ?? []).map(mapPropertyRow));
+    }
+
     async function loadProperties() {
       setLoading(true);
       setError(null);
@@ -35,11 +66,12 @@ export function useProperties({ enabled = true } = {}) {
             .from("tenants")
             .select("property_id")
             .eq("id", activeTenantId)
-            .single();
+            .eq("account_id", activeAccountId)
+            .maybeSingle();
 
           if (tenantError || !tenant?.property_id) {
-            setProperties([]);
-            setLoading(false);
+            clearTenant();
+            await loadAccountProperties();
             return;
           }
 
@@ -49,49 +81,22 @@ export function useProperties({ enabled = true } = {}) {
               id,
               address,
               city,
+              size,
               rent,
+              tenant_id,
               created_at
             `)
-            .eq("id", tenant.property_id);
+            .eq("id", tenant.property_id)
+            .eq("account_id", activeAccountId);
 
           if (error) throw error;
 
-          setProperties(
-            (data ?? []).map((p) => ({
-              id: p.id,
-              address: p.address,
-              city: p.city,
-              rent: Number(p.rent ?? 0),
-              createdAt: p.created_at,
-            }))
-          );
+          setProperties((data ?? []).map(mapPropertyRow));
         }
 
         // 🔹 NO TENANT → all properties for account
         else {
-          const { data, error } = await supabase
-            .from("properties")
-            .select(`
-              id,
-              address,
-              city,
-              rent,
-              created_at
-            `)
-            .eq("account_id", activeAccountId)
-            .order("created_at", { ascending: false });
-
-          if (error) throw error;
-
-          setProperties(
-            (data ?? []).map((p) => ({
-              id: p.id,
-              address: p.address,
-              city: p.city,
-              rent: Number(p.rent ?? 0),
-              createdAt: p.created_at,
-            }))
-          );
+          await loadAccountProperties();
         }
       } catch (err) {
         setError(err);
@@ -120,7 +125,7 @@ export function useProperties({ enabled = true } = {}) {
     return () => {
       if (channel) supabase.removeChannel(channel);
     };
-  }, [enabled, activeAccountId, activeTenantId]);
+  }, [enabled, activeAccountId, activeTenantId, clearTenant]);
 
   return { properties, loading, error };
 }

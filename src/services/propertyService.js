@@ -7,6 +7,33 @@ import {
   normalizeText,
 } from "../utils/validation";
 
+async function syncTenantAssignment({ accountId, propertyId, previousTenantId = null, nextTenantId = null }) {
+  if (!accountId || !propertyId) return;
+  const previousId = previousTenantId || null;
+  const nextId = nextTenantId || null;
+
+  if (previousId && previousId !== nextId) {
+    const { error } = await supabase
+      .from("tenants")
+      .update({ property_id: null })
+      .eq("id", previousId)
+      .eq("account_id", accountId)
+      .eq("property_id", propertyId);
+
+    if (error) throw error;
+  }
+
+  if (nextId) {
+    const { error } = await supabase
+      .from("tenants")
+      .update({ property_id: propertyId })
+      .eq("id", nextId)
+      .eq("account_id", accountId);
+
+    if (error) throw error;
+  }
+}
+
 /* ======================
    CREATE
    ====================== */
@@ -45,6 +72,12 @@ export async function createProperty({
     throw error;
   }
 
+  await syncTenantAssignment({
+    accountId,
+    propertyId: data.id,
+    nextTenantId: tenantId,
+  });
+
   return data;
 }
 
@@ -67,6 +100,17 @@ export async function updateProperty(id, {
   assertMaxLength(size, 80, "Size is too long");
   const rentAmount = assertAmount(rent, { min: 0, message: "Invalid rent amount" });
 
+  const { data: current, error: currentError } = await supabase
+    .from("properties")
+    .select("account_id, tenant_id")
+    .eq("id", id)
+    .single();
+
+  if (currentError) {
+    console.error("load property before update failed:", currentError);
+    throw currentError;
+  }
+
   const { data, error } = await supabase
     .from("properties")
     .update({
@@ -84,6 +128,13 @@ export async function updateProperty(id, {
     console.error("updateProperty failed:", error);
     throw error;
   }
+
+  await syncTenantAssignment({
+    accountId: current.account_id,
+    propertyId: id,
+    previousTenantId: current.tenant_id,
+    nextTenantId: tenantId,
+  });
 
   return data;
 }

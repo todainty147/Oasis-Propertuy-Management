@@ -23,6 +23,34 @@ describe("tenant surface isolation contracts", () => {
     expect(topbarSource).toContain("!isTenant && !tenantsLoading && tenants.length > 0");
   });
 
+  it("self-heals stale tenant filters so landlord property and tenant lists do not get trapped empty", () => {
+    const tenantContextSource = readSource("src/context/TenantContext.jsx");
+    const useTenantsSource = readSource("src/hooks/useTenants.js");
+    const usePropertiesSource = readSource("src/hooks/useProperties.js");
+
+    expect(tenantContextSource).toContain("useCallback");
+    expect(useTenantsSource).toContain("const { activeTenantId, clearTenant } = useTenant();");
+    expect(useTenantsSource).toContain("if (scopedTenants.length === 0)");
+    expect(useTenantsSource).toContain("clearTenant();");
+    expect(useTenantsSource).toContain("setTenants(data);");
+    expect(usePropertiesSource).toContain("const { activeTenantId, clearTenant } = useTenant();");
+    expect(usePropertiesSource).toContain(".eq(\"account_id\", activeAccountId)");
+    expect(usePropertiesSource).toContain("await loadAccountProperties();");
+  });
+
+  it("keeps property tenant assignment synchronized with the tenant list source of truth", () => {
+    const propertyServiceSource = readSource("src/services/propertyService.js");
+    const addPropertyModalSource = readSource("src/components/AddPropertyModal.jsx");
+    const propertiesSource = readSource("src/pages/Properties.jsx");
+
+    expect(propertyServiceSource).toContain("async function syncTenantAssignment");
+    expect(propertyServiceSource).toContain(".from(\"tenants\")");
+    expect(propertyServiceSource).toContain(".update({ property_id: propertyId })");
+    expect(propertyServiceSource).toContain(".update({ property_id: null })");
+    expect(addPropertyModalSource).toContain("tenantId: form.tenantId || null");
+    expect(propertiesSource).toContain("const isOccupied = Boolean(tenant);");
+  });
+
   it("gates the property performance card behind manage-role access", () => {
     const propertyDetailsSource = readSource("src/pages/PropertyDetails.jsx");
 

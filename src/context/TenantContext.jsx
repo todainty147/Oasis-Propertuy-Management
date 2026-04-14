@@ -1,6 +1,7 @@
 // src/context/TenantContext.jsx
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -73,18 +74,18 @@ export function TenantProvider({ children }) {
   }, [activeAccountId, activeRole, tenantContext, tenantFromUrl]);
 
   /* ---------- STATE → URL ---------- */
-  function setActiveTenantId(id) {
+  const setActiveTenantId = useCallback((id) => {
     const params = new URLSearchParams(searchParams);
 
     if (id) params.set("tenant", id);
     else params.delete("tenant");
 
     setSearchParams(params, { replace: true });
-  }
+  }, [searchParams, setSearchParams]);
 
-  function clearTenant() {
+  const clearTenant = useCallback(() => {
     setActiveTenantId(null);
-  }
+  }, [setActiveTenantId]);
 
   return (
     <TenantContext.Provider
