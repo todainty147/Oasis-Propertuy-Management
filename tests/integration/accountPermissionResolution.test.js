@@ -146,4 +146,88 @@ describe.skipIf(!isIntegrationHarnessConfigured())("account permission resolutio
 
     expect(restoreResult.error).toBeNull();
   });
+
+  it("lets direct property and tenant table reads follow dynamic read permissions", async () => {
+    const users = await ensureIsolationHarnessSeed();
+    const accountId = isolationFixtures.accounts.accountA.id;
+    const customRoleName = `custom-read-surface-${Date.now()}`;
+
+    const customRoleResult = await admin
+      .from("roles")
+      .insert({
+        account_id: accountId,
+        name: customRoleName,
+      })
+      .select("id")
+      .single();
+
+    expect(customRoleResult.error).toBeNull();
+
+    const permissionInsertResult = await admin
+      .from("role_permissions")
+      .insert([
+        { role_id: customRoleResult.data.id, permission_key: "properties.read" },
+        { role_id: customRoleResult.data.id, permission_key: "tenants.read" },
+      ]);
+
+    expect(permissionInsertResult.error).toBeNull();
+
+    const legacyRoleUpdateResult = await admin
+      .from("account_members")
+      .update({
+        role: "contractor",
+      })
+      .eq("account_id", accountId)
+      .eq("user_id", users.staffA.id);
+
+    expect(legacyRoleUpdateResult.error).toBeNull();
+
+    const updateResult = await admin
+      .from("account_members")
+      .update({
+        role_id: customRoleResult.data.id,
+      })
+      .eq("account_id", accountId)
+      .eq("user_id", users.staffA.id);
+
+    expect(updateResult.error).toBeNull();
+
+    try {
+      const { client } = await signInAsFixtureUser("staffA");
+
+      const propertiesResult = await client
+        .from("properties")
+        .select("id, account_id, address")
+        .eq("account_id", accountId);
+
+      expect(propertiesResult.error).toBeNull();
+      expect(propertiesResult.data?.length ?? 0).toBeGreaterThan(0);
+      expect(propertiesResult.data?.every((row) => row.account_id === accountId)).toBe(true);
+
+      const tenantsResult = await client
+        .from("tenants")
+        .select("id, account_id, name")
+        .eq("account_id", accountId);
+
+      expect(tenantsResult.error).toBeNull();
+      expect(tenantsResult.data?.length ?? 0).toBeGreaterThan(0);
+      expect(tenantsResult.data?.every((row) => row.account_id === accountId)).toBe(true);
+
+      const crossAccountPropertiesResult = await client
+        .from("properties")
+        .select("id")
+        .eq("account_id", isolationFixtures.accounts.accountB.id);
+
+      expect(crossAccountPropertiesResult.error).toBeNull();
+      expect(crossAccountPropertiesResult.data).toEqual([]);
+    } finally {
+      const restoreResult = await admin
+        .from("account_members")
+        .update({ role: "staff", role_id: null })
+        .eq("account_id", accountId)
+        .eq("user_id", users.staffA.id);
+
+      expect(restoreResult.error).toBeNull();
+    }
+  });
 });

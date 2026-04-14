@@ -60,6 +60,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply property/tenant dynamic permission policies overlay",
+    file: path.join(supabaseDir, "property_tenant_dynamic_permission_policies.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply account branding overlay",
     file: path.join(supabaseDir, "account_branding.sql"),
     onErrorStop: true,

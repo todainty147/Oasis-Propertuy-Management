@@ -51,6 +51,32 @@ describe("tenant surface isolation contracts", () => {
     expect(propertiesSource).toContain("const isOccupied = Boolean(tenant);");
   });
 
+  it("keeps direct property and tenant table reads aligned with dynamic role permissions", () => {
+    const policySource = readSource("supabase/property_tenant_dynamic_permission_policies.sql");
+    const dbApplySource = readSource("scripts/dbApplyRepoSql.js");
+
+    expect(policySource).toContain("public.account_member_has_permission(account_id, 'properties.read')");
+    expect(policySource).toContain("public.account_member_has_permission(account_id, 'properties.create')");
+    expect(policySource).toContain("public.account_member_has_permission(account_id, 'properties.update')");
+    expect(policySource).toContain("public.account_member_has_permission(account_id, 'properties.delete')");
+    expect(policySource).toContain("public.account_member_has_permission(account_id, 'tenants.read')");
+    expect(policySource).toContain("public.account_member_has_permission(account_id, 'tenants.create')");
+    expect(policySource).toContain("public.account_member_has_permission(account_id, 'tenants.update')");
+    expect(policySource).toContain("public.account_member_has_permission(account_id, 'tenants.delete')");
+    expect(policySource).toContain("public.user_can_manage_account(account_id)");
+    expect(dbApplySource).toContain('"property_tenant_dynamic_permission_policies.sql"');
+  });
+
+  it("keeps the tenant invite CTA aligned with invitation access instead of only tenant-create permission", () => {
+    const tenantsSource = readSource("src/pages/Tenants.jsx");
+
+    expect(tenantsSource).toContain("const canInviteTenant = useMemo");
+    expect(tenantsSource).toContain('isManageRole(activeRole, { isRootOperator })');
+    expect(tenantsSource).toContain('can(activePermissionContext, "users", "invite")');
+    expect(tenantsSource).toContain("canCreateTenant(activePermissionContext)");
+    expect(tenantsSource).toContain("{canInviteTenant && (");
+  });
+
   it("gates the property performance card behind manage-role access", () => {
     const propertyDetailsSource = readSource("src/pages/PropertyDetails.jsx");
 

@@ -31,6 +31,7 @@ const OVERLAY_SEQUENCE = [
   "account_member_permission_keys.sql",
   "account_role_compatibility_helpers.sql",
   "account_role_for_custom_roles.sql",
+  "property_tenant_dynamic_permission_policies.sql",
   "account_branding.sql",
   "account_invitations_saas.sql",
   "account_owner_contact.sql",

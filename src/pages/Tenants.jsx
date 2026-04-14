@@ -11,7 +11,7 @@ import { useTenants } from "../hooks/useTenants";
 import { useProperties } from "../hooks/useProperties";
 import { useTenant } from "../context/TenantContext";
 import { useAccount } from "../context/AccountContext";
-import { canCreateTenant } from "../utils/permissions";
+import { can, canCreateTenant, isManageRole } from "../utils/permissions";
 import { useI18n } from "../context/I18nContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { listLeases } from "../services/leaseService";
@@ -45,7 +45,7 @@ function TenantsSkeleton() {
 export default function Tenants() {
   const { setTitle } = usePageTitle();
   const { activeTenantId } = useTenant();
-  const { activePermissionContext, activeAccountId } = useAccount();
+  const { activePermissionContext, activeAccountId, activeRole, isRootOperator } = useAccount();
   const { t } = useI18n();
 
   const { tenants, loading } = useTenants();
@@ -183,6 +183,13 @@ export default function Tenants() {
     const to = from + pageSize;
     return visibleTenants.slice(from, to);
   }, [visibleTenants, page, pageSize]);
+  const canInviteTenant = useMemo(() => {
+    return (
+      isManageRole(activeRole, { isRootOperator }) ||
+      can(activePermissionContext, "users", "invite") ||
+      canCreateTenant(activePermissionContext)
+    );
+  }, [activePermissionContext, activeRole, isRootOperator]);
 
   useEffect(() => {
     setTitle(t("sidebar.tenants"));
@@ -206,7 +213,7 @@ export default function Tenants() {
             : t("tenant.emptyAddFirst")}
         </p>
 
-        {canCreateTenant(activePermissionContext) && (
+        {canInviteTenant && (
           <Link
             to="/invitations"
             className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
@@ -226,7 +233,7 @@ export default function Tenants() {
           {t("sidebar.tenants")}
         </h2>
 
-        {canCreateTenant(activePermissionContext) && (
+        {canInviteTenant && (
           <Link
             to="/invitations"
             className="px-4 py-2 bg-blue-600 text-white rounded-lg"

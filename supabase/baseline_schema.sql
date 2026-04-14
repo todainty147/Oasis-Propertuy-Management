@@ -21790,21 +21790,21 @@ ALTER TABLE public.properties ENABLE ROW LEVEL SECURITY;
 -- Name: properties properties_delete_owner_only; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY properties_delete_owner_only ON public.properties FOR DELETE TO authenticated USING ((public.account_role_for(account_id) = 'owner'::text));
+CREATE POLICY properties_delete_owner_only ON public.properties FOR DELETE TO authenticated USING (public.account_member_has_permission(account_id, 'properties.delete'::text));
 
 
 --
 -- Name: properties properties_insert_owner_admin; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY properties_insert_owner_admin ON public.properties FOR INSERT TO authenticated WITH CHECK ((public.account_role_for(account_id) = ANY (ARRAY['owner'::text, 'admin'::text])));
+CREATE POLICY properties_insert_owner_admin ON public.properties FOR INSERT TO authenticated WITH CHECK (public.account_member_has_permission(account_id, 'properties.create'::text));
 
 
 --
 -- Name: properties properties_select_member; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY properties_select_member ON public.properties FOR SELECT TO authenticated USING (public.user_can_manage_account(account_id));
+CREATE POLICY properties_select_member ON public.properties FOR SELECT TO authenticated USING ((public.user_can_manage_account(account_id) OR public.account_member_has_permission(account_id, 'properties.read'::text)));
 
 
 --
@@ -21820,7 +21820,7 @@ CREATE POLICY properties_select_tenant ON public.properties FOR SELECT TO authen
 -- Name: properties properties_update_owner_admin; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY properties_update_owner_admin ON public.properties FOR UPDATE TO authenticated USING ((public.account_role_for(account_id) = ANY (ARRAY['owner'::text, 'admin'::text]))) WITH CHECK ((public.account_role_for(account_id) = ANY (ARRAY['owner'::text, 'admin'::text])));
+CREATE POLICY properties_update_owner_admin ON public.properties FOR UPDATE TO authenticated USING (public.account_member_has_permission(account_id, 'properties.update'::text)) WITH CHECK (public.account_member_has_permission(account_id, 'properties.update'::text));
 
 
 --
@@ -22035,21 +22035,21 @@ ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
 -- Name: tenants tenants_delete_owner_only; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY tenants_delete_owner_only ON public.tenants FOR DELETE TO authenticated USING ((public.account_role_for(account_id) = 'owner'::text));
+CREATE POLICY tenants_delete_owner_only ON public.tenants FOR DELETE TO authenticated USING (public.account_member_has_permission(account_id, 'tenants.delete'::text));
 
 
 --
 -- Name: tenants tenants_insert_owner_admin; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY tenants_insert_owner_admin ON public.tenants FOR INSERT TO authenticated WITH CHECK ((public.account_role_for(account_id) = ANY (ARRAY['owner'::text, 'admin'::text])));
+CREATE POLICY tenants_insert_owner_admin ON public.tenants FOR INSERT TO authenticated WITH CHECK (public.account_member_has_permission(account_id, 'tenants.create'::text));
 
 
 --
 -- Name: tenants tenants_select_member; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY tenants_select_member ON public.tenants FOR SELECT TO authenticated USING (public.is_account_member(account_id));
+CREATE POLICY tenants_select_member ON public.tenants FOR SELECT TO authenticated USING ((public.user_can_manage_account(account_id) OR public.account_member_has_permission(account_id, 'tenants.read'::text)));
 
 
 --
@@ -22063,7 +22063,7 @@ CREATE POLICY tenants_select_self ON public.tenants FOR SELECT TO authenticated 
 -- Name: tenants tenants_update_owner_admin; Type: POLICY; Schema: public; Owner: postgres
 --
 
-CREATE POLICY tenants_update_owner_admin ON public.tenants FOR UPDATE TO authenticated USING ((public.account_role_for(account_id) = ANY (ARRAY['owner'::text, 'admin'::text]))) WITH CHECK ((public.account_role_for(account_id) = ANY (ARRAY['owner'::text, 'admin'::text])));
+CREATE POLICY tenants_update_owner_admin ON public.tenants FOR UPDATE TO authenticated USING (public.account_member_has_permission(account_id, 'tenants.update'::text)) WITH CHECK (public.account_member_has_permission(account_id, 'tenants.update'::text));
 
 
 --
