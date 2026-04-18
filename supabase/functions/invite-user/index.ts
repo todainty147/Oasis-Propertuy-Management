@@ -3,6 +3,7 @@ import {
   buildRateLimitBody,
   recordRateLimitAttempt,
 } from "../_shared/rateLimit.ts";
+import { resolveTrustedAppOrigin } from "../_shared/trustedOrigin.ts";
 
 type InvitePayload = {
   accountId: string;
@@ -33,6 +34,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const APP_URL = Deno.env.get("APP_URL") || "";
+const ALLOWED_APP_ORIGINS = Deno.env.get("ALLOWED_APP_ORIGINS") || "";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || "";
 const OASIS_INVITES_FROM = Deno.env.get("OASIS_INVITES_FROM") || "invites@auth.oasisrental.app";
@@ -43,20 +45,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-
-function normalizeAppUrl(value: string) {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-
-  const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-
-  try {
-    const url = new URL(withProtocol);
-    return url.toString().replace(/\/$/, "");
-  } catch {
-    return "";
-  }
-}
 
 function normalizeText(value: unknown) {
   const next = String(value || "").trim().toLowerCase();
@@ -413,7 +401,29 @@ Deno.serve(async (req) => {
       inviteEntityId = inviteRow.id;
     }
 
-    const appBaseUrl = normalizeAppUrl(APP_URL) || normalizeAppUrl(req.headers.get("origin") || "");
+    const appBaseUrl = resolveAppUrl();
+    if (!appBaseUrl) {
+      await logEmailEvent({
+        accountId,
+        templateKey: mode === "resend" ? "account_invitation_resend" : "account_invitation",
+        status: "failed",
+        recipientEmail: email,
+        recipientUserId: null,
+        entityType: "account_invitation",
+        entityId: inviteEntityId,
+        subject: `${createdAccountName || "OASIS Rental"} invitation`,
+        metadata: {
+          role,
+          mode,
+          reason: "trusted_app_origin_not_configured",
+          functionName: "invite-user",
+        },
+      });
+      return json({
+        error: "Trusted app origin is not configured",
+        code: "trusted_app_origin_not_configured",
+      }, 500);
+    }
     const redirectTo = appBaseUrl ? `${appBaseUrl}/invite?token=${token}` : "";
     const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
       type: "invite",
@@ -515,6 +525,13 @@ function json(payload: unknown, status = 200) {
       ...corsHeaders,
     },
   });
+}
+
+function resolveAppUrl() {
+  return resolveTrustedAppOrigin({
+    appUrl: APP_URL,
+    allowedOrigins: ALLOWED_APP_ORIGINS,
+  }).origin;
 }
 
 function buildInviteEmail({

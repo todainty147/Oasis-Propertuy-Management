@@ -33,10 +33,12 @@ describe("outbound email contracts", () => {
 
     expect(inviteFn).toContain('const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")');
     expect(inviteFn).toContain('mode?: "create" | "resend"');
-    expect(inviteFn).toContain("function normalizeAppUrl(value: string)");
+    expect(inviteFn).toContain('import { resolveTrustedAppOrigin } from "../_shared/trustedOrigin.ts"');
+    expect(inviteFn).toContain('const ALLOWED_APP_ORIGINS = Deno.env.get("ALLOWED_APP_ORIGINS")');
     expect(inviteFn).toContain("function buildDirectInviteUrl");
-    expect(inviteFn).toContain('const appBaseUrl = normalizeAppUrl(APP_URL) || normalizeAppUrl(req.headers.get("origin") || "")');
+    expect(inviteFn).toContain("const appBaseUrl = resolveAppUrl()");
     expect(inviteFn).toContain('const redirectTo = appBaseUrl ? `${appBaseUrl}/invite?token=${token}` : ""');
+    expect(inviteFn).not.toContain('req.headers.get("origin")');
     expect(inviteFn).toContain("token_hash");
     expect(inviteFn).toContain('params.set("type", "invite")');
     expect(inviteFn).toContain("logEmailEvent");
@@ -54,7 +56,11 @@ describe("outbound email contracts", () => {
     expect(resetFn).toContain("outbound_email_events");
     expect(resetFn).toContain('template_key: "password_reset"');
     expect(resetFn).toContain('const OASIS_PASSWORD_RESETS_FROM =');
+    expect(resetFn).toContain('import { resolveTrustedAppOrigin } from "../_shared/trustedOrigin.ts"');
+    expect(resetFn).toContain('const ALLOWED_APP_ORIGINS = Deno.env.get("ALLOWED_APP_ORIGINS")');
     expect(resetFn).toContain('const redirectTo = appBaseUrl');
+    expect(resetFn).toContain("const appBaseUrl = resolveAppUrl()");
+    expect(resetFn).not.toContain('req.headers.get("origin")');
     expect(resetFn).toContain("inviteToken");
     expect(resetFn).toContain("invite_token=");
     expect(resetFn).toContain('https://api.resend.com/emails');

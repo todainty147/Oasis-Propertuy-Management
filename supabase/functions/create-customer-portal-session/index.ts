@@ -1,5 +1,6 @@
 import Stripe from "npm:stripe@17.7.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { resolveTrustedAppOrigin } from "../_shared/trustedOrigin.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
   apiVersion: "2024-06-20",
@@ -9,6 +10,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const APP_URL = Deno.env.get("APP_URL") || "";
+const ALLOWED_APP_ORIGINS = Deno.env.get("ALLOWED_APP_ORIGINS") || "";
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 const corsHeaders = {
@@ -82,12 +84,12 @@ Deno.serve(async (req) => {
       return json({ error: "No billing customer found for this account" }, 404);
     }
 
-    const appUrl = resolveAppUrl(req);
+    const appUrl = resolveAppUrl();
     if (!appUrl) {
       return json(
         {
-          error:
-            "APP_URL is not configured with an explicit scheme. Use values like http://localhost:5173 or https://app.oasisrental.app",
+          error: "Trusted app origin is not configured",
+          code: "trusted_app_origin_not_configured",
         },
         400,
       );
@@ -117,21 +119,9 @@ function json(payload: unknown, status = 200) {
   });
 }
 
-function resolveAppUrl(req: Request) {
-  const candidates = [APP_URL, req.headers.get("origin") || ""];
-
-  for (const candidate of candidates) {
-    const value = String(candidate || "").trim().replace(/\/+$/, "");
-    if (!value) continue;
-    try {
-      const url = new URL(value);
-      if (url.protocol === "http:" || url.protocol === "https:") {
-        return value;
-      }
-    } catch {
-      // Ignore invalid URLs and continue to the next candidate.
-    }
-  }
-
-  return null;
+function resolveAppUrl() {
+  return resolveTrustedAppOrigin({
+    appUrl: APP_URL,
+    allowedOrigins: ALLOWED_APP_ORIGINS,
+  }).origin;
 }

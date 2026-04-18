@@ -3,6 +3,7 @@ import {
   buildRateLimitBody,
   recordRateLimitAttempt,
 } from "../_shared/rateLimit.ts";
+import { resolveTrustedAppOrigin } from "../_shared/trustedOrigin.ts";
 
 type PasswordResetPayload = {
   email: string;
@@ -12,6 +13,7 @@ type PasswordResetPayload = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const APP_URL = Deno.env.get("APP_URL") || "";
+const ALLOWED_APP_ORIGINS = Deno.env.get("ALLOWED_APP_ORIGINS") || "";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || "";
 const OASIS_PASSWORD_RESETS_FROM =
@@ -25,20 +27,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-
-function normalizeAppUrl(value: string) {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-
-  const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-
-  try {
-    const url = new URL(withProtocol);
-    return url.toString().replace(/\/$/, "");
-  } catch {
-    return "";
-  }
-}
 
 function normalizeEmail(value: unknown) {
   return String(value || "").trim().toLowerCase();
@@ -84,6 +72,13 @@ function json(body: unknown, status = 200) {
   });
 }
 
+function resolveAppUrl() {
+  return resolveTrustedAppOrigin({
+    appUrl: APP_URL,
+    allowedOrigins: ALLOWED_APP_ORIGINS,
+  }).origin;
+}
+
 Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") {
@@ -125,7 +120,21 @@ Deno.serve(async (req) => {
       return json({ error: "Password reset email is not configured" }, 500);
     }
 
-    const appBaseUrl = normalizeAppUrl(APP_URL) || normalizeAppUrl(req.headers.get("origin") || "");
+    const appBaseUrl = resolveAppUrl();
+    if (!appBaseUrl) {
+      await logEmailEvent({
+        status: "failed",
+        recipientEmail: email,
+        metadata: {
+          reason: "trusted_app_origin_not_configured",
+          functionName: "send-password-reset-email",
+        },
+      });
+      return json({
+        error: "Trusted app origin is not configured",
+        code: "trusted_app_origin_not_configured",
+      }, 500);
+    }
     const redirectTo = appBaseUrl
       ? `${appBaseUrl}/reset-password?flow=recovery${inviteToken ? `&invite_token=${encodeURIComponent(inviteToken)}` : ""}`
       : "";
