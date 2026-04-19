@@ -1,5 +1,6 @@
 import Stripe from "npm:stripe@17.7.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { safeErrorResponse } from "../_shared/safeErrorResponse.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
   apiVersion: "2024-06-20",
@@ -172,25 +173,36 @@ Deno.serve(async (req) => {
 
       return new Response("ok", { status: 200 });
     } catch (processingError) {
+      const correlationId = crypto.randomUUID();
       await admin
         .from("billing_events")
         .update({
           processed_at: new Date().toISOString(),
-          processing_error:
-            processingError instanceof Error ? processingError.message : "Unknown processing error",
+          processing_error: `Operation failed: ${correlationId}`,
         })
         .eq("stripe_event_id", event.id);
 
-      return new Response(
-        processingError instanceof Error ? processingError.message : "Webhook processing error",
-        { status: 400 },
-      );
+      return safeErrorResponse(req, {
+        allowedOrigins: "",
+        correlationId,
+        error: processingError,
+        functionName: "stripe-webhook",
+        message: "Operation failed",
+        status: 400,
+        context: {
+          stripeEventId: event.id,
+          stripeEventType: event.type,
+        },
+      });
     }
   } catch (error) {
-    return new Response(
-      error instanceof Error ? error.message : "Webhook error",
-      { status: 400 },
-    );
+    return safeErrorResponse(req, {
+      allowedOrigins: "",
+      error,
+      functionName: "stripe-webhook",
+      message: "Invalid request",
+      status: 400,
+    });
   }
 });
 

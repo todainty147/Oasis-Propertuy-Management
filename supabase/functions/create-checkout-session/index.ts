@@ -5,6 +5,7 @@ import {
   buildJsonHeaders,
   resolveTrustedAppOrigin,
 } from "../_shared/trustedOrigin.ts";
+import { safeErrorResponse } from "../_shared/safeErrorResponse.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
   apiVersion: "2024-06-20",
@@ -94,7 +95,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (memberError) {
-      return respond({ error: memberError.message }, 400);
+      return safeError(req, memberError, 400, "Invalid request", { surface: "account_members" });
     }
 
     if (
@@ -111,7 +112,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (accountError) {
-      return respond({ error: accountError.message }, 400);
+      return safeError(req, accountError, 400, "Invalid request", { surface: "accounts" });
     }
 
     const { data: existingCustomer, error: existingCustomerError } = await admin
@@ -121,7 +122,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (existingCustomerError) {
-      return respond({ error: existingCustomerError.message }, 400);
+      return safeError(req, existingCustomerError, 400, "Invalid request", { surface: "billing_customers" });
     }
 
     let stripeCustomerId = existingCustomer?.stripe_customer_id || null;
@@ -144,7 +145,7 @@ Deno.serve(async (req) => {
       });
 
       if (upsertCustomerError) {
-        return respond({ error: upsertCustomerError.message }, 400);
+        return safeError(req, upsertCustomerError, 400, "Operation failed", { surface: "billing_customers" });
       }
     }
 
@@ -178,10 +179,7 @@ Deno.serve(async (req) => {
       trialDays: STRIPE_TEST_TRIAL_DAYS,
     });
   } catch (error) {
-    return respond(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      500,
-    );
+    return safeError(req, error, 500, "Operation failed");
   }
 });
 
@@ -197,6 +195,23 @@ function resolveAppUrl() {
     appUrl: APP_URL,
     allowedOrigins: ALLOWED_APP_ORIGINS,
   }).origin;
+}
+
+function safeError(
+  req: Request,
+  error: unknown,
+  status: number,
+  message: string,
+  context: Record<string, unknown> = {},
+) {
+  return safeErrorResponse(req, {
+    allowedOrigins: ALLOWED_APP_ORIGINS,
+    error,
+    functionName: "create-checkout-session",
+    message,
+    status,
+    context,
+  });
 }
 
 function parsePositiveInt(value: string | undefined) {

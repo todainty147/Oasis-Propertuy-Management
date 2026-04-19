@@ -8,6 +8,7 @@ import {
   buildJsonHeaders,
   resolveTrustedAppOrigin,
 } from "../_shared/trustedOrigin.ts";
+import { safeErrorResponse } from "../_shared/safeErrorResponse.ts";
 
 type InvitePayload = {
   accountId: string;
@@ -307,7 +308,7 @@ Deno.serve(async (req) => {
           code: "403",
         });
         await recordSecurityObservabilityEvent(userClient, user.id, classification, { role });
-        return respond({ error: error.message, classification }, 400);
+        return safeInviteError(req, error, classification);
       }
 
       const invite = Array.isArray(data) ? data[0] : data;
@@ -333,7 +334,7 @@ Deno.serve(async (req) => {
           code: "403",
         });
         await recordSecurityObservabilityEvent(userClient, user.id, classification, { role });
-        return respond({ error: eligibilityError.message, classification }, 400);
+        return safeInviteError(req, eligibilityError, classification);
       }
       if (!eligibility?.ok) {
         const classification = classifyInviteFailure({
@@ -343,7 +344,7 @@ Deno.serve(async (req) => {
           code: "403",
         });
         await recordSecurityObservabilityEvent(userClient, user.id, classification, { role });
-        return respond({ error: eligibility?.message || "Invite is not allowed", classification }, 400);
+        return safeInviteError(req, new Error(eligibility?.message || "Invite is not allowed"), classification);
       }
 
       token = crypto.randomUUID();
@@ -369,7 +370,7 @@ Deno.serve(async (req) => {
           entityId: null,
         });
         await recordSecurityObservabilityEvent(userClient, user.id, classification, { role });
-        return respond({ error: inviteError?.message || "Failed to create invitation", classification }, 400);
+        return safeInviteError(req, inviteError || new Error("Failed to create invitation"), classification);
       }
       inviteEntityId = inviteRow.id;
     } else {
@@ -395,7 +396,13 @@ Deno.serve(async (req) => {
           entityId: invitationId,
         });
         await recordSecurityObservabilityEvent(userClient, user.id, classification, { role });
-        return respond({ error: inviteError?.message || "Invitation not found", classification }, 404);
+        return safeInviteError(
+          req,
+          inviteError || new Error("Invitation not found"),
+          classification,
+          404,
+          "Not found",
+        );
       }
 
       token = inviteRow.token;
@@ -432,7 +439,7 @@ Deno.serve(async (req) => {
       options: { redirectTo },
     });
 
-    if (linkError) return respond({ error: linkError.message }, 400);
+    if (linkError) return safeError(req, linkError, 400, "Invalid request", { surface: "generate_invite_link" });
     const actionLink =
       buildDirectInviteUrl({
         appBaseUrl,
@@ -514,7 +521,7 @@ Deno.serve(async (req) => {
       accountName: createdAccountName,
     });
   } catch (error) {
-    return respond({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return safeError(req, error, 500, "Operation failed");
   }
 });
 
@@ -530,6 +537,46 @@ function resolveAppUrl() {
     appUrl: APP_URL,
     allowedOrigins: ALLOWED_APP_ORIGINS,
   }).origin;
+}
+
+function safeInviteError(
+  req: Request,
+  error: unknown,
+  classification: SecurityClassification,
+  fallbackStatus = 400,
+  fallbackMessage = "Invalid request",
+) {
+  const status = classification.kind === "authorization_denied" ? 403 : fallbackStatus;
+  const message = status === 403 ? "Forbidden" : fallbackMessage;
+
+  return safeError(req, error, status, message, {
+    surface: classification.surface,
+    kind: classification.kind,
+    accountId: classification.accountId,
+    entityType: classification.entityType,
+    entityId: classification.entityId,
+  }, classification.correlationId, classification.code || undefined);
+}
+
+function safeError(
+  req: Request,
+  error: unknown,
+  status: number,
+  message: string,
+  context: Record<string, unknown> = {},
+  correlationId?: string,
+  code?: string,
+) {
+  return safeErrorResponse(req, {
+    allowedOrigins: ALLOWED_APP_ORIGINS,
+    code,
+    correlationId,
+    error,
+    functionName: "invite-user",
+    message,
+    status,
+    context,
+  });
 }
 
 function buildInviteEmail({

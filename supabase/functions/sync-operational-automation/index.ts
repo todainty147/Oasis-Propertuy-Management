@@ -1138,6 +1138,13 @@ async function syncAccount(accountId: string, { dryRun = false } = {}) {
           }),
         ]);
       } catch (error) {
+        const notificationCorrelationId = crypto.randomUUID();
+        logError(notificationCorrelationId, "notification_create_failed", {
+          accountId,
+          ruleId: signal.ruleId,
+          sourceKey: signal.sourceKey,
+          error: serializeError(error),
+        });
         executionRowsInserted += await insertExecutionRows([
           buildExecutionRow({
             accountId,
@@ -1149,7 +1156,8 @@ async function syncAccount(accountId: string, { dryRun = false } = {}) {
             entityId: signal.entityId,
             title: signal.title,
             details: {
-              error: error instanceof Error ? error.message : "Unknown notification error",
+              error: "Operation failed",
+              correlation_id: notificationCorrelationId,
               notification_type: signal.notificationType,
               source_key: signal.sourceKey,
             },

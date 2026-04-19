@@ -8,6 +8,7 @@ import {
   buildJsonHeaders,
   resolveTrustedAppOrigin,
 } from "../_shared/trustedOrigin.ts";
+import { safeErrorResponse } from "../_shared/safeErrorResponse.ts";
 
 type PasswordResetPayload = {
   email: string;
@@ -231,6 +232,23 @@ Deno.serve(async (req) => {
 
     return respond({ ok: true });
   } catch (error) {
-    return respond({ error: error instanceof Error ? error.message : "Unexpected error" }, 500);
+    return safeError(req, error, 500, "Operation failed");
   }
 });
+
+function safeError(
+  req: Request,
+  error: unknown,
+  status: number,
+  message: string,
+  context: Record<string, unknown> = {},
+) {
+  return safeErrorResponse(req, {
+    allowedOrigins: ALLOWED_APP_ORIGINS,
+    error,
+    functionName: "send-password-reset-email",
+    message,
+    status,
+    context,
+  });
+}

@@ -7,6 +7,7 @@ import {
   buildCorsHeaders,
   buildJsonHeaders,
 } from "../_shared/trustedOrigin.ts";
+import { safeErrorResponse } from "../_shared/safeErrorResponse.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
@@ -178,10 +179,27 @@ Deno.serve(async (req) => {
       },
     });
 
-    if (insertError) return respond({ error: insertError.message }, 500);
+    if (insertError) return safeError(req, insertError, 500, "Operation failed", { surface: "security_observability_events" });
 
     return respond({ ok: true });
   } catch (error) {
-    return respond({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return safeError(req, error, 500, "Operation failed");
   }
 });
+
+function safeError(
+  req: Request,
+  error: unknown,
+  status: number,
+  message: string,
+  context: Record<string, unknown> = {},
+) {
+  return safeErrorResponse(req, {
+    allowedOrigins: ALLOWED_APP_ORIGINS,
+    error,
+    functionName: "ingest-security-observability",
+    message,
+    status,
+    context,
+  });
+}

@@ -3,6 +3,7 @@ import {
   buildCorsHeaders,
   buildJsonHeaders,
 } from "../_shared/trustedOrigin.ts";
+import { safeErrorResponse } from "../_shared/safeErrorResponse.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
@@ -84,7 +85,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (jobError) {
-      return respond({ error: jobError.message }, 400);
+      return safeError(req, jobError, 400, "Invalid request", { surface: "security_audit_export_jobs" });
     }
 
     const job = data as ExportJobRow | null;
@@ -98,7 +99,10 @@ Deno.serve(async (req) => {
     });
 
     if (accessError) {
-      return respond({ error: accessError.message || "Access denied" }, 403);
+      return safeError(req, accessError, 403, "Forbidden", {
+        surface: "assert_manage_account_access",
+        jobId,
+      });
     }
 
     if (job.status === "completed") {
@@ -157,17 +161,14 @@ Deno.serve(async (req) => {
         await updateJob(jobId, {
           status: "failed",
           completed_at: new Date().toISOString(),
-          error_summary: error instanceof Error ? error.message : "Unknown export error",
+          error_summary: "Operation failed",
         });
       } catch {
         // Best effort only.
       }
     }
 
-    return respond(
-      { error: error instanceof Error ? error.message : "Unknown export error" },
-      500,
-    );
+    return safeError(req, error, 500, "Operation failed", { jobId });
   }
 });
 
@@ -185,6 +186,23 @@ async function updateJob(jobId: string, patch: Record<string, unknown>) {
     .eq("id", jobId);
 
   if (error) throw error;
+}
+
+function safeError(
+  req: Request,
+  error: unknown,
+  status: number,
+  message: string,
+  context: Record<string, unknown> = {},
+) {
+  return safeErrorResponse(req, {
+    allowedOrigins: ALLOWED_APP_ORIGINS,
+    error,
+    functionName: "generate-security-audit-export",
+    message,
+    status,
+    context,
+  });
 }
 
 function normalizeFilters(input: Record<string, unknown> | null) {

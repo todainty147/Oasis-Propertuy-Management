@@ -5,6 +5,7 @@ import {
   buildJsonHeaders,
   resolveTrustedAppOrigin,
 } from "../_shared/trustedOrigin.ts";
+import { safeErrorResponse } from "../_shared/safeErrorResponse.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
   apiVersion: "2024-06-20",
@@ -61,7 +62,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (memberError) {
-      return respond({ error: memberError.message }, 400);
+      return safeError(req, memberError, 400, "Invalid request", { surface: "account_members" });
     }
 
     if (
@@ -78,7 +79,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (customerError) {
-      return respond({ error: customerError.message }, 400);
+      return safeError(req, customerError, 400, "Invalid request", { surface: "billing_customers" });
     }
 
     if (!customer?.stripe_customer_id) {
@@ -103,10 +104,7 @@ Deno.serve(async (req) => {
 
     return respond({ url: portal.url });
   } catch (error) {
-    return respond(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      500,
-    );
+    return safeError(req, error, 500, "Operation failed");
   }
 });
 
@@ -122,4 +120,21 @@ function resolveAppUrl() {
     appUrl: APP_URL,
     allowedOrigins: ALLOWED_APP_ORIGINS,
   }).origin;
+}
+
+function safeError(
+  req: Request,
+  error: unknown,
+  status: number,
+  message: string,
+  context: Record<string, unknown> = {},
+) {
+  return safeErrorResponse(req, {
+    allowedOrigins: ALLOWED_APP_ORIGINS,
+    error,
+    functionName: "create-customer-portal-session",
+    message,
+    status,
+    context,
+  });
 }
