@@ -107,7 +107,7 @@ export async function listAccountInvitations(accountId) {
   if (!accountId) return [];
   const { data, error } = await supabase
     .from("account_invitations")
-    .select("id, account_id, email, role, token, invited_by, created_at, accepted_at, revoked_at")
+    .select("id, account_id, email, role, invited_by, created_at, accepted_at, revoked_at")
     .eq("account_id", accountId)
     .order("created_at", { ascending: false })
     .limit(200);
@@ -180,7 +180,7 @@ export async function createAccountInvitation({
       });
       throw friendly(otpErr, "Landlord invitation created but failed to send email link");
     }
-    return invite;
+    return parseInvitationRow({ ...invite, token: "" });
   }
 
   const token = crypto.randomUUID();
@@ -193,7 +193,7 @@ export async function createAccountInvitation({
       role: normalizedRole,
       token,
     })
-    .select("id, account_id, email, role, token, created_at")
+    .select("id, account_id, email, role, created_at")
     .single();
 
   if (error) {
@@ -255,7 +255,7 @@ export async function checkAccountInvitationEligibility({
 export async function resendInvitationEmail(invitation, redirectPath = "/invite") {
   const token = invitation?.token;
   const email = String(invitation?.email || "").trim().toLowerCase();
-  if (!token || !email) throw new Error("Invalid invitation");
+  if (!email) throw new Error("Invalid invitation");
 
   const useBrandedEdgeInvites = String(import.meta.env.VITE_USE_BRANDED_INVITES || "").toLowerCase() === "true";
   if (useBrandedEdgeInvites) {
@@ -266,10 +266,11 @@ export async function resendInvitationEmail(invitation, redirectPath = "/invite"
       accountName: "",
       mode: "resend",
       invitationId: invitation?.id || null,
-      token,
     });
     return;
   }
+
+  if (!token) throw new Error("Invitation token is not available for client-side resend");
 
   const redirectUrl = `${window.location.origin}${redirectPath}?token=${token}`;
   const { error } = await supabase.auth.signInWithOtp({

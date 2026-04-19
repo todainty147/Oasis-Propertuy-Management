@@ -276,18 +276,23 @@ export function parseWeeklyPortfolioSummaryRow(row) {
 
 export function parseInvitationRow(row) {
   const value = assertRecord(row, "invitation row");
-  return {
+  const parsed = {
     id: toNullableString(value.id),
     account_id: toNullableString(value.account_id),
     account_name: toStringOr(value.account_name),
     email: toStringOr(value.email).trim().toLowerCase(),
     role: toStringOr(value.role).trim().toLowerCase(),
-    token: toStringOr(value.token),
     invited_by: toNullableString(value.invited_by),
     created_at: toNullableString(value.created_at),
     accepted_at: toNullableString(value.accepted_at),
     revoked_at: toNullableString(value.revoked_at),
   };
+
+  if (Object.prototype.hasOwnProperty.call(value, "token")) {
+    parsed.token = toStringOr(value.token);
+  }
+
+  return parsed;
 }
 
 export function parseInvitationEligibilityRow(row) {

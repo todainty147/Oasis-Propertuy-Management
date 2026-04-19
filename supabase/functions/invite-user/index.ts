@@ -358,7 +358,7 @@ Deno.serve(async (req) => {
           token,
           invited_by: user.id,
         })
-        .select("id, token")
+        .select("id")
         .single();
       if (inviteError || !inviteRow) {
         const classification = classifyInviteFailure({
@@ -376,7 +376,7 @@ Deno.serve(async (req) => {
     } else {
       const { data: inviteRow, error: inviteError } = await userClient
         .from("account_invitations")
-        .select("id, account_id, email, role, token")
+        .select("id, account_id, email, role")
         .eq("account_id", accountId)
         .eq("email", email)
         .eq("role", role)
@@ -405,7 +405,33 @@ Deno.serve(async (req) => {
         );
       }
 
-      token = inviteRow.token;
+      const { data: inviteTokenRow, error: inviteTokenError } = await admin
+        .from("account_invitations")
+        .select("token")
+        .eq("id", inviteRow.id)
+        .eq("account_id", accountId)
+        .eq("email", email)
+        .eq("role", role)
+        .is("accepted_at", null)
+        .is("revoked_at", null)
+        .maybeSingle();
+
+      if (inviteTokenError || !inviteTokenRow?.token) {
+        return safeError(
+          req,
+          inviteTokenError || new Error("Invitation token not found"),
+          404,
+          "Not found",
+          {
+            surface: "resend_account_invitation_token_lookup",
+            accountId,
+            entityType: "account_invitation",
+            entityId: inviteRow.id,
+          },
+        );
+      }
+
+      token = inviteTokenRow.token;
       inviteEntityId = inviteRow.id;
     }
 
@@ -515,8 +541,6 @@ Deno.serve(async (req) => {
 
     return respond({
       ok: true,
-      token,
-      inviteUrl: actionLink,
       accountId: createdAccountId,
       accountName: createdAccountName,
     });

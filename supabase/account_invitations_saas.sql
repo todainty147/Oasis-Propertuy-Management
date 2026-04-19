@@ -410,7 +410,21 @@ using (
 );
 
 grant usage on schema public to authenticated;
-grant select, insert, update, delete on table public.account_invitations to authenticated;
+revoke select on table public.account_invitations from authenticated;
+grant select (
+  id,
+  account_id,
+  email,
+  role,
+  invited_by,
+  expires_at,
+  accepted_by,
+  accepted_at,
+  revoked_at,
+  created_at,
+  updated_at
+) on table public.account_invitations to authenticated;
+grant insert, update, delete on table public.account_invitations to authenticated;
 
 drop function if exists public.create_landlord_invitation(uuid, text, text);
 create or replace function public.create_landlord_invitation(

@@ -366,9 +366,9 @@ export default function InvitationsPage() {
               <div className="mt-3 space-y-2">
                 {rows.map((row) => {
                   const pending = !row.accepted_at && !row.revoked_at;
-                  const inviteLink = `${window.location.origin}/invite?token=${row.token}`;
+                  const inviteLink = row.token ? `${window.location.origin}/invite?token=${row.token}` : "";
                   return (
-                    <div key={row.id || row.token} className="rounded-lg border border-slate-200 p-3">
+                    <div key={row.id} className="rounded-lg border border-slate-200 p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-medium text-slate-900">{row.email}</p>
@@ -388,13 +388,15 @@ export default function InvitationsPage() {
                           >
                             {t("invites.resend")}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => navigator.clipboard?.writeText(inviteLink)}
-                            className="px-2.5 py-1.5 text-xs rounded border border-slate-300 hover:bg-slate-50"
-                          >
-                            {t("invites.copyLink")}
-                          </button>
+                          {inviteLink ? (
+                            <button
+                              type="button"
+                              onClick={() => navigator.clipboard?.writeText(inviteLink)}
+                              className="px-2.5 py-1.5 text-xs rounded border border-slate-300 hover:bg-slate-50"
+                            >
+                              {t("invites.copyLink")}
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             onClick={() => onRevoke(row)}

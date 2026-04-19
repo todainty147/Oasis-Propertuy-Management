@@ -104,6 +104,18 @@ jobs:
           PGPASSWORD=postgres psql \
             --set ON_ERROR_STOP=1 \
             --dbname "$DB_URL" \
+            --file "supabase/custom_staff_roles.sql"
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "$DB_URL" \
+            --file "supabase/custom_staff_roles_membership.sql"
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "$DB_URL" \
+            --file "supabase/custom_staff_roles_seed.sql"
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "$DB_URL" \
             --file "supabase/custom_staff_roles_helpers.sql"
           PGPASSWORD=postgres psql \
             --set ON_ERROR_STOP=1 \
