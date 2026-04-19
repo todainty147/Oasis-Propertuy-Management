@@ -373,6 +373,9 @@ describe("RPC service isolation contracts", () => {
       account_id: "self-serve-1",
       account_name: "My Account",
       role: "owner",
+      sandbox_mode: "production",
+      sandbox_lifecycle_status: "active",
+      demo_expires_at: null,
     });
   });
 });
