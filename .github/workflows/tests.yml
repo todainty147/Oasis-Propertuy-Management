@@ -41,6 +41,9 @@ jobs:
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
     steps:
       - name: Checkout
@@ -93,40 +96,40 @@ jobs:
         run: |
           PGPASSWORD=postgres psql \
             --set ON_ERROR_STOP=0 \
-            --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+            --dbname "$DB_URL" \
             --file "supabase/baseline_schema.sql"
 
       - name: Apply invite and membership SQL overlay
         run: |
           PGPASSWORD=postgres psql \
             --set ON_ERROR_STOP=1 \
-            --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+            --dbname "$DB_URL" \
             --file "supabase/account_invitations_saas.sql"
 
       - name: Apply payment write authorization overlay
         run: |
           PGPASSWORD=postgres psql \
             --set ON_ERROR_STOP=1 \
-            --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+            --dbname "$DB_URL" \
             --file "supabase/payment_write_authorization.sql"
 
       - name: Apply storage security overlays
         run: |
           PGPASSWORD=postgres psql \
             --set ON_ERROR_STOP=1 \
-            --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+            --dbname "$DB_URL" \
             --file "supabase/storage_buckets.sql"
           PGPASSWORD=postgres psql \
             --set ON_ERROR_STOP=1 \
-            --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+            --dbname "$DB_URL" \
             --file "supabase/storage_documents_policies.sql"
           PGPASSWORD=postgres psql \
             --set ON_ERROR_STOP=1 \
-            --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+            --dbname "$DB_URL" \
             --file "supabase/storage_maintenance_request_attachments_policies.sql"
           PGPASSWORD=postgres psql \
             --set ON_ERROR_STOP=1 \
-            --dbname "postgresql://postgres@127.0.0.1:54322/postgres" \
+            --dbname "$DB_URL" \
             --file "supabase/storage_work_order_attachments_policies.sql"
 
       - name: Seed integration harness
