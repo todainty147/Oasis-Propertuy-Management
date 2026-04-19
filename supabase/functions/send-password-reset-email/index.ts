@@ -3,7 +3,11 @@ import {
   buildRateLimitBody,
   recordRateLimitAttempt,
 } from "../_shared/rateLimit.ts";
-import { resolveTrustedAppOrigin } from "../_shared/trustedOrigin.ts";
+import {
+  buildCorsHeaders,
+  buildJsonHeaders,
+  resolveTrustedAppOrigin,
+} from "../_shared/trustedOrigin.ts";
 
 type PasswordResetPayload = {
   email: string;
@@ -22,11 +26,6 @@ const OASIS_PASSWORD_RESETS_FROM =
   "no-reply@auth.oasisrental.app";
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
 
 function normalizeEmail(value: unknown) {
   return String(value || "").trim().toLowerCase();
@@ -62,13 +61,10 @@ async function logEmailEvent({
   });
 }
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
+    headers: buildJsonHeaders(req, ALLOWED_APP_ORIGINS),
   });
 }
 
@@ -80,20 +76,22 @@ function resolveAppUrl() {
 }
 
 Deno.serve(async (req) => {
+  const respond = (payload: unknown, status = 200) => json(req, payload, status);
+
   try {
     if (req.method === "OPTIONS") {
-      return new Response("ok", { headers: corsHeaders });
+      return new Response("ok", { headers: buildCorsHeaders(req, ALLOWED_APP_ORIGINS) });
     }
 
     if (req.method !== "POST") {
-      return json({ error: "Method not allowed" }, 405);
+      return respond({ error: "Method not allowed" }, 405);
     }
 
     const body = (await req.json().catch(() => ({}))) as PasswordResetPayload;
     const email = normalizeEmail(body?.email);
     const inviteToken = String(body?.inviteToken || "").trim();
     if (!email) {
-      return json({ error: "Email is required" }, 400);
+      return respond({ error: "Email is required" }, 400);
     }
 
     const rateLimit = await recordRateLimitAttempt(admin, {
@@ -108,7 +106,7 @@ Deno.serve(async (req) => {
       },
     });
     if (!rateLimit.allowed) {
-      return json(buildRateLimitBody(rateLimit), 429);
+      return respond(buildRateLimitBody(rateLimit), 429);
     }
 
     if (!RESEND_API_KEY) {
@@ -117,7 +115,7 @@ Deno.serve(async (req) => {
         recipientEmail: email,
         metadata: { reason: "missing_resend_api_key", functionName: "send-password-reset-email" },
       });
-      return json({ error: "Password reset email is not configured" }, 500);
+      return respond({ error: "Password reset email is not configured" }, 500);
     }
 
     const appBaseUrl = resolveAppUrl();
@@ -130,7 +128,7 @@ Deno.serve(async (req) => {
           functionName: "send-password-reset-email",
         },
       });
-      return json({
+      return respond({
         error: "Trusted app origin is not configured",
         code: "trusted_app_origin_not_configured",
       }, 500);
@@ -153,7 +151,7 @@ Deno.serve(async (req) => {
           recipientEmail: email,
           metadata: { reason: "user_not_found", functionName: "send-password-reset-email" },
         });
-        return json({ ok: true });
+        return respond({ ok: true });
       }
 
       await logEmailEvent({
@@ -165,7 +163,7 @@ Deno.serve(async (req) => {
           functionName: "send-password-reset-email",
         },
       });
-      return json({ error: "Failed to create password reset link" }, 500);
+      return respond({ error: "Failed to create password reset link" }, 500);
     }
 
     const actionLink = linkData?.properties?.action_link || redirectTo;
@@ -219,7 +217,7 @@ Deno.serve(async (req) => {
           functionName: "send-password-reset-email",
         },
       });
-      return json({ error: "Failed to send password reset email" }, 500);
+      return respond({ error: "Failed to send password reset email" }, 500);
     }
 
     await logEmailEvent({
@@ -231,8 +229,8 @@ Deno.serve(async (req) => {
       metadata: { functionName: "send-password-reset-email" },
     });
 
-    return json({ ok: true });
+    return respond({ ok: true });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "Unexpected error" }, 500);
+    return respond({ error: error instanceof Error ? error.message : "Unexpected error" }, 500);
   }
 });

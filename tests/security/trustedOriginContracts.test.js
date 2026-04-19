@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildCorsHeaders,
+  buildJsonHeaders,
   normalizeTrustedOrigin,
   parseAllowedOrigins,
   resolveTrustedAppOrigin,
@@ -60,6 +62,49 @@ describe("trusted Edge Function origin contracts", () => {
     });
   });
 
+  it("reflects CORS only for explicitly allowed request origins", () => {
+    const allowedReq = new Request("https://edge.example.test", {
+      headers: { Origin: "https://app.oasis.example" },
+    });
+    const disallowedReq = new Request("https://edge.example.test", {
+      headers: { Origin: "https://evil.example" },
+    });
+
+    expect(buildCorsHeaders(allowedReq, "https://app.oasis.example")).toMatchObject({
+      "Access-Control-Allow-Origin": "https://app.oasis.example",
+      "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Vary": "Origin",
+    });
+    expect(buildCorsHeaders(disallowedReq, "https://app.oasis.example")).not.toHaveProperty(
+      "Access-Control-Allow-Origin",
+    );
+  });
+
+  it("keeps OPTIONS-compatible headers without trusting disallowed origins", () => {
+    const req = new Request("https://edge.example.test", {
+      method: "OPTIONS",
+      headers: { Origin: "https://evil.example" },
+    });
+
+    expect(buildCorsHeaders(req, "https://app.oasis.example")).toEqual({
+      "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Vary": "Origin",
+    });
+  });
+
+  it("adds JSON content type while preserving allowlisted CORS behavior", () => {
+    const req = new Request("https://edge.example.test", {
+      headers: { Origin: "https://app.oasis.example" },
+    });
+
+    expect(buildJsonHeaders(req, "https://app.oasis.example")).toMatchObject({
+      "Access-Control-Allow-Origin": "https://app.oasis.example",
+      "Content-Type": "application/json",
+    });
+  });
+
   it("removes request Origin fallback from sensitive link and session functions", () => {
     const sources = [
       readSource("supabase/functions/create-checkout-session/index.ts"),
@@ -74,6 +119,24 @@ describe("trusted Edge Function origin contracts", () => {
       expect(source).toContain("trusted_app_origin_not_configured");
       expect(source).not.toContain('req.headers.get("origin")');
       expect(source).not.toContain("req.headers.get('origin')");
+    }
+  });
+
+  it("migrates browser-facing sensitive functions away from wildcard CORS", () => {
+    const sources = [
+      readSource("supabase/functions/create-checkout-session/index.ts"),
+      readSource("supabase/functions/create-customer-portal-session/index.ts"),
+      readSource("supabase/functions/invite-user/index.ts"),
+      readSource("supabase/functions/send-password-reset-email/index.ts"),
+      readSource("supabase/functions/generate-security-audit-export/index.ts"),
+      readSource("supabase/functions/ingest-security-observability/index.ts"),
+    ];
+
+    for (const source of sources) {
+      expect(source).toContain("buildCorsHeaders");
+      expect(source).toContain("buildJsonHeaders");
+      expect(source).toContain("ALLOWED_APP_ORIGINS");
+      expect(source).not.toContain('"Access-Control-Allow-Origin": "*"');
     }
   });
 });

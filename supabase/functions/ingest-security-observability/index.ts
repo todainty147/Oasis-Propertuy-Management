@@ -3,18 +3,17 @@ import {
   buildRateLimitBody,
   recordRateLimitAttempt,
 } from "../_shared/rateLimit.ts";
+import {
+  buildCorsHeaders,
+  buildJsonHeaders,
+} from "../_shared/trustedOrigin.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const ALLOWED_APP_ORIGINS = Deno.env.get("ALLOWED_APP_ORIGINS") || "";
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
 
 const BLOCKED_KEYS = new Set([
   "token",
@@ -50,13 +49,10 @@ type Payload = {
   context?: Record<string, unknown>;
 };
 
-function json(payload: unknown, status = 200) {
+function json(req: Request, payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: {
-      "Content-Type": "application/json",
-      ...corsHeaders,
-    },
+    headers: buildJsonHeaders(req, ALLOWED_APP_ORIGINS),
   });
 }
 
@@ -76,12 +72,14 @@ function scrubContext(input: Record<string, unknown> = {}) {
 }
 
 Deno.serve(async (req) => {
+  const respond = (payload: unknown, status = 200) => json(req, payload, status);
+
   try {
-    if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-    if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+    if (req.method === "OPTIONS") return new Response("ok", { headers: buildCorsHeaders(req, ALLOWED_APP_ORIGINS) });
+    if (req.method !== "POST") return respond({ error: "Method not allowed" }, 405);
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ error: "Missing Authorization header" }, 401);
+    if (!authHeader) return respond({ error: "Missing Authorization header" }, 401);
 
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
@@ -92,7 +90,7 @@ Deno.serve(async (req) => {
       error: userError,
     } = await userClient.auth.getUser();
 
-    if (userError || !user) return json({ error: "Unauthorized" }, 401);
+    if (userError || !user) return respond({ error: "Unauthorized" }, 401);
 
     const body = (await req.json().catch(() => ({}))) as Payload;
     const surface = normalizeText(body.surface);
@@ -110,7 +108,7 @@ Deno.serve(async (req) => {
     const context = scrubContext(body.context || {});
 
     if (!surface || !kind || !category) {
-      return json({ error: "surface, kind, and category are required" }, 400);
+      return respond({ error: "surface, kind, and category are required" }, 400);
     }
 
     let accountId = body.accountId ? String(body.accountId) : null;
@@ -134,7 +132,7 @@ Deno.serve(async (req) => {
       );
 
       if (canRecordError || !canRecord) {
-        return json({ error: "Forbidden" }, 403);
+        return respond({ error: "Forbidden" }, 403);
       }
     }
 
@@ -152,7 +150,7 @@ Deno.serve(async (req) => {
       },
     });
     if (!rateLimit.allowed) {
-      return json(buildRateLimitBody(rateLimit), 429);
+      return respond(buildRateLimitBody(rateLimit), 429);
     }
 
     const { data: actorRole } = accountId
@@ -180,10 +178,10 @@ Deno.serve(async (req) => {
       },
     });
 
-    if (insertError) return json({ error: insertError.message }, 500);
+    if (insertError) return respond({ error: insertError.message }, 500);
 
-    return json({ ok: true });
+    return respond({ ok: true });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return respond({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });

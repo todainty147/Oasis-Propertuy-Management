@@ -3,7 +3,11 @@ import {
   buildRateLimitBody,
   recordRateLimitAttempt,
 } from "../_shared/rateLimit.ts";
-import { resolveTrustedAppOrigin } from "../_shared/trustedOrigin.ts";
+import {
+  buildCorsHeaders,
+  buildJsonHeaders,
+  resolveTrustedAppOrigin,
+} from "../_shared/trustedOrigin.ts";
 
 type InvitePayload = {
   accountId: string;
@@ -40,11 +44,6 @@ const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || "";
 const OASIS_INVITES_FROM = Deno.env.get("OASIS_INVITES_FROM") || "invites@auth.oasisrental.app";
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
 
 function normalizeText(value: unknown) {
   const next = String(value || "").trim().toLowerCase();
@@ -209,18 +208,20 @@ async function recordSecurityObservabilityEvent(
 }
 
 Deno.serve(async (req) => {
+  const respond = (payload: unknown, status = 200) => json(req, payload, status);
+
   try {
     if (req.method === "OPTIONS") {
-      return new Response("ok", { headers: corsHeaders });
+      return new Response("ok", { headers: buildCorsHeaders(req, ALLOWED_APP_ORIGINS) });
     }
 
     if (req.method !== "POST") {
-      return json({ error: "Method not allowed" }, 405);
+      return respond({ error: "Method not allowed" }, 405);
     }
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return json({ error: "Missing Authorization header" }, 401);
+      return respond({ error: "Missing Authorization header" }, 401);
     }
 
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -233,7 +234,7 @@ Deno.serve(async (req) => {
     } = await userClient.auth.getUser();
 
     if (userError || !user) {
-      return json({ error: "Unauthorized" }, 401);
+      return respond({ error: "Unauthorized" }, 401);
     }
 
     const body = (await req.json()) as InvitePayload;
@@ -245,11 +246,11 @@ Deno.serve(async (req) => {
     const invitationId = body?.invitationId ? String(body.invitationId) : null;
 
     if (!accountId || !email || !role) {
-      return json({ error: "accountId, email and role are required" }, 400);
+      return respond({ error: "accountId, email and role are required" }, 400);
     }
 
     if (!["owner", "admin", "staff", "tenant", "contractor"].includes(role)) {
-      return json({ error: "Invalid role" }, 400);
+      return respond({ error: "Invalid role" }, 400);
     }
 
     const requestId = crypto.randomUUID();
@@ -266,7 +267,7 @@ Deno.serve(async (req) => {
       },
     });
     if (!accountLimit.allowed) {
-      return json(buildRateLimitBody(accountLimit), 429);
+      return respond(buildRateLimitBody(accountLimit), 429);
     }
 
     const emailLimit = await recordRateLimitAttempt(admin, {
@@ -283,7 +284,7 @@ Deno.serve(async (req) => {
       },
     });
     if (!emailLimit.allowed) {
-      return json(buildRateLimitBody(emailLimit), 429);
+      return respond(buildRateLimitBody(emailLimit), 429);
     }
 
     let token = String(body?.token || "").trim();
@@ -306,11 +307,11 @@ Deno.serve(async (req) => {
           code: "403",
         });
         await recordSecurityObservabilityEvent(userClient, user.id, classification, { role });
-        return json({ error: error.message, classification }, 400);
+        return respond({ error: error.message, classification }, 400);
       }
 
       const invite = Array.isArray(data) ? data[0] : data;
-      if (!invite?.token) return json({ error: "Landlord invitation token missing" }, 400);
+      if (!invite?.token) return respond({ error: "Landlord invitation token missing" }, 400);
       token = invite.token;
       createdAccountId = invite.account_id ?? accountId;
       createdAccountName = invite.account_name ?? createdAccountName;
@@ -332,7 +333,7 @@ Deno.serve(async (req) => {
           code: "403",
         });
         await recordSecurityObservabilityEvent(userClient, user.id, classification, { role });
-        return json({ error: eligibilityError.message, classification }, 400);
+        return respond({ error: eligibilityError.message, classification }, 400);
       }
       if (!eligibility?.ok) {
         const classification = classifyInviteFailure({
@@ -342,7 +343,7 @@ Deno.serve(async (req) => {
           code: "403",
         });
         await recordSecurityObservabilityEvent(userClient, user.id, classification, { role });
-        return json({ error: eligibility?.message || "Invite is not allowed", classification }, 400);
+        return respond({ error: eligibility?.message || "Invite is not allowed", classification }, 400);
       }
 
       token = crypto.randomUUID();
@@ -368,7 +369,7 @@ Deno.serve(async (req) => {
           entityId: null,
         });
         await recordSecurityObservabilityEvent(userClient, user.id, classification, { role });
-        return json({ error: inviteError?.message || "Failed to create invitation", classification }, 400);
+        return respond({ error: inviteError?.message || "Failed to create invitation", classification }, 400);
       }
       inviteEntityId = inviteRow.id;
     } else {
@@ -394,7 +395,7 @@ Deno.serve(async (req) => {
           entityId: invitationId,
         });
         await recordSecurityObservabilityEvent(userClient, user.id, classification, { role });
-        return json({ error: inviteError?.message || "Invitation not found", classification }, 404);
+        return respond({ error: inviteError?.message || "Invitation not found", classification }, 404);
       }
 
       token = inviteRow.token;
@@ -419,7 +420,7 @@ Deno.serve(async (req) => {
           functionName: "invite-user",
         },
       });
-      return json({
+      return respond({
         error: "Trusted app origin is not configured",
         code: "trusted_app_origin_not_configured",
       }, 500);
@@ -431,7 +432,7 @@ Deno.serve(async (req) => {
       options: { redirectTo },
     });
 
-    if (linkError) return json({ error: linkError.message }, 400);
+    if (linkError) return respond({ error: linkError.message }, 400);
     const actionLink =
       buildDirectInviteUrl({
         appBaseUrl,
@@ -505,7 +506,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return json({
+    return respond({
       ok: true,
       token,
       inviteUrl: actionLink,
@@ -513,17 +514,14 @@ Deno.serve(async (req) => {
       accountName: createdAccountName,
     });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return respond({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });
 
-function json(payload: unknown, status = 200) {
+function json(req: Request, payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: {
-      "Content-Type": "application/json",
-      ...corsHeaders,
-    },
+    headers: buildJsonHeaders(req, ALLOWED_APP_ORIGINS),
   });
 }
 

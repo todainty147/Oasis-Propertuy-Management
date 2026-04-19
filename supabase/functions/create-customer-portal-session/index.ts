@@ -1,6 +1,10 @@
 import Stripe from "npm:stripe@17.7.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { resolveTrustedAppOrigin } from "../_shared/trustedOrigin.ts";
+import {
+  buildCorsHeaders,
+  buildJsonHeaders,
+  resolveTrustedAppOrigin,
+} from "../_shared/trustedOrigin.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
   apiVersion: "2024-06-20",
@@ -13,25 +17,22 @@ const APP_URL = Deno.env.get("APP_URL") || "";
 const ALLOWED_APP_ORIGINS = Deno.env.get("ALLOWED_APP_ORIGINS") || "";
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
 
 Deno.serve(async (req) => {
+  const respond = (payload: unknown, status = 200) => json(req, payload, status);
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: buildCorsHeaders(req, ALLOWED_APP_ORIGINS) });
   }
 
   try {
     if (req.method !== "POST") {
-      return json({ error: "Method not allowed" }, 405);
+      return respond({ error: "Method not allowed" }, 405);
     }
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return json({ error: "Missing Authorization header" }, 401);
+      return respond({ error: "Missing Authorization header" }, 401);
     }
 
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -44,12 +45,12 @@ Deno.serve(async (req) => {
     } = await userClient.auth.getUser();
 
     if (userError || !user) {
-      return json({ error: "Unauthorized" }, 401);
+      return respond({ error: "Unauthorized" }, 401);
     }
 
     const { accountId } = await req.json();
     if (!accountId) {
-      return json({ error: "accountId is required" }, 400);
+      return respond({ error: "accountId is required" }, 400);
     }
 
     const { data: member, error: memberError } = await admin
@@ -60,14 +61,14 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (memberError) {
-      return json({ error: memberError.message }, 400);
+      return respond({ error: memberError.message }, 400);
     }
 
     if (
       !member ||
       !["owner", "admin", "staff"].includes(String(member.role || "").toLowerCase())
     ) {
-      return json({ error: "No permission for this account" }, 403);
+      return respond({ error: "No permission for this account" }, 403);
     }
 
     const { data: customer, error: customerError } = await admin
@@ -77,16 +78,16 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (customerError) {
-      return json({ error: customerError.message }, 400);
+      return respond({ error: customerError.message }, 400);
     }
 
     if (!customer?.stripe_customer_id) {
-      return json({ error: "No billing customer found for this account" }, 404);
+      return respond({ error: "No billing customer found for this account" }, 404);
     }
 
     const appUrl = resolveAppUrl();
     if (!appUrl) {
-      return json(
+      return respond(
         {
           error: "Trusted app origin is not configured",
           code: "trusted_app_origin_not_configured",
@@ -100,22 +101,19 @@ Deno.serve(async (req) => {
       return_url: `${appUrl}/settings/billing`,
     });
 
-    return json({ url: portal.url });
+    return respond({ url: portal.url });
   } catch (error) {
-    return json(
+    return respond(
       { error: error instanceof Error ? error.message : "Unknown error" },
       500,
     );
   }
 });
 
-function json(payload: unknown, status = 200) {
+function json(req: Request, payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
+    headers: buildJsonHeaders(req, ALLOWED_APP_ORIGINS),
   });
 }
 

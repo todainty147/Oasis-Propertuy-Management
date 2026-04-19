@@ -1,19 +1,18 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  buildCorsHeaders,
+  buildJsonHeaders,
+} from "../_shared/trustedOrigin.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const ALLOWED_APP_ORIGINS = Deno.env.get("ALLOWED_APP_ORIGINS") || "";
 const EXPORT_BUCKET = "security-audit-exports";
 const MAX_EXPORT_ROWS = 20000;
 const PAGE_SIZE = 1000;
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
 
 type ExportRequest = {
   jobId?: string;
@@ -42,20 +41,21 @@ type AuditRow = {
 };
 
 Deno.serve(async (req) => {
+  const respond = (payload: unknown, status = 200) => json(req, payload, status);
   let jobId = "";
 
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: buildCorsHeaders(req, ALLOWED_APP_ORIGINS) });
   }
 
   try {
     if (req.method !== "POST") {
-      return json({ error: "Method not allowed" }, 405);
+      return respond({ error: "Method not allowed" }, 405);
     }
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return json({ error: "Missing Authorization header" }, 401);
+      return respond({ error: "Missing Authorization header" }, 401);
     }
 
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -68,13 +68,13 @@ Deno.serve(async (req) => {
     } = await userClient.auth.getUser();
 
     if (userError || !user) {
-      return json({ error: "Unauthorized" }, 401);
+      return respond({ error: "Unauthorized" }, 401);
     }
 
     const body = (await req.json()) as ExportRequest;
     jobId = String(body?.jobId || "").trim();
     if (!jobId) {
-      return json({ error: "jobId is required" }, 400);
+      return respond({ error: "jobId is required" }, 400);
     }
 
     const { data, error: jobError } = await admin
@@ -84,13 +84,13 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (jobError) {
-      return json({ error: jobError.message }, 400);
+      return respond({ error: jobError.message }, 400);
     }
 
     const job = data as ExportJobRow | null;
 
     if (!job) {
-      return json({ error: "Export job not found" }, 404);
+      return respond({ error: "Export job not found" }, 404);
     }
 
     const { error: accessError } = await userClient.rpc("assert_manage_account_access", {
@@ -98,11 +98,11 @@ Deno.serve(async (req) => {
     });
 
     if (accessError) {
-      return json({ error: accessError.message || "Access denied" }, 403);
+      return respond({ error: accessError.message || "Access denied" }, 403);
     }
 
     if (job.status === "completed") {
-      return json({ ok: true, jobId: job.id, status: job.status });
+      return respond({ ok: true, jobId: job.id, status: job.status });
     }
 
     await updateJob(job.id, {
@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
       error_summary: null,
     });
 
-    return json({
+    return respond({
       ok: true,
       jobId: job.id,
       status: "completed",
@@ -164,20 +164,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json(
+    return respond(
       { error: error instanceof Error ? error.message : "Unknown export error" },
       500,
     );
   }
 });
 
-function json(payload: unknown, status = 200) {
+function json(req: Request, payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
+    headers: buildJsonHeaders(req, ALLOWED_APP_ORIGINS),
   });
 }
 

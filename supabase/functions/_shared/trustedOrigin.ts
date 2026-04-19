@@ -55,3 +55,26 @@ export function resolveTrustedAppOrigin({
     trustedOrigins,
   };
 }
+
+export function buildCorsHeaders(req: Request, allowedOrigins: string | null | undefined) {
+  const requestOrigin = normalizeTrustedOrigin(req.headers.get("Origin"));
+  const trustedOrigins = new Set(parseAllowedOrigins(allowedOrigins));
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+
+  if (requestOrigin && trustedOrigins.has(requestOrigin)) {
+    headers["Access-Control-Allow-Origin"] = requestOrigin;
+  }
+
+  return headers;
+}
+
+export function buildJsonHeaders(req: Request, allowedOrigins: string | null | undefined) {
+  return {
+    ...buildCorsHeaders(req, allowedOrigins),
+    "Content-Type": "application/json",
+  };
+}

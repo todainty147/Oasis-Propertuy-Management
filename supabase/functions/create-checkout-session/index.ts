@@ -1,6 +1,10 @@
 import Stripe from "npm:stripe@17.7.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { resolveTrustedAppOrigin } from "../_shared/trustedOrigin.ts";
+import {
+  buildCorsHeaders,
+  buildJsonHeaders,
+  resolveTrustedAppOrigin,
+} from "../_shared/trustedOrigin.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
   apiVersion: "2024-06-20",
@@ -20,25 +24,22 @@ const PRICE_MAP: Record<string, string> = {
 };
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
 
 Deno.serve(async (req) => {
+  const respond = (payload: unknown, status = 200) => json(req, payload, status);
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: buildCorsHeaders(req, ALLOWED_APP_ORIGINS) });
   }
 
   try {
     if (req.method !== "POST") {
-      return json({ error: "Method not allowed" }, 405);
+      return respond({ error: "Method not allowed" }, 405);
     }
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return json({ error: "Missing Authorization header" }, 401);
+      return respond({ error: "Missing Authorization header" }, 401);
     }
 
     const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -51,22 +52,22 @@ Deno.serve(async (req) => {
     } = await userClient.auth.getUser();
 
     if (userError || !user) {
-      return json({ error: "Unauthorized" }, 401);
+      return respond({ error: "Unauthorized" }, 401);
     }
 
     const { accountId, planKey } = await req.json();
     if (!accountId || !planKey) {
-      return json({ error: "accountId and planKey are required" }, 400);
+      return respond({ error: "accountId and planKey are required" }, 400);
     }
 
     const normalizedPlanKey = String(planKey).trim().toLowerCase();
     if (!(normalizedPlanKey in PRICE_MAP)) {
-      return json({ error: "Invalid planKey" }, 400);
+      return respond({ error: "Invalid planKey" }, 400);
     }
 
     const priceId = PRICE_MAP[normalizedPlanKey];
     if (!priceId) {
-      return json(
+      return respond(
         {
           error: `Stripe price is not configured for plan '${normalizedPlanKey}'`,
         },
@@ -76,7 +77,7 @@ Deno.serve(async (req) => {
 
     const appUrl = resolveAppUrl();
     if (!appUrl) {
-      return json(
+      return respond(
         {
           error: "Trusted app origin is not configured",
           code: "trusted_app_origin_not_configured",
@@ -93,14 +94,14 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (memberError) {
-      return json({ error: memberError.message }, 400);
+      return respond({ error: memberError.message }, 400);
     }
 
     if (
       !member ||
       !["owner", "admin", "staff"].includes(String(member.role || "").toLowerCase())
     ) {
-      return json({ error: "No permission for this account" }, 403);
+      return respond({ error: "No permission for this account" }, 403);
     }
 
     const { data: account, error: accountError } = await admin
@@ -110,7 +111,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (accountError) {
-      return json({ error: accountError.message }, 400);
+      return respond({ error: accountError.message }, 400);
     }
 
     const { data: existingCustomer, error: existingCustomerError } = await admin
@@ -120,7 +121,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (existingCustomerError) {
-      return json({ error: existingCustomerError.message }, 400);
+      return respond({ error: existingCustomerError.message }, 400);
     }
 
     let stripeCustomerId = existingCustomer?.stripe_customer_id || null;
@@ -143,7 +144,7 @@ Deno.serve(async (req) => {
       });
 
       if (upsertCustomerError) {
-        return json({ error: upsertCustomerError.message }, 400);
+        return respond({ error: upsertCustomerError.message }, 400);
       }
     }
 
@@ -172,25 +173,22 @@ Deno.serve(async (req) => {
       },
     });
 
-    return json({
+    return respond({
       url: session.url,
       trialDays: STRIPE_TEST_TRIAL_DAYS,
     });
   } catch (error) {
-    return json(
+    return respond(
       { error: error instanceof Error ? error.message : "Unknown error" },
       500,
     );
   }
 });
 
-function json(payload: unknown, status = 200) {
+function json(req: Request, payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
+    headers: buildJsonHeaders(req, ALLOWED_APP_ORIGINS),
   });
 }
 

@@ -33,7 +33,8 @@ describe("outbound email contracts", () => {
 
     expect(inviteFn).toContain('const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")');
     expect(inviteFn).toContain('mode?: "create" | "resend"');
-    expect(inviteFn).toContain('import { resolveTrustedAppOrigin } from "../_shared/trustedOrigin.ts"');
+    expect(inviteFn).toContain("resolveTrustedAppOrigin");
+    expect(inviteFn).toContain("buildCorsHeaders");
     expect(inviteFn).toContain('const ALLOWED_APP_ORIGINS = Deno.env.get("ALLOWED_APP_ORIGINS")');
     expect(inviteFn).toContain("function buildDirectInviteUrl");
     expect(inviteFn).toContain("const appBaseUrl = resolveAppUrl()");
@@ -56,7 +57,8 @@ describe("outbound email contracts", () => {
     expect(resetFn).toContain("outbound_email_events");
     expect(resetFn).toContain('template_key: "password_reset"');
     expect(resetFn).toContain('const OASIS_PASSWORD_RESETS_FROM =');
-    expect(resetFn).toContain('import { resolveTrustedAppOrigin } from "../_shared/trustedOrigin.ts"');
+    expect(resetFn).toContain("resolveTrustedAppOrigin");
+    expect(resetFn).toContain("buildCorsHeaders");
     expect(resetFn).toContain('const ALLOWED_APP_ORIGINS = Deno.env.get("ALLOWED_APP_ORIGINS")');
     expect(resetFn).toContain('const redirectTo = appBaseUrl');
     expect(resetFn).toContain("const appBaseUrl = resolveAppUrl()");
