@@ -21,6 +21,58 @@ The biggest gap is not schema capability. It is product-operational maturity:
 
 The only recommendation that looks genuinely heavy on the current schema is large-scale partitioning by account.
 
+## Product And Project Maturity Review
+
+This section captures the senior product-management / project-management review of the current repository. It is based only on checked-in evidence from app routes, services, SQL, tests, runbooks, CI workflows, marketing-site content, and readiness documents. It does not assume production traffic, customer traction, live cloud settings, team process, or customer feedback that is not present in the repo.
+
+### Overall Product Maturity Read
+
+OASIS is technically deeper than its operational and product wrapper. The repository shows broad product surface area and unusually strong security architecture for an early SaaS: landlord, tenant, contractor, maintenance, documents, billing, custom roles, custom fields, security audit, root telemetry, Edge Functions, RLS/RPC authorization, and broad integration/security tests are all materially represented.
+
+The next maturity gap is not "more features everywhere." It is making launch, onboarding, support, recovery, and measurement as deliberate as the security architecture already is.
+
+### Now
+
+| Area | Why it needs maturity now | Repo evidence | Recommended outcome |
+| --- | --- | --- | --- |
+| Backup / DR / RTO / RPO | Availability is the least mature control area. The repo says PITR is database-wide, account-level recovery is not implemented, and restore drills/RTO/RPO are not evidenced. | [OASIS_WHITEPAPER_V5.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OASIS_WHITEPAPER_V5.md), [OASIS_ISO27001_CIA_AUDIT.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OASIS_ISO27001_CIA_AUDIT.md) | Define RTO/RPO, backup ownership, restore drill cadence, production restore runbook, and an account-level export/recovery decision. |
+| Deployment / release operations | CI is strong, but production promotion remains operator-driven. Staging smoke is manual and docs repeatedly warn that SQL overlays and Edge Function deploys must stay synchronized. | [.github/workflows/tests.yml](/mnt/c/Users/Home/oasisrentalmanagementapp/.github/workflows/tests.yml), [.github/workflows/staging-security-smoke.yml](/mnt/c/Users/Home/oasisrentalmanagementapp/.github/workflows/staging-security-smoke.yml), [SCHEMA_WORKFLOW.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/SCHEMA_WORKFLOW.md) | Create a release checklist with migration/apply verification, Edge Function redeploy list, rollback steps, staging smoke evidence, and production signoff. |
+| Sandbox / demo onboarding | The sandbox identity layer exists, but fixture seeding and reset semantics are explicitly deferred. This is high-leverage for sales demos, onboarding, QA, and support. | [ACCOUNT_SANDBOX_PROFILES.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/ACCOUNT_SANDBOX_PROFILES.md), [LandlordSignup.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/LandlordSignup.jsx), [LandlordOnboardingPage.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/LandlordOnboardingPage.jsx) | Add deterministic demo data seeding, reset-demo-account semantics, demo lifecycle rules, and E2E coverage for signup-to-demo. |
+| Support operations | Support runbooks and root telemetry exist, but the repo does not evidence a ticket workflow, support escalation model, or recurring access-review evidence beyond security alert response ownership. | [docs/runbooks](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks), [RootTelemetryPage.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/RootTelemetryPage.jsx), [security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md) | Define support triage workflow, ticket fields, escalation owner, customer communication templates, and quarterly privileged access review. |
+| Production monitoring execution | Golden signals and alert thresholds are documented, but repo evidence frames them as launch guidance, not proven production alerting or operated review routines. | [OPERATIONAL_GOLDEN_SIGNALS.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OPERATIONAL_GOLDEN_SIGNALS.md), [security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md) | Turn documented thresholds into daily checks, weekly trend review, incident ticket linkage, and named alert ownership. |
+
+### Next
+
+| Area | Why it belongs next | Repo evidence | Recommended outcome |
+| --- | --- | --- | --- |
+| Product analytics / funnel measurement | The repo has security and operational telemetry, but no product analytics, activation funnel metrics, retention cohorts, or user feedback instrumentation were evidenced. | Signup, onboarding, billing, invite, and core app routes are visible in [App.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/App.jsx); product analytics artifacts are not evidenced. | Define activation metrics: signup started, account created, first property, first tenant, first invite, first maintenance request, first payment, and billing conversion. |
+| Marketing / growth content | The marketing site exists, but the blog is explicitly placeholder content and the first version is local-content driven. | [marketing-site/README.md](/mnt/c/Users/Home/oasisrentalmanagementapp/marketing-site/README.md), [blog/page.tsx](/mnt/c/Users/Home/oasisrentalmanagementapp/marketing-site/app/blog/page.tsx) | Build a content calendar, claim-reviewed comparison pages, proof points, case-study structure, and conversion tracking. |
+| Performance / capacity baselines | Query-shape review exists, but staging EXPLAIN capture was deferred because staging DB access was unavailable. Further optimization should follow real data. | [PERFORMANCE_REVIEW.md](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/integration/PERFORMANCE_REVIEW.md), [OPERATIONAL_GOLDEN_SIGNALS.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OPERATIONAL_GOLDEN_SIGNALS.md) | Capture staging/production p95s, EXPLAIN plans for known hot RPCs, and account-size thresholds for index/caching decisions. |
+| Accessibility expansion | Accessibility testing exists, but docs list dashboard, finance, contractor portal, and security/root telemetry as next coverage. | [tests/e2e/README.md](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/e2e/README.md) | Expand Axe/Playwright coverage to the main commercial workflows and document exceptions only when justified. |
+| Customer-facing documentation | Quick starts exist for landlord, tenant, and contractor roles, but the product surface is broader than those first guides. | [landlord-quick-start.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/landlord-quick-start.md), [tenant-quick-start.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/tenant-quick-start.md), [contractor-quick-start.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/contractor-quick-start.md) | Add role-based help material for billing, maintenance, documents, invites, contractor flows, security/audit features, and common support scenarios. |
+| Roadmap governance | The roadmap is strong technically, but it is more engineering-sequenced than product-outcome-sequenced. | This document and related technical readiness docs. | Add product roadmap fields: target segment, user problem, success metric, release owner, launch criteria, customer impact, and de-scope criteria. |
+
+### Later
+
+| Area | Why later | Repo evidence | Recommended outcome |
+| --- | --- | --- | --- |
+| SOC 2 / ISO 27001 program | The repo says technical controls are strong but ISMS evidence is not present. This is organizational work, not code alone. | [OASIS_ISO27001_CIA_AUDIT.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OASIS_ISO27001_CIA_AUDIT.md), [OASIS_WHITEPAPER_V5.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OASIS_WHITEPAPER_V5.md) | Start formal ISMS/SOC readiness when commercial pull justifies it: policies, control owners, risk register, vendor review, access reviews, internal audit. |
+| Advanced SIEM / automated paging | Alert thresholds and observability exist, but docs explicitly avoid a full SIEM or automated paging in the current phase. | [security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md), [HOSTED_SECURITY_LOG_SINK.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/HOSTED_SECURITY_LOG_SINK.md) | Add external SIEM/paging only after volume makes manual review insufficient. |
+| Distributed caching / Redis / KV | Snapshot cache exists and docs defer heavier cache layers until traffic evidence exists. | [OPERATIONAL_GOLDEN_SIGNALS.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OPERATIONAL_GOLDEN_SIGNALS.md), this roadmap's caching sections. | Add Redis/KV/materialized caches only when production latency or account size proves need. |
+| Account-based DB partitioning | Current docs call this expensive and evidence-driven. The schema supports account scoping, but partitioning would be operationally risky. | [PERFORMANCE_REVIEW.md](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/integration/PERFORMANCE_REVIEW.md), this roadmap's partitioning section. | Revisit only after measured index bloat, vacuum pain, or query plan instability. |
+| CMS / content operations platform | Marketing site is intentionally local-content driven and says no CMS is required for the first version. | [marketing-site/README.md](/mnt/c/Users/Home/oasisrentalmanagementapp/marketing-site/README.md) | Add a CMS only when content cadence and non-engineer publishing become bottlenecks. |
+
+### PM Priority Call
+
+From a product and delivery perspective, sequence the next maturity work as:
+
+1. Launch operations readiness: release checklist, restore drill, support process, staging smoke discipline.
+2. Demo/onboarding maturity: seeded sandbox, reset demo, first-value journey, onboarding success metric.
+3. Measurement layer: activation funnel, product usage events, conversion, support tags.
+4. Performance baseline: real staging/production plans and p95 latency before more caching.
+5. Customer-facing enablement: help docs, release notes, support scripts, marketing content cadence.
+6. Compliance readiness: only after customer demand justifies formal SOC/ISO work.
+
 ## Current Milestone
 
 ### Iteration 2A Close-Out / Phase 1 Maturity Hardening

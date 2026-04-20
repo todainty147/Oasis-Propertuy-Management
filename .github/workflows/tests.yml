@@ -89,7 +89,14 @@ jobs:
 
       - name: Export local Supabase env for integration harness
         run: |
-          npx supabase status -o env | sed -E 's/^([^=]+)="(.*)"$/\1=\2/' >> "$GITHUB_ENV"
+          npx supabase status -o env | sed -E 's/^([^=]+)="(.*)"$/\1=\2/' > /tmp/local-supabase.env
+          cat /tmp/local-supabase.env >> "$GITHUB_ENV"
+          set -a
+          . /tmp/local-supabase.env
+          set +a
+          echo "TEST_SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "TEST_SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "TEST_SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
           echo "TEST_USER_PASSWORD=OasisTest123!" >> "$GITHUB_ENV"
 
       - name: Load baseline schema
