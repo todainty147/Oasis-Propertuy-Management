@@ -4,103 +4,103 @@ export const oasisVsBuildiumContent = {
   seo: {
     title: "OASIS vs Buildium | Which Is Better for Landlords?",
     description:
-      "Compare OASIS Rental vs Buildium for landlords who want practical control without a broad agency-style platform.",
+      "Compare OASIS Rental vs Buildium for landlords choosing between broad platform depth and focused operating control.",
     canonical: "https://oasisrental.com/compare/oasis-vs-buildium",
   },
   hero: {
     eyebrow: "Comparison",
     title: "OASIS vs Buildium",
     body:
-      "Buildium is a broad property management platform. OASIS is the cleaner control centre for landlords who want rent, repairs, records, and follow-up to feel easier to run day to day.",
+      "Buildium can make sense for teams that want a broad property management platform. OASIS is the sharper choice when a landlord wants daily control over arrears, repairs, records, and action queues without taking on a heavier agency-style system.",
     imageSrc: "/screenshots/command-center.png",
     imageAlt: "OASIS Command Center showing urgent operational queues and overdue balance.",
   },
   summary: {
     eyebrow: "High-level comparison",
-    title: "This choice often comes down to focused control versus wider platform depth",
+    title: "Choose OASIS when operating control matters more than platform breadth",
     body:
-      "Buildium may fit teams that want an established, wider platform. OASIS is a stronger fit when the priority is a focused operating view for the work landlords check every week: overdue rent, repairs, property health, documents, and follow-up.",
+      "The decision is not simply which product has more surface area. For many independent and growing landlords, the better question is which tool makes the next action easier to see: overdue rent, repair bottlenecks, document context, and portfolio pressure.",
     imageSrc: "/screenshots/portfolio-health.png",
     imageAlt: "OASIS Portfolio Health dashboard showing occupancy, arrears, and maintenance pressure.",
   },
   comparisonTable: {
     title: "Side-by-side comparison",
     intro:
-      "This comparison is framed around the workflows many independent landlords and growing portfolios care about most.",
+      "A fair comparison depends on what kind of operation you are building. OASIS is strongest when the portfolio needs clearer daily action, not broad platform sprawl.",
     competitorName: "Buildium",
     rows: [
       {
-        category: "Product direction",
-        oasis: "Focused landlord control centre for day-to-day operating clarity",
-        competitor: "Broader property management platform with a wider operational footprint",
+        category: "Operating model",
+        oasis: "Focused control for landlords who need clear next actions",
+        competitor: "Broad property management platform for wider operating needs",
       },
       {
-        category: "Ease of day-to-day control",
-        oasis: "Emphasis on what needs attention now: arrears, repairs, records, and portfolio pressure",
-        competitor: "Strong platform depth, though some landlords may prefer simpler daily control",
+        category: "Daily visibility",
+        oasis: "Action queues, arrears pressure, repairs, records, and portfolio signals are central to the experience",
+        competitor: "Strong platform depth, with more breadth for teams that want a larger system",
       },
       {
         category: "Maintenance workflow",
-        oasis: "Built around requests, work orders, bottlenecks, and follow-through",
-        competitor: "Supports maintenance operations, with broader platform coverage beyond that workflow",
+        oasis: "Request intake, work orders, status, bottlenecks, and follow-through are treated as core operating work",
+        competitor: "Supports maintenance operations within a broader platform",
       },
       {
-        category: "Best fit for",
-        oasis: "Landlords who want focused control without broad-platform sprawl",
-        competitor: "Operators looking for a more established all-in-one property management platform",
+        category: "Best-fit landlord",
+        oasis: "Small to growing landlords who want control without unnecessary agency complexity",
+        competitor: "Teams looking for an established, wider property management platform",
       },
       {
-        category: "Growth path",
-        oasis: "Good fit for landlords growing into more structured operating routines",
-        competitor: "Good fit for teams wanting a broad platform from the outset",
+        category: "When complexity grows",
+        oasis: "Helps landlords build structured routines around follow-up, pressure, and review",
+        competitor: "Fits operators ready to adopt broader platform processes from the start",
       },
     ],
   },
   differences: {
     eyebrow: "Where OASIS stands out",
-    title: "Why operational landlords may prefer OASIS",
+    title: "Why a landlord may choose OASIS over a broader platform",
     body:
-      "OASIS is intentionally shaped around the practical work landlords need to move forward, with less emphasis on broad platform surface area and more emphasis on immediate operational control.",
+      "OASIS is built for landlords who want software to reduce daily ambiguity. The emphasis is on what needs attention, what is stuck, and what should be reviewed next.",
     imageSrc: "/screenshots/security-audit.png",
     imageAlt: "OASIS Security Audit screen showing controls and operational trust tooling.",
     imageAlign: "left" as const,
     items: [
       {
-        title: "Cleaner daily control",
-        body: "OASIS is positioned for landlords who want the next action to be obvious without learning a larger agency-style system.",
+        title: "Action is easier to prioritize",
+        body: "OASIS keeps overdue balances, repair pressure, and urgent queues close to the landlord's daily operating view.",
       },
       {
-        title: "Workflows built around follow-through",
-        body: "Requests, rent pressure, documents, and property context stay close to the work that needs action.",
+        title: "Maintenance has more follow-through shape",
+        body: "Requests, work orders, status, and bottlenecks are presented as a repair workflow, not just another record category.",
       },
       {
-        title: "Built for practical portfolio control",
-        body: "The product direction favors seeing portfolio pressure early and acting before small issues become operational drag.",
+        title: "Better fit for focused operators",
+        body: "OASIS suits landlords who are outgrowing spreadsheets but do not want to manage the overhead of a broader agency platform.",
       },
     ],
   },
   fit: {
-    title: "Who each product is best for",
+    title: "Choose based on the operation you want to run",
     items: [
       {
         title: "Choose OASIS if",
-        body: "You want a focused landlord control centre and less emphasis on a broad enterprise-style platform feel.",
+        body: "You want clear action queues, stronger maintenance follow-through, portfolio visibility, and a product shaped around small to growing landlords.",
       },
       {
         title: "Choose Buildium if",
-        body: "You want a mature, wider property management platform and are comfortable with a product designed for a broader operational footprint.",
+        body: "You want a mature platform with broad property management coverage and are comfortable adopting a larger operating system.",
       },
       {
-        title: "Choose OASIS over time if",
-        body: "You value fast operating clarity and want software aligned with practical landlord routines.",
+        title: "You may be ready for OASIS when",
+        body: "Your biggest pain is no longer storing information. It is knowing which rent, repair, document, or property issue needs action first.",
       },
     ],
   },
   finalCta: {
-    title: "See whether OASIS fits the way you operate",
+    title: "See whether focused control beats platform breadth for you",
     body:
-      "If you want a cleaner way to control rent, repairs, records, and follow-up, OASIS is worth exploring.",
-    primaryCta: { label: "View Pricing", href: "/pricing" },
-    secondaryCta: { label: "Open the App", href: siteConfig.appUrl },
+      "If you want clearer queues, stronger repair follow-through, and earlier visibility into portfolio pressure, OASIS is worth a closer look.",
+    primaryCta: { label: "Compare Plans", href: "/pricing" },
+    secondaryCta: { label: "Start Running OASIS", href: siteConfig.appUrl },
   },
 };

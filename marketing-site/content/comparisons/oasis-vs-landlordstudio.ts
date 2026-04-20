@@ -4,103 +4,103 @@ export const oasisVsLandlordStudioContent = {
   seo: {
     title: "OASIS vs Landlord Studio | Which Is Better for Landlords?",
     description:
-      "Compare OASIS Rental vs Landlord Studio for landlords who need stronger follow-through as operations become more active.",
+      "Compare OASIS Rental vs Landlord Studio for landlords who are moving from simpler record-keeping into more active operations.",
     canonical: "https://oasisrental.com/compare/oasis-vs-landlordstudio",
   },
   hero: {
     eyebrow: "Comparison",
     title: "OASIS vs Landlord Studio",
     body:
-      "Landlord Studio is a familiar landlord tool. OASIS is aimed at landlords who want stronger daily control when rent follow-up, repair tracking, documents, and portfolio attention start competing for time.",
+      "Landlord Studio can be a good fit for landlords who want a familiar lightweight tool. OASIS is built for the stage where rent follow-up, repairs, documents, and portfolio attention need more structure.",
     imageSrc: "/screenshots/command-center.png",
     imageAlt: "OASIS Command Center showing urgent items and connected portfolio actions.",
   },
   summary: {
     eyebrow: "High-level comparison",
-    title: "The difference comes down to how much follow-through your portfolio needs",
+    title: "The difference is what happens after basic record-keeping stops being enough",
     body:
-      "If your workflow is mostly record-keeping, a lighter tool may be enough. If your week is shaped by overdue items, repair progress, tenant context, and action queues, OASIS is built around that operating rhythm.",
+      "A simpler landlord tool can work when the portfolio is quiet. OASIS becomes more compelling when the week is shaped by overdue balances, maintenance progress, tenant context, and the need to know which action comes first.",
     imageSrc: "/screenshots/property-performance.png",
     imageAlt: "OASIS property performance view showing connected rent and operational context.",
   },
   comparisonTable: {
     title: "Side-by-side comparison",
     intro:
-      "This comparison focuses on the day-to-day workflows landlords care about most when choosing a property management platform.",
+      "This comparison is about landlord maturity: simple organization versus a more structured way to keep work moving.",
     competitorName: "Landlord Studio",
     rows: [
       {
-        category: "Core focus",
-        oasis: "Operational control across rent, repairs, records, and attention queues",
-        competitor: "Landlord-focused management with strong individual landlord tooling",
+        category: "Best operating stage",
+        oasis: "Growing landlord operations where follow-up and prioritization are becoming harder",
+        competitor: "Earlier-stage or lighter landlord workflows that need familiar management tools",
       },
       {
         category: "Maintenance workflow",
-        oasis: "Built around requests, work orders, status, and contractor coordination",
-        competitor: "Maintenance support exists, but OASIS is positioned more around operational workflow depth",
+        oasis: "Request intake, work orders, status, ownership, and contractor coordination",
+        competitor: "Maintenance support for landlords who need a lighter workflow",
       },
       {
-        category: "Portfolio oversight",
-        oasis: "Emphasis on portfolio pressure, attention items, and work that needs follow-up",
-        competitor: "Good day-to-day landlord tooling with a simpler operational layer",
+        category: "Portfolio visibility",
+        oasis: "Portfolio pressure, arrears, maintenance load, and action queues help decide what to handle first",
+        competitor: "Good day-to-day tooling where cross-portfolio operating pressure is less central",
       },
       {
         category: "Document organization",
-        oasis: "Documents tied into tenant, property, and account context",
-        competitor: "Document support, but less positioned around landlord operating context",
+        oasis: "Documents tied to tenant, property, and account context for easier evidence and follow-up",
+        competitor: "Document support for simpler record management needs",
       },
       {
-        category: "Best fit",
-        oasis: "Landlords wanting more structure as operations get busier",
-        competitor: "Landlords wanting a familiar and lighter all-in-one tool",
+        category: "Outgrowing moment",
+        oasis: "When missed follow-up, repair status, and arrears pressure are becoming operational problems",
+        competitor: "When the main need is still lightweight organization and record-keeping",
       },
     ],
   },
   differences: {
     eyebrow: "Where OASIS stands out",
-    title: "Why growing landlords may prefer OASIS",
+    title: "Why landlords outgrowing lighter tools may prefer OASIS",
     body:
-      "OASIS is designed for landlords who want the work to move with less chasing, especially when maintenance activity, overdue follow-up, and portfolio complexity start to grow.",
+      "OASIS is for the point where storing the record is not enough. It helps landlords move work forward when the portfolio starts producing more repair updates, overdue balances, and decisions than memory can comfortably hold.",
     imageSrc: "/screenshots/maintenance-inbox.png",
     imageAlt: "OASIS Maintenance Inbox showing structured request workflow and linked work orders.",
     imageAlign: "left" as const,
     items: [
       {
-        title: "Repair work is easier to track",
-        body: "OASIS leans into the full path from request to work order, status tracking, and operational bottleneck.",
+        title: "Maintenance has a clearer path",
+        body: "OASIS gives repair work a path from request to work order to progress review, helping landlords catch stalled items sooner.",
       },
       {
-        title: "Context is closer to the action",
-        body: "Tenant, document, maintenance, and rent context stays close to the decisions landlords need to make.",
+        title: "Context supports decisions",
+        body: "Tenant, document, maintenance, and rent context stays close to the action so landlords spend less time rebuilding the story.",
       },
       {
-        title: "Built for follow-through",
-        body: "The product direction focuses on surfacing the next action faster, not just storing the record.",
+        title: "Queues make pressure harder to miss",
+        body: "Command-centre style views and portfolio signals make it easier to see where follow-up is needed before the work piles up.",
       },
     ],
   },
   fit: {
-    title: "Who each product is best for",
+    title: "Which fit sounds more like your portfolio?",
     items: [
       {
         title: "Choose OASIS if",
-        body: "You want a more operationally focused platform for rent, repairs, documents, and attention queues as your portfolio grows.",
+        body: "You are spending more time chasing rent, checking repair progress, finding documents, or deciding which issue needs attention first.",
       },
       {
         title: "Choose Landlord Studio if",
-        body: "You want a lighter landlord tool and your workflow does not yet need as much operational structure around maintenance and cross-portfolio control.",
+        body: "You want a lighter landlord tool and your workflow is still mostly record-keeping, tracking, and simpler day-to-day organization.",
       },
       {
-        title: "Choose OASIS over time if",
-        body: "You expect rental admin to become more process-heavy and want software that supports a more structured way of working.",
+        title: "You may be outgrowing simpler tools when",
+        body: "The question is no longer where to store information, but how to keep rent, repairs, documents, and follow-up moving together.",
       },
     ],
   },
   finalCta: {
-    title: "See whether OASIS fits your next stage",
+    title: "Ready for more structure than a lightweight tool?",
     body:
-      "If the work is moving beyond simple record-keeping, OASIS gives landlords a clearer way to stay in control.",
-    primaryCta: { label: "View Pricing", href: "/pricing" },
-    secondaryCta: { label: "Open the App", href: siteConfig.appUrl },
+      "If your portfolio has moved beyond simple record-keeping, OASIS gives rent, repairs, records, and action queues a clearer operating rhythm.",
+    primaryCta: { label: "Compare Plans", href: "/pricing" },
+    secondaryCta: { label: "Start Running OASIS", href: siteConfig.appUrl },
   },
 };
