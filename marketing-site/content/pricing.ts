@@ -4,21 +4,21 @@ export const pricingContent = {
   seo: {
     title: "OASIS Rental Pricing | Plans for Landlords",
     description:
-      "Choose an OASIS Rental plan based on your portfolio size and run tenants, maintenance, finances, documents, and operational follow-up from one connected system.",
+      "Choose the OASIS plan that matches how much control your rental portfolio needs today.",
     canonical: "https://oasisrental.com/pricing",
   },
   hero: {
     eyebrow: "Pricing",
-    title: "Pricing That Scales with Your Portfolio",
+    title: "Start with the level of control your portfolio needs",
     body:
-      "Start with the plan that fits your portfolio today and move up as your operating complexity grows. OASIS is built for landlords who want earlier visibility, clearer action, and fewer disconnected tools.",
+      "Every plan is built for landlords moving away from scattered admin. The difference is how much portfolio oversight, automation, and operational depth you need as the work grows.",
     imageSrc: "/screenshots/command-center.png",
     imageAlt: "OASIS Command Center showing urgent queues, overdue balance, and action items across the portfolio.",
   },
   intro: {
-    title: "Choose the plan that matches how you manage rentals today",
+    title: "Plans are shaped around operating complexity, not vanity feature counts",
     body:
-      "Whether you are running a smaller portfolio or growing into a more operational setup, OASIS gives you the same connected platform for tenants, maintenance, finances, documents, and day-to-day follow-up.",
+      "Starter helps you get organized. Growth adds stronger oversight for busier portfolios. Pro is for landlords who want the full control layer for audits, playbooks, and root-level operating signals.",
     imageSrc: "/screenshots/portfolio-health.png",
     imageAlt: "OASIS Portfolio Health dashboard showing occupancy, arrears aging, and maintenance pressure.",
   },
@@ -27,25 +27,25 @@ export const pricingContent = {
       name: "Starter",
       price: "Simple start",
       description:
-        "Best for landlords managing a smaller portfolio who want a more structured operating system without unnecessary complexity.",
+        "For landlords who need the essentials organized before admin spreads across spreadsheets and inboxes.",
       bullets: [
-        "manage tenants and properties",
-        "track rent and overdue payments",
-        "organize documents",
-        "handle maintenance in one workflow",
+        "organize tenants and properties",
+        "track rent status and overdue payments",
+        "store the records each property needs",
+        "manage maintenance requests and work orders",
       ],
     },
     {
       name: "Growth",
       price: "Built to grow",
       description:
-        "Best for growing landlords who need stronger operational visibility across more properties, tenants, maintenance activity, and follow-up pressure.",
+        "For growing portfolios where the question becomes what needs attention first.",
       bullets: [
         "everything in Starter",
-        "better portfolio oversight",
-        "command-center style visibility",
-        "more active operational workflows",
-        "built for scaling rental admin",
+        "portfolio health and command-centre views",
+        "clearer attention queues",
+        "stronger maintenance and arrears oversight",
+        "built for more active follow-up",
       ],
       highlight: true,
       tag: "Best fit for growing portfolios",
@@ -54,23 +54,23 @@ export const pricingContent = {
       name: "Pro",
       price: "For serious operators",
       description:
-        "Best for larger or fast-growing portfolios that need OASIS as the operational system for day-to-day rental management and proactive control.",
+        "For landlords who want deeper controls around operations, security review, playbooks, and growth.",
       bullets: [
         "full platform access",
-        "deeper operational visibility",
-        "designed for serious portfolio growth",
-        "ideal for more demanding landlord workflows",
+        "security audit and operational trust tools",
+        "playbook and root telemetry surfaces",
+        "built for demanding landlord workflows",
       ],
     },
   ],
   included: {
     title: "What every plan includes",
     bullets: [
-      "tenant and property management",
-      "maintenance request and work order workflows",
-      "rental finance visibility",
-      "document storage and organization",
-      "landlord-focused dashboards and operational views",
+      "tenant and property organization",
+      "maintenance request and work order tracking",
+      "rent status and overdue payment tracking",
+      "document storage tied to rental context",
+      "landlord dashboards for day-to-day control",
     ],
   },
   faqs: [
@@ -82,7 +82,7 @@ export const pricingContent = {
     {
       question: "Does every plan include maintenance and finance workflows?",
       answer:
-        "Yes. The platform is built around connected rental operations, so tenants, maintenance, finances, documents, and operational visibility remain part of the core experience.",
+        "Yes. Rent tracking, maintenance workflow, tenant records, and documents are part of the core OASIS experience. Higher plans add more oversight and control.",
     },
     {
       question: "Is OASIS built for landlords rather than generic property admin?",
@@ -93,7 +93,7 @@ export const pricingContent = {
   finalCta: {
     title: "Start with OASIS and upgrade as you grow",
     body:
-      "Choose the plan that fits your portfolio now and move up when your operations need more scale, visibility, and control.",
+      "Pick the plan that matches today. Move up when the portfolio needs more oversight, stronger queues, and deeper control.",
     primaryCta: { label: "Start with OASIS", href: siteConfig.appUrl },
   },
 };

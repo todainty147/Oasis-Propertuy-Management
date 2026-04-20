@@ -4,22 +4,22 @@ export const maintenanceManagementContent = {
   seo: {
     title: "Maintenance Management Software for Landlords | OASIS Rental",
     description:
-      "Track maintenance requests, work orders, and repair progress in one place with OASIS maintenance management software for landlords.",
+      "Move repair requests into tracked work orders, clear ownership, and cleaner follow-through with OASIS.",
     canonical: "https://oasisrental.com/features/maintenance-management",
   },
   hero: {
     eyebrow: "Maintenance management",
-    title: "Track maintenance requests and work orders before they turn into repeat complaints",
+    title: "Keep repair requests moving after the first message",
     body:
-      "OASIS helps landlords move maintenance from scattered messages and ad hoc follow-up into a clearer workflow for requests, work orders, contractors, status tracking, and early operational signals.",
+      "OASIS helps landlords turn repair messages into tracked requests, work orders, contractor updates, and status signals that are easier to act on.",
     imageSrc: "/screenshots/maintenance-inbox.png",
     imageAlt: "OASIS Maintenance Inbox showing request status columns, SLA age, and linked work orders.",
   },
   painPoints: {
     eyebrow: "Landlord pain points",
-    title: "Maintenance becomes chaotic when updates live in too many places",
+    title: "Maintenance gets expensive when the next step is unclear",
     body:
-      "Repairs are one of the fastest ways for rental operations to feel disorganized, especially when requests, assignments, and follow-ups are handled manually.",
+      "Repairs create noise fast when every update lives in a different thread and no one has a reliable path from request to completion.",
     items: [
       {
         title: "Missed updates",
@@ -39,13 +39,13 @@ export const maintenanceManagementContent = {
   },
   solution: {
     eyebrow: "How OASIS helps",
-    title: "A maintenance workflow built for visibility and follow-through",
+    title: "A maintenance workflow built for ownership and follow-through",
     body:
-      "OASIS connects requests, work orders, contractor activity, and operational status so landlords can manage repairs with less guesswork and more control.",
+      "OASIS keeps requests, work orders, contractor activity, and status changes tied to the same repair story.",
     items: [
       {
         title: "Track requests from intake to resolution",
-        body: "Keep maintenance requests visible from the first report through assignment, progress, and completion.",
+        body: "Follow maintenance requests from the first report through assignment, progress, and completion.",
       },
       {
         title: "Manage work orders in one flow",
@@ -61,7 +61,7 @@ export const maintenanceManagementContent = {
     imageAlign: "left" as const,
   },
   benefits: {
-    title: "What landlords gain with better maintenance visibility",
+    title: "What landlords gain when repairs have a workflow",
     items: [
       {
         title: "Faster response times",
@@ -82,9 +82,9 @@ export const maintenanceManagementContent = {
     ],
   },
   finalCta: {
-    title: "See maintenance in one connected workflow",
+    title: "Put every repair into a clearer workflow",
     body:
-      "Explore how OASIS helps landlords manage requests, work orders, and repair progress with more visibility and earlier warning when something is slipping.",
+      "Explore how OASIS helps landlords move from request to work order to completion with fewer blind spots.",
     primaryCta: { label: "View Pricing", href: "/pricing" },
     secondaryCta: { label: "Open the App", href: siteConfig.appUrl },
   },

@@ -4,25 +4,25 @@ export const tenantManagementContent = {
   seo: {
     title: "Tenant Management Software for Landlords | OASIS Rental",
     description:
-      "Keep tenant records, communication context, and rent visibility in one place with OASIS tenant management software for landlords.",
+      "Keep tenant records, property links, documents, and rent context organized with OASIS tenant management software for landlords.",
     canonical: "https://oasisrental.com/features/tenant-management",
   },
   hero: {
     eyebrow: "Tenant management",
-    title: "Keep tenant records organized without juggling spreadsheets and messages",
+    title: "Keep tenant context close to every property decision",
     body:
-      "OASIS gives landlords one place to track tenant details, linked properties, payment context, documents, and day-to-day operational visibility so nothing important gets buried.",
+      "OASIS helps landlords keep tenant details, linked properties, payment context, and documents in a usable workflow so important context is easier to act on.",
     imageSrc: "/screenshots/property-performance.png",
     imageAlt: "OASIS property performance view showing connected rent and operational context for an occupied property.",
   },
   painPoints: {
     eyebrow: "Landlord pain points",
-    title: "Tenant admin gets messy faster than most landlords expect",
+    title: "Tenant admin slows down when context is hard to find",
     body:
       "When tenant information lives across inboxes, notes, spreadsheets, and payment threads, simple tasks start taking longer than they should.",
     items: [
       {
-        title: "Scattered records",
+        title: "Fragmented records",
         body: "Contact details, lease context, and occupancy information often end up spread across too many places.",
       },
       {
@@ -39,21 +39,21 @@ export const tenantManagementContent = {
   },
   solution: {
     eyebrow: "How OASIS helps",
-    title: "A cleaner tenant workflow from record-keeping to rent visibility",
+    title: "A tenant workflow built around usable context",
     body:
-      "OASIS brings tenant details, property links, finance context, and document history together so landlords can move from fragmented admin to a more reliable operating system.",
+      "OASIS keeps tenant details, property links, rent context, and document history close enough to support daily decisions.",
     items: [
       {
         title: "Centralized tenant profiles",
-        body: "Keep the tenant record tied to the right property and visible in the same system as documents and payments.",
+        body: "Keep the tenant record tied to the right property and connected to relevant documents and payments.",
       },
       {
         title: "Faster follow-up",
         body: "See status and context quickly instead of rebuilding the story from multiple tools every time a tenant issue needs attention.",
       },
       {
-        title: "Better portfolio awareness",
-        body: "Spot which tenants need attention without manually cross-checking rent trackers, notes, and scattered documents.",
+        title: "Cleaner follow-up",
+        body: "Spot which tenants need attention without manually cross-checking rent trackers, notes, and documents.",
       },
     ],
     imageSrc: "/screenshots/security-audit.png",
@@ -82,9 +82,9 @@ export const tenantManagementContent = {
     ],
   },
   finalCta: {
-    title: "Bring tenant admin into one clearer system",
+    title: "Make tenant admin easier to act on",
     body:
-      "See how OASIS helps landlords manage tenant information, payment context, documents, and property links without scattered admin.",
+      "See how OASIS helps landlords manage tenant information, payment context, documents, and property links without rebuilding context from separate trackers.",
     primaryCta: { label: "View Pricing", href: "/pricing" },
     secondaryCta: { label: "Open the App", href: siteConfig.appUrl },
   },

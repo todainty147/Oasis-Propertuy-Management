@@ -4,30 +4,30 @@ export const rentalAccountingContent = {
   seo: {
     title: "Rental Accounting Software for Landlords | OASIS Rental",
     description:
-      "Track rental income, overdue payments, and portfolio finance visibility with OASIS rental accounting software for landlords.",
+      "Track rent status, overdue balances, and portfolio payment pressure without rebuilding spreadsheets.",
     canonical: "https://oasisrental.com/features/rental-accounting",
   },
   hero: {
     eyebrow: "Rental accounting",
-    title: "Track paid, due, and overdue rent with clearer portfolio visibility",
+    title: "See paid, due, and overdue rent without rebuilding spreadsheets",
     body:
-      "OASIS gives landlords finance views built around rental operations, helping you understand income status, overdue balances, and where action is needed across the portfolio before follow-up starts slipping.",
+      "OASIS gives landlords finance views built around follow-up: what is paid, what is due, what is overdue, and where pressure is building.",
     imageSrc: "/screenshots/portfolio-health.png",
     imageAlt: "OASIS Portfolio Health dashboard showing arrears aging, finance mix, and maintenance pressure.",
   },
   painPoints: {
     eyebrow: "Landlord pain points",
-    title: "Rental finance gets harder when records are spread across manual trackers",
+    title: "Rental finance gets harder when every number has to be rebuilt",
     body:
       "Many landlords can see the numbers eventually, but only after too much checking, reconciling, and digging through separate records.",
     items: [
       {
-        title: "Unclear cash position",
+        title: "Hard-to-read cash position",
         body: "It takes too long to confirm what has been paid, what is due soon, and what is already overdue.",
       },
       {
-        title: "Weak portfolio visibility",
-        body: "Without one financial view, it is harder to see which tenants or properties need immediate attention.",
+        title: "Unclear follow-up priority",
+        body: "Without a clean payment picture, it is harder to see which tenants or properties need attention first.",
       },
       {
         title: "Too much manual reporting",
@@ -39,21 +39,21 @@ export const rentalAccountingContent = {
   },
   solution: {
     eyebrow: "How OASIS helps",
-    title: "Finance visibility designed around rental operations, not generic bookkeeping",
+    title: "Rent tracking shaped around landlord follow-up",
     body:
-      "OASIS helps landlords see the rental numbers that matter most day to day, with finance views connected to tenants, properties, payment status, and operational follow-up.",
+      "OASIS helps landlords see the rental numbers that matter day to day, with payment status tied to tenant and property context.",
     items: [
       {
         title: "See payment status clearly",
-        body: "Track paid, due, and overdue income in a format that matches how rental portfolios are actually managed.",
+        body: "Track paid, due, and overdue income in a format that matches daily landlord decisions.",
       },
       {
         title: "Follow issues faster",
         body: "Identify overdue balances, due-soon pressure, and focus follow-up where it will have the most operational impact.",
       },
       {
-        title: "Connect finance to the wider workflow",
-        body: "Keep rent visibility tied to tenant and property context instead of isolated from the rest of the system.",
+        title: "Keep rent tied to context",
+        body: "Keep payment status close to tenant and property details instead of isolated in a separate tracker.",
       },
     ],
     imageSrc: "/screenshots/command-center.png",
@@ -61,7 +61,7 @@ export const rentalAccountingContent = {
     imageAlign: "left" as const,
   },
   benefits: {
-    title: "What landlords gain with better rental accounting visibility",
+    title: "What landlords gain when rent status is easier to read",
     items: [
       {
         title: "Cleaner oversight",
@@ -82,9 +82,9 @@ export const rentalAccountingContent = {
     ],
   },
   finalCta: {
-    title: "Get clearer rental finance visibility across your portfolio",
+    title: "Get a clearer rent picture across your portfolio",
     body:
-      "See how OASIS helps landlords track rental income, overdue balances, payment status, and finance pressure in one place.",
+      "See how OASIS helps landlords track income, overdue balances, payment status, and rent pressure from one operating view.",
     primaryCta: { label: "View Pricing", href: "/pricing" },
     secondaryCta: { label: "Open the App", href: siteConfig.appUrl },
   },

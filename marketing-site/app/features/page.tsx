@@ -10,9 +10,9 @@ import { siteConfig } from "../../content/site";
 import { buildMetadata } from "../../lib/metadata";
 
 export const metadata: Metadata = buildMetadata({
-  title: "Property Management Software Features | OASIS Rental",
+  title: "OASIS Features | Proof by Landlord Outcome",
   description:
-    "Explore OASIS Rental features for tenant management, maintenance tracking, rental accounting, document management, and landlord operations.",
+    "Explore how OASIS helps landlords regain control across rent follow-up, repairs, records, and portfolio attention.",
   canonical: "https://oasisrental.com/features",
 });
 
@@ -21,17 +21,17 @@ export default function FeaturesPage() {
     <>
       <PageHero
         eyebrow="Features"
-        title="Features Built for Day-to-Day Rental Management"
-        body="OASIS is designed around the real operating needs of landlords: tenants, maintenance, finances, and documents all connected in one place."
-        cta={{ label: "Open the App", href: siteConfig.appUrl }}
+        title="Built around the outcomes landlords actually need"
+        body="OASIS features are grouped around operational progress: know what needs attention, keep repairs moving, understand rent pressure, and keep records where the work happens."
+        cta={{ label: "Start Free", href: siteConfig.appUrl }}
       />
       <FeatureGrid {...homepageContent.solutionSection} />
       <section className="section">
         <div className="container">
           <div className="card content-block">
-            <h2>Explore the core workflows</h2>
+            <h2>Choose the area you want under control first</h2>
             <p className="muted">
-              Start with the feature areas that matter most to your current rental operations.
+              Each workflow page goes deeper into a specific landlord outcome instead of repeating the whole platform story.
             </p>
             <div className="button-row">
               <Link href="/features/tenant-management" className="button button-secondary">
@@ -53,8 +53,7 @@ export default function FeaturesPage() {
             <article className="card feature-card">
               <h3>Tenant management</h3>
               <p className="muted">
-                See how OASIS helps landlords organize tenant records, linked properties,
-                and payment context without scattered admin.
+                Keep tenant context usable, connected to the right property, and easier to act on when follow-up is needed.
               </p>
               <div className="button-row">
                 <Link href="/features/tenant-management" className="button button-secondary">
@@ -65,8 +64,7 @@ export default function FeaturesPage() {
             <article className="card feature-card">
               <h3>Maintenance management</h3>
               <p className="muted">
-                Explore a clearer workflow for maintenance requests, work orders, and repair
-                follow-through.
+                Turn repair requests into tracked work, visible ownership, and cleaner contractor follow-through.
               </p>
               <div className="button-row">
                 <Link
@@ -80,8 +78,7 @@ export default function FeaturesPage() {
             <article className="card feature-card">
               <h3>Rental accounting</h3>
               <p className="muted">
-                Learn how OASIS gives landlords better visibility into paid, due, and
-                overdue rental income.
+                See which rent needs attention and how payment pressure is shaping the portfolio.
               </p>
               <div className="button-row">
                 <Link href="/features/rental-accounting" className="button button-secondary">
@@ -93,8 +90,8 @@ export default function FeaturesPage() {
         </div>
       </section>
       <FinalCta
-        title="See how OASIS helps landlords run rental operations with more clarity and less admin."
-        body="Move from scattered admin to a more connected system built around real landlord workflows."
+        title="Pick the workflow that is slowing you down"
+        body="Whether rent, repairs, or records are creating the most noise, OASIS gives landlords a clearer way to keep the work moving."
         primaryCta={{ label: "Start Free", href: siteConfig.appUrl }}
         secondaryCta={{ label: "View Pricing", href: "/pricing" }}
       />
