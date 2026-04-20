@@ -76,6 +76,21 @@ function resolveAppUrl() {
   }).origin;
 }
 
+function normalizeHeaderValue(value: string | null | undefined) {
+  return String(value || "").trim().slice(0, 128);
+}
+
+function getRequestIp(req: Request) {
+  const cfIp = normalizeHeaderValue(req.headers.get("cf-connecting-ip"));
+  if (cfIp) return cfIp;
+
+  const realIp = normalizeHeaderValue(req.headers.get("x-real-ip"));
+  if (realIp) return realIp;
+
+  const forwardedFor = normalizeHeaderValue(req.headers.get("x-forwarded-for")?.split(",")[0]);
+  return forwardedFor || "unknown";
+}
+
 Deno.serve(async (req) => {
   const respond = (payload: unknown, status = 200) => json(req, payload, status);
 
@@ -95,15 +110,36 @@ Deno.serve(async (req) => {
       return respond({ error: "Email is required" }, 400);
     }
 
+    const correlationId = crypto.randomUUID();
+    const requestIp = getRequestIp(req);
+    const ipRateLimit = await recordRateLimitAttempt(admin, {
+      surface: "send-password-reset-email:ip",
+      identifier: requestIp,
+      windowSeconds: 900,
+      maxAttempts: 30,
+      metadata: {
+        correlation_id: correlationId,
+        limit_scope: "request_ip",
+        function_name: "send-password-reset-email",
+        flow: "password_reset",
+        trusted_origin_required: true,
+      },
+    });
+    if (!ipRateLimit.allowed) {
+      return respond(buildRateLimitBody(ipRateLimit), 429);
+    }
+
     const rateLimit = await recordRateLimitAttempt(admin, {
       surface: "send-password-reset-email:email",
       identifier: email,
       windowSeconds: 3600,
       maxAttempts: 5,
       metadata: {
-        correlation_id: crypto.randomUUID(),
+        correlation_id: correlationId,
         limit_scope: "target_email",
         function_name: "send-password-reset-email",
+        flow: "password_reset",
+        trusted_origin_required: true,
       },
     });
     if (!rateLimit.allowed) {

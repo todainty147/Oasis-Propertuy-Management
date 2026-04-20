@@ -14,6 +14,8 @@ If the symptom is:
   - start with [security-observability-feed.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-observability-feed.md)
 - support/root needs to understand whether a symptom is latency, traffic, error, or repeated-pressure related:
   - start with [OPERATIONAL_GOLDEN_SIGNALS.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OPERATIONAL_GOLDEN_SIGNALS.md)
+- support/security needs to classify alert severity, assign owners, decide response SLA, or preserve evidence:
+  - start with [security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md)
 - document preview/upload/download fails and app logs are not enough:
   - start with [provider-log-correlation.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/provider-log-correlation.md)
 - membership, tenant, payment, work-order, or invite rows look broken or detached:
@@ -43,3 +45,4 @@ If the symptom is:
 - [HOSTED_SECURITY_LOG_SINK.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/HOSTED_SECURITY_LOG_SINK.md)
 - [DENIED_EVENT_COVERAGE_MATRIX.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/DENIED_EVENT_COVERAGE_MATRIX.md)
 - [OPERATIONAL_GOLDEN_SIGNALS.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OPERATIONAL_GOLDEN_SIGNALS.md)
+- [security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md)

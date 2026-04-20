@@ -121,6 +121,8 @@ Phase 1 alerting can be lightweight:
 
 Do not page on isolated authorization denials. They are often proof that the security boundary is working.
 
+The launch threshold matrix, severity model, owner model, and response SLAs are formalized in [runbooks/security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md). Treat the bullets above as product golden-signal candidates; treat the runbook as the operational source of truth for when to watch, page, assign owners, and retain evidence.
+
 ## Cache Boundary
 
 Selective caching is allowed only where the data is account-scoped, read-heavy, and safe to refresh through realtime invalidation/bypass paths.
@@ -145,3 +147,4 @@ Rules:
 - [HOSTED_SECURITY_LOG_SINK.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/HOSTED_SECURITY_LOG_SINK.md)
 - [DENIED_EVENT_COVERAGE_MATRIX.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/DENIED_EVENT_COVERAGE_MATRIX.md)
 - [runbooks/security-observability-feed.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-observability-feed.md)
+- [runbooks/security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md)

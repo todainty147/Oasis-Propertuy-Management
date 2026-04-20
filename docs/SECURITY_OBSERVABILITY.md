@@ -24,6 +24,7 @@ This note tracks how security-sensitive denied paths currently surface in OASIS 
   - a lightweight retention helper: `public.cleanup_security_observability_events(...)`
   - a cron-safe cleanup Edge Function: `cleanup-security-observability-events`
   - an operator view inside the Security Audit page with summaries, repeated-pattern grouping, investigation context, CSV export, and SQL copy helpers
+- Operational alert response is now formalized in [runbooks/security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md), including severity levels, launch thresholds, ownership, review cadence, and retention guidance.
 - Guard-function denials are surfaced with stable correlation fields:
   - `surface`
   - `reason`
@@ -128,6 +129,18 @@ This note tracks how security-sensitive denied paths currently surface in OASIS 
 - durable denied-event inserts are allowed only for authenticated actors that can be linked back to the target account or entity scope
 - scheduled Edge Function hosted events use scrubbed metadata and intentionally remove obvious email, phone, token, secret, authorization, password, key, signature, body, HTML, and recipient fields
 
+## Operational Response Model
+
+OASIS uses a lightweight launch model rather than a full SIEM in this phase:
+
+- alert thresholds are documented for rate-limit spikes, repeated authorization denials, invite abuse, password reset abuse, provider send failures, and security export failures
+- severities run from `SEV-1 Critical` through `SEV-4 Low`
+- response ownership is split across security, engineering, support, and product roles
+- daily, weekly, monthly, and quarterly review cadences are defined
+- retention guidance covers hosted observability rows, denied events, audit/anomaly records, rate-limit rows, outbound events, export jobs/files, and provider logs
+
+The canonical operator workflow is [Security Runbook: Alert Response Model](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md). Use it for incident classification and escalation; use this document for telemetry architecture and coverage.
+
 ## Remaining Gaps
 
 - denied events are durable only when the application or caller performs the follow-up `record_security_denied_event(...)` request after catching the original error
@@ -139,10 +152,11 @@ This note tracks how security-sensitive denied paths currently surface in OASIS 
 - direct provider-side storage policy denials can still require Supabase Storage logs for full root-cause analysis
 - provider request/trace ids can now be carried into app-side diagnostics when the SDK exposes them, which makes cross-checking Storage logs easier
 - best-effort storage cleanup failures after a successful document delete are now structured in app logs, but they are not authorization denials and are not persisted as denied events
-- hosted aggregation now has a usable operator workflow; trend dashboards, SLO/alert thresholds, and archive dashboards are still future work
+- hosted aggregation now has a usable operator workflow and documented launch thresholds; automated paging, external SIEM integration, trend dashboards, and archive dashboards remain future work
 
 See also:
 - [HOSTED_SECURITY_LOG_SINK.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/HOSTED_SECURITY_LOG_SINK.md)
 - [DENIED_EVENT_COVERAGE_MATRIX.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/DENIED_EVENT_COVERAGE_MATRIX.md)
 - [OPERATIONAL_GOLDEN_SIGNALS.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OPERATIONAL_GOLDEN_SIGNALS.md)
+- [runbooks/security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md)
 - [runbooks/README.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/README.md)

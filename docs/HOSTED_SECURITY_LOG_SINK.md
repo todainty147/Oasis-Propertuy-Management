@@ -190,6 +190,8 @@ Recommended default:
 - review and export older windows before purge if an account is under active investigation
 - purge in small batches to avoid operational spikes
 
+Detailed event-class retention guidance, including denied events, outbound provider events, audit/anomaly records, export jobs/files, and provider logs, lives in [runbooks/security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md).
+
 Minimal in-repo helper:
 
 - SQL function:
@@ -249,4 +251,4 @@ Example scheduled function payload:
 - Edge Function aggregation is still application-path dependent; failures outside app/edge catch paths will not appear here
 - this is not a full analytics or SIEM pipeline
 - Stripe webhook signature verification remains provider-led by design; mirror it here only if billing incident workflows need hosted correlation
-- long-term alerting, trend dashboards, and archive dashboards remain future work
+- launch alert thresholds and response ownership are documented in [runbooks/security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md); automated paging, trend dashboards, and archive dashboards remain future work

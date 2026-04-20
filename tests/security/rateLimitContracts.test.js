@@ -37,6 +37,7 @@ describe("API rate limit contracts", () => {
 
     expect(inviteFn).toContain('surface: "invite-user:account"');
     expect(inviteFn).toContain('surface: "invite-user:email"');
+    expect(resetFn).toContain('surface: "send-password-reset-email:ip"');
     expect(resetFn).toContain('surface: "send-password-reset-email:email"');
     expect(reminderFn).toContain('surface: "send-reminder-emails:account"');
     expect(smsFn).toContain('surface: "send-sms-notifications:account"');
@@ -48,5 +49,21 @@ describe("API rate limit contracts", () => {
       expect(source).toContain("buildRateLimitBody");
       expect(source).toContain("429");
     }
+  });
+
+  it("adds perimeter-style throttling and observability metadata to password reset", () => {
+    const resetFn = readSource("supabase/functions/send-password-reset-email/index.ts");
+
+    expect(resetFn).toContain("function getRequestIp");
+    expect(resetFn).toContain('req.headers.get("cf-connecting-ip")');
+    expect(resetFn).toContain('req.headers.get("x-real-ip")');
+    expect(resetFn).toContain('req.headers.get("x-forwarded-for")?.split(",")[0]');
+    expect(resetFn).toContain('surface: "send-password-reset-email:ip"');
+    expect(resetFn).toContain("windowSeconds: 900");
+    expect(resetFn).toContain("maxAttempts: 30");
+    expect(resetFn).toContain('limit_scope: "request_ip"');
+    expect(resetFn).toContain('flow: "password_reset"');
+    expect(resetFn).toContain("trusted_origin_required: true");
+    expect(resetFn).toContain("const correlationId = crypto.randomUUID()");
   });
 });

@@ -48,4 +48,33 @@ describe("golden signals documentation contracts", () => {
     expect(planGateIndex).toBeGreaterThan(-1);
     expect(rootBypassIndex).toBeLessThan(planGateIndex);
   });
+
+  it("formalizes operational security alert thresholds and retention guidance", () => {
+    const runbook = readSource("docs/runbooks/security-alert-response.md");
+    const observability = readSource("docs/SECURITY_OBSERVABILITY.md");
+    const hostedSink = readSource("docs/HOSTED_SECURITY_LOG_SINK.md");
+    const runbookIndex = readSource("docs/runbooks/README.md");
+
+    expect(runbook).toContain("## Severity And SLA Model");
+    expect(runbook).toContain("## Alert Matrix");
+    expect(runbook).toContain("## Review Cadence");
+    expect(runbook).toContain("## Retention Guidance");
+    expect(runbook).toContain("Rate-limit spikes");
+    expect(runbook).toContain("Repeated authorization denials");
+    expect(runbook).toContain("Invite abuse");
+    expect(runbook).toContain("Password reset abuse");
+    expect(runbook).toContain("Provider send failures");
+    expect(runbook).toContain("Security export failures");
+    expect(runbook).toContain("SEV-1 Critical");
+    expect(runbook).toContain("SEV-2 High");
+    expect(runbook).toContain("Security owner");
+    expect(runbook).toContain("Engineering owner");
+    expect(runbook).toContain("Hosted security observability rows");
+    expect(runbook).toContain("Durable denied events");
+    expect(runbook).toContain("Outbound email/SMS events");
+    expect(runbook).toContain("Security export jobs and generated files");
+    expect(observability).toContain("runbooks/security-alert-response.md");
+    expect(hostedSink).toContain("runbooks/security-alert-response.md");
+    expect(runbookIndex).toContain("security-alert-response.md");
+  });
 });
