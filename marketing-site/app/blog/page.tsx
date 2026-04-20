@@ -1,42 +1,11 @@
 import type { Metadata } from "next";
 
+import Link from "next/link";
+
 import { FinalCta } from "../../components/marketing/final-cta";
 import { PageHero } from "../../components/marketing/page-hero";
-import { siteConfig } from "../../content/site";
+import { blogArticles, blogCta } from "../../content/blog";
 import { buildMetadata } from "../../lib/metadata";
-
-const launchArticles = [
-  {
-    category: "Productivity",
-    title: "Why most landlord apps fail small landlords",
-    summary:
-      "A practical look at why tools built for agencies or generic admin often miss the way small landlords actually work: fast decisions, limited time, and too much context spread across messages and spreadsheets.",
-  },
-  {
-    category: "Rent",
-    title: "The hidden cost of missed rent tracking",
-    summary:
-      "Missed rent follow-up is not just a finance problem. It creates admin drag, awkward tenant conversations, and weaker confidence in the portfolio's cash position.",
-  },
-  {
-    category: "Maintenance",
-    title: "How organized landlords actually stay on top of maintenance",
-    summary:
-      "The best maintenance systems are not complicated. They make requests easy to capture, ownership clear, progress visible, and stalled work harder to ignore.",
-  },
-  {
-    category: "Growth",
-    title: "What breaks first when your portfolio starts growing",
-    summary:
-      "As a portfolio grows, the first failure point is usually not effort. It is follow-up: overdue rent, repair updates, missing records, and decisions that need better operating rhythm.",
-  },
-  {
-    category: "Operations",
-    title: "How to stop managing rentals across five disconnected tools",
-    summary:
-      "A guide to replacing scattered spreadsheets, folders, messages, and payment notes with a clearer rental operating routine landlords can actually keep using.",
-  },
-];
 
 export const metadata: Metadata = buildMetadata({
   title: "OASIS Rental Blog | Landlord Operating Guides",
@@ -50,8 +19,8 @@ export default function BlogPage() {
     <>
       <PageHero
         eyebrow="Blog"
-        title="Practical operating guides for landlords"
-        body="The OASIS blog is built for landlords who want better ways to run rentals, not vague property management advice. Expect useful thinking on rent tracking, repair follow-up, tenant records, portfolio growth, and the habits that keep admin from taking over."
+        title="Real-world insights for landlords who want more control and less chaos"
+        body="No fluff. Just practical ways to stay on top of your properties, see what needs attention sooner, and replace reactive admin with a calmer operating rhythm."
       />
       <section className="section">
         <div className="container">
@@ -63,11 +32,16 @@ export default function BlogPage() {
             </p>
           </div>
           <div className="grid grid-2">
-            {launchArticles.map((article) => (
+            {blogArticles.map((article) => (
               <article key={article.title} className="card feature-card">
                 <span className="eyebrow">{article.category}</span>
                 <h3>{article.title}</h3>
                 <p className="muted">{article.summary}</p>
+                <div className="button-row">
+                  <Link href={`/blog/${article.slug}`} className="button button-secondary">
+                    Read more
+                  </Link>
+                </div>
               </article>
             ))}
           </div>
@@ -86,12 +60,7 @@ export default function BlogPage() {
           </div>
         </div>
       </section>
-      <FinalCta
-        title="Want the operating system behind the advice?"
-        body="Use OASIS to turn better landlord habits into the way rent, repairs, records, and follow-up actually get managed."
-        primaryCta={{ label: "Start Running OASIS", href: siteConfig.appUrl }}
-        secondaryCta={{ label: "Compare Plans", href: "/pricing" }}
-      />
+      <FinalCta {...blogCta} />
     </>
   );
 }

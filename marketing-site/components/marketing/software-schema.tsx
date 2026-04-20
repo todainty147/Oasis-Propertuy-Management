@@ -7,7 +7,7 @@ export function SoftwareSchema() {
     operatingSystem: "Web",
     url: "https://oasisrental.com",
     description:
-      "Property management software for landlords to manage tenants, maintenance, finances, and documents.",
+      "Property management software for landlords to stay on top of tenants, maintenance, rent, records, and portfolio follow-up.",
   };
 
   return (

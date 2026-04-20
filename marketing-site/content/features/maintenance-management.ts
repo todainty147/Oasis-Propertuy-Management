@@ -86,6 +86,6 @@ export const maintenanceManagementContent = {
     body:
       "Explore how OASIS helps landlords move from request to work order to completion with fewer blind spots.",
     primaryCta: { label: "View Pricing", href: "/pricing" },
-    secondaryCta: { label: "Open the App", href: siteConfig.appUrl },
+    secondaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
   },
 };

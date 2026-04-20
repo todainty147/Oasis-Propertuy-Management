@@ -9,8 +9,8 @@ export function SiteFooter() {
         <div>
           <div className="logo">OASIS Rental</div>
           <p className="muted" style={{ marginTop: "0.75rem", maxWidth: 420 }}>
-            Property management software for landlords who want cleaner operations,
-            stronger maintenance visibility, and better portfolio control.
+            Built with real landlord workflows in mind for operators who want
+            cleaner follow-up, stronger maintenance visibility, and better portfolio control.
           </p>
         </div>
         <div className="footer-links">
@@ -18,7 +18,7 @@ export function SiteFooter() {
           <Link href="/pricing">Pricing</Link>
           <Link href="/compare/oasis-vs-landlordstudio">Compare</Link>
           <Link href="/blog">Blog</Link>
-          <Link href={siteConfig.appUrl}>App</Link>
+          <Link href={siteConfig.appUrl}>Early access</Link>
         </div>
       </div>
     </footer>

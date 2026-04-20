@@ -101,6 +101,6 @@ export const oasisVsLandlordStudioContent = {
     body:
       "If your portfolio has moved beyond simple record-keeping, OASIS gives rent, repairs, records, and action queues a clearer operating rhythm.",
     primaryCta: { label: "Compare Plans", href: "/pricing" },
-    secondaryCta: { label: "Start Running OASIS", href: siteConfig.appUrl },
+    secondaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
   },
 };

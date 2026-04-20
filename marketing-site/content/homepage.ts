@@ -9,13 +9,13 @@ export const homepageContent = {
   },
   hero: {
     eyebrow: "Built for modern landlords",
-    title: "Stop juggling spreadsheets, WhatsApp, and guesswork",
+    title: "Stop chasing tenants, payments, and problems",
     body:
-      "Run your properties from one clear operating system built for small and growing landlords. Stay on top of rent, repairs, tenants, and records without agency-sized software.",
-    support: "Simple enough to use every week. Strong enough to keep a growing portfolio under control.",
+      "See what needs attention before it becomes a problem. OASIS brings rent, repairs, tenants, and records into one calmer operating rhythm for small and growing landlords.",
+    support: "Built with real landlord workflows in mind. Designed for landlords managing real portfolios.",
     imageSrc: "/screenshots/command-center.png",
     imageAlt: "OASIS Command Center showing urgent items, overdue balance, and action queues across the portfolio.",
-    primaryCta: { label: "Start Running OASIS", href: siteConfig.appUrl },
+    primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
     secondaryCta: { label: "See What Changes", href: "/features" },
   },
   problemSection: {
@@ -45,11 +45,11 @@ export const homepageContent = {
   solutionSection: {
     title: "How OASIS helps",
     body:
-      "OASIS groups the day-to-day work around outcomes landlords actually care about: rent paid, repairs moving, records ready, and action clear.",
+      "OASIS groups the day-to-day work around outcomes landlords actually care about: rent paid, repairs moving, records ready, and action clear enough to act on.",
     items: [
       {
         title: "Stay on top of rent",
-        body: "Track paid, due, and overdue rent so follow-up starts from a clear payment picture.",
+        body: "See paid, due, and overdue rent so follow-up starts from a clear payment picture.",
       },
       {
         title: "Handle repairs without chaos",
@@ -57,7 +57,7 @@ export const homepageContent = {
       },
       {
         title: "Keep records ready",
-        body: "Keep leases, property files, tenant context, and supporting documents tied to the right rental work.",
+        body: "Bring leases, property files, tenant context, and supporting documents into the rental work they support.",
       },
       {
         title: "Act earlier",
@@ -131,10 +131,10 @@ export const homepageContent = {
     ],
   },
   finalCta: {
-    title: "Run the portfolio from one calmer place",
+    title: "Try OASIS before we launch publicly",
     body:
-      "Bring rent, repairs, tenants, and records into OASIS, then spend less time wondering what needs your attention.",
-    primaryCta: { label: "Start Running OASIS", href: siteConfig.appUrl },
+      "Get early access, test OASIS with real rental work, and help shape how it evolves for landlords.",
+    primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
     secondaryCta: { label: "Compare Plans", href: "/pricing" },
   },
 };

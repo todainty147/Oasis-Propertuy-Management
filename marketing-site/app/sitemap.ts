@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 
+import { blogArticles } from "../content/blog";
 import { siteConfig } from "../content/site";
 
 const routes = [
@@ -12,6 +13,8 @@ const routes = [
   "/compare/oasis-vs-landlordstudio",
   "/compare/oasis-vs-buildium",
   "/compare/oasis-vs-tenantcloud",
+  "/blog",
+  ...blogArticles.map((article) => `/blog/${article.slug}`),
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

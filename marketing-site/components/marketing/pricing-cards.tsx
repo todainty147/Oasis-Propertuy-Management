@@ -32,7 +32,7 @@ export function PricingCards({ plans }: { plans: Plan[] }) {
               </ul>
               <div className="button-row">
                 <Link href={siteConfig.appUrl} className="button button-primary">
-                  Start Free
+                  Get Early Access
                 </Link>
               </div>
             </article>

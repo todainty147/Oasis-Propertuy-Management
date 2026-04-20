@@ -17,7 +17,7 @@ export function SiteHeader() {
           ))}
           <Link href={siteConfig.appUrl}>Sign In</Link>
           <Link href={siteConfig.appUrl} className="button button-primary">
-            Start Free
+            Get Early Access
           </Link>
         </nav>
       </div>

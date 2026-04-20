@@ -89,7 +89,7 @@ export default function FeaturesPage() {
         eyebrow="Features"
         title="Proof that OASIS runs the work landlords actually do"
         body="This is not a checklist of generic property software modules. OASIS is built around the outcomes that keep a rental portfolio calm: rent understood, repairs moving, records ready, and the next action clear."
-        cta={{ label: "Start Running OASIS", href: siteConfig.appUrl }}
+        cta={{ label: "Get Early Access", href: siteConfig.appUrl }}
         imageSrc="/screenshots/command-center.png"
         imageAlt="OASIS Command Center showing urgent queues, overdue balances, and action items."
       />
@@ -127,7 +127,7 @@ export default function FeaturesPage() {
       <FinalCta
         title="Choose the part of your portfolio that needs control first"
         body="Start with rent, repairs, records, or portfolio attention. OASIS keeps the work close enough to act before the week turns into catch-up."
-        primaryCta={{ label: "Start Running OASIS", href: siteConfig.appUrl }}
+        primaryCta={{ label: "Get Early Access", href: siteConfig.appUrl }}
         secondaryCta={{ label: "Compare Plans", href: "/pricing" }}
       />
     </>

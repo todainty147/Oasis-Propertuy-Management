@@ -86,6 +86,6 @@ export const tenantManagementContent = {
     body:
       "See how OASIS helps landlords manage tenant information, payment context, documents, and property links without rebuilding context from separate trackers.",
     primaryCta: { label: "View Pricing", href: "/pricing" },
-    secondaryCta: { label: "Open the App", href: siteConfig.appUrl },
+    secondaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
   },
 };

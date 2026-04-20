@@ -86,6 +86,6 @@ export const rentalAccountingContent = {
     body:
       "See how OASIS helps landlords track income, overdue balances, payment status, and rent pressure from one operating view.",
     primaryCta: { label: "View Pricing", href: "/pricing" },
-    secondaryCta: { label: "Open the App", href: siteConfig.appUrl },
+    secondaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
   },
 };

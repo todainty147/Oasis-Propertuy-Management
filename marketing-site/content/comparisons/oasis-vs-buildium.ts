@@ -101,6 +101,6 @@ export const oasisVsBuildiumContent = {
     body:
       "If you want clearer queues, stronger repair follow-through, and earlier visibility into portfolio pressure, OASIS is worth a closer look.",
     primaryCta: { label: "Compare Plans", href: "/pricing" },
-    secondaryCta: { label: "Start Running OASIS", href: siteConfig.appUrl },
+    secondaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
   },
 };

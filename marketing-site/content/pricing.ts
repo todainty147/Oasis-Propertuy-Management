@@ -29,8 +29,8 @@ export const pricingContent = {
       description:
         "For landlords who want the essential rental workflow in one place before admin spreads across trackers, folders, and message threads.",
       bullets: [
-        "organize tenants, properties, and core records",
-        "track paid, due, and overdue rent",
+        "bring tenants, properties, and core records into one place",
+        "see paid, due, and overdue rent",
         "capture maintenance requests and work orders",
         "reduce the weekly spreadsheet rebuild",
       ],
@@ -66,8 +66,8 @@ export const pricingContent = {
   included: {
     title: "Every plan helps landlords reduce avoidable admin",
     bullets: [
-      "A clearer place to manage tenants, properties, and rental context",
-      "Rent status tracking for paid, due, and overdue balances",
+      "A clearer place to stay on top of tenants, properties, and rental context",
+      "Rent status views for paid, due, and overdue balances",
       "Maintenance request and work order workflows",
       "Document storage tied to the rental work it supports",
       "Landlord dashboards that make follow-up easier to prioritize",
@@ -101,9 +101,9 @@ export const pricingContent = {
     },
   ],
   finalCta: {
-    title: "Start with the plan that removes the most friction",
+    title: "Try OASIS before we launch publicly",
     body:
-      "Move off spreadsheets first. Add stronger portfolio control when the work gets busier. Step into Pro when review and follow-through matter more.",
-    primaryCta: { label: "Start Running OASIS", href: siteConfig.appUrl },
+      "Get early access, test the workflows, and help shape how OASIS supports landlords as it evolves.",
+    primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
   },
 };

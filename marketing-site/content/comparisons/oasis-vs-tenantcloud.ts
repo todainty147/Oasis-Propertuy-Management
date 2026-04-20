@@ -101,6 +101,6 @@ export const oasisVsTenantCloudContent = {
     body:
       "If action queues, repair follow-through, arrears pressure, and portfolio visibility matter most, OASIS is built for that way of working.",
     primaryCta: { label: "Compare Plans", href: "/pricing" },
-    secondaryCta: { label: "Start Running OASIS", href: siteConfig.appUrl },
+    secondaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
   },
 };
