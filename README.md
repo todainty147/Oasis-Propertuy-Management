@@ -83,6 +83,9 @@ npm run dev
 
 ##The app will be available at:
 http://localhost:5173
+
+Local dev and preview servers are intentionally bound to localhost. Do not expose them through tunnels or public interfaces unless the test is intentional, protected, and uses non-production environment values. See `docs/LOCAL_DEV_SECURITY.md`.
+
 🗄️ Supabase Schema (Core Tables)
 properties
 
