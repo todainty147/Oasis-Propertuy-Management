@@ -70,7 +70,7 @@ No new secrets are required.
 
 ## Password Reset Bot Protection Runbook
 
-- Keep `APP_URL` or `ALLOWED_APP_ORIGINS` configured; reset links fail closed without a trusted app origin.
+- Keep `APP_URL` configured for reset-link generation and `ALLOWED_APP_ORIGINS` configured for browser CORS. For hosted browser calls, `ALLOWED_APP_ORIGINS` must include the exact requesting origin, including scheme and hostname such as `https://www.oasisrentalmgt.app`.
 - Watch hosted observability events where `category = api_rate_limit`, `surface in ('send-password-reset-email:ip', 'send-password-reset-email:email')`, and metadata `flow = password_reset`.
 - Investigate repeat `send-password-reset-email:ip` blocks as bot or extension-driven abuse and add provider/perimeter throttling before raising limits.
 - Add Cloudflare Turnstile, CAPTCHA, or equivalent browser challenge at the app/perimeter layer before public traffic materially increases. This repo does not currently have a shared anti-bot challenge component, so it is intentionally deferred rather than added as a one-off reset-only dependency.
