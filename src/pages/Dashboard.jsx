@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Card from "../components/Card";
 import Skeleton from "../components/ui/Skeleton";
-import { Wallet, TrendingUp, AlertCircle, Home, FileText, BriefcaseBusiness, CheckCircle2, CircleDashed, UserPlus, Wrench, X } from "lucide-react";
+import { Wallet, AlertCircle, Home, BriefcaseBusiness, CheckCircle2, CircleDashed, UserPlus, Wrench, X } from "lucide-react";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
@@ -27,6 +27,7 @@ import OnboardingHintCard from "../components/OnboardingHintCard";
 
 // ✅ Tenant dashboard widget
 import TenantMaintenanceDashboard from "../components/TenantMaintenanceDashboard";
+import TenantPortalOverview from "../components/TenantPortalOverview";
 
 /* ======================
    SKELETON
@@ -372,11 +373,6 @@ export default function Dashboard({
      TENANT VIEW
      ========================================================= */
   if (isTenant) {
-    const paidTotal = Number(snapshotView.tenant_paid_total || 0);
-    const dueTotal = Number(snapshotView.tenant_due_total || 0);
-    const overdueTotal = Number(snapshotView.tenant_overdue_total || 0);
-    const dueOrOverdueCount = Number(snapshotView.tenant_due_overdue_count || 0);
-
     const propertyIds = (properties ?? []).map((p) => p.id).filter(Boolean);
     const fallbackPropertyId = propertyIds[0] ?? null;
 
@@ -397,6 +393,17 @@ export default function Dashboard({
 
     return (
       <div className="space-y-6">
+        <TenantPortalOverview
+          accountId={activeAccountId}
+          tenantId={activeTenantId}
+          propertyId={fallbackPropertyId}
+          snapshot={snapshotView}
+          payments={payments}
+          onOpenPayments={() => navigate("/tenant/payments")}
+          onOpenRequests={openTenantRequests}
+          onOpenDocuments={() => navigate("/documents")}
+        />
+
         <TenantMaintenanceDashboard
           // Your component currently requires a propertyId to query.
           // For tenant dashboard, we’ll use the first property as “home base”.
@@ -404,77 +411,6 @@ export default function Dashboard({
           onOpenRequests={openTenantRequests}
           onOpenWorkOrders={openTenantWorkOrders}
         />
-
-        {/* Tenant Finance summary */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="p-5">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-sm font-medium text-slate-500">{t("finance.table.paid")}</p>
-                <h3 className="text-2xl font-bold text-slate-900 mt-1">
-                  {formatCurrencyAmount(paidTotal)}
-                </h3>
-              </div>
-              <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600">
-                <Wallet size={20} />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm text-emerald-600">
-              <TrendingUp size={16} className="mr-1" />
-              <span>{t("dashboard.tenantPaymentHistory")}</span>
-            </div>
-          </Card>
-
-          <Card className="p-5">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-sm font-medium text-slate-500">{t("dashboard.toPay")}</p>
-                <h3 className="text-2xl font-bold text-slate-900 mt-1">
-                  {formatCurrencyAmount(dueTotal)}
-                </h3>
-              </div>
-              <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
-                <AlertCircle size={20} />
-              </div>
-            </div>
-            <div className="mt-4 text-sm text-slate-500">
-              {t("dashboard.tenantDueOverdueCount", { count: dueOrOverdueCount })}
-            </div>
-          </Card>
-
-          <Card className="p-5">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-sm font-medium text-slate-500">{t("finance.summary.overdue")}</p>
-                <h3 className="text-2xl font-bold text-rose-600 mt-1">
-                  {formatCurrencyAmount(overdueTotal)}
-                </h3>
-              </div>
-              <div className="p-2 bg-rose-100 rounded-lg text-rose-600">
-                <AlertCircle size={20} />
-              </div>
-            </div>
-            <div className="mt-4 text-sm text-slate-500">
-              {t("dashboard.tenantOverdueHint")}
-            </div>
-          </Card>
-        </div>
-
-        {/* Documents requiring attention (placeholder) */}
-        <Card className="p-6">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-slate-100 rounded-lg text-slate-700">
-              <FileText size={18} />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-900">
-              {t("dashboard.tenantDocumentsTitle")}
-            </h3>
-          </div>
-
-          <p className="text-sm text-slate-500 mt-2">
-            {t("dashboard.tenantDocumentsBody")}
-          </p>
-        </Card>
       </div>
     );
   }

@@ -5,6 +5,11 @@ import Skeleton from "./ui/Skeleton";
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
 import { getTenantMaintenanceDashboardData } from "../services/maintenanceService";
+import {
+  getTenantRequestStatusMeta,
+  getTenantWorkOrderStatusMeta,
+  summarizeTenantMaintenance,
+} from "../utils/tenantPortal";
 
 function pillClass(kind) {
   const base = "text-xs px-2 py-0.5 rounded border";
@@ -14,24 +19,21 @@ function pillClass(kind) {
   return `${base} bg-slate-50 border-slate-200 text-slate-600`;
 }
 
+function statusKindForTone(tone) {
+  if (tone === "green") return "ok";
+  if (tone === "amber") return "warn";
+  if (tone === "blue") return "info";
+  return "muted";
+}
+
 function mrStatusLabel(status, t) {
-  const s = String(status ?? "").toLowerCase();
-  if (s === "open") return { text: t("status.req.open"), kind: "warn" };
-  if (s === "in_progress") return { text: t("status.req.in_progress"), kind: "info" };
-  if (s === "waiting") return { text: t("status.req.waiting"), kind: "muted" };
-  if (s === "resolved") return { text: t("status.req.resolved"), kind: "ok" };
-  if (s === "closed") return { text: t("status.req.closed"), kind: "ok" };
-  return { text: status ?? "—", kind: "muted" };
+  const meta = getTenantRequestStatusMeta(status);
+  return { text: t(meta.labelKey), helper: t(meta.helpKey), kind: statusKindForTone(meta.tone) };
 }
 
 function woStatusLabel(status, t) {
-  const s = String(status ?? "").toLowerCase();
-  if (s === "assigned") return { text: t("maintenance.workOrderStatus.assigned"), kind: "warn" };
-  if (s === "in_progress") return { text: t("maintenance.workOrderStatus.inProgress"), kind: "info" };
-  if (s === "completed") return { text: t("maintenance.workOrderStatus.completed"), kind: "ok" };
-  if (s === "blocked") return { text: t("workOrder.blocked"), kind: "muted" };
-  if (s === "cancelled") return { text: t("maintenance.workOrderStatus.cancelled"), kind: "muted" };
-  return { text: `${t("workOrder.shortLabel")}: ${status ?? "—"}`, kind: "muted" };
+  const meta = getTenantWorkOrderStatusMeta(status);
+  return { text: t(meta.labelKey), helper: t(meta.helpKey), kind: statusKindForTone(meta.tone) };
 }
 
 function formatDateTime(ts) {
@@ -63,6 +65,10 @@ export default function TenantMaintenanceDashboard({
   const [loading, setLoading] = useState(false);
   const [requests, setRequests] = useState([]);
   const [workOrders, setWorkOrders] = useState([]);
+  const maintenanceSummary = useMemo(
+    () => summarizeTenantMaintenance(requests, workOrders),
+    [requests, workOrders],
+  );
 
   useEffect(() => {
     if (!isTenant) return;
@@ -104,7 +110,7 @@ export default function TenantMaintenanceDashboard({
 
   return (
     <Card className="p-6 space-y-4">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h3 className="text-lg font-semibold">{t("tenantDashboard.title")}</h3>
           <p className="text-sm text-slate-500">
@@ -112,23 +118,52 @@ export default function TenantMaintenanceDashboard({
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={onOpenRequests}
-            className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50"
+            className="min-h-[44px] rounded-lg border px-3 py-2 text-sm hover:bg-slate-50"
           >
             {t("tenantDashboard.requestsAction")}
           </button>
           <button
             type="button"
             onClick={onOpenWorkOrders}
-            className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50"
+            className="min-h-[44px] rounded-lg border px-3 py-2 text-sm hover:bg-slate-50"
           >
             {t("tenantDashboard.workOrdersAction")}
           </button>
         </div>
       </div>
+
+      {!loading ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              {t("tenantIssues.title")}
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">
+              {maintenanceSummary.activeRequests}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              {t("tenantIssues.activeWorkOrders")}
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">
+              {maintenanceSummary.activeWorkOrders}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              {t("tenantDashboard.resolved")}
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">
+              {maintenanceSummary.resolvedRequests}
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="space-y-2">
@@ -160,6 +195,9 @@ export default function TenantMaintenanceDashboard({
                         </div>
                         <div className="text-xs text-slate-500 mt-1">
                           {t("tenantDashboard.createdAt", { value: formatDateTime(r.created_at) })}
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          {st.helper}
                         </div>
                       </div>
                     </div>
@@ -194,11 +232,12 @@ export default function TenantMaintenanceDashboard({
                           {wo.scheduled_at && <span>{t("common.dueDate")}: {formatDateTime(wo.scheduled_at)}</span>}
                           {wo.last_cancel_resolution_action && (
                             <span>
-                              Decyzja:{" "}
+                              {t("tenantDashboard.decision")}:{" "}
                               {String(wo.last_cancel_resolution_action).replaceAll("_", " ")}
                             </span>
                           )}
                         </div>
+                        <div className="mt-1 text-xs text-slate-500">{st.helper}</div>
                       </div>
                     </div>
                   );

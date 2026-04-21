@@ -25,6 +25,8 @@ import { canUploadDocument, canDeleteDocument } from "../utils/permissions";
 import { useProperties } from "../hooks/useProperties";
 import { useTenants } from "../hooks/useTenants";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
+import { partitionTenantDocuments } from "../utils/tenantPortal";
+import TenantDocumentsOverview from "../components/TenantDocumentsOverview";
 
 /* ======================
    HELPERS
@@ -75,6 +77,7 @@ export default function Documents({
 
   const role = activeRole ?? activeAccount?.role ?? null;
   const permissionContext = activePermissionContext ?? { role };
+  const isTenant = String(role ?? "").toLowerCase() === "tenant";
 
   /* ---------- FALLBACK HOOKS ---------- */
   const useFallback = !tenantsProp || !propertiesProp;
@@ -255,7 +258,7 @@ export default function Documents({
   }
 
   /* ---------- PREVIEW ---------- */
-  async function handlePreview(doc) {
+  const handlePreview = useCallback(async (doc) => {
     if (!canPreview(doc.mime_type)) return;
 
     try {
@@ -273,7 +276,7 @@ export default function Documents({
     } catch {
       setPreviewError(t("attachments.previewError"));
     }
-  }
+  }, [t]);
 
   // ✅ Open preview by id (deep-link). Important: do NOT depend on preview state.
   const openPreviewById = useCallback(
@@ -286,7 +289,7 @@ export default function Documents({
 
       await handlePreview(found);
     },
-    [documents]
+    [documents, handlePreview]
   );
 
   // ✅ Deep-link: /documents?doc=<uuid> opens preview once after list loads
@@ -313,6 +316,10 @@ export default function Documents({
     const start = (safePage - 1) * pageSize;
     return documents.slice(start, start + pageSize);
   }, [documents, safePage, pageSize]);
+  const tenantDocumentGroups = useMemo(
+    () => partitionTenantDocuments(documents),
+    [documents],
+  );
 
   useEffect(() => {
     if (!docParam || documents.length === 0) return;
@@ -332,6 +339,10 @@ export default function Documents({
 
   return (
     <div className="space-y-6">
+      {isTenant ? (
+        <TenantDocumentsOverview groups={tenantDocumentGroups} t={t} />
+      ) : null}
+
       {canUploadDocument(permissionContext) && (
         <Card className="p-4 space-y-4">
           <div className="flex items-start justify-between gap-4">
@@ -446,9 +457,11 @@ export default function Documents({
 
       {!loading && documents.length === 0 && (
         <div className="text-center py-20">
-          <h3 className="text-xl font-semibold text-slate-900">{t("documents.emptyTitle")}</h3>
+          <h3 className="text-xl font-semibold text-slate-900">
+            {isTenant ? t("tenantPortal.documents.emptyTitle") : t("documents.emptyTitle")}
+          </h3>
           <p className="text-slate-500 mt-2">
-            {t("documents.emptySearchHint")}
+            {isTenant ? t("tenantPortal.documents.emptyBody") : t("documents.emptySearchHint")}
           </p>
         </div>
       )}
