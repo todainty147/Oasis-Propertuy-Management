@@ -15,6 +15,7 @@ export default function MaintenanceManagementPage() {
       <PageHero {...maintenanceManagementContent.hero} />
       <ContentSection {...maintenanceManagementContent.painPoints} />
       <ContentSection {...maintenanceManagementContent.solution} />
+      <ContentSection {...maintenanceManagementContent.workflowLoop} />
       <BenefitGrid {...maintenanceManagementContent.benefits} />
       <FinalCta {...maintenanceManagementContent.finalCta} />
     </>

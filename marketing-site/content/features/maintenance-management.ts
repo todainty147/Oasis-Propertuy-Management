@@ -9,9 +9,9 @@ export const maintenanceManagementContent = {
   },
   hero: {
     eyebrow: "Maintenance management",
-    title: "Keep repair requests moving after the first message",
+    title: "Move every repair from report to quote to completion",
     body:
-      "OASIS helps landlords turn repair messages into tracked requests, work orders, contractor updates, and status signals that are easier to act on.",
+      "OASIS helps landlords turn repair messages into tracked requests, work orders, contractor updates, quote decisions, and completion trails that are easier to run.",
     imageSrc: "/screenshots/maintenance-inbox.png",
     imageAlt: "OASIS Maintenance Inbox showing request status columns, SLA age, and linked work orders.",
   },
@@ -39,29 +39,59 @@ export const maintenanceManagementContent = {
   },
   solution: {
     eyebrow: "How OASIS helps",
-    title: "A maintenance workflow built for ownership and follow-through",
+    title: "A maintenance workflow built for ownership, handoff, and follow-through",
     body:
-      "OASIS keeps requests, work orders, contractor activity, and status changes tied to the same repair story.",
+      "OASIS keeps requests, work orders, contractor activity, quote decisions, and status changes tied to the same repair story.",
     items: [
       {
-        title: "Track requests from intake to resolution",
-        body: "Follow maintenance requests from the first report through assignment, progress, and completion.",
+        title: "Track requests from intake to completion",
+        body: "Follow the repair from the first tenant report through assignment, contractor progress, and resolution.",
       },
       {
-        title: "Manage work orders in one flow",
-        body: "Turn requests into structured work orders and keep contractor activity tied to the same record.",
+        title: "Keep the handoff in one flow",
+        body: "Turn requests into structured work orders and keep contractor activity tied to the same record instead of splitting the story across calls and messages.",
+      },
+      {
+        title: "Make quote approval easier",
+        body: "When a contractor submits the next step, landlords can review and approve it with the job context already in front of them.",
       },
       {
         title: "See bottlenecks early",
         body: "Spot overdue actions, unassigned work, stalled repairs, and slow response loops before they become bigger tenant issues.",
       },
     ],
-    imageSrc: "/screenshots/command-center.png",
-    imageAlt: "OASIS Command Center showing urgent maintenance and action queues.",
+    imageSrc: "/screenshots/maintenance-inbox.png",
+    imageAlt: "OASIS maintenance workflow showing requests, work orders, and contractor coordination in one place.",
     imageAlign: "left" as const,
   },
+  workflowLoop: {
+    eyebrow: "The coordination loop",
+    title: "The handoff is where maintenance usually breaks",
+    body:
+      "Most tools can record a repair. The harder part is keeping the handoff clear between tenant, landlord, contractor, and completion. OASIS is built around that loop.",
+    items: [
+      {
+        title: "Tenant reports the issue",
+        body: "The repair starts with the right property context instead of a message you have to translate into a task later.",
+      },
+      {
+        title: "Landlord triages and assigns",
+        body: "The request becomes a work order with clear ownership, timing, and the right contractor attached to the same record.",
+      },
+      {
+        title: "Contractor updates progress and submits the next step",
+        body: "Progress, notes, and quote activity stay tied to the job so nobody needs a separate thread to understand what changed.",
+      },
+      {
+        title: "Approval and completion stay traceable",
+        body: "The next decision is visible in context, and the completion trail is already there when the work is done.",
+      },
+    ],
+    imageSrc: "/screenshots/property-requests.png",
+    imageAlt: "OASIS property request workflow showing tenant-reported issues and linked operational follow-up.",
+  },
   benefits: {
-    title: "What landlords gain when repairs have a workflow",
+    title: "What landlords gain when repairs have a real workflow",
     items: [
       {
         title: "Faster response times",
@@ -69,7 +99,7 @@ export const maintenanceManagementContent = {
       },
       {
         title: "Clearer contractor coordination",
-        body: "Keep assignments, timelines, and updates easier to follow across each repair.",
+        body: "Keep assignments, timelines, updates, and quote decisions easier to follow across each repair.",
       },
       {
         title: "Fewer overlooked issues",
@@ -82,10 +112,10 @@ export const maintenanceManagementContent = {
     ],
   },
   finalCta: {
-    title: "Put every repair into a clearer workflow",
+    title: "Put every repair into a clearer coordination loop",
     body:
-      "Explore how OASIS helps landlords move from request to work order to completion with fewer blind spots.",
-    primaryCta: { label: "View Pricing", href: "/pricing" },
-    secondaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
+      "Explore how OASIS helps landlords move from request to work order to quote decision to completion with fewer blind spots.",
+    primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
+    secondaryCta: { label: "View Pricing", href: "/pricing" },
   },
 };
