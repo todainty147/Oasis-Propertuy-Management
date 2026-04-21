@@ -4,35 +4,35 @@ export const oasisVsLandlordStudioContent = {
   seo: {
     title: "OASIS vs Landlord Studio | Which Is Better for Landlords?",
     description:
-      "Compare OASIS Rental vs Landlord Studio for landlords who are moving from simpler record-keeping into more active operations.",
+      "Compare OASIS Rental vs Landlord Studio for landlords moving from simple tracking into real property operations.",
     canonical: "https://oasisrental.com/compare/oasis-vs-landlordstudio",
   },
   hero: {
     eyebrow: "Comparison",
     title: "OASIS vs Landlord Studio",
     body:
-      "Landlord Studio can be a good fit for landlords who want a familiar lightweight tool. OASIS is built for the stage where rent follow-up, repairs, documents, and portfolio attention need more structure.",
+      "Landlord Studio works when a lightweight tool is enough. OASIS is built for the stage where rent follow-up, repairs, documents, and portfolio attention need more structure and better follow-through.",
     imageSrc: "/screenshots/command-center.png",
     imageAlt: "OASIS Command Center showing urgent items and connected portfolio actions.",
   },
   summary: {
     eyebrow: "High-level comparison",
-    title: "The difference is what happens after basic record-keeping stops being enough",
+    title: "The real difference starts when basic tracking stops being enough",
     body:
-      "A simpler landlord tool can work when the portfolio is quiet. OASIS becomes more compelling when the week is shaped by overdue balances, maintenance progress, tenant context, and the need to know which action comes first.",
+      "A simpler landlord tool can work when the portfolio is quiet. OASIS becomes more compelling when the week is shaped by overdue balances, maintenance progress, tenant context, and the need to know what to handle first.",
     imageSrc: "/screenshots/property-performance.png",
     imageAlt: "OASIS property performance view showing connected rent and operational context.",
   },
   comparisonTable: {
     title: "Side-by-side comparison",
     intro:
-      "This comparison is about landlord maturity: simple organization versus a more structured way to keep work moving.",
+      "This comparison is really about landlord maturity: light tracking versus a more operational way to keep work moving.",
     competitorName: "Landlord Studio",
     rows: [
       {
-        category: "Best operating stage",
-        oasis: "Growing landlord operations where follow-up and prioritization are becoming harder",
-        competitor: "Earlier-stage or lighter landlord workflows that need familiar management tools",
+        category: "Operating stage",
+        oasis: "Growing landlord operations where follow-up and prioritization are getting harder",
+        competitor: "Earlier-stage or lighter landlord workflows that mainly need familiar tracking tools",
       },
       {
         category: "Maintenance workflow",
@@ -40,14 +40,14 @@ export const oasisVsLandlordStudioContent = {
         competitor: "Maintenance support for landlords who need a lighter workflow",
       },
       {
-        category: "Portfolio visibility",
+        category: "Operational workflow",
         oasis: "Portfolio pressure, arrears, maintenance load, and action queues help decide what to handle first",
-        competitor: "Good day-to-day tooling where cross-portfolio operating pressure is less central",
+        competitor: "Good tracking where cross-portfolio operating pressure is less central",
       },
       {
-        category: "Document organization",
-        oasis: "Documents tied to tenant, property, and account context for easier evidence and follow-up",
-        competitor: "Document support for simpler record management needs",
+        category: "Finance angle",
+        oasis: "Built to keep rent follow-up close to the operational view, not buried inside a spreadsheet mindset",
+        competitor: "Useful for landlords who still mainly need accounting and record-keeping support",
       },
       {
         category: "Outgrowing moment",
@@ -58,7 +58,7 @@ export const oasisVsLandlordStudioContent = {
   },
   differences: {
     eyebrow: "Where OASIS stands out",
-    title: "Why landlords outgrowing lighter tools may prefer OASIS",
+    title: "Why landlords outgrowing lighter tools may move to OASIS",
     body:
       "OASIS is for the point where storing the record is not enough. It helps landlords move work forward when the portfolio starts producing more repair updates, overdue balances, and decisions than memory can comfortably hold.",
     imageSrc: "/screenshots/maintenance-inbox.png",
@@ -75,7 +75,7 @@ export const oasisVsLandlordStudioContent = {
       },
       {
         title: "Queues make pressure harder to miss",
-        body: "Command-centre style views and portfolio signals make it easier to see where follow-up is needed before the work piles up.",
+        body: "Command-center style views and portfolio signals make it easier to see where follow-up is needed before the work piles up.",
       },
     ],
   },
@@ -97,10 +97,10 @@ export const oasisVsLandlordStudioContent = {
     ],
   },
   finalCta: {
-    title: "Ready for more structure than a lightweight tool?",
+    title: "Ready for more follow-through than a lightweight tool gives you?",
     body:
-      "If your portfolio has moved beyond simple record-keeping, OASIS gives rent, repairs, records, and action queues a clearer operating rhythm.",
-    primaryCta: { label: "Compare Plans", href: "/pricing" },
-    secondaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
+      "If your portfolio has moved beyond simple tracking, OASIS gives rent, repairs, records, and action queues a clearer operating rhythm.",
+    primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
+    secondaryCta: { label: "Compare Plans", href: "/pricing" },
   },
 };

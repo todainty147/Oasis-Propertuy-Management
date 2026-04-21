@@ -4,20 +4,20 @@ export const oasisVsTenantCloudContent = {
   seo: {
     title: "OASIS vs TenantCloud | Which Is Better for Landlords?",
     description:
-      "Compare OASIS Rental vs TenantCloud for landlords deciding between a general all-in-one tool and a more operations-focused workflow.",
+      "Compare OASIS Rental vs TenantCloud for landlords deciding between a general tool and a more operations-focused workflow.",
     canonical: "https://oasisrental.com/compare/oasis-vs-tenantcloud",
   },
   hero: {
     eyebrow: "Comparison",
     title: "OASIS vs TenantCloud",
     body:
-      "TenantCloud offers a familiar all-in-one landlord toolkit. OASIS is the better fit when the landlord's priority is operational control: action queues, repair follow-through, arrears pressure, records, and portfolio visibility.",
+      "TenantCloud offers a familiar all-in-one landlord toolkit. OASIS is the better fit when the priority is operational control: action queues, repair follow-through, arrears pressure, records, and portfolio visibility.",
     imageSrc: "/screenshots/command-center.png",
     imageAlt: "OASIS Command Center showing operations queues, overdue balance, and urgent actions.",
   },
   summary: {
     eyebrow: "High-level comparison",
-    title: "The right choice depends on whether you need tools or operating focus",
+    title: "The right choice depends on whether you need tools or sharper operational control",
     body:
       "TenantCloud can suit landlords who want broad all-in-one coverage. OASIS is built for landlords who want the day to start with what needs action: unpaid rent, maintenance pressure, missing context, and follow-up that should not slip.",
     imageSrc: "/screenshots/portfolio-health.png",
@@ -40,13 +40,13 @@ export const oasisVsTenantCloudContent = {
         competitor: "Maintenance support within a broader general-purpose toolset",
       },
       {
-        category: "Portfolio visibility",
-        oasis: "Command-centre queues, portfolio health, arrears pressure, and maintenance load",
-        competitor: "Broad workflow coverage with less emphasis on operating pressure",
+        category: "Scalability",
+        oasis: "Command-center queues, portfolio health, arrears pressure, and maintenance load support a more professional operating model",
+        competitor: "Broad workflow coverage that fits simpler DIY landlord management",
       },
       {
-        category: "Tenant and finance context",
-        oasis: "Rent status, tenant context, and property decisions stay close together",
+        category: "Workflow depth",
+        oasis: "Rent status, tenant context, maintenance, and property decisions stay close together",
         competitor: "Useful all-in-one functionality for managing common landlord records",
       },
       {
@@ -58,7 +58,7 @@ export const oasisVsTenantCloudContent = {
   },
   differences: {
     eyebrow: "Where OASIS stands out",
-    title: "Why action-oriented landlords may prefer OASIS",
+    title: "Why growing operators may choose OASIS over a general landlord tool",
     body:
       "OASIS is aimed at landlords who want the product to help decide what deserves attention next. It is less about having another place to enter data and more about making follow-up easier to manage.",
     imageSrc: "/screenshots/security-audit.png",
@@ -80,7 +80,7 @@ export const oasisVsTenantCloudContent = {
     ],
   },
   fit: {
-    title: "Choose based on how you want to work",
+    title: "Choose based on how professional the operation needs to feel",
     items: [
       {
         title: "Choose OASIS if",
@@ -97,10 +97,10 @@ export const oasisVsTenantCloudContent = {
     ],
   },
   finalCta: {
-    title: "Need more operating focus than a general tool?",
+    title: "Need more professional control than a simple all-in-one tool gives you?",
     body:
       "If action queues, repair follow-through, arrears pressure, and portfolio visibility matter most, OASIS is built for that way of working.",
-    primaryCta: { label: "Compare Plans", href: "/pricing" },
-    secondaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
+    primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
+    secondaryCta: { label: "Compare Plans", href: "/pricing" },
   },
 };

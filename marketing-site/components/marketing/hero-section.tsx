@@ -5,6 +5,8 @@ type HeroProps = {
   title: string;
   body: string;
   support: string;
+  highlights?: string[];
+  microcopy?: string[];
   imageSrc: string;
   imageAlt: string;
   primaryCta: { label: string; href: string };
@@ -29,6 +31,56 @@ export function HeroSection(props: HeroProps) {
               {props.secondaryCta.label}
             </Link>
           </div>
+          {props.highlights?.length ? (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "0.65rem",
+                marginTop: "1rem",
+              }}
+            >
+              {props.highlights.map((item) => (
+                <span
+                  key={item}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    padding: "0.5rem 0.75rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--line)",
+                    background: "var(--surface-strong)",
+                    color: "var(--brand-strong)",
+                    font: "700 0.82rem/1 var(--font-sans)",
+                  }}
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {props.microcopy?.length ? (
+            <ul
+              style={{
+                margin: "1rem 0 0",
+                padding: 0,
+                listStyle: "none",
+                display: "grid",
+                gap: "0.45rem",
+                maxWidth: 620,
+              }}
+            >
+              {props.microcopy.map((item) => (
+                <li
+                  key={item}
+                  className="muted"
+                  style={{ fontSize: "0.94rem", lineHeight: 1.45 }}
+                >
+                  {item}
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <p className="muted" style={{ marginTop: "1rem", maxWidth: 620 }}>
             {props.support}
           </p>
