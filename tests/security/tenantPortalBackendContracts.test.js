@@ -39,5 +39,6 @@ describe("tenant portal backend contracts", () => {
     expect(sql).toContain("contractor_assigned");
     expect(sql).toContain("work_order_action");
     expect(sql).toContain("work_order_audit_rows");
+    expect(sql).toContain("al.new_value");
   });
 });

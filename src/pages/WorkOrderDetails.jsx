@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Card from "../components/Card";
 import Skeleton from "../components/ui/Skeleton";
+import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
@@ -469,24 +470,28 @@ export default function WorkOrderDetails() {
   // Not found / blocked by RLS
   if (!wo) {
     return (
-      <Card className="p-6 space-y-3">
-        <p className="font-medium text-slate-900">{t("workOrder.notFound")}</p>
-        <p className="text-sm text-slate-600">
-          {t("workOrder.noAccessHint")}
-        </p>
-        <button
-          type="button"
-          onClick={() => navigate("/dashboard")}
-          className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50 w-fit"
-        >
-          {t("workOrder.backToDashboard")}
-        </button>
-      </Card>
+      <div className="space-y-4">
+        <DashboardBreadcrumbs items={[{ label: t("workOrder.shortLabel") }]} />
+        <Card className="p-6 space-y-3">
+          <p className="font-medium text-slate-900">{t("workOrder.notFound")}</p>
+          <p className="text-sm text-slate-600">
+            {t("workOrder.noAccessHint")}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard")}
+            className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50 w-fit"
+          >
+            {t("workOrder.backToDashboard")}
+          </button>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      <DashboardBreadcrumbs items={[{ label: t("workOrder.shortLabel") }]} />
       {/* Header */}
       <Card className="p-6">
         <div className="flex items-start justify-between gap-4">

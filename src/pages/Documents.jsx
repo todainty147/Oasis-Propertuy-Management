@@ -28,6 +28,7 @@ import { useTenants } from "../hooks/useTenants";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { partitionTenantDocuments } from "../utils/tenantPortal";
 import TenantDocumentsOverview from "../components/TenantDocumentsOverview";
+import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 
 /* ======================
    HELPERS
@@ -354,6 +355,7 @@ export default function Documents({
 
   return (
     <div className="space-y-6">
+      <DashboardBreadcrumbs items={[{ label: t("sidebar.documents") }]} />
       {isTenant ? (
         <TenantDocumentsOverview groups={tenantDocumentGroups} t={t} />
       ) : null}

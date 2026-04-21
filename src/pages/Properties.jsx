@@ -10,6 +10,7 @@ import { can } from "../utils/permissions";
 import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount } from "../utils/currency";
 import OnboardingHintCard from "../components/OnboardingHintCard";
+import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 import { getPlanUsageLimit, hasUsageCapacity } from "../lib/entitlements";
 
 /* ======================
@@ -166,49 +167,56 @@ export default function Properties({
 
   if (!canRead) {
     return (
-      <div className="bg-white border rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-slate-900">{t("common.noAccess")}</h2>
-        <p className="text-sm text-slate-600 mt-1">
-          {t("properties.noAccessBody")}
-        </p>
+      <div className="space-y-6">
+        <DashboardBreadcrumbs items={[{ label: t("properties.title") }]} />
+        <div className="bg-white border rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-slate-900">{t("common.noAccess")}</h2>
+          <p className="text-sm text-slate-600 mt-1">
+            {t("properties.noAccessBody")}
+          </p>
+        </div>
       </div>
     );
   }
 
   if (statusFilteredProperties.length === 0) {
     return (
-      <div className="text-center py-20">
-        <h3 className="text-xl font-semibold text-slate-900">
-          {t("properties.emptyTitle")}
-        </h3>
-        <p className="text-slate-500 mt-2">
-          {t("properties.emptySubtitle")}
-        </p>
-
-        {canCreate && (
-          <button
-            onClick={onAddProperty}
-            disabled={addDisabled}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {t("properties.add")}
-          </button>
-        )}
-        {addDisabled ? (
-          <p className="mt-3 text-sm text-amber-700">
-            {t("properties.limitReached", {
-              plan: t(`billing.plan.${activePlan}`),
-              count: properties.length,
-              limit: propertyLimit,
-            })}
+      <div className="space-y-6">
+        <DashboardBreadcrumbs items={[{ label: t("properties.title") }]} />
+        <div className="text-center py-20">
+          <h3 className="text-xl font-semibold text-slate-900">
+            {t("properties.emptyTitle")}
+          </h3>
+          <p className="text-slate-500 mt-2">
+            {t("properties.emptySubtitle")}
           </p>
-        ) : null}
+
+          {canCreate && (
+            <button
+              onClick={onAddProperty}
+              disabled={addDisabled}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {t("properties.add")}
+            </button>
+          )}
+          {addDisabled ? (
+            <p className="mt-3 text-sm text-amber-700">
+              {t("properties.limitReached", {
+                plan: t(`billing.plan.${activePlan}`),
+                count: properties.length,
+                limit: propertyLimit,
+              })}
+            </p>
+          ) : null}
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      <DashboardBreadcrumbs items={[{ label: t("properties.title") }]} />
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <h2 className="text-2xl font-bold">{t("properties.title")}</h2>

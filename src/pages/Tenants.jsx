@@ -16,6 +16,7 @@ import { useI18n } from "../context/I18nContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { listLeases } from "../services/leaseService";
 import OnboardingHintCard from "../components/OnboardingHintCard";
+import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 
 /* ======================
    SKELETON
@@ -203,30 +204,34 @@ export default function Tenants() {
   /* ---------- EMPTY ---------- */
   if (tenants.length === 0) {
     return (
-      <div className="text-center py-20">
-        <h3 className="text-xl font-semibold text-slate-900">
-          {t("tenant.emptyTitle")}
-        </h3>
-        <p className="text-slate-500 mt-2">
-          {activeTenantId
-            ? t("tenant.emptySelectedMissing")
-            : t("tenant.emptyAddFirst")}
-        </p>
+      <div className="space-y-6">
+        <DashboardBreadcrumbs items={[{ label: t("sidebar.tenants") }]} />
+        <div className="text-center py-20">
+          <h3 className="text-xl font-semibold text-slate-900">
+            {t("tenant.emptyTitle")}
+          </h3>
+          <p className="text-slate-500 mt-2">
+            {activeTenantId
+              ? t("tenant.emptySelectedMissing")
+              : t("tenant.emptyAddFirst")}
+          </p>
 
-        {canInviteTenant && (
-          <Link
-            to="/invitations"
-            className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
-          >
-            {t("tenant.inviteCta")}
-          </Link>
-        )}
+          {canInviteTenant && (
+            <Link
+              to="/invitations"
+              className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
+            >
+              {t("tenant.inviteCta")}
+            </Link>
+          )}
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      <DashboardBreadcrumbs items={[{ label: t("sidebar.tenants") }]} />
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-slate-900">

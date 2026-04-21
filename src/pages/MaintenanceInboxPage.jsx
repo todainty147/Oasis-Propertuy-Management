@@ -11,6 +11,7 @@ import { createWorkOrder } from "../services/workOrderService";
 import { useI18n } from "../context/I18nContext";
 import { isManageRole } from "../utils/permissions";
 import OnboardingHintCard from "../components/OnboardingHintCard";
+import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 
 const STATUS_ORDER = ["open", "in_progress", "waiting", "resolved", "closed"];
 const AGE_BUCKETS = new Set(["0_24", "24_48", "48_72", "72_plus"]);
@@ -322,16 +323,20 @@ export default function MaintenanceInboxPage() {
 
   if (!canManage) {
     return (
-      <div className="rounded-xl border bg-white p-6">
-        <p className="text-sm text-slate-600">
-          {t("maintenance.inbox.accessDenied")}
-        </p>
+      <div className="space-y-4">
+        <DashboardBreadcrumbs items={[{ label: t("maintenance.inbox.title") }]} />
+        <div className="rounded-xl border bg-white p-6">
+          <p className="text-sm text-slate-600">
+            {t("maintenance.inbox.accessDenied")}
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      <DashboardBreadcrumbs items={[{ label: t("maintenance.inbox.title") }]} />
       <div className="rounded-xl border bg-white p-4 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">{t("maintenance.inbox.title")}</h2>

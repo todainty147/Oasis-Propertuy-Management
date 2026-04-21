@@ -8,6 +8,7 @@ import { formatCurrencyAmount } from "../utils/currency";
 import OnboardingHintCard from "../components/OnboardingHintCard";
 import { buildTenantPaymentSummary } from "../utils/tenantPortal";
 import { paymentStatusLabelKey, normalizePaymentStatus } from "../utils/statuses";
+import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 
 function statusBadge(status) {
   const base = "text-xs px-2 py-0.5 rounded border";
@@ -29,6 +30,7 @@ export function TenantPaymentsContent({ rows = [], loading = false, err = null, 
 
   return (
     <div className="space-y-6">
+      <DashboardBreadcrumbs items={[{ label: t("payments.title") }]} />
       <div>
         <h2 className="text-2xl font-bold text-slate-900">{t("payments.title")}</h2>
         <p className="text-sm text-slate-500">{t("payments.myPaymentsSubtitle")}</p>

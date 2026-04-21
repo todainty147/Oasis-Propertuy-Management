@@ -144,6 +144,8 @@ as $$
       al.entity_id,
       al.action,
       al.field,
+      al.old_value,
+      al.new_value,
       al.actor_role,
       al.created_at
     from public.activity_log al

@@ -9,6 +9,7 @@ import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount } from "../utils/currency";
 import { sumDueSoon, sumExpected, sumOverdue, sumPaid } from "../utils/finance";
 import OnboardingHintCard from "../components/OnboardingHintCard";
+import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 import {
   normalizeOccupancyStatus,
   normalizePaymentStatus,
@@ -195,19 +196,23 @@ export default function Finance({
 
   if (!canRead) {
     return (
-      <div className="bg-white border rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-slate-900">
-          {t("finance.noAccessTitle")}
-        </h2>
-        <p className="text-sm text-slate-600 mt-1">
-          {t("finance.noAccessBody")}
-        </p>
+      <div className="space-y-6">
+        <DashboardBreadcrumbs items={[{ label: t("finance.title") }]} />
+        <div className="bg-white border rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-slate-900">
+            {t("finance.noAccessTitle")}
+          </h2>
+          <p className="text-sm text-slate-600 mt-1">
+            {t("finance.noAccessBody")}
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-8">
+      <DashboardBreadcrumbs items={[{ label: t("finance.title") }]} />
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <div>

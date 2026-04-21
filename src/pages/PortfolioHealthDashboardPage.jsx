@@ -28,6 +28,7 @@ import {
 } from "../services/propertyHealthScoreService";
 import { isManageRole } from "../utils/permissions";
 import OnboardingHintCard from "../components/OnboardingHintCard";
+import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 
 function pctDelta(current, previous) {
   const c = Number(current || 0);
@@ -463,14 +464,18 @@ export default function PortfolioHealthDashboardPage() {
 
   if (!canManage) {
     return (
-      <Card className="p-6">
-        <p className="text-sm text-slate-600">{t("portfolio.accessDenied")}</p>
-      </Card>
+      <div className="space-y-6">
+        <DashboardBreadcrumbs items={[{ label: t("portfolio.pageTitle") }]} />
+        <Card className="p-6">
+          <p className="text-sm text-slate-600">{t("portfolio.accessDenied")}</p>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      <DashboardBreadcrumbs items={[{ label: t("portfolio.pageTitle") }]} />
       <Card className="p-6 border bg-gradient-to-br from-slate-900 via-blue-900 to-cyan-800 text-white shadow-lg">
         <h2 className="text-lg font-semibold">{t("portfolio.title")}</h2>
         <p className="text-sm text-slate-200 mt-1">{t("portfolio.subtitle")}</p>

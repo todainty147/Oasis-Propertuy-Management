@@ -11,6 +11,7 @@ import { formatCurrencyAmount } from "../utils/currency";
 import { isManageRole } from "../utils/permissions";
 import OnboardingHintCard from "../components/OnboardingHintCard";
 import { localizeNotificationContent } from "../utils/notificationLocalization";
+import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 
 function hoursLabel(hours, t) {
   if (!Number.isFinite(hours)) return "";
@@ -218,9 +219,12 @@ export default function CommandCenterPage() {
 
   if (!canManage) {
     return (
-      <Card className="p-6">
-        <p className="text-sm text-slate-600">{t("commandCenter.accessDenied")}</p>
-      </Card>
+      <div className="space-y-4">
+        <DashboardBreadcrumbs items={[{ label: t("commandCenter.pageTitle") }]} />
+        <Card className="p-6">
+          <p className="text-sm text-slate-600">{t("commandCenter.accessDenied")}</p>
+        </Card>
+      </div>
     );
   }
 
@@ -241,6 +245,7 @@ export default function CommandCenterPage() {
 
   return (
     <div className="space-y-4">
+      <DashboardBreadcrumbs items={[{ label: t("commandCenter.pageTitle") }]} />
       <div className="rounded-xl border bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
         <h2 className="text-lg font-semibold text-white">{t("commandCenter.title")}</h2>
         <p className="text-sm text-slate-200 mt-1">{t("commandCenter.subtitle")}</p>

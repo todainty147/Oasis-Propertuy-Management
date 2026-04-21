@@ -19,6 +19,7 @@ import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount } from "../utils/currency";
 import { isManageRole } from "../utils/permissions";
 import OnboardingHintCard from "../components/OnboardingHintCard";
+import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 
 function fmtDate(ts) {
   if (!ts) return "—";
@@ -538,14 +539,18 @@ export default function MaintenanceKPIDashboardPage() {
 
   if (!canManage) {
     return (
-      <Card className="p-6">
-        <p className="text-sm text-slate-600">{t("maintenance.kpi.accessDenied")}</p>
-      </Card>
+      <div className="space-y-4">
+        <DashboardBreadcrumbs items={[{ label: t("maintenance.kpi.pageTitle") }]} />
+        <Card className="p-6">
+          <p className="text-sm text-slate-600">{t("maintenance.kpi.accessDenied")}</p>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      <DashboardBreadcrumbs items={[{ label: t("maintenance.kpi.pageTitle") }]} />
       <div className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 flex items-center justify-between gap-3">
         <div className="absolute -top-10 -right-8 h-36 w-36 rounded-full bg-cyan-400/20 blur-2xl" />
         <div className="absolute -bottom-10 -left-8 h-36 w-36 rounded-full bg-blue-500/20 blur-2xl" />

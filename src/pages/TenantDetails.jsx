@@ -2,7 +2,7 @@ import { useParams, useNavigate, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
-import Breadcrumbs from "../components/Breadcrumbs";
+import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import TenantDocumentsSection from "../components/TenantDocumentsSection";
@@ -270,7 +270,7 @@ export default function TenantDetails({
 
   return (
     <div className="space-y-6">
-      <Breadcrumbs
+      <DashboardBreadcrumbs
         items={[
           { label: t("sidebar.tenants"), to: "/tenants" },
           { label: tenant.name },
