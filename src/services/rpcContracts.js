@@ -648,6 +648,8 @@ export function parseDocumentRow(row) {
     size_bytes: toNullableNumber(value.size_bytes),
     storage_path: toStringOr(value.storage_path),
     upload_status: toStringOr(value.upload_status).trim().toLowerCase(),
+    tenant_highlight: toStringOr(value.tenant_highlight || "standard").trim().toLowerCase(),
+    tenant_highlight_note: toStringOr(value.tenant_highlight_note),
     tags: toArrayOr(value.tags),
     created_at: toNullableString(value.created_at),
     updated_at: toNullableString(value.updated_at),

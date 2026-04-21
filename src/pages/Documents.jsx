@@ -16,10 +16,11 @@ import {
   downloadDocument,
   getDocumentPreviewUrl,
   deleteDocument,
+  updateDocumentTenantHighlight,
 } from "../services/documentService";
 
 import { DOCUMENT_TAGS } from "../constants/documentTags";
-import { canUploadDocument, canDeleteDocument } from "../utils/permissions";
+import { canUploadDocument, canDeleteDocument, canEditDocumentTags } from "../utils/permissions";
 
 // Optional fallback if you forget to pass props from App.jsx
 import { useProperties } from "../hooks/useProperties";
@@ -113,6 +114,7 @@ export default function Documents({
   const [uploadTenantId, setUploadTenantId] = useState("");
   const [uploadTags, setUploadTags] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [savingHighlightId, setSavingHighlightId] = useState("");
 
   /* ---------- PREVIEW ---------- */
   const [previewDoc, setPreviewDoc] = useState(null);
@@ -214,6 +216,19 @@ export default function Documents({
     setUploadTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
     );
+  }
+
+  async function handleTenantHighlightChange(doc, nextValue) {
+    setSavingHighlightId(doc.id);
+    try {
+      await updateDocumentTenantHighlight({
+        documentId: doc.id,
+        tenantHighlight: nextValue,
+      });
+      await loadDocuments();
+    } finally {
+      setSavingHighlightId("");
+    }
   }
 
   /* ---------- UPLOAD (SCOPED to tenant OR property) ---------- */
@@ -502,6 +517,19 @@ export default function Documents({
               </div>
 
               <div className="flex gap-4 text-sm">
+                {canEditDocumentTags(permissionContext) && doc.visibility === "tenant" ? (
+                  <select
+                    value={doc.tenant_highlight || "standard"}
+                    onChange={(event) => handleTenantHighlightChange(doc, event.target.value)}
+                    disabled={savingHighlightId === doc.id}
+                    className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700"
+                  >
+                    <option value="standard">{t("tenantPortal.documents.highlight.standard")}</option>
+                    <option value="current">{t("tenantPortal.documents.highlight.current")}</option>
+                    <option value="action_required">{t("tenantPortal.documents.highlight.actionRequired")}</option>
+                  </select>
+                ) : null}
+
                 {canPreview(doc.mime_type) && (
                   <button
                     onClick={() => handlePreview(doc)}

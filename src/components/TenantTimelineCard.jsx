@@ -16,7 +16,9 @@ function fmtDate(value) {
 
 function titleForEvent(event, t) {
   const type = String(event?.type || "");
-  return t(`tenantTimeline.type.${type}`) || event?.title || type;
+  const key = `tenantTimeline.type.${type}`;
+  const translated = t(key);
+  return translated === key ? event?.title || type : translated;
 }
 
 function detailForEvent(event, t) {
@@ -78,7 +80,18 @@ function PaginationFooter({ page, totalPages, totalCount, pageSize, onPrev, onNe
   );
 }
 
-export default function TenantTimelineCard({ accountId, tenant, property }) {
+function normalizeLinkForViewer(event, viewer, property) {
+  if (viewer !== "tenant") return event?.linkPath || "";
+  const type = String(event?.type || "").toLowerCase();
+  if (type.startsWith("payment_")) return "/tenant/payments";
+  if (type.startsWith("document_")) return "/documents";
+  if (type.includes("maintenance") || type.includes("work_order") || type.includes("request_status") || type.includes("contractor_assigned")) {
+    return property?.id ? `/properties/${property.id}` : "";
+  }
+  return "";
+}
+
+export default function TenantTimelineCard({ accountId, tenant, property, viewer = "manager" }) {
   const { t } = useI18n();
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState({
@@ -156,7 +169,9 @@ export default function TenantTimelineCard({ accountId, tenant, property }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="text-lg font-semibold">{t("tenantTimeline.title")}</h3>
-          <p className="text-sm text-slate-500 mt-1">{t("tenantTimeline.subtitle")}</p>
+          <p className="text-sm text-slate-500 mt-1">
+            {viewer === "tenant" ? t("tenantTimeline.portalSubtitle") : t("tenantTimeline.subtitle")}
+          </p>
         </div>
         <button
           type="button"
@@ -210,9 +225,10 @@ export default function TenantTimelineCard({ accountId, tenant, property }) {
               </div>
             );
 
-            if (!event.linkPath) return <div key={event.key}>{content}</div>;
+            const targetPath = normalizeLinkForViewer(event, viewer, property);
+            if (!targetPath) return <div key={event.key}>{content}</div>;
             return (
-              <Link key={event.key} to={event.linkPath} className="block">
+              <Link key={event.key} to={targetPath} className="block">
                 {content}
               </Link>
             );

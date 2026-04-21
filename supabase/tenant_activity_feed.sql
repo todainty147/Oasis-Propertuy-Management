@@ -85,6 +85,17 @@ as $$
     join request_rows rr on rr.id = wo.maintenance_request_id
     where wo.account_id = p_account_id
   ),
+  work_order_audit_rows as (
+    select
+      wal.id,
+      wal.work_order_id,
+      wal.action,
+      wal.old_value,
+      wal.new_value,
+      wal.created_at
+    from public.work_order_audit_log wal
+    join work_order_rows wor on wor.id = wal.work_order_id
+  ),
   document_rows as (
     select
       d.id,
@@ -249,6 +260,25 @@ as $$
     union all
 
     select
+      'request-status-' || ar.id::text,
+      'request_status_changed',
+      ar.created_at,
+      'Request status changed',
+      coalesce(nullif(ar.new_value::text, ''), nullif(ar.field, ''), ''),
+      coalesce(ar.actor_role, ''),
+      '/maintenance-inbox',
+      'activity_log',
+      ar.id
+    from activity_rows ar
+    where lower(coalesce(ar.entity_type, '')) in ('maintenance_request', 'maintenance_requests')
+      and (
+        lower(coalesce(ar.field, '')) = 'status'
+        or lower(coalesce(ar.action, '')) = 'status_change'
+      )
+
+    union all
+
+    select
       'work-order-opened-' || wor.id::text,
       'work_order_opened',
       coalesce(wor.created_at, wor.updated_at),
@@ -275,6 +305,49 @@ as $$
       wor.id
     from work_order_rows wor
     where lower(coalesce(wor.status, '')) in ('completed', 'zakończone')
+
+    union all
+
+    select
+      'work-order-assigned-' || woar.id::text,
+      'contractor_assigned',
+      woar.created_at,
+      'Contractor assigned',
+      coalesce(wor.contractor_name, ''),
+      coalesce(wor.status, ''),
+      ('/work-orders/' || wor.id::text),
+      'work_order_audit_log',
+      wor.id
+    from work_order_audit_rows woar
+    join work_order_rows wor on wor.id = woar.work_order_id
+    where lower(coalesce(woar.action, '')) like '%assign%'
+       or lower(coalesce(woar.action, '')) like '%contractor%'
+
+    union all
+
+    select
+      'work-order-action-' || woar.id::text,
+      case
+        when lower(coalesce(woar.action, '')) like '%complete%' then 'work_order_completed'
+        else 'work_order_action'
+      end,
+      woar.created_at,
+      case
+        when lower(coalesce(woar.action, '')) like '%complete%' then 'Work completed'
+        else 'Work order updated'
+      end,
+      coalesce(woar.action, ''),
+      coalesce(wor.status, ''),
+      ('/work-orders/' || wor.id::text),
+      'work_order_audit_log',
+      wor.id
+    from work_order_audit_rows woar
+    join work_order_rows wor on wor.id = woar.work_order_id
+    where not (
+      lower(coalesce(woar.action, '')) like '%assign%'
+      or lower(coalesce(woar.action, '')) like '%contractor%'
+      or lower(coalesce(woar.action, '')) in ('create', 'insert')
+    )
 
     union all
 

@@ -306,7 +306,7 @@ export async function getTenantTimeline({
 
   events.push({
     key: `tenant-created-${tenant.id}`,
-    at: tenant.createdAt || new Date().toISOString(),
+    at: tenant.createdAt || tenant.created_at || new Date().toISOString(),
     type: "tenant_created",
     title: "Tenant record created",
     detail: property?.address || "",

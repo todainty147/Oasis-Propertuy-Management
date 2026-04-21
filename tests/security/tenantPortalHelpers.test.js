@@ -61,14 +61,17 @@ describe("tenantPortal helpers", () => {
   it("partitions recent and older documents without losing total visibility", () => {
     const groups = partitionTenantDocuments(
       [
-        { id: "new", created_at: "2026-04-18T10:00:00.000Z" },
+        { id: "attention", created_at: "2026-04-18T10:00:00.000Z", tenant_highlight: "action_required" },
+        { id: "current", created_at: "2026-04-17T10:00:00.000Z", tenant_highlight: "current" },
         { id: "old", created_at: "2026-01-01T10:00:00.000Z" },
       ],
       { recentDays: 30, now: new Date("2026-04-21T10:00:00.000Z") },
     );
 
-    expect(groups.total).toBe(2);
-    expect(groups.recent.map((row) => row.id)).toEqual(["new"]);
+    expect(groups.total).toBe(3);
+    expect(groups.recent.map((row) => row.id)).toEqual(["attention", "current"]);
     expect(groups.older.map((row) => row.id)).toEqual(["old"]);
+    expect(groups.attention.map((row) => row.id)).toEqual(["attention"]);
+    expect(groups.current.map((row) => row.id)).toEqual(["current"]);
   });
 });

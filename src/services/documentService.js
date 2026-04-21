@@ -423,6 +423,33 @@ export async function updateDocumentTags({ documentId, tags }) {
   return parseDocumentRow(data);
 }
 
+export async function updateDocumentTenantHighlight({
+  documentId,
+  tenantHighlight = "standard",
+  tenantHighlightNote = "",
+}) {
+  if (!documentId) throw new Error("Brak ID dokumentu");
+
+  const { data, error } = await supabase.rpc("set_document_tenant_highlight", {
+    p_document_id: documentId,
+    p_tenant_highlight: tenantHighlight,
+    p_tenant_highlight_note: tenantHighlightNote || null,
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("set_document_tenant_highlight", {
+      error,
+      context: buildDocumentContext({
+        documentId,
+        operation: "set_document_tenant_highlight",
+      }),
+    });
+    throw error;
+  }
+
+  return parseDocumentRow(data);
+}
+
 /* ======================
    DELETE DOCUMENT (DB-first, audited)
    ====================== */

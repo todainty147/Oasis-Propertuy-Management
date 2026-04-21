@@ -306,8 +306,8 @@ export default function TenantPortalOverview({
                   icon={FileText}
                   label={t("tenantPortal.card.documents")}
                   value={String(documentGroups.total)}
-                  helper={documentGroups.recent.length > 0 ? t("tenantPortal.documents.helper.recent") : t("tenantPortal.documents.helper.available")}
-                  tone={documentGroups.total > 0 ? "slate" : "green"}
+                  helper={documentGroups.attention.length > 0 ? t("tenantPortal.documents.helper.attention") : documentGroups.current.length > 0 ? t("tenantPortal.documents.helper.current") : t("tenantPortal.documents.helper.available")}
+                  tone={documentGroups.attention.length > 0 ? "amber" : documentGroups.total > 0 ? "slate" : "green"}
                 />
               </div>
 
@@ -383,13 +383,24 @@ export default function TenantPortalOverview({
                       {documentGroups.total === 0 ? (
                         <p className="text-sm text-slate-500">{t("tenantPortal.documents.empty")}</p>
                       ) : (
-                        (documentGroups.recent.length > 0 ? documentGroups.recent : documentGroups.older)
+                        (documentGroups.attention.length > 0
+                          ? documentGroups.attention
+                          : documentGroups.current.length > 0
+                            ? documentGroups.current
+                            : documentGroups.recent.length > 0
+                              ? documentGroups.recent
+                              : documentGroups.older)
                           .slice(0, 3)
                           .map((doc) => (
                           <div key={doc.id} className="rounded-lg border border-slate-200 px-3 py-3">
                             <p className="text-sm font-medium text-slate-900">
                               {doc.original_filename || doc.name || t("documents.tenantTitle")}
                             </p>
+                            {doc.tenant_highlight === "action_required" ? (
+                              <p className="mt-1 text-xs font-medium text-amber-700">{t("tenantPortal.documents.highlight.actionRequired")}</p>
+                            ) : doc.tenant_highlight === "current" ? (
+                              <p className="mt-1 text-xs font-medium text-blue-700">{t("tenantPortal.documents.highlight.current")}</p>
+                            ) : null}
                             <p className="mt-1 text-xs text-slate-500">
                               {formatDateTime(doc.created_at)}
                             </p>

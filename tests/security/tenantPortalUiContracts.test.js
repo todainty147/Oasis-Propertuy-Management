@@ -14,7 +14,13 @@ function t(key, params = {}) {
   if (key === "tenantPortal.documents.title") return "Documents available";
   if (key === "tenantPortal.documents.trustBody") return "Only documents shared with your tenancy appear here.";
   if (key === "tenantPortal.documents.recentTitle") return "Recently added";
+  if (key === "tenantPortal.documents.priorityTitle") return "Priority documents";
+  if (key === "tenantPortal.documents.attentionTitle") return "Needs attention";
+  if (key === "tenantPortal.documents.currentTitle") return "Current";
   if (key === "tenantPortal.documents.olderTitle") return "Older documents";
+  if (key === "tenantPortal.documents.highlight.actionRequired") return "Needs attention";
+  if (key === "tenantPortal.documents.highlight.current") return "Current";
+  if (key === "tenantPortal.documents.highlight.standard") return "Available";
   if (key === "tenantPortal.card.payments") return "Payment summary";
   if (key === "tenantPortal.payment.helper.overdue") return "You have overdue rent that needs attention soon.";
   if (key === "tenantPortal.payment.helper.due") return "You have payments due or coming up soon.";
@@ -118,8 +124,10 @@ describe("tenant portal UI contracts", () => {
       React.createElement(TenantDocumentsOverview, {
         groups: {
           total: 2,
-          recent: [{ id: "doc-1", name: "Lease agreement.pdf", tags: ["LEASE"] }],
-          older: [{ id: "doc-2", name: "Inventory check.pdf", tags: [] }],
+          attention: [{ id: "doc-1", name: "Lease agreement.pdf", tags: ["LEASE"], tenant_highlight: "action_required" }],
+          current: [{ id: "doc-2", name: "Inventory check.pdf", tags: [], tenant_highlight: "current" }],
+          recent: [],
+          older: [],
         },
         t,
       }),
@@ -129,5 +137,6 @@ describe("tenant portal UI contracts", () => {
     expect(html).toContain("Only documents shared with your tenancy appear here.");
     expect(html).toContain("Lease agreement.pdf");
     expect(html).toContain("Lease");
+    expect(html).toContain("Needs attention");
   });
 });

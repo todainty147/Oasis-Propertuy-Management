@@ -13,6 +13,13 @@ function parseDate(value) {
   return Number.isNaN(next.getTime()) ? null : next;
 }
 
+function normalizeHighlight(value) {
+  const key = normalize(value);
+  if (key === "action_required") return "action_required";
+  if (key === "current") return "current";
+  return "standard";
+}
+
 function isPaidStatus(status) {
   return ["paid", "opłacone"].includes(normalize(status));
 }
@@ -191,14 +198,24 @@ export function partitionTenantDocuments(documents = [], { recentDays = 30, now 
 
   const recent = [];
   const older = [];
+  const attention = [];
+  const current = [];
+  const standard = [];
 
   for (const row of rows) {
+    const highlight = normalizeHighlight(row?.tenant_highlight);
     const createdAt = parseDate(row?.created_at);
+    if (highlight === "action_required") attention.push(row);
+    else if (highlight === "current") current.push(row);
+    else standard.push(row);
     if (createdAt && createdAt.getTime() >= threshold) recent.push(row);
     else older.push(row);
   }
 
   return {
+    attention,
+    current,
+    standard,
     recent,
     older,
     total: rows.length,

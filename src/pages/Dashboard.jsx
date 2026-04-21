@@ -28,6 +28,7 @@ import OnboardingHintCard from "../components/OnboardingHintCard";
 // ✅ Tenant dashboard widget
 import TenantMaintenanceDashboard from "../components/TenantMaintenanceDashboard";
 import TenantPortalOverview from "../components/TenantPortalOverview";
+import TenantTimelineCard from "../components/TenantTimelineCard";
 
 /* ======================
    SKELETON
@@ -375,6 +376,8 @@ export default function Dashboard({
   if (isTenant) {
     const propertyIds = (properties ?? []).map((p) => p.id).filter(Boolean);
     const fallbackPropertyId = propertyIds[0] ?? null;
+    const tenantRow = (tenants ?? []).find((entry) => String(entry.id) === String(activeTenantId)) || null;
+    const propertyRow = (properties ?? []).find((entry) => String(entry.id) === String(fallbackPropertyId)) || null;
 
     // ✅ Wire the buttons: go to property page (tenant can see maintenance/work orders there)
     function openTenantRequests() {
@@ -411,6 +414,15 @@ export default function Dashboard({
           onOpenRequests={openTenantRequests}
           onOpenWorkOrders={openTenantWorkOrders}
         />
+
+        {tenantRow ? (
+          <TenantTimelineCard
+            accountId={activeAccountId}
+            tenant={tenantRow}
+            property={propertyRow}
+            viewer="tenant"
+          />
+        ) : null}
       </div>
     );
   }
