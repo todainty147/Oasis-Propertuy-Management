@@ -56,8 +56,8 @@ export const tenantManagementContent = {
         body: "Spot which tenants need attention without manually cross-checking rent trackers, notes, and documents.",
       },
     ],
-    imageSrc: "/screenshots/security-audit.png",
-    imageAlt: "OASIS Security Audit view showing policy controls and event review for operational trust.",
+    imageSrc: "/screenshots/property-performance.png",
+    imageAlt: "OASIS property performance view showing tenant, payment, and property context together.",
     imageAlign: "left" as const,
   },
   benefits: {
