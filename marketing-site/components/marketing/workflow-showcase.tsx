@@ -43,7 +43,7 @@ export function WorkflowShowcase({
                 </ul>
                 <div className="button-row">
                   <Link href={item.href} className="button button-secondary">
-                    Learn more
+                    Explore this workflow
                   </Link>
                 </div>
               </div>

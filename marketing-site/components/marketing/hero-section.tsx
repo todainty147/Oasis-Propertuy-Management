@@ -23,6 +23,16 @@ export function HeroSection(props: HeroProps) {
           <p className="muted" style={{ maxWidth: 680, marginTop: "1.25rem" }}>
             {props.body}
           </p>
+          <p
+            style={{
+              marginTop: "1rem",
+              maxWidth: 620,
+              color: "var(--brand-strong)",
+              font: "700 0.98rem/1.5 var(--font-sans)",
+            }}
+          >
+            One place to see what needs action, move the work forward, and stay audit-ready.
+          </p>
           <div className="button-row">
             <Link href={props.primaryCta.href} className="button button-primary">
               {props.primaryCta.label}

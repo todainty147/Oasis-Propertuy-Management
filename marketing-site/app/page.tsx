@@ -17,8 +17,8 @@ export default function HomePage() {
       <HeroSection {...homepageContent.hero} />
       <ContentSection {...homepageContent.problemSection} />
       <FeatureGrid {...homepageContent.solutionSection} />
-      <WorkflowShowcase {...homepageContent.workflowSection} />
       <ProductPreview {...homepageContent.productPreview} />
+      <WorkflowShowcase {...homepageContent.workflowSection} />
       <FinalCta {...homepageContent.finalCta} />
     </>
   );

@@ -2,18 +2,18 @@ import { siteConfig } from "./site";
 
 export const homepageContent = {
   seo: {
-    title: "Property Operations Software for Landlords | OASIS Rental",
+    title: "Property Operations Platform for Landlords | OASIS Rental",
     description:
-      "OASIS helps landlords replace spreadsheets, WhatsApp threads, and guesswork with one clear way to run rent, repairs, records, and follow-up.",
+      "OASIS helps systems-driven landlords run rent, repairs, records, and follow-up from one clear operations hub.",
     canonical: "https://oasisrental.com/",
   },
   hero: {
-    eyebrow: "Property operations for landlords",
-    title: "Stop chasing contractors. Start closing work orders.",
+    eyebrow: "For systems-driven landlords",
+    title: "Command your portfolio. Don’t just manage it.",
     body:
-      "Run rent, repairs, records, and follow-up from one clear operating system for small and growing landlord portfolios.",
+      "OASIS gives landlords one clear operations hub for rent, repairs, records, and follow-up.",
     support:
-      "Built with real landlord workflows in mind. Designed for landlords who need operational control, not more admin overhead.",
+      "Built with real landlord workflows in mind. Designed for operators who need control, accountability, and a clearer picture of what needs action now.",
     highlights: [
       "Command Center",
       "Maintenance Workflow",
@@ -22,19 +22,19 @@ export const homepageContent = {
     ],
     microcopy: [
       "No credit card required.",
-      "See the real workflow in minutes.",
       "Built for landlords running real portfolios.",
+      "See the workflow and the controls in minutes.",
     ],
     imageSrc: "/screenshots/command-center.png",
     imageAlt: "OASIS Command Center showing urgent items, overdue balance, and action queues across the portfolio.",
-    primaryCta: { label: "Get Operational Clarity", href: siteConfig.appUrl },
-    secondaryCta: { label: "See How OASIS Works", href: "/features" },
+    primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
+    secondaryCta: { label: "See The Operations Hub", href: "/features" },
   },
   problemSection: {
     eyebrow: "Why operators switch",
-    title: "The portfolio is manageable. The coordination is what breaks.",
+    title: "The properties are manageable. The coordination is what breaks.",
     body:
-      "Most landlords do not need more software categories. They need one place to see what is due, what is stuck, and what needs action next.",
+      "Most landlords do not need more software categories. They need one place to see what is due, what is stuck, who owns the next step, and where risk is building.",
     items: [
       {
         title: "Rent follow-up slips",
@@ -55,20 +55,20 @@ export const homepageContent = {
     ],
   },
   solutionSection: {
-    title: "One operating layer for the work after the message comes in",
+    title: "One operations hub for the work after the message comes in",
     body:
-      "OASIS is built for property operations and coordination: the daily work of keeping rent, repairs, records, and follow-up moving without dropped balls.",
+      "OASIS is built for property operations and coordination: the daily work of keeping rent, repairs, records, and follow-up moving without dropped handoffs.",
     items: [
       {
         title: "See what needs attention",
-        body: "Start from urgent queues, overdue balances, and stalled work instead of opening five tabs to rebuild the day.",
+        body: "Start from urgent queues, overdue balances, and stalled work instead of rebuilding the day from inboxes and memory.",
       },
       {
-        title: "Assign and track repairs",
+        title: "Push work forward",
         body: "Move maintenance from tenant request to contractor progress to completion without endless back-and-forth.",
       },
       {
-        title: "Bring records into one place",
+        title: "Keep context close",
         body: "Keep leases, documents, tenant context, and property history close to the work they support.",
       },
       {
@@ -80,12 +80,12 @@ export const homepageContent = {
   productPreview: {
     title: "Built for the parts of portfolio work that break first",
     body:
-      "OASIS is for landlords who are past simple record-keeping and need faster decisions, clearer ownership, and better follow-through as the portfolio gets noisier.",
+      "OASIS is for landlords who are past simple record-keeping and need one brain for the portfolio: clearer ownership, faster decisions, and stronger follow-through as the work gets noisier.",
     items: [
       {
         label: "Command Center",
         title: "The mental load drops fast",
-        body: "The Command Center works like the brain of the portfolio, showing what needs action now so nothing important gets quietly missed.",
+        body: "The Command Center works like the brain of the operations hub, showing what needs action now so nothing important gets quietly missed.",
         points: ["zero missed tasks", "urgent queues", "next actions"],
         imageSrc: "/screenshots/command-center.png",
         imageAlt: "OASIS Command Center with urgent and needs-action queues.",
@@ -119,7 +119,7 @@ export const homepageContent = {
   workflowSection: {
     title: "See the workflow in action",
     body:
-      "Instead of another generic feature list, here is what winning the day looks like when OASIS is running the workflow.",
+      "Instead of another generic feature list, here is what operational control looks like when OASIS is running the workflow.",
     items: [
       {
         label: "T:00",
