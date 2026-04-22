@@ -90,6 +90,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply account payment collection settings overlay",
+    file: path.join(supabaseDir, "account_payment_collection_settings.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply account sandbox profiles overlay",
     file: path.join(supabaseDir, "account_sandbox_profiles.sql"),
     onErrorStop: true,

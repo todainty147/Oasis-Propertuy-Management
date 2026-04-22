@@ -10,6 +10,7 @@ import { formatCurrencyAmount } from "../utils/currency";
 import { sumDueSoon, sumExpected, sumOverdue, sumPaid } from "../utils/finance";
 import OnboardingHintCard from "../components/OnboardingHintCard";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
+import TenantPaymentCollectionSettingsCard from "../components/finance/TenantPaymentCollectionSettingsCard";
 import {
   normalizeOccupancyStatus,
   normalizePaymentStatus,
@@ -87,7 +88,7 @@ export default function Finance({
   onAddPayment,
   onDeletePayment,
 }) {
-  const { accountLoading, activePermissionContext, isRootOperator } = useAccount();
+  const { accountLoading, activeAccountId, activePermissionContext, isRootOperator } = useAccount();
   const { setTitle } = usePageTitle();
   const { t } = useI18n();
   const [searchParams] = useSearchParams();
@@ -103,6 +104,7 @@ export default function Finance({
   const canCreate = can(activePermissionContext, "finance", "create");
   const canDelete = can(activePermissionContext, "finance", "delete");
   const canRead = isRootOperator || can(activePermissionContext, "finance", "read");
+  const canManageCollectionSettings = isRootOperator || can(activePermissionContext, "finance", "update");
 
   const statusFilterValues = useMemo(() => {
     const raw = String(searchParams.get("status") || "").toLowerCase().trim();
@@ -242,6 +244,12 @@ export default function Finance({
       <OnboardingHintCard
         title={t("onboarding.hints.finance.title")}
         body={t("onboarding.hints.finance.body")}
+      />
+
+      <TenantPaymentCollectionSettingsCard
+        accountId={activeAccountId}
+        canManage={canManageCollectionSettings}
+        t={t}
       />
 
       {hasActiveFilters ? (

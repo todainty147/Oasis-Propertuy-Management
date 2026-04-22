@@ -44,6 +44,23 @@ describe("tenant portal backend contracts", () => {
     expect(bootstrapSource).toContain("document_tenant_highlight.sql");
   });
 
+  it("declares tenant payment collection settings support in repo sql", () => {
+    const sql = readFileSync(path.join(repoRoot, "supabase/account_payment_collection_settings.sql"), "utf8");
+
+    expect(sql).toContain("account_payment_collection_settings");
+    expect(sql).toContain("collection_status");
+    expect(sql).toContain("external_portal");
+    expect(sql).toContain("autopay_status");
+  });
+
+  it("applies tenant payment collection settings overlay during local bootstrap", () => {
+    const bootstrapSource = readFileSync(path.join(repoRoot, "scripts/dbBootstrap.js"), "utf8");
+    const verifySource = readFileSync(path.join(repoRoot, "scripts/dbVerify.js"), "utf8");
+
+    expect(bootstrapSource).toContain("account_payment_collection_settings.sql");
+    expect(verifySource).toContain("account_payment_collection_settings");
+  });
+
   it("extends tenant activity feed with maintenance progression events", () => {
     const sql = readFileSync(path.join(repoRoot, "supabase/tenant_activity_feed.sql"), "utf8");
 

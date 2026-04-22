@@ -31,6 +31,11 @@ const verificationChecks = [
     sql: "select to_regclass('public.account_sandbox_profiles') is not null;",
   },
   {
+    label: "Tenant payment settings table",
+    why: "Confirms landlord-configurable tenant payment collection metadata exists for the standalone tenant portal.",
+    sql: "select to_regclass('public.account_payment_collection_settings') is not null;",
+  },
+  {
     label: "Denied-event recorder RPC",
     why: "Confirms app-side durable denied logging can be invoked.",
     sql: "select to_regprocedure('public.record_security_denied_event(text,uuid,text,uuid,text,jsonb)') is not null;",

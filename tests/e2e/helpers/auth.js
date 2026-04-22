@@ -1,3 +1,4 @@
+/* global process */
 import { expect } from "@playwright/test";
 import { isolationFixtures } from "../../fixtures/isolationFixtures.js";
 
@@ -27,5 +28,6 @@ export async function signInAs(page, email) {
   await page.locator('input[type="password"]').fill(TEST_USER_PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  await expect(page.getByText("OASIS Rental")).toBeVisible();
+  await expect(page).not.toHaveURL(/\/login(?:\?.*)?$/);
+  await expect(page.getByRole("main")).toBeVisible();
 }

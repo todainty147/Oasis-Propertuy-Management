@@ -10,6 +10,7 @@ import { buildTenantPaymentSummary } from "../utils/tenantPortal";
 import { paymentStatusLabelKey, normalizePaymentStatus } from "../utils/statuses";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 import { usePageTitle } from "../layout/PageTitleContext";
+import { getAccountPaymentCollectionSettings } from "../services/paymentCollectionSettingsService";
 
 function statusBadge(status) {
   const base = "text-xs px-2 py-0.5 rounded border";
@@ -26,22 +27,26 @@ function formatDate(value) {
   return next.toLocaleDateString();
 }
 
-export function TenantPaymentsContent({ rows = [], loading = false, err = null, onRefresh, t }) {
-  const summary = buildTenantPaymentSummary({}, rows);
-
+function hasTenantPaymentSetup(settings) {
+  if (!settings) return false;
   return (
-    <div className="space-y-6">
-      <DashboardBreadcrumbs items={[{ label: t("payments.title") }]} />
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900">{t("payments.title")}</h2>
-        <p className="text-sm text-slate-500">{t("payments.myPaymentsSubtitle")}</p>
-      </div>
+    settings.collection_status !== "disabled" ||
+    (settings.accepted_methods || []).length > 0 ||
+    Boolean(settings.instructions) ||
+    Boolean(settings.portal_url) ||
+    Boolean(settings.support_email) ||
+    settings.autopay_status === "external" ||
+    Boolean(settings.autopay_instructions)
+  );
+}
 
-      <OnboardingHintCard
-        title={t("onboarding.hints.tenantPayments.title")}
-        body={t("onboarding.hints.tenantPayments.body")}
-      />
+function TenantPaymentCollectionCard({ settings, t }) {
+  const methods = Array.isArray(settings?.accepted_methods) ? settings.accepted_methods : [];
+  const showSetup = hasTenantPaymentSetup(settings);
+  const externalPortalEnabled = settings?.collection_status === "external_portal" && settings?.portal_url;
 
+  if (!showSetup) {
+    return (
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr]">
         <Card className="p-5" data-testid="tenant-payment-options-card">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -81,6 +86,103 @@ export function TenantPaymentsContent({ rows = [], loading = false, err = null, 
           </p>
         </Card>
       </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr]">
+      <Card className="p-5" data-testid="tenant-payment-options-card">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-500">{t("tenantPortal.payments.collection.title")}</p>
+            <h3 className="mt-2 text-lg font-semibold text-slate-900">
+              {externalPortalEnabled
+                ? t("tenantPortal.payments.collection.externalTitle")
+                : t("tenantPortal.payments.collection.manualTitle")}
+            </h3>
+            <p className="mt-2 text-sm text-slate-600">
+              {settings?.instructions || t("tenantPortal.payments.collection.instructionsFallback")}
+            </p>
+          </div>
+          <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800">
+            {externalPortalEnabled
+              ? t("tenantPortal.payments.collection.portalEnabled")
+              : t("tenantPortal.payments.collection.collectionEnabled")}
+          </span>
+        </div>
+
+        {methods.length > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {methods.map((method) => (
+              <span
+                key={method}
+                className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700"
+              >
+                {t(`tenantPortal.payments.methods.${method}`)}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          {externalPortalEnabled ? (
+            <a
+              href={settings.portal_url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              {t("tenantPortal.payments.collection.openPortal")}
+            </a>
+          ) : null}
+          {settings?.support_email ? (
+            <a
+              href={`mailto:${settings.support_email}`}
+              className="inline-flex items-center rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              {t("tenantPortal.payments.collection.emailSupport")}
+            </a>
+          ) : null}
+        </div>
+      </Card>
+
+      <Card className="p-5">
+        <p className="text-sm font-medium text-slate-500">{t("tenantPortal.payments.collection.autopayTitle")}</p>
+        <h3 className="mt-2 text-lg font-semibold text-slate-900">
+          {settings?.autopay_status === "external"
+            ? t("tenantPortal.payments.collection.autopayEnabledTitle")
+            : t("tenantPortal.payments.collection.autopayDisabledTitle")}
+        </h3>
+        <p className="mt-2 text-sm text-slate-600">
+          {settings?.autopay_instructions || t("tenantPortal.payments.collection.autopayFallback")}
+        </p>
+        {settings?.support_email ? (
+          <p className="mt-3 text-xs text-slate-500">
+            {t("tenantPortal.payments.collection.supportLine", { email: settings.support_email })}
+          </p>
+        ) : null}
+      </Card>
+    </div>
+  );
+}
+
+export function TenantPaymentsContent({ rows = [], loading = false, err = null, onRefresh, settings = null, t }) {
+  const summary = buildTenantPaymentSummary({}, rows);
+
+  return (
+    <div className="space-y-6">
+      <DashboardBreadcrumbs items={[{ label: t("payments.title") }]} />
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900">{t("payments.title")}</h2>
+        <p className="text-sm text-slate-500">{t("payments.myPaymentsSubtitle")}</p>
+      </div>
+
+      <OnboardingHintCard
+        title={t("onboarding.hints.tenantPayments.title")}
+        body={t("onboarding.hints.tenantPayments.body")}
+      />
+
+      <TenantPaymentCollectionCard settings={settings} t={t} />
 
       {!loading && !err ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -180,6 +282,7 @@ export default function TenantPayments() {
   const { t } = useI18n();
   const { setTitle } = usePageTitle();
   const [rows, setRows] = useState([]);
+  const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
 
@@ -192,9 +295,14 @@ export default function TenantPayments() {
     setLoading(true);
     setErr(null);
     try {
-      const data = await fetchMyPayments(activeAccountId);
+      const [data, nextSettings] = await Promise.all([
+        fetchMyPayments(activeAccountId),
+        getAccountPaymentCollectionSettings(activeAccountId),
+      ]);
       setRows(data);
+      setSettings(nextSettings);
     } catch (e) {
+      setSettings(null);
       setErr(e?.message ?? t("payments.loadError"));
     } finally {
       setLoading(false);
@@ -216,5 +324,5 @@ export default function TenantPayments() {
     );
   }
 
-  return <TenantPaymentsContent rows={rows} loading={loading} err={err} onRefresh={load} t={t} />;
+  return <TenantPaymentsContent rows={rows} loading={loading} err={err} onRefresh={load} settings={settings} t={t} />;
 }

@@ -19,7 +19,7 @@ test("tenant sees the restricted surface and does not get manager-only property 
   await page.getByTestId("tenant-dashboard-open-payments").click();
   await expect(page).toHaveURL(/\/tenant\/payments(?:\?.*)?$/);
   await expect(page.getByRole("heading", { name: "Payment history" })).toBeVisible();
-  await expect(page.getByText("Online payments and autopay are not enabled on this account yet")).toBeVisible();
+  await expect(page.getByTestId("tenant-payment-options-card")).toBeVisible();
 
   await page.goto("/tenant/home?horizon=week");
   await page.getByTestId("tenant-dashboard-open-documents").click();

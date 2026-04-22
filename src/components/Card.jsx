@@ -1,9 +1,10 @@
 import { forwardRef } from "react";
 
-const Card = forwardRef(function Card({ children, className = "" }, ref) {
+const Card = forwardRef(function Card({ children, className = "", ...props }, ref) {
   return (
     <div
       ref={ref}
+      {...props}
       className={`
         bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm
         transition-transform transition-shadow duration-200
