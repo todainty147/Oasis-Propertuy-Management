@@ -116,6 +116,33 @@ export const homepageContent = {
       },
     ],
   },
+  healthSection: {
+    eyebrow: "Property Health",
+    title: "Know which property is costing you money before the tenant calls",
+    body:
+      "OASIS turns portfolio health into something landlords can act on, not just review. Health scoring pulls together overdue rent, maintenance strain, stalled repairs, vacancy pressure, and contractor follow-through so risk shows up before it becomes expensive cleanup.",
+    items: [
+      {
+        title: "See pressure across the portfolio",
+        body: "Review overdue balances, maintenance load, and open repair pressure without rebuilding the picture from separate pages.",
+      },
+      {
+        title: "Catch deterioration earlier",
+        body: "Spot high-risk properties, stalled repairs, and contractor acknowledgement delays before they become bigger operating problems.",
+      },
+      {
+        title: "Act before small issues spread",
+        body: "Use health signals to decide where to intervene first instead of waiting for the next complaint, missed payment, or vacancy surprise.",
+      },
+      {
+        title: "Keep the risk tied to the work",
+        body: "The same operating system that surfaces the pressure also shows the queues, requests, and records needed to respond.",
+      },
+    ],
+    imageSrc: "/screenshots/portfolio-health.png",
+    imageAlt: "OASIS Portfolio Health dashboard showing occupancy mix, finance pressure, and maintenance risk signals.",
+    imageAlign: "left" as const,
+  },
   workflowSection: {
     title: "See the workflow in action",
     body:

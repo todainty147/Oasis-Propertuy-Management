@@ -42,6 +42,19 @@ const outcomeSections = [
     cta: "Explore maintenance",
   },
   {
+    eyebrow: "Portfolio health",
+    title: "See which properties are building pressure before they become expensive",
+    why:
+      "OASIS is not just a place to read reports after the damage is done. Portfolio health surfaces arrears pressure, maintenance load, stalled work, and contractor follow-through so landlords can intervene earlier.",
+    bullets: [
+      "Review overdue rent, maintenance strain, and outstanding work in one risk view.",
+      "Spot high-risk properties before the warning signs turn into bigger operational failures.",
+      "Use health signals to decide where action matters most this week.",
+    ],
+    href: "/pricing",
+    cta: "See the operations view",
+  },
+  {
     eyebrow: "Tenant context",
     title: "Keep tenant records usable when decisions need context",
     why:
@@ -74,7 +87,7 @@ const outcomeSections = [
       "Growing portfolios do not fail because landlords lack effort. They get noisy when overdue balances, repair pressure, and missing follow-up are hard to see early.",
     bullets: [
       "Use command-centre queues to start from the most urgent work.",
-      "Review portfolio health, arrears pressure, and maintenance load.",
+      "Review portfolio health, arrears pressure, maintenance load, and contractor drag.",
       "Use security and operational review surfaces when stronger oversight matters.",
     ],
     href: "/pricing",

@@ -11,7 +11,7 @@ export const rentalAccountingContent = {
     eyebrow: "Rental accounting",
     title: "See paid, due, and overdue rent without rebuilding spreadsheets",
     body:
-      "OASIS gives landlords finance views built around follow-up: what is paid, what is due, what is overdue, and where pressure is building.",
+      "OASIS gives landlords finance views built around follow-up: what is paid, what is due, what is overdue, and which properties are starting to show pressure.",
     imageSrc: "/screenshots/portfolio-health.png",
     imageAlt: "OASIS Portfolio Health dashboard showing arrears aging, finance mix, and maintenance pressure.",
   },
@@ -39,9 +39,9 @@ export const rentalAccountingContent = {
   },
   solution: {
     eyebrow: "How OASIS helps",
-    title: "Rent tracking shaped around landlord follow-up",
+    title: "Rent tracking shaped around landlord follow-up and earlier intervention",
     body:
-      "OASIS helps landlords see the rental numbers that matter day to day, with payment status tied to tenant and property context.",
+      "OASIS helps landlords see the rental numbers that matter day to day, with payment status tied to tenant context, property context, and the wider portfolio pressure building around them.",
     items: [
       {
         title: "See payment status clearly",
@@ -52,8 +52,12 @@ export const rentalAccountingContent = {
         body: "Identify overdue balances, due-soon pressure, and focus follow-up where it will have the most operational impact.",
       },
       {
-        title: "Keep rent tied to context",
-        body: "Keep payment status close to tenant and property details instead of isolated in a separate tracker.",
+        title: "Keep rent tied to property pressure",
+        body: "Keep payment status close to tenant and property details instead of isolating the numbers from the wider operational picture.",
+      },
+      {
+        title: "Catch arrears pressure earlier",
+        body: "Use portfolio and property health views to see when overdue balances are starting to drag on the rest of the portfolio.",
       },
     ],
     imageSrc: "/screenshots/command-center.png",
@@ -69,23 +73,23 @@ export const rentalAccountingContent = {
       },
       {
         title: "Better follow-up decisions",
-        body: "Know where overdue balances sit and where action is needed most urgently, before those issues spread into the rest of the portfolio.",
+        body: "Know where overdue balances sit and where action is needed most urgently before those issues spread into the rest of the portfolio.",
       },
       {
         title: "Less spreadsheet dependency",
         body: "Move away from disconnected trackers toward a more usable operating view.",
       },
       {
-        title: "Stronger confidence in the numbers",
-        body: "Review rental income with the context landlords need to act quickly and stay organized.",
+        title: "Stronger confidence in the risk picture",
+        body: "Review rental income with the context landlords need to act early, stay organized, and understand which properties need attention.",
       },
     ],
   },
   finalCta: {
     title: "Get a clearer rent picture across your portfolio",
     body:
-      "See how OASIS helps landlords track income, overdue balances, payment status, and rent pressure from one operating view.",
-    primaryCta: { label: "View Pricing", href: "/pricing" },
-    secondaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
+      "See how OASIS helps landlords track income, overdue balances, payment status, and arrears pressure from one operating view.",
+    primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
+    secondaryCta: { label: "View Pricing", href: "/pricing" },
   },
 };

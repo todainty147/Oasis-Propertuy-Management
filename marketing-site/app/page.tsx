@@ -18,6 +18,7 @@ export default function HomePage() {
       <ContentSection {...homepageContent.problemSection} />
       <FeatureGrid {...homepageContent.solutionSection} />
       <ProductPreview {...homepageContent.productPreview} />
+      <ContentSection {...homepageContent.healthSection} />
       <WorkflowShowcase {...homepageContent.workflowSection} />
       <FinalCta {...homepageContent.finalCta} />
     </>
