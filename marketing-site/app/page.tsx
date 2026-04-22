@@ -20,6 +20,7 @@ export default function HomePage() {
       <ProductPreview {...homepageContent.productPreview} />
       <ContentSection {...homepageContent.healthSection} />
       <WorkflowShowcase {...homepageContent.workflowSection} />
+      <ContentSection {...homepageContent.securitySection} />
       <FinalCta {...homepageContent.finalCta} />
     </>
   );

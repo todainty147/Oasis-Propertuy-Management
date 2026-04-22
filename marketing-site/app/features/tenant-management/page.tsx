@@ -15,6 +15,7 @@ export default function TenantManagementPage() {
       <PageHero {...tenantManagementContent.hero} />
       <ContentSection {...tenantManagementContent.painPoints} />
       <ContentSection {...tenantManagementContent.solution} />
+      <ContentSection {...tenantManagementContent.trustLayer} />
       <BenefitGrid {...tenantManagementContent.benefits} />
       <FinalCta {...tenantManagementContent.finalCta} />
     </>

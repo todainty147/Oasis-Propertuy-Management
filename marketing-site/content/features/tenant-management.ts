@@ -60,6 +60,28 @@ export const tenantManagementContent = {
     imageAlt: "OASIS property performance view showing tenant, payment, and property context together.",
     imageAlign: "left" as const,
   },
+  trustLayer: {
+    eyebrow: "Trust layer",
+    title: "Tenant workflows should stay usable without getting loose",
+    body:
+      "As more people touch tenant-related work, control matters. OASIS keeps tenant context practical for day-to-day operations while preserving role boundaries, document audit trails, and account-scoped review.",
+    items: [
+      {
+        title: "Keep access scoped by role",
+        body: "Owners, staff, tenants, and contractors do not need the same visibility. OASIS keeps those lanes clearer.",
+      },
+      {
+        title: "Review document and workflow history",
+        body: "When documents are uploaded, deleted, or tied to the wrong context, the audit trail is easier to review.",
+      },
+      {
+        title: "Stay accountable as the portfolio grows",
+        body: "The more people involved, the more useful it becomes to know who changed what and what still needs review.",
+      },
+    ],
+    imageSrc: "/screenshots/security-audit.png",
+    imageAlt: "OASIS Security Audit page showing account-scoped review of security and workflow events.",
+  },
   benefits: {
     title: "What landlords gain with a better tenant workflow",
     items: [
@@ -85,7 +107,7 @@ export const tenantManagementContent = {
     title: "Make tenant admin easier to act on",
     body:
       "See how OASIS helps landlords manage tenant information, payment context, documents, and property links without rebuilding context from separate trackers.",
-    primaryCta: { label: "View Pricing", href: "/pricing" },
-    secondaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
+    primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
+    secondaryCta: { label: "View Pricing", href: "/pricing" },
   },
 };

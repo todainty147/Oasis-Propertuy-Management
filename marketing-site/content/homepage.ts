@@ -177,6 +177,32 @@ export const homepageContent = {
       },
     ],
   },
+  securitySection: {
+    eyebrow: "Security and accountability",
+    title: "Move fast without losing control",
+    body:
+      "OASIS is built so landlords do not have to choose between speed and accountability. Permissions, audit trails, and review surfaces help you understand who changed what, what was approved, and what deserves attention next.",
+    items: [
+      {
+        title: "Role-based access",
+        body: "Keep owners, staff, contractors, and tenants in the right lanes instead of exposing the whole portfolio to everyone.",
+      },
+      {
+        title: "Audit trail where it matters",
+        body: "Review the key actions behind documents, work orders, and security-sensitive decisions without reconstructing the story from raw logs.",
+      },
+      {
+        title: "Operational accountability",
+        body: "When approvals, updates, and access changes happen, the trail is already there for review.",
+      },
+      {
+        title: "Review surfaces for real operators",
+        body: "Security Audit and related review views help serious operators diagnose problems with the right scoped signal.",
+      },
+    ],
+    imageSrc: "/screenshots/security-audit.png",
+    imageAlt: "OASIS Security Audit page showing policy settings, hosted events, and account-scoped review.",
+  },
   finalCta: {
     title: "Try OASIS before we launch publicly",
     body:
