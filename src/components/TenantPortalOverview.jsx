@@ -55,7 +55,7 @@ function SummaryCard({ icon, label, value, helper, tone = "slate" }) {
   );
 }
 
-function ActionButton({ label, onClick, tone = "primary" }) {
+function ActionButton({ label, onClick, tone = "primary", testId = undefined }) {
   const className =
     tone === "secondary"
       ? "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
@@ -65,6 +65,7 @@ function ActionButton({ label, onClick, tone = "primary" }) {
     <button
       type="button"
       onClick={onClick}
+      data-testid={testId}
       className={`min-h-[44px] w-full rounded-lg px-4 py-2 text-sm font-medium transition sm:w-auto ${className}`}
     >
       {label}
@@ -312,9 +313,23 @@ export default function TenantPortalOverview({
               </div>
 
               <div className="order-1 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
-                <ActionButton label={t("tenantPortal.action.viewPayments")} onClick={onOpenPayments} />
-                <ActionButton label={t("tenantPortal.action.trackRequests")} onClick={onOpenRequests} tone="secondary" />
-                <ActionButton label={t("tenantPortal.action.openDocuments")} onClick={onOpenDocuments} tone="secondary" />
+                <ActionButton
+                  label={t("tenantPortal.action.viewPayments")}
+                  onClick={onOpenPayments}
+                  testId="tenant-dashboard-open-payments"
+                />
+                <ActionButton
+                  label={t("tenantPortal.action.trackRequests")}
+                  onClick={onOpenRequests}
+                  tone="secondary"
+                  testId="tenant-dashboard-open-requests"
+                />
+                <ActionButton
+                  label={t("tenantPortal.action.openDocuments")}
+                  onClick={onOpenDocuments}
+                  tone="secondary"
+                  testId="tenant-dashboard-open-documents"
+                />
               </div>
 
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_0.9fr]">

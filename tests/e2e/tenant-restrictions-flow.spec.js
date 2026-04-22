@@ -13,6 +13,20 @@ test("tenant sees the restricted surface and does not get manager-only property 
   await expect(page.getByRole("link", { name: "Tenants" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Invitations" })).toHaveCount(0);
 
+  await page.getByTestId("tenant-dashboard-open-payments").click();
+  await expect(page).toHaveURL(/\/tenant\/payments$/);
+  await expect(page.getByRole("heading", { name: "Payments", exact: true })).toBeVisible();
+
+  await page.goto("/dashboard?horizon=week");
+  await page.getByTestId("tenant-dashboard-open-documents").click();
+  await expect(page).toHaveURL(/\/documents$/);
+  await expect(page.getByRole("heading", { name: "Documents available" })).toBeVisible();
+
+  await page.goto("/dashboard?horizon=week");
+  await page.getByTestId("tenant-dashboard-open-requests").click();
+  await expect(page).toHaveURL(new RegExp(`/properties/${seededEntityIds.propertyA}$`));
+  await expect(page.getByRole("heading", { name: "11 Starlight Avenue" })).toBeVisible();
+
   await page.goto("/tenants");
   await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/);
 
@@ -29,4 +43,19 @@ test("tenant sees the restricted surface and does not get manager-only property 
   await expect(page.getByText("Property performance")).toHaveCount(0);
   await expect(page.getByText("Custom property fields")).toBeVisible();
   await expectNoBlockingAccessibilityViolations(page, "tenant property details");
+});
+
+test("tenant dashboard actions remain usable on mobile width", async ({ page }) => {
+  await signInAs(page, seededUsers.tenantA1);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/dashboard?horizon=week");
+
+  await expect(page.getByRole("heading", { name: "Your home overview" })).toBeVisible();
+  await expect(page.getByTestId("tenant-dashboard-open-payments")).toBeVisible();
+  await expect(page.getByTestId("tenant-dashboard-open-requests")).toBeVisible();
+  await expect(page.getByTestId("tenant-dashboard-open-documents")).toBeVisible();
+
+  await page.getByTestId("tenant-dashboard-open-documents").click();
+  await expect(page).toHaveURL(/\/documents$/);
+  await expect(page.getByRole("heading", { name: "Documents available" })).toBeVisible();
 });
