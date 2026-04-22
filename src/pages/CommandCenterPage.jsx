@@ -247,6 +247,7 @@ export default function CommandCenterPage() {
     <div className="space-y-4">
       <DashboardBreadcrumbs items={[{ label: t("commandCenter.pageTitle") }]} />
       <div className="rounded-xl border bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-200">{t("dashboard.hub.title")}</p>
         <h2 className="text-lg font-semibold text-white">{t("commandCenter.title")}</h2>
         <p className="text-sm text-slate-200 mt-1">{t("commandCenter.subtitle")}</p>
       </div>

@@ -270,6 +270,9 @@ function SidebarContent({ onNavigate }) {
                   <span>{t("sidebar.section.operations")}</span>
                   {operationsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </button>
+                <p className="px-1 text-[11px] leading-5 text-slate-500 dark:text-slate-400">
+                  {t("sidebar.section.operationsHint")}
+                </p>
                 {operationsOpen && (
                   <div className="space-y-1">
                     <Item to="/maintenance-inbox" icon={Wrench} label={t("sidebar.maintenanceInbox")} onNavigate={onNavigate} />
