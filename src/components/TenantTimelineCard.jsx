@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
@@ -6,6 +6,11 @@ import { useI18n } from "../context/I18nContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { getTenantTimeline } from "../services/tenantTimelineService";
 import { formatCurrencyAmount } from "../utils/currency";
+import {
+  filterTenantTimelineItems,
+  groupTenantTimelineItems,
+  tenantTimelineCategoryForType,
+} from "../utils/tenantTimelinePresentation";
 
 function fmtDate(value) {
   if (!value) return "—";
@@ -29,6 +34,48 @@ function detailForEvent(event, t) {
   }
   if (event?.status) parts.push(t("tenantTimeline.statusWithValue", { value: event.status }));
   return parts.join(" • ");
+}
+
+function categoryTone(category) {
+  if (category === "payments") return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (category === "maintenance") return "bg-amber-50 text-amber-700 border-amber-200";
+  if (category === "documents") return "bg-sky-50 text-sky-700 border-sky-200";
+  if (category === "lease") return "bg-violet-50 text-violet-700 border-violet-200";
+  return "bg-slate-100 text-slate-700 border-slate-200";
+}
+
+function EventCard({ event, targetPath, t }) {
+  const category = tenantTimelineCategoryForType(event?.type);
+  const card = (
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 transition hover:bg-slate-50">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${categoryTone(category)}`}>
+              {t(`tenantTimeline.category.${category}`)}
+            </span>
+            <span className="text-xs text-slate-500">{fmtDate(event.at)}</span>
+          </div>
+          <p className="text-sm font-medium text-slate-900">{titleForEvent(event, t)}</p>
+          {detailForEvent(event, t) ? (
+            <p className="text-sm text-slate-600">{detailForEvent(event, t)}</p>
+          ) : null}
+        </div>
+        {targetPath ? (
+          <span className="shrink-0 text-sm font-medium text-blue-700">
+            {t("tenantTimeline.openLink")}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+
+  if (!targetPath) return <div>{card}</div>;
+  return (
+    <Link to={targetPath} className="block">
+      {card}
+    </Link>
+  );
 }
 
 function PaginationFooter({ page, totalPages, totalCount, pageSize, onPrev, onNext, onPageSizeChange, t }) {
@@ -91,6 +138,9 @@ function normalizeLinkForViewer(event, viewer, property) {
   return "";
 }
 
+const FILTERS = ["all", "maintenance", "payments", "documents", "lease"];
+const GROUP_ORDER = ["today", "yesterday", "last7", "earlier"];
+
 export default function TenantTimelineCard({ accountId, tenant, property, viewer = "manager" }) {
   const { t } = useI18n();
   const [items, setItems] = useState([]);
@@ -103,6 +153,7 @@ export default function TenantTimelineCard({ accountId, tenant, property, viewer
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [filter, setFilter] = useState("all");
 
   async function loadTimeline() {
     if (!accountId || !tenant?.id) {
@@ -157,19 +208,22 @@ export default function TenantTimelineCard({ accountId, tenant, property, viewer
 
   useEffect(() => {
     setPage(1);
-  }, [tenant?.id, pageSize]);
+  }, [tenant?.id, pageSize, filter]);
 
-  const totalCount = items.length;
+  const latestItem = items[0] || null;
+  const filteredItems = useMemo(() => filterTenantTimelineItems(items, filter), [items, filter]);
+  const totalCount = filteredItems.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const safePage = Math.min(page, totalPages);
-  const pagedItems = items.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const pagedItems = filteredItems.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const groupedItems = groupTenantTimelineItems(pagedItems);
 
   return (
-    <Card className="p-6 space-y-4">
+    <Card className="space-y-4 p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="text-lg font-semibold">{t("tenantTimeline.title")}</h3>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="mt-1 text-sm text-slate-500">
             {viewer === "tenant" ? t("tenantTimeline.portalSubtitle") : t("tenantTimeline.subtitle")}
           </p>
         </div>
@@ -186,16 +240,59 @@ export default function TenantTimelineCard({ accountId, tenant, property, viewer
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
           <p className="text-xs text-slate-500">{t("tenantTimeline.followUp.openRequests")}</p>
-          <p className="text-xl font-semibold text-slate-900 mt-1">{summary.openRequests}</p>
+          <p className="mt-1 text-xl font-semibold text-slate-900">{summary.openRequests}</p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
           <p className="text-xs text-slate-500">{t("tenantTimeline.followUp.overduePayments")}</p>
-          <p className="text-xl font-semibold text-rose-600 mt-1">{summary.overduePayments}</p>
+          <p className="mt-1 text-xl font-semibold text-rose-600">{summary.overduePayments}</p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
           <p className="text-xs text-slate-500">{t("tenantTimeline.followUp.leaseWatch")}</p>
-          <p className="text-xl font-semibold text-slate-900 mt-1">{summary.leaseWatch}</p>
+          <p className="mt-1 text-xl font-semibold text-slate-900">{summary.leaseWatch}</p>
         </div>
+      </div>
+
+      {latestItem ? (
+        <div className="rounded-xl border border-blue-100 bg-blue-50/80 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+            {t("tenantTimeline.latestUpdate")}
+          </p>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900">{titleForEvent(latestItem, t)}</p>
+              {detailForEvent(latestItem, t) ? (
+                <p className="mt-1 text-sm text-slate-600">{detailForEvent(latestItem, t)}</p>
+              ) : null}
+            </div>
+            <span className="shrink-0 text-xs text-slate-500">{fmtDate(latestItem.at)}</span>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2">
+        {FILTERS.map((value) => {
+          const active = filter === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setFilter(value)}
+              className={`min-h-[40px] rounded-full border px-3 py-2 text-sm transition ${
+                active
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              {t(`tenantTimeline.filter.${value}`)}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center justify-between gap-4 text-sm">
+        <p className="text-slate-500">
+          {t("tenantTimeline.showingCount", { count: totalCount })}
+        </p>
       </div>
 
       {error ? <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div> : null}
@@ -206,31 +303,31 @@ export default function TenantTimelineCard({ accountId, tenant, property, viewer
             <Skeleton key={index} className="h-20" />
           ))}
         </div>
-      ) : items.length === 0 ? (
-        <p className="text-sm text-slate-500">{t("tenantTimeline.empty")}</p>
+      ) : filteredItems.length === 0 ? (
+        <p className="text-sm text-slate-500">{t(filter === "all" ? "tenantTimeline.empty" : "tenantTimeline.emptyFiltered")}</p>
       ) : (
-        <div className="space-y-3">
-          {pagedItems.map((event) => {
-            const content = (
-              <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-900">{titleForEvent(event, t)}</p>
-                    {detailForEvent(event, t) ? (
-                      <p className="mt-1 text-sm text-slate-600">{detailForEvent(event, t)}</p>
-                    ) : null}
-                  </div>
-                  <span className="shrink-0 text-xs text-slate-500">{fmtDate(event.at)}</span>
-                </div>
-              </div>
-            );
+        <div className="space-y-5">
+          {GROUP_ORDER.map((groupKey) => {
+            const group = groupedItems[groupKey];
+            if (!group?.length) return null;
 
-            const targetPath = normalizeLinkForViewer(event, viewer, property);
-            if (!targetPath) return <div key={event.key}>{content}</div>;
             return (
-              <Link key={event.key} to={targetPath} className="block">
-                {content}
-              </Link>
+              <section key={groupKey} className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <h4 className="text-sm font-semibold text-slate-900">{t(`tenantTimeline.group.${groupKey}`)}</h4>
+                  <div className="h-px flex-1 bg-slate-200" />
+                </div>
+                <div className="space-y-3">
+                  {group.map((event) => (
+                    <EventCard
+                      key={event.key}
+                      event={event}
+                      t={t}
+                      targetPath={normalizeLinkForViewer(event, viewer, property)}
+                    />
+                  ))}
+                </div>
+              </section>
             );
           })}
 
