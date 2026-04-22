@@ -1,5 +1,5 @@
 // src/pages/Tenants.jsx
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 
 import Card from "../components/Card";
@@ -191,6 +191,9 @@ export default function Tenants() {
       canCreateTenant(activePermissionContext)
     );
   }, [activePermissionContext, activeRole, isRootOperator]);
+  const canReadTenants = useMemo(() => {
+    return isRootOperator || can(activePermissionContext, "tenants", "read");
+  }, [activePermissionContext, isRootOperator]);
 
   useEffect(() => {
     setTitle(t("sidebar.tenants"));
@@ -199,6 +202,10 @@ export default function Tenants() {
   /* ---------- LOADING ---------- */
   if (loading || leaseLoading) {
     return <TenantsSkeleton />;
+  }
+
+  if (!canReadTenants) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   /* ---------- EMPTY ---------- */

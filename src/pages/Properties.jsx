@@ -48,7 +48,7 @@ export default function Properties({
   activePlan = "starter",
 }) {
   const { setTitle } = usePageTitle();
-  const { accountLoading, activePermissionContext, isRootOperator } = useAccount();
+  const { accountLoading, activePermissionContext, activeRole, isRootOperator } = useAccount();
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
@@ -67,6 +67,7 @@ export default function Properties({
   const canCreate = can(activePermissionContext, "properties", "create");
   const canUpdate = can(activePermissionContext, "properties", "update");
   const canDelete = can(activePermissionContext, "properties", "delete");
+  const isTenant = String(activeRole || "").toLowerCase() === "tenant";
   const propertyLimit = getPlanUsageLimit(activePlan, "properties");
   const propertyCapacityAvailable = hasUsageCapacity(activePlan, "properties", properties.length);
   const addDisabled = canCreate && !propertyCapacityAvailable;
@@ -185,10 +186,10 @@ export default function Properties({
         <DashboardBreadcrumbs items={[{ label: t("properties.title") }]} />
         <div className="text-center py-20">
           <h3 className="text-xl font-semibold text-slate-900">
-            {t("properties.emptyTitle")}
+            {isTenant ? t("properties.tenantEmptyTitle") : t("properties.emptyTitle")}
           </h3>
           <p className="text-slate-500 mt-2">
-            {t("properties.emptySubtitle")}
+            {isTenant ? t("properties.tenantEmptySubtitle") : t("properties.emptySubtitle")}
           </p>
 
           {canCreate && (
