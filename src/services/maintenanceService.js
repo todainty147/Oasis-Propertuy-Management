@@ -168,41 +168,80 @@ export async function getTenantMaintenanceDashboardData({
     };
   }
 
-  const [requestRes, workOrderRes] = await Promise.all([
-    supabase
-      .from("maintenance_requests")
-      .select("id, account_id, property_id, reported_by_tenant_id, title, description, priority, status, created_at, updated_at")
-      .eq("account_id", accountId)
-      .in("property_id", scopedPropertyIds)
-      .in("reported_by_tenant_id", tenantIds)
-      .order("created_at", { ascending: false })
-      .limit(limit),
-    supabase
+  const issueRows = await listTenantIssueRows({
+    accountId,
+    propertyId,
+    limit,
+  });
+
+  const requests = issueRows.map((row) => ({
+    id: row.maintenance_request_id,
+    account_id: row.account_id,
+    property_id: row.property_id,
+    reported_by_tenant_id: tenantIds[0] || null,
+    title: row.title,
+    description: "",
+    priority: row.priority,
+    status: row.maintenance_status,
+    created_at: row.created_at,
+    updated_at: row.created_at,
+  }));
+
+  const latestWorkOrderIds = issueRows
+    .map((row) => row.latest_work_order_id)
+    .filter(Boolean);
+
+  let workOrders = [];
+  if (latestWorkOrderIds.length > 0) {
+    const { data, error } = await supabase
       .from("work_orders_with_flags")
       .select(
         "id, account_id, property_id, maintenance_request_id, contractor_user_id, contractor_name, contractor_phone, status, scheduled_at, notes, quote_amount, invoice_amount, created_by, created_at, updated_at, pending_cancel_request, last_cancel_request_at, last_cancel_request_by, last_cancel_resolution_at, last_cancel_resolution_action, last_cancel_resolution_by, assigned_at, acknowledged_at, acknowledgement_due_at, acknowledgement_status",
       )
-      .eq("account_id", accountId)
-      .in("property_id", scopedPropertyIds)
-      .order("created_at", { ascending: false })
-      .limit(limit),
-  ]);
+      .in("id", latestWorkOrderIds)
+      .order("created_at", { ascending: false });
 
-  if (requestRes.error) throw friendlyError(requestRes.error, "Nie udało się załadować zgłoszeń tenant");
-  if (workOrderRes.error) throw friendlyError(workOrderRes.error, "Nie udało się załadować zleceń tenant");
-
-  return {
-    requests: parseRpcRows(
-      requestRes.data || [],
-      parseMaintenanceRequestRow,
-      "tenant maintenance dashboard request rows",
-    ),
-    workOrders: parseRpcRows(
-      workOrderRes.data || [],
+    if (error) throw friendlyError(error, "Nie udało się załadować zleceń tenant");
+    workOrders = parseRpcRows(
+      data || [],
       parseWorkOrderRow,
       "tenant maintenance dashboard work order rows",
-    ),
-  };
+    );
+  }
+
+  if (workOrders.length === 0) {
+    workOrders = issueRows
+      .filter((row) => row.latest_work_order_id)
+      .map((row) => ({
+        id: row.latest_work_order_id,
+        account_id: row.account_id,
+        property_id: row.property_id,
+        maintenance_request_id: row.maintenance_request_id,
+        contractor_user_id: null,
+        contractor_name: "",
+        contractor_phone: "",
+        status: row.latest_work_order_status,
+        scheduled_at: null,
+        notes: "",
+        quote_amount: null,
+        invoice_amount: null,
+        created_by: null,
+        created_at: row.created_at,
+        updated_at: row.created_at,
+        pending_cancel_request: false,
+        last_cancel_request_at: null,
+        last_cancel_request_by: null,
+        last_cancel_resolution_at: null,
+        last_cancel_resolution_action: null,
+        last_cancel_resolution_by: null,
+        assigned_at: null,
+        acknowledged_at: null,
+        acknowledgement_due_at: null,
+        acknowledgement_status: "",
+      }));
+  }
+
+  return { requests, workOrders };
 }
 
 export async function listTenantIssueRows({

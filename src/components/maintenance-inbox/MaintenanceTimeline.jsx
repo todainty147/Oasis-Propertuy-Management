@@ -12,7 +12,15 @@ function fmtDate(ts) {
   return d.toLocaleString();
 }
 
-export default function MaintenanceTimeline({ accountId, request, linkedWorkOrders = [] }) {
+export default function MaintenanceTimeline({
+  accountId,
+  request,
+  linkedWorkOrders = [],
+  viewer = "manager",
+  propertyId = null,
+  maxItems = null,
+  showScopeChips = true,
+}) {
   const navigate = useNavigate();
   const { t } = useI18n();
   const [loading, setLoading] = useState(true);
@@ -57,10 +65,17 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
 
   const rows = useMemo(() => {
     const all = events ?? [];
-    if (scope === "request") return all.filter((e) => e.source === "request");
-    if (scope === "work_order") return all.filter((e) => e.source === "work_order");
-    return all;
-  }, [events, scope]);
+    const filtered =
+      scope === "request"
+        ? all.filter((e) => e.source === "request")
+        : scope === "work_order"
+          ? all.filter((e) => e.source === "work_order")
+          : all;
+
+    return Number.isFinite(Number(maxItems)) && Number(maxItems) > 0
+      ? filtered.slice(-Number(maxItems))
+      : filtered;
+  }, [events, maxItems, scope]);
 
   if (loading) {
     return (
@@ -99,6 +114,11 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
       }
     }
 
+    if (viewer === "tenant") {
+      if (propertyId) navigate(`/properties/${propertyId}`);
+      return;
+    }
+
     if (e.woId) {
       navigate(`/work-orders/${e.woId}`);
     }
@@ -106,39 +126,41 @@ export default function MaintenanceTimeline({ accountId, request, linkedWorkOrde
 
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-      <div className="mb-2 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => setScope("all")}
-          className={`px-2 py-1 text-[11px] rounded border ${
-            scope === "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"
-          }`}
-        >
-          {t("maintenance.timeline.scope.all")}
-        </button>
-        <button
-          type="button"
-          onClick={() => setScope("request")}
-          className={`px-2 py-1 text-[11px] rounded border ${
-            scope === "request"
-              ? "border-slate-900 bg-slate-900 text-white"
-              : "border-slate-300 bg-white text-slate-700"
-          }`}
-        >
-          {t("maintenance.timeline.scope.request")}
-        </button>
-        <button
-          type="button"
-          onClick={() => setScope("work_order")}
-          className={`px-2 py-1 text-[11px] rounded border ${
-            scope === "work_order"
-              ? "border-slate-900 bg-slate-900 text-white"
-              : "border-slate-300 bg-white text-slate-700"
-          }`}
-        >
-          {t("maintenance.timeline.scope.workOrder")}
-        </button>
-      </div>
+      {showScopeChips ? (
+        <div className="mb-2 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setScope("all")}
+            className={`px-2 py-1 text-[11px] rounded border ${
+              scope === "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"
+            }`}
+          >
+            {t("maintenance.timeline.scope.all")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setScope("request")}
+            className={`px-2 py-1 text-[11px] rounded border ${
+              scope === "request"
+                ? "border-slate-900 bg-slate-900 text-white"
+                : "border-slate-300 bg-white text-slate-700"
+            }`}
+          >
+            {t("maintenance.timeline.scope.request")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setScope("work_order")}
+            className={`px-2 py-1 text-[11px] rounded border ${
+              scope === "work_order"
+                ? "border-slate-900 bg-slate-900 text-white"
+                : "border-slate-300 bg-white text-slate-700"
+            }`}
+          >
+            {t("maintenance.timeline.scope.workOrder")}
+          </button>
+        </div>
+      ) : null}
       {rows.length === 0 ? (
         <p className="text-xs text-slate-500">{t("maintenance.timeline.empty")}</p>
       ) : (

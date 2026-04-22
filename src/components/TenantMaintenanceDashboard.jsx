@@ -4,12 +4,15 @@ import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
+import { useTenant } from "../context/TenantContext";
 import { getTenantMaintenanceDashboardData } from "../services/maintenanceService";
+import { getTenantTimeline } from "../services/tenantTimelineService";
 import {
   getTenantRequestStatusMeta,
   getTenantWorkOrderStatusMeta,
   summarizeTenantMaintenance,
 } from "../utils/tenantPortal";
+import { tenantTimelineCategoryForType } from "../utils/tenantTimelinePresentation";
 
 function pillClass(kind) {
   const base = "text-xs px-2 py-0.5 rounded border";
@@ -68,6 +71,7 @@ export default function TenantMaintenanceDashboard({
   limit = 5,
 }) {
   const { activeAccountId, activeRole } = useAccount();
+  const { activeTenantId } = useTenant();
   const { t } = useI18n();
 
   const isTenant = useMemo(
@@ -78,10 +82,19 @@ export default function TenantMaintenanceDashboard({
   const [loading, setLoading] = useState(false);
   const [requests, setRequests] = useState([]);
   const [workOrders, setWorkOrders] = useState([]);
+  const [progressLoading, setProgressLoading] = useState(false);
+  const [progressEvents, setProgressEvents] = useState([]);
   const maintenanceSummary = useMemo(
     () => summarizeTenantMaintenance(requests, workOrders),
     [requests, workOrders],
   );
+
+  function formatProgressDetail(event) {
+    const parts = [];
+    if (event?.detail) parts.push(event.detail);
+    if (event?.status) parts.push(t("tenantTimeline.statusWithValue", { value: event.status }));
+    return parts.join(" • ");
+  }
 
   useEffect(() => {
     if (!isTenant) return;
@@ -118,6 +131,41 @@ export default function TenantMaintenanceDashboard({
       cancelled = true;
     };
   }, [isTenant, activeAccountId, propertyId, limit]);
+
+  useEffect(() => {
+    if (!isTenant || !activeAccountId || !activeTenantId) {
+      setProgressEvents([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadProgressEvents() {
+      setProgressLoading(true);
+      try {
+        const result = await getTenantTimeline({
+          accountId: activeAccountId,
+          tenant: { id: activeTenantId, propertyId },
+          property: propertyId ? { id: propertyId } : null,
+          limit: 40,
+        });
+        const maintenanceOnly = (result?.items || [])
+          .filter((event) => tenantTimelineCategoryForType(event?.type) === "maintenance")
+          .slice(0, 6);
+        if (!cancelled) setProgressEvents(maintenanceOnly);
+      } catch {
+        if (!cancelled) setProgressEvents([]);
+      } finally {
+        if (!cancelled) setProgressLoading(false);
+      }
+    }
+
+    loadProgressEvents();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isTenant, activeAccountId, activeTenantId, propertyId]);
 
   if (!isTenant) return null;
 
@@ -185,7 +233,7 @@ export default function TenantMaintenanceDashboard({
           <Skeleton className="h-12" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {/* Requests */}
           <div className="border rounded-xl bg-white">
             <div className="p-3 border-b">
@@ -266,6 +314,52 @@ export default function TenantMaintenanceDashboard({
           </div>
         </div>
       )}
+
+      {!loading ? (
+        <div className="space-y-3">
+          <div>
+            <h4 className="text-base font-semibold text-slate-900">{t("tenantDashboard.progressHistoryTitle")}</h4>
+            <p className="mt-1 text-sm text-slate-500">{t("tenantDashboard.progressHistorySubtitle")}</p>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            {progressLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-10" />
+                <Skeleton className="h-10" />
+                <Skeleton className="h-10" />
+              </div>
+            ) : progressEvents.length === 0 ? (
+              <p className="text-sm text-slate-500">{t("tenantDashboard.progressHistoryEmpty")}</p>
+            ) : (
+              <div className="space-y-3">
+                {progressEvents.map((event) => (
+                  <button
+                    key={`progress-${event.key}`}
+                    type="button"
+                    onClick={propertyId ? onOpenRequests : undefined}
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-left hover:bg-slate-100"
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900">
+                          {t(`tenantTimeline.type.${event.type}`) !== `tenantTimeline.type.${event.type}`
+                            ? t(`tenantTimeline.type.${event.type}`)
+                            : event.title}
+                        </p>
+                        {formatProgressDetail(event) ? (
+                          <p className="mt-1 text-xs text-slate-500">{formatProgressDetail(event)}</p>
+                        ) : null}
+                      </div>
+                      <span className="shrink-0 text-xs text-slate-500">{formatDateTime(event.at)}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
     </Card>
   );
 }
