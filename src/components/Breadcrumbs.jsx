@@ -13,7 +13,7 @@ export default function Breadcrumbs({ items }) {
             {item.to ? (
               <Link
                 to={item.to}
-                className="hover:text-slate-900 focus:outline-none focus-visible:underline"
+                className="text-slate-700 hover:text-slate-900 focus:outline-none focus-visible:underline dark:text-slate-300 dark:hover:text-white"
               >
                 {item.label}
               </Link>

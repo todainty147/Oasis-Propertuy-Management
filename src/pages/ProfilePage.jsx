@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
 import { supabase } from "../lib/supabase";
 import { assertPhone, normalizeText } from "../utils/validation";
+import { usePageTitle } from "../layout/PageTitleContext";
 
 function Field({ label, icon: Icon, children }) {
   return (
@@ -30,6 +31,7 @@ function TextInput(props) {
 export default function ProfilePage() {
   const { user } = useAuth();
   const { t } = useI18n();
+  const { setTitle } = usePageTitle();
   const [profileForm, setProfileForm] = useState({
     full_name: "",
     phone: "",
@@ -54,6 +56,10 @@ export default function ProfilePage() {
       job_title: normalizeText(metadata.job_title),
     });
   }, [user]);
+
+  useEffect(() => {
+    setTitle(t("topbar.profile"));
+  }, [setTitle, t]);
 
   const email = useMemo(() => user?.email || "", [user?.email]);
 

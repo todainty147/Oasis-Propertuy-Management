@@ -78,8 +78,8 @@ export default function Dashboard({
   /* ---------- PAGE TITLE ---------- */
   const { setTitle } = usePageTitle();
   useEffect(() => {
-    setTitle("Pulpit");
-  }, [setTitle]);
+    setTitle(t("sidebar.dashboard"));
+  }, [setTitle, t]);
 
   /* ---------- ROLE ---------- */
   const { activeRole, activeAccountId, isRootOperator } = useAccount();
@@ -398,16 +398,12 @@ export default function Dashboard({
     // ✅ Wire the buttons: go to property page (tenant can see maintenance/work orders there)
     function openTenantRequests() {
       if (!fallbackPropertyId) return;
-      // If you add anchors later, you can switch to:
-      // navigate(`/properties/${fallbackPropertyId}#maintenance-requests`);
-      navigate(`/properties/${fallbackPropertyId}`);
+      navigate(`/tenant/property/${fallbackPropertyId}`);
     }
 
     function openTenantWorkOrders() {
       if (!fallbackPropertyId) return;
-      // If you add anchors later, you can switch to:
-      // navigate(`/properties/${fallbackPropertyId}#work-orders`);
-      navigate(`/properties/${fallbackPropertyId}`);
+      navigate(`/tenant/property/${fallbackPropertyId}`);
     }
 
     return (
@@ -420,7 +416,7 @@ export default function Dashboard({
           payments={payments}
           onOpenPayments={() => navigate("/tenant/payments")}
           onOpenRequests={openTenantRequests}
-          onOpenDocuments={() => navigate("/documents")}
+          onOpenDocuments={() => navigate("/tenant/documents")}
         />
 
         <TenantMaintenanceDashboard

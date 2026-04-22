@@ -9,6 +9,7 @@ import OnboardingHintCard from "../components/OnboardingHintCard";
 import { buildTenantPaymentSummary } from "../utils/tenantPortal";
 import { paymentStatusLabelKey, normalizePaymentStatus } from "../utils/statuses";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
+import { usePageTitle } from "../layout/PageTitleContext";
 
 function statusBadge(status) {
   const base = "text-xs px-2 py-0.5 rounded border";
@@ -40,6 +41,46 @@ export function TenantPaymentsContent({ rows = [], loading = false, err = null, 
         title={t("onboarding.hints.tenantPayments.title")}
         body={t("onboarding.hints.tenantPayments.body")}
       />
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr]">
+        <Card className="p-5" data-testid="tenant-payment-options-card">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-500">{t("tenantPortal.payments.options.title")}</p>
+              <h3 className="mt-2 text-lg font-semibold text-slate-900">
+                {t("tenantPortal.payments.options.checkoutTitle")}
+              </h3>
+              <p className="mt-2 text-sm text-slate-600">
+                {t("tenantPortal.payments.options.body")}
+              </p>
+            </div>
+            <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800">
+              {t("tenantPortal.payments.options.unavailable")}
+            </span>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-medium text-slate-700">{t("tenantPortal.payments.options.onlinePayments")}</p>
+              <p className="mt-2 text-sm text-slate-500">{t("tenantPortal.payments.options.onlinePaymentsBody")}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-medium text-slate-700">{t("tenantPortal.payments.options.autopay")}</p>
+              <p className="mt-2 text-sm text-slate-500">{t("tenantPortal.payments.options.autopayBody")}</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-5">
+          <p className="text-sm font-medium text-slate-500">{t("tenantPortal.payments.options.todayTitle")}</p>
+          <h3 className="mt-2 text-lg font-semibold text-slate-900">
+            {t("tenantPortal.payments.options.todayHeading")}
+          </h3>
+          <p className="mt-2 text-sm text-slate-600">
+            {t("tenantPortal.payments.options.todayBody")}
+          </p>
+        </Card>
+      </div>
 
       {!loading && !err ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -137,9 +178,14 @@ export function TenantPaymentsContent({ rows = [], loading = false, err = null, 
 export default function TenantPayments() {
   const { activeAccountId, accountLoading } = useAccount();
   const { t } = useI18n();
+  const { setTitle } = usePageTitle();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
+
+  useEffect(() => {
+    setTitle(t("payments.title"));
+  }, [setTitle, t]);
 
   async function load() {
     if (!activeAccountId) return;

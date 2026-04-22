@@ -1,5 +1,5 @@
 // src/App.jsx
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { useState, useEffect, lazy, Suspense } from "react";
 
 import Login from "./pages/Login";
@@ -18,9 +18,8 @@ import {
 import { getAccountOwnerContact } from "./services/accountOwnerService";
 
 // IMPORTANT: use searchDocuments so we can scope by accountId
-import { searchDocuments } from "./services/documentService";
-
 import AppLayout from "./layout/AppLayout";
+import TenantPortalLayout from "./layout/TenantPortalLayout";
 import { useAccount } from "./context/AccountContext";
 import { useI18n } from "./context/I18nContext";
 import { OCCUPANCY_STATUS } from "./utils/statuses";
@@ -70,6 +69,20 @@ function EntitledRoute({ feature, children }) {
   return <FeatureAccessCard feature={feature} currentPlan={activePlan} />;
 }
 
+function isTenantRole(activeRole) {
+  return String(activeRole || "").toLowerCase() === "tenant";
+}
+
+function TenantOnlyRoute({ children }) {
+  const { activeRole } = useAccount();
+  return isTenantRole(activeRole) ? children : <Navigate to="/dashboard" replace />;
+}
+
+function TenantPropertyDetailsRedirect() {
+  const { id } = useParams();
+  return <Navigate to={id ? `/tenant/property/${id}` : "/tenant/property"} replace />;
+}
+
 export default function App() {
   const { t } = useI18n();
   const location = useLocation();
@@ -82,6 +95,7 @@ export default function App() {
      ACCOUNT (NEW)
      ====================== */
   const { activeAccountId, activeAccount, activeRole, accountLoading, activePlan } = useAccount();
+  const tenantRole = isTenantRole(activeRole);
 
   /* ======================
      DATA HOOKS
@@ -112,38 +126,7 @@ export default function App() {
   const [isAddPropertyOpen, setIsAddPropertyOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState(null);
 
-  const [documents, setDocuments] = useState([]);
   const [accountOwnerEmail, setAccountOwnerEmail] = useState("");
-
-  /* ======================
-     DOCUMENTS (ACCOUNT-SCOPED)
-     ====================== */
-  async function loadDocuments() {
-    if (!activeAccountId) return;
-
-    try {
-      const data = await searchDocuments({
-        query: "",
-        tags: [],
-        tenantId: null,
-        propertyId: null,
-        accountId: activeAccountId,
-        // onlyUploaded defaults to true in your newer service
-      });
-
-      setDocuments(data);
-    } catch (e) {
-      console.error("loadDocuments failed:", e);
-      setDocuments([]);
-    }
-  }
-
-  useEffect(() => {
-    if (session && activeAccountId) {
-      loadDocuments();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, activeAccountId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -159,7 +142,7 @@ export default function App() {
         if (!cancelled) {
           setAccountOwnerEmail(owner?.ownerEmail || "");
         }
-      } catch (e) {
+      } catch {
         if (!cancelled) setAccountOwnerEmail("");
       }
     }
@@ -329,145 +312,157 @@ export default function App() {
         <Route
           path="dashboard"
           element={
-            <Dashboard
-              loading={propertiesLoading || paymentsLoading || tenantsLoading}
-              properties={ownerProperties}
-              tenants={ownerTenants}
-              payments={payments}
-              occupiedCount={occupiedCount}
-              vacantCount={vacantCount}
-              occupancyRate={occupancyRate}
-              longVacantProperties={longVacantProperties}
-            />
+            tenantRole ? (
+              <Navigate to="/tenant/home" replace />
+            ) : (
+              <Dashboard
+                loading={propertiesLoading || paymentsLoading || tenantsLoading}
+                properties={ownerProperties}
+                tenants={ownerTenants}
+                payments={payments}
+                occupiedCount={occupiedCount}
+                vacantCount={vacantCount}
+                occupancyRate={occupancyRate}
+                longVacantProperties={longVacantProperties}
+              />
+            )
           }
         />
 
         <Route
           path="properties"
           element={
-            <>
-              <Properties
-                loading={propertiesLoading}
-                properties={ownerProperties}
-                tenants={ownerTenants}
-                activePlan={safeActivePlan}
-                onAddProperty={openAddPropertyModal}
-                onEditProperty={(p) => {
-                  setEditingProperty(p);
-                  setIsAddPropertyOpen(true);
-                }}
-                onDeleteProperty={async (propertyId) => {
-                  if (!confirm(t("properties.confirmDelete"))) return;
-                  await deleteProperty(propertyId);
-                }}
-              />
+            tenantRole ? (
+              <Navigate to="/tenant/property" replace />
+            ) : (
+              <>
+                <Properties
+                  loading={propertiesLoading}
+                  properties={ownerProperties}
+                  tenants={ownerTenants}
+                  activePlan={safeActivePlan}
+                  onAddProperty={openAddPropertyModal}
+                  onEditProperty={(p) => {
+                    setEditingProperty(p);
+                    setIsAddPropertyOpen(true);
+                  }}
+                  onDeleteProperty={async (propertyId) => {
+                    if (!confirm(t("properties.confirmDelete"))) return;
+                    await deleteProperty(propertyId);
+                  }}
+                />
 
-              <AddPropertyModal
-                isOpen={isAddPropertyOpen}
-                onClose={() => {
-                  setIsAddPropertyOpen(false);
-                  setEditingProperty(null);
-                }}
-                onSave={async (property) => {
-                  if (!property.id) {
-                    if (!canCreateMoreProperties) {
-                      window.alert(
-                        t("properties.limitReached", {
-                          plan: t(`billing.plan.${safeActivePlan}`),
-                          count: ownerProperties.length,
-                          limit: propertyPlanLimit,
-                        }),
-                      );
-                      return;
+                <AddPropertyModal
+                  isOpen={isAddPropertyOpen}
+                  onClose={() => {
+                    setIsAddPropertyOpen(false);
+                    setEditingProperty(null);
+                  }}
+                  onSave={async (property) => {
+                    if (!property.id) {
+                      if (!canCreateMoreProperties) {
+                        window.alert(
+                          t("properties.limitReached", {
+                            plan: t(`billing.plan.${safeActivePlan}`),
+                            count: ownerProperties.length,
+                            limit: propertyPlanLimit,
+                          }),
+                        );
+                        return;
+                      }
+                      assertUsageCapacity(safeActivePlan, "properties", ownerProperties.length);
                     }
-                    assertUsageCapacity(safeActivePlan, "properties", ownerProperties.length);
-                  }
-                  const payload = {
-                    ...property,
-                    accountId: activeAccountId, // ✅ CRITICAL
-                  };
+                    const payload = {
+                      ...property,
+                      accountId: activeAccountId, // ✅ CRITICAL
+                    };
 
-                  const savedProperty = property.id
-                    ? await updateProperty(property.id, payload)
-                    : await createProperty(payload);
+                    const savedProperty = property.id
+                      ? await updateProperty(property.id, payload)
+                      : await createProperty(payload);
 
-                  await saveEntityCustomFieldValues({
-                    accountId: activeAccountId,
-                    entityId: savedProperty?.id || property.id,
-                    definitions: property.customFieldDefinitions,
-                    values: property.customFieldValues,
-                  });
+                    await saveEntityCustomFieldValues({
+                      accountId: activeAccountId,
+                      entityId: savedProperty?.id || property.id,
+                      definitions: property.customFieldDefinitions,
+                      values: property.customFieldValues,
+                    });
 
-                  setIsAddPropertyOpen(false);
-                  setEditingProperty(null);
-                }}
-                property={editingProperty}
-                tenants={ownerTenants}
-                owners={owners}
-              />
-            </>
+                    setIsAddPropertyOpen(false);
+                    setEditingProperty(null);
+                  }}
+                  property={editingProperty}
+                  tenants={ownerTenants}
+                  owners={owners}
+                />
+              </>
+            )
           }
         />
 
         <Route
           path="properties/:id"
           element={
-            <>
-              <PropertyDetails
-                loading={propertiesLoading || tenantsLoading}
-                properties={ownerProperties}
-                tenants={ownerTenants}
-                payments={ownerPayments}
-                onEditProperty={(p) => {
-                  setEditingProperty(p);
-                  setIsAddPropertyOpen(true);
-                }}
-              />
+            tenantRole ? (
+              <TenantPropertyDetailsRedirect />
+            ) : (
+              <>
+                <PropertyDetails
+                  loading={propertiesLoading || tenantsLoading}
+                  properties={ownerProperties}
+                  tenants={ownerTenants}
+                  payments={ownerPayments}
+                  onEditProperty={(p) => {
+                    setEditingProperty(p);
+                    setIsAddPropertyOpen(true);
+                  }}
+                />
 
-              <AddPropertyModal
-                isOpen={isAddPropertyOpen}
-                onClose={() => {
-                  setIsAddPropertyOpen(false);
-                  setEditingProperty(null);
-                }}
-                onSave={async (property) => {
-                  if (!property.id) {
-                    if (!canCreateMoreProperties) {
-                      window.alert(
-                        t("properties.limitReached", {
-                          plan: t(`billing.plan.${safeActivePlan}`),
-                          count: ownerProperties.length,
-                          limit: propertyPlanLimit,
-                        }),
-                      );
-                      return;
+                <AddPropertyModal
+                  isOpen={isAddPropertyOpen}
+                  onClose={() => {
+                    setIsAddPropertyOpen(false);
+                    setEditingProperty(null);
+                  }}
+                  onSave={async (property) => {
+                    if (!property.id) {
+                      if (!canCreateMoreProperties) {
+                        window.alert(
+                          t("properties.limitReached", {
+                            plan: t(`billing.plan.${safeActivePlan}`),
+                            count: ownerProperties.length,
+                            limit: propertyPlanLimit,
+                          }),
+                        );
+                        return;
+                      }
+                      assertUsageCapacity(safeActivePlan, "properties", ownerProperties.length);
                     }
-                    assertUsageCapacity(safeActivePlan, "properties", ownerProperties.length);
-                  }
-                  const payload = {
-                    ...property,
-                    accountId: activeAccountId,
-                  };
+                    const payload = {
+                      ...property,
+                      accountId: activeAccountId,
+                    };
 
-                  const savedProperty = property.id
-                    ? await updateProperty(property.id, payload)
-                    : await createProperty(payload);
+                    const savedProperty = property.id
+                      ? await updateProperty(property.id, payload)
+                      : await createProperty(payload);
 
-                  await saveEntityCustomFieldValues({
-                    accountId: activeAccountId,
-                    entityId: savedProperty?.id || property.id,
-                    definitions: property.customFieldDefinitions,
-                    values: property.customFieldValues,
-                  });
+                    await saveEntityCustomFieldValues({
+                      accountId: activeAccountId,
+                      entityId: savedProperty?.id || property.id,
+                      definitions: property.customFieldDefinitions,
+                      values: property.customFieldValues,
+                    });
 
-                  setIsAddPropertyOpen(false);
-                  setEditingProperty(null);
-                }}
-                property={editingProperty}
-                tenants={ownerTenants}
-                owners={owners}
-              />
-            </>
+                    setIsAddPropertyOpen(false);
+                    setEditingProperty(null);
+                  }}
+                  property={editingProperty}
+                  tenants={ownerTenants}
+                  owners={owners}
+                />
+              </>
+            )
           }
         />
 
@@ -494,9 +489,6 @@ export default function App() {
           }
         />
 
-        {/* ✅ A) Tenant Payments */}
-        <Route path="tenant/payments" element={<TenantPayments />} />
-
         <Route
           path="finance"
           element={<FinancePage />}
@@ -505,7 +497,13 @@ export default function App() {
         {/* ✅ Documents route */}
         <Route
           path="documents"
-          element={<Documents tenants={tenants} properties={properties} />}
+          element={
+            tenantRole ? (
+              <Navigate to="/tenant/documents" replace />
+            ) : (
+              <Documents tenants={tenants} properties={properties} />
+            )
+          }
         />
         <Route path="maintenance-inbox" element={<MaintenanceInboxPage />} />
         <Route
@@ -534,7 +532,10 @@ export default function App() {
         />
         <Route path="landlord-onboarding" element={<LandlordOnboardingPage />} />
         <Route path="invitations" element={<InvitationsPage />} />
-              <Route path="settings/profile" element={<ProfilePage />} />
+              <Route
+                path="settings/profile"
+                element={tenantRole ? <Navigate to="/tenant/profile" replace /> : <ProfilePage />}
+              />
               <Route path="settings/branding" element={<AccountBrandingPage />} />
               <Route path="settings/billing" element={<BillingPage />} />
               <Route path="settings/roles" element={<RolesManagementPage />} />
@@ -579,6 +580,60 @@ export default function App() {
 
         {/* ✅ Catch-all MUST be absolute to avoid /dashboard/dashboard loops */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Route>
+
+        <Route
+          path="tenant"
+          element={
+            <TenantOnlyRoute>
+              <TenantPortalLayout />
+            </TenantOnlyRoute>
+          }
+        >
+          <Route index element={<Navigate to="/tenant/home" replace />} />
+          <Route
+            path="home"
+            element={
+              <Dashboard
+                loading={propertiesLoading || paymentsLoading || tenantsLoading}
+                properties={ownerProperties}
+                tenants={ownerTenants}
+                payments={payments}
+                occupiedCount={occupiedCount}
+                vacantCount={vacantCount}
+                occupancyRate={occupancyRate}
+                longVacantProperties={longVacantProperties}
+              />
+            }
+          />
+          <Route
+            path="property"
+            element={
+              <Properties
+                loading={propertiesLoading}
+                properties={ownerProperties}
+                tenants={ownerTenants}
+                activePlan={safeActivePlan}
+              />
+            }
+          />
+          <Route
+            path="property/:id"
+            element={
+              <PropertyDetails
+                loading={propertiesLoading || tenantsLoading}
+                properties={ownerProperties}
+                tenants={ownerTenants}
+                payments={ownerPayments}
+              />
+            }
+          />
+          <Route
+            path="documents"
+            element={<Documents tenants={tenants} properties={properties} />}
+          />
+          <Route path="payments" element={<TenantPayments />} />
+          <Route path="profile" element={<ProfilePage />} />
         </Route>
       </Routes>
     </Suspense>

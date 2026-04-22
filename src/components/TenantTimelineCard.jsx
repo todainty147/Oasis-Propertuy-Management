@@ -130,10 +130,14 @@ function PaginationFooter({ page, totalPages, totalCount, pageSize, onPrev, onNe
 function normalizeLinkForViewer(event, viewer, property) {
   if (viewer !== "tenant") return event?.linkPath || "";
   const type = String(event?.type || "").toLowerCase();
+  const rawPath = String(event?.linkPath || "");
   if (type.startsWith("payment_")) return "/tenant/payments";
-  if (type.startsWith("document_")) return "/documents";
+  if (type.startsWith("document_") || rawPath.startsWith("/documents")) return "/tenant/documents";
   if (type.includes("maintenance") || type.includes("work_order") || type.includes("request_status") || type.includes("contractor_assigned")) {
-    return property?.id ? `/properties/${property.id}` : "";
+    return property?.id ? `/tenant/property/${property.id}` : "";
+  }
+  if (rawPath.startsWith("/properties/")) {
+    return property?.id ? `/tenant/property/${property.id}` : "/tenant/property";
   }
   return "";
 }

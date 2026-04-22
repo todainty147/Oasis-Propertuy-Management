@@ -245,8 +245,8 @@ function SidebarContent({ onNavigate }) {
                 {t("sidebar.section.core")}
               </p>
               <div className="space-y-1">
-              <Item to="/dashboard" icon={LayoutDashboard} label={t("sidebar.dashboard")} onNavigate={onNavigate} />
-              <Item to="/properties" icon={Home} label={t("sidebar.properties")} onNavigate={onNavigate} />
+              <Item to={isTenant ? "/tenant/home" : "/dashboard"} icon={LayoutDashboard} label={t("sidebar.dashboard")} onNavigate={onNavigate} />
+              <Item to={isTenant ? "/tenant/property" : "/properties"} icon={Home} label={t("sidebar.properties")} onNavigate={onNavigate} />
               {!isTenant && (
                 <Item to="/tenants" icon={Users} label={t("sidebar.tenants")} onNavigate={onNavigate} />
               )}
@@ -256,7 +256,7 @@ function SidebarContent({ onNavigate }) {
                 label={t("sidebar.finance")}
                 onNavigate={onNavigate}
               />
-              <Item to="/documents" icon={FileText} label={t("sidebar.documents")} onNavigate={onNavigate} />
+              <Item to={isTenant ? "/tenant/documents" : "/documents"} icon={FileText} label={t("sidebar.documents")} onNavigate={onNavigate} />
               </div>
             </div>
 
