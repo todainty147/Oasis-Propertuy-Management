@@ -44,7 +44,7 @@ export function TenantPaymentsContent({ rows = [], loading = false, err = null, 
       {!loading && !err ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <Card className="p-5">
-            <p className="text-sm font-medium text-slate-500">{t("tenantPortal.card.payments")}</p>
+            <p className="text-sm font-medium text-slate-500">{t("tenantPortal.payments.summary.outstanding")}</p>
             <p className="mt-2 text-2xl font-semibold text-slate-900">
               {formatCurrencyAmount(summary.outstanding)}
             </p>
@@ -57,21 +57,21 @@ export function TenantPaymentsContent({ rows = [], loading = false, err = null, 
             </p>
           </Card>
           <Card className="p-5">
-            <p className="text-sm font-medium text-slate-500">{t("finance.table.paid")}</p>
+            <p className="text-sm font-medium text-slate-500">{t("tenantPortal.payments.summary.paid")}</p>
             <p className="mt-2 text-2xl font-semibold text-slate-900">
               {formatCurrencyAmount(summary.paid)}
             </p>
             <p className="mt-2 text-sm text-slate-500">
-              {t("dashboard.tenantPaymentHistory")}
+              {t("tenantPortal.payments.summary.paidHelper")}
             </p>
           </Card>
           <Card className="p-5">
-            <p className="text-sm font-medium text-slate-500">{t("tenantPortal.payments.upcoming")}</p>
+            <p className="text-sm font-medium text-slate-500">{t("tenantPortal.payments.summary.review")}</p>
             <p className="mt-2 text-2xl font-semibold text-slate-900">
               {summary.dueOrOverdueCount}
             </p>
             <p className="mt-2 text-sm text-slate-500">
-              {t("dashboard.tenantDueOverdueCount", { count: summary.dueOrOverdueCount })}
+              {t("tenantPortal.payments.summary.reviewHelper", { count: summary.dueOrOverdueCount })}
             </p>
           </Card>
         </div>

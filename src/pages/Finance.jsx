@@ -87,7 +87,7 @@ export default function Finance({
   onAddPayment,
   onDeletePayment,
 }) {
-  const { accountLoading, activeRole, activePermissionContext, isRootOperator } = useAccount();
+  const { accountLoading, activePermissionContext, isRootOperator } = useAccount();
   const { setTitle } = usePageTitle();
   const { t } = useI18n();
   const [searchParams] = useSearchParams();
@@ -118,42 +118,57 @@ export default function Finance({
   const rangeFilter = useMemo(() => String(searchParams.get("range") || "").toLowerCase(), [searchParams]);
   const bucketFilter = useMemo(() => String(searchParams.get("bucket") || "").toLowerCase(), [searchParams]);
 
-  const filteredPayments = useMemo(() => {
+  const filteredPayments = (payments || []).filter((p) => {
     const now = new Date();
     const soon = new Date(now.getTime() + 7 * 24 * 3600000);
-    return (payments || []).filter((p) => {
-      const s = normalizePaymentStatus(p.status);
-      if (statusFilterValues.length > 0 && !statusFilterValues.includes(s)) return false;
+    const s = normalizePaymentStatus(p.status);
+    if (statusFilterValues.length > 0 && !statusFilterValues.includes(s)) return false;
 
-      const due = p?.dueDate ? new Date(p.dueDate) : null;
-      const hasDue = due && !Number.isNaN(due.getTime());
+    const due = p?.dueDate ? new Date(p.dueDate) : null;
+    const hasDue = due && !Number.isNaN(due.getTime());
 
-      if (rangeFilter === "7d") {
-        if (!hasDue) return false;
-        if (s === "paid") return false;
-        if (due < now || due > soon) return false;
-      }
-      if (rangeFilter === "1d") {
-        if (!hasDue) return false;
-        if (s === "paid") return false;
-        const tomorrow = new Date(now.getTime() + 24 * 3600000);
-        if (due < now || due > tomorrow) return false;
-      }
+    if (rangeFilter === "7d") {
+      if (!hasDue) return false;
+      if (s === "paid") return false;
+      if (due < now || due > soon) return false;
+    }
+    if (rangeFilter === "1d") {
+      if (!hasDue) return false;
+      if (s === "paid") return false;
+      const tomorrow = new Date(now.getTime() + 24 * 3600000);
+      if (due < now || due > tomorrow) return false;
+    }
 
-      if (bucketFilter) {
-        if (!hasDue) return false;
-        if (s !== "overdue") return false;
-        const days = Math.floor((now.getTime() - due.getTime()) / 86400000);
-        if (bucketFilter === "0_7" && (days < 0 || days > 7)) return false;
-        if (bucketFilter === "8_30" && (days < 8 || days > 30)) return false;
-        if (bucketFilter === "30_plus" && days < 31) return false;
-      }
+    if (bucketFilter) {
+      if (!hasDue) return false;
+      if (s !== "overdue") return false;
+      const days = Math.floor((now.getTime() - due.getTime()) / 86400000);
+      if (bucketFilter === "0_7" && (days < 0 || days > 7)) return false;
+      if (bucketFilter === "8_30" && (days < 8 || days > 30)) return false;
+      if (bucketFilter === "30_plus" && days < 31) return false;
+    }
 
-      return true;
-    });
-  }, [payments, statusFilterValues, rangeFilter, bucketFilter]);
+    return true;
+  });
 
   const hasActiveFilters = statusFilterValues.length > 0 || !!rangeFilter || !!bucketFilter;
+
+  const filterSummaryLabel = useMemo(() => {
+    if (bucketFilter === "0_7") return t("finance.filtered.bucket0_7");
+    if (bucketFilter === "8_30") return t("finance.filtered.bucket8_30");
+    if (bucketFilter === "30_plus") return t("finance.filtered.bucket30Plus");
+    if (rangeFilter === "1d") return t("finance.filtered.dueToday");
+    if (rangeFilter === "7d") return t("finance.filtered.dueSoon");
+    if (statusFilterValues.length === 1) {
+      const [status] = statusFilterValues;
+      if (status === "overdue") return t("finance.filtered.overdue");
+      if (status === "pending") return t("finance.filtered.pending");
+      if (status === "paid") return t("finance.filtered.paid");
+      if (status === "partial") return t("finance.filtered.partial");
+    }
+    if (statusFilterValues.length > 1) return t("finance.filtered.custom");
+    return "";
+  }, [bucketFilter, rangeFilter, statusFilterValues, t]);
 
   const summaryView = useMemo(() => {
     if (!hasActiveFilters) return summary;
@@ -170,14 +185,6 @@ export default function Finance({
     const ids = new Set(filteredPayments.map((p) => String(p.propertyId)));
     return (propertyFinance || []).filter((pf) => ids.has(String(pf.propertyId)));
   }, [propertyFinance, filteredPayments, hasActiveFilters]);
-
-  useEffect(() => {
-    setPropertyPage(1);
-  }, [propertyPageSize, propertyFinanceView.length]);
-
-  useEffect(() => {
-    setPaymentsPage(1);
-  }, [paymentsPageSize, filteredPayments.length, statusFilterValues, rangeFilter, bucketFilter]);
 
   const propertyTotalPages = Math.max(1, Math.ceil(propertyFinanceView.length / propertyPageSize));
   const paymentsTotalPages = Math.max(1, Math.ceil(filteredPayments.length / paymentsPageSize));
@@ -237,18 +244,48 @@ export default function Finance({
         body={t("onboarding.hints.finance.body")}
       />
 
+      {hasActiveFilters ? (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <p className="font-medium">{t("finance.filtered.title")}</p>
+          <p className="mt-1 text-blue-800">
+            {filterSummaryLabel || t("finance.filtered.custom")}
+          </p>
+        </div>
+      ) : null}
+
       {/* SUMMARY */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <SummaryCard label={t("finance.summary.received")} value={summaryView?.totalIncome ?? 0} color="text-green-600" />
-        <SummaryCard label={t("finance.summary.overdue")} value={summaryView?.overdueIncome ?? 0} color="text-red-600" />
-        <SummaryCard label={t("finance.summary.dueSoon")} value={summaryView?.dueSoonIncome ?? 0} color="text-blue-600" />
-        <SummaryCard label={t("finance.summary.outstanding")} value={summaryView?.outstandingIncome ?? 0} color="text-violet-600" />
+        <SummaryCard
+          label={t("finance.summary.received")}
+          value={summaryView?.totalIncome ?? 0}
+          color="text-green-600"
+          helper={t("finance.summary.receivedHelper")}
+        />
+        <SummaryCard
+          label={t("finance.summary.overdue")}
+          value={summaryView?.overdueIncome ?? 0}
+          color="text-red-600"
+          helper={t("finance.summary.overdueHelper")}
+        />
+        <SummaryCard
+          label={t("finance.summary.dueSoon")}
+          value={summaryView?.dueSoonIncome ?? 0}
+          color="text-blue-600"
+          helper={t("finance.summary.dueSoonHelper")}
+        />
+        <SummaryCard
+          label={t("finance.summary.outstanding")}
+          value={summaryView?.outstandingIncome ?? 0}
+          color="text-violet-600"
+          helper={t("finance.summary.outstandingHelper")}
+        />
       </div>
 
       {/* PROPERTY FINANCE */}
       <div className="bg-white rounded-xl border overflow-hidden">
         <div className="px-6 py-4 border-b">
           <h2 className="font-semibold">{t("finance.byProperty")}</h2>
+          <p className="mt-1 text-sm text-slate-500">{t("finance.byPropertySubtitle")}</p>
         </div>
 
         {propertyFinanceView.length === 0 ? (
@@ -301,7 +338,10 @@ export default function Finance({
       {/* PAYMENTS */}
       <div className="bg-white rounded-xl border overflow-hidden">
         <div className="px-6 py-4 border-b flex items-center justify-between">
-          <h2 className="font-semibold">{t("payments.title")}</h2>
+          <div>
+            <h2 className="font-semibold">{t("payments.title")}</h2>
+            <p className="mt-1 text-sm text-slate-500">{t("finance.paymentsSubtitle")}</p>
+          </div>
 
           {!canCreate && (
             <span className="text-xs text-slate-500">
@@ -335,7 +375,14 @@ export default function Finance({
                     <td className="px-6 py-3">
                       <StatusBadge status={p.status} t={t} />
                     </td>
-                    <td className="px-6 py-3">{p.dueDate}</td>
+                    <td className="px-6 py-3">
+                      <div>{formatDate(p.dueDate)}</div>
+                      {p.paidAt ? (
+                        <div className="text-xs text-slate-500">
+                          {t("payments.paidAt")}: {formatDate(p.paidAt)}
+                        </div>
+                      ) : null}
+                    </td>
 
                     <td className="px-6 py-3 text-right">
                       {canDelete ? (
@@ -377,13 +424,14 @@ export default function Finance({
    HELPERS
    ====================== */
 
-function SummaryCard({ label, value, color }) {
+function SummaryCard({ label, value, color, helper = "" }) {
   return (
     <div className="bg-white border rounded-xl p-6">
       <p className="text-sm text-gray-500">{label}</p>
       <p className={`text-2xl font-semibold ${color}`}>
         {formatCurrency(value)}
       </p>
+      {helper ? <p className="mt-2 text-sm text-slate-500">{helper}</p> : null}
     </div>
   );
 }
@@ -477,4 +525,11 @@ function StatusBadge({ status, t }) {
 
 function formatCurrency(value = 0) {
   return formatCurrencyAmount(value);
+}
+
+function formatDate(value) {
+  if (!value) return "—";
+  const next = new Date(value);
+  if (Number.isNaN(next.getTime())) return String(value);
+  return next.toLocaleDateString();
 }
