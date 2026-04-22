@@ -43,6 +43,19 @@ function formatDateTime(ts) {
   return d.toLocaleString();
 }
 
+function requestOwnerLabel(status, t) {
+  const value = String(status || "").trim().toLowerCase();
+  if (value === "resolved" || value === "closed") return t("tenantDashboard.owner.complete");
+  return t("tenantDashboard.owner.landlord");
+}
+
+function workOrderOwnerLabel(status, t) {
+  const value = String(status || "").trim().toLowerCase();
+  if (["completed", "cancelled"].includes(value)) return t("tenantDashboard.owner.complete");
+  if (["assigned", "in_progress", "blocked"].includes(value)) return t("tenantDashboard.owner.contractor");
+  return t("tenantDashboard.owner.landlord");
+}
+
 /**
  * TenantMaintenanceDashboard
  * - If propertyId is provided => scoped view for that property
@@ -197,6 +210,9 @@ export default function TenantMaintenanceDashboard({
                           {t("tenantDashboard.createdAt", { value: formatDateTime(r.created_at) })}
                         </div>
                         <div className="mt-1 text-xs text-slate-500">
+                          {t("tenantDashboard.currentlyWith", { value: requestOwnerLabel(r.status, t) })}
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500">
                           {st.helper}
                         </div>
                       </div>
@@ -236,6 +252,9 @@ export default function TenantMaintenanceDashboard({
                               {String(wo.last_cancel_resolution_action).replaceAll("_", " ")}
                             </span>
                           )}
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          {t("tenantDashboard.currentlyWith", { value: workOrderOwnerLabel(wo.status, t) })}
                         </div>
                         <div className="mt-1 text-xs text-slate-500">{st.helper}</div>
                       </div>

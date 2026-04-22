@@ -395,6 +395,27 @@ export default function MaintenanceInboxPage() {
         body={t("onboarding.hints.maintenance.body")}
       />
 
+      <div className="rounded-xl border bg-white p-4">
+        <div>
+          <p className="font-semibold text-slate-900">{t("maintenance.inbox.handoff.title")}</p>
+          <p className="text-sm text-slate-500 mt-1">{t("maintenance.inbox.subtitle")}</p>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-sm font-semibold text-slate-900">{t("maintenance.inbox.handoff.reviewTitle")}</p>
+            <p className="mt-1 text-sm text-slate-600">{t("maintenance.inbox.handoff.reviewBody")}</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-sm font-semibold text-slate-900">{t("maintenance.inbox.handoff.assignTitle")}</p>
+            <p className="mt-1 text-sm text-slate-600">{t("maintenance.inbox.handoff.assignBody")}</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-sm font-semibold text-slate-900">{t("maintenance.inbox.handoff.trackTitle")}</p>
+            <p className="mt-1 text-sm text-slate-600">{t("maintenance.inbox.handoff.trackBody")}</p>
+          </div>
+        </div>
+      </div>
+
       <div className="text-sm text-slate-600 px-1">
         {t("maintenance.inbox.total")}: <span className="font-medium text-slate-900">{ageFilter || woStatusFilter ? requestsAfterWoFilter.length : totalCount}</span>
       </div>

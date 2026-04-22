@@ -79,15 +79,6 @@ function translateWorkOrderStatus(status, t) {
   return status || t("workOrder.shortLabel");
 }
 
-function normalizeQuoteStatus(status) {
-  const s = String(status ?? "").trim().toLowerCase();
-  if (["draft", "szkic"].includes(s)) return "draft";
-  if (["submitted", "wysłano", "wyslano"].includes(s)) return "submitted";
-  if (["approved", "zatwierdzone", "zatwierdzono"].includes(s)) return "approved";
-  if (["rejected", "odrzucone", "odrzucono"].includes(s)) return "rejected";
-  return s;
-}
-
 function isRatingsUnavailableError(err) {
   const msg = String(err?.message || "").toLowerCase();
   return (
@@ -196,6 +187,93 @@ function StatusPill({ status, labels, t }) {
   );
 }
 
+function getWorkflowSummary(workOrder, t) {
+  if (!workOrder) {
+    return {
+      stage: "—",
+      owner: t("workOrder.flow.owner.landlord"),
+      nextStep: "—",
+    };
+  }
+
+  const status = normalizeWorkOrderStatus(workOrder.status);
+  const ackStatus = normalizeAckStatus(
+    workOrder.acknowledgement_status,
+    workOrder.acknowledged_at,
+    workOrder.acknowledgement_due_at,
+  );
+
+  if (workOrder.pending_cancel_request) {
+    return {
+      stage: t("workOrder.flow.stage.cancelRequest"),
+      owner: t("workOrder.flow.owner.landlord"),
+      nextStep: t("workOrder.flow.next.cancel"),
+    };
+  }
+
+  if (!workOrder.contractor_name && !workOrder.contractor_user_id) {
+    return {
+      stage: t("workOrder.flow.stage.assignment"),
+      owner: t("workOrder.flow.owner.landlord"),
+      nextStep: t("workOrder.flow.next.assign"),
+    };
+  }
+
+  if (["pending", "overdue"].includes(ackStatus)) {
+    return {
+      stage: t("workOrder.flow.stage.awaitingAck"),
+      owner: t("workOrder.flow.owner.contractor"),
+      nextStep: t("workOrder.flow.next.ack"),
+    };
+  }
+
+  if (status === "assigned") {
+    return {
+      stage: t("workOrder.flow.stage.scheduled"),
+      owner: t("workOrder.flow.owner.contractor"),
+      nextStep: t("workOrder.flow.next.start"),
+    };
+  }
+
+  if (status === "blocked") {
+    return {
+      stage: t("workOrder.flow.stage.blocked"),
+      owner: t("workOrder.flow.owner.landlord"),
+      nextStep: t("workOrder.flow.next.blocked"),
+    };
+  }
+
+  if (status === "in_progress") {
+    return {
+      stage: t("workOrder.flow.stage.inProgress"),
+      owner: t("workOrder.flow.owner.contractor"),
+      nextStep: t("workOrder.flow.next.progress"),
+    };
+  }
+
+  if (status === "completed") {
+    return {
+      stage: t("workOrder.flow.stage.completed"),
+      owner: t("workOrder.flow.owner.landlord"),
+      nextStep: t("workOrder.flow.next.completed"),
+    };
+  }
+
+  if (status === "cancelled") {
+    return {
+      stage: t("workOrder.flow.stage.cancelled"),
+      owner: t("workOrder.flow.owner.complete"),
+      nextStep: t("workOrder.flow.next.closed"),
+    };
+  }
+
+  return {
+    stage: t("workOrder.flow.stage.scheduled"),
+    owner: t("workOrder.flow.owner.contractor"),
+    nextStep: t("workOrder.flow.next.start"),
+  };
+}
+
 export default function WorkOrderDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -227,6 +305,7 @@ export default function WorkOrderDetails() {
   const [ratingValue, setRatingValue] = useState("");
   const [ratingComment, setRatingComment] = useState("");
   const slaState = useMemo(() => workOrderSlaState(wo), [wo]);
+  const workflowSummary = useMemo(() => getWorkflowSummary(wo, t), [wo, t]);
 
   useEffect(() => {
     setTitle(t("workOrder.shortLabel"));
@@ -549,6 +628,27 @@ export default function WorkOrderDetails() {
             {wo.notes}
           </div>
         )}
+      </Card>
+
+      <Card className="p-6">
+        <div>
+          <p className="font-semibold text-slate-900">{t("workOrder.flowTitle")}</p>
+          <p className="text-xs text-slate-500 mt-1">{t("workOrder.flowSubtitle")}</p>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs text-slate-500">{t("workOrder.flow.stage")}</p>
+            <p className="text-sm font-semibold text-slate-900 mt-1">{workflowSummary.stage}</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs text-slate-500">{t("workOrder.flow.owner")}</p>
+            <p className="text-sm font-semibold text-slate-900 mt-1">{workflowSummary.owner}</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs text-slate-500">{t("workOrder.flow.nextStep")}</p>
+            <p className="text-sm font-semibold text-slate-900 mt-1">{workflowSummary.nextStep}</p>
+          </div>
+        </div>
       </Card>
 
       <Card className="p-6">

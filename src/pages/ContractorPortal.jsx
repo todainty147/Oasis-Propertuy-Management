@@ -94,6 +94,27 @@ function deriveJobTitle(wo, t) {
   return shortText(firstLine || fromNotes, 56);
 }
 
+function ackStateForRow(wo) {
+  if (wo?.acknowledged_at) return "acknowledged";
+  const value = String(wo?.acknowledgement_status || "").trim().toLowerCase();
+  if (value === "acknowledged") return "acknowledged";
+  if (value === "not_required") return "not_required";
+  if (wo?.acknowledgement_due_at) {
+    const due = new Date(wo.acknowledgement_due_at);
+    if (!Number.isNaN(due.getTime()) && due.getTime() < Date.now()) return "overdue";
+  }
+  return value || "pending";
+}
+
+function contractorNextStep(wo, allowed, t) {
+  const ackState = ackStateForRow(wo);
+  if (["pending", "overdue"].includes(ackState)) return t("contractor.nextStep.ack");
+  if (allowed.includes("in_progress")) return t("contractor.nextStep.start");
+  if (allowed.includes("completed") || allowed.includes("blocked")) return t("contractor.nextStep.progress");
+  if (String(wo?.status || "").trim().toLowerCase() === "completed") return t("contractor.nextStep.complete");
+  return t("contractor.nextStep.review");
+}
+
 /* -----------------------------
    Page
 ----------------------------- */
@@ -298,6 +319,15 @@ export default function ContractorPortal() {
 
                   <div className="mt-3 text-sm text-slate-700 line-clamp-2">
                     {shortText(wo.issueDescription || wo.notes, 160) || t("workOrders.noIssueDescription")}
+                  </div>
+
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      {t("contractor.nextStepLabel")}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-700">
+                      {contractorNextStep(wo, allowed, t)}
+                    </p>
                   </div>
 
                   <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
