@@ -92,7 +92,7 @@ export const oasisVsLandlordStudioContent = {
       },
       {
         title: "You may be outgrowing simpler tools when",
-        body: "The question is no longer where to store information, but how to keep rent, repairs, documents, and follow-up moving together without dropped balls.",
+        body: "The question is no longer where to store information, but how to keep rent, repairs, documents, and follow-up moving together without dropped handoffs.",
       },
     ],
   },

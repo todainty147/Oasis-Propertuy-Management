@@ -4,12 +4,12 @@ export const rentalAccountingContent = {
   seo: {
     title: "Rental Accounting Software for Landlords | OASIS Rental",
     description:
-      "Track rent status, overdue balances, and portfolio payment pressure without rebuilding spreadsheets.",
+      "Track rent status, overdue balances, arrears pressure, and follow-up priority without rebuilding spreadsheets.",
     canonical: "https://oasisrental.com/features/rental-accounting",
   },
   hero: {
     eyebrow: "Rental accounting",
-    title: "See paid, due, and overdue rent without rebuilding spreadsheets",
+    title: "See paid, due, and overdue rent before follow-up slips",
     body:
       "OASIS gives landlords finance views built around follow-up: what is paid, what is due, what is overdue, and which properties are starting to show pressure.",
     imageSrc: "/screenshots/portfolio-health.png",
@@ -30,8 +30,8 @@ export const rentalAccountingContent = {
         body: "Without a clean payment picture, it is harder to see which tenants or properties need attention first.",
       },
       {
-        title: "Too much manual reporting",
-        body: "Landlords often rely on spreadsheets and notes to build the same summary over and over again.",
+        title: "Too much manual rebuilding",
+        body: "Landlords often rely on spreadsheets and notes to build the same arrears and cash-position summary over and over again.",
       },
     ],
     imageSrc: "/screenshots/property-performance.png",
@@ -39,7 +39,7 @@ export const rentalAccountingContent = {
   },
   solution: {
     eyebrow: "How OASIS helps",
-    title: "Rent tracking shaped around landlord follow-up and earlier intervention",
+    title: "Rent tracking shaped around arrears visibility and earlier intervention",
     body:
       "OASIS helps landlords see the rental numbers that matter day to day, with payment status tied to tenant context, property context, and the wider portfolio pressure building around them.",
     items: [
@@ -48,7 +48,7 @@ export const rentalAccountingContent = {
         body: "Track paid, due, and overdue income in a format that matches daily landlord decisions.",
       },
       {
-        title: "Follow issues faster",
+        title: "Prioritize follow-up faster",
         body: "Identify overdue balances, due-soon pressure, and focus follow-up where it will have the most operational impact.",
       },
       {
@@ -65,7 +65,7 @@ export const rentalAccountingContent = {
     imageAlign: "left" as const,
   },
   benefits: {
-    title: "What landlords gain when rent status is easier to read",
+    title: "What landlords gain when arrears are easier to read",
     items: [
       {
         title: "Cleaner oversight",

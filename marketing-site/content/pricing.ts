@@ -11,14 +11,14 @@ export const pricingContent = {
     eyebrow: "Pricing",
     title: "Choose the plan that matches how your portfolio runs",
     body:
-      "Start by moving off spreadsheets. Upgrade when the portfolio gets busier, missed follow-up costs more, and you need earlier signals around arrears, repairs, and operating pressure.",
+      "Start by moving off spreadsheets. Upgrade when arrears, repairs, and missed follow-up start costing more than the software ever will.",
     imageSrc: "/screenshots/command-center.png",
     imageAlt: "OASIS Command Center showing urgent queues, overdue balance, and action items across the portfolio.",
   },
   intro: {
     title: "Pricing is based on operating maturity, not vague feature bundles",
     body:
-      "Starter is for getting the rental operation organized. Growth is for landlords who need stronger control across a busier portfolio. Pro is for operators who want deeper review surfaces, playbooks, and more deliberate follow-through.",
+      "Starter is for getting the rental operation organized. Growth is for landlords who need stronger operational control across a busier portfolio. Pro is for operators who want deeper review surfaces, playbooks, and more deliberate follow-through.",
     imageSrc: "/screenshots/portfolio-health.png",
     imageAlt: "OASIS Portfolio Health dashboard showing occupancy, arrears aging, and maintenance pressure.",
   },
@@ -27,12 +27,12 @@ export const pricingContent = {
       name: "Starter",
       price: "Move off spreadsheets",
       description:
-        "For landlords who want the essential rental workflow in one place before admin spreads across trackers, folders, and message threads.",
+        "For landlords who want the essential rental workflow in one place before admin, arrears follow-up, and repair tracking spread across folders and message threads.",
       bullets: [
         "bring tenants, properties, and core records into one place",
         "see paid, due, and overdue rent",
         "capture maintenance requests and work orders",
-        "reduce the weekly spreadsheet rebuild",
+        "reduce the weekly spreadsheet rebuild and missed follow-up",
       ],
     },
     {
@@ -70,14 +70,14 @@ export const pricingContent = {
       "Rent status views for paid, due, and overdue balances",
       "Maintenance request and work order workflows",
       "Document storage tied to the rental work it supports",
-      "Landlord dashboards that make follow-up easier to prioritize",
+      "Landlord dashboards that make arrears and follow-up easier to prioritize",
     ],
   },
   faqs: [
     {
       question: "Which plan should I start with?",
       answer:
-        "Start with Starter if the main goal is getting off spreadsheets. Choose Growth if you already have enough rent, repair, and property activity that deciding what to do first is the harder problem. Choose Pro when you want deeper review, operational trust, and more disciplined follow-through.",
+        "Start with Starter if the main goal is getting off spreadsheets and disconnected trackers. Choose Growth if you already have enough rent, repair, and property activity that deciding what to do first is the harder problem. Choose Pro when you want deeper review, operational trust, and more disciplined follow-through.",
     },
     {
       question: "Why would I move from Starter to Growth?",
@@ -93,6 +93,11 @@ export const pricingContent = {
       question: "Does every plan still cover the core rental workflow?",
       answer:
         "Yes. OASIS keeps the core workflow focused on tenants, properties, rent status, maintenance, and records. The higher tiers add more control and review depth as operating complexity grows.",
+    },
+    {
+      question: "Does OASIS process tenant rent payments online today?",
+      answer:
+        "Not as a tenant-facing payment rail. The finance workflow today is centered on rent status visibility, arrears pressure, and follow-up rather than a built-in tenant pay-now checkout flow.",
     },
     {
       question: "Is OASIS priced for landlords rather than agencies?",

@@ -19,7 +19,7 @@ export const oasisVsBuildiumContent = {
     eyebrow: "High-level comparison",
     title: "Choose OASIS when speed and clarity matter more than platform sprawl",
     body:
-      "Paid-switch traffic usually is not asking which product has the most surface area. It is asking which product helps the team see the next action faster: overdue rent, repair bottlenecks, document context, and portfolio pressure.",
+      "Most switchers are not asking which product has the most surface area. They are asking which one helps the team see the next action faster: overdue rent, repair bottlenecks, document context, and portfolio pressure.",
     imageSrc: "/screenshots/portfolio-health.png",
     imageAlt: "OASIS Portfolio Health dashboard showing occupancy, arrears, and maintenance pressure.",
   },
@@ -99,7 +99,7 @@ export const oasisVsBuildiumContent = {
   finalCta: {
     title: "Need faster operations than a heavier platform gives you?",
     body:
-      "If you want clearer queues, faster repair follow-through, and earlier visibility into portfolio pressure, OASIS is worth a closer look.",
+      "If you want clearer queues, stronger repair follow-through, and earlier visibility into portfolio pressure, OASIS is worth a closer look.",
     primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
     secondaryCta: { label: "Compare Plans", href: "/pricing" },
   },
