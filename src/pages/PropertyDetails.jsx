@@ -205,6 +205,21 @@ export default function PropertyDetails({
               payments={propertyPayments}
               tenantCount={propertyTenants.length}
             />
+            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="font-semibold text-slate-900">{t("propertyDetails.healthContext.title")}</p>
+                  <p className="text-sm text-slate-600 mt-1">{t("propertyDetails.healthContext.body")}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate("/portfolio-health")}
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-white"
+                >
+                  {t("propertyDetails.healthContext.cta")}
+                </button>
+              </div>
+            </div>
           </div>
         ) : null}
 

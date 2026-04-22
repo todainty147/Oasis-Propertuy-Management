@@ -482,6 +482,24 @@ export default function PortfolioHealthDashboardPage() {
         {activeTenantId ? (
           <p className="text-xs text-cyan-100 mt-2">{t("portfolio.scopeFiltered")}</p>
         ) : null}
+        <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-200">{t("portfolio.hero.title")}</p>
+          <p className="mt-2 text-sm text-slate-200">{t("portfolio.hero.body")}</p>
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+              <p className="text-[11px] uppercase tracking-wide text-slate-300">{t("portfolio.hero.avgHealth")}</p>
+              <p className="mt-1 text-xl font-semibold text-white">{propertyHealthSummary.averageScore}</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+              <p className="text-[11px] uppercase tracking-wide text-slate-300">{t("portfolio.hero.attentionNeeded")}</p>
+              <p className="mt-1 text-xl font-semibold text-white">{propertyHealthSummary.attentionCount}</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+              <p className="text-[11px] uppercase tracking-wide text-slate-300">{t("portfolio.hero.highRisk")}</p>
+              <p className="mt-1 text-xl font-semibold text-white">{propertyHealthSummary.highRiskCount}</p>
+            </div>
+          </div>
+        </div>
       </Card>
 
       <OnboardingHintCard

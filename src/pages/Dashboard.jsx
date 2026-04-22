@@ -13,6 +13,10 @@ import {
   getLeaseAttentionItems,
   getLeaseSummary,
 } from "../services/leaseService";
+import {
+  listPropertyOperationalHealthScores,
+  summarizePropertyOperationalHealth,
+} from "../services/propertyHealthScoreService";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount } from "../utils/currency";
 import { sumOverdue } from "../utils/finance";
@@ -90,6 +94,7 @@ export default function Dashboard({
   const [snapshot, setSnapshot] = useState(null);
   const [hubExtras, setHubExtras] = useState([]);
   const [contractorCount, setContractorCount] = useState(0);
+  const [propertyHealthRows, setPropertyHealthRows] = useState([]);
   const [dismissedChecklistKeys, setDismissedChecklistKeys] = useState({});
   const hubHorizon = useMemo(() => {
     const h = String(searchParams.get("horizon") || "").toLowerCase();
@@ -169,17 +174,20 @@ export default function Dashboard({
 
         if (canManage && !isTenant) {
           work.push(getMaintenanceAttention(activeAccountId));
+          work.push(listPropertyOperationalHealthScores(activeAccountId, { limit: 200 }));
         } else {
+          work.push(Promise.resolve([]));
           work.push(Promise.resolve([]));
         }
 
-        const [snapshotRow, extras, leaseRows, leaseSummaryRow, rows] = await Promise.all(work);
+        const [snapshotRow, extras, leaseRows, leaseSummaryRow, rows, healthRows] = await Promise.all(work);
         if (!dead) {
           setSnapshot(snapshotRow || null);
           setHubExtras(Array.isArray(extras) ? extras : []);
           setLeaseAttentionRows(Array.isArray(leaseRows) ? leaseRows : []);
           setLeaseSummary(leaseSummaryRow || null);
           setAttentionRows(Array.isArray(rows) ? rows : []);
+          setPropertyHealthRows(Array.isArray(healthRows) ? healthRows : []);
         }
       } catch {
         if (!dead) {
@@ -188,6 +196,7 @@ export default function Dashboard({
           setLeaseSummary(null);
           setSnapshot(null);
           setHubExtras([]);
+          setPropertyHealthRows([]);
         }
       }
     }
@@ -224,13 +233,15 @@ export default function Dashboard({
         canManage && !isTenant ? getLeaseAttentionItems(activeAccountId, 6) : Promise.resolve([]),
         canManage && !isTenant ? getLeaseSummary(activeAccountId) : Promise.resolve(null),
         canManage && !isTenant ? getMaintenanceAttention(activeAccountId) : Promise.resolve([]),
+        canManage && !isTenant ? listPropertyOperationalHealthScores(activeAccountId, { limit: 200 }) : Promise.resolve([]),
       ])
-        .then(([snapshotRow, extras, leaseRows, leaseSummaryRow, rows]) => {
+        .then(([snapshotRow, extras, leaseRows, leaseSummaryRow, rows, healthRows]) => {
           setSnapshot(snapshotRow || null);
           setHubExtras(Array.isArray(extras) ? extras : []);
           setLeaseAttentionRows(Array.isArray(leaseRows) ? leaseRows : []);
           setLeaseSummary(leaseSummaryRow || null);
           setAttentionRows(Array.isArray(rows) ? rows : []);
+          setPropertyHealthRows(Array.isArray(healthRows) ? healthRows : []);
         })
         .catch(() => {
           setSnapshot(null);
@@ -238,6 +249,7 @@ export default function Dashboard({
           setLeaseAttentionRows([]);
           setLeaseSummary(null);
           setAttentionRows([]);
+          setPropertyHealthRows([]);
         });
     },
   });
@@ -318,6 +330,10 @@ export default function Dashboard({
   };
   const hasProperties = (properties || []).length > 0;
   const hasTenants = (tenants || []).length > 0;
+  const propertyHealthSummary = useMemo(
+    () => summarizePropertyOperationalHealth(propertyHealthRows),
+    [propertyHealthRows],
+  );
   const hasPayments = (payments || []).length > 0;
 
   const onboardingItems = useMemo(
@@ -712,6 +728,42 @@ export default function Dashboard({
           </div>
         </div>
       </Card>
+
+      {canManage && !isTenant ? (
+        <Card className="p-5 border shadow-sm">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">{t("dashboard.healthRadar.title")}</h3>
+              <p className="text-sm text-slate-500 mt-1">{t("dashboard.healthRadar.subtitle")}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate("/portfolio-health")}
+              className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
+            >
+              {t("dashboard.healthRadar.cta")}
+            </button>
+          </div>
+          {propertyHealthRows.length === 0 ? (
+            <p className="text-sm text-slate-500 mt-3">{t("dashboard.healthRadar.empty")}</p>
+          ) : (
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3">
+                <p className="text-xs text-slate-500">{t("dashboard.healthRadar.avgScore")}</p>
+                <p className="mt-1 text-2xl font-semibold text-emerald-700">{propertyHealthSummary.averageScore}</p>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-3">
+                <p className="text-xs text-slate-500">{t("dashboard.healthRadar.attentionNeeded")}</p>
+                <p className="mt-1 text-2xl font-semibold text-amber-700">{propertyHealthSummary.attentionCount}</p>
+              </div>
+              <div className="rounded-lg border border-rose-200 bg-rose-50/40 p-3">
+                <p className="text-xs text-slate-500">{t("dashboard.healthRadar.highRisk")}</p>
+                <p className="mt-1 text-2xl font-semibold text-rose-700">{propertyHealthSummary.highRiskCount}</p>
+              </div>
+            </div>
+          )}
+        </Card>
+      ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="p-6">
