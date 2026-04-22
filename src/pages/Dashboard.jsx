@@ -553,13 +553,20 @@ export default function Dashboard({
             </button>
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
           <button
             type="button"
             onClick={() => navigate("/maintenance-inbox?status=waiting&aging=48h")}
             className="px-3 py-2 text-sm rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 text-left"
           >
             {t("dashboard.hub.quick.waiting")}
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/attention-center")}
+            className="px-3 py-2 text-sm rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 text-left"
+          >
+            {t("dashboard.hub.quick.stalled")}
           </button>
           <button
             type="button"

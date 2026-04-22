@@ -417,7 +417,7 @@ export default function MaintenanceInboxPage() {
       </div>
 
       <div className="text-sm text-slate-600 px-1">
-        {t("maintenance.inbox.total")}: <span className="font-medium text-slate-900">{ageFilter || woStatusFilter ? requestsAfterWoFilter.length : totalCount}</span>
+        {t("maintenance.inbox.total")}: <span className="font-medium text-slate-900">{ageFilter || agingFilter || woStatusFilter ? requestsAfterWoFilter.length : totalCount}</span>
       </div>
       <div className="flex flex-wrap items-center gap-2 px-1">
         <span className="text-xs text-slate-500">{t("maintenance.sla.legend")}:</span>
