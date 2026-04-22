@@ -20,6 +20,30 @@ function normalizeHighlight(value) {
   return "standard";
 }
 
+function compareTenantDocumentPriority(a, b) {
+  const aHighlight = normalizeHighlight(a?.tenant_highlight);
+  const bHighlight = normalizeHighlight(b?.tenant_highlight);
+  const highlightWeight = {
+    action_required: 0,
+    current: 1,
+    standard: 2,
+  };
+
+  const highlightDelta = (highlightWeight[aHighlight] ?? 9) - (highlightWeight[bHighlight] ?? 9);
+  if (highlightDelta !== 0) return highlightDelta;
+
+  const rankDelta = safeNumber(a?.tenant_highlight_rank || 100) - safeNumber(b?.tenant_highlight_rank || 100);
+  if (rankDelta !== 0) return rankDelta;
+
+  const aUpdated = parseDate(a?.tenant_highlight_updated_at || a?.updated_at || a?.created_at)?.getTime() || 0;
+  const bUpdated = parseDate(b?.tenant_highlight_updated_at || b?.updated_at || b?.created_at)?.getTime() || 0;
+  if (aUpdated !== bUpdated) return bUpdated - aUpdated;
+
+  const aCreated = parseDate(a?.created_at)?.getTime() || 0;
+  const bCreated = parseDate(b?.created_at)?.getTime() || 0;
+  return bCreated - aCreated;
+}
+
 function isPaidStatus(status) {
   return ["paid", "opłacone"].includes(normalize(status));
 }
@@ -190,11 +214,7 @@ export function summarizeTenantMaintenance(requests = [], workOrders = []) {
 export function partitionTenantDocuments(documents = [], { recentDays = 30, now = new Date() } = {}) {
   const safeNow = parseDate(now) || new Date();
   const threshold = safeNow.getTime() - recentDays * 24 * 60 * 60 * 1000;
-  const rows = [...(Array.isArray(documents) ? documents : [])].sort((a, b) => {
-    const aTime = parseDate(a?.created_at)?.getTime() || 0;
-    const bTime = parseDate(b?.created_at)?.getTime() || 0;
-    return bTime - aTime;
-  });
+  const rows = [...(Array.isArray(documents) ? documents : [])].sort(compareTenantDocumentPriority);
 
   const recent = [];
   const older = [];
@@ -213,11 +233,11 @@ export function partitionTenantDocuments(documents = [], { recentDays = 30, now 
   }
 
   return {
-    attention,
-    current,
-    standard,
-    recent,
-    older,
+    attention: attention.sort(compareTenantDocumentPriority),
+    current: current.sort(compareTenantDocumentPriority),
+    standard: standard.sort(compareTenantDocumentPriority),
+    recent: recent.sort(compareTenantDocumentPriority),
+    older: older.sort(compareTenantDocumentPriority),
     total: rows.length,
   };
 }

@@ -416,6 +416,14 @@ export default function TenantPortalOverview({
                             ) : doc.tenant_highlight === "current" ? (
                               <p className="mt-1 text-xs font-medium text-blue-700">{t("tenantPortal.documents.highlight.current")}</p>
                             ) : null}
+                            {doc.tenant_highlight_note ? (
+                              <p className="mt-1 text-xs text-slate-600">{doc.tenant_highlight_note}</p>
+                            ) : null}
+                            {doc.tenant_highlight_rank ? (
+                              <p className="mt-1 text-xs text-slate-500">
+                                {t("tenantPortal.documents.priorityRank", { value: doc.tenant_highlight_rank })}
+                              </p>
+                            ) : null}
                             <p className="mt-1 text-xs text-slate-500">
                               {formatDateTime(doc.created_at)}
                             </p>

@@ -46,6 +46,11 @@ const verificationChecks = [
     sql: "select to_regprocedure('public.can_access_document_storage(uuid,uuid)') is not null;",
   },
   {
+    label: "Tenant document prioritization RPC",
+    why: "Confirms tenant-facing document priority metadata can be managed through the checked-in RPC.",
+    sql: "select to_regprocedure('public.set_document_tenant_highlight(uuid,text,text,integer,uuid)') is not null;",
+  },
+  {
     label: "Dashboard snapshot RPC",
     why: "Confirms the main dashboard aggregate surface exists with the current signature.",
     sql: "select to_regprocedure('public.dashboard_snapshot(uuid,uuid,integer)') is not null;",

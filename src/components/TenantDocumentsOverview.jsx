@@ -5,6 +5,21 @@ function getDocumentTagLabel(tag, t) {
   return t(`documents.tag.${value}`, { defaultValue: value || tag || "—" });
 }
 
+function formatPriorityMeta(doc, t) {
+  const parts = [];
+  if (doc.tenant_highlight_rank) {
+    parts.push(t("tenantPortal.documents.priorityRank", { value: doc.tenant_highlight_rank }));
+  }
+  if (doc.tenant_highlight_updated_at) {
+    parts.push(
+      t("tenantPortal.documents.priorityUpdated", {
+        value: new Date(doc.tenant_highlight_updated_at).toLocaleDateString(),
+      }),
+    );
+  }
+  return parts.join(" • ");
+}
+
 export default function TenantDocumentsOverview({ groups, t }) {
   const featuredRows =
     groups.attention.length > 0
@@ -55,6 +70,9 @@ export default function TenantDocumentsOverview({ groups, t }) {
                 ) : null}
                 {doc.tenant_highlight_note ? (
                   <p className="mt-1 text-xs text-slate-600">{doc.tenant_highlight_note}</p>
+                ) : null}
+                {formatPriorityMeta(doc, t) ? (
+                  <p className="mt-1 text-xs text-slate-500">{formatPriorityMeta(doc, t)}</p>
                 ) : null}
                 {doc.tags?.[0] ? (
                   <p className="mt-1 text-xs text-slate-500">

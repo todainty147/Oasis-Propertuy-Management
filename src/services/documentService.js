@@ -427,6 +427,7 @@ export async function updateDocumentTenantHighlight({
   documentId,
   tenantHighlight = "standard",
   tenantHighlightNote = "",
+  tenantHighlightRank = null,
 }) {
   if (!documentId) throw new Error("Brak ID dokumentu");
 
@@ -434,6 +435,7 @@ export async function updateDocumentTenantHighlight({
     p_document_id: documentId,
     p_tenant_highlight: tenantHighlight,
     p_tenant_highlight_note: tenantHighlightNote || null,
+    p_tenant_highlight_rank: tenantHighlightRank == null ? null : Number(tenantHighlightRank),
   });
 
   if (error) {

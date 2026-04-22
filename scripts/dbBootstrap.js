@@ -325,6 +325,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply tenant document prioritization overlay",
+    file: path.join(supabaseDir, "document_tenant_highlight.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply compliance calendar upgrade overlay",
     file: path.join(supabaseDir, "compliance_calendar_upgrade.sql"),
     onErrorStop: true,

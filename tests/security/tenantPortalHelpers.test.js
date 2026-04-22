@@ -61,17 +61,28 @@ describe("tenantPortal helpers", () => {
   it("partitions recent and older documents without losing total visibility", () => {
     const groups = partitionTenantDocuments(
       [
-        { id: "attention", created_at: "2026-04-18T10:00:00.000Z", tenant_highlight: "action_required" },
-        { id: "current", created_at: "2026-04-17T10:00:00.000Z", tenant_highlight: "current" },
+        {
+          id: "attention-low",
+          created_at: "2026-04-18T10:00:00.000Z",
+          tenant_highlight: "action_required",
+          tenant_highlight_rank: 20,
+        },
+        {
+          id: "attention-high",
+          created_at: "2026-04-16T10:00:00.000Z",
+          tenant_highlight: "action_required",
+          tenant_highlight_rank: 5,
+        },
+        { id: "current", created_at: "2026-04-17T10:00:00.000Z", tenant_highlight: "current", tenant_highlight_rank: 50 },
         { id: "old", created_at: "2026-01-01T10:00:00.000Z" },
       ],
       { recentDays: 30, now: new Date("2026-04-21T10:00:00.000Z") },
     );
 
-    expect(groups.total).toBe(3);
-    expect(groups.recent.map((row) => row.id)).toEqual(["attention", "current"]);
+    expect(groups.total).toBe(4);
+    expect(groups.recent.map((row) => row.id)).toEqual(["attention-high", "attention-low", "current"]);
     expect(groups.older.map((row) => row.id)).toEqual(["old"]);
-    expect(groups.attention.map((row) => row.id)).toEqual(["attention"]);
+    expect(groups.attention.map((row) => row.id)).toEqual(["attention-high", "attention-low"]);
     expect(groups.current.map((row) => row.id)).toEqual(["current"]);
   });
 });

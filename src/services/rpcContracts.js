@@ -650,6 +650,8 @@ export function parseDocumentRow(row) {
     upload_status: toStringOr(value.upload_status).trim().toLowerCase(),
     tenant_highlight: toStringOr(value.tenant_highlight || "standard").trim().toLowerCase(),
     tenant_highlight_note: toStringOr(value.tenant_highlight_note),
+    tenant_highlight_rank: toNumberOr(value.tenant_highlight_rank, 100),
+    tenant_highlight_updated_at: toNullableString(value.tenant_highlight_updated_at),
     tags: toArrayOr(value.tags),
     created_at: toNullableString(value.created_at),
     updated_at: toNullableString(value.updated_at),

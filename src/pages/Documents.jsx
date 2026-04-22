@@ -116,6 +116,7 @@ export default function Documents({
   const [uploadTags, setUploadTags] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [savingHighlightId, setSavingHighlightId] = useState("");
+  const [tenantPriorityDrafts, setTenantPriorityDrafts] = useState({});
 
   /* ---------- PREVIEW ---------- */
   const [previewDoc, setPreviewDoc] = useState(null);
@@ -175,6 +176,21 @@ export default function Documents({
     }
   }, [loadDocuments, authLoading, accountLoading, activeAccountId]);
 
+  useEffect(() => {
+    setTenantPriorityDrafts(
+      Object.fromEntries(
+        (documents ?? []).map((doc) => [
+          doc.id,
+          {
+            highlight: doc.tenant_highlight || "standard",
+            note: doc.tenant_highlight_note || "",
+            rank: doc.tenant_highlight_rank || 100,
+          },
+        ]),
+      ),
+    );
+  }, [documents]);
+
   useRealtimeTables({
     enabled: !authLoading && !accountLoading && !!activeAccountId,
     subscriptions: [
@@ -219,12 +235,49 @@ export default function Documents({
     );
   }
 
+  function getTenantPriorityDraft(doc) {
+    return tenantPriorityDrafts[doc.id] || {
+      highlight: doc.tenant_highlight || "standard",
+      note: doc.tenant_highlight_note || "",
+      rank: doc.tenant_highlight_rank || 100,
+    };
+  }
+
+  function updateTenantPriorityDraft(docId, patch) {
+    setTenantPriorityDrafts((current) => ({
+      ...current,
+      [docId]: {
+        ...(current[docId] || {}),
+        ...patch,
+      },
+    }));
+  }
+
   async function handleTenantHighlightChange(doc, nextValue) {
+    const draft = getTenantPriorityDraft(doc);
     setSavingHighlightId(doc.id);
     try {
       await updateDocumentTenantHighlight({
         documentId: doc.id,
         tenantHighlight: nextValue,
+        tenantHighlightNote: draft.note,
+        tenantHighlightRank: draft.rank,
+      });
+      await loadDocuments();
+    } finally {
+      setSavingHighlightId("");
+    }
+  }
+
+  async function handleTenantPrioritySave(doc) {
+    const draft = getTenantPriorityDraft(doc);
+    setSavingHighlightId(doc.id);
+    try {
+      await updateDocumentTenantHighlight({
+        documentId: doc.id,
+        tenantHighlight: draft.highlight,
+        tenantHighlightNote: draft.note,
+        tenantHighlightRank: draft.rank,
       });
       await loadDocuments();
     } finally {
@@ -488,7 +541,7 @@ export default function Documents({
           {visibleDocuments.map((doc) => (
             <div
               key={doc.id}
-              className="px-6 py-4 flex justify-between items-center"
+              className="px-6 py-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
             >
               <div>
                 <p className="font-medium flex items-center gap-2">
@@ -518,68 +571,116 @@ export default function Documents({
                 )}
               </div>
 
-              <div className="flex gap-4 text-sm">
+              <div className="flex flex-col gap-3 text-sm lg:items-end">
                 {canEditDocumentTags(permissionContext) && doc.visibility === "tenant" ? (
-                  <select
-                    value={doc.tenant_highlight || "standard"}
-                    onChange={(event) => handleTenantHighlightChange(doc, event.target.value)}
-                    disabled={savingHighlightId === doc.id}
-                    className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700"
-                  >
-                    <option value="standard">{t("tenantPortal.documents.highlight.standard")}</option>
-                    <option value="current">{t("tenantPortal.documents.highlight.current")}</option>
-                    <option value="action_required">{t("tenantPortal.documents.highlight.actionRequired")}</option>
-                  </select>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                      {t("documents.tenantPriority.title")}
+                    </p>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,160px)_92px_minmax(0,220px)_auto] sm:items-center">
+                      <select
+                        value={getTenantPriorityDraft(doc).highlight}
+                        onChange={(event) => {
+                          updateTenantPriorityDraft(doc.id, { highlight: event.target.value });
+                          handleTenantHighlightChange(doc, event.target.value);
+                        }}
+                        disabled={savingHighlightId === doc.id}
+                        className="rounded border border-slate-300 bg-white px-2 py-2 text-xs text-slate-700"
+                      >
+                        <option value="standard">{t("tenantPortal.documents.highlight.standard")}</option>
+                        <option value="current">{t("tenantPortal.documents.highlight.current")}</option>
+                        <option value="action_required">{t("tenantPortal.documents.highlight.actionRequired")}</option>
+                      </select>
+
+                      <input
+                        type="number"
+                        min="1"
+                        max="999"
+                        value={getTenantPriorityDraft(doc).rank}
+                        onChange={(event) =>
+                          updateTenantPriorityDraft(doc.id, {
+                            rank: Math.max(1, Math.min(999, Number(event.target.value || 100))),
+                          })
+                        }
+                        className="rounded border border-slate-300 bg-white px-2 py-2 text-xs text-slate-700"
+                        aria-label={t("documents.tenantPriority.rank")}
+                      />
+
+                      <input
+                        type="text"
+                        value={getTenantPriorityDraft(doc).note}
+                        onChange={(event) =>
+                          updateTenantPriorityDraft(doc.id, { note: event.target.value })
+                        }
+                        placeholder={t("documents.tenantPriority.notePlaceholder")}
+                        className="rounded border border-slate-300 bg-white px-2 py-2 text-xs text-slate-700"
+                        aria-label={t("documents.tenantPriority.note")}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => handleTenantPrioritySave(doc)}
+                        disabled={savingHighlightId === doc.id}
+                        className="rounded border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {savingHighlightId === doc.id
+                          ? t("documents.tenantPriority.saving")
+                          : t("documents.tenantPriority.save")}
+                      </button>
+                    </div>
+                  </div>
                 ) : null}
 
-                {canPreview(doc.mime_type) && (
-                  <button
-                    onClick={() => handlePreview(doc)}
-                    className="text-blue-600 hover:underline"
-                  >
-                    {t("attachments.preview")}
-                  </button>
-                )}
+                <div className="flex gap-4 text-sm lg:justify-end">
+                  {canPreview(doc.mime_type) && (
+                    <button
+                      onClick={() => handlePreview(doc)}
+                      className="text-blue-600 hover:underline"
+                    >
+                      {t("attachments.preview")}
+                    </button>
+                  )}
 
-                <button
-                  onClick={() =>
-                    downloadDocument({
-                      storagePath: doc.storage_path,
-                      filename: doc.name,
-                      accountId: doc.account_id,
-                      documentId: doc.id,
-                      propertyId: doc.property_id,
-                      tenantId: doc.tenant_id,
-                      scope: doc.scope,
-                      visibility: doc.visibility,
-                    })
-                  }
-                  className="text-slate-600 hover:underline"
-                >
-                  {t("attachments.download")}
-                </button>
-
-                {canDeleteDocument(permissionContext) && (
                   <button
-                    onClick={async () => {
-                      if (confirm(t("documents.confirmDelete"))) {
-                        await deleteDocument({
-                          id: doc.id,
-                          storagePath: doc.storage_path,
-                          accountId: doc.account_id,
-                          propertyId: doc.property_id,
-                          tenantId: doc.tenant_id,
-                          scope: doc.scope,
-                          visibility: doc.visibility,
-                        });
-                        await loadDocuments();
-                      }
-                    }}
-                    className="text-red-600 hover:underline"
+                    onClick={() =>
+                      downloadDocument({
+                        storagePath: doc.storage_path,
+                        filename: doc.name,
+                        accountId: doc.account_id,
+                        documentId: doc.id,
+                        propertyId: doc.property_id,
+                        tenantId: doc.tenant_id,
+                        scope: doc.scope,
+                        visibility: doc.visibility,
+                      })
+                    }
+                    className="text-slate-600 hover:underline"
                   >
-                    {t("common.delete")}
+                    {t("attachments.download")}
                   </button>
-                )}
+
+                  {canDeleteDocument(permissionContext) && (
+                    <button
+                      onClick={async () => {
+                        if (confirm(t("documents.confirmDelete"))) {
+                          await deleteDocument({
+                            id: doc.id,
+                            storagePath: doc.storage_path,
+                            accountId: doc.account_id,
+                            propertyId: doc.property_id,
+                            tenantId: doc.tenant_id,
+                            scope: doc.scope,
+                            visibility: doc.visibility,
+                          });
+                          await loadDocuments();
+                        }
+                      }}
+                      className="text-red-600 hover:underline"
+                    >
+                      {t("common.delete")}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
