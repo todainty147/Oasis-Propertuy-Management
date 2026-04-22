@@ -21,6 +21,60 @@ The biggest gap is not schema capability. It is product-operational maturity:
 
 The only recommendation that looks genuinely heavy on the current schema is large-scale partitioning by account.
 
+Since the last roadmap pass, the product surface has also become more coherent:
+
+- the marketing-site positioning wave has shipped around operations, coordination, health, and trust
+- the app now uses an `Operations Hub` mental model to tie command, maintenance, and health surfaces together
+- maintenance/work-order handoffs are clearer across tenant, manager, and contractor views
+- portfolio health is more prominent in dashboard and property flows
+- finance labels and mobile-first action surfaces are clearer across core routes
+- the tenant portal now includes a richer dashboard overview, maintenance summary, timeline, and document prioritization cues
+
+The roadmap should now move away from "basic UX polish" and toward two sharper tracks:
+
+- hardening live behavior, routing, and browser-level confidence around the existing surfaces
+- adding richer product depth where the current repo already shows a strong foundation
+
+## Current Product State (2026-04-22)
+
+This section reflects checked-in code, SQL, and tests rather than planned intent.
+
+### Strong and already differentiated
+
+- **Operations Hub / Command Center**: real account-scoped queueing and prioritization
+- **Maintenance and work-order coordination**: tenant intake, manager triage, contractor updates, quote/approval, and audit trail
+- **Portfolio Health**: score-backed risk visibility, not decorative analytics
+- **Tenant portal foundation**: tenant dashboard overview, maintenance status, tenant payments, documents, and timeline
+- **Security / auditability**: append-only audit, observability feeds, denied-event logging, and manager/root surfaces
+- **Contractor workflow depth**: assigned-job portal and workflow follow-through
+
+### Harden now
+
+- **Browser click-through and live-session behavior**
+  - ensure role-correct routing under real session state
+  - verify query-param-driven filters and dashboard shortcut behavior
+  - catch stale-nav and direct-URL edge cases before users do
+- **Responsive verification on real screens**
+  - confirm tenant, contractor, finance, command, and document flows on mobile/tablet widths
+  - prefer screenshot-backed checks where layouts have recently changed
+- **Tenant-safe empty states and route guards**
+  - recent fixes closed `/tenants` and improved `/properties`, but this should stay a standing discipline across role-shared routes
+- **Surface naming and CTA semantics**
+  - keep labels truthful to the actual filtered data, especially on dashboard summary cards and operational shortcuts
+
+### Richer breadth next
+
+- **Tenant portal depth**
+  - richer activity history
+  - more advanced maintenance progress history
+  - stronger document priority semantics
+  - eventual payment execution/autopay
+  - a more premium, distinct tenant experience layer
+- **Operational browser confidence**
+  - broader click-through coverage across dashboard, command, attention, finance, maintenance, and documents
+- **Productized support and launch operations**
+  - better release/runbook discipline and support workflows around an increasingly capable product
+
 ## Product And Project Maturity Review
 
 This section captures the senior product-management / project-management review of the current repository. It is based only on checked-in evidence from app routes, services, SQL, tests, runbooks, CI workflows, marketing-site content, and readiness documents. It does not assume production traffic, customer traction, live cloud settings, team process, or customer feedback that is not present in the repo.
@@ -30,6 +84,12 @@ This section captures the senior product-management / project-management review 
 OASIS is technically deeper than its operational and product wrapper. The repository shows broad product surface area and unusually strong security architecture for an early SaaS: landlord, tenant, contractor, maintenance, documents, billing, custom roles, custom fields, security audit, root telemetry, Edge Functions, RLS/RPC authorization, and broad integration/security tests are all materially represented.
 
 The next maturity gap is not "more features everywhere." It is making launch, onboarding, support, recovery, and measurement as deliberate as the security architecture already is.
+
+The product gap is also more specific now than this document previously captured:
+
+- the app already has a credible operations narrative
+- the next UX risk is inconsistency at runtime rather than missing feature categories
+- the next product opportunity is depth in the tenant experience rather than breadth across entirely new modules
 
 ### Now
 
@@ -75,43 +135,91 @@ From a product and delivery perspective, sequence the next maturity work as:
 
 ## Current Milestone
 
-### Iteration 2A Close-Out / Phase 1 Maturity Hardening
+### Current Focus: Runtime Hardening And Depth Expansion
 
 Current objective:
 
-- strengthen account-level flexibility without undoing the existing SQL/RLS-first architecture
-- tighten trust boundaries across UI, RPCs, and RLS while expanding admin configurability
-- add lightweight communication and extensibility primitives that support future commercialization
-- start the next maturity layer: typed service contracts, operator observability, golden signals, and selective caching
+- keep the recently improved operator, tenant, contractor, and marketing surfaces honest under live browser behavior
+- expand depth where OASIS is already strongest: tenant experience, maintenance coordination, portfolio health, and audit-ready workflows
+- keep role isolation and SQL/RLS-first trust boundaries intact while broadening route-level and browser-level confidence
 
 Scope for this milestone:
 
-- permission hardening across UI, RPCs, and RLS
-- custom staff roles and assignment flows
-- custom fields for properties and tenants
-- outbound email/SMS triggers with communication logging
-- Phase 1 hardening over high-value service/RPC boundaries
+- browser click-through coverage for high-value routes
+- responsive checks on real screens
+- route/navigation behavior under live session state
+- tenant portal next-phase planning and incremental depth work
+- documentation refresh so roadmap, quick starts, and positioning match the current app
 
 Strategic themes:
 
-- Platform: permissions, custom roles, custom fields
-- Commercial: email/SMS, reports, insights
-- Operations: typed contracts, observability, SLOs, reliability
+- Product: deeper tenant experience without breaking landlord/manager workflows
+- Trust: route guards, truthful empty states, live-session correctness, and audit-ready behavior
+- Quality: browser-level verification, responsive confidence, and documentation grounded in repo truth
 
 Execution guardrails:
 
-- do not expand scope beyond the defined iteration features
-- keep implementations minimal and focused
-- avoid introducing new heavy frameworks
+- keep existing auth, routing, account scoping, RLS, and role isolation intact
+- prefer extensions of current services/hooks/RPCs over parallel systems
+- treat browser coverage as product hardening, not optional polish
+- add depth where there is already repo-backed capability before inventing new categories
 
 Success criteria:
 
-- landlord-only surfaces are no longer reachable by tenant paths
-- staff permissions resolve consistently in UI, RPC, and RLS layers
-- account owners can create and assign custom roles without schema bypasses
-- properties and tenants support account-defined custom fields with stored per-entity values
-- OASIS can trigger and log basic outbound email/SMS events for selected workflows
-- high-value service/RPC responses are normalized through shared runtime contracts before reaching UI state
+- shared-role routes behave correctly under direct URL entry and stale navigation state
+- key CTA and dashboard shortcuts land on truthful filtered views
+- tenant portal surfaces feel cohesive, not landlord leftovers with restricted data
+- responsive layouts hold up across tenant, contractor, finance, command, and documents flows
+- roadmap and quick-start documentation reflect the product as it exists today
+
+## Tenant Portal Roadmap
+
+### Current state
+
+The tenant experience is no longer a thin afterthought. The repo now shows:
+
+- a tenant dashboard overview in [Dashboard.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/Dashboard.jsx)
+- action, payment, maintenance, notification, and document summaries in [TenantPortalOverview.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/components/TenantPortalOverview.jsx)
+- maintenance status visibility in [TenantMaintenanceDashboard.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/components/TenantMaintenanceDashboard.jsx)
+- a tenant timeline backed by [tenant_activity_feed.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/tenant_activity_feed.sql) and [TenantTimelineCard.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/components/TenantTimelineCard.jsx)
+- tenant document prioritization cues backed by `set_document_tenant_highlight` in [documentService.js](/mnt/c/Users/Home/oasisrentalmanagementapp/src/services/documentService.js)
+- tenant payment visibility in [TenantPayments.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/TenantPayments.jsx)
+
+### Harden next
+
+- **True browser click-through**
+  - dashboard to properties, tenant payments, documents, maintenance, and work-order-adjacent surfaces
+  - direct URL access to shared-role routes under live session state
+- **Responsive checks on real screens**
+  - tenant dashboard
+  - tenant payments
+  - tenant documents
+  - tenant property view
+- **Route/navigation behavior under live session state**
+  - role-aware redirects
+  - stale sidebar/session combinations
+  - query-string driven dashboard entry paths
+
+### Richer breadth next
+
+- **A rich tenant activity timeline**
+  - current timeline exists, but should become more narrative, filterable, and easier to scan
+- **Advanced maintenance progress history**
+  - current statuses and feed events are useful, but still stop short of a first-class milestone history
+- **True document prioritization metadata**
+  - current `standard/current/action_required` highlighting is a solid start
+  - the next step is first-class metadata for required/current/review-by/acknowledgement semantics
+- **Payment collection / autopay**
+  - not currently present as a tenant payment rail
+  - should stay on the roadmap but not be marketed as shipped
+- **A fully separate premium tenant portal product layer**
+  - later-stage opportunity once the current tenant foundation, payment execution, and richer workflow history are in place
+
+### Recommended timing
+
+- now: hardening and browser confidence
+- next: richer tenant timeline, maintenance history, and document semantics
+- later: payment execution/autopay and a premium standalone tenant portal layer
 
 ## Iteration 2A Epics
 
@@ -186,6 +294,14 @@ Recommended implementation notes:
 | Golden signals / SLIs / SLOs | Strong | Small to Medium | Next | OASIS already captures useful security and workflow events. The missing layer is metrics and alert thresholds for latency, errors, traffic, and saturation across critical workflows. |
 | Fault injection / degraded-path testing | Not schema-dependent | Medium | Soon after | The current integration and staging discipline is strong enough to support targeted failure-mode tests. This is mostly test-harness work, not schema work. |
 | Accessibility automation | Not schema-dependent | Small to Medium | Soon after | A11y testing fits cleanly into the existing test culture and does not require backend changes. |
+| Browser click-through coverage on live session state | Not schema-dependent | Small to Medium | Now | The product now has richer role-specific flows; the highest remaining risk is browser/runtime mismatch rather than raw backend capability. |
+| Responsive checks on real screens | Not schema-dependent | Small to Medium | Now | Tenant, contractor, command, and finance surfaces have all been improved recently and now need screenshot-backed confidence on real breakpoints. |
+| Tenant portal runtime hardening | Strong | Small to Medium | Now | The tenant portal is now materially richer, so route guards, truthful empty states, and session-aware navigation deserve first-class hardening. |
+| Rich tenant activity timeline | Strong | Medium | Next | `tenant_activity_feed` and `TenantTimelineCard` already exist; the product opportunity is better narrative depth and scanability rather than net-new foundations. |
+| Advanced maintenance progress history | Partial | Medium | Next | Current statuses and timeline events exist, but a richer tenant-safe milestone history still needs a more explicit presentation model. |
+| True document prioritization metadata | Partial | Medium | Next | Current tenant document highlighting exists, but the model stops short of durable acknowledgement/review/current-state semantics. |
+| Payment collection / autopay | Weak | High | Later, capability-driven | Tenant payment visibility is real, but payment execution is not repo-backed today and should remain a deliberate future expansion. |
+| Premium standalone tenant portal layer | Partial foundation | High | Later, product-driven | The current tenant surfaces are credible, but a distinct premium product layer should follow richer workflow depth and payment execution. |
 | Tenant/account rate limiting | Partial | Medium | Now, limited Edge/API scope | `account_id` scoping exists everywhere, so the identity model supports quotas and limits. Start with narrow provider/API abuse protection before considering infrastructure-level quotas. |
 | Demo data / self-service sandbox | Strong | Medium | Later, product-driven | The current schema already supports seeded accounts, properties, tenants, payments, work orders, and documents. What is missing is a productized onboarding experience around those fixtures. |
 | Materialized feed caching / Redis/KV caching | Strong | Medium | Later, after measurement | Technically feasible now, but should be driven by real latency/traffic evidence. Snapshot RPCs and account scoping make this viable when needed. |

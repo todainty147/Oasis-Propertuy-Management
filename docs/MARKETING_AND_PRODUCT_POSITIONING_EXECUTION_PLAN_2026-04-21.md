@@ -2,6 +2,8 @@
 
 Date: 2026-04-21
 
+Status update: refreshed on 2026-04-22 after the website positioning wave and the first app-side UX/hardening wave shipped.
+
 This document captures the current repo-grounded positioning review, implementation backlog, and PR-by-PR execution plan for improving both:
 
 - the OASIS marketing site
@@ -31,6 +33,31 @@ The current opportunity is to move OASIS away from generic "property management"
 - action prioritization
 - risk visibility
 - audit-ready control
+
+That positioning wave has now largely shipped across both the marketing site and the app’s top-level UX language. The next gap is less about category language and more about runtime confidence and richer product depth, especially in the tenant experience.
+
+## Current Status
+
+### Completed in the recent wave
+
+- homepage repositioning around operations and coordination
+- property health elevated as a headline story
+- maintenance marketing rewritten around the coordination loop
+- security trust layer added to marketing pages
+- finance/operator tone cleanup on marketing pages
+- app-side `Operations Hub` mental-model pass
+- maintenance/work-order handoff clarity improvements
+- portfolio health prominence in app flows
+- finance clarity pass across app surfaces
+- mobile-first operational polish
+- tenant portal improvements including overview, timeline, document prioritization cues, and tenant-safe route/empty-state hardening
+
+### What comes next
+
+- browser-level click-through confidence across the richer app surfaces
+- responsive verification on real screens
+- deeper tenant portal breadth rather than broad new module expansion
+- stronger documentation that matches the current product truth
 
 ## Repo-Grounded Positioning Review
 
@@ -426,6 +453,42 @@ Tasks:
 Acceptance:
 
 - tenant, contractor, and operator surfaces feel more deliberate on mobile
+
+## Next-Phase Additions
+
+These items now sit after the completed website positioning and app-clarity wave.
+
+### Tenant portal depth
+
+Goal: build on the now-solid tenant foundation rather than replacing it.
+
+Next candidates:
+
+- rich tenant activity timeline
+- advanced maintenance progress history
+- true document prioritization metadata
+- payment collection / autopay
+- a fully separate premium tenant portal product layer
+
+Notes:
+
+- timeline, maintenance history, and document semantics are the most natural next steps because the current repo already has partial foundations
+- payment collection/autopay and a premium standalone tenant portal remain later-stage work and should not be marketed as shipped
+
+### Browser/runtime hardening
+
+Goal: verify that the improved product story holds under real navigation and session state.
+
+Next candidates:
+
+- true browser click-through on the main operator, tenant, and contractor paths
+- responsive checks on real screens
+- route/navigation behavior under live session state
+
+Notes:
+
+- a focused tenant Playwright flow now exists and covers dashboard, `/tenants` redirect behavior, and tenant property access
+- the next step is to broaden that model across dashboard shortcuts, maintenance/command flows, finance entry points, and document navigation
 
 ## PR-By-PR Execution Plan
 
