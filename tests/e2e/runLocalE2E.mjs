@@ -37,6 +37,15 @@ function runCommand(command, extraEnv = {}) {
   });
 }
 
+async function isLocalSupabaseRunning() {
+  try {
+    await runCommand("npx -y supabase@2.84.2 status --output env");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function main() {
   const integrationEnvPath = resolve(process.cwd(), ".env.integration.local");
   if (!existsSync(integrationEnvPath)) {
@@ -44,17 +53,22 @@ async function main() {
   }
 
   const localDbUrl = process.env.DB_BOOTSTRAP_URL || "postgresql://postgres:postgres@127.0.0.1:61022/postgres";
-  let startSucceeded = false;
+  const alreadyRunning = await isLocalSupabaseRunning();
+  let startedByHarness = false;
 
   try {
-    await runCommand(supabaseStartCommand);
-    startSucceeded = true;
+    if (!alreadyRunning) {
+      await runCommand(supabaseStartCommand);
+      startedByHarness = true;
+    } else {
+      console.log("[local-e2e] Reusing already-running local Supabase stack.");
+    }
     await runCommand(dbBootstrapCommand, { DB_BOOTSTRAP_URL: localDbUrl });
     await runCommand(dbVerifyCommand, { DB_BOOTSTRAP_URL: localDbUrl });
     await runCommand(integrationSeedCommand);
     await runCommand(e2eCommand);
   } finally {
-    if (startSucceeded) {
+    if (startedByHarness) {
       try {
         await runCommand(supabaseStopCommand);
       } catch (stopError) {

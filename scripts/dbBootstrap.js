@@ -7,6 +7,11 @@ import path from "node:path";
 const repoRoot = process.cwd();
 const supabaseDir = path.join(repoRoot, "supabase");
 const defaultDbUrl = "postgresql://postgres:postgres@127.0.0.1:61022/postgres";
+const localSupabaseStartArgs = [
+  "start",
+  "--exclude",
+  "studio,imgproxy,mailpit,logflare,vector,storage-api,realtime,postgres-meta,edge-runtime,supavisor",
+];
 
 const bootstrapSteps = [
   {
@@ -355,6 +360,11 @@ function resolvePsqlCommand() {
   const configured = process.env.PSQL_BIN;
   if (configured) return configured;
 
+  const dockerWrapper = path.join(repoRoot, "scripts", "psql-docker-wrapper.sh");
+  if (process.platform !== "win32" && fs.existsSync(dockerWrapper)) {
+    return dockerWrapper;
+  }
+
   const pathCandidates = process.platform === "win32"
     ? [
         "C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe",
@@ -451,6 +461,45 @@ function runPsql({ args, label }) {
   }
 }
 
+function runPsqlWithResult({ args }) {
+  const cmd = resolvePsqlCommand();
+  const result = spawnSync(cmd, args, {
+    cwd: repoRoot,
+    stdio: "pipe",
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      PGPASSWORD: process.env.PGPASSWORD || "postgres",
+    },
+  });
+
+  const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
+
+  return {
+    cmd,
+    status: result.status ?? 1,
+    output,
+  };
+}
+
+function runSupabaseWithResult({ args }) {
+  const cmd = resolveSupabaseCommand();
+  const result = spawnSync(cmd, args, {
+    cwd: repoRoot,
+    stdio: "pipe",
+    encoding: "utf8",
+    env: process.env,
+  });
+
+  const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
+
+  return {
+    cmd,
+    status: result.status ?? 1,
+    output,
+  };
+}
+
 function filterBaselineBootstrapOutput(output) {
   if (!output) return output;
 
@@ -483,26 +532,104 @@ function filterBaselineBootstrapOutput(output) {
 }
 
 function runSupabase({ args, label }) {
-  const cmd = resolveSupabaseCommand();
-  const result = spawnSync(cmd, args, {
-    cwd: repoRoot,
-    stdio: "pipe",
-    encoding: "utf8",
-    env: process.env,
-  });
+  const { cmd, status, output } = runSupabaseWithResult({ args });
 
-  if (result.status !== 0) {
-    const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
+  if (status !== 0) {
     throw new Error(`${label} failed using ${cmd}\n${output}`);
   }
 
-  const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
   if (output) {
     console.log(output);
   }
 }
 
-function main() {
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isSupabaseNotRunningOutput(output) {
+  return /supabase start is not running/i.test(output || "");
+}
+
+function isSupabaseTransientOutput(output) {
+  const message = String(output || "").toLowerCase();
+  return (
+    message.includes("no such container") ||
+    message.includes("container") && message.includes("not running") ||
+    message.includes("container") && message.includes("not found") ||
+    message.includes("database system is starting up") ||
+    message.includes("connection refused") ||
+    message.includes("econnrefused")
+  );
+}
+
+function isDatabaseNotReadyOutput(output) {
+  const message = String(output || "").toLowerCase();
+  return (
+    message.includes("connection refused") ||
+    message.includes("database system is starting up") ||
+    message.includes("the database system is shutting down")
+  );
+}
+
+async function ensureLocalSupabaseRunning() {
+  console.log("Ensuring local Supabase is running...");
+  runSupabase({
+    label: "local supabase start",
+    args: localSupabaseStartArgs,
+  });
+}
+
+async function resetLocalSupabaseDb() {
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const { cmd, status, output } = runSupabaseWithResult({
+      args: ["db", "reset", "--local", "--no-seed", "--yes"],
+    });
+
+    if (status === 0) {
+      if (output) console.log(output);
+      return;
+    }
+
+    const shouldRecover = isSupabaseNotRunningOutput(output) || isSupabaseTransientOutput(output);
+    if (!shouldRecover || attempt === maxAttempts) {
+      throw new Error(`local supabase reset failed using ${cmd}\n${output}`);
+    }
+
+    console.warn(`Local Supabase reset attempt ${attempt} failed; trying to recover and retry.`);
+    if (output) {
+      console.warn(output);
+    }
+    await ensureLocalSupabaseRunning();
+    await sleep(1500 * attempt);
+  }
+}
+
+async function waitForDatabaseConnectivity(dbUrl) {
+  const maxAttempts = 5;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const { cmd, status, output } = runPsqlWithResult({
+      args: ["--dbname", dbUrl, "-c", "select 1;"],
+    });
+
+    if (status === 0) {
+      if (output) console.log(output);
+      return;
+    }
+
+    if (!isDatabaseNotReadyOutput(output) || attempt === maxAttempts) {
+      throw new Error(`database preflight failed using ${cmd}\n${output}`);
+    }
+
+    console.warn(`Database preflight attempt ${attempt} failed; waiting for local Postgres to settle.`);
+    await sleep(1000 * attempt);
+  }
+}
+
+async function main() {
   const dbUrl = process.env.DB_BOOTSTRAP_URL || process.env.DATABASE_URL || defaultDbUrl;
   const tempFiles = [];
 
@@ -516,17 +643,11 @@ function main() {
 
   console.log("");
   console.log("Preflight: resetting local Supabase DB");
-  runSupabase({
-    label: "local supabase reset",
-    args: ["db", "reset", "--local", "--no-seed", "--yes"],
-  });
+  await resetLocalSupabaseDb();
 
   console.log("");
   console.log("Preflight: checking database connectivity");
-  runPsql({
-    label: "database preflight",
-    args: ["--dbname", dbUrl, "-c", "select 1;"],
-  });
+  await waitForDatabaseConnectivity(dbUrl);
 
   for (const step of bootstrapSteps) {
     console.log("");
@@ -566,4 +687,7 @@ function main() {
   }
 }
 
-main();
+main().catch((error) => {
+  console.error(error?.message || error);
+  process.exitCode = 1;
+});

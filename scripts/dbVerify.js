@@ -96,6 +96,12 @@ function resolvePsqlCommand() {
   const configured = process.env.PSQL_BIN;
   if (configured) return configured;
 
+  const dockerWrapperUrl = new URL("./psql-docker-wrapper.sh", import.meta.url);
+  const dockerWrapperPath = dockerWrapperUrl.pathname;
+  if (process.platform !== "win32" && fs.existsSync(dockerWrapperPath)) {
+    return dockerWrapperPath;
+  }
+
   const pathCandidates = process.platform === "win32"
     ? [
         "C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe",
