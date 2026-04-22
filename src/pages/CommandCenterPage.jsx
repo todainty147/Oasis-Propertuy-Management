@@ -262,14 +262,14 @@ export default function CommandCenterPage() {
       ) : null}
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3">
           {Array.from({ length: 6 }).map((_, index) => (
             <Skeleton key={index} className="h-24" />
           ))}
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3">
             <SummaryCard label={t("attentionCenter.summary.urgent")} value={view.summary.urgentCount} tone="rose" />
             <SummaryCard label={t("attentionCenter.summary.needsAction")} value={view.summary.actionCount} tone="amber" />
             <SummaryCard label={t("attentionCenter.summary.upcoming")} value={view.summary.upcomingCount} tone="blue" />
@@ -318,7 +318,7 @@ export default function CommandCenterPage() {
             {view.propertyIssues.length === 0 ? (
               <p className="text-sm text-slate-500 mt-3">{t("attentionCenter.empty.properties")}</p>
             ) : (
-              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2">
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
                 {view.propertyIssues.map((row) => (
                   <Link
                     key={`${row.id || row.label}`}

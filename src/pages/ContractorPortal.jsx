@@ -219,7 +219,7 @@ export default function ContractorPortal() {
   return (
     <div className="space-y-4">
       <Card className="p-6">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">{t("sidebar.contractorPortal")}</h2>
             <p className="text-xs text-slate-500 mt-1">
@@ -229,13 +229,13 @@ export default function ContractorPortal() {
           <button
             type="button"
             onClick={load}
-            className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
+            className="min-h-[44px] w-full text-sm px-3 py-2 rounded-lg border hover:bg-slate-50 sm:w-auto"
           >
             {t("common.refresh")}
           </button>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           {[
             { key: "all", label: t("contractor.filter.all") },
             { key: "assigned", label: t("status.wo.assigned") },
@@ -246,7 +246,7 @@ export default function ContractorPortal() {
               key={f.key}
               type="button"
               onClick={() => setStatusFilter(f.key)}
-              className={`px-3 py-1.5 text-xs rounded-full border ${
+              className={`min-h-[42px] px-3 py-1.5 text-xs rounded-full border ${
                 statusFilter === f.key
                   ? "bg-slate-900 text-white border-slate-900"
                   : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
@@ -330,7 +330,7 @@ export default function ContractorPortal() {
                     </p>
                   </div>
 
-                  <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                  <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
                     {allowed.includes("in_progress") && (
                       <button
                         type="button"

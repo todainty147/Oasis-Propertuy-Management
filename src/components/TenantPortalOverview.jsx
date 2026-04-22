@@ -65,7 +65,7 @@ function ActionButton({ label, onClick, tone = "primary" }) {
     <button
       type="button"
       onClick={onClick}
-      className={`min-h-[44px] rounded-lg px-4 py-2 text-sm font-medium transition ${className}`}
+      className={`min-h-[44px] w-full rounded-lg px-4 py-2 text-sm font-medium transition sm:w-auto ${className}`}
     >
       {label}
     </button>
@@ -280,7 +280,7 @@ export default function TenantPortalOverview({
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="order-2 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <SummaryCard
                   icon={paymentSummary.overdue > 0 ? AlertCircle : CheckCircle2}
                   label={t("tenantPortal.card.payments")}
@@ -311,14 +311,14 @@ export default function TenantPortalOverview({
                 />
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="order-1 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
                 <ActionButton label={t("tenantPortal.action.viewPayments")} onClick={onOpenPayments} />
                 <ActionButton label={t("tenantPortal.action.trackRequests")} onClick={onOpenRequests} tone="secondary" />
                 <ActionButton label={t("tenantPortal.action.openDocuments")} onClick={onOpenDocuments} tone="secondary" />
               </div>
 
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="order-3 rounded-xl border border-slate-200 bg-white p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <h3 className="text-base font-semibold text-slate-900">{t("tenantPortal.actionCenter.title")}</h3>
@@ -347,7 +347,7 @@ export default function TenantPortalOverview({
                               <button
                                 type="button"
                                 onClick={item.onClick}
-                                className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                className="shrink-0 min-h-[44px] rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                               >
                                 {item.action}
                               </button>
@@ -359,7 +359,7 @@ export default function TenantPortalOverview({
                   </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="order-4 space-y-4">
                   <div className="rounded-xl border border-slate-200 bg-white p-4">
                     <h3 className="text-base font-semibold text-slate-900">{t("tenantPortal.updates.title")}</h3>
                     <div className="mt-3 space-y-3">

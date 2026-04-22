@@ -51,17 +51,17 @@ function PaginationFooter({ page, totalPages, totalCount, pageSize, onPrev, onNe
         </select>
       </div>
 
-      <div className="flex items-center justify-between gap-3 md:justify-end">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 md:flex md:justify-end">
         <button
           type="button"
-          className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
+          className="min-h-[44px] rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
           onClick={onPrev}
           disabled={page <= 1}
         >
           {t("common.prev")}
         </button>
 
-        <div className="text-sm text-slate-600">
+        <div className="text-center text-sm text-slate-600">
           {t("common.page")} <span className="font-medium text-slate-900">{page}</span> {t("common.of")}{" "}
           <span className="font-medium text-slate-900">{totalPages}</span>
           <span className="ml-2 text-xs text-slate-500">({totalCount} {t("common.total").toLowerCase()})</span>
@@ -69,7 +69,7 @@ function PaginationFooter({ page, totalPages, totalCount, pageSize, onPrev, onNe
 
         <button
           type="button"
-          className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
+          className="min-h-[44px] rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
           onClick={onNext}
           disabled={page >= totalPages}
         >
@@ -183,7 +183,7 @@ export default function TenantTimelineCard({ accountId, tenant, property, viewer
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
           <p className="text-xs text-slate-500">{t("tenantTimeline.followUp.openRequests")}</p>
           <p className="text-xl font-semibold text-slate-900 mt-1">{summary.openRequests}</p>

@@ -518,7 +518,7 @@ export default function ContractorJobDetails() {
   return (
     <div className="space-y-4 pb-24">
       <Card className="p-6">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">{t("contractor.detailsTitle")}</h2>
             <p className="text-xs text-slate-500 mt-1">{t("common.id")}: {id}</p>
@@ -528,18 +528,18 @@ export default function ContractorJobDetails() {
               </div>
             ) : null}
           </div>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex">
             <button
               type="button"
               onClick={loadAll}
-              className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
+              className="min-h-[44px] text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
               disabled={loading || saving}
             >
               {t("common.refresh")}
             </button>
             <Link
               to="/contractor"
-              className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
+              className="min-h-[44px] text-center text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
             >
               {t("common.back")}
             </Link>
@@ -559,11 +559,11 @@ export default function ContractorJobDetails() {
       ) : (
         <>
           <Card className="p-4 space-y-3">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-base font-semibold text-slate-900">{t("contractor.quickActions")}</h3>
               {requestRow?.priority ? (
                 <span
-                  className={`text-xs px-2 py-0.5 rounded border ${
+                  className={`inline-flex w-fit text-xs px-2 py-0.5 rounded border ${
                     String(requestRow.priority).toLowerCase() === "critical"
                       ? "bg-rose-100 border-rose-300 text-rose-700"
                       : String(requestRow.priority).toLowerCase() === "high"
@@ -713,12 +713,12 @@ export default function ContractorJobDetails() {
               </div>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-stretch sm:justify-end">
               <button
                 type="button"
                 onClick={() => saveContractorUpdate({ acknowledge: false })}
                 disabled={saving}
-                className={`px-3 py-2 text-sm rounded-lg text-white ${
+                className={`min-h-[44px] w-full px-3 py-2 text-sm rounded-lg text-white sm:w-auto ${
                   saving ? "bg-slate-400" : "bg-blue-600"
                 }`}
               >
