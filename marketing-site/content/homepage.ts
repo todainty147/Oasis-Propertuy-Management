@@ -46,7 +46,7 @@ export const homepageContent = {
       },
       {
         title: "Records go missing",
-        body: "Leases, documents, and property context drift into folders, inboxes, and old conversations when the work gets busy.",
+        body: "Leases, receipts, ID checks, and agreement context drift into folders, inboxes, and old conversations when the work gets busy.",
       },
       {
         title: "Every week starts with catch-up",
@@ -69,7 +69,7 @@ export const homepageContent = {
       },
       {
         title: "Keep context close",
-        body: "Keep leases, documents, tenant context, and property history close to the work they support.",
+        body: "Keep tenant context, document requests, agreement packets, and property history close to the work they support.",
       },
       {
         title: "Catch pressure earlier",
@@ -97,6 +97,22 @@ export const homepageContent = {
         points: ["request to assignment", "contractor updates", "clear completion trail"],
         imageSrc: "/screenshots/maintenance-inbox.png",
         imageAlt: "OASIS Maintenance Inbox showing request columns, SLA age, and linked work orders.",
+      },
+      {
+        label: "Tenant Portal",
+        title: "Tenants get a clearer self-service lane",
+        body: "Payments, maintenance visibility, documents, and agreement review all live in one tenant-safe portal instead of turning into repeated follow-up.",
+        points: ["maintenance status clarity", "document access", "payment setup guidance"],
+        imageSrc: "/screenshots/tenant-home.png",
+        imageAlt: "OASIS tenant portal dashboard showing action items, payment visibility, and maintenance progress.",
+      },
+      {
+        label: "Documents Workflow",
+        title: "Agreement and evidence handoffs stay in one operating lane",
+        body: "Templates, tenant document requests, contractor submissions, and pre-signature packets stay tied to the same account-scoped workflow.",
+        points: ["template library", "document requests", "agreement packets"],
+        imageSrc: "/screenshots/documents-workflow.png",
+        imageAlt: "OASIS Documents page showing document requests, agreement packets, and account-scoped workflow controls.",
       },
       {
         label: "Portfolio Health",
@@ -189,7 +205,7 @@ export const homepageContent = {
       },
       {
         title: "Audit trail where it matters",
-        body: "Review the key actions behind documents, work orders, and security-sensitive decisions without reconstructing the story from raw logs.",
+        body: "Review the key actions behind document requests, agreement packets, work orders, and security-sensitive decisions without reconstructing the story from raw logs.",
       },
       {
         title: "Operational accountability",

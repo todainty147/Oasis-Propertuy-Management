@@ -55,30 +55,30 @@ const outcomeSections = [
     cta: "See the operations view",
   },
   {
-    eyebrow: "Tenant context",
-    title: "Keep tenant records usable when decisions need context",
+    eyebrow: "Tenant context and portal",
+    title: "Keep tenant records and tenant self-service usable when decisions need context",
     why:
-      "Tenant admin should not require searching old messages before every decision. OASIS keeps the people, property links, rent context, and useful history easier to reach.",
+      "Tenant admin should not require searching old messages before every decision, and tenants should not need to guess what is happening. OASIS keeps the people, property links, rent context, and tenant-facing workflow easier to reach.",
     bullets: [
       "Keep tenant profiles tied to the right property.",
-      "Review payment and property context without jumping between tools.",
+      "Give tenants a clearer portal for payments, maintenance visibility, documents, and agreement review.",
       "Support faster follow-up when a tenant issue needs action.",
     ],
     href: "/features/tenant-management",
-    cta: "Explore tenant records",
+    cta: "Explore tenant workflows",
   },
   {
     eyebrow: "Documents and evidence",
-    title: "Keep leases, files, and supporting records where the work happens",
+    title: "Keep templates, requests, packets, and supporting records where the work happens",
     why:
-      "Documents are only useful if landlords can find the right one at the moment it matters. OASIS keeps rental records attached to the relevant account, property, or tenant context.",
+      "Documents are only useful if landlords can find the right one at the moment it matters and participants know what still needs review. OASIS keeps templates, requests, packets, and records attached to the relevant account, property, or tenant context.",
     bullets: [
-      "Organize lease and supporting documents around rental context.",
-      "Keep property and tenant records from drifting into disconnected folders.",
-      "Reduce the time spent proving what was agreed, stored, or updated.",
+      "Upload reusable templates for UK, Poland, and other country-specific workflows.",
+      "Request evidence from tenants or contractors and review uploads in one place.",
+      "Send pre-signature agreement packets and track review status before external signing.",
     ],
     href: "/features/tenant-management",
-    cta: "Explore record workflows",
+    cta: "Explore document workflows",
   },
   {
     eyebrow: "Portfolio attention",

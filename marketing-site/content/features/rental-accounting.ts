@@ -48,6 +48,10 @@ export const rentalAccountingContent = {
         body: "Track paid, due, and overdue income in a format that matches daily landlord decisions.",
       },
       {
+        title: "Publish payment setup to the tenant portal",
+        body: "Show accepted methods, external portal links, support contact details, and autopay guidance without pretending OASIS is already the processor.",
+      },
+      {
         title: "Prioritize follow-up faster",
         body: "Identify overdue balances, due-soon pressure, and focus follow-up where it will have the most operational impact.",
       },
@@ -60,8 +64,8 @@ export const rentalAccountingContent = {
         body: "Use portfolio and property health views to see when overdue balances are starting to drag on the rest of the portfolio.",
       },
     ],
-    imageSrc: "/screenshots/command-center.png",
-    imageAlt: "OASIS Command Center showing overdue balance and finance-driven action queues.",
+    imageSrc: "/screenshots/payment-setup.png",
+    imageAlt: "OASIS Finance page showing tenant payment setup readiness, accepted methods, and external portal guidance.",
     imageAlign: "left" as const,
   },
   benefits: {
@@ -78,6 +82,10 @@ export const rentalAccountingContent = {
       {
         title: "Less spreadsheet dependency",
         body: "Move away from disconnected trackers toward a more usable operating view.",
+      },
+      {
+        title: "Clearer tenant payment guidance",
+        body: "Give tenants a consistent payment setup view with methods, support, and portal instructions tied to the account.",
       },
       {
         title: "Stronger confidence in the risk picture",

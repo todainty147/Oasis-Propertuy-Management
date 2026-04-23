@@ -19,9 +19,9 @@ export const oasisVsLandlordStudioContent = {
     eyebrow: "High-level comparison",
     title: "The real difference starts when accounting is no longer the whole job",
     body:
-      "Landlord Studio looks strongest for landlords who want mobile-friendly accounting, reporting, bank feeds, online rent collection, and tenant portal convenience. OASIS becomes more compelling when the week is shaped by overdue balances, maintenance progress, contractor coordination, tenant context, and the need to know what to handle first.",
-    imageSrc: "/screenshots/property-performance.png",
-    imageAlt: "OASIS property performance view showing connected rent and operational context.",
+      "Landlord Studio looks strongest for landlords who want mobile-friendly accounting, reporting, bank feeds, online rent collection, and tenant portal convenience. OASIS becomes more compelling when the week is shaped by overdue balances, maintenance progress, contractor coordination, tenant context, document handoffs, and the need to know what to handle first.",
+    imageSrc: "/screenshots/documents-workflow.png",
+    imageAlt: "OASIS Documents page showing document requests, agreement packets, and account-scoped workflow controls.",
   },
   comparisonTable: {
     title: "Side-by-side comparison",
@@ -36,7 +36,7 @@ export const oasisVsLandlordStudioContent = {
       },
       {
         category: "Finance and rent collection",
-        oasis: "Clear rent visibility and arrears pressure inside a wider operating workflow",
+        oasis: "Clear rent visibility, arrears pressure, and landlord-configured tenant payment setup inside a wider operating workflow",
         competitor: "Stronger publicly advertised accounting stack with bank feeds, reporting, and online rent collection",
       },
       {

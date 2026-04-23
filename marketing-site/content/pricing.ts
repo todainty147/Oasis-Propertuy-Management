@@ -97,7 +97,7 @@ export const pricingContent = {
     {
       question: "Does OASIS process tenant rent payments online today?",
       answer:
-        "Not as a tenant-facing payment rail. The finance workflow today is centered on rent status visibility, arrears pressure, and follow-up rather than a built-in tenant pay-now checkout flow.",
+        "Not as a native OASIS tenant payment rail. Today OASIS supports landlord-configured payment setup in the tenant portal, including accepted methods, external payment portal links, support details, and autopay guidance. The finance workflow is still centered on rent visibility, arrears pressure, and follow-up rather than an in-app pay-now checkout flow.",
     },
     {
       question: "Is OASIS priced for landlords rather than agencies?",

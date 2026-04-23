@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
+import { isolationFixtures } from "../fixtures/isolationFixtures.js";
+import { getIntegrationAdminClient } from "../integration/helpers/localSupabaseHarness.js";
 import { seededEntityIds, seededUsers, signInAs } from "./helpers/auth.js";
 
 const screenshotDir = path.resolve(process.cwd(), "marketing-site/public/screenshots");
@@ -45,8 +47,33 @@ async function captureViewport(page, fileName) {
   });
 }
 
+async function seedActiveTemplate(name) {
+  const admin = getIntegrationAdminClient();
+  const { error } = await admin.from("document_templates").insert({
+    account_id: isolationFixtures.accounts.accountA.id,
+    country_code: "GB",
+    language: "en",
+    template_type: "tenancy_agreement",
+    name,
+    description: "Marketing site screenshot template.",
+    storage_path: `${isolationFixtures.accounts.accountA.id}/templates/marketing-${Date.now()}/${name}.pdf`,
+    mime_type: "application/pdf",
+    size_bytes: 64,
+    status: "active",
+    upload_status: "uploaded",
+  });
+
+  expect(error).toBeNull();
+}
+
 test("captures marketing product screenshots", async ({ page }) => {
   await mkdir(screenshotDir, { recursive: true });
+  const stamp = Date.now();
+  const templateName = `Marketing agreement template ${stamp}`;
+  const packetTitle = `Marketing agreement packet ${stamp}`;
+  const requestTitle = `Payment receipt request ${stamp}`;
+
+  await seedActiveTemplate(templateName);
   await signInAs(page, seededUsers.ownerA);
 
   await page.goto("/command-center");
@@ -61,6 +88,46 @@ test("captures marketing product screenshots", async ({ page }) => {
   await expect(page.getByText("Maintenance Inbox").first()).toBeVisible();
   await captureViewport(page, "maintenance-inbox.png");
 
+  await page.goto("/finance");
+  await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible();
+  await page.getByLabel("Collection method").selectOption("external_portal");
+  await page.getByLabel("Bank transfer").check();
+  await page.getByLabel("Card via external portal").check();
+  await page.getByLabel("External payment portal URL").fill("https://payments.example.test/pay");
+  await page.getByLabel("Tenant instructions").fill("Use your tenancy reference for bank transfer or open the external portal for card payments.");
+  await page.getByLabel("Billing / support email").fill("billing@example.test");
+  await page.getByLabel("Autopay availability").selectOption("external");
+  await page.getByLabel("Autopay instructions").fill("Contact the property team to set up a standing order outside OASIS.");
+  await page.getByRole("button", { name: "Save payment setup" }).click();
+  await expect(page.getByText("Tenant payment settings saved.")).toBeVisible();
+  await captureViewport(page, "payment-setup.png");
+
+  await page.goto("/documents");
+  await expect(page.getByText("Documents").first()).toBeVisible();
+  const requestPanel = page.getByTestId("document-requests-panel");
+  await expect(requestPanel).toBeVisible();
+  await requestPanel.getByLabel("Request tenant").selectOption(isolationFixtures.users.tenantA1.tenantId);
+  await requestPanel.getByLabel("Request type").selectOption("bank_payment_receipt");
+  await requestPanel.getByPlaceholder("Request title, e.g. Proof of ID").fill(requestTitle);
+  await requestPanel.getByPlaceholder("Instructions shown to the recipient").fill("Upload a receipt after payment.");
+  await requestPanel.getByRole("button", { name: "Create request" }).click();
+  await expect(requestPanel).toContainText(requestTitle);
+
+  const packetPanel = page.getByTestId("document-packets-panel");
+  await expect(packetPanel).toBeVisible();
+  await packetPanel.getByRole("button", { name: "Refresh" }).click();
+  await packetPanel.getByLabel("Template").selectOption({ label: templateName });
+  await packetPanel.getByLabel("Packet tenant").selectOption(isolationFixtures.users.tenantA1.tenantId);
+  await packetPanel.getByLabel("Packet type").selectOption("agreement");
+  await packetPanel.getByPlaceholder("Packet title, e.g. Tenancy agreement 2026").fill(packetTitle);
+  await packetPanel.getByPlaceholder("Message shown to the recipient").fill("Please review this agreement packet.");
+  await packetPanel.getByRole("button", { name: "Create packet" }).click();
+  const packetRow = packetPanel.getByTestId("document-packet-card").filter({ hasText: packetTitle });
+  await expect(packetRow).toBeVisible();
+  await packetRow.getByRole("button", { name: "Send" }).click();
+  await expect(packetRow).toContainText("Sent");
+  await captureViewport(page, "documents-workflow.png");
+
   await page.goto("/settings/security-audit");
   await expect(page.getByText("Security Audit").first()).toBeVisible();
   await captureViewport(page, "security-audit.png");
@@ -73,4 +140,16 @@ test("captures marketing product screenshots", async ({ page }) => {
   await page.getByText("Issues / Requests").scrollIntoViewIfNeeded();
   await expect(page.getByText("Issues / Requests")).toBeVisible();
   await captureViewport(page, "property-requests.png");
+
+  await page.getByRole("button", { name: "Logout" }).click();
+  await signInAs(page, seededUsers.tenantA1);
+
+  await page.goto("/tenant/home");
+  await expect(page.getByText("Tenant portal")).toBeVisible();
+  await captureViewport(page, "tenant-home.png");
+
+  await page.goto("/tenant/documents");
+  await expect(page.getByTestId("document-packets-panel")).toBeVisible();
+  await expect(page.getByText(packetTitle)).toBeVisible();
+  await captureViewport(page, "tenant-documents.png");
 });
