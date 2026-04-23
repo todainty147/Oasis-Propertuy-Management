@@ -10,20 +10,24 @@ create or replace function public.can_access_document_storage(
   p_document_id uuid
 )
 returns boolean
-language sql
+language plpgsql
 stable
 security definer
 set search_path = public
 as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_allowed boolean := false;
+begin
   select exists (
     select 1
     from public.documents d
     where d.id = p_document_id
       and d.account_id = p_account_id
       and (
-        public.account_member_effective_role(d.account_id, auth.uid()) = any (array['owner','admin'])
+        public.account_member_effective_role(d.account_id, v_user_id) = any (array['owner','admin'])
         or (
-          public.account_member_effective_role(d.account_id, auth.uid()) = 'staff'
+          public.account_member_effective_role(d.account_id, v_user_id) = 'staff'
           and d.visibility <> 'owner_admin'
         )
         or (
@@ -32,20 +36,39 @@ as $$
             select 1
             from public.tenants t
             where t.account_id = d.account_id
-              and t.user_id = auth.uid()
+              and t.user_id = v_user_id
               and t.archived_at is null
               and t.id = d.tenant_id
           )
         )
-        or exists (
-          select 1
-          from public.document_request_uploads dru
-          join public.document_requests dr on dr.id = dru.request_id
-          where dru.document_id = d.id
-            and public.is_document_request_target(dr.id, auth.uid())
-        )
       )
-  );
+  ) into v_allowed;
+
+  if v_allowed then
+    return true;
+  end if;
+
+  if to_regclass('public.document_request_uploads') is not null
+    and to_regclass('public.document_requests') is not null
+    and to_regprocedure('public.is_document_request_target(uuid, uuid)') is not null
+  then
+    execute $request_access$
+      select exists (
+        select 1
+        from public.documents d
+        join public.document_request_uploads dru on dru.document_id = d.id
+        join public.document_requests dr on dr.id = dru.request_id
+        where d.id = $1
+          and d.account_id = $2
+          and public.is_document_request_target(dr.id, $3)
+      )
+    $request_access$
+    into v_allowed
+    using p_document_id, p_account_id, v_user_id;
+  end if;
+
+  return coalesce(v_allowed, false);
+end;
 $$;
 
 drop policy if exists "documents_storage_select_scoped" on storage.objects;
