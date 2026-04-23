@@ -11,6 +11,7 @@ import { isIntegrationHarnessConfigured } from "./helpers/env.js";
 const cleanup = {
   packetIds: new Set(),
   templateIds: new Set(),
+  signatureSettingAccountIds: new Set(),
 };
 
 function expectDenied(result) {
@@ -23,7 +24,8 @@ function expectDenied(result) {
       message.includes("template not found") ||
       message.includes("permission denied") ||
       message.includes("cannot be completed") ||
-      message.includes("not ready"),
+      message.includes("not ready") ||
+      message.includes("not configured"),
   ).toBe(true);
 }
 
@@ -106,6 +108,12 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document agreement packet se
     }
     if (cleanup.templateIds.size > 0) {
       await admin.from("document_templates").delete().in("id", Array.from(cleanup.templateIds));
+    }
+    if (cleanup.signatureSettingAccountIds.size > 0) {
+      await admin
+        .from("document_signature_provider_settings")
+        .delete()
+        .in("account_id", Array.from(cleanup.signatureSettingAccountIds));
     }
   });
 
@@ -210,5 +218,90 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document agreement packet se
       .eq("id", packet.id);
     expect(tenantRead.error).toBeNull();
     expect(tenantRead.data).toHaveLength(0);
+  });
+
+  it("keeps signature readiness manager-scoped and service-role synced", async () => {
+    await admin
+      .from("document_signature_provider_settings")
+      .delete()
+      .eq("account_id", isolationFixtures.accounts.accountA.id);
+
+    const { client: ownerClient } = await signInAsFixtureUser("ownerA");
+    const template = await createActiveTemplate(ownerClient, "Signature readiness template");
+    const packet = await createTenantPacket(ownerClient, template, "Signature readiness packet");
+
+    const notConfigured = await ownerClient.rpc("prepare_document_packet_signature", {
+      p_packet_id: packet.id,
+      p_signature_provider: null,
+      p_signature_template_id: null,
+    });
+    expectDenied(notConfigured);
+
+    const settings = await ownerClient.rpc("upsert_document_signature_provider_settings", {
+      p_account_id: isolationFixtures.accounts.accountA.id,
+      p_provider: "docuseal",
+      p_provider_base_url: "https://sign.example.test",
+      p_default_signature_template_id: "docuseal-template-1",
+      p_is_enabled: true,
+      p_webhook_configured: false,
+    });
+    expect(settings.error).toBeNull();
+    expect(settings.data).toMatchObject({
+      account_id: isolationFixtures.accounts.accountA.id,
+      provider: "docuseal",
+      is_enabled: true,
+    });
+    cleanup.signatureSettingAccountIds.add(isolationFixtures.accounts.accountA.id);
+
+    const { client: tenantClient } = await signInAsFixtureUser("tenantA1");
+    const tenantSettingsRead = await tenantClient
+      .from("document_signature_provider_settings")
+      .select("account_id")
+      .eq("account_id", isolationFixtures.accounts.accountA.id);
+    expect(tenantSettingsRead.error).toBeNull();
+    expect(tenantSettingsRead.data).toHaveLength(0);
+
+    const tenantPrepare = await tenantClient.rpc("prepare_document_packet_signature", {
+      p_packet_id: packet.id,
+      p_signature_provider: "docuseal",
+      p_signature_template_id: "docuseal-template-1",
+    });
+    expectDenied(tenantPrepare);
+
+    const prepared = await ownerClient.rpc("prepare_document_packet_signature", {
+      p_packet_id: packet.id,
+      p_signature_provider: "docuseal",
+      p_signature_template_id: null,
+    });
+    expect(prepared.error).toBeNull();
+    expect(prepared.data).toMatchObject({
+      id: packet.id,
+      signature_provider: "docuseal",
+      signature_template_id: "docuseal-template-1",
+      signature_status: "ready",
+    });
+
+    const submitted = await admin.rpc("record_document_packet_signature_submission", {
+      p_packet_id: packet.id,
+      p_provider: "docuseal",
+      p_submission_id: "submission-123",
+      p_signature_status: "pending",
+    });
+    expect(submitted.error).toBeNull();
+    expect(submitted.data).toMatchObject({
+      id: packet.id,
+      signature_submission_id: "submission-123",
+      signature_status: "pending",
+    });
+
+    const synced = await admin.rpc("sync_document_packet_signature_status", {
+      p_packet_id: packet.id,
+      p_submission_id: "submission-123",
+      p_signature_status: "completed",
+      p_completed_document_id: null,
+      p_error: null,
+    });
+    expect(synced.error).toBeNull();
+    expect(synced.data?.signature_status).toBe("completed");
   });
 });

@@ -32,6 +32,7 @@ import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 import DocumentTemplateLibrary from "../components/DocumentTemplateLibrary";
 import DocumentRequestsPanel from "../components/DocumentRequestsPanel";
 import DocumentPacketsPanel from "../components/DocumentPacketsPanel";
+import DocumentSignatureReadinessPanel from "../components/DocumentSignatureReadinessPanel";
 
 /* ======================
    HELPERS
@@ -433,11 +434,18 @@ export default function Documents({
       />
 
       {!isTenant ? (
-        <DocumentTemplateLibrary
-          accountId={activeAccountId}
-          permissionContext={permissionContext}
-          t={t}
-        />
+        <>
+          <DocumentSignatureReadinessPanel
+            accountId={activeAccountId}
+            t={t}
+          />
+
+          <DocumentTemplateLibrary
+            accountId={activeAccountId}
+            permissionContext={permissionContext}
+            t={t}
+          />
+        </>
       ) : null}
 
       {canUploadDocument(permissionContext) && (

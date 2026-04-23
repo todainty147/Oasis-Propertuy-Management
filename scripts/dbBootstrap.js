@@ -345,6 +345,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply document signature readiness overlay",
+    file: path.join(supabaseDir, "document_signature_readiness.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply tenant document prioritization overlay",
     file: path.join(supabaseDir, "document_tenant_highlight.sql"),
     onErrorStop: true,

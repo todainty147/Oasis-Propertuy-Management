@@ -6,12 +6,25 @@ import { seededUsers, signInAs } from "./helpers/auth.js";
 const cleanup = {
   packetIds: new Set(),
   templateIds: new Set(),
+  signatureSettingAccountIds: new Set(),
 };
 
 async function packetPanel(page) {
   const panel = page.getByTestId("document-packets-panel");
   await expect(panel).toBeVisible();
   return panel;
+}
+
+async function configureSignatureReadiness(page, stamp) {
+  const panel = page.getByTestId("document-signature-readiness-panel");
+  await expect(panel).toBeVisible();
+  await panel.getByLabel("Signature provider").selectOption("docuseal");
+  await panel.getByPlaceholder("Provider URL, e.g. https://sign.example.com").fill("https://sign.example.test");
+  await panel.getByPlaceholder("Default signature template ID").fill(`docuseal-template-${stamp}`);
+  await panel.getByLabel("Enable provider for this account").check();
+  await panel.getByRole("button", { name: "Save signature readiness" }).click();
+  await expect(panel).toContainText("Provider ready");
+  cleanup.signatureSettingAccountIds.add(isolationFixtures.accounts.accountA.id);
 }
 
 async function seedActiveTemplate(name) {
@@ -78,6 +91,7 @@ test("agreement packets move from active template to tenant completion", async (
 
   await signInAs(page, seededUsers.ownerA);
   await page.goto("/documents");
+  await configureSignatureReadiness(page, stamp);
   await createAndSendTenantPacket(page, templateName, packetTitle);
 
   await page.getByRole("button", { name: "Logout" }).click();
@@ -101,5 +115,12 @@ test.afterEach(async () => {
   if (cleanup.templateIds.size > 0) {
     await admin.from("document_templates").delete().in("id", Array.from(cleanup.templateIds));
     cleanup.templateIds.clear();
+  }
+  if (cleanup.signatureSettingAccountIds.size > 0) {
+    await admin
+      .from("document_signature_provider_settings")
+      .delete()
+      .in("account_id", Array.from(cleanup.signatureSettingAccountIds));
+    cleanup.signatureSettingAccountIds.clear();
   }
 });

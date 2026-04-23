@@ -36,7 +36,7 @@ If you hit a property limit or open a locked page, OASIS will show upgrade guida
    Contractors can use their portal to see assigned jobs and update progress. Quote and invoice steps appear where that workflow is enabled.
 
 6. Set up document workflows
-   Open `Documents` to upload your own agreement/document templates, request files from tenants or contractors, and send pre-signature agreement packets for review or completion. OASIS does not seed legal templates by default; upload your own UK, Poland, or country-specific starting points and have them reviewed before sending.
+   Open `Documents` to upload your own agreement/document templates, request files from tenants or contractors, and send pre-signature agreement packets for review or completion. OASIS does not seed legal templates by default; upload your own UK, Poland, or country-specific starting points and have them reviewed before sending. The signature readiness panel stores provider metadata only; API keys belong in Edge Function environment variables.
 
 ## What the dashboard shows
 

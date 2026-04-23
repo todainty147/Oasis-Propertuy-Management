@@ -10,7 +10,8 @@ Use this when templates, document requests, participant uploads, or agreement pa
 - Tenants and contractors can upload only to requests targeted at them.
 - Landlords/admins can create and send pre-signature agreement packets from active templates.
 - Tenants and contractors can view and complete only their own packets.
-- External signing is not implemented yet. Agreement packets are a review/completion foundation for future e-signature integration.
+- Signature readiness metadata exists for account-scoped provider setup and packet signature status.
+- External provider API calls and webhook PDF import are not implemented yet. Agreement packets are a review/completion foundation for the e-signature adapter.
 
 ## First Checks
 
@@ -141,6 +142,40 @@ Expected event sequence for the current pre-signature workflow:
 
 `voided` is manager-only and should not be available after completion.
 
+## Signature Readiness Looks Wrong
+
+Inspect account-level provider metadata:
+
+```sql
+select account_id, provider, provider_base_url, default_signature_template_id,
+       is_enabled, webhook_configured, configured_by, configured_at, updated_at
+from public.document_signature_provider_settings
+where account_id = '<account_id>';
+```
+
+This table stores metadata only. Do not put API keys, webhook secrets, or provider credentials in it. Provider secrets belong in Supabase Edge Function environment variables.
+
+Inspect packet signature state:
+
+```sql
+select id, account_id, title, status, signature_provider, signature_template_id,
+       signature_submission_id, signature_status, signature_completed_document_id,
+       signature_requested_at, signature_synced_at, signature_error
+from public.document_packets
+where account_id = '<account_id>'
+order by updated_at desc;
+```
+
+Expected readiness states:
+
+- `not_configured`: no provider/template has been prepared for this packet
+- `ready`: manager prepared the packet for the configured provider
+- `pending` or `requested`: future provider adapter has recorded a submission
+- `completed`: future provider adapter has confirmed completion
+- `failed` or `cancelled`: provider sync failed or was cancelled
+
+Only service-role Edge Functions should record provider submission IDs or sync external status.
+
 ## Storage Policy Order Problems
 
 The document storage policy overlay is order-safe. It checks for document request tables before referencing them. If storage policies fail during bootstrap, confirm these overlays are applied in this order:
@@ -148,6 +183,7 @@ The document storage policy overlay is order-safe. It checks for document reques
 1. `document_templates.sql`
 2. `document_requests.sql`
 3. `document_packets.sql`
-4. `storage_documents_policies.sql`
+4. `document_signature_readiness.sql`
+5. `storage_documents_policies.sql`
 
 Do not remove the request-aware helper guard in `storage_documents_policies.sql`; it prevents deployments from failing when a lower environment applies storage policies before the request tables exist.

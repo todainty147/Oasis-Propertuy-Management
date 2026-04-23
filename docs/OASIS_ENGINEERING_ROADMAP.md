@@ -396,6 +396,16 @@ Known boundary:
 
 ### Phase 4: Open-source e-signature provider integration
 
+Status: readiness foundation implemented; provider API/webhook adapter still pending.
+
+Current implementation:
+
+- provider-neutral packet signature fields and lifecycle events live in [document_signature_readiness.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/document_signature_readiness.sql)
+- account-scoped provider readiness metadata lives in `document_signature_provider_settings`
+- manager-facing setup UI lives in [DocumentSignatureReadinessPanel.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/components/DocumentSignatureReadinessPanel.jsx)
+- frontend service helpers live in [documentSignatureService.js](/mnt/c/Users/Home/oasisrentalmanagementapp/src/services/documentSignatureService.js)
+- integration coverage now verifies manager-scoped settings, tenant denial, packet preparation, and service-role-only signature status sync in [documentPackets.test.js](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/integration/documentPackets.test.js)
+
 Goal:
 
 - add free/open-source e-signature capability without making signing the first blocking dependency
@@ -419,6 +429,8 @@ Recommended schema additions:
 - `signature_status`
 - `signature_completed_document_id`
 
+These readiness fields now exist on `document_packets`; the remaining work is provider orchestration, not packet-state storage.
+
 Recommended Edge Functions:
 
 - `create-signature-packet`
@@ -436,8 +448,8 @@ Security and audit requirements:
 Next recommended slice:
 
 - choose the first provider adapter, likely self-hosted DocuSeal unless deployment constraints push toward another OSS provider
-- add provider IDs and signature status fields without changing existing packet recipient visibility
 - create Edge Functions for packet creation and webhook sync behind service-role-only boundaries
+- import completed PDFs into OASIS documents after webhook verification
 
 ### Phase 5: Country and legal guardrails
 

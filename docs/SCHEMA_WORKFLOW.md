@@ -48,10 +48,11 @@ Example overlay order for the current repo:
 9. `supabase/document_templates.sql`
 10. `supabase/document_requests.sql`
 11. `supabase/document_packets.sql`
-12. `supabase/storage_buckets.sql`
-13. `supabase/storage_documents_policies.sql`
-14. `supabase/storage_maintenance_request_attachments_policies.sql`
-15. `supabase/storage_work_order_attachments_policies.sql`
+12. `supabase/document_signature_readiness.sql`
+13. `supabase/storage_buckets.sql`
+14. `supabase/storage_documents_policies.sql`
+15. `supabase/storage_maintenance_request_attachments_policies.sql`
+16. `supabase/storage_work_order_attachments_policies.sql`
 
 This is intentionally explicit. Do not assume `supabase db reset` alone reconstructs the full app schema in this repo.
 

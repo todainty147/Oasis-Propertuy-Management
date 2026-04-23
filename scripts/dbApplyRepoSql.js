@@ -86,6 +86,7 @@ const OVERLAY_SEQUENCE = [
   "document_templates.sql",
   "document_requests.sql",
   "document_packets.sql",
+  "document_signature_readiness.sql",
   "compliance_calendar_upgrade.sql",
   "storage_buckets.sql",
   "storage_documents_policies.sql",
