@@ -64,8 +64,8 @@ const outcomeSections = [
       "Give tenants a clearer portal for payments, maintenance visibility, documents, and agreement review.",
       "Support faster follow-up when a tenant issue needs action.",
     ],
-    href: "/features/tenant-management",
-    cta: "Explore tenant workflows",
+    href: "/features/tenant-portal",
+    cta: "Explore tenant portal",
   },
   {
     eyebrow: "Documents and evidence",

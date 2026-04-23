@@ -159,6 +159,30 @@ export const homepageContent = {
     imageAlt: "OASIS Portfolio Health dashboard showing occupancy mix, finance pressure, and maintenance risk signals.",
     imageAlign: "left" as const,
   },
+  tenantPortalSection: {
+    eyebrow: "Tenant portal",
+    title: "Give tenants a clearer experience without turning every update into a chase",
+    body:
+      "The tenant portal now deserves its own spotlight. Tenants can review payments, track maintenance activity, open shared documents, upload requested evidence, and complete agreement review steps inside a space built only for them.",
+    items: [
+      {
+        title: "Self-service that reduces repeat questions",
+        body: "Payment setup, active issues, and new updates stay visible in one tenant-safe dashboard instead of disappearing into scattered reminders.",
+      },
+      {
+        title: "Document and agreement handoff in one place",
+        body: "Tenants can see requested documents, upload what is needed, and review pre-signature agreement packets from the same portal.",
+      },
+      {
+        title: "Professional experience without role leakage",
+        body: "The portal feels complete for tenants while staying tightly scoped to their tenancy, their requests, and their records.",
+      },
+    ],
+    imageSrc: "/screenshots/tenant-documents.png",
+    imageAlt: "OASIS tenant portal documents page showing requests, uploads, and agreement packet review.",
+    primaryCta: { label: "See The Tenant Portal", href: "/features/tenant-portal" },
+    secondaryCta: { label: "Explore Tenant Workflows", href: "/features/tenant-management" },
+  },
   workflowSection: {
     title: "See the workflow in action",
     body:

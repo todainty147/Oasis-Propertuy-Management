@@ -1,6 +1,13 @@
+import Link from "next/link";
+
 type SectionItem = {
   title: string;
   body: string;
+};
+
+type Cta = {
+  label: string;
+  href: string;
 };
 
 export function ContentSection({
@@ -11,6 +18,8 @@ export function ContentSection({
   imageSrc,
   imageAlt,
   imageAlign = "right",
+  primaryCta,
+  secondaryCta,
 }: {
   eyebrow?: string;
   title: string;
@@ -19,6 +28,8 @@ export function ContentSection({
   imageSrc?: string;
   imageAlt?: string;
   imageAlign?: "left" | "right";
+  primaryCta?: Cta;
+  secondaryCta?: Cta;
 }) {
   return (
     <section className="section">
@@ -37,6 +48,18 @@ export function ContentSection({
                       <p className="muted">{item.body}</p>
                     </article>
                   ))}
+                </div>
+              ) : null}
+              {primaryCta ? (
+                <div className="button-row">
+                  <Link href={primaryCta.href} className="button button-primary">
+                    {primaryCta.label}
+                  </Link>
+                  {secondaryCta ? (
+                    <Link href={secondaryCta.href} className="button button-secondary">
+                      {secondaryCta.label}
+                    </Link>
+                  ) : null}
                 </div>
               ) : null}
             </div>
