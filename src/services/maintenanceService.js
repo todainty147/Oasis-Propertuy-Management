@@ -12,7 +12,6 @@ import {
   parseRpcRows,
   parseMaintenanceExpenseRow,
   parseTenantIssueRow,
-  parseTenantRow,
   parseWorkOrderRow,
 } from "./rpcContracts";
 import { fetchWorkOrders } from "./workOrderService";
@@ -146,28 +145,6 @@ export async function getTenantMaintenanceDashboardData({
   if (userErr) throw friendlyError(userErr, "Nie udało się ustalić użytkownika");
   if (!user?.id) return { requests: [], workOrders: [] };
 
-  const { data: tenantRows, error: tenantError } = await supabase
-    .from("tenants")
-    .select("id, account_id, property_id, user_id, status, name, email, phone, created_at, updated_at")
-    .eq("account_id", accountId)
-    .eq("user_id", user.id);
-
-  if (tenantError) throw friendlyError(tenantError, "Nie udało się ustalić scope tenant");
-
-  const parsedTenants = parseRpcRows(tenantRows || [], parseTenantRow, "tenant maintenance dashboard tenants");
-  const tenantIds = parsedTenants.map((row) => row.id).filter(Boolean);
-  const allowedPropertyIds = parsedTenants.map((row) => row.property_id).filter(Boolean);
-  const scopedPropertyIds = propertyId
-    ? allowedPropertyIds.filter((id) => id === propertyId)
-    : allowedPropertyIds;
-
-  if (tenantIds.length === 0 || scopedPropertyIds.length === 0) {
-    return {
-      requests: [],
-      workOrders: [],
-    };
-  }
-
   const issueRows = await listTenantIssueRows({
     accountId,
     propertyId,
@@ -178,7 +155,7 @@ export async function getTenantMaintenanceDashboardData({
     id: row.maintenance_request_id,
     account_id: row.account_id,
     property_id: row.property_id,
-    reported_by_tenant_id: tenantIds[0] || null,
+    reported_by_tenant_id: null,
     title: row.title,
     description: "",
     priority: row.priority,
@@ -196,7 +173,7 @@ export async function getTenantMaintenanceDashboardData({
     const { data, error } = await supabase
       .from("work_orders_with_flags")
       .select(
-        "id, account_id, property_id, maintenance_request_id, contractor_user_id, contractor_name, contractor_phone, status, scheduled_at, notes, quote_amount, invoice_amount, created_by, created_at, updated_at, pending_cancel_request, last_cancel_request_at, last_cancel_request_by, last_cancel_resolution_at, last_cancel_resolution_action, last_cancel_resolution_by, assigned_at, acknowledged_at, acknowledgement_due_at, acknowledgement_status",
+        "id, account_id, property_id, maintenance_request_id, contractor_user_id, contractor_name, contractor_phone, status, scheduled_at, notes, quote_amount, invoice_amount, created_by, created_at, updated_at, pending_cancel_request, last_cancel_request_at, last_cancel_request_by, last_cancel_resolution_at, last_cancel_resolution_action, last_cancel_resolution_by",
       )
       .in("id", latestWorkOrderIds)
       .order("created_at", { ascending: false });

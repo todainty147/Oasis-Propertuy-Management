@@ -8,6 +8,7 @@ import { useTenant } from "../context/TenantContext";
 import { getTenantMaintenanceDashboardData } from "../services/maintenanceService";
 import { getTenantTimeline } from "../services/tenantTimelineService";
 import {
+  buildTenantMaintenanceProgress,
   getTenantRequestStatusMeta,
   getTenantWorkOrderStatusMeta,
   summarizeTenantMaintenance,
@@ -27,6 +28,28 @@ function statusKindForTone(tone) {
   if (tone === "amber") return "warn";
   if (tone === "blue") return "info";
   return "muted";
+}
+
+function milestoneDotClass(state) {
+  const base = "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold";
+  if (state === "complete") return `${base} border-green-300 bg-green-50 text-green-700`;
+  if (state === "blocked") return `${base} border-amber-300 bg-amber-50 text-amber-800`;
+  if (state === "current") return `${base} border-blue-300 bg-blue-50 text-blue-700`;
+  return `${base} border-slate-200 bg-slate-50 text-slate-400`;
+}
+
+function milestoneRailClass(state) {
+  if (state === "complete") return "bg-green-200";
+  if (state === "blocked") return "bg-amber-200";
+  if (state === "current") return "bg-blue-200";
+  return "bg-slate-200";
+}
+
+function milestoneStatusLabel(state, t) {
+  if (state === "complete") return t("tenantDashboard.progress.state.complete");
+  if (state === "blocked") return t("tenantDashboard.progress.state.waiting");
+  if (state === "current") return t("tenantDashboard.progress.state.current");
+  return t("tenantDashboard.progress.state.upcoming");
 }
 
 function mrStatusLabel(status, t) {
@@ -86,6 +109,10 @@ export default function TenantMaintenanceDashboard({
   const [progressEvents, setProgressEvents] = useState([]);
   const maintenanceSummary = useMemo(
     () => summarizeTenantMaintenance(requests, workOrders),
+    [requests, workOrders],
+  );
+  const progressTracker = useMemo(
+    () => buildTenantMaintenanceProgress(requests, workOrders),
     [requests, workOrders],
   );
 
@@ -314,6 +341,65 @@ export default function TenantMaintenanceDashboard({
           </div>
         </div>
       )}
+
+      {!loading ? (
+        <div
+          className="space-y-3 rounded-xl border border-slate-200 bg-white p-4"
+          data-testid="tenant-maintenance-progress-tracker"
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h4 className="text-base font-semibold text-slate-900">
+                {t("tenantDashboard.progressTrackerTitle")}
+              </h4>
+              <p className="mt-1 text-sm text-slate-500">
+                {progressTracker.hasItems
+                  ? t("tenantDashboard.progressTrackerSubtitle", {
+                    value: progressTracker.title || t("tenantDashboard.progress.thisIssue"),
+                  })
+                  : t("tenantDashboard.progressTrackerEmpty")}
+              </p>
+            </div>
+            {progressTracker.hasItems ? (
+              <span className="w-fit rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+                {t(progressTracker.currentStepKey)}
+              </span>
+            ) : null}
+          </div>
+
+          {progressTracker.hasItems ? (
+            <ol className="grid gap-3 lg:grid-cols-6">
+              {progressTracker.milestones.map((milestone, index) => (
+                <li key={milestone.key} className="relative flex gap-3 lg:block">
+                  <div className="flex flex-col items-center lg:flex-row">
+                    <span className={milestoneDotClass(milestone.state)}>
+                      {milestone.state === "complete" ? "✓" : index + 1}
+                    </span>
+                    {index < progressTracker.milestones.length - 1 ? (
+                      <span
+                        className={`h-full min-h-8 w-px lg:h-px lg:min-h-0 lg:w-full ${milestoneRailClass(milestone.state)}`}
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                  </div>
+                  <div className="min-w-0 pb-2 lg:mt-3 lg:pb-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-slate-900">{t(milestone.labelKey)}</p>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                        {milestoneStatusLabel(milestone.state, t)}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">{t(milestone.bodyKey)}</p>
+                    {milestone.at ? (
+                      <p className="mt-1 text-[11px] text-slate-400">{formatDateTime(milestone.at)}</p>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          ) : null}
+        </div>
+      ) : null}
 
       {!loading ? (
         <div className="space-y-3">

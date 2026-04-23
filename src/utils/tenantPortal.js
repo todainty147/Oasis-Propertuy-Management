@@ -13,6 +13,14 @@ function parseDate(value) {
   return Number.isNaN(next.getTime()) ? null : next;
 }
 
+function timestampValue(...values) {
+  for (const value of values) {
+    const parsed = parseDate(value);
+    if (parsed) return parsed.toISOString();
+  }
+  return null;
+}
+
 function normalizeHighlight(value) {
   const key = normalize(value);
   if (key === "action_required") return "action_required";
@@ -58,6 +66,52 @@ function isSettledMaintenanceStatus(status) {
 
 function isSettledWorkOrderStatus(status) {
   return ["completed", "cancelled"].includes(normalize(status));
+}
+
+function isActiveMaintenanceStatus(status) {
+  return !isSettledMaintenanceStatus(status);
+}
+
+function isActiveWorkOrderStatus(status) {
+  return !isSettledWorkOrderStatus(status);
+}
+
+function findFocusRequest(requestRows, workOrderRows) {
+  const linkedRequestIds = new Set(
+    workOrderRows
+      .map((row) => row?.maintenance_request_id)
+      .filter(Boolean)
+      .map(String),
+  );
+
+  const activeWithWorkOrder = requestRows.find((row) =>
+    isActiveMaintenanceStatus(row?.status) && linkedRequestIds.has(String(row?.id || "")),
+  );
+  if (activeWithWorkOrder) return activeWithWorkOrder;
+
+  const activeRequest = requestRows.find((row) => isActiveMaintenanceStatus(row?.status));
+  if (activeRequest) return activeRequest;
+
+  return requestRows[0] || null;
+}
+
+function findFocusWorkOrder(focusRequest, workOrderRows) {
+  if (!focusRequest) return workOrderRows.find((row) => isActiveWorkOrderStatus(row?.status)) || workOrderRows[0] || null;
+  const requestId = String(focusRequest?.id || "");
+  return (
+    workOrderRows.find((row) => String(row?.maintenance_request_id || "") === requestId && isActiveWorkOrderStatus(row?.status)) ||
+    workOrderRows.find((row) => String(row?.maintenance_request_id || "") === requestId) ||
+    workOrderRows.find((row) => isActiveWorkOrderStatus(row?.status)) ||
+    workOrderRows[0] ||
+    null
+  );
+}
+
+function milestoneState({ complete = false, current = false, blocked = false } = {}) {
+  if (blocked) return "blocked";
+  if (current) return "current";
+  if (complete) return "complete";
+  return "upcoming";
 }
 
 export function getTenantRequestStatusMeta(status) {
@@ -208,6 +262,118 @@ export function summarizeTenantMaintenance(requests = [], workOrders = []) {
     activeRequests: requestRows.filter((row) => !isSettledMaintenanceStatus(row?.status)).length,
     activeWorkOrders: workOrderRows.filter((row) => !isSettledWorkOrderStatus(row?.status)).length,
     resolvedRequests: requestRows.filter((row) => isSettledMaintenanceStatus(row?.status)).length,
+  };
+}
+
+export function buildTenantMaintenanceProgress(requests = [], workOrders = []) {
+  const requestRows = Array.isArray(requests) ? requests : [];
+  const workOrderRows = Array.isArray(workOrders) ? workOrders : [];
+  const focusRequest = findFocusRequest(requestRows, workOrderRows);
+  const focusWorkOrder = findFocusWorkOrder(focusRequest, workOrderRows);
+
+  if (!focusRequest && !focusWorkOrder) {
+    return {
+      hasItems: false,
+      title: "",
+      currentStepKey: "tenantDashboard.progress.noActiveStep",
+      milestones: [],
+    };
+  }
+
+  const requestStatus = normalize(focusRequest?.status || "");
+  const workOrderStatus = normalize(focusWorkOrder?.status || "");
+  const hasWorkOrder = Boolean(focusWorkOrder?.id);
+  const hasScheduledVisit = Boolean(focusWorkOrder?.scheduled_at);
+  const isBlocked = workOrderStatus === "blocked" || requestStatus === "waiting";
+  const isCompleted =
+    ["resolved", "closed"].includes(requestStatus) ||
+    workOrderStatus === "completed";
+  const isCancelled = workOrderStatus === "cancelled";
+  const isInProgress =
+    requestStatus === "in_progress" ||
+    ["in_progress", "blocked", "completed", "cancelled"].includes(workOrderStatus);
+  const workOrderActuallyStarted = ["in_progress", "blocked", "completed", "cancelled"].includes(workOrderStatus);
+
+  const reviewed = requestStatus !== "open" || hasWorkOrder || isCompleted || isCancelled;
+  const assigned = hasWorkOrder;
+  const scheduled = hasScheduledVisit || ["in_progress", "blocked", "completed"].includes(workOrderStatus);
+
+  const milestones = [
+    {
+      key: "reported",
+      labelKey: "tenantDashboard.progress.reported",
+      bodyKey: "tenantDashboard.progress.reportedBody",
+      at: timestampValue(focusRequest?.created_at, focusWorkOrder?.created_at),
+      state: "complete",
+    },
+    {
+      key: "reviewed",
+      labelKey: "tenantDashboard.progress.reviewed",
+      bodyKey: "tenantDashboard.progress.reviewedBody",
+      at: reviewed ? timestampValue(focusRequest?.updated_at, focusRequest?.created_at) : null,
+      state: milestoneState({
+        complete: reviewed,
+        current: !reviewed,
+      }),
+    },
+    {
+      key: "assigned",
+      labelKey: "tenantDashboard.progress.assigned",
+      bodyKey: "tenantDashboard.progress.assignedBody",
+      at: assigned ? timestampValue(focusWorkOrder?.assigned_at, focusWorkOrder?.created_at) : null,
+      state: milestoneState({
+        complete: assigned,
+        current: reviewed && !assigned && !isCompleted && !isCancelled,
+      }),
+    },
+    {
+      key: "scheduled",
+      labelKey: "tenantDashboard.progress.scheduled",
+      bodyKey: "tenantDashboard.progress.scheduledBody",
+      at: scheduled ? timestampValue(focusWorkOrder?.scheduled_at, focusWorkOrder?.updated_at, focusWorkOrder?.created_at) : null,
+      state: milestoneState({
+        complete: scheduled,
+        current: assigned && !scheduled && !isInProgress && !isCompleted && !isCancelled,
+        blocked: isBlocked && assigned && !isCompleted && !isCancelled,
+      }),
+    },
+    {
+      key: "in_progress",
+      labelKey: "tenantDashboard.progress.inProgress",
+      bodyKey: "tenantDashboard.progress.inProgressBody",
+      at: isInProgress ? timestampValue(focusWorkOrder?.updated_at, focusRequest?.updated_at) : null,
+      state: milestoneState({
+        complete: workOrderActuallyStarted || isCompleted,
+        current: isInProgress && !workOrderActuallyStarted && !isCompleted && !isCancelled,
+        blocked: isBlocked && !isCompleted && !isCancelled,
+      }),
+    },
+    {
+      key: isCancelled ? "cancelled" : "completed",
+      labelKey: isCancelled ? "tenantDashboard.progress.cancelled" : "tenantDashboard.progress.completed",
+      bodyKey: isCancelled ? "tenantDashboard.progress.cancelledBody" : "tenantDashboard.progress.completedBody",
+      at: isCompleted || isCancelled
+        ? timestampValue(focusWorkOrder?.updated_at, focusRequest?.updated_at)
+        : null,
+      state: milestoneState({
+        complete: isCompleted || isCancelled,
+      }),
+    },
+  ];
+
+  const currentMilestone =
+    milestones.find((row) => row.state === "blocked") ||
+    milestones.find((row) => row.state === "current") ||
+    [...milestones].reverse().find((row) => row.state === "complete") ||
+    milestones[0];
+
+  return {
+    hasItems: true,
+    requestId: focusRequest?.id || focusWorkOrder?.maintenance_request_id || null,
+    workOrderId: focusWorkOrder?.id || null,
+    title: focusRequest?.title || "",
+    currentStepKey: currentMilestone?.labelKey || "tenantDashboard.progress.noActiveStep",
+    milestones,
   };
 }
 

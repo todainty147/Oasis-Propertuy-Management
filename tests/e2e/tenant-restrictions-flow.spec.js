@@ -10,8 +10,12 @@ test("tenant sees the restricted surface and does not get manager-only property 
   await expect(page.getByRole("heading", { name: "Your home overview" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "What needs attention" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Tenant timeline" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Repair progress tracker" })).toBeVisible();
+  await expect(page.getByTestId("tenant-maintenance-progress-tracker")).toContainText("Leaking tap");
+  await expect(page.getByTestId("tenant-maintenance-progress-tracker")).toContainText("Work order opened");
+  await expect(page.getByTestId("tenant-maintenance-progress-tracker")).toContainText("Work plan");
   await expect(page.getByRole("heading", { name: "Recent progress history" })).toBeVisible();
-  await expect(page.getByText("Leaking tap")).toHaveCount(2);
+  await expect(page.getByText("Leaking tap").first()).toBeVisible();
 
   await expect(page.getByRole("link", { name: "Tenants" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Invitations" })).toHaveCount(0);
@@ -45,7 +49,7 @@ test("tenant sees the restricted surface and does not get manager-only property 
 
   await page.goto("/properties");
   await expect(page).toHaveURL(/\/tenant\/property(?:\?.*)?$/);
-  await expect(page.getByRole("heading", { name: "Properties", exact: true })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { name: "Properties", exact: true })).toBeVisible();
   await expect(page.getByText("Add your first property")).toHaveCount(0);
   await expect(page.getByRole("link", { name: /11 Starlight Avenue/i })).toBeVisible();
 
@@ -62,6 +66,7 @@ test("tenant dashboard actions remain usable on mobile width", async ({ page }) 
   await page.goto("/tenant/home?horizon=week");
 
   await expect(page.getByRole("heading", { name: "Your home overview" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Repair progress tracker" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Recent progress history" })).toBeVisible();
   await expect(page.getByTestId("tenant-dashboard-open-payments")).toBeVisible();
   await expect(page.getByTestId("tenant-dashboard-open-requests")).toBeVisible();

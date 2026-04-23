@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildTenantMaintenanceProgress,
   buildTenantPaymentSummary,
   getTenantRequestStatusMeta,
   getTenantWorkOrderStatusMeta,
@@ -56,6 +57,55 @@ describe("tenantPortal helpers", () => {
     expect(summary.activeRequests).toBe(2);
     expect(summary.activeWorkOrders).toBe(2);
     expect(summary.resolvedRequests).toBe(1);
+  });
+
+  it("builds a tenant-safe maintenance progress tracker from request and work-order state", () => {
+    const progress = buildTenantMaintenanceProgress(
+      [
+        {
+          id: "req-1",
+          title: "Leaking tap",
+          status: "in_progress",
+          created_at: "2026-04-20T10:00:00.000Z",
+          updated_at: "2026-04-20T12:00:00.000Z",
+        },
+      ],
+      [
+        {
+          id: "wo-1",
+          maintenance_request_id: "req-1",
+          status: "assigned",
+          contractor_name: "Hidden Contractor Ltd",
+          created_at: "2026-04-21T09:00:00.000Z",
+          assigned_at: "2026-04-21T09:30:00.000Z",
+        },
+      ],
+    );
+
+    expect(progress.hasItems).toBe(true);
+    expect(progress.title).toBe("Leaking tap");
+    expect(progress.workOrderId).toBe("wo-1");
+    expect(progress.currentStepKey).toBe("tenantDashboard.progress.inProgress");
+    expect(progress.milestones.map((row) => [row.key, row.state])).toEqual([
+      ["reported", "complete"],
+      ["reviewed", "complete"],
+      ["assigned", "complete"],
+      ["scheduled", "upcoming"],
+      ["in_progress", "current"],
+      ["completed", "upcoming"],
+    ]);
+    expect(JSON.stringify(progress)).not.toContain("Hidden Contractor Ltd");
+  });
+
+  it("marks blocked work orders as tenant-facing waiting progress", () => {
+    const progress = buildTenantMaintenanceProgress(
+      [{ id: "req-1", title: "Boiler", status: "waiting", created_at: "2026-04-20T10:00:00.000Z" }],
+      [{ id: "wo-1", maintenance_request_id: "req-1", status: "blocked", created_at: "2026-04-21T09:00:00.000Z" }],
+    );
+
+    expect(progress.currentStepKey).toBe("tenantDashboard.progress.scheduled");
+    expect(progress.milestones.find((row) => row.key === "scheduled")?.state).toBe("blocked");
+    expect(progress.milestones.find((row) => row.key === "in_progress")?.state).toBe("blocked");
   });
 
   it("partitions recent and older documents without losing total visibility", () => {
