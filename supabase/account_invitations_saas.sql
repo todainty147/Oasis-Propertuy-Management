@@ -935,6 +935,7 @@ declare
   v_has_admin boolean := false;
   v_member_role public.account_members.role%type;
   v_previous_role text;
+  v_tenant_id uuid;
 begin
   if v_uid is null then
     raise exception 'Not authenticated';
@@ -1034,6 +1035,36 @@ begin
       accepted_by = v_uid
   where id = v_inv.id;
 
+  if v_role = 'tenant' then
+    update public.tenants
+    set user_id = v_uid,
+        email = coalesce(nullif(email, ''), lower(v_inv.email)),
+        status = case
+          when lower(coalesce(status, '')) in ('', 'applicant') then 'active'
+          else status
+        end
+    where account_id = v_inv.account_id
+      and archived_at is null
+      and (
+        user_id = v_uid
+        or lower(coalesce(email, '')) = lower(v_inv.email)
+      )
+    returning id into v_tenant_id;
+
+    if v_tenant_id is null then
+      insert into public.tenants(account_id, name, email, user_id, status, created_at)
+      values (
+        v_inv.account_id,
+        coalesce(nullif(split_part(lower(v_inv.email), '@', 1), ''), lower(v_inv.email)),
+        lower(v_inv.email),
+        v_uid,
+        'active',
+        now()
+      )
+      returning id into v_tenant_id;
+    end if;
+  end if;
+
   perform public.log_security_event(
     v_inv.account_id,
     'invite_accepted',
@@ -1071,6 +1102,47 @@ begin
   return jsonb_build_object('ok', true, 'account_id', v_inv.account_id, 'role', v_role);
 end;
 $$;
+
+update public.tenants t
+set user_id = ai.accepted_by,
+    email = coalesce(nullif(t.email, ''), lower(ai.email)),
+    status = case
+      when lower(coalesce(t.status, '')) in ('', 'applicant') then 'active'
+      else t.status
+    end
+from public.account_invitations ai
+where ai.account_id = t.account_id
+  and lower(ai.role::text) = 'tenant'
+  and ai.accepted_at is not null
+  and ai.accepted_by is not null
+  and ai.revoked_at is null
+  and t.archived_at is null
+  and t.user_id is null
+  and lower(coalesce(t.email, '')) = lower(ai.email);
+
+insert into public.tenants(account_id, name, email, user_id, status, created_at)
+select
+  ai.account_id,
+  coalesce(nullif(split_part(lower(ai.email), '@', 1), ''), lower(ai.email)),
+  lower(ai.email),
+  ai.accepted_by,
+  'active',
+  coalesce(ai.accepted_at, now())
+from public.account_invitations ai
+where lower(ai.role::text) = 'tenant'
+  and ai.accepted_at is not null
+  and ai.accepted_by is not null
+  and ai.revoked_at is null
+  and not exists (
+    select 1
+    from public.tenants t
+    where t.account_id = ai.account_id
+      and t.archived_at is null
+      and (
+        t.user_id = ai.accepted_by
+        or lower(coalesce(t.email, '')) = lower(ai.email)
+      )
+  );
 
 grant execute on function public.accept_account_invite(text) to authenticated;
 grant execute on function public.account_member_set_role(uuid, uuid, text) to authenticated;

@@ -73,6 +73,18 @@ describe.skipIf(!isIntegrationHarnessConfigured())("accept_account_invite member
     return count ?? 0;
   }
 
+  async function getTenantByUser(accountId, userId) {
+    const { data, error } = await admin
+      .from("tenants")
+      .select("id, account_id, email, user_id, status, property_id")
+      .eq("account_id", accountId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  }
+
   async function getInvite(inviteId) {
     const { data, error } = await admin
       .from("account_invitations")
@@ -98,6 +110,14 @@ describe.skipIf(!isIntegrationHarnessConfigured())("accept_account_invite member
     }
 
     const cleanupUserIds = [seededUsers.ownerB.id, seededUsers.staffB.id];
+    const { error: tenantError } = await admin
+      .from("tenants")
+      .delete()
+      .eq("account_id", isolationFixtures.accounts.accountA.id)
+      .in("user_id", cleanupUserIds);
+
+    if (tenantError) throw tenantError;
+
     const { error: membershipError } = await admin
       .from("account_members")
       .delete()
@@ -152,6 +172,42 @@ describe.skipIf(!isIntegrationHarnessConfigured())("accept_account_invite member
     expect(ledgerError).toBeNull();
     expect(ledgerRows).toHaveLength(1);
     expect(ledgerRows[0].account_id).toBe(isolationFixtures.accounts.accountA.id);
+  });
+
+  it("accepting a tenant invite creates a tenant directory record for the accepted user", async () => {
+    const invite = await insertInvite({
+      email: isolationFixtures.users.staffB.email,
+      role: "tenant",
+      invitedBy: seededUsers.ownerA.id,
+    });
+
+    const { client, user } = await signInAsFixtureUser("staffB");
+    const result = await client.rpc("accept_account_invite", {
+      invite_token: invite.token,
+    });
+
+    expect(result.error).toBeNull();
+    expect(result.data).toMatchObject({
+      ok: true,
+      account_id: isolationFixtures.accounts.accountA.id,
+      role: "tenant",
+    });
+
+    const acceptedMembership = await getMembership(isolationFixtures.accounts.accountA.id, user.id);
+    expect(acceptedMembership).toMatchObject({
+      account_id: isolationFixtures.accounts.accountA.id,
+      user_id: user.id,
+      role: "tenant",
+    });
+
+    const tenant = await getTenantByUser(isolationFixtures.accounts.accountA.id, user.id);
+    expect(tenant).toMatchObject({
+      account_id: isolationFixtures.accounts.accountA.id,
+      email: isolationFixtures.users.staffB.email,
+      user_id: user.id,
+      status: "active",
+      property_id: null,
+    });
   });
 
   it("rejects an invalid invite token and does not create a membership", async () => {
