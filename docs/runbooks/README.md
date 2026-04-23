@@ -18,6 +18,8 @@ If the symptom is:
   - start with [security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md)
 - document preview/upload/download fails and app logs are not enough:
   - start with [provider-log-correlation.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/provider-log-correlation.md)
+- template library, document request, participant upload, or agreement packet state looks wrong:
+  - start with [document-workflow-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/document-workflow-operations.md)
 - membership, tenant, payment, work-order, or invite rows look broken or detached:
   - start with [data-orphaned-rows.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/data-orphaned-rows.md)
 - invite exists but acceptance is broken, duplicated, revoked unexpectedly, or tied to the wrong account:

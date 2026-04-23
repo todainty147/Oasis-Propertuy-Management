@@ -73,7 +73,7 @@ This section reflects checked-in code, SQL, and tests rather than planned intent
 - **Document operations and agreement workflows**
   - country-specific landlord template repository for UK and Poland first
   - tenant and contractor document intake requests
-  - agreement packet workflow for templates that need review or signatures
+  - agreement packet workflow for template-based tenant/contractor review tasks
   - open-source e-signature integration after the native request/review model is stable
 - **Operational browser confidence**
   - broader click-through coverage across dashboard, command, attention, finance, maintenance, and documents
@@ -223,19 +223,20 @@ The tenant experience is no longer a thin afterthought. The repo now shows:
 ### Recommended timing
 
 - now: hardening and browser confidence
-- next: agreement packet workflow, richer tenant timeline, maintenance history, and document semantics
+- next: richer tenant timeline, maintenance history, document semantics, and e-signature provider integration
 - later: payment execution/autopay and a premium standalone tenant portal layer
 
 ## Document Operations And Agreement Workflow Roadmap
 
 ### Product intent
 
-OASIS should treat documents as operational workflow objects, not only stored files. The next document expansion should let landlords keep reusable country-specific templates, request documents from tenants and contractors, review uploaded evidence, and later send agreement packets for signing.
+OASIS should treat documents as operational workflow objects, not only stored files. The current document foundation now lets landlords keep reusable country-specific templates, request documents from tenants and contractors, review uploaded evidence, and send pre-signature agreement packets for tenant or contractor completion.
 
 This should extend the current document spine rather than create a parallel document product. The current repo already has:
 
 - DB-first uploads and document storage orchestration in [documentService.js](/mnt/c/Users/Home/oasisrentalmanagementapp/src/services/documentService.js)
 - document request intake orchestration in [documentRequestService.js](/mnt/c/Users/Home/oasisrentalmanagementapp/src/services/documentRequestService.js)
+- agreement packet orchestration in [documentPacketService.js](/mnt/c/Users/Home/oasisrentalmanagementapp/src/services/documentPacketService.js)
 - landlord/admin document workspace in [Documents.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/Documents.jsx)
 - tenant-linked document surfaces in [TenantDocumentsSection.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/components/TenantDocumentsSection.jsx)
 - Supabase storage policies aligned to document table access in [storage_documents_policies.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/storage_documents_policies.sql)
@@ -350,7 +351,17 @@ Next hardening:
 
 ### Phase 3: Agreement packet workflow
 
-Status: next recommended document slice.
+Status: implemented pre-signature foundation.
+
+Current implementation:
+
+- schema, RLS, lifecycle RPCs, and packet events live in [document_packets.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/document_packets.sql)
+- shared landlord/participant UI lives in [DocumentPacketsPanel.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/components/DocumentPacketsPanel.jsx)
+- landlord packet creation and review are mounted in [Documents.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/Documents.jsx)
+- tenant packet review/completion is mounted in the tenant documents route through [Documents.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/Documents.jsx)
+- contractor packet review/completion is mounted in [ContractorPortal.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/ContractorPortal.jsx)
+- integration coverage exists in [documentPackets.test.js](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/integration/documentPackets.test.js)
+- browser click-through coverage exists in [document-packets-flow.spec.js](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/e2e/document-packets-flow.spec.js)
 
 Goal:
 
@@ -367,7 +378,7 @@ Recommended schema:
 - `document_packet_recipients`
   - `packet_id`, `role`, `user_id`, `email`, `signing_order`, `status`
 - `document_packet_events`
-  - durable packet lifecycle audit for created, sent, viewed, signed, completed, voided, failed
+  - durable packet lifecycle audit for created, sent, viewed, completed, voided, failed
 
 Initial workflow:
 
@@ -375,7 +386,13 @@ Initial workflow:
 - choose recipient and property/tenancy/work-order context
 - send packet as a tenant/contractor task
 - track viewed/completed state
-- store generated output as an account-scoped document
+- preserve packet events before external signature integration
+
+Known boundary:
+
+- this is a pre-signature workflow, not a DocuSign replacement yet
+- no legal templates are seeded by default; landlords upload their own UK/Poland templates
+- signed/generated PDF output is deferred to the provider integration phase
 
 ### Phase 4: Open-source e-signature provider integration
 
@@ -416,6 +433,12 @@ Security and audit requirements:
 - record every provider state transition in packet events and security/audit logs
 - rate-limit packet creation and webhook handling
 
+Next recommended slice:
+
+- choose the first provider adapter, likely self-hosted DocuSeal unless deployment constraints push toward another OSS provider
+- add provider IDs and signature status fields without changing existing packet recipient visibility
+- create Edge Functions for packet creation and webhook sync behind service-role-only boundaries
+
 ### Phase 5: Country and legal guardrails
 
 Goal:
@@ -439,8 +462,11 @@ Add tests for:
 - contractor can upload only to their own document request
 - uploads do not leak across tenants, contractors, properties, or accounts
 - landlord review can accept/reject uploaded evidence
-- signature webhooks cannot update packets across account boundaries
-- signed documents land in the correct account/property/tenant/contractor scope
+- manager can create/send/void agreement packets only inside their account
+- tenant can view/complete only their own tenant packet
+- contractor can view/complete only their own contractor packet
+- signature webhooks cannot update packets across account boundaries once provider integration lands
+- signed documents land in the correct account/property/tenant/contractor scope once provider integration lands
 
 Add browser E2E for:
 
@@ -449,6 +475,7 @@ Add browser E2E for:
 - landlord reviews the upload
 - landlord creates an agreement packet from a template
 - tenant or contractor sees the signing/request task in their portal
+- tenant completes a pre-signature packet and manager sees completed status
 
 ## Iteration 2A Epics
 
@@ -529,7 +556,7 @@ Recommended implementation notes:
 | Rich tenant activity timeline | Strong | Medium | Next | `tenant_activity_feed` and `TenantTimelineCard` already exist; the product opportunity is better narrative depth and scanability rather than net-new foundations. |
 | Advanced maintenance progress history | Partial | Medium | Next | Current statuses and timeline events exist, but a richer tenant-safe milestone history still needs a more explicit presentation model. |
 | True document prioritization metadata | Partial | Medium | Next | Current tenant document highlighting exists, but the model stops short of durable acknowledgement/review/current-state semantics. |
-| Document operations and agreement workflows | Strong foundation | High | Next, phased | The current document spine already supports account-scoped uploads, tenant visibility, storage policies, and audit hooks. Next value is a country-specific template repository, tenant/contractor intake requests, agreement packets, and later open-source e-signature integration. |
+| Document operations and agreement workflows | Strong foundation | High | In progress, phased | The current document spine now supports account-scoped uploads, tenant visibility, storage policies, template repository, tenant/contractor intake requests, and pre-signature agreement packets. Next value is open-source e-signature integration and richer document semantics. |
 | Payment collection / autopay | Weak | High | Later, capability-driven | Tenant payment visibility is real, but payment execution is not repo-backed today and should remain a deliberate future expansion. |
 | Premium standalone tenant portal layer | Partial foundation | High | Later, product-driven | The current tenant surfaces are credible, but a distinct premium product layer should follow richer workflow depth and payment execution. |
 | Tenant/account rate limiting | Partial | Medium | Now, limited Edge/API scope | `account_id` scoping exists everywhere, so the identity model supports quotas and limits. Start with narrow provider/API abuse protection before considering infrastructure-level quotas. |

@@ -141,7 +141,7 @@ export default function DocumentTemplateLibrary({ accountId, permissionContext, 
   }
 
   return (
-    <Card className="p-4 space-y-4">
+    <Card className="p-4 space-y-4" data-testid="document-template-library">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">

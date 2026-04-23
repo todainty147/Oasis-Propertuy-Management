@@ -35,6 +35,9 @@ If you hit a property limit or open a locked page, OASIS will show upgrade guida
 5. Invite contractors when you need outside help  
    Contractors can use their portal to see assigned jobs and update progress. Quote and invoice steps appear where that workflow is enabled.
 
+6. Set up document workflows
+   Open `Documents` to upload your own agreement/document templates, request files from tenants or contractors, and send pre-signature agreement packets for review or completion. OASIS does not seed legal templates by default; upload your own UK, Poland, or country-specific starting points and have them reviewed before sending.
+
 ## What the dashboard shows
 
 Your dashboard is the fastest way to understand what needs attention right now:
@@ -51,3 +54,4 @@ Your dashboard is the fastest way to understand what needs attention right now:
 - Review the Finance page to make sure upcoming rent is visible.
 - Open the maintenance inbox once so you know where new issues will land.
 - Invite at least one contractor before your first urgent repair.
+- Upload one reusable document template, then try one tenant document request and one agreement packet.

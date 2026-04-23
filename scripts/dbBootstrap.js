@@ -340,6 +340,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply agreement packet overlay",
+    file: path.join(supabaseDir, "document_packets.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply tenant document prioritization overlay",
     file: path.join(supabaseDir, "document_tenant_highlight.sql"),
     onErrorStop: true,

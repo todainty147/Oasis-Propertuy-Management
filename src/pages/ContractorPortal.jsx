@@ -13,6 +13,7 @@ import {
 } from "../services/contractorWorkOrderService";
 import OnboardingHintCard from "../components/OnboardingHintCard";
 import DocumentRequestsPanel from "../components/DocumentRequestsPanel";
+import DocumentPacketsPanel from "../components/DocumentPacketsPanel";
 
 /* -----------------------------
    UI helpers
@@ -265,6 +266,13 @@ export default function ContractorPortal() {
       />
 
       <DocumentRequestsPanel
+        accountId={activeAccountId}
+        permissionContext={{ role }}
+        t={t}
+        mode="participant"
+      />
+
+      <DocumentPacketsPanel
         accountId={activeAccountId}
         permissionContext={{ role }}
         t={t}

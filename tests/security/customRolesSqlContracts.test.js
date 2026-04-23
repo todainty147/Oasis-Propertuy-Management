@@ -1,3 +1,4 @@
+/* global process */
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -170,8 +171,8 @@ describe("custom roles SQL contracts", () => {
   it("routes document storage policies through compatibility helpers", () => {
     const sql = readSource("supabase/storage_documents_policies.sql");
 
-    expect(sql).toContain("public.account_member_effective_role(d.account_id, auth.uid()) = any (array['owner','admin'])");
-    expect(sql).toContain("public.account_member_effective_role(d.account_id, auth.uid()) = 'staff'");
+    expect(sql).toContain("public.account_member_effective_role(d.account_id, v_user_id) = any (array['owner','admin'])");
+    expect(sql).toContain("public.account_member_effective_role(d.account_id, v_user_id) = 'staff'");
     expect(sql).toContain("public.account_member_has_permission(");
     expect(sql).toContain("'documents.upload'");
     expect(sql).toContain("public.account_member_effective_role(split_part(name, '/', 1)::uuid, auth.uid()) = any (array['owner','admin'])");

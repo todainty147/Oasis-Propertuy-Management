@@ -17,9 +17,12 @@ OASIS helps you keep up with rent, maintenance, documents, and shared property i
    Use the property and maintenance areas to raise issues and follow updates on who currently has the baton.
 
 5. Review shared documents  
-   Open `Documents` to see files shared with you. Some documents may be marked as current or needing attention.
+   Open `Documents` to see files shared with you. Some documents may be marked as current or needing attention. If your landlord requests ID evidence, receipts, or other documents, upload them from this area.
 
-6. Check your timeline  
+6. Review agreement packets
+   Agreement packets appear in `Documents` when your landlord sends a template-based agreement or acknowledgement for review. You can mark a packet as viewed and complete the pre-signature step from your portal.
+
+7. Check your timeline
    The tenant timeline shows recent updates related to your tenancy, payments, requests, and documents.
 
 ## Good to know

@@ -31,6 +31,7 @@ import TenantDocumentsOverview from "../components/TenantDocumentsOverview";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 import DocumentTemplateLibrary from "../components/DocumentTemplateLibrary";
 import DocumentRequestsPanel from "../components/DocumentRequestsPanel";
+import DocumentPacketsPanel from "../components/DocumentPacketsPanel";
 
 /* ======================
    HELPERS
@@ -416,6 +417,14 @@ export default function Documents({
       ) : null}
 
       <DocumentRequestsPanel
+        accountId={activeAccountId}
+        permissionContext={permissionContext}
+        tenants={tenants}
+        t={t}
+        mode={isTenant ? "participant" : "manager"}
+      />
+
+      <DocumentPacketsPanel
         accountId={activeAccountId}
         permissionContext={permissionContext}
         tenants={tenants}
