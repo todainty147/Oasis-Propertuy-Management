@@ -223,7 +223,7 @@ The tenant experience is no longer a thin afterthought. The repo now shows:
 ### Recommended timing
 
 - now: hardening and browser confidence
-- next: richer tenant timeline, maintenance history, and document semantics
+- next: agreement packet workflow, richer tenant timeline, maintenance history, and document semantics
 - later: payment execution/autopay and a premium standalone tenant portal layer
 
 ## Document Operations And Agreement Workflow Roadmap
@@ -235,12 +235,21 @@ OASIS should treat documents as operational workflow objects, not only stored fi
 This should extend the current document spine rather than create a parallel document product. The current repo already has:
 
 - DB-first uploads and document storage orchestration in [documentService.js](/mnt/c/Users/Home/oasisrentalmanagementapp/src/services/documentService.js)
+- document request intake orchestration in [documentRequestService.js](/mnt/c/Users/Home/oasisrentalmanagementapp/src/services/documentRequestService.js)
 - landlord/admin document workspace in [Documents.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/Documents.jsx)
 - tenant-linked document surfaces in [TenantDocumentsSection.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/components/TenantDocumentsSection.jsx)
 - Supabase storage policies aligned to document table access in [storage_documents_policies.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/storage_documents_policies.sql)
 - role capability helpers for document read/upload/tag/delete in [permissions.js](/mnt/c/Users/Home/oasisrentalmanagementapp/src/utils/permissions.js)
 
 ### Phase 1: Country-specific template repository
+
+Status: implemented foundation.
+
+Current implementation:
+
+- schema, RLS, storage policies, and RPCs live in [document_templates.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/document_templates.sql)
+- landlord-facing library UI lives in [DocumentTemplateLibrary.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/components/DocumentTemplateLibrary.jsx)
+- browser and integration coverage exists for the repository permissions and upload path
 
 Goal:
 
@@ -285,6 +294,19 @@ Permission boundary:
 
 ### Phase 2: Tenant and contractor document intake
 
+Status: implemented foundation.
+
+Current implementation:
+
+- schema, RLS, request/upload RPCs, and request-aware storage insert policy live in [document_requests.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/document_requests.sql)
+- canonical document storage read access includes request-target access in [storage_documents_policies.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/storage_documents_policies.sql)
+- shared manager/participant UI lives in [DocumentRequestsPanel.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/components/DocumentRequestsPanel.jsx)
+- manager review queue is mounted in [Documents.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/Documents.jsx)
+- tenant upload tasks are mounted in the tenant documents route through [Documents.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/Documents.jsx)
+- contractor upload tasks are mounted in [ContractorPortal.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/ContractorPortal.jsx)
+- regression coverage exists in [documentRequests.test.js](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/integration/documentRequests.test.js)
+- browser click-through coverage exists in [document-requests-flow.spec.js](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/e2e/document-requests-flow.spec.js)
+
 Goal:
 
 - let landlords request files from tenants and contractors
@@ -320,7 +342,15 @@ UI:
 - contractor portal: `Required documents` and `Submitted documents`
 - landlord Documents: review queue for tenant/contractor uploads
 
+Next hardening:
+
+- split the request list into clearer `Requested from you`, `Uploaded by you`, and `Review queue` tabs once volume grows
+- add due-date reminders and rejected-upload resubmission notes
+- connect accepted uploads into document prioritization/current-state metadata
+
 ### Phase 3: Agreement packet workflow
+
+Status: next recommended document slice.
 
 Goal:
 

@@ -12,6 +12,7 @@ import {
   updateContractorWorkOrder,
 } from "../services/contractorWorkOrderService";
 import OnboardingHintCard from "../components/OnboardingHintCard";
+import DocumentRequestsPanel from "../components/DocumentRequestsPanel";
 
 /* -----------------------------
    UI helpers
@@ -121,7 +122,7 @@ function contractorNextStep(wo, allowed, t) {
 
 export default function ContractorPortal() {
   const { setTitle } = usePageTitle();
-  const { activeRole } = useAccount();
+  const { activeAccountId, activeRole } = useAccount();
   const { t } = useI18n();
   const navigate = useNavigate();
 
@@ -261,6 +262,13 @@ export default function ContractorPortal() {
       <OnboardingHintCard
         title={t("onboarding.hints.contractors.title")}
         body={t("onboarding.hints.contractors.body")}
+      />
+
+      <DocumentRequestsPanel
+        accountId={activeAccountId}
+        permissionContext={{ role }}
+        t={t}
+        mode="participant"
       />
 
       {loading ? (

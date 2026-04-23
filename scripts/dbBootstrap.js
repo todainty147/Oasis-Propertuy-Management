@@ -335,6 +335,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply document request intake overlay",
+    file: path.join(supabaseDir, "document_requests.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply tenant document prioritization overlay",
     file: path.join(supabaseDir, "document_tenant_highlight.sql"),
     onErrorStop: true,

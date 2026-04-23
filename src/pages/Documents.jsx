@@ -30,6 +30,7 @@ import { partitionTenantDocuments } from "../utils/tenantPortal";
 import TenantDocumentsOverview from "../components/TenantDocumentsOverview";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 import DocumentTemplateLibrary from "../components/DocumentTemplateLibrary";
+import DocumentRequestsPanel from "../components/DocumentRequestsPanel";
 
 /* ======================
    HELPERS
@@ -413,6 +414,14 @@ export default function Documents({
       {isTenant ? (
         <TenantDocumentsOverview groups={tenantDocumentGroups} t={t} />
       ) : null}
+
+      <DocumentRequestsPanel
+        accountId={activeAccountId}
+        permissionContext={permissionContext}
+        tenants={tenants}
+        t={t}
+        mode={isTenant ? "participant" : "manager"}
+      />
 
       {!isTenant ? (
         <DocumentTemplateLibrary

@@ -37,6 +37,13 @@ as $$
               and t.id = d.tenant_id
           )
         )
+        or exists (
+          select 1
+          from public.document_request_uploads dru
+          join public.document_requests dr on dr.id = dru.request_id
+          where dru.document_id = d.id
+            and public.is_document_request_target(dr.id, auth.uid())
+        )
       )
   );
 $$;
