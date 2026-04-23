@@ -29,7 +29,7 @@ import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { isManageRole } from "../utils/permissions";
+import { can, isManageRole } from "../utils/permissions";
 import TenantSwitcher from "../components/TenantSwitcher";
 import { ENTITLEMENT_FEATURES } from "../lib/entitlements";
 
@@ -88,7 +88,14 @@ function AccountSwitcher() {
    ====================== */
 
 function SidebarContent({ onNavigate }) {
-  const { activeRole, activeAccountId, isRootOperator, canAccessTelemetry, hasEntitlement } = useAccount();
+  const {
+    activeRole,
+    activeAccountId,
+    activePermissionContext,
+    isRootOperator,
+    canAccessTelemetry,
+    hasEntitlement,
+  } = useAccount();
   const { user } = useAuth();
   const { t, lang, setLang } = useI18n();
   const { theme, setTheme } = useTheme();
@@ -98,6 +105,10 @@ function SidebarContent({ onNavigate }) {
   const isTenant = role === "tenant";
   const canManage = isManageRole(role, { isRootOperator });
   const isOwner = role === "owner";
+  const canReadProperties = isTenant || isRootOperator || can(activePermissionContext, "properties", "read");
+  const canReadTenants = isRootOperator || can(activePermissionContext, "tenants", "read");
+  const canReadFinance = isTenant || isRootOperator || can(activePermissionContext, "finance", "read");
+  const canReadDocuments = isTenant || isRootOperator || can(activePermissionContext, "documents", "read");
   const [operationsOpen, setOperationsOpen] = useState(true);
   const [adminOpen, setAdminOpen] = useState(true);
   const [dismissedOnboardingKey, setDismissedOnboardingKey] = useState(null);
@@ -246,17 +257,23 @@ function SidebarContent({ onNavigate }) {
               </p>
               <div className="space-y-1">
               <Item to={isTenant ? "/tenant/home" : "/dashboard"} icon={LayoutDashboard} label={t("sidebar.dashboard")} onNavigate={onNavigate} />
-              <Item to={isTenant ? "/tenant/property" : "/properties"} icon={Home} label={t("sidebar.properties")} onNavigate={onNavigate} />
-              {!isTenant && (
+              {canReadProperties && (
+                <Item to={isTenant ? "/tenant/property" : "/properties"} icon={Home} label={t("sidebar.properties")} onNavigate={onNavigate} />
+              )}
+              {canReadTenants && !isTenant && (
                 <Item to="/tenants" icon={Users} label={t("sidebar.tenants")} onNavigate={onNavigate} />
               )}
-              <Item
-                to={isTenant ? "/tenant/payments" : "/finance"}
-                icon={Wallet}
-                label={t("sidebar.finance")}
-                onNavigate={onNavigate}
-              />
-              <Item to={isTenant ? "/tenant/documents" : "/documents"} icon={FileText} label={t("sidebar.documents")} onNavigate={onNavigate} />
+              {canReadFinance && (
+                <Item
+                  to={isTenant ? "/tenant/payments" : "/finance"}
+                  icon={Wallet}
+                  label={t("sidebar.finance")}
+                  onNavigate={onNavigate}
+                />
+              )}
+              {canReadDocuments && (
+                <Item to={isTenant ? "/tenant/documents" : "/documents"} icon={FileText} label={t("sidebar.documents")} onNavigate={onNavigate} />
+              )}
               </div>
             </div>
 

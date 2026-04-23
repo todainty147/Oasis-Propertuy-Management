@@ -28,6 +28,7 @@ function t(key, params = {}) {
   if (key === "tenantPortal.payments.upcoming") return "Items to review";
   if (key === "tenantPortal.payments.historyTitle") return "Payment history";
   if (key === "tenantPortal.payments.historySubtitle") return "See what has been paid, what is due, and which items need attention.";
+  if (key === "payments.title") return "Payment summary";
   if (key === "dashboard.tenantPaymentHistory") return "Payment history (tenant)";
   if (key === "dashboard.tenantDueOverdueCount") return `${params.count} payments (due / overdue)`;
   if (key === "payments.amount") return "Amount";
@@ -67,6 +68,7 @@ vi.mock("../../src/layout/PageTitleContext", () => ({
 }));
 
 vi.mock("react-router-dom", () => ({
+  Link: ({ to, children, ...props }) => React.createElement("a", { href: String(to || "#"), ...props }, children),
   useNavigate: () => vi.fn(),
   useSearchParams: () => [new URLSearchParams("horizon=week"), vi.fn()],
 }));

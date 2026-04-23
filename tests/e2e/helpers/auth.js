@@ -6,8 +6,11 @@ const TEST_USER_PASSWORD = process.env.TEST_USER_PASSWORD || "OasisTest123!";
 
 export const seededUsers = {
   ownerA: isolationFixtures.users.ownerA.email,
+  adminA: isolationFixtures.users.adminA.email,
+  staffA: isolationFixtures.users.staffA.email,
   rootOwner: isolationFixtures.users.rootOwner.email,
   tenantA1: isolationFixtures.users.tenantA1.email,
+  contractorA1: isolationFixtures.users.contractorA1.email,
 };
 
 export const seededEntityIds = {

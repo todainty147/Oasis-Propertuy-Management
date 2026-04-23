@@ -73,6 +73,10 @@ function isTenantRole(activeRole) {
   return String(activeRole || "").toLowerCase() === "tenant";
 }
 
+function isContractorRole(activeRole) {
+  return String(activeRole || "").toLowerCase() === "contractor";
+}
+
 function TenantOnlyRoute({ children }) {
   const { activeRole } = useAccount();
   return isTenantRole(activeRole) ? children : <Navigate to="/dashboard" replace />;
@@ -96,6 +100,7 @@ export default function App() {
      ====================== */
   const { activeAccountId, activeAccount, activeRole, accountLoading, activePlan } = useAccount();
   const tenantRole = isTenantRole(activeRole);
+  const contractorRole = isContractorRole(activeRole);
 
   /* ======================
      DATA HOOKS
@@ -314,6 +319,8 @@ export default function App() {
           element={
             tenantRole ? (
               <Navigate to="/tenant/home" replace />
+            ) : contractorRole ? (
+              <Navigate to="/contractor" replace />
             ) : (
               <Dashboard
                 loading={propertiesLoading || paymentsLoading || tenantsLoading}
@@ -334,6 +341,8 @@ export default function App() {
           element={
             tenantRole ? (
               <Navigate to="/tenant/property" replace />
+            ) : contractorRole ? (
+              <Navigate to="/contractor" replace />
             ) : (
               <>
                 <Properties
@@ -405,6 +414,8 @@ export default function App() {
           element={
             tenantRole ? (
               <TenantPropertyDetailsRedirect />
+            ) : contractorRole ? (
+              <Navigate to="/contractor" replace />
             ) : (
               <>
                 <PropertyDetails
@@ -469,29 +480,37 @@ export default function App() {
         <Route
           path="tenants"
           element={
-            <Tenants
-              loading={tenantsLoading}
-              tenants={ownerTenants}
-              properties={ownerProperties}
-            />
+            contractorRole ? (
+              <Navigate to="/contractor" replace />
+            ) : (
+              <Tenants
+                loading={tenantsLoading}
+                tenants={ownerTenants}
+                properties={ownerProperties}
+              />
+            )
           }
         />
 
         <Route
           path="tenants/:id"
           element={
-            <TenantDetails
-              loading={tenantsLoading || paymentsLoading}
-              tenants={ownerTenants}
-              properties={ownerProperties}
-              payments={payments}
-            />
+            contractorRole ? (
+              <Navigate to="/contractor" replace />
+            ) : (
+              <TenantDetails
+                loading={tenantsLoading || paymentsLoading}
+                tenants={ownerTenants}
+                properties={ownerProperties}
+                payments={payments}
+              />
+            )
           }
         />
 
         <Route
           path="finance"
-          element={<FinancePage />}
+          element={contractorRole ? <Navigate to="/contractor" replace /> : <FinancePage />}
         />
 
         {/* ✅ Documents route */}
@@ -500,6 +519,8 @@ export default function App() {
           element={
             tenantRole ? (
               <Navigate to="/tenant/documents" replace />
+            ) : contractorRole ? (
+              <Navigate to="/contractor" replace />
             ) : (
               <Documents tenants={tenants} properties={properties} />
             )
