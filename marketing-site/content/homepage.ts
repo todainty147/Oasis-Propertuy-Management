@@ -28,7 +28,7 @@ export const homepageContent = {
     imageSrc: "/screenshots/command-center.png",
     imageAlt: "OASIS Command Center showing urgent items, overdue balance, and action queues across the portfolio.",
     primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
-    secondaryCta: { label: "See The Operations Hub", href: "/features" },
+    secondaryCta: { label: "See The Tenant Portal", href: "/features/tenant-portal" },
   },
   problemSection: {
     eyebrow: "Why operators switch",
@@ -248,6 +248,6 @@ export const homepageContent = {
     body:
       "If your real problem is keeping rent, repairs, records, and follow-up moving together, OASIS is built for that stage. Get early access, test it with real work, and help shape how it evolves.",
     primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
-    secondaryCta: { label: "Compare Plans", href: "/pricing" },
+    secondaryCta: { label: "See The Tenant Portal", href: "/features/tenant-portal" },
   },
 };
