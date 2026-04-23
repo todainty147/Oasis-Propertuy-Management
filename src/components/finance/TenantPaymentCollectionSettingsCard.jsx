@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   DEFAULT_PAYMENT_COLLECTION_SETTINGS,
   PAYMENT_COLLECTION_METHODS,
+  assessPaymentCollectionSetup,
   getAccountPaymentCollectionSettings,
   upsertAccountPaymentCollectionSettings,
 } from "../../services/paymentCollectionSettingsService";
@@ -64,6 +65,16 @@ export default function TenantPaymentCollectionSettingsCard({
   const selectedMethods = useMemo(() => new Set(settings.accepted_methods || []), [settings.accepted_methods]);
   const showMethods = settings.collection_status !== "disabled";
   const showPortal = settings.collection_status === "external_portal";
+  const assessment = useMemo(() => assessPaymentCollectionSetup(settings), [settings]);
+
+  const previewTitle = showPortal
+    ? t("tenantPortal.payments.collection.externalTitle")
+    : showMethods
+      ? t("tenantPortal.payments.collection.manualTitle")
+      : t("tenantPortal.payments.options.checkoutTitle");
+  const previewBody = showMethods
+    ? settings.instructions || t("tenantPortal.payments.collection.instructionsFallback")
+    : t("tenantPortal.payments.options.body");
 
   function updateField(key, value) {
     setSettings((current) => ({ ...current, [key]: value }));
@@ -127,6 +138,93 @@ export default function TenantPaymentCollectionSettingsCard({
         <p className="mt-4 text-sm text-slate-500">{t("finance.collection.loading")}</p>
       ) : (
         <div className="mt-5 space-y-5">
+          <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4" data-testid="payment-collection-readiness-card">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-slate-500">{t("finance.collection.readiness.title")}</p>
+                  <h3 className="mt-1 text-lg font-semibold text-slate-900">
+                    {t(`finance.collection.readiness.${assessment.state}.heading`)}
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-600">
+                    {t(`finance.collection.readiness.${assessment.state}.body`)}
+                  </p>
+                </div>
+                <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700">
+                  {assessment.isReady
+                    ? t("finance.collection.readiness.ready.badge")
+                    : t("finance.collection.readiness.workLeft", { count: assessment.requiredActions.length })}
+                </span>
+              </div>
+
+              {assessment.requiredActions.length > 0 ? (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    {t("finance.collection.readiness.required")}
+                  </p>
+                  <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                    {assessment.requiredActions.map((action) => (
+                      <li key={action}>• {t(`finance.collection.readiness.actions.${action}`)}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {assessment.recommendedActions.length > 0 ? (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    {t("finance.collection.readiness.recommended")}
+                  </p>
+                  <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                    {assessment.recommendedActions.map((action) => (
+                      <li key={action}>• {t(`finance.collection.readiness.actions.${action}`)}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-4" data-testid="payment-collection-preview-card">
+              <p className="text-sm font-medium text-slate-500">{t("finance.collection.preview.title")}</p>
+              <h3 className="mt-1 text-lg font-semibold text-slate-900">{previewTitle}</h3>
+              <p className="mt-2 text-sm text-slate-600">{previewBody}</p>
+
+              {showMethods && settings.accepted_methods.length > 0 ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {settings.accepted_methods.map((method) => (
+                    <span
+                      key={method}
+                      className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700"
+                    >
+                      {t(`tenantPortal.payments.methods.${method}`)}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="mt-4 space-y-2 text-sm text-slate-600">
+                <p>
+                  <span className="font-medium text-slate-700">{t("finance.collection.preview.autopayLabel")}</span>{" "}
+                  {settings.autopay_status === "external"
+                    ? t("tenantPortal.payments.collection.autopayEnabledTitle")
+                    : t("tenantPortal.payments.collection.autopayDisabledTitle")}
+                </p>
+                {settings.support_email ? (
+                  <p>
+                    <span className="font-medium text-slate-700">{t("finance.collection.preview.supportLabel")}</span>{" "}
+                    {settings.support_email}
+                  </p>
+                ) : null}
+                {showPortal && settings.portal_url ? (
+                  <p className="truncate">
+                    <span className="font-medium text-slate-700">{t("finance.collection.preview.portalLabel")}</span>{" "}
+                    {settings.portal_url}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
           <label className="block space-y-2">
             <span className="text-sm font-medium text-slate-700">{t("finance.collection.collectionStatus")}</span>
             <select

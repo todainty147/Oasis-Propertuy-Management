@@ -8,7 +8,11 @@ test("owner-configured payment setup appears in the standalone tenant portal", a
   await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible();
 
   const settingsCard = page.getByTestId("payment-collection-settings-card");
+  const readinessCard = page.getByTestId("payment-collection-readiness-card");
+  const previewCard = page.getByTestId("payment-collection-preview-card");
   await expect(settingsCard).toBeVisible();
+  await expect(readinessCard).toContainText("Payment setup has not been turned on yet");
+  await expect(previewCard).toContainText("Online payments and autopay are not enabled on this account yet");
 
   await page.getByLabel("Collection method").selectOption("external_portal");
   await page.getByLabel("Bank transfer").check();
@@ -21,6 +25,9 @@ test("owner-configured payment setup appears in the standalone tenant portal", a
   await page.getByRole("button", { name: "Save payment setup" }).click();
 
   await expect(page.getByText("Tenant payment settings saved.")).toBeVisible();
+  await expect(readinessCard).toContainText("Payment setup is ready for the tenant portal");
+  await expect(previewCard).toContainText("Use the external payment portal");
+  await expect(previewCard).toContainText("billing@example.test");
 
   await page.getByRole("button", { name: "Logout" }).click();
   await signInAs(page, seededUsers.tenantA1);

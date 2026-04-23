@@ -24,8 +24,30 @@ export async function signInAs(page, email) {
   await prepareEnglishLocale(page);
   await page.goto("/login");
 
-  await page.locator('input[type="email"]').fill(email);
-  await page.locator('input[type="password"]').fill(TEST_USER_PASSWORD);
+  const emailInput = page.locator('input[type="email"]');
+  const passwordInput = page.locator('input[type="password"]');
+
+  if (!(await emailInput.isVisible().catch(() => false))) {
+    const logoutButton = page.getByRole("button", { name: "Logout" });
+    if (await logoutButton.isVisible().catch(() => false)) {
+      await logoutButton.click();
+      await page.goto("/login");
+    }
+  }
+
+  if (!(await emailInput.isVisible().catch(() => false))) {
+    await page.context().clearCookies();
+    await page.evaluate(() => {
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+    });
+    await prepareEnglishLocale(page);
+    await page.goto("/login");
+  }
+
+  await expect(emailInput).toBeVisible();
+  await emailInput.fill(email);
+  await passwordInput.fill(TEST_USER_PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
 
   await expect(page).not.toHaveURL(/\/login(?:\?.*)?$/);

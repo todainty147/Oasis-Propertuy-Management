@@ -22,6 +22,48 @@ export const DEFAULT_PAYMENT_COLLECTION_SETTINGS = Object.freeze({
   updated_at: null,
 });
 
+export function assessPaymentCollectionSetup(settings) {
+  const current = normalizePaymentCollectionSettings(settings);
+  const requiredActions = [];
+  const recommendedActions = [];
+
+  if (current.collection_status === "disabled") {
+    requiredActions.push("enable_collection");
+  } else {
+    if (current.accepted_methods.length === 0) {
+      requiredActions.push("add_method");
+    }
+    if (!current.instructions) {
+      requiredActions.push("add_instructions");
+    }
+    if (current.collection_status === "external_portal" && !current.portal_url) {
+      requiredActions.push("add_portal_url");
+    }
+  }
+
+  if (current.autopay_status === "external" && !current.autopay_instructions) {
+    requiredActions.push("add_autopay_instructions");
+  }
+
+  if (!current.support_email) {
+    recommendedActions.push("add_support_email");
+  }
+
+  const state =
+    current.collection_status === "disabled"
+      ? "not_started"
+      : requiredActions.length > 0
+        ? "needs_attention"
+        : "ready";
+
+  return {
+    state,
+    requiredActions,
+    recommendedActions,
+    isReady: state === "ready",
+  };
+}
+
 function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
 }
