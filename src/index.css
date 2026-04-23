@@ -102,3 +102,42 @@ body {
 :where(.dark) :where(.placeholder\:text-gray-500::placeholder) {
   color: #64748b;
 }
+
+/*
+  Native form controls need an explicit dark surface. Without this, browser
+  dropdown popovers can render light option rows with light inherited text.
+*/
+:where(select) {
+  color-scheme: light;
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+:where(select option),
+:where(select optgroup) {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+.dark :where(select) {
+  color-scheme: dark;
+  background-color: #020617;
+  color: #f8fafc;
+  border-color: #475569;
+}
+
+.dark :where(select option),
+.dark :where(select optgroup) {
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+
+.dark :where(select option:checked) {
+  background-color: #1d4ed8;
+  color: #ffffff;
+}
+
+.dark :where(select:disabled) {
+  background-color: #1e293b;
+  color: #94a3b8;
+}

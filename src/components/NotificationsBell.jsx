@@ -9,10 +9,10 @@ import { localizeNotificationContent } from "../utils/notificationLocalization";
 function AlertBadge({ category, severity, t }) {
   const tone =
     severity === "urgent"
-      ? "border-rose-200 bg-rose-50 text-rose-700"
+      ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-200"
       : severity === "action"
-        ? "border-amber-200 bg-amber-50 text-amber-700"
-        : "border-slate-200 bg-slate-50 text-slate-600";
+        ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200"
+        : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200";
   return (
     <span className={`rounded-full border px-2 py-0.5 text-[11px] ${tone}`}>
       {t(`notifications.category.${category}`)}
@@ -68,10 +68,10 @@ export default function NotificationsBell({ limit = 20 }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative inline-flex items-center justify-center w-10 h-10 rounded-lg hover:bg-slate-50 transition-colors"
+        className="relative inline-flex items-center justify-center w-10 h-10 rounded-lg hover:bg-slate-50 transition-colors dark:hover:bg-slate-800"
         aria-label={t("notifications.label")}
       >
-        <Bell className="w-5 h-5 text-slate-700" />
+        <Bell className="w-5 h-5 text-slate-700 dark:text-slate-200" />
         {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-600 text-white text-[11px] leading-[18px] text-center">
             {unreadCount > 99 ? "99+" : unreadCount}
@@ -80,14 +80,14 @@ export default function NotificationsBell({ limit = 20 }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-[360px] max-w-[90vw] bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden z-50">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+        <div className="absolute right-0 mt-2 w-[360px] max-w-[90vw] bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden z-50 dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-slate-900">
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                 {t("notifications.title")}
               </p>
               {unreadCount > 0 && (
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
                   ({t("notifications.unread", { count: unreadCount })})
                 </span>
               )}
@@ -105,8 +105,8 @@ export default function NotificationsBell({ limit = 20 }) {
               disabled={unreadCount === 0}
               className={`text-xs font-medium px-2 py-1 rounded-md transition-colors ${
                 unreadCount === 0
-                  ? "text-slate-400 cursor-not-allowed"
-                  : "text-blue-600 hover:bg-blue-50"
+                  ? "text-slate-400 cursor-not-allowed dark:text-slate-500"
+                  : "text-blue-600 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-500/10"
               }`}
             >
               {t("notifications.markAllRead")}
@@ -115,13 +115,13 @@ export default function NotificationsBell({ limit = 20 }) {
 
           <div className="max-h-[420px] overflow-auto">
             {loading ? (
-              <div className="p-4 text-sm text-slate-500">{t("notifications.loading")}</div>
+              <div className="p-4 text-sm text-slate-500 dark:text-slate-400">{t("notifications.loading")}</div>
             ) : items.length === 0 ? (
-              <div className="p-4 text-sm text-slate-500">
+              <div className="p-4 text-sm text-slate-500 dark:text-slate-400">
                 {t("notifications.empty")}
               </div>
             ) : (
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                 {items.map((n) => (
                   <li key={n.id}>
                     {(() => {
@@ -131,7 +131,7 @@ export default function NotificationsBell({ limit = 20 }) {
                       type="button"
                       onClick={() => handleClickNotification(n)}
                       className={`w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors ${
-                        n.is_read ? "" : "bg-blue-50/40"
+                        n.is_read ? "dark:hover:bg-slate-800" : "bg-blue-50/40 dark:bg-blue-500/10 dark:hover:bg-blue-500/15"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -146,18 +146,18 @@ export default function NotificationsBell({ limit = 20 }) {
                           <p
                             className={`text-sm ${
                               n.is_read
-                                ? "text-slate-800"
-                                : "text-slate-900 font-semibold"
+                                ? "text-slate-800 dark:text-slate-200"
+                                : "text-slate-900 font-semibold dark:text-slate-100"
                             }`}
                           >
                             {localized.title}
                           </p>
                           {localized.body && (
-                            <p className="text-xs text-slate-600 mt-1 line-clamp-2">
+                            <p className="text-xs text-slate-600 mt-1 line-clamp-2 dark:text-slate-300">
                               {localized.body}
                             </p>
                           )}
-                          <p className="text-[11px] text-slate-400 mt-1">
+                          <p className="text-[11px] text-slate-400 mt-1 dark:text-slate-500">
                             {formatTime(n.created_at, lang)}
                           </p>
                         </div>
@@ -175,11 +175,11 @@ export default function NotificationsBell({ limit = 20 }) {
             )}
           </div>
 
-          <div className="px-4 py-3 border-t border-slate-100 bg-slate-50">
+          <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="w-full text-xs font-medium text-slate-700 hover:text-slate-900"
+              className="w-full text-xs font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
             >
               {t("common.close")}
             </button>
