@@ -70,6 +70,11 @@ This section reflects checked-in code, SQL, and tests rather than planned intent
   - stronger document priority semantics
   - eventual payment execution/autopay
   - a more premium, distinct tenant experience layer
+- **Document operations and agreement workflows**
+  - country-specific landlord template repository for UK and Poland first
+  - tenant and contractor document intake requests
+  - agreement packet workflow for templates that need review or signatures
+  - open-source e-signature integration after the native request/review model is stable
 - **Operational browser confidence**
   - broader click-through coverage across dashboard, command, attention, finance, maintenance, and documents
 - **Productized support and launch operations**
@@ -221,6 +226,200 @@ The tenant experience is no longer a thin afterthought. The repo now shows:
 - next: richer tenant timeline, maintenance history, and document semantics
 - later: payment execution/autopay and a premium standalone tenant portal layer
 
+## Document Operations And Agreement Workflow Roadmap
+
+### Product intent
+
+OASIS should treat documents as operational workflow objects, not only stored files. The next document expansion should let landlords keep reusable country-specific templates, request documents from tenants and contractors, review uploaded evidence, and later send agreement packets for signing.
+
+This should extend the current document spine rather than create a parallel document product. The current repo already has:
+
+- DB-first uploads and document storage orchestration in [documentService.js](/mnt/c/Users/Home/oasisrentalmanagementapp/src/services/documentService.js)
+- landlord/admin document workspace in [Documents.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/Documents.jsx)
+- tenant-linked document surfaces in [TenantDocumentsSection.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/components/TenantDocumentsSection.jsx)
+- Supabase storage policies aligned to document table access in [storage_documents_policies.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/storage_documents_policies.sql)
+- role capability helpers for document read/upload/tag/delete in [permissions.js](/mnt/c/Users/Home/oasisrentalmanagementapp/src/utils/permissions.js)
+
+### Phase 1: Country-specific template repository
+
+Goal:
+
+- give landlords a reusable library for tenancy and contractor document templates
+- support UK and Poland first while keeping the model ready for more countries
+- keep templates landlord/staff-side only unless they are turned into a request or packet
+
+Recommended schema:
+
+- `document_templates`
+  - `account_id`, `country_code`, `language`, `template_type`, `name`, `description`
+  - `storage_path`, `mime_type`, `version`, `status`
+  - `created_by`, `created_at`, `updated_at`, `archived_at`
+- `document_template_versions`
+  - optional but recommended once templates can be used to create signable packets
+  - preserves which exact version produced a signed/generated document
+- `document_template_country_rules`
+  - lightweight metadata for country defaults and future country expansion
+  - examples: default tags, default signer roles, review notes, required disclaimers
+
+Initial template types:
+
+- tenancy agreement
+- contractor assignment terms
+- maintenance access consent
+- deposit checklist
+- rent or bank-payment receipt
+- guarantor or identity evidence form
+- compliance notice or acknowledgement
+
+UI:
+
+- add a `Templates` view under Documents
+- filters by country, language, type, and status
+- actions: upload template, preview, archive, create request, create agreement packet
+
+Permission boundary:
+
+- owner/admin can create, update, archive, and use templates
+- staff can read/use templates only through explicit document permissions
+- tenant and contractor roles cannot browse the template repository directly
+
+### Phase 2: Tenant and contractor document intake
+
+Goal:
+
+- let landlords request files from tenants and contractors
+- let tenants upload ID documents, bank payment receipts, or requested evidence
+- let contractors upload insurance certificates, terms acknowledgements, invoices, or assignment-related files
+- keep uploads scoped, reviewable, and auditable
+
+Recommended schema:
+
+- `document_requests`
+  - `account_id`, `target_role`, `tenant_id`, `contractor_id`, `property_id`
+  - `requested_by`, `request_type`, `title`, `instructions`, `due_at`
+  - `status`: `requested`, `uploaded`, `accepted`, `rejected`, `cancelled`
+- `document_request_uploads`
+  - links request rows to uploaded `documents`
+- document metadata additions:
+  - `uploaded_by_role`
+  - `uploaded_by_user_id`
+  - `source`: `landlord_upload`, `tenant_upload`, `contractor_upload`, `template_generated`, `signature_completed`
+  - `review_status`: `pending_review`, `accepted`, `rejected`
+  - `review_note`, `reviewed_by`, `reviewed_at`
+
+Security boundary:
+
+- tenant uploads must only attach to their own tenant-scoped request
+- contractor uploads must only attach to their own contractor/work-order/account-scoped request
+- tenant/contractor uploads should not automatically become broadly visible account documents
+- landlord/staff review should be required before uploads are treated as accepted evidence
+
+UI:
+
+- tenant portal: `Requested from you`, `Uploaded by you`, `Available to you`
+- contractor portal: `Required documents` and `Submitted documents`
+- landlord Documents: review queue for tenant/contractor uploads
+
+### Phase 3: Agreement packet workflow
+
+Goal:
+
+- let a landlord turn a template into a packet for a tenant or contractor
+- support review/send/complete lifecycle before adding external signing dependency
+- keep packet state account-scoped and auditable
+
+Recommended schema:
+
+- `document_packets`
+  - `account_id`, `template_id`, `template_version_id`
+  - `property_id`, `tenant_id`, `contractor_id`
+  - `packet_type`, `status`, `created_by`
+- `document_packet_recipients`
+  - `packet_id`, `role`, `user_id`, `email`, `signing_order`, `status`
+- `document_packet_events`
+  - durable packet lifecycle audit for created, sent, viewed, signed, completed, voided, failed
+
+Initial workflow:
+
+- choose template
+- choose recipient and property/tenancy/work-order context
+- send packet as a tenant/contractor task
+- track viewed/completed state
+- store generated output as an account-scoped document
+
+### Phase 4: Open-source e-signature provider integration
+
+Goal:
+
+- add free/open-source e-signature capability without making signing the first blocking dependency
+- keep provider-specific behavior behind an adapter
+
+Recommended first provider:
+
+- DocuSeal as a separately hosted signing service integrated through API/webhooks
+- keep the provider separate from the main app codebase first, because licensing, deployment, and upgrades are cleaner that way
+
+Alternative providers to evaluate:
+
+- OpenSign
+- LibreSign
+
+Recommended schema additions:
+
+- `signature_provider`
+- `signature_template_id`
+- `signature_submission_id`
+- `signature_status`
+- `signature_completed_document_id`
+
+Recommended Edge Functions:
+
+- `create-signature-packet`
+- `handle-signature-webhook`
+- `sync-signature-status`
+
+Security and audit requirements:
+
+- verify webhook signatures before mutating packet state
+- never expose service-role provider operations to the frontend
+- import signed PDFs server-side into OASIS documents
+- record every provider state transition in packet events and security/audit logs
+- rate-limit packet creation and webhook handling
+
+### Phase 5: Country and legal guardrails
+
+Goal:
+
+- make the UK/Poland template experience useful without overstating legal guarantees
+
+Product copy guardrails:
+
+- use "template", "starting point", "review before sending", and "country-specific library"
+- avoid claiming legal advice or legally guaranteed agreements unless reviewed by qualified counsel
+- show `last_reviewed_at`, country, language, and owner note on each template
+
+### Required regression coverage
+
+Add tests for:
+
+- owner/admin can create and archive templates
+- staff can read/use templates only when their permissions allow it
+- tenant and contractor cannot browse template repository rows
+- tenant can upload only to their own document request
+- contractor can upload only to their own document request
+- uploads do not leak across tenants, contractors, properties, or accounts
+- landlord review can accept/reject uploaded evidence
+- signature webhooks cannot update packets across account boundaries
+- signed documents land in the correct account/property/tenant/contractor scope
+
+Add browser E2E for:
+
+- landlord creates a tenant document request
+- tenant uploads ID or payment receipt
+- landlord reviews the upload
+- landlord creates an agreement packet from a template
+- tenant or contractor sees the signing/request task in their portal
+
 ## Iteration 2A Epics
 
 ### Epic 1: Permission Hardening
@@ -300,6 +499,7 @@ Recommended implementation notes:
 | Rich tenant activity timeline | Strong | Medium | Next | `tenant_activity_feed` and `TenantTimelineCard` already exist; the product opportunity is better narrative depth and scanability rather than net-new foundations. |
 | Advanced maintenance progress history | Partial | Medium | Next | Current statuses and timeline events exist, but a richer tenant-safe milestone history still needs a more explicit presentation model. |
 | True document prioritization metadata | Partial | Medium | Next | Current tenant document highlighting exists, but the model stops short of durable acknowledgement/review/current-state semantics. |
+| Document operations and agreement workflows | Strong foundation | High | Next, phased | The current document spine already supports account-scoped uploads, tenant visibility, storage policies, and audit hooks. Next value is a country-specific template repository, tenant/contractor intake requests, agreement packets, and later open-source e-signature integration. |
 | Payment collection / autopay | Weak | High | Later, capability-driven | Tenant payment visibility is real, but payment execution is not repo-backed today and should remain a deliberate future expansion. |
 | Premium standalone tenant portal layer | Partial foundation | High | Later, product-driven | The current tenant surfaces are credible, but a distinct premium product layer should follow richer workflow depth and payment execution. |
 | Tenant/account rate limiting | Partial | Medium | Now, limited Edge/API scope | `account_id` scoping exists everywhere, so the identity model supports quotas and limits. Start with narrow provider/API abuse protection before considering infrastructure-level quotas. |

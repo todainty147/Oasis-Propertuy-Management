@@ -83,6 +83,7 @@ const OVERLAY_SEQUENCE = [
   "self_serve_landlord_signup.sql",
   "compliance_document_links.sql",
   "document_audit_scope.sql",
+  "document_templates.sql",
   "compliance_calendar_upgrade.sql",
   "storage_buckets.sql",
   "storage_documents_policies.sql",

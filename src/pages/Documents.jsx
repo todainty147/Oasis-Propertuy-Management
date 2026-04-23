@@ -29,6 +29,7 @@ import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { partitionTenantDocuments } from "../utils/tenantPortal";
 import TenantDocumentsOverview from "../components/TenantDocumentsOverview";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
+import DocumentTemplateLibrary from "../components/DocumentTemplateLibrary";
 
 /* ======================
    HELPERS
@@ -411,6 +412,14 @@ export default function Documents({
       <DashboardBreadcrumbs items={[{ label: t("sidebar.documents") }]} />
       {isTenant ? (
         <TenantDocumentsOverview groups={tenantDocumentGroups} t={t} />
+      ) : null}
+
+      {!isTenant ? (
+        <DocumentTemplateLibrary
+          accountId={activeAccountId}
+          permissionContext={permissionContext}
+          t={t}
+        />
       ) : null}
 
       {canUploadDocument(permissionContext) && (
