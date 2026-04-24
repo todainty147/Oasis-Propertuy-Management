@@ -13,6 +13,10 @@ Use this when templates, document requests, participant uploads, or agreement pa
 - Signature readiness metadata exists for account-scoped provider setup and packet signature status.
 - External provider API calls and webhook PDF import are not implemented yet. Agreement packets are a review/completion foundation for the e-signature adapter.
 
+Webhook/provider setup details now live in:
+
+- [signature-provider-webhook-setup.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/signature-provider-webhook-setup.md)
+
 ## First Checks
 
 Always confirm:
