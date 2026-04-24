@@ -7,6 +7,7 @@ export const siteConfig = {
   nav: [
     { label: "Features", href: "/features" },
     { label: "Tenant Portal", href: "/features/tenant-portal" },
+    { label: "Tenant Portal Software", href: "/tenant-portal-software" },
     { label: "Pricing", href: "/pricing" },
     { label: "Compare", href: "/compare/oasis-vs-landlordstudio" },
     { label: "Blog", href: "/blog" },
