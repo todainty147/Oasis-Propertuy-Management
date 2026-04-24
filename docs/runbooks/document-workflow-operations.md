@@ -184,6 +184,7 @@ The document storage policy overlay is order-safe. It checks for document reques
 2. `document_requests.sql`
 3. `document_packets.sql`
 4. `document_signature_readiness.sql`
-5. `storage_documents_policies.sql`
+5. `document_signature_docuseal.sql`
+6. `storage_documents_policies.sql`
 
 Do not remove the request-aware helper guard in `storage_documents_policies.sql`; it prevents deployments from failing when a lower environment applies storage policies before the request tables exist.

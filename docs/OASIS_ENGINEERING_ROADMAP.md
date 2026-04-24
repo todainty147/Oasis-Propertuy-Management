@@ -489,6 +489,283 @@ Add browser E2E for:
 - tenant or contractor sees the signing/request task in their portal
 - tenant completes a pre-signature packet and manager sees completed status
 
+## AI Operational Intelligence Roadmap
+
+### Product principle
+
+AI should not become a separate gimmick in OASIS. It should sit on top of the existing operational engine:
+
+- attention and command queues
+- portfolio health
+- maintenance and work-order coordination
+- notifications and communications
+- documents and agreement workflows
+- finance visibility
+- security and audit telemetry
+
+The product rule is simple:
+
+- AI may summarize, classify, recommend, explain, and draft
+- AI may not mutate the system directly
+
+That means AI should not approve quotes, mark payments paid, assign contractors automatically, delete documents, or move work-order state on its own. All real actions must continue to flow through the existing SQL/RPC/Edge boundaries.
+
+### Current repo fit
+
+OASIS is unusually well-positioned for an operational AI layer because the repo already has strong, account-scoped, structured sources of truth:
+
+- attention and command views in [attention_center_items.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/attention_center_items.sql), [command_center_items.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/command_center_items.sql), and [dashboard_hub_extras.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/dashboard_hub_extras.sql)
+- portfolio health and summary views in [portfolio_health_snapshot.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/portfolio_health_snapshot.sql) and [portfolio_weekly_summary.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/portfolio_weekly_summary.sql)
+- maintenance workflow data in [maintenance_kpi_snapshot.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/maintenance_kpi_snapshot.sql), [maintenanceService.js](/mnt/c/Users/Home/oasisrentalmanagementapp/src/services/maintenanceService.js), and [maintenanceInboxService.js](/mnt/c/Users/Home/oasisrentalmanagementapp/src/services/maintenanceInboxService.js)
+- contractor and work-order coordination in [contractor_work_order_cards.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/contractor_work_order_cards.sql) and existing work-order authorization helpers
+- document and agreement workflow data in [document_requests.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/document_requests.sql), [document_packets.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/document_packets.sql), and [document_signature_readiness.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/document_signature_readiness.sql)
+- finance snapshots in [finance_snapshot.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/finance_snapshot.sql)
+- security and audit telemetry in [security_audit_ledger.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/security_audit_ledger.sql), [security_observability_events.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/security_observability_events.sql), and [security_anomaly_alerts.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/security_anomaly_alerts.sql)
+
+This is exactly the kind of repo shape where AI can add operator clarity without being trusted as a workflow authority.
+
+### Architecture and guardrails
+
+Recommended architecture:
+
+```text
+React UI
+  -> Supabase Edge Function / server boundary
+  -> OASIS RPC or snapshot service
+  -> AI model with structured JSON output
+  -> stored insight / cached response
+  -> UI insight card or draft suggestion
+```
+
+Recommended internal objects:
+
+- `ai_insights`
+- `ai_insight_feedback`
+- `ai_prompt_runs`
+- `ai_usage_meter`
+
+Implementation guardrails:
+
+- never call the model directly from React
+- resolve account and entity context server-side
+- use structured JSON responses, not free-form prose blobs
+- persist prompt run metadata, token usage, and model/version used
+- cache generated insight per account/entity/time window
+- regenerate only on meaningful data changes or explicit refresh
+- feature-flag AI by plan and account
+- add operator feedback controls such as useful/not useful or dismiss
+- log AI generation failures without leaking sensitive prompt contents to the client
+
+### Recommended rollout
+
+#### Phase 0: AI foundation and control plane
+
+Goal:
+
+- establish a safe, metered, auditable AI boundary before any user-facing AI card ships
+
+Build:
+
+- provider-neutral AI Edge Function boundary
+- structured output validation and normalization
+- prompt run logging
+- usage metering and per-account limits
+- feature flags and entitlement checks
+- audit/logging for generated insights and refresh actions
+
+Suggested schema:
+
+- `ai_insights`
+  - `account_id`, `entity_type`, `entity_id`, `insight_type`, `status`, `payload_json`, `generated_at`, `expires_at`
+- `ai_insight_feedback`
+  - `account_id`, `insight_id`, `user_id`, `feedback`, `note`, `created_at`
+- `ai_prompt_runs`
+  - `account_id`, `insight_type`, `model`, `prompt_version`, `input_tokens`, `output_tokens`, `status`, `error_code`, `created_at`
+- `ai_usage_meter`
+  - `account_id`, `period_key`, `feature_key`, `prompt_runs`, `input_tokens`, `output_tokens`, `estimated_cost`
+
+#### Phase 1: AI Attention Insight Card
+
+Status: best first AI slice.
+
+Why first:
+
+- highest alignment with the existing OASIS positioning
+- low workflow risk
+- uses already-aggregated operational data
+- cheap to run compared with document-heavy AI
+- easy to demo and explain
+
+Use existing repo-backed sources:
+
+- `attention_center_items`
+- `command_center_items`
+- `dashboard_hub_extras`
+- notifications
+- maintenance/work-order flags
+- finance pressure signals where already exposed in snapshots
+- security anomaly alerts only where relevant to operator priority
+
+Recommended output contract:
+
+- `summary`
+- `priority`
+- `top_reasons[]`
+- `suggested_actions[]`
+  - `label`
+  - `action_type`
+  - `entity_type`
+  - `entity_id`
+- `confidence`
+
+UI placement:
+
+- primary card at the top of the Command Center
+- optional compact card on the dashboard
+- never replaces the underlying queue or filters
+
+Guardrail:
+
+- insight links should route into the existing queue/filter surfaces
+- AI should explain what to review first, not take the action
+
+#### Phase 2: Property Health AI Explainer
+
+Goal:
+
+- explain why a property is under pressure using the existing health model and its visible underlying facts
+
+Use:
+
+- `portfolio_health_snapshot`
+- property risk signals already shown in health views
+- maintenance, vacancy, arrears, and pressure indicators already present in the app
+
+Rule:
+
+- always show non-AI facts beside the explanation so users can verify the reasoning
+
+#### Phase 3: Maintenance AI Triage
+
+Goal:
+
+- suggest category, urgency, likely trade, and draft acknowledgement when a tenant submits a maintenance request
+
+Use:
+
+- tenant-submitted text
+- property context
+- prior maintenance/work-order context where already queryable
+
+Rule:
+
+- AI may suggest urgency and safety flags
+- manager still confirms the final triage state
+
+#### Phase 4: Contractor Recommendation
+
+Goal:
+
+- recommend likely-fit contractors based on previous job fit, acknowledgement speed, completion behavior, and cost/quality history where available
+
+Rule:
+
+- AI suggests
+- actual assignment still uses the existing contractor assignment workflow
+
+#### Phase 5: AI Message Drafting
+
+Goal:
+
+- draft tenant and contractor updates, quote follow-up, waiting-state explanations, document request copy, and payment reminder variants
+
+Rule:
+
+- human approves before sending
+- AI never directly dispatches notifications
+
+#### Phase 6: Weekly Portfolio Summary
+
+Goal:
+
+- produce a concise owner/admin weekly operational summary from existing snapshots, risks, wins, and properties to watch
+
+Placement:
+
+- dashboard first
+- email digest later
+
+#### Phase 7: Document AI Assistant
+
+Goal:
+
+- summarize documents, extract likely dates/types, and flag probable review items
+
+Rule:
+
+- do not present as legal advice
+- document AI should follow the current agreement/signature workflow work, not precede it
+
+#### Phase 8: Finance AI Explainer
+
+Goal:
+
+- explain arrears, spend pressure, and trends without creating or mutating accounting records
+
+Rule:
+
+- finance AI should explain, not write accounting entries or alter payment state
+
+#### Phase 9: Security/Audit Copilot
+
+Goal:
+
+- summarize suspicious patterns from denied events, anomaly alerts, and observability feeds for operator/root review
+
+Rule:
+
+- AI recommends review steps only
+- it cannot disable users, alter roles, or mutate accounts
+
+#### Phase 10: Natural-language query assistant
+
+Goal:
+
+- answer bounded operational questions using a controlled intent router
+
+Rule:
+
+- never allow the model to emit raw SQL
+- map user intent to approved RPCs only
+- resolve account scope server-side
+
+### Cost and packaging guidance
+
+Cost discipline should be part of the first implementation, not a later cleanup:
+
+- cache insights for 6 to 24 hours where the source data is snapshot-oriented
+- only refresh on material operational changes
+- meter token usage per account and feature
+- add monthly usage limits and plan gating
+- show `generated_at` / freshness in the UI
+- prefer smaller structured-output models for short operational tasks
+- reserve longer-context or document-heavy calls for explicitly premium workflows
+
+Packaging direction:
+
+- Starter: no AI or very limited monthly usage
+- Growth: attention insights, maintenance triage, property health explainers
+- Pro: weekly summary, contractor recommendation, message drafts, document summaries
+- Operator/Agency: security copilot, bounded natural-language operational query, higher limits
+
+### Recommended timing
+
+- now: finish trust-critical operational work already in flight, especially signature provider integration and runtime hardening
+- next: Phase 0 foundation plus Phase 1 AI Attention Insight Card
+- then: property health explainer and maintenance triage
+- later: contractor recommendation, message drafting, weekly summary, document AI, finance AI, and security copilot
+- much later: bounded natural-language query after the approved-RPC intent router is mature
+
 ## Iteration 2A Epics
 
 ### Epic 1: Permission Hardening
@@ -565,12 +842,18 @@ Recommended implementation notes:
 | Browser click-through coverage on live session state | Not schema-dependent | Small to Medium | Now | The product now has richer role-specific flows; the highest remaining risk is browser/runtime mismatch rather than raw backend capability. |
 | Responsive checks on real screens | Not schema-dependent | Small to Medium | Now | Tenant, contractor, command, and finance surfaces have all been improved recently and now need screenshot-backed confidence on real breakpoints. |
 | Tenant portal runtime hardening | Strong | Small to Medium | Now | The tenant portal is now materially richer, so route guards, truthful empty states, and session-aware navigation deserve first-class hardening. |
+| AI operational intelligence foundation | Partial but high-leverage | Medium | Next, after trust-critical workflow hardening | OASIS already has strong snapshot/RPC inputs across attention, health, maintenance, finance, documents, and security. The missing piece is a safe Edge Function control plane, structured outputs, metering, and caching. |
+| AI Attention Insight Card | Strong | Small to Medium | Next, first AI slice | This is the cleanest AI feature fit with the current product. It uses existing attention/command data, is cheap to run, easy to validate, and reinforces the OASIS operations narrative without mutating workflow state. |
+| Property Health AI explainer | Strong | Small to Medium | Soon after first AI slice | Portfolio health is already a real differentiated surface. AI can explain visible risk drivers without inventing a new product category. |
+| Maintenance AI triage suggestions | Partial | Medium | Soon after first AI slice | Maintenance intake is already strong, but AI suggestions should remain advisory until landlord confirmation patterns are battle-tested. |
 | Rich tenant activity timeline | Strong | Medium | Next | `tenant_activity_feed` and `TenantTimelineCard` already exist; the product opportunity is better narrative depth and scanability rather than net-new foundations. |
 | Advanced maintenance progress history | Partial | Medium | Next | Current statuses and timeline events exist, but a richer tenant-safe milestone history still needs a more explicit presentation model. |
 | True document prioritization metadata | Partial | Medium | Next | Current tenant document highlighting exists, but the model stops short of durable acknowledgement/review/current-state semantics. |
 | Document operations and agreement workflows | Strong foundation | High | In progress, phased | The current document spine now supports account-scoped uploads, tenant visibility, storage policies, template repository, tenant/contractor intake requests, and pre-signature agreement packets. Next value is open-source e-signature integration and richer document semantics. |
 | Payment collection / autopay | Weak | High | Later, capability-driven | Tenant payment visibility is real, but payment execution is not repo-backed today and should remain a deliberate future expansion. |
 | Premium standalone tenant portal layer | Partial foundation | High | Later, product-driven | The current tenant surfaces are credible, but a distinct premium product layer should follow richer workflow depth and payment execution. |
+| AI weekly summary, document assistant, finance explainer, and security copilot | Partial to Strong depending on surface | Medium to High | Later, after foundation proves value | These are credible follow-on AI layers, but only after the control plane, usage limits, and first operator-facing slices are stable. |
+| Natural-language operational query assistant | Partial but higher risk | High | Much later | Valuable, but it should sit on top of an approved-RPC intent router and never be allowed to generate raw SQL or free-scope cross-account queries. |
 | Tenant/account rate limiting | Partial | Medium | Now, limited Edge/API scope | `account_id` scoping exists everywhere, so the identity model supports quotas and limits. Start with narrow provider/API abuse protection before considering infrastructure-level quotas. |
 | Demo data / self-service sandbox | Strong | Medium | Later, product-driven | The current schema already supports seeded accounts, properties, tenants, payments, work orders, and documents. What is missing is a productized onboarding experience around those fixtures. |
 | Materialized feed caching / Redis/KV caching | Strong | Medium | Later, after measurement | Technically feasible now, but should be driven by real latency/traffic evidence. Snapshot RPCs and account scoping make this viable when needed. |
@@ -957,11 +1240,18 @@ Possible, but costly enough that it should be evidence-driven.
 ### Phase 3
 
 - demo/sandbox experience
+- AI foundation and the first operator-facing insight slice once current workflow hardening is complete
 - deeper cache layers if real traffic requires them
 
 ### Phase 4
 
+- property health AI explainer and maintenance triage suggestions after the first AI slice proves useful
 - partitioning only if production evidence proves it is needed
+
+### Phase 5
+
+- later AI layers: weekly summaries, document assistant, finance explainer, security copilot
+- natural-language operational query only after the approved-RPC intent router is mature
 
 ## Final Recommendation
 
@@ -974,5 +1264,6 @@ The best near-term investments are:
 3. selective caching on snapshot/read-heavy pages
 4. SLOs and alerting
 5. reliability testing for degraded paths
+6. a bounded AI foundation and Attention Insight Card only after the current trust-critical document/signature and runtime-hardening work is complete
 
 The main item to defer is partitioning. It is the one recommendation that would likely require material architectural and operational effort relative to the value it would deliver today.

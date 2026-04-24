@@ -12,6 +12,7 @@ const cleanup = {
   packetIds: new Set(),
   templateIds: new Set(),
   signatureSettingAccountIds: new Set(),
+  documentIds: new Set(),
 };
 
 function expectDenied(result) {
@@ -24,6 +25,7 @@ function expectDenied(result) {
       message.includes("template not found") ||
       message.includes("permission denied") ||
       message.includes("cannot be completed") ||
+      message.includes("signature provider") ||
       message.includes("not ready") ||
       message.includes("not configured"),
   ).toBe(true);
@@ -114,6 +116,9 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document agreement packet se
         .from("document_signature_provider_settings")
         .delete()
         .in("account_id", Array.from(cleanup.signatureSettingAccountIds));
+    }
+    if (cleanup.documentIds.size > 0) {
+      await admin.from("documents").delete().in("id", Array.from(cleanup.documentIds));
     }
   });
 
@@ -303,5 +308,96 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document agreement packet se
     });
     expect(synced.error).toBeNull();
     expect(synced.data?.signature_status).toBe("completed");
+  });
+
+  it("blocks manual completion once a packet is sent to the signature provider", async () => {
+    await admin
+      .from("document_signature_provider_settings")
+      .delete()
+      .eq("account_id", isolationFixtures.accounts.accountA.id);
+
+    const { client: ownerClient } = await signInAsFixtureUser("ownerA");
+    const template = await createActiveTemplate(ownerClient, "Signature lock template");
+    const packet = await createTenantPacket(ownerClient, template, "Signature lock packet");
+
+    const settings = await ownerClient.rpc("upsert_document_signature_provider_settings", {
+      p_account_id: isolationFixtures.accounts.accountA.id,
+      p_provider: "docuseal",
+      p_provider_base_url: "https://sign.example.test",
+      p_default_signature_template_id: "docuseal-template-lock",
+      p_is_enabled: true,
+      p_webhook_configured: true,
+    });
+    expect(settings.error).toBeNull();
+    cleanup.signatureSettingAccountIds.add(isolationFixtures.accounts.accountA.id);
+
+    const prepared = await ownerClient.rpc("prepare_document_packet_signature", {
+      p_packet_id: packet.id,
+      p_signature_provider: "docuseal",
+      p_signature_template_id: null,
+    });
+    expect(prepared.error).toBeNull();
+
+    const submitted = await admin.rpc("record_document_packet_signature_submission", {
+      p_packet_id: packet.id,
+      p_provider: "docuseal",
+      p_submission_id: "submission-lock",
+      p_signature_status: "pending",
+    });
+    expect(submitted.error).toBeNull();
+
+    const { client: tenantClient } = await signInAsFixtureUser("tenantA1");
+    const manualComplete = await tenantClient.rpc("complete_document_packet", {
+      p_packet_id: packet.id,
+    });
+    expectDenied(manualComplete);
+  });
+
+  it("imports a signed document into the correct account scope before marking signature completion", async () => {
+    const { client: ownerClient } = await signInAsFixtureUser("ownerA");
+    const template = await createActiveTemplate(ownerClient, "Signature import template");
+    const packet = await createTenantPacket(ownerClient, template, "Signature import packet");
+
+    const submitted = await admin.rpc("record_document_packet_signature_submission", {
+      p_packet_id: packet.id,
+      p_provider: "docuseal",
+      p_submission_id: "submission-import",
+      p_signature_status: "pending",
+    });
+    expect(submitted.error).toBeNull();
+
+    const imported = await admin.rpc("import_document_packet_signed_document", {
+      p_packet_id: packet.id,
+      p_storage_path: `${isolationFixtures.accounts.accountA.id}/signed/signature-import.pdf`,
+      p_filename: "signed-tenancy-agreement.pdf",
+      p_size_bytes: 512,
+      p_mime_type: "application/pdf",
+    });
+    expect(imported.error).toBeNull();
+    expect(imported.data).toMatchObject({
+      account_id: isolationFixtures.accounts.accountA.id,
+      tenant_id: isolationFixtures.users.tenantA1.tenantId,
+      property_id: isolationFixtures.users.tenantA1.propertyId,
+      scope: "shared",
+      visibility: "tenant",
+      source: "signature_completed",
+      review_status: "accepted",
+      upload_status: "uploaded",
+    });
+    cleanup.documentIds.add(imported.data.id);
+
+    const synced = await admin.rpc("sync_document_packet_signature_status", {
+      p_packet_id: packet.id,
+      p_submission_id: "submission-import",
+      p_signature_status: "completed",
+      p_completed_document_id: imported.data.id,
+      p_error: null,
+    });
+    expect(synced.error).toBeNull();
+    expect(synced.data).toMatchObject({
+      signature_status: "completed",
+      signature_completed_document_id: imported.data.id,
+      status: "completed",
+    });
   });
 });

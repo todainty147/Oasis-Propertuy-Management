@@ -18,11 +18,13 @@ async function packetPanel(page) {
 async function configureSignatureReadiness(page, stamp) {
   const panel = page.getByTestId("document-signature-readiness-panel");
   await expect(panel).toBeVisible();
+  const saveButton = panel.getByRole("button", { name: "Save signature readiness" });
+  await expect(saveButton).toBeEnabled();
   await panel.getByLabel("Signature provider").selectOption("docuseal");
   await panel.getByPlaceholder("Provider URL, e.g. https://sign.example.com").fill("https://sign.example.test");
   await panel.getByPlaceholder("Default signature template ID").fill(`docuseal-template-${stamp}`);
   await panel.getByLabel("Enable provider for this account").check();
-  await panel.getByRole("button", { name: "Save signature readiness" }).click();
+  await saveButton.click();
   await expect(panel).toContainText("Provider ready");
   cleanup.signatureSettingAccountIds.add(isolationFixtures.accounts.accountA.id);
 }
@@ -69,6 +71,10 @@ async function createAndSendTenantPacket(page, templateName, packetTitle) {
   await expect(row).toContainText("Draft");
   await row.getByRole("button", { name: "Send" }).click();
   await expect(row).toContainText("Sent");
+  await row.getByRole("button", { name: "Prepare signature" }).click();
+  await expect(row).toContainText("Ready to send");
+  await row.getByRole("button", { name: "Send for signature" }).click();
+  await expect(row).toContainText("Awaiting signature");
 }
 
 async function completeTenantPacket(page, packetTitle) {
@@ -77,13 +83,12 @@ async function completeTenantPacket(page, packetTitle) {
   const row = panel.getByTestId("document-packet-card").filter({ hasText: packetTitle });
   await expect(row).toBeVisible();
   await expect(row).toContainText("Sent");
+  await expect(row.getByRole("link", { name: "Open signature" })).toBeVisible();
   await row.getByRole("button", { name: "Mark viewed" }).click();
   await expect(row).toContainText("Viewed");
-  await row.getByRole("button", { name: "Complete" }).click();
-  await expect(row).toContainText("Completed");
 }
 
-test("agreement packets move from active template to tenant completion", async ({ page }) => {
+test("agreement packets move from active template to tenant signature task visibility", async ({ page }) => {
   const stamp = Date.now();
   const templateName = `AST browser template ${stamp}`;
   const packetTitle = `Tenant agreement packet ${stamp}`;
@@ -97,13 +102,6 @@ test("agreement packets move from active template to tenant completion", async (
   await page.getByRole("button", { name: "Logout" }).click();
   await signInAs(page, seededUsers.tenantA1);
   await completeTenantPacket(page, packetTitle);
-
-  await page.getByRole("button", { name: "Logout" }).click();
-  await signInAs(page, seededUsers.ownerA);
-  await page.goto("/documents");
-  const panel = await packetPanel(page);
-  const row = panel.getByTestId("document-packet-card").filter({ hasText: packetTitle });
-  await expect(row).toContainText("Completed");
 });
 
 test.afterEach(async () => {

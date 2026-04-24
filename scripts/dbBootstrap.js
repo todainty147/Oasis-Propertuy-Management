@@ -350,6 +350,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply DocuSeal signature provider overlay",
+    file: path.join(supabaseDir, "document_signature_docuseal.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply tenant document prioritization overlay",
     file: path.join(supabaseDir, "document_tenant_highlight.sql"),
     onErrorStop: true,

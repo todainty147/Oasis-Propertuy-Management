@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
+import { buildEdgeFunctionFailure } from "./edgeFunctionFailure";
 
 const PACKET_SELECT = `
   *,
@@ -35,6 +36,8 @@ function normalizePacket(row) {
     signature_submission_id: row.signature_submission_id || "",
     signature_status: row.signature_status || "not_configured",
     signature_completed_document_id: row.signature_completed_document_id || null,
+    signature_submitter_slug: row.signature_submitter_slug || "",
+    signature_submitter_url: row.signature_submitter_url || "",
     signature_requested_at: row.signature_requested_at || null,
     signature_synced_at: row.signature_synced_at || null,
     signature_error: row.signature_error || "",
@@ -175,4 +178,35 @@ export async function voidDocumentPacket({ packetId }) {
   }
 
   return normalizePacket(data);
+}
+
+export async function requestDocumentPacketSignature({ packetId }) {
+  if (!packetId) throw new Error("Missing packetId");
+
+  const { data, error } = await supabase.functions.invoke("create-signature-packet", {
+    body: { packetId },
+  });
+
+  if (error) {
+    const wrapped = buildEdgeFunctionFailure({
+      payload: data,
+      status: error?.context?.status || null,
+      surface: "create_signature_packet",
+      fallback: error.message || "Could not send packet for signature",
+      entityType: "document_packet",
+      entityId: packetId,
+    });
+    logSecurityRelevantFailure("create_signature_packet", {
+      error: wrapped,
+      context: context({ packetId }),
+    });
+    throw wrapped;
+  }
+
+  return {
+    packetId: String(data?.packetId || packetId),
+    submissionId: String(data?.submissionId || ""),
+    signerUrl: String(data?.signerUrl || ""),
+    signatureStatus: String(data?.signatureStatus || "pending"),
+  };
 }

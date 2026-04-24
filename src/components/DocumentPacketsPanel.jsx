@@ -5,9 +5,11 @@ import {
   createDocumentPacket,
   fetchDocumentPackets,
   markDocumentPacketViewed,
+  requestDocumentPacketSignature,
   sendDocumentPacket,
   voidDocumentPacket,
 } from "../services/documentPacketService";
+import { prepareDocumentPacketSignature } from "../services/documentSignatureService";
 import { fetchContractorsForDocumentRequests } from "../services/documentRequestService";
 import { fetchDocumentTemplates } from "../services/documentTemplateService";
 
@@ -31,6 +33,16 @@ function statusClass(status) {
   if (s === "voided") return "bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700";
   if (s === "viewed") return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-200 dark:border-blue-900";
   if (s === "sent") return "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-900";
+  return "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700";
+}
+
+function signatureStatusClass(status) {
+  const s = String(status || "").toLowerCase();
+  if (s === "completed") return "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/40 dark:text-green-200 dark:border-green-900";
+  if (s === "pending" || s === "requested") return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-200 dark:border-blue-900";
+  if (s === "failed") return "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-200 dark:border-red-900";
+  if (s === "cancelled") return "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-900";
+  if (s === "ready") return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-900";
   return "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700";
 }
 
@@ -145,6 +157,32 @@ export default function DocumentPacketsPanel({
   async function handleParticipantOpen(packet) {
     if (packet.status === "sent") {
       await runAction(packet.id, markDocumentPacketViewed, "documents.packets.viewError");
+    }
+  }
+
+  async function handlePrepareSignature(packetId) {
+    setBusy(`prepare-signature:${packetId}`);
+    setError("");
+    try {
+      await prepareDocumentPacketSignature({ packetId });
+      await load();
+    } catch (err) {
+      setError(err?.message || t("documents.packets.prepareSignatureError"));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handleSendForSignature(packetId) {
+    setBusy(`send-signature:${packetId}`);
+    setError("");
+    try {
+      await requestDocumentPacketSignature({ packetId });
+      await load();
+    } catch (err) {
+      setError(err?.message || t("documents.packets.signatureRequestError"));
+    } finally {
+      setBusy("");
     }
   }
 
@@ -300,6 +338,11 @@ export default function DocumentPacketsPanel({
                     <span className={`rounded border px-2 py-0.5 text-xs ${statusClass(packet.status)}`}>
                       {t(`documents.packets.status.${packet.status}`)}
                     </span>
+                    <span className={`rounded border px-2 py-0.5 text-xs ${signatureStatusClass(packet.signature_status)}`}>
+                      {t(`documents.packets.signatureStatus.${packet.signature_status}`, {
+                        defaultValue: packet.signature_status || t("documents.packets.signatureStatus.not_configured"),
+                      })}
+                    </span>
                     <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                       {t(`documents.packets.type.${packet.packet_type}`)}
                     </span>
@@ -310,6 +353,16 @@ export default function DocumentPacketsPanel({
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                     {t("documents.packets.template")}: {packet.template?.name || "—"}
                   </p>
+                  {packet.signature_submitter_url ? (
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      {t("documents.packets.signaturePortalReady")}
+                    </p>
+                  ) : null}
+                  {packet.signature_error ? (
+                    <p className="mt-1 text-xs text-red-600 dark:text-red-300">
+                      {packet.signature_error}
+                    </p>
+                  ) : null}
                   {canManage ? (
                     <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       {packet.target_role === "tenant"
@@ -332,6 +385,32 @@ export default function DocumentPacketsPanel({
                   ) : null}
 
                   {canManage && !["completed", "voided"].includes(packet.status) ? (
+                    <>
+                      {["not_configured", "failed", "cancelled"].includes(packet.signature_status) ? (
+                        <button
+                          type="button"
+                          onClick={() => handlePrepareSignature(packet.id)}
+                          disabled={busy.endsWith(packet.id)}
+                          className="rounded-lg border border-emerald-300 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60 dark:border-emerald-800 dark:text-emerald-200 dark:hover:bg-emerald-950/40"
+                        >
+                          {t("documents.packets.prepareSignature")}
+                        </button>
+                      ) : null}
+
+                      {packet.signature_status === "ready" ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSendForSignature(packet.id)}
+                          disabled={busy.endsWith(packet.id)}
+                          className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white disabled:bg-slate-400"
+                        >
+                          {t("documents.packets.sendForSignature")}
+                        </button>
+                      ) : null}
+                    </>
+                  ) : null}
+
+                  {canManage && !["completed", "voided"].includes(packet.status) ? (
                     <button
                       type="button"
                       onClick={() => runAction(packet.id, voidDocumentPacket, "documents.packets.voidError")}
@@ -344,6 +423,16 @@ export default function DocumentPacketsPanel({
 
                   {!canManage && ["sent", "viewed"].includes(packet.status) ? (
                     <>
+                      {packet.signature_submitter_url ? (
+                        <a
+                          href={packet.signature_submitter_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg border border-emerald-300 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-200 dark:hover:bg-emerald-950/40"
+                        >
+                          {t("documents.packets.openSignature")}
+                        </a>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => handleParticipantOpen(packet)}
@@ -352,14 +441,16 @@ export default function DocumentPacketsPanel({
                       >
                         {t("documents.packets.markViewed")}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => runAction(packet.id, completeDocumentPacket, "documents.packets.completeError")}
-                        disabled={busy.endsWith(packet.id)}
-                        className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white disabled:bg-slate-400"
-                      >
-                        {t("documents.packets.complete")}
-                      </button>
+                      {!["ready", "requested", "pending"].includes(packet.signature_status) ? (
+                        <button
+                          type="button"
+                          onClick={() => runAction(packet.id, completeDocumentPacket, "documents.packets.completeError")}
+                          disabled={busy.endsWith(packet.id)}
+                          className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white disabled:bg-slate-400"
+                        >
+                          {t("documents.packets.complete")}
+                        </button>
+                      ) : null}
                     </>
                   ) : null}
                 </div>
