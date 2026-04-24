@@ -12,6 +12,7 @@ Use this when templates, document requests, participant uploads, or agreement pa
 - Tenants and contractors can view and complete only their own packets.
 - Signature readiness metadata exists for account-scoped provider setup and packet signature status.
 - External provider API calls and webhook PDF import are not implemented yet. Agreement packets are a review/completion foundation for the e-signature adapter.
+- Template file uploads now go through the `upload-document-template` Edge Function so the browser does not write directly to document-template storage paths.
 
 Webhook/provider setup details now live in:
 
@@ -47,6 +48,35 @@ Expected usable rows have:
 - `upload_status = 'uploaded'`
 
 If only draft/stub rows exist, check storage upload/finalization errors before creating packets.
+
+If a manager reports a template upload failure, confirm:
+
+- the `upload-document-template` Edge Function is deployed
+- the browser can reach `/functions/v1/upload-document-template`
+- the template row has a canonical storage path or can be repaired
+
+Inspect stub paths:
+
+```sql
+select id, name, storage_path, upload_status, status, created_at
+from public.document_templates
+where account_id = '<account_id>'
+order by created_at desc;
+```
+
+Expected stub/upload paths follow:
+
+- `<account_id>/templates/<template_id>/<file>`
+
+If a legacy or malformed stub path appears, repair it:
+
+```sql
+select id, storage_path
+from public.repair_document_template_stub_path(
+  '<template_id>',
+  'template.pdf'
+);
+```
 
 ## Tenant Or Contractor Cannot See A Request
 
@@ -189,6 +219,7 @@ The document storage policy overlay is order-safe. It checks for document reques
 3. `document_packets.sql`
 4. `document_signature_readiness.sql`
 5. `document_signature_docuseal.sql`
-6. `storage_documents_policies.sql`
+6. `document_templates_storage_path_repair.sql`
+7. `storage_documents_policies.sql`
 
 Do not remove the request-aware helper guard in `storage_documents_policies.sql`; it prevents deployments from failing when a lower environment applies storage policies before the request tables exist.

@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { Buffer } from "node:buffer";
 
 import { isolationFixtures } from "../fixtures/isolationFixtures.js";
 import {
@@ -10,7 +11,12 @@ import { isIntegrationHarnessConfigured } from "./helpers/env.js";
 
 const cleanup = {
   templateIds: new Set(),
+  templatePaths: new Set(),
 };
+
+function pdfBytes(label) {
+  return new Uint8Array(Buffer.from(`%PDF-1.4\n${label}\n%%EOF`));
+}
 
 function expectDenied(result) {
   expect(result.data ?? null).toBeNull();
@@ -41,6 +47,7 @@ async function createTemplateStub(client, accountId, name = "AST template") {
   expect(template?.id).toBeTruthy();
   expect(template?.storage_path).toContain("/templates/");
   cleanup.templateIds.add(template.id);
+  cleanup.templatePaths.add(template.storage_path);
   return template;
 }
 
@@ -53,6 +60,9 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document template repository
   });
 
   afterAll(async () => {
+    if (cleanup.templatePaths.size > 0) {
+      await admin.storage.from("documents").remove(Array.from(cleanup.templatePaths));
+    }
     if (cleanup.templateIds.size > 0) {
       await admin
         .from("document_templates")
@@ -69,6 +79,14 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document template repository
       "Owner AST template",
     );
 
+    const upload = await admin.storage
+      .from("documents")
+      .upload(template.storage_path, pdfBytes("owner-template"), {
+        contentType: "application/pdf",
+        upsert: false,
+      });
+    expect(upload.error).toBeNull();
+
     const finalized = await client.rpc("finalize_document_template_upload", {
       p_template_id: template.id,
       p_size_bytes: 32,
@@ -77,6 +95,10 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document template repository
     expect(finalized.error).toBeNull();
     expect(finalized.data?.status).toBe("active");
     expect(finalized.data?.upload_status).toBe("uploaded");
+
+    const download = await admin.storage.from("documents").download(template.storage_path);
+    expect(download.error).toBeNull();
+    expect(download.data).toBeTruthy();
 
     const read = await client
       .from("document_templates")
@@ -99,6 +121,48 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document template repository
     expect(archived.data?.status).toBe("archived");
   });
 
+  it("repairs a legacy stub path before upload", async () => {
+    const { client } = await signInAsFixtureUser("ownerA");
+    const template = await createTemplateStub(
+      client,
+      isolationFixtures.accounts.accountA.id,
+      "Legacy repair template",
+    );
+
+    const legacyPath = `${isolationFixtures.accounts.accountA.id}/Legacy repair template`;
+    cleanup.templatePaths.delete(template.storage_path);
+    cleanup.templatePaths.add(legacyPath);
+
+    const forceLegacyPath = await admin
+      .from("document_templates")
+      .update({ storage_path: legacyPath })
+      .eq("id", template.id)
+      .select("id, storage_path")
+      .single();
+    expect(forceLegacyPath.error).toBeNull();
+    expect(forceLegacyPath.data?.storage_path).toBe(legacyPath);
+
+    const repaired = await client.rpc("repair_document_template_stub_path", {
+      p_template_id: template.id,
+      p_filename: "legacy-template.pdf",
+    });
+    expect(repaired.error).toBeNull();
+    expect(repaired.data?.storage_path).toMatch(
+      new RegExp(`^${isolationFixtures.accounts.accountA.id}/templates/${template.id}/legacy-template\\.pdf$`),
+    );
+
+    cleanup.templatePaths.delete(legacyPath);
+    cleanup.templatePaths.add(repaired.data.storage_path);
+
+    const upload = await admin.storage
+      .from("documents")
+      .upload(repaired.data.storage_path, pdfBytes("legacy-repair-template"), {
+        contentType: "application/pdf",
+        upsert: false,
+      });
+    expect(upload.error).toBeNull();
+  });
+
   it("allows staff to read templates but denies template management", async () => {
     const { client: ownerClient } = await signInAsFixtureUser("ownerA");
     const template = await createTemplateStub(
@@ -106,6 +170,14 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document template repository
       isolationFixtures.accounts.accountA.id,
       "Staff readable template",
     );
+
+    const upload = await admin.storage
+      .from("documents")
+      .upload(template.storage_path, pdfBytes("staff-readable-template"), {
+        contentType: "application/pdf",
+        upsert: false,
+      });
+    expect(upload.error).toBeNull();
 
     const finalize = await ownerClient.rpc("finalize_document_template_upload", {
       p_template_id: template.id,

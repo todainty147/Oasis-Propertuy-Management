@@ -131,12 +131,13 @@ export async function uploadDocumentTemplate({
     throw stubError || new Error("Could not create template stub");
   }
 
-  const { error: uploadError } = await supabase.storage
-    .from("documents")
-    .upload(template.storage_path, file, {
-      upsert: false,
-      contentType: file.type,
-    });
+  const formData = new FormData();
+  formData.set("templateId", template.id);
+  formData.set("file", file, file.name);
+
+  const { error: uploadError } = await supabase.functions.invoke("upload-document-template", {
+    body: formData,
+  });
 
   if (uploadError) {
     logSecurityRelevantFailure("document_template_storage_upload", {

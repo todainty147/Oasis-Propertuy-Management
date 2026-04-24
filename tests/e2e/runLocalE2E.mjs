@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 
 const supabaseStartCommand = [
   "npx -y supabase@2.84.2 start",
-  "--exclude studio,imgproxy,mailpit,logflare,vector,storage-api,realtime,postgres-meta,supavisor",
+  "--exclude studio,imgproxy,mailpit,logflare,vector,realtime,postgres-meta,supavisor",
 ].join(" ");
 
 const supabaseStopCommand = "npx -y supabase@2.84.2 stop --project-id oasisrentalmanagementapp";
@@ -52,7 +52,7 @@ function startBackgroundCommand(command, extraEnv = {}) {
   return child;
 }
 
-async function waitForFunctionRuntime(url, timeoutMs = 15000) {
+async function waitForFunctionRuntime(url, timeoutMs = 30000) {
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < timeoutMs) {

@@ -10,7 +10,7 @@ const defaultDbUrl = "postgresql://postgres:postgres@127.0.0.1:61022/postgres";
 const localSupabaseStartArgs = [
   "start",
   "--exclude",
-  "studio,imgproxy,mailpit,logflare,vector,storage-api,realtime,postgres-meta,edge-runtime,supavisor",
+  "studio,imgproxy,mailpit,logflare,vector,realtime,postgres-meta,edge-runtime,supavisor",
 ];
 
 const bootstrapSteps = [
@@ -337,6 +337,11 @@ const bootstrapSteps = [
   {
     label: "Apply document template repository overlay",
     file: path.join(supabaseDir, "document_templates.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply document template storage-path repair overlay",
+    file: path.join(supabaseDir, "document_templates_storage_path_repair.sql"),
     onErrorStop: true,
   },
   {
