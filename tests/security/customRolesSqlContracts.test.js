@@ -312,6 +312,20 @@ describe("custom roles SQL contracts", () => {
     expect(baseline).toContain("public.account_member_effective_role(am.account_id, am.user_id) <> 'owner'");
   });
 
+  it("replays auth user profile bootstrap hardening in bootstrap and repo apply order", () => {
+    const sql = readSource("supabase/auth_user_profile_bootstrap_hardening.sql");
+    const bootstrapSource = readSource("scripts/dbBootstrap.js");
+    const applySource = readSource("scripts/dbApplyRepoSql.js");
+
+    expect(sql).toContain("create or replace function public.handle_new_user()");
+    expect(sql).toContain("exception");
+    expect(sql).toContain("insert into public.profiles (id, role)");
+    expect(sql).toContain("drop trigger if exists on_auth_user_created on auth.users;");
+    expect(sql).toContain("create trigger on_auth_user_created");
+    expect(bootstrapSource).toContain("auth_user_profile_bootstrap_hardening.sql");
+    expect(applySource).toContain('"auth_user_profile_bootstrap_hardening.sql"');
+  });
+
   it("routes owner-email dedup cleanup through account_member_effective_role", () => {
     const sql = readSource("supabase/account_email_dedup_cleanup.sql");
 

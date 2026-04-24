@@ -81,6 +81,7 @@ const OVERLAY_SEQUENCE = [
   "security_anomaly_alerts.sql",
   "security_anomaly_alert_workflow.sql",
   "self_serve_landlord_signup.sql",
+  "auth_user_profile_bootstrap_hardening.sql",
   "compliance_document_links.sql",
   "document_audit_scope.sql",
   "document_templates.sql",

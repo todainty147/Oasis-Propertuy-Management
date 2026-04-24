@@ -320,6 +320,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply auth user profile bootstrap hardening overlay",
+    file: path.join(supabaseDir, "auth_user_profile_bootstrap_hardening.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply compliance document links overlay",
     file: path.join(supabaseDir, "compliance_document_links.sql"),
     onErrorStop: true,
