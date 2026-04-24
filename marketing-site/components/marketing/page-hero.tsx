@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 export function PageHero({
@@ -34,7 +35,13 @@ export function PageHero({
         </div>
         {imageSrc ? (
           <div className="page-hero__shot card">
-            <img src={imageSrc} alt={imageAlt || title} className="page-hero__image" />
+            <Image
+              src={imageSrc}
+              alt={imageAlt || title}
+              className="page-hero__image"
+              width={1600}
+              height={1000}
+            />
           </div>
         ) : null}
       </div>

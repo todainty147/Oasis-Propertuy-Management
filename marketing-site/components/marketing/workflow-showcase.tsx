@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 type WorkflowItem = {
@@ -50,7 +51,13 @@ export function WorkflowShowcase({
               <div className="workflow-image">
                 <div className="workflow-image__window">
                   <div className="workflow-image__toolbar">{item.label}</div>
-                  <img src={item.imageSrc} alt={item.imageAlt} className="workflow-image__img" />
+                  <Image
+                    src={item.imageSrc}
+                    alt={item.imageAlt}
+                    className="workflow-image__img"
+                    width={1600}
+                    height={1000}
+                  />
                 </div>
               </div>
             </article>

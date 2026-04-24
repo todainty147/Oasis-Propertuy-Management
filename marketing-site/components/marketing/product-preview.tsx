@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 type PreviewItem = {
   title: string;
   body: string;
@@ -30,7 +32,13 @@ export function ProductPreview({
                 <div className="preview-shot__header">
                   <span>{item.label}</span>
                 </div>
-                <img src={item.imageSrc} alt={item.imageAlt} className="preview-shot__image" />
+                <Image
+                  src={item.imageSrc}
+                  alt={item.imageAlt}
+                  className="preview-shot__image"
+                  width={1600}
+                  height={1000}
+                />
               </div>
               <h3>{item.title}</h3>
               <p className="muted">{item.body}</p>

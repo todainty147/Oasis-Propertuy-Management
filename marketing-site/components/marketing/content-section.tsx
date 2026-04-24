@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 type SectionItem = {
@@ -65,7 +66,13 @@ export function ContentSection({
             </div>
             {imageSrc ? (
               <div className="content-section__shot">
-                <img src={imageSrc} alt={imageAlt || title} className="content-section__image" />
+                <Image
+                  src={imageSrc}
+                  alt={imageAlt || title}
+                  className="content-section__image"
+                  width={1600}
+                  height={1000}
+                />
               </div>
             ) : null}
           </div>

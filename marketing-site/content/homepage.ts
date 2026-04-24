@@ -15,10 +15,10 @@ export const homepageContent = {
     support:
       "Built with real landlord workflows in mind. Designed for operators who need control, accountability, and a clearer picture of what needs action now.",
     highlights: [
-      "Command Center",
-      "Maintenance Workflow",
-      "Property Health Scoring",
-      "Security & Audit Trail",
+      { label: "Command Center", href: "/features/command-center" },
+      { label: "Maintenance Workflow", href: "/features/maintenance-management" },
+      { label: "Property Health Scoring", href: "/features/portfolio-health" },
+      { label: "Security & Audit Trail", href: "/features/security-audit" },
     ],
     microcopy: [
       "No credit card required.",
