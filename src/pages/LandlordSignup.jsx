@@ -20,6 +20,14 @@ export default function LandlordSignup() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
+  async function clearLocalAuthState() {
+    try {
+      await supabase.auth.signOut({ scope: "local" });
+    } catch {
+      // A failed signup can leave refresh state half-written; clearing local state is best-effort.
+    }
+  }
+
   async function submit(e) {
     e.preventDefault();
     setError("");
@@ -33,7 +41,7 @@ export default function LandlordSignup() {
         throw new Error(t("signup.required"));
       }
 
-      const { error: signUpErr } = await supabase.auth.signUp({
+      const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
         email: cleanEmail,
         password,
         options: {
@@ -45,11 +53,27 @@ export default function LandlordSignup() {
         },
       });
 
-      if (signUpErr) throw signUpErr;
+      let session = signUpData?.session || null;
+      const signUpUser = signUpData?.user || null;
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      if (signUpErr && !signUpUser) {
+        await clearLocalAuthState();
+        throw signUpErr;
+      }
+
+      if (!session?.user && signUpUser) {
+        const recovery = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password,
+        });
+
+        if (!recovery.error && recovery.data?.session?.user) {
+          session = recovery.data.session;
+        } else if (!signUpErr) {
+          const sessionResult = await supabase.auth.getSession();
+          session = sessionResult.data?.session || null;
+        }
+      }
 
       // If auth is instantly signed in (email confirm off), create account immediately.
       if (session?.user) {
@@ -60,10 +84,21 @@ export default function LandlordSignup() {
         return;
       }
 
-      // Email confirm on: account will be created on first login by AccountContext.
-      setMessage(t("signup.verifyEmail"));
+      await clearLocalAuthState();
+
+      // Email confirm on, or confirmation delivery reported a recoverable error:
+      // account creation will continue on first successful login.
+      if (signUpUser) {
+        setMessage(signUpErr ? t("signup.verifyEmailRetry") : t("signup.verifyEmail"));
+        setPassword("");
+        return;
+      }
+
+      if (signUpErr) throw signUpErr;
+
       setPassword("");
     } catch (e2) {
+      await clearLocalAuthState();
       setError(e2?.message || t("signup.error"));
     } finally {
       setLoading(false);
