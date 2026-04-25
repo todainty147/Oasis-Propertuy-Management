@@ -240,6 +240,16 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply AI contractor recommendation overlay",
+    file: path.join(supabaseDir, "ai_contractor_recommendation.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply AI weekly portfolio summary overlay",
+    file: path.join(supabaseDir, "ai_weekly_portfolio_summary.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply playbook status snapshot overlay",
     file: path.join(supabaseDir, "playbook_status_snapshot.sql"),
     onErrorStop: true,

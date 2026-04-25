@@ -121,7 +121,11 @@ function SummaryCard({ label, value, hint = "", tone = "blue" }) {
 
 function AttentionInsightCard({ insight, loading, onRefresh, t }) {
   if (loading) {
-    return <Skeleton className="h-44" />;
+    return (
+      <div data-testid="attention-insight-card">
+        <Skeleton className="h-44" />
+      </div>
+    );
   }
 
   if (!insight) return null;

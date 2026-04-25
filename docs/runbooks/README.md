@@ -26,6 +26,10 @@ If the symptom is:
   - start with [ai-property-health-explainer-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/ai-property-health-explainer-operations.md)
 - Maintenance inbox AI triage suggestion is missing, falling back, or not matching the request context:
   - start with [ai-maintenance-triage-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/ai-maintenance-triage-operations.md)
+- contractor recommendation in the create-work-order drawer is missing, falling back, or clearly not matching request history:
+  - start with [ai-contractor-recommendation-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/ai-contractor-recommendation-operations.md)
+- weekly portfolio AI briefing is missing, falling back, or not reflecting current portfolio pressure:
+  - start with [ai-weekly-portfolio-summary-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/ai-weekly-portfolio-summary-operations.md)
 - membership, tenant, payment, work-order, or invite rows look broken or detached:
   - start with [data-orphaned-rows.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/data-orphaned-rows.md)
 - invite exists but acceptance is broken, duplicated, revoked unexpectedly, or tied to the wrong account:

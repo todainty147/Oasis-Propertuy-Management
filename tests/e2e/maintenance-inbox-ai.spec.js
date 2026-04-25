@@ -6,8 +6,9 @@ test("owner sees AI triage guidance on active maintenance requests", async ({ pa
   await signInAs(page, seededUsers.ownerA);
 
   await page.goto("/maintenance-inbox");
-  const heading = page.getByText(/Triage suggestion|Sugestia triage/i).first();
-  await expect(heading).toBeVisible();
-  await expect(page.getByText(/Facts used for triage|Fakty użyte do triage/i).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: /Refresh suggestion|Odśwież sugestię/i }).first()).toBeVisible();
+  const card = page.locator('[data-testid^="maintenance-triage-card-"]').first();
+  await expect(card).toBeVisible({ timeout: 30000 });
+  await expect(card.getByRole("button", { name: /Refresh suggestion|Odśwież sugestię/i })).toBeEnabled({ timeout: 30000 });
+  await expect(card.getByText(/Triage suggestion|Sugestia triage/i)).toBeVisible();
+  await expect(card.getByText(/Facts used for triage|Fakty użyte do triage/i)).toBeVisible();
 });

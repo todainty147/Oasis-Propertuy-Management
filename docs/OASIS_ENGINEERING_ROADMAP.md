@@ -45,7 +45,7 @@ This section reflects checked-in code, SQL, and tests rather than planned intent
 - **Operations Hub / Command Center**: real account-scoped queueing and prioritization
 - **Maintenance and work-order coordination**: tenant intake, manager triage, contractor updates, quote/approval, and audit trail
 - **Portfolio Health**: score-backed risk visibility, not decorative analytics
-- **Operational AI helpers**: Command Center briefing, property health explainer, and maintenance triage suggestions all now sit behind the same server-side AI control plane with deterministic fallback
+- **Operational AI helpers**: Command Center briefing, property health explainer, maintenance triage suggestions, contractor recommendation, and weekly portfolio summary now sit behind the same server-side AI control plane with deterministic fallback
 - **Tenant portal foundation**: tenant dashboard overview, maintenance status, tenant payments, documents, and timeline
 - **Security / auditability**: append-only audit, observability feeds, denied-event logging, and manager/root surfaces
 - **Contractor workflow depth**: assigned-job portal and workflow follow-through
@@ -679,6 +679,13 @@ Rule:
 - AI may suggest urgency and safety flags
 - manager still confirms the final triage state
 
+Current repo state:
+
+- the manager inbox now renders a read-only triage card inside [MaintenanceRequestCard.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/components/maintenance-inbox/MaintenanceRequestCard.jsx)
+- generation runs through [generate-maintenance-triage/index.ts](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions/generate-maintenance-triage/index.ts)
+- cached insight rows reuse the shared AI control-plane tables, extended by [ai_maintenance_triage.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/ai_maintenance_triage.sql)
+- the UI fails soft and falls back to deterministic triage output when OpenAI is missing or unavailable
+
 #### Phase 4: Contractor Recommendation
 
 Goal:
@@ -689,6 +696,13 @@ Rule:
 
 - AI suggests
 - actual assignment still uses the existing contractor assignment workflow
+
+Current repo state:
+
+- the create-work-order drawer now renders contractor guidance inside [CreateWorkOrderDrawer.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/components/maintenance-inbox/CreateWorkOrderDrawer.jsx)
+- generation runs through [generate-contractor-recommendation/index.ts](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions/generate-contractor-recommendation/index.ts)
+- cached insight rows reuse the shared AI control-plane tables, extended by [ai_contractor_recommendation.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/ai_contractor_recommendation.sql)
+- the recommendation remains advisory; the manager still chooses the contractor and the flow falls back deterministically when OpenAI is unavailable
 
 #### Phase 5: AI Message Drafting
 
@@ -711,6 +725,13 @@ Placement:
 
 - dashboard first
 - email digest later
+
+Current repo state:
+
+- the first shipped placement is the portfolio health page in [PortfolioHealthDashboardPage.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/PortfolioHealthDashboardPage.jsx)
+- generation runs through [generate-weekly-portfolio-summary/index.ts](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions/generate-weekly-portfolio-summary/index.ts)
+- cached insight rows reuse the shared AI control-plane tables, extended by [ai_weekly_portfolio_summary.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/ai_weekly_portfolio_summary.sql)
+- the page shows underlying operational sections and falls back to deterministic weekly summary output when OpenAI is missing or unavailable
 
 #### Phase 7: Document AI Assistant
 
@@ -772,15 +793,15 @@ Packaging direction:
 
 - Starter: no AI or very limited monthly usage
 - Growth: attention insights, maintenance triage, property health explainers
-- Pro: weekly summary, contractor recommendation, message drafts, document summaries
+- Pro: contractor recommendation, weekly summary, message drafts, document summaries
 - Operator/Agency: security copilot, bounded natural-language operational query, higher limits
 
 ### Recommended timing
 
-- now: finish trust-critical operational work already in flight, especially signature provider integration and runtime hardening
-- next: Phase 0 foundation plus Phase 1 AI Attention Insight Card
-- then: property health explainer and maintenance triage
-- later: contractor recommendation, message drafting, weekly summary, document AI, finance AI, and security copilot
+- now: trust-critical operational work has been followed by the first five operator-facing AI slices on the shared control plane
+- next: message drafting, document AI, finance AI, and security copilot in that order of user-risk and implementation leverage
+- then: plan-gated monetization and usage controls for the richer AI surfaces
+- later: bounded natural-language query after the approved-RPC intent router is mature
 - much later: bounded natural-language query after the approved-RPC intent router is mature
 
 ## Iteration 2A Epics
@@ -1257,17 +1278,17 @@ Possible, but costly enough that it should be evidence-driven.
 ### Phase 3
 
 - demo/sandbox experience
-- AI foundation and the first operator-facing insight slice once current workflow hardening is complete
+- AI foundation and the first operator-facing insight slices once current workflow hardening is complete
 - deeper cache layers if real traffic requires them
 
 ### Phase 4
 
-- maintenance triage suggestions after the first AI slices prove useful
+- contractor recommendation and weekly portfolio summary after the first AI slices prove useful
 - partitioning only if production evidence proves it is needed
 
 ### Phase 5
 
-- later AI layers: weekly summaries, document assistant, finance explainer, security copilot
+- later AI layers: message drafting, document assistant, finance explainer, security copilot
 - natural-language operational query only after the approved-RPC intent router is mature
 
 ## Final Recommendation

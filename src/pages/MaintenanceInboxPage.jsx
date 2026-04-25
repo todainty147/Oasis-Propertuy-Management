@@ -467,6 +467,7 @@ export default function MaintenanceInboxPage() {
       <CreateWorkOrderDrawer
         open={drawerOpen}
         request={selectedRequest}
+        accountId={activeAccountId}
         contractors={contractors}
         saving={drawerSaving}
         onClose={() => {

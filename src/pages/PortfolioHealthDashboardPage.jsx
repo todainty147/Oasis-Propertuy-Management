@@ -17,6 +17,7 @@ import {
   sendWeeklySummaryNow,
   upsertAccountReportSettings,
 } from "../services/reportingService";
+import { getWeeklyPortfolioInsight } from "../services/weeklyPortfolioInsightService";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount } from "../utils/currency";
 import {
@@ -264,6 +265,140 @@ function PropertyHealthExplainerCard({ insight, loading, onRefresh, t }) {
   );
 }
 
+function WeeklyPortfolioAiCard({ insight, loading, onRefresh, t }) {
+  if (!loading && !insight) return null;
+
+  return (
+    <Card className="p-4 border shadow-sm" data-testid="weekly-portfolio-ai-card">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">
+            {t("portfolio.weeklyAi.eyebrow")}
+          </p>
+          <h3 className="mt-1 text-lg font-semibold text-slate-900">{t("portfolio.weeklyAi.title")}</h3>
+          <p className="mt-1 text-sm text-slate-500">{t("portfolio.weeklyAi.subtitle")}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={loading}
+          className="px-3 py-2 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+        >
+          {t("portfolio.weeklyAi.refresh")}
+        </button>
+      </div>
+
+      {loading && !insight ? (
+        <div className="mt-4 space-y-2">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      ) : null}
+
+      {insight ? (
+        <div className="mt-4 space-y-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
+              {insight.source === "openai" ? t("portfolio.weeklyAi.sourceOpenAi") : t("portfolio.weeklyAi.sourceFallback")}
+            </span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
+              {t(`portfolio.weeklyAi.confidence.${insight.confidence}`)}
+            </span>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+            <p className="text-sm font-semibold text-slate-900">{insight.headline}</p>
+            {insight.generatedAt ? (
+              <p className="mt-2 text-xs text-slate-500">
+                {t("portfolio.weeklyAi.generatedAt", {
+                  value: formatAttentionInsightTimestamp(insight.generatedAt),
+                })}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+            <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {t("portfolio.weeklyAi.wins")}
+              </p>
+              <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                {(insight.wins || []).map((entry) => (
+                  <li key={entry} className="flex gap-2">
+                    <span className="text-slate-400">•</span>
+                    <span>{entry}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {t("portfolio.weeklyAi.risks")}
+              </p>
+              <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                {(insight.risks || []).map((entry) => (
+                  <li key={entry} className="flex gap-2">
+                    <span className="text-slate-400">•</span>
+                    <span>{entry}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+            <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {t("portfolio.weeklyAi.recommendedFocus")}
+              </p>
+              <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                {(insight.recommendedFocus || []).map((entry) => (
+                  <li key={entry} className="flex gap-2">
+                    <span className="text-slate-400">•</span>
+                    <span>{entry}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {t("portfolio.weeklyAi.cashflowNotes")}
+              </p>
+              <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                {(insight.cashflowNotes || []).map((entry) => (
+                  <li key={entry} className="flex gap-2">
+                    <span className="text-slate-400">•</span>
+                    <span>{entry}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {(insight.propertiesToWatch || []).length > 0 ? (
+            <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {t("portfolio.weeklyAi.propertiesToWatch")}
+              </p>
+              <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                {insight.propertiesToWatch.map((entry) => (
+                  <li key={entry} className="flex gap-2">
+                    <span className="text-slate-400">•</span>
+                    <span>{entry}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
 export default function PortfolioHealthDashboardPage() {
   const { setTitle } = usePageTitle();
   const { activeRole, activeAccountId, isRootOperator } = useAccount();
@@ -282,6 +417,8 @@ export default function PortfolioHealthDashboardPage() {
   const [propertyHealthRows, setPropertyHealthRows] = useState([]);
   const [propertyHealthInsight, setPropertyHealthInsight] = useState(null);
   const [propertyHealthInsightLoading, setPropertyHealthInsightLoading] = useState(false);
+  const [weeklyPortfolioInsight, setWeeklyPortfolioInsight] = useState(null);
+  const [weeklyPortfolioInsightLoading, setWeeklyPortfolioInsightLoading] = useState(false);
   const [reporting, setReporting] = useState(null);
   const [reportSaving, setReportSaving] = useState(false);
   const [reportSending, setReportSending] = useState(false);
@@ -339,13 +476,14 @@ export default function PortfolioHealthDashboardPage() {
     onChange: async () => {
       if (!activeAccountId || !canManage) return;
       try {
-        const [snapshotRow, attention, leaseAttention, leaseSummaryRow, reportingRow, healthRows] = await Promise.all([
+        const [snapshotRow, attention, leaseAttention, leaseSummaryRow, reportingRow, healthRows, weeklyInsight] = await Promise.all([
           getPortfolioHealthSnapshot(activeAccountId, activeTenantId || null, { forceRefresh: true }),
           getPortfolioAttentionItems(activeAccountId, activeTenantId || null, 10),
           getLeaseAttentionItems(activeAccountId, 6),
           getLeaseSummary(activeAccountId),
           getAccountReportSettings(activeAccountId),
           listPropertyOperationalHealthScores(activeAccountId, { limit: 200 }),
+          getWeeklyPortfolioInsight({ accountId: activeAccountId, forceRefresh: true }).catch(() => null),
         ]);
         setSnapshot(snapshotRow || null);
         setAttentionItems(Array.isArray(attention) ? attention : []);
@@ -353,12 +491,14 @@ export default function PortfolioHealthDashboardPage() {
         setLeaseSummary(leaseSummaryRow || null);
         setPropertyHealthRows(Array.isArray(healthRows) ? healthRows : []);
         setReporting(reportingRow || null);
+        setWeeklyPortfolioInsight(weeklyInsight || null);
       } catch {
         setSnapshot(null);
         setAttentionItems([]);
         setLeaseAttentionItems([]);
         setLeaseSummary(null);
         setPropertyHealthRows([]);
+        setWeeklyPortfolioInsight(null);
       }
     },
   });
@@ -375,6 +515,31 @@ export default function PortfolioHealthDashboardPage() {
       }
     }
     loadSettings();
+    return () => {
+      dead = true;
+    };
+  }, [activeAccountId, canManage]);
+
+  useEffect(() => {
+    if (!activeAccountId || !canManage) return;
+    let dead = false;
+
+    async function loadInsight(forceRefresh = false) {
+      setWeeklyPortfolioInsightLoading(true);
+      try {
+        const nextInsight = await getWeeklyPortfolioInsight({
+          accountId: activeAccountId,
+          forceRefresh,
+        });
+        if (!dead) setWeeklyPortfolioInsight(nextInsight);
+      } catch {
+        if (!dead) setWeeklyPortfolioInsight(null);
+      } finally {
+        if (!dead) setWeeklyPortfolioInsightLoading(false);
+      }
+    }
+
+    loadInsight(false);
     return () => {
       dead = true;
     };
@@ -801,6 +966,20 @@ export default function PortfolioHealthDashboardPage() {
           toByKey={lowestHealthLinks}
         />
       </div>
+
+      <WeeklyPortfolioAiCard
+        insight={weeklyPortfolioInsight}
+        loading={weeklyPortfolioInsightLoading}
+        onRefresh={() => {
+          if (!activeAccountId) return;
+          setWeeklyPortfolioInsightLoading(true);
+          getWeeklyPortfolioInsight({ accountId: activeAccountId, forceRefresh: true })
+            .then((nextInsight) => setWeeklyPortfolioInsight(nextInsight))
+            .catch(() => setWeeklyPortfolioInsight(null))
+            .finally(() => setWeeklyPortfolioInsightLoading(false));
+        }}
+        t={t}
+      />
 
       <Card className="p-4 border shadow-sm">
         <div className="flex items-start justify-between gap-3 flex-wrap">
