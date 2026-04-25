@@ -11,9 +11,9 @@ export const portfolioHealthContent = {
     eyebrow: "Portfolio health",
     title: "See which properties are building pressure before they become expensive",
     body:
-      "OASIS turns property health into a landlord decision tool, combining arrears pressure, maintenance strain, stalled work, and risk signals into one operating view.",
+      "OASIS turns property health into a landlord decision tool, combining arrears pressure, maintenance strain, stalled work, risk signals, and an AI explainer into one operating view.",
     imageSrc: "/screenshots/portfolio-health.png",
-    imageAlt: "OASIS Portfolio Health dashboard showing occupancy, finance pressure, and maintenance risk.",
+    imageAlt: "OASIS Portfolio Health dashboard showing finance pressure, maintenance risk, and an AI property explainer.",
   },
   problemSection: {
     eyebrow: "Why it matters",
@@ -39,7 +39,7 @@ export const portfolioHealthContent = {
     eyebrow: "What OASIS does",
     title: "Health scoring that points back to the work",
     body:
-      "Portfolio health in OASIS is not just reporting. It helps landlords see which properties are building pressure and then jump back into the queues, requests, and records behind that score.",
+      "Portfolio health in OASIS is not just reporting. It helps landlords see which properties are building pressure, explains why the weakest address is slipping, and then points back into the queues, requests, and records behind that score.",
     items: [
       {
         title: "Finance and arrears pressure",
@@ -50,12 +50,16 @@ export const portfolioHealthContent = {
         body: "Spot properties where open work, stalled repairs, or slow follow-through are building operational drag.",
       },
       {
+        title: "AI explanation with facts attached",
+        body: "Explain why a property is under pressure while still showing the non-AI facts behind the score.",
+      },
+      {
         title: "Actionable next steps",
         body: "Stay connected to the same workflows needed to respond instead of reviewing a score in isolation.",
       },
     ],
     imageSrc: "/screenshots/portfolio-health.png",
-    imageAlt: "OASIS Portfolio Health dashboard showing pressure signals and risk visibility.",
+    imageAlt: "OASIS Portfolio Health dashboard showing pressure signals, risk visibility, and an AI explanation card.",
     imageAlign: "left" as const,
   },
   benefits: {
@@ -67,7 +71,7 @@ export const portfolioHealthContent = {
       },
       {
         title: "Clearer property prioritization",
-        body: "Know which addresses deserve attention this week instead of treating every issue the same.",
+        body: "Know which addresses deserve attention this week, and why, instead of treating every issue the same.",
       },
       {
         title: "Stronger portfolio oversight",

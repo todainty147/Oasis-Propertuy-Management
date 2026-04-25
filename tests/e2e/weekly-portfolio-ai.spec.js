@@ -8,7 +8,13 @@ test("owner sees the weekly portfolio AI briefing on the portfolio health page",
   await page.goto("/portfolio-health");
   const card = page.getByTestId("weekly-portfolio-ai-card");
   await expect(card).toBeVisible({ timeout: 30000 });
-  await expect(card.getByRole("button", { name: /Refresh briefing|Odśwież briefing/i })).toBeEnabled({ timeout: 30000 });
+  await expect
+    .poll(async () => {
+      const button = card.getByRole("button", { name: /Refresh briefing|Odśwież briefing/i });
+      if (!(await button.isVisible().catch(() => false))) return "missing";
+      return (await button.isEnabled().catch(() => false)) ? "enabled" : "disabled";
+    }, { timeout: 30000 })
+    .toBe("enabled");
   await expect(card).toContainText(/Weekly portfolio picture|Tygodniowy obraz portfela/i);
   await expect(card.getByText(/What is working|Co idzie dobrze/i)).toBeVisible();
 });

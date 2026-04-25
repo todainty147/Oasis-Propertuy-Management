@@ -11,9 +11,9 @@ export const commandCenterContent = {
     eyebrow: "Command center",
     title: "Start with the work that actually needs attention",
     body:
-      "OASIS gives landlords a command center for urgent queues, overdue balances, and next actions so the week does not begin with reconstruction work.",
+      "OASIS gives landlords a command center for urgent queues, overdue balances, next actions, and an AI operator briefing so the week does not begin with reconstruction work.",
     imageSrc: "/screenshots/command-center.png",
-    imageAlt: "OASIS Command Center showing urgent items, overdue balance, and action queues.",
+    imageAlt: "OASIS Command Center showing AI operator briefing, urgent items, overdue balance, and action queues.",
   },
   problemSection: {
     eyebrow: "Why it matters",
@@ -23,7 +23,7 @@ export const commandCenterContent = {
     items: [
       {
         title: "Too many signals",
-        body: "Overdue balances, stalled work, and tenant follow-up compete for attention without a clear starting point.",
+        body: "Overdue balances, stalled work, and tenant follow-up compete for attention without a clear starting point or a quick explanation of what matters most.",
       },
       {
         title: "Priority gets rebuilt manually",
@@ -39,11 +39,15 @@ export const commandCenterContent = {
     eyebrow: "What OASIS does",
     title: "One operating view for what should move next",
     body:
-      "The Command Center keeps urgent actions, arrears pressure, maintenance drag, and broader portfolio priorities close enough to act on immediately.",
+      "The Command Center keeps urgent actions, arrears pressure, maintenance drag, and broader portfolio priorities close enough to act on immediately, with an AI-generated briefing that still shows the underlying facts.",
     items: [
       {
         title: "Urgent queues",
         body: "Surface the actions that need attention now instead of relying on ad hoc triage.",
+      },
+      {
+        title: "AI operator briefing",
+        body: "Generate a concise summary of what needs attention today, why it matters, and what to review next without mutating workflow state.",
       },
       {
         title: "Finance pressure in context",
@@ -55,7 +59,7 @@ export const commandCenterContent = {
       },
     ],
     imageSrc: "/screenshots/command-center.png",
-    imageAlt: "OASIS Command Center with urgent and needs-action queues.",
+    imageAlt: "OASIS Command Center with AI briefing and needs-action queues.",
     imageAlign: "left" as const,
   },
   benefits: {
@@ -71,7 +75,7 @@ export const commandCenterContent = {
       },
       {
         title: "Calmer operating rhythm",
-        body: "Start from one clear control surface instead of hopping between tools and memory.",
+        body: "Start from one clear control surface, with a briefing that explains the queue instead of making the team infer it from scratch.",
       },
       {
         title: "Stronger operator confidence",

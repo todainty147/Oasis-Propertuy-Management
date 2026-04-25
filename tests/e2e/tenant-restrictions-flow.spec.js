@@ -6,7 +6,7 @@ test("tenant sees the restricted surface and does not get manager-only property 
   await signInAs(page, seededUsers.tenantA1);
 
   await expect(page).toHaveURL(/\/tenant\/home(?:\?.*)?$/);
-  await expect(page.getByText("Tenant portal")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your tenancy space" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Your home overview" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "What needs attention" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Tenant timeline" })).toBeVisible();

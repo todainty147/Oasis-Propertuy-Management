@@ -192,8 +192,11 @@ export default function Tenants() {
     );
   }, [activePermissionContext, activeRole, isRootOperator]);
   const canReadTenants = useMemo(() => {
+    if (activeRole === "tenant" || activeRole === "contractor") {
+      return false;
+    }
     return isRootOperator || can(activePermissionContext, "tenants", "read");
-  }, [activePermissionContext, isRootOperator]);
+  }, [activePermissionContext, activeRole, isRootOperator]);
 
   useEffect(() => {
     setTitle(t("sidebar.tenants"));

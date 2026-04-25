@@ -145,7 +145,8 @@ test("captures marketing product screenshots", async ({ page }) => {
   await signInAs(page, seededUsers.tenantA1);
 
   await page.goto("/tenant/home");
-  await expect(page.getByText("Tenant portal")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your tenancy space" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your home overview" })).toBeVisible();
   await captureViewport(page, "tenant-home.png");
 
   await page.goto("/tenant/documents");

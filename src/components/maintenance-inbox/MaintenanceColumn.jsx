@@ -27,17 +27,17 @@ export default function MaintenanceColumn({
 }) {
   const { t } = useI18n();
   return (
-    <div className="rounded-2xl border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-3 space-y-3 min-h-[240px] shadow-sm">
-      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-        <h3 className="text-sm font-semibold text-slate-900">{titleForStatus(status, t)}</h3>
+    <div className="rounded-2xl border border-slate-700 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 p-3 space-y-3 min-h-[240px] shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+        <h3 className="text-sm font-semibold text-slate-100">{titleForStatus(status, t)}</h3>
         <div className="text-right">
-          <div className="text-xs text-slate-700 font-medium">{totalForStatus}</div>
-          <div className="text-[10px] text-slate-500">{t("maintenance.inbox.onPage", { count: items.length })}</div>
+          <div className="text-xs text-slate-200 font-medium">{totalForStatus}</div>
+          <div className="text-[10px] text-slate-400">{t("maintenance.inbox.onPage", { count: items.length })}</div>
         </div>
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-200 bg-white/80 px-3 py-4 text-xs text-slate-500">
+        <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/70 px-3 py-4 text-xs text-slate-400">
           {t("maintenance.inbox.emptyColumn")}
         </div>
       ) : (

@@ -18,7 +18,7 @@ export const pricingContent = {
   intro: {
     title: "Pricing is based on operating maturity, not vague feature bundles",
     body:
-      "Starter is for getting the rental operation organized. Growth is for landlords who need stronger operational control across a busier portfolio. Pro is for operators who want deeper review surfaces, playbooks, and more deliberate follow-through.",
+      "Starter is for getting the rental operation organized. Growth is for landlords who need stronger operational control across a busier portfolio. Pro is for operators who want deeper review surfaces, AI-assisted prioritization, and more deliberate follow-through.",
     imageSrc: "/screenshots/portfolio-health.png",
     imageAlt: "OASIS Portfolio Health dashboard showing occupancy, arrears aging, and maintenance pressure.",
   },
@@ -43,6 +43,7 @@ export const pricingContent = {
       bullets: [
         "everything in Starter",
         "command-centre queues for urgent work",
+        "AI operator briefing and maintenance triage support",
         "portfolio health, arrears, and maintenance pressure views",
         "faster prioritization when multiple issues compete",
         "better protection against missed follow-up",
@@ -58,6 +59,7 @@ export const pricingContent = {
       bullets: [
         "full OASIS operating access",
         "security audit and operational trust surfaces",
+        "AI contractor recommendations and weekly portfolio summaries",
         "playbook and root telemetry views",
         "deeper review for demanding landlord workflows",
       ],

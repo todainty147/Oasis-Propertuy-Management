@@ -11,7 +11,7 @@ export const tenantPortalContent = {
     eyebrow: "Tenant portal",
     title: "Give tenants a clearer self-service lane without loosening control",
     body:
-      "OASIS gives landlords a tenant-safe portal for payments, maintenance visibility, documents, and agreement review so fewer updates fall back into email chains and memory.",
+      "OASIS gives landlords a tenant-safe portal for payments, maintenance visibility, documents, agreement review, and signature handoff so fewer updates fall back into email chains and memory.",
     imageSrc: "/screenshots/tenant-home.png",
     imageAlt: "OASIS tenant portal dashboard showing payment visibility, maintenance activity, and action items.",
   },
@@ -49,7 +49,7 @@ export const tenantPortalContent = {
       },
       {
         title: "Agreement packet review",
-        body: "Tenants can review pre-signature packets, mark them viewed, and complete the current review step from their portal.",
+        body: "Tenants can review pre-signature packets, mark them viewed, and follow the current review or signing step from their portal.",
       },
       {
         title: "Prioritized document view",
@@ -98,7 +98,7 @@ export const tenantPortalContent = {
       },
       {
         title: "Workflow history remains reviewable",
-        body: "Document requests, packet progress, and related actions still sit inside the same audit-aware operating model.",
+        body: "Document requests, packet progress, signature handoff, and related actions still sit inside the same audit-aware operating model.",
       },
     ],
     imageSrc: "/screenshots/security-audit.png",
@@ -122,7 +122,7 @@ export const tenantPortalContent = {
       },
       {
         title: "A stronger base for future premium depth",
-        body: "The current portal is already credible today and creates a cleaner foundation for richer signing and payment execution later.",
+        body: "The current portal is already credible today and creates a cleaner foundation for richer signing, timeline depth, and payment execution later.",
       },
     ],
   },

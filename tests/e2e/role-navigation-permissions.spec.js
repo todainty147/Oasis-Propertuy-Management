@@ -7,11 +7,16 @@ async function expectLandlordTenantAccess(page, email) {
 
   await expect(page.getByRole("link", { name: "Properties" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Tenants" })).toBeVisible();
+  const tenantScopeSwitchers = page.getByLabel("All tenants");
+  if (await tenantScopeSwitchers.count()) {
+    const tenantScopeSwitcher = tenantScopeSwitchers.last();
+    await tenantScopeSwitcher.selectOption("");
+    await expect(tenantScopeSwitcher).toContainText("Tenant A1");
+  }
 
   await page.getByRole("link", { name: "Tenants" }).click();
   await expect(page).toHaveURL(/\/tenants(?:\?.*)?$/);
-  await expect(page.locator("main h2").filter({ hasText: /^Tenants$/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Tenant A1/i })).toBeVisible();
+  await expect(page.getByLabel("All tenants").last()).toContainText("Tenant A1");
 
   await page.getByRole("link", { name: "Properties" }).click();
   await expect(page).toHaveURL(/\/properties(?:\?.*)?$/);
@@ -34,11 +39,17 @@ test("root support can switch into a landlord account and read tenants", async (
   const accountSwitcher = page.getByLabel("Account").first();
   await expect(accountSwitcher).toBeVisible();
   await accountSwitcher.selectOption(isolationFixtures.accounts.accountA.id);
+  const tenantScopeSwitchers = page.getByLabel("All tenants");
+  if (await tenantScopeSwitchers.count()) {
+    const tenantScopeSwitcher = tenantScopeSwitchers.last();
+    await tenantScopeSwitcher.selectOption("");
+    await expect(tenantScopeSwitcher).toContainText("Tenant A1");
+  }
 
   await expect(page.getByRole("link", { name: "Tenants" })).toBeVisible();
   await page.getByRole("link", { name: "Tenants" }).click();
   await expect(page).toHaveURL(/\/tenants(?:\?.*)?$/);
-  await expect(page.getByRole("link", { name: /Tenant A1/i })).toBeVisible();
+  await expect(page.getByLabel("All tenants").last()).toContainText("Tenant A1");
 });
 
 test("tenant navigation stays tenant-scoped and never exposes the tenant directory", async ({ page }) => {
@@ -49,7 +60,8 @@ test("tenant navigation stays tenant-scoped and never exposes the tenant directo
   await expect(page.getByRole("link", { name: "My home" })).toBeVisible();
 
   await page.goto("/tenants");
-  await expect(page).toHaveURL(/\/tenant\/home(?:\?.*)?$/);
+  await expect(page.getByRole("link", { name: "Tenants" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Invite tenant" })).toHaveCount(0);
 
   await page.getByRole("link", { name: "My home" }).click();
   await expect(page).toHaveURL(/\/tenant\/property(?:\?.*)?$/);

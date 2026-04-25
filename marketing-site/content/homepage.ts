@@ -13,7 +13,7 @@ export const homepageContent = {
     body:
       "OASIS gives landlords one clear operations hub for rent, repairs, records, and follow-up.",
     support:
-      "Built with real landlord workflows in mind. Designed for operators who need control, accountability, and a clearer picture of what needs action now.",
+      "Built with real landlord workflows in mind. Designed for operators who need control, accountability, and an AI-assisted picture of what needs action now.",
     highlights: [
       { label: "Command Center", href: "/features/command-center" },
       { label: "Maintenance Workflow", href: "/features/maintenance-management" },
@@ -26,7 +26,7 @@ export const homepageContent = {
       "See the workflow and the controls in minutes.",
     ],
     imageSrc: "/screenshots/command-center.png",
-    imageAlt: "OASIS Command Center showing urgent items, overdue balance, and action queues across the portfolio.",
+    imageAlt: "OASIS Command Center showing operator briefing, urgent items, overdue balance, and action queues across the portfolio.",
     primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
     secondaryCta: { label: "See The Tenant Portal", href: "/features/tenant-portal" },
   },
@@ -85,18 +85,18 @@ export const homepageContent = {
       {
         label: "Command Center",
         title: "The mental load drops fast",
-        body: "The Command Center works like the brain of the operations hub, showing what needs action now so nothing important gets quietly missed.",
-        points: ["zero missed tasks", "urgent queues", "next actions"],
+        body: "The Command Center works like the brain of the operations hub, combining urgent queues with an operator briefing so nothing important gets quietly missed.",
+        points: ["AI operator briefing", "urgent queues", "next actions"],
         imageSrc: "/screenshots/command-center.png",
-        imageAlt: "OASIS Command Center with urgent and needs-action queues.",
+        imageAlt: "OASIS Command Center with AI operator briefing and needs-action queues.",
       },
       {
         label: "Maintenance System",
         title: "Repairs move without the chaos",
-        body: "Tenant, landlord, contractor, and completion all sit inside one maintenance workflow instead of spilling across calls, messages, and memory.",
-        points: ["request to assignment", "contractor updates", "clear completion trail"],
+        body: "Tenant, landlord, contractor, and completion all sit inside one maintenance workflow, now with AI triage support to speed the first operational read.",
+        points: ["request to assignment", "AI triage help", "clear completion trail"],
         imageSrc: "/screenshots/maintenance-inbox.png",
-        imageAlt: "OASIS Maintenance Inbox showing request columns, SLA age, and linked work orders.",
+        imageAlt: "OASIS Maintenance Inbox showing request columns, AI triage guidance, SLA age, and linked work orders.",
       },
       {
         label: "Tenant Portal",
@@ -109,18 +109,18 @@ export const homepageContent = {
       {
         label: "Documents Workflow",
         title: "Agreement and evidence handoffs stay in one operating lane",
-        body: "Templates, tenant document requests, contractor submissions, and pre-signature packets stay tied to the same account-scoped workflow.",
-        points: ["template library", "document requests", "agreement packets"],
+        body: "Templates, tenant document requests, contractor submissions, agreement packets, and signature readiness stay tied to the same account-scoped workflow.",
+        points: ["template library", "agreement packets", "signature readiness"],
         imageSrc: "/screenshots/documents-workflow.png",
-        imageAlt: "OASIS Documents page showing document requests, agreement packets, and account-scoped workflow controls.",
+        imageAlt: "OASIS Documents page showing document requests, agreement packets, and signature workflow controls.",
       },
       {
         label: "Portfolio Health",
         title: "Property pressure becomes visible sooner",
-        body: "Use portfolio health scoring to spot arrears, maintenance strain, and operational risk before they become vacancies, delays, or expensive cleanup.",
-        points: ["property health score", "risk visibility", "earlier action"],
+        body: "Use portfolio health scoring to spot arrears, maintenance strain, and operational risk before they become vacancies, delays, or expensive cleanup, now with an AI explainer for the weakest address.",
+        points: ["property health score", "AI risk explainer", "earlier action"],
         imageSrc: "/screenshots/portfolio-health.png",
-        imageAlt: "OASIS Portfolio Health dashboard showing occupancy mix, finance mix, and maintenance pressure.",
+        imageAlt: "OASIS Portfolio Health dashboard showing risk signals and an AI explanation of property pressure.",
       },
       {
         label: "Security & Audit",
@@ -136,7 +136,7 @@ export const homepageContent = {
     eyebrow: "Property Health",
     title: "Know which property is costing you money before the tenant calls",
     body:
-      "OASIS turns portfolio health into something landlords can act on, not just review. Health scoring pulls together overdue rent, maintenance strain, stalled repairs, vacancy pressure, and contractor follow-through so risk shows up before it becomes expensive cleanup.",
+      "OASIS turns portfolio health into something landlords can act on, not just review. Health scoring pulls together overdue rent, maintenance strain, stalled repairs, vacancy pressure, and contractor follow-through so risk shows up before it becomes expensive cleanup, with an explainer that tells you why a property is slipping.",
     items: [
       {
         title: "See pressure across the portfolio",
@@ -144,7 +144,7 @@ export const homepageContent = {
       },
       {
         title: "Catch deterioration earlier",
-        body: "Spot high-risk properties, stalled repairs, and contractor acknowledgement delays before they become bigger operating problems.",
+        body: "Spot high-risk properties, stalled repairs, and contractor acknowledgement delays before they become bigger operating problems, then see the facts driving that pressure.",
       },
       {
         title: "Act before small issues spread",
@@ -171,7 +171,7 @@ export const homepageContent = {
       },
       {
         title: "Document and agreement handoff in one place",
-        body: "Tenants can see requested documents, upload what is needed, and review pre-signature agreement packets from the same portal.",
+        body: "Tenants can see requested documents, upload what is needed, review agreement packets, and follow signature handoff from the same portal.",
       },
       {
         title: "Professional experience without role leakage",
@@ -209,7 +209,7 @@ export const homepageContent = {
       {
         label: "T:15",
         title: "Contractor quotes and the next decision is obvious",
-        body: "The contractor updates progress, the quote lands in the same workflow, and approval happens with the job context already in front of you.",
+        body: "The contractor updates progress, the quote lands in the same workflow, and approval happens with the job context, recommendation, and repair history already in front of you.",
         href: "/features/maintenance-management",
         points: ["review the quote", "approve with context", "keep the trail intact"],
         imageSrc: "/screenshots/maintenance-inbox.png",

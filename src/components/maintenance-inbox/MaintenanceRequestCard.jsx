@@ -37,17 +37,17 @@ function priorityLabel(priority, t) {
 
 function priorityTone(priority) {
   const p = String(priority ?? "").toLowerCase();
-  if (p === "urgent" || p === "critical") return "bg-red-100 border-red-300 text-red-700";
-  if (p === "high") return "bg-orange-100 border-orange-200 text-orange-700";
-  if (p === "low") return "bg-slate-100 border-slate-200 text-slate-600";
-  return "bg-slate-100 border-slate-200 text-slate-700";
+  if (p === "urgent" || p === "critical") return "bg-rose-950/70 border-rose-500/70 text-rose-100";
+  if (p === "high") return "bg-amber-950/70 border-amber-500/70 text-amber-100";
+  if (p === "low") return "bg-slate-800 border-slate-700 text-slate-300";
+  return "bg-slate-800 border-slate-700 text-slate-200";
 }
 
 function priorityCardTone(priority) {
   const p = String(priority ?? "").toLowerCase();
-  if (p === "urgent" || p === "critical") return "border-red-300 bg-red-50/40";
-  if (p === "high") return "border-amber-300 bg-amber-50/30";
-  return "border-slate-300 bg-white";
+  if (p === "urgent" || p === "critical") return "border-rose-500/70 bg-slate-900 ring-1 ring-rose-400/20";
+  if (p === "high") return "border-amber-500/70 bg-slate-900 ring-1 ring-amber-400/15";
+  return "border-slate-700 bg-slate-900";
 }
 
 function formatDateTime(ts) {
@@ -81,7 +81,7 @@ function slaMeta(status, createdAt, t) {
     return {
       level: "green",
       label: t("maintenance.sla.green"),
-      className: "bg-emerald-50 border-emerald-200 text-emerald-700",
+      className: "bg-emerald-950/60 border-emerald-700 text-emerald-100",
     };
   }
 
@@ -90,20 +90,20 @@ function slaMeta(status, createdAt, t) {
     return {
       level: "red",
       label: t("maintenance.sla.red"),
-      className: "bg-rose-50 border-rose-200 text-rose-700",
+      className: "bg-rose-950/70 border-rose-700 text-rose-100",
     };
   }
   if (h > 24) {
     return {
       level: "yellow",
       label: t("maintenance.sla.yellow"),
-      className: "bg-amber-50 border-amber-200 text-amber-700",
+      className: "bg-amber-950/70 border-amber-700 text-amber-100",
     };
   }
   return {
     level: "green",
     label: t("maintenance.sla.green"),
-    className: "bg-emerald-50 border-emerald-200 text-emerald-700",
+    className: "bg-emerald-950/60 border-emerald-700 text-emerald-100",
   };
 }
 
@@ -150,16 +150,16 @@ function MaintenanceTriageCard({ accountId, request, canManage, t }) {
   if (!shouldLoad) return null;
 
   const urgencyClasses = {
-    low: "border-slate-200 bg-slate-50 text-slate-700",
-    normal: "border-blue-200 bg-blue-50 text-blue-700",
-    high: "border-amber-200 bg-amber-50 text-amber-700",
-    urgent: "border-rose-200 bg-rose-50 text-rose-700",
+    low: "border-slate-700 bg-slate-800 text-slate-200",
+    normal: "border-blue-700 bg-blue-950/60 text-blue-200",
+    high: "border-amber-600 bg-amber-950/60 text-amber-100",
+    urgent: "border-rose-600 bg-rose-950/70 text-rose-100",
   };
 
   if (loading && !insight) {
     return (
       <div data-testid={`maintenance-triage-card-${request.id}`}>
-        <Skeleton className="h-40" />
+        <Skeleton className="h-40 bg-slate-800/80" />
       </div>
     );
   }
@@ -167,12 +167,12 @@ function MaintenanceTriageCard({ accountId, request, canManage, t }) {
   return (
     <div
       data-testid={`maintenance-triage-card-${request.id}`}
-      className="rounded-xl border border-cyan-200/80 bg-gradient-to-br from-cyan-50 via-white to-sky-50 p-3 shadow-sm space-y-3"
+      className="rounded-xl border border-cyan-900/70 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-3 shadow-sm space-y-3"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-700">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-300">
               {t("maintenance.ai.eyebrow")}
             </span>
             {insight ? (
@@ -180,19 +180,19 @@ function MaintenanceTriageCard({ accountId, request, canManage, t }) {
                 <span className={`inline-flex rounded-full border px-2 py-1 text-[11px] font-medium ${urgencyClasses[insight.urgency] || urgencyClasses.normal}`}>
                   {t(`maintenance.ai.urgency.${insight.urgency}`)}
                 </span>
-                <span className="inline-flex rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
+                <span className="inline-flex rounded-full border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-300">
                   {insight.source === "openai" ? t("maintenance.ai.source.openai") : t("maintenance.ai.source.fallback")}
                 </span>
                 {insight.safetyFlag ? (
-                  <span className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-medium text-rose-700">
+                  <span className="inline-flex rounded-full border border-rose-500/60 bg-rose-950/60 px-2 py-1 text-[11px] font-medium text-rose-100">
                     {t("maintenance.ai.safetyFlag")}
                   </span>
                 ) : null}
               </>
             ) : null}
           </div>
-          <h4 className="mt-2 text-sm font-semibold text-slate-900">{t("maintenance.ai.title")}</h4>
-          <p className="mt-1 text-xs text-slate-600">
+          <h4 className="mt-2 text-sm font-semibold text-slate-100">{t("maintenance.ai.title")}</h4>
+          <p className="mt-1 text-xs text-slate-400">
             {t("maintenance.ai.subtitle")}
           </p>
         </div>
@@ -200,38 +200,38 @@ function MaintenanceTriageCard({ accountId, request, canManage, t }) {
           type="button"
           onClick={() => loadInsight(true)}
           disabled={loading}
-          className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+          className="inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-100 hover:bg-slate-700 disabled:opacity-60"
         >
           {t("maintenance.ai.refresh")}
         </button>
       </div>
 
       {error && !insight ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <div className="rounded-lg border border-amber-500/50 bg-amber-950/50 px-3 py-2 text-xs text-amber-100">
           {error}
         </div>
       ) : null}
 
       {insight ? (
         <>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <div className="grid gap-2">
+            <div className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                 {t("maintenance.ai.summary")}
               </p>
-              <p className="mt-2 text-sm font-medium text-slate-900 break-words">
+              <p className="mt-2 text-sm font-medium text-slate-100 break-words">
                 {insight.category.replaceAll("_", " ")}
               </p>
-              <p className="mt-1 text-sm text-slate-600 break-words">{insight.suggestedTrade}</p>
+              <p className="mt-1 text-sm text-slate-300 break-words">{insight.suggestedTrade}</p>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <div className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                 {t("maintenance.ai.generatedLabel")}
               </p>
-              <p className="mt-2 text-sm text-slate-700">
+              <p className="mt-2 text-sm text-slate-200">
                 {formatAttentionInsightTimestamp(insight.generatedAt)}
               </p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-slate-400">
                 {t("maintenance.ai.generatedConfidence", {
                   confidence: t(`maintenance.ai.confidence.${insight.confidence}`),
                 })}
@@ -243,28 +243,28 @@ function MaintenanceTriageCard({ accountId, request, canManage, t }) {
             <button
               type="button"
               onClick={() => setFactsOpen((open) => !open)}
-              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-100 hover:bg-slate-700"
             >
               {factsOpen ? t("maintenance.ai.hideFacts") : t("maintenance.ai.showFacts")}
             </button>
             <button
               type="button"
               onClick={() => setDraftsOpen((open) => !open)}
-              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-100 hover:bg-slate-700"
             >
               {draftsOpen ? t("maintenance.ai.hideDrafts") : t("maintenance.ai.showDrafts")}
             </button>
           </div>
 
           {factsOpen ? (
-            <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 {t("maintenance.ai.facts")}
               </p>
-              <ul className="mt-2 space-y-2 text-sm text-slate-700">
+              <ul className="mt-2 space-y-2 text-sm text-slate-200">
                 {(insight.factsUsed || []).map((fact) => (
                   <li key={fact} className="flex gap-2 break-words">
-                    <span className="text-slate-400">•</span>
+                    <span className="text-slate-500">•</span>
                     <span className="min-w-0 break-words">{fact}</span>
                   </li>
                 ))}
@@ -274,23 +274,23 @@ function MaintenanceTriageCard({ accountId, request, canManage, t }) {
 
           {draftsOpen ? (
             <div className="grid gap-3">
-              <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <div className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                   {t("maintenance.ai.tenantAcknowledgement")}
                 </p>
-                <p className="mt-2 text-sm leading-6 text-slate-700 break-words">{insight.tenantAcknowledgement}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-200 break-words">{insight.tenantAcknowledgement}</p>
               </div>
-              <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <div className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                   {t("maintenance.ai.managerNote")}
                 </p>
-                <p className="mt-2 text-sm leading-6 text-slate-700 break-words">{insight.managerNote}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-200 break-words">{insight.managerNote}</p>
               </div>
             </div>
           ) : null}
 
-          <div className="rounded-lg border border-slate-200/70 bg-white/70 px-3 py-2">
-            <p className="text-xs text-slate-500">
+          <div className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2">
+            <p className="text-xs text-slate-400">
               {t("maintenance.ai.generatedAt", {
                 value: formatAttentionInsightTimestamp(insight.generatedAt),
                 confidence: t(`maintenance.ai.confidence.${insight.confidence}`),
@@ -336,12 +336,12 @@ export default function MaintenanceRequestCard({
     <div className={`rounded-xl border-2 p-3 space-y-3 shadow-sm ${priorityCardTone(request.priority)}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-900 break-words">{request.title || t("maintenance.card.noTitle")}</p>
-          <p className="text-xs text-slate-500 mt-1 break-words">
+          <p className="text-sm font-semibold text-slate-100 break-words">{request.title || t("maintenance.card.noTitle")}</p>
+          <p className="text-xs text-slate-400 mt-1 break-words">
           {propertyLabel ? `${propertyLabel} • ` : ""}{t("maintenance.card.reportedAt")}: {formatDateTime(request.created_at)}
           </p>
           <div className="mt-0.5 flex items-center flex-wrap gap-2">
-            <p className="text-xs text-slate-500">{t("maintenance.card.openFor")}: {formatAge(request.created_at)}</p>
+            <p className="text-xs text-slate-400">{t("maintenance.card.openFor")}: {formatAge(request.created_at)}</p>
             <span className={`text-[11px] px-2 py-0.5 rounded border ${sla.className}`}>
               {t("maintenance.sla.short")}: {sla.label}
             </span>
@@ -353,9 +353,9 @@ export default function MaintenanceRequestCard({
       </div>
 
       {request.description ? (
-        <p className="text-sm leading-6 text-slate-700 whitespace-pre-wrap break-words">{request.description}</p>
+        <p className="text-sm leading-6 text-slate-200 whitespace-pre-wrap break-words">{request.description}</p>
       ) : (
-        <p className="text-sm text-slate-400">{t("maintenance.card.noDescription")}</p>
+        <p className="text-sm text-slate-500">{t("maintenance.card.noDescription")}</p>
       )}
 
       <MaintenanceTriageCard
@@ -365,23 +365,23 @@ export default function MaintenanceRequestCard({
         t={t}
       />
 
-      <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
-        <span className="px-2 py-0.5 rounded border border-slate-200 bg-slate-50">
+      <div className="flex flex-wrap gap-2 text-[11px] text-slate-300">
+        <span className="px-2 py-0.5 rounded border border-slate-700 bg-slate-800">
           {t("maintenance.card.status")}: {statusLabel(request.status, t)}
           {waitingCtx ? ` — ${waitingCtx}` : ""}
         </span>
         {linkedWorkOrders.length > 0 ? (
           linkedWorkOrders.length === 1 ? (
-            <span className="px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700">
+            <span className="px-2 py-0.5 rounded border border-blue-800 bg-blue-950/60 text-blue-200">
               {t("maintenance.card.workOrder")}: {String(primaryWorkOrder?.status || "assigned").replaceAll("_", " ")}
             </span>
           ) : (
-            <span className="px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700">
+            <span className="px-2 py-0.5 rounded border border-blue-800 bg-blue-950/60 text-blue-200">
               {t("maintenance.card.workOrders")}: {linkedWorkOrders.length} ({closedWorkOrdersCount} {t("maintenance.card.closed")}, {openWorkOrdersCount} {t("maintenance.card.open")})
             </span>
           )
         ) : (
-          <span className="px-2 py-0.5 rounded border border-slate-200 bg-slate-50">{t("maintenance.card.noWorkOrders")}</span>
+          <span className="px-2 py-0.5 rounded border border-slate-700 bg-slate-800">{t("maintenance.card.noWorkOrders")}</span>
         )}
       </div>
 
@@ -404,7 +404,7 @@ export default function MaintenanceRequestCard({
                   ? t("maintenance.inbox.closeGuard")
                   : ""
               }
-              className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-700 bg-slate-800 text-slate-100 hover:bg-slate-700 disabled:opacity-50"
             >
               {t("maintenance.card.close")}
             </button>
@@ -414,7 +414,7 @@ export default function MaintenanceRequestCard({
             type="button"
             onClick={() => onAddNote(request)}
             disabled={busy}
-            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-700 bg-slate-800 text-slate-100 hover:bg-slate-700 disabled:opacity-50"
           >
             {t("maintenance.card.addNote")}
           </button>
@@ -424,7 +424,7 @@ export default function MaintenanceRequestCard({
               type="button"
               onClick={() => onSetWaitingReason(request)}
               disabled={busy}
-              className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-700 bg-slate-800 text-slate-100 hover:bg-slate-700 disabled:opacity-50"
             >
               {String(request.status || "").toLowerCase() === "waiting"
                 ? t("maintenance.card.editWaiting")
@@ -435,7 +435,7 @@ export default function MaintenanceRequestCard({
           <button
             type="button"
             onClick={() => setTimelineOpen((v) => !v)}
-            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
+            className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-700 bg-slate-800 text-slate-100 hover:bg-slate-700"
           >
             {timelineOpen ? t("maintenance.card.hideTimeline") : t("maintenance.card.showTimeline")}
           </button>
@@ -443,7 +443,7 @@ export default function MaintenanceRequestCard({
       )}
 
       {canManage && String(request.status || "").toLowerCase() !== "closed" && hasOpenWorkOrders ? (
-        <p className="text-[11px] text-amber-700">
+        <p className="text-[11px] text-amber-300">
           {t("maintenance.inbox.closeGuard")}
         </p>
       ) : null}

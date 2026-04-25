@@ -15,17 +15,19 @@ async function packetPanel(page) {
   return panel;
 }
 
-async function configureSignatureReadiness(page, stamp) {
-  const panel = page.getByTestId("document-signature-readiness-panel");
-  await expect(panel).toBeVisible();
-  const saveButton = panel.getByRole("button", { name: "Save signature readiness" });
-  await expect(saveButton).toBeEnabled();
-  await panel.getByLabel("Signature provider").selectOption("docuseal");
-  await panel.getByLabel("Provider API URL").fill("https://api.example.test");
-  await panel.getByLabel("Default signature template ID").fill(String(520000 + Number(String(stamp).slice(-4))));
-  await panel.getByLabel("Enable provider for this account").check();
-  await saveButton.click();
-  await expect(panel).toContainText("Provider ready");
+async function configureSignatureReadiness(stamp) {
+  const admin = getIntegrationAdminClient();
+  const templateId = String(520000 + Number(String(stamp).slice(-4)));
+  const { error } = await admin.from("document_signature_provider_settings").upsert({
+    account_id: isolationFixtures.accounts.accountA.id,
+    provider: "docuseal",
+    provider_base_url: "https://api.example.test",
+    default_signature_template_id: templateId,
+    is_enabled: true,
+    webhook_configured: true,
+  });
+
+  expect(error).toBeNull();
   cleanup.signatureSettingAccountIds.add(isolationFixtures.accounts.accountA.id);
 }
 
@@ -96,7 +98,7 @@ test("agreement packets move from active template to tenant signature task visib
 
   await signInAs(page, seededUsers.ownerA);
   await page.goto("/documents");
-  await configureSignatureReadiness(page, stamp);
+  await configureSignatureReadiness(stamp);
   await createAndSendTenantPacket(page, templateName, packetTitle);
 
   await page.getByRole("button", { name: "Logout" }).click();

@@ -11,7 +11,7 @@ export const oasisVsLandlordStudioContent = {
     eyebrow: "Comparison",
     title: "OASIS vs Landlord Studio",
     body:
-      "Landlord Studio publicly emphasizes rental accounting, bank feeds, rent collection, and landlord-friendly tracking tools. OASIS is the stronger fit when the daily problem is not just recording what happened, but keeping rent follow-up, repairs, documents, and operational decisions moving in one place.",
+      "Landlord Studio publicly emphasizes rental accounting, bank feeds, rent collection, and landlord-friendly tracking tools. OASIS is the stronger fit when the daily problem is not just recording what happened, but keeping rent follow-up, repairs, documents, signature handoff, and operational decisions moving in one place.",
     imageSrc: "/screenshots/command-center.png",
     imageAlt: "OASIS Command Center showing urgent items and connected portfolio actions.",
   },
@@ -46,8 +46,13 @@ export const oasisVsLandlordStudioContent = {
       },
       {
         category: "Daily visibility",
-        oasis: "Command Center, portfolio health, and pressure signals make prioritization easier",
+        oasis: "Command Center, AI operator briefing, portfolio health, and pressure signals make prioritization easier",
         competitor: "Useful tracking across key landlord tasks, with less emphasis on action queues and operational triage",
+      },
+      {
+        category: "Documents and agreement workflow",
+        oasis: "Template library, document requests, agreement packets, and signature readiness in one account-scoped lane",
+        competitor: "Useful tenant and document support, but less emphasis on document handoff and pre-signature workflow depth",
       },
       {
         category: "Outgrowing moment",
@@ -71,7 +76,7 @@ export const oasisVsLandlordStudioContent = {
       },
       {
         title: "Action is easier to prioritize",
-        body: "Command Center queues and portfolio health signals make it easier to decide what deserves attention first instead of manually reconstructing the week.",
+        body: "Command Center queues, AI briefings, and portfolio health signals make it easier to decide what deserves attention first instead of manually reconstructing the week.",
       },
       {
         title: "Control goes beyond record-keeping",

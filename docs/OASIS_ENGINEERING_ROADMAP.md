@@ -804,6 +804,23 @@ Packaging direction:
 - later: bounded natural-language query after the approved-RPC intent router is mature
 - much later: bounded natural-language query after the approved-RPC intent router is mature
 
+### P1 stabilization follow-up
+
+These items are not blockers for the recently shipped maintenance inbox polish or marketing refresh, but they remain important regression debt and should be treated as the next P1 stabilization pass for the integration suite:
+
+1. `tests/integration/contractor_financial_workflow.test.js`
+   - cross-account quote approval path currently fails with `cannot approve quote (status must be submitted)` instead of the expected `manager only`
+   - follow-up: confirm whether the product should preserve the stricter status-first failure ordering or reassert authorization-first messaging, then update either the workflow or the test accordingly
+2. `tests/integration/inviteSecurity.test.js`
+   - current failures show `permission denied for table account_invitations` on the in-account invite creation/listing expectations
+   - follow-up: realign the test with the current invite security model or restore the intended app-supported read/write path if the test is surfacing a real regression
+3. `tests/integration/rootAccountLifecycle.test.js`
+   - account deletion with related data currently fails with `ledger_entries is append-only. use reversal entries instead.` instead of the older generic related-data guard
+   - follow-up: keep the more truthful ledger-specific protection if intentional, but update the contract coverage so the test matches the current deletion guardrail language
+4. Full regression confidence
+   - the broad browser click-through pack is functionally green after targeted reruns, but the integration suite still has the above reds
+   - follow-up: rerun the whole integration pack after the expectation fixes land and keep these items closed only when the suite is green end to end
+
 ## Iteration 2A Epics
 
 ### Epic 1: Permission Hardening

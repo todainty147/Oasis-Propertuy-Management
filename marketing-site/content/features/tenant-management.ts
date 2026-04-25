@@ -41,7 +41,7 @@ export const tenantManagementContent = {
     eyebrow: "How OASIS helps",
     title: "A tenant workflow built around clarity, requests, and review",
     body:
-      "OASIS keeps tenant details, property links, rent context, document requests, and agreement packets close enough to support daily decisions.",
+      "OASIS keeps tenant details, property links, rent context, document requests, agreement packets, and signature readiness close enough to support daily decisions.",
     items: [
       {
         title: "Centralized tenant profiles",
@@ -57,7 +57,7 @@ export const tenantManagementContent = {
       },
       {
         title: "Pre-signature agreement workflow",
-        body: "Create template-based agreement packets, send them to the right participant, and track draft, sent, viewed, and completed status in one place.",
+        body: "Create template-based agreement packets, send them to the right participant, and track draft, sent, viewed, prepared, and completed status in one place.",
       },
     ],
     imageSrc: "/screenshots/tenant-documents.png",
@@ -80,7 +80,7 @@ export const tenantManagementContent = {
       },
       {
         title: "Prepare for signing without pretending the provider work is done",
-        body: "Signature readiness keeps provider metadata and packet state organized today while the external signing adapter work remains explicit.",
+        body: "Signature readiness keeps provider metadata, packet state, and hosted signing handoff organized while the signed-document return path stays inside the same document workflow.",
       },
     ],
     imageSrc: "/screenshots/security-audit.png",
@@ -99,7 +99,7 @@ export const tenantManagementContent = {
       },
       {
         title: "More professional document handling",
-        body: "Run templates, evidence requests, uploads, and agreement review with structure that holds up as portfolios grow.",
+        body: "Run templates, evidence requests, uploads, agreement packets, and signature handoff with structure that holds up as portfolios grow.",
       },
       {
         title: "Stronger day-to-day control",
