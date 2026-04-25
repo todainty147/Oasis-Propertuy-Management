@@ -10,5 +10,13 @@ test("owner sees AI triage guidance on active maintenance requests", async ({ pa
   await expect(card).toBeVisible({ timeout: 30000 });
   await expect(card.getByRole("button", { name: /Refresh suggestion|Odśwież sugestię/i })).toBeEnabled({ timeout: 30000 });
   await expect(card.getByText(/Triage suggestion|Sugestia triage/i)).toBeVisible();
-  await expect(card.getByText(/Facts used for triage|Fakty użyte do triage/i)).toBeVisible();
+  const factsToggle = card.getByRole("button", { name: /Show facts|Pokaż fakty|Hide facts|Ukryj fakty/i });
+  const factsHeading = card.getByText(/Facts used for triage|Fakty użyte do triage/i);
+  await expect
+    .poll(async () => {
+      if (await factsToggle.isVisible().catch(() => false)) return "toggle";
+      if (await factsHeading.isVisible().catch(() => false)) return "heading";
+      return "missing";
+    }, { timeout: 10000 })
+    .not.toBe("missing");
 });

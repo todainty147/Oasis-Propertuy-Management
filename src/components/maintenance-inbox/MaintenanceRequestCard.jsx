@@ -113,6 +113,8 @@ function MaintenanceTriageCard({ accountId, request, canManage, t }) {
   const [loading, setLoading] = useState(false);
   const [insight, setInsight] = useState(null);
   const [error, setError] = useState("");
+  const [factsOpen, setFactsOpen] = useState(false);
+  const [draftsOpen, setDraftsOpen] = useState(false);
 
   async function loadInsight(forceRefresh = false) {
     if (!shouldLoad) return;
@@ -137,6 +139,8 @@ function MaintenanceTriageCard({ accountId, request, canManage, t }) {
       setInsight(null);
       setError("");
       setLoading(false);
+      setFactsOpen(false);
+      setDraftsOpen(false);
       return;
     }
     loadInsight(false);
@@ -163,10 +167,10 @@ function MaintenanceTriageCard({ accountId, request, canManage, t }) {
   return (
     <div
       data-testid={`maintenance-triage-card-${request.id}`}
-      className="rounded-xl border border-cyan-200 bg-cyan-50/40 p-3 space-y-3"
+      className="rounded-xl border border-cyan-200/80 bg-gradient-to-br from-cyan-50 via-white to-sky-50 p-3 shadow-sm space-y-3"
     >
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-700">
               {t("maintenance.ai.eyebrow")}
@@ -188,6 +192,9 @@ function MaintenanceTriageCard({ accountId, request, canManage, t }) {
             ) : null}
           </div>
           <h4 className="mt-2 text-sm font-semibold text-slate-900">{t("maintenance.ai.title")}</h4>
+          <p className="mt-1 text-xs text-slate-600">
+            {t("maintenance.ai.subtitle")}
+          </p>
         </div>
         <button
           type="button"
@@ -207,59 +214,88 @@ function MaintenanceTriageCard({ accountId, request, canManage, t }) {
 
       {insight ? (
         <>
-          <div className="grid gap-3 xl:grid-cols-[0.9fr_1.1fr]">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 {t("maintenance.ai.summary")}
               </p>
-              <div className="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-3 space-y-2">
-                <p className="text-sm text-slate-700">
-                  <span className="font-medium text-slate-900">{t("maintenance.ai.categoryLabel")}</span>{" "}
-                  {insight.category.replaceAll("_", " ")}
-                </p>
-                <p className="text-sm text-slate-700">
-                  <span className="font-medium text-slate-900">{t("maintenance.ai.tradeLabel")}</span>{" "}
-                  {insight.suggestedTrade}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {t("maintenance.ai.generatedAt", {
-                    value: formatAttentionInsightTimestamp(insight.generatedAt),
-                    confidence: t(`maintenance.ai.confidence.${insight.confidence}`),
-                  })}
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {t("maintenance.ai.facts")}
+              <p className="mt-2 text-sm font-medium text-slate-900 break-words">
+                {insight.category.replaceAll("_", " ")}
               </p>
-              <div className="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-3">
-                <ul className="space-y-2 text-sm text-slate-700">
-                  {(insight.factsUsed || []).map((fact) => (
-                    <li key={fact} className="flex gap-2">
-                      <span className="text-slate-400">•</span>
-                      <span>{fact}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <p className="mt-1 text-sm text-slate-600 break-words">{insight.suggestedTrade}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                {t("maintenance.ai.generatedLabel")}
+              </p>
+              <p className="mt-2 text-sm text-slate-700">
+                {formatAttentionInsightTimestamp(insight.generatedAt)}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {t("maintenance.ai.generatedConfidence", {
+                  confidence: t(`maintenance.ai.confidence.${insight.confidence}`),
+                })}
+              </p>
             </div>
           </div>
 
-          <div className="grid gap-3 xl:grid-cols-2">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setFactsOpen((open) => !open)}
+              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            >
+              {factsOpen ? t("maintenance.ai.hideFacts") : t("maintenance.ai.showFacts")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setDraftsOpen((open) => !open)}
+              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            >
+              {draftsOpen ? t("maintenance.ai.hideDrafts") : t("maintenance.ai.showDrafts")}
+            </button>
+          </div>
+
+          {factsOpen ? (
             <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {t("maintenance.ai.tenantAcknowledgement")}
+                {t("maintenance.ai.facts")}
               </p>
-              <p className="mt-2 text-sm text-slate-700">{insight.tenantAcknowledgement}</p>
+              <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                {(insight.factsUsed || []).map((fact) => (
+                  <li key={fact} className="flex gap-2 break-words">
+                    <span className="text-slate-400">•</span>
+                    <span className="min-w-0 break-words">{fact}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {t("maintenance.ai.managerNote")}
-              </p>
-              <p className="mt-2 text-sm text-slate-700">{insight.managerNote}</p>
+          ) : null}
+
+          {draftsOpen ? (
+            <div className="grid gap-3">
+              <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {t("maintenance.ai.tenantAcknowledgement")}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-slate-700 break-words">{insight.tenantAcknowledgement}</p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {t("maintenance.ai.managerNote")}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-slate-700 break-words">{insight.managerNote}</p>
+              </div>
             </div>
+          ) : null}
+
+          <div className="rounded-lg border border-slate-200/70 bg-white/70 px-3 py-2">
+            <p className="text-xs text-slate-500">
+              {t("maintenance.ai.generatedAt", {
+                value: formatAttentionInsightTimestamp(insight.generatedAt),
+                confidence: t(`maintenance.ai.confidence.${insight.confidence}`),
+              })}
+            </p>
           </div>
         </>
       ) : null}
@@ -297,11 +333,11 @@ export default function MaintenanceRequestCard({
   const sla = slaMeta(request.status, request.created_at, t);
 
   return (
-    <div className={`rounded-xl border-2 p-3 space-y-3 ${priorityCardTone(request.priority)}`}>
+    <div className={`rounded-xl border-2 p-3 space-y-3 shadow-sm ${priorityCardTone(request.priority)}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-900 truncate">{request.title || t("maintenance.card.noTitle")}</p>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-sm font-semibold text-slate-900 break-words">{request.title || t("maintenance.card.noTitle")}</p>
+          <p className="text-xs text-slate-500 mt-1 break-words">
           {propertyLabel ? `${propertyLabel} • ` : ""}{t("maintenance.card.reportedAt")}: {formatDateTime(request.created_at)}
           </p>
           <div className="mt-0.5 flex items-center flex-wrap gap-2">
@@ -317,7 +353,7 @@ export default function MaintenanceRequestCard({
       </div>
 
       {request.description ? (
-        <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">{request.description}</p>
+        <p className="text-sm leading-6 text-slate-700 whitespace-pre-wrap break-words">{request.description}</p>
       ) : (
         <p className="text-sm text-slate-400">{t("maintenance.card.noDescription")}</p>
       )}

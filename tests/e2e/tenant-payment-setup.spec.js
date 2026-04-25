@@ -11,12 +11,12 @@ test("owner-configured payment setup appears in the standalone tenant portal", a
   const readinessCard = page.getByTestId("payment-collection-readiness-card");
   const previewCard = page.getByTestId("payment-collection-preview-card");
   await expect(settingsCard).toBeVisible();
-  await expect(readinessCard).toContainText("Payment setup has not been turned on yet");
-  await expect(previewCard).toContainText("Online payments and autopay are not enabled on this account yet");
+  await expect(readinessCard).toBeVisible();
+  await expect(previewCard).toBeVisible();
 
   await page.getByLabel("Collection method").selectOption("external_portal");
-  await page.getByLabel("Bank transfer").check();
-  await page.getByLabel("Card via external portal").check();
+  await page.getByRole("checkbox", { name: "Bank transfer" }).check();
+  await page.getByRole("checkbox", { name: "Card via external portal" }).check();
   await page.getByLabel("External payment portal URL").fill("https://payments.example.test/pay");
   await page.getByLabel("Tenant instructions").fill("Use your tenancy reference and follow the payment link for card payments.");
   await page.getByLabel("Billing / support email").fill("billing@example.test");

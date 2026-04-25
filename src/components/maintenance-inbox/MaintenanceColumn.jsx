@@ -27,8 +27,8 @@ export default function MaintenanceColumn({
 }) {
   const { t } = useI18n();
   return (
-    <div className="rounded-2xl border-2 border-slate-300 bg-slate-100 p-3 space-y-3 min-h-[240px]">
-      <div className="flex items-center justify-between border-b border-slate-300 pb-2">
+    <div className="rounded-2xl border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-3 space-y-3 min-h-[240px] shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
         <h3 className="text-sm font-semibold text-slate-900">{titleForStatus(status, t)}</h3>
         <div className="text-right">
           <div className="text-xs text-slate-700 font-medium">{totalForStatus}</div>
@@ -37,13 +37,13 @@ export default function MaintenanceColumn({
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white px-3 py-4 text-xs text-slate-500">
+        <div className="rounded-xl border border-dashed border-slate-200 bg-white/80 px-3 py-4 text-xs text-slate-500">
           {t("maintenance.inbox.emptyColumn")}
         </div>
       ) : (
-        <div className="divide-y divide-slate-300 rounded-xl border border-slate-300 bg-white">
+        <div className="space-y-3 rounded-xl">
           {items.map((request) => (
-            <div key={request.id} className="p-2">
+            <div key={request.id}>
               <MaintenanceRequestCard
                 accountId={accountId}
                 request={request}

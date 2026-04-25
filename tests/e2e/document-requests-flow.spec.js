@@ -3,6 +3,8 @@ import { Buffer } from "node:buffer";
 import { isolationFixtures } from "../fixtures/isolationFixtures.js";
 import { seededUsers, signInAs } from "./helpers/auth.js";
 
+test.setTimeout(90000);
+
 function pdfFile(name, label) {
   return {
     name,
@@ -17,10 +19,15 @@ async function requestPanel(page) {
   return panel;
 }
 
+async function waitForRequestsReady(panel) {
+  await expect(panel.getByText("Loading...")).toHaveCount(0, { timeout: 20000 });
+}
+
 async function createTenantRequest(page, title) {
   await page.goto("/documents");
   const panel = await requestPanel(page);
   await expect(panel.getByRole("heading", { name: "Document requests" })).toBeVisible();
+  await waitForRequestsReady(panel);
 
   await panel.getByLabel("Target role").selectOption("tenant");
   await panel.getByLabel("Request tenant").selectOption(isolationFixtures.users.tenantA1.tenantId);
@@ -35,6 +42,7 @@ async function createTenantRequest(page, title) {
 async function createContractorRequest(page, title) {
   await page.goto("/documents");
   const panel = await requestPanel(page);
+  await waitForRequestsReady(panel);
 
   await panel.getByLabel("Target role").selectOption("contractor");
   await panel.getByLabel("Request contractor").selectOption(isolationFixtures.users.contractorA1.contractorId);
@@ -48,6 +56,7 @@ async function createContractorRequest(page, title) {
 
 async function uploadForVisibleRequest(page, title, file) {
   const panel = await requestPanel(page);
+  await waitForRequestsReady(panel);
   const row = panel.getByTestId("document-request-card").filter({ hasText: title });
   await expect(row).toBeVisible();
 
@@ -64,8 +73,19 @@ async function acceptVisibleRequest(page, title, fileName) {
   await page.goto("/documents");
   const panel = await requestPanel(page);
   const row = panel.getByTestId("document-request-card").filter({ hasText: title });
-  await expect(row).toBeVisible();
-  await expect(row).toContainText(fileName);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await waitForRequestsReady(panel);
+    if (await row.isVisible().catch(() => false)) {
+      const rowText = await row.textContent().catch(() => "");
+      if (String(rowText || "").includes(fileName)) {
+        break;
+      }
+    }
+    await panel.getByRole("button", { name: "Refresh" }).click();
+  }
+
+  await expect(row).toBeVisible({ timeout: 20000 });
+  await expect(row).toContainText(fileName, { timeout: 20000 });
   await row.getByRole("button", { name: "Accept" }).click();
   await expect(row).toContainText("Accepted");
 }

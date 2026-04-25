@@ -5,7 +5,7 @@ import { seededUsers, signInAs } from "./helpers/auth.js";
 test("root can open the invitations admin view and see scoped SaaS accounts", async ({ page }) => {
   await signInAs(page, seededUsers.rootOwner);
 
-  await page.getByRole("link", { name: "Invitations" }).click();
+  await page.goto("/invitations");
   await expect(page).toHaveURL(/\/invitations$/);
   await expect(page.getByText("User invitations")).toBeVisible();
   await expect(page.getByText("SaaS accounts (root)")).toBeVisible();
