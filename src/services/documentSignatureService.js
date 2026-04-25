@@ -15,6 +15,13 @@ export const DEFAULT_SIGNATURE_SETTINGS = Object.freeze({
   updated_at: null,
 });
 
+const DOCUSEAL_HOSTS = new Set([
+  "docuseal.com",
+  "www.docuseal.com",
+  "docuseal.eu",
+  "www.docuseal.eu",
+]);
+
 function normalizeText(value) {
   return String(value || "").trim();
 }
@@ -54,6 +61,78 @@ function context(extra = {}) {
   return {
     surface: "document_signature_readiness",
     ...extra,
+  };
+}
+
+function ensureUrlWithScheme(value) {
+  const raw = normalizeText(value);
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw}`;
+}
+
+export function normalizeProviderBaseUrlForSave(provider, value) {
+  const normalizedProvider = normalizeProvider(provider);
+  const raw = ensureUrlWithScheme(value);
+  if (!raw) return "";
+
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      throw new Error("Provider URL must start with http:// or https://");
+    }
+
+    if (normalizedProvider === "docuseal") {
+      const hostname = url.hostname.toLowerCase();
+      if (DOCUSEAL_HOSTS.has(hostname)) {
+        const rootHost = hostname.replace(/^www\./, "");
+        return `https://api.${rootHost}`;
+      }
+      if (/^api\.docuseal\.(com|eu)$/i.test(hostname)) {
+        return url.origin.replace(/\/+$/, "");
+      }
+    }
+
+    return url.origin.replace(/\/+$/, "");
+  } catch {
+    throw new Error("Enter a valid provider URL.");
+  }
+}
+
+export function validateDocumentSignatureSettings({
+  provider = "docuseal",
+  providerBaseUrl = "",
+  defaultSignatureTemplateId = "",
+  isEnabled = false,
+} = {}) {
+  const normalizedProvider = normalizeProvider(provider);
+  const templateId = normalizeText(defaultSignatureTemplateId);
+  const baseUrl = normalizeProviderBaseUrlForSave(normalizedProvider, providerBaseUrl);
+
+  if (!isEnabled) {
+    return {
+      provider: normalizedProvider,
+      providerBaseUrl: baseUrl,
+      defaultSignatureTemplateId: templateId,
+    };
+  }
+
+  if (!baseUrl) {
+    throw new Error("Provider URL is required before enabling signatures.");
+  }
+
+  if (!templateId) {
+    throw new Error("Default signature template ID is required before enabling signatures.");
+  }
+
+  if (normalizedProvider === "docuseal" && !/^\d+$/.test(templateId)) {
+    throw new Error("DocuSeal template ID must be numeric.");
+  }
+
+  return {
+    provider: normalizedProvider,
+    providerBaseUrl: baseUrl,
+    defaultSignatureTemplateId: templateId,
   };
 }
 
@@ -128,11 +207,18 @@ export async function saveDocumentSignatureSettings({
 } = {}) {
   if (!accountId) throw new Error("Missing accountId");
 
+  const validated = validateDocumentSignatureSettings({
+    provider,
+    providerBaseUrl,
+    defaultSignatureTemplateId,
+    isEnabled,
+  });
+
   const { data, error } = await supabase.rpc("upsert_document_signature_provider_settings", {
     p_account_id: accountId,
-    p_provider: normalizeProvider(provider),
-    p_provider_base_url: normalizeText(providerBaseUrl) || null,
-    p_default_signature_template_id: normalizeText(defaultSignatureTemplateId) || null,
+    p_provider: validated.provider,
+    p_provider_base_url: validated.providerBaseUrl || null,
+    p_default_signature_template_id: validated.defaultSignatureTemplateId || null,
     p_is_enabled: Boolean(isEnabled),
     p_webhook_configured: Boolean(webhookConfigured),
   });
@@ -141,9 +227,9 @@ export async function saveDocumentSignatureSettings({
     if (isMissingBackendObject(error)) {
       return normalizeSettings({
         account_id: accountId,
-        provider,
-        provider_base_url: providerBaseUrl,
-        default_signature_template_id: defaultSignatureTemplateId,
+        provider: validated.provider,
+        provider_base_url: validated.providerBaseUrl,
+        default_signature_template_id: validated.defaultSignatureTemplateId,
         is_enabled: isEnabled,
         webhook_configured: webhookConfigured,
       }, accountId);

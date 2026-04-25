@@ -101,7 +101,7 @@ where account_id = '<account_id>';
 For DocuSeal, expected values are usually:
 
 - `provider = 'docuseal'`
-- `provider_base_url = 'https://api.docuseal.com'` unless self-hosted
+- `provider_base_url = 'https://api.docuseal.eu'` for the EU-hosted DocuSeal API, unless self-hosted
 - `default_signature_template_id` set to a valid DocuSeal template id
 - `is_enabled = true`
 
@@ -109,6 +109,82 @@ Important:
 
 - Do **not** store API keys or webhook secrets in this table
 - only non-secret provider metadata belongs here
+
+### Important current-code note on provider URL
+
+In the current OASIS implementation, the account-level `provider_base_url` is used by
+`create-signature-packet` as the provider's **API base URL**, not just the hosted signer URL.
+
+For the current DocuSeal EU setup, use:
+
+```text
+https://api.docuseal.eu
+```
+
+Do not use:
+
+- `docuseal.eu`
+- `https://docuseal.eu`
+
+unless the OASIS code is later changed to split API base URL and signer-host URL into separate fields.
+
+## Provider Template Preparation
+
+Before OASIS can send a packet for signature, you need a provider-side template in DocuSeal.
+
+### Ready-to-upload starter templates in this repo
+
+OASIS now ships practical starter templates you can adapt before upload:
+
+- [uk-contractor-terms-signature-template.html](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/templates/uk-contractor-terms-signature-template.html)
+- [uk-tenancy-agreement-signature-template.html](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/templates/uk-tenancy-agreement-signature-template.html)
+
+These are operational starter templates only. Review them for your legal terms, jurisdiction,
+deposit wording, notice clauses, guarantor requirements, and company-specific commercial terms
+before using them in production.
+
+### Suggested template setup flow
+
+1. Open the HTML template in a browser.
+2. Replace the bracketed placeholders, or leave signatory names/dates for provider fields.
+3. Print to PDF, or convert to PDF/DOCX if your provider prefers that format.
+4. Upload the finished file into DocuSeal as a template.
+5. Add signature/date fields in the provider UI.
+6. Save the provider template.
+7. Capture the provider template ID and store it in OASIS signature readiness.
+
+### Field placement guidance
+
+For the tenancy agreement template:
+
+- add a landlord signature field
+- add a landlord date field
+- add a tenant signature field
+- add a tenant date field
+
+For the contractor terms template:
+
+- add a client/landlord signature field
+- add a client/landlord date field
+- add a contractor signature field
+- add a contractor date field
+
+### Where to find the DocuSeal template ID
+
+OASIS expects the **numeric DocuSeal template ID**, not a label or slug.
+
+Example:
+
+- if the DocuSeal URL is `https://docuseal.eu/templates/520424/edit`
+- the template ID is `520424`
+
+Do not enter values such as:
+
+- `contractor_terms`
+- `Contractor Terms`
+- `tenant_agreement`
+
+The current `create-signature-packet` implementation parses this value as a numeric provider template id.
 
 ## Webhook URL Shape
 
@@ -176,8 +252,16 @@ supabase functions deploy handle-signature-webhook --project-ref nodpjtkuefcmnxq
 Make sure the relevant account has:
 
 - provider enabled
-- DocuSeal base URL correct
+- DocuSeal API base URL correct
 - default signature template id set
+
+For the current EU DocuSeal setup, a healthy configuration is typically:
+
+- provider: `docuseal`
+- provider URL: `https://api.docuseal.eu`
+- default signature template id: numeric DocuSeal template ID such as `520424`
+- enable provider: checked
+- webhook configured: checked only after the provider webhook is saved and live
 
 ### Step 4. Configure the provider webhook
 

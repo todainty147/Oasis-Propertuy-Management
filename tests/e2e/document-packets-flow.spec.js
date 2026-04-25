@@ -21,8 +21,8 @@ async function configureSignatureReadiness(page, stamp) {
   const saveButton = panel.getByRole("button", { name: "Save signature readiness" });
   await expect(saveButton).toBeEnabled();
   await panel.getByLabel("Signature provider").selectOption("docuseal");
-  await panel.getByPlaceholder("Provider URL, e.g. https://sign.example.com").fill("https://sign.example.test");
-  await panel.getByPlaceholder("Default signature template ID").fill(`docuseal-template-${stamp}`);
+  await panel.getByLabel("Provider API URL").fill("https://api.example.test");
+  await panel.getByLabel("Default signature template ID").fill(String(520000 + Number(String(stamp).slice(-4))));
   await panel.getByLabel("Enable provider for this account").check();
   await saveButton.click();
   await expect(panel).toContainText("Provider ready");

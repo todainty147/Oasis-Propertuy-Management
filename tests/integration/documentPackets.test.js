@@ -245,8 +245,8 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document agreement packet se
     const settings = await ownerClient.rpc("upsert_document_signature_provider_settings", {
       p_account_id: isolationFixtures.accounts.accountA.id,
       p_provider: "docuseal",
-      p_provider_base_url: "https://sign.example.test",
-      p_default_signature_template_id: "docuseal-template-1",
+      p_provider_base_url: "https://api.example.test",
+      p_default_signature_template_id: "520424",
       p_is_enabled: true,
       p_webhook_configured: false,
     });
@@ -269,7 +269,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document agreement packet se
     const tenantPrepare = await tenantClient.rpc("prepare_document_packet_signature", {
       p_packet_id: packet.id,
       p_signature_provider: "docuseal",
-      p_signature_template_id: "docuseal-template-1",
+      p_signature_template_id: "520424",
     });
     expectDenied(tenantPrepare);
 
@@ -282,7 +282,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document agreement packet se
     expect(prepared.data).toMatchObject({
       id: packet.id,
       signature_provider: "docuseal",
-      signature_template_id: "docuseal-template-1",
+      signature_template_id: "520424",
       signature_status: "ready",
     });
 
@@ -323,8 +323,8 @@ describe.skipIf(!isIntegrationHarnessConfigured())("document agreement packet se
     const settings = await ownerClient.rpc("upsert_document_signature_provider_settings", {
       p_account_id: isolationFixtures.accounts.accountA.id,
       p_provider: "docuseal",
-      p_provider_base_url: "https://sign.example.test",
-      p_default_signature_template_id: "docuseal-template-lock",
+      p_provider_base_url: "https://api.example.test",
+      p_default_signature_template_id: "520425",
       p_is_enabled: true,
       p_webhook_configured: true,
     });

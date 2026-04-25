@@ -5,7 +5,7 @@ import {
   downloadDocuSealDocument,
   getDocuSealSubmission,
   mapDocuSealStatus,
-  normalizeDocuSealBaseUrl,
+  normalizeDocuSealApiBaseUrl,
 } from "../_shared/docuseal.ts";
 import { safeErrorResponse } from "../_shared/safeErrorResponse.ts";
 
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
       .eq("account_id", packet.account_id)
       .maybeSingle();
 
-    const providerBaseUrl = normalizeDocuSealBaseUrl(
+    const providerBaseUrl = normalizeDocuSealApiBaseUrl(
       settingsQuery.data?.provider_base_url || DOCUSEAL_API_BASE_URL,
     );
 

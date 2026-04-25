@@ -3,6 +3,7 @@ import Card from "./Card";
 import {
   assessDocumentSignatureReadiness,
   fetchDocumentSignatureSettings,
+  normalizeProviderBaseUrlForSave,
   saveDocumentSignatureSettings,
   SIGNATURE_PROVIDERS,
 } from "../services/documentSignatureService";
@@ -133,14 +134,30 @@ export default function DocumentSignatureReadinessPanel({ accountId, t }) {
             onChange={(event) => patchForm({ providerBaseUrl: event.target.value })}
             className={fieldClasses()}
             placeholder={t("documents.signatures.providerUrlPlaceholder")}
+            aria-label={t("documents.signatures.providerUrl")}
           />
           <input
             value={form.defaultSignatureTemplateId}
             onChange={(event) => patchForm({ defaultSignatureTemplateId: event.target.value })}
             className={fieldClasses()}
             placeholder={t("documents.signatures.templateIdPlaceholder")}
+            aria-label={t("documents.signatures.templateId")}
           />
         </div>
+
+        {form.provider === "docuseal" ? (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300">
+            <p>{t("documents.signatures.docusealHelp.apiUrl")}</p>
+            <p>{t("documents.signatures.docusealHelp.templateId")}</p>
+            {form.providerBaseUrl ? (
+              <p>
+                {t("documents.signatures.docusealHelp.normalized", {
+                  url: normalizeProviderBaseUrlForSave(form.provider, form.providerBaseUrl),
+                })}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="flex flex-col gap-2 text-sm text-slate-700 dark:text-slate-200 sm:flex-row sm:items-center sm:gap-6">
           <label className="inline-flex items-center gap-2">

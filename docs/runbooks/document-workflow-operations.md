@@ -6,6 +6,9 @@ Use this when templates, document requests, participant uploads, or agreement pa
 
 - Landlords/admins can upload account-scoped document templates in `Documents`.
 - No legal templates are seeded by default. An empty template library is expected until a landlord uploads their own UK, Poland, or other country-specific template.
+- Repo starter templates now exist for signature-provider setup:
+  - [uk-contractor-terms-signature-template.html](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/templates/uk-contractor-terms-signature-template.html)
+  - [uk-tenancy-agreement-signature-template.html](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/templates/uk-tenancy-agreement-signature-template.html)
 - Landlords/admins can request documents from tenants and contractors.
 - Tenants and contractors can upload only to requests targeted at them.
 - Landlords/admins can create and send pre-signature agreement packets from active templates.
@@ -32,6 +35,21 @@ Never disable RLS to diagnose access.
 ## Template Library Is Empty
 
 This is expected for a new account.
+
+If a manager needs a starting point for DocuSeal/DocuSign setup, use the repo starter templates:
+
+- [uk-contractor-terms-signature-template.html](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/templates/uk-contractor-terms-signature-template.html)
+- [uk-tenancy-agreement-signature-template.html](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/templates/uk-tenancy-agreement-signature-template.html)
+
+Suggested operational flow:
+
+1. open the HTML template in a browser
+2. replace bracketed placeholders as needed
+3. print/export to PDF
+4. upload into the external signature provider
+5. place signature/date fields in the provider UI
+6. save the provider template
+7. copy the provider template ID into OASIS signature readiness
 
 Inspect templates:
 
@@ -188,6 +206,16 @@ where account_id = '<account_id>';
 ```
 
 This table stores metadata only. Do not put API keys, webhook secrets, or provider credentials in it. Provider secrets belong in Supabase Edge Function environment variables.
+
+For the current DocuSeal EU setup:
+
+- `provider_base_url` should be `https://api.docuseal.eu`
+- `default_signature_template_id` should be the numeric provider template id from DocuSeal
+
+Example:
+
+- provider template edit URL: `https://docuseal.eu/templates/520424/edit`
+- OASIS template id value: `520424`
 
 Inspect packet signature state:
 

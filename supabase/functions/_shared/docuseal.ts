@@ -46,6 +46,47 @@ export function normalizeDocuSealBaseUrl(value: string | null | undefined) {
   }
 }
 
+export function normalizeDocuSealApiBaseUrl(value: string | null | undefined) {
+  const normalized = normalizeDocuSealBaseUrl(value);
+  if (!normalized) return "";
+
+  try {
+    const url = new URL(normalized);
+    const hostname = url.hostname.toLowerCase();
+
+    if (hostname === "docuseal.com" || hostname === "www.docuseal.com") {
+      return "https://api.docuseal.com";
+    }
+    if (hostname === "docuseal.eu" || hostname === "www.docuseal.eu") {
+      return "https://api.docuseal.eu";
+    }
+    if (/^api\.docuseal\.(com|eu)$/i.test(hostname)) {
+      return url.origin.replace(/\/+$/, "");
+    }
+
+    return url.origin.replace(/\/+$/, "");
+  } catch {
+    return normalized;
+  }
+}
+
+export function deriveDocuSealSignerBaseUrl(value: string | null | undefined) {
+  const apiBaseUrl = normalizeDocuSealApiBaseUrl(value);
+  if (!apiBaseUrl) return "";
+
+  try {
+    const url = new URL(apiBaseUrl);
+    const hostname = url.hostname.toLowerCase();
+
+    if (hostname === "api.docuseal.com") return "https://docuseal.com";
+    if (hostname === "api.docuseal.eu") return "https://docuseal.eu";
+
+    return url.origin.replace(/\/api$/, "").replace(/\/+$/, "");
+  } catch {
+    return apiBaseUrl.replace(/\/api$/, "").replace(/\/+$/, "");
+  }
+}
+
 export function isMockDocuSealBaseUrl(value: string | null | undefined) {
   const normalized = normalizeDocuSealBaseUrl(value);
   return normalized.includes("example.test") || normalized.includes("localhost");
@@ -59,7 +100,7 @@ function jsonHeaders(apiKey: string) {
 }
 
 export async function createDocuSealSubmission(input: DocuSealCreateSubmissionInput): Promise<DocuSealSubmissionResponse> {
-  const baseUrl = normalizeDocuSealBaseUrl(input.baseUrl);
+  const baseUrl = normalizeDocuSealApiBaseUrl(input.baseUrl);
   const rawTemplateId = trim(input.templateId);
 
   if (!baseUrl) throw new Error("DocuSeal base URL is required");
@@ -135,7 +176,7 @@ export async function getDocuSealSubmission({
   baseUrl: string;
   submissionId: string | number;
 }): Promise<DocuSealSubmissionResponse> {
-  const normalizedBaseUrl = normalizeDocuSealBaseUrl(baseUrl);
+  const normalizedBaseUrl = normalizeDocuSealApiBaseUrl(baseUrl);
   if (isMockDocuSealBaseUrl(normalizedBaseUrl)) {
     return {
       id: submissionId,
@@ -173,7 +214,7 @@ export async function downloadDocuSealDocument({
   submissionId: string | number;
   submission?: DocuSealSubmissionResponse | null;
 }) {
-  const normalizedBaseUrl = normalizeDocuSealBaseUrl(baseUrl);
+  const normalizedBaseUrl = normalizeDocuSealApiBaseUrl(baseUrl);
   if (isMockDocuSealBaseUrl(normalizedBaseUrl)) {
     const content = new TextEncoder().encode("%PDF-1.4\n% mock signed document\n");
     return {

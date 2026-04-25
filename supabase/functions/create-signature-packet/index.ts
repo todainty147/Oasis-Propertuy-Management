@@ -5,7 +5,11 @@ import {
   resolveTrustedAppOrigin,
 } from "../_shared/trustedOrigin.ts";
 import { safeErrorResponse } from "../_shared/safeErrorResponse.ts";
-import { createDocuSealSubmission, normalizeDocuSealBaseUrl } from "../_shared/docuseal.ts";
+import {
+  createDocuSealSubmission,
+  deriveDocuSealSignerBaseUrl,
+  normalizeDocuSealApiBaseUrl,
+} from "../_shared/docuseal.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
@@ -124,22 +128,41 @@ Deno.serve(async (req) => {
       ? `${appOrigin}${packet.target_role === "tenant" ? "/tenant/documents" : "/contractor"}?packet=${packetId}`
       : null;
 
-    const docusealBaseUrl = normalizeDocuSealBaseUrl(
+    const docusealApiBaseUrl = normalizeDocuSealApiBaseUrl(
       settingsQuery.data.provider_base_url || DOCUSEAL_API_BASE_URL,
     );
 
-    const submission = await createDocuSealSubmission({
-      apiKey: DOCUSEAL_API_KEY,
-      baseUrl: docusealBaseUrl,
-      templateId: String(packet.signature_template_id || settingsQuery.data.default_signature_template_id || ""),
-      packetId,
-      packetTitle: String(packet.title || "Signature request"),
-      packetMessage: String(packet.message || ""),
-      recipientName: String(recipient?.name || ""),
-      recipientEmail,
-      recipientRole: packet.target_role === "tenant" ? "Tenant" : "Contractor",
-      completedRedirectUrl,
-    });
+    const signatureTemplateId = String(
+      packet.signature_template_id || settingsQuery.data.default_signature_template_id || "",
+    ).trim();
+    if (!signatureTemplateId) {
+      return respond({ error: "A provider template ID is required before sending for signature" }, 400);
+    }
+
+    if (!/^\d+$/.test(signatureTemplateId)) {
+      return respond({ error: "DocuSeal template ID must be numeric" }, 400);
+    }
+
+    let submission;
+    try {
+      submission = await createDocuSealSubmission({
+        apiKey: DOCUSEAL_API_KEY,
+        baseUrl: docusealApiBaseUrl,
+        templateId: signatureTemplateId,
+        packetId,
+        packetTitle: String(packet.title || "Signature request"),
+        packetMessage: String(packet.message || ""),
+        recipientName: String(recipient?.name || ""),
+        recipientEmail,
+        recipientRole: packet.target_role === "tenant" ? "Tenant" : "Contractor",
+        completedRedirectUrl,
+      });
+    } catch (error) {
+      return safeError(req, error, 400, "Could not create the DocuSeal submission", {
+        surface: "docuseal_submission",
+        packetId,
+      });
+    }
 
     const submissionId = String(submission?.id || "").trim();
     if (!submissionId) {
@@ -151,7 +174,7 @@ Deno.serve(async (req) => {
       : null;
 
     const submitterSlug = String(submitter?.slug || "").trim();
-    const submitterUrl = submitterSlug ? `${docusealBaseUrl.replace(/\/api$/, "")}/s/${submitterSlug}` : null;
+    const submitterUrl = submitterSlug ? `${deriveDocuSealSignerBaseUrl(docusealApiBaseUrl)}/s/${submitterSlug}` : null;
 
     const recorded = await admin.rpc("record_document_packet_signature_submission", {
       p_packet_id: packetId,
