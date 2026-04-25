@@ -653,6 +653,13 @@ Rule:
 
 - always show non-AI facts beside the explanation so users can verify the reasoning
 
+Current repo state:
+
+- the first shipped slice targets the lowest-scoring property on [PortfolioHealthDashboardPage.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/PortfolioHealthDashboardPage.jsx)
+- generation runs through [generate-property-health-explainer/index.ts](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions/generate-property-health-explainer/index.ts)
+- cached insight rows reuse the shared AI control-plane tables, extended by [ai_property_health_explainer.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/ai_property_health_explainer.sql)
+- the page fails soft and falls back to deterministic explanation text when OpenAI is missing or unavailable
+
 #### Phase 3: Maintenance AI Triage
 
 Goal:
@@ -852,7 +859,7 @@ Recommended implementation notes:
 | Tenant portal runtime hardening | Strong | Small to Medium | Now | The tenant portal is now materially richer, so route guards, truthful empty states, and session-aware navigation deserve first-class hardening. |
 | AI operational intelligence foundation | Partial but high-leverage | Medium | Next, after trust-critical workflow hardening | OASIS already has strong snapshot/RPC inputs across attention, health, maintenance, finance, documents, and security. The missing piece is a safe Edge Function control plane, structured outputs, metering, and caching. |
 | AI Attention Insight Card | Strong | Small to Medium | Next, first AI slice | This is the cleanest AI feature fit with the current product. It uses existing attention/command data, is cheap to run, easy to validate, and reinforces the OASIS operations narrative without mutating workflow state. |
-| Property Health AI explainer | Strong | Small to Medium | Soon after first AI slice | Portfolio health is already a real differentiated surface. AI can explain visible risk drivers without inventing a new product category. |
+| Property Health AI explainer | Strong | Small to Medium | Now in first shipped form | Portfolio health is already a real differentiated surface. The first slice now explains the lowest-scoring property with visible facts and soft-fallback behavior. |
 | Maintenance AI triage suggestions | Partial | Medium | Soon after first AI slice | Maintenance intake is already strong, but AI suggestions should remain advisory until landlord confirmation patterns are battle-tested. |
 | Rich tenant activity timeline | Strong | Medium | Next | `tenant_activity_feed` and `TenantTimelineCard` already exist; the product opportunity is better narrative depth and scanability rather than net-new foundations. |
 | Advanced maintenance progress history | Partial | Medium | Next | Current statuses and timeline events exist, but a richer tenant-safe milestone history still needs a more explicit presentation model. |
@@ -1253,7 +1260,7 @@ Possible, but costly enough that it should be evidence-driven.
 
 ### Phase 4
 
-- property health AI explainer and maintenance triage suggestions after the first AI slice proves useful
+- maintenance triage suggestions after the first AI slices prove useful
 - partitioning only if production evidence proves it is needed
 
 ### Phase 5

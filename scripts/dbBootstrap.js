@@ -230,6 +230,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply AI property health explainer overlay",
+    file: path.join(supabaseDir, "ai_property_health_explainer.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply playbook status snapshot overlay",
     file: path.join(supabaseDir, "playbook_status_snapshot.sql"),
     onErrorStop: true,

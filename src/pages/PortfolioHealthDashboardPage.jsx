@@ -11,6 +11,7 @@ import {
   getPortfolioHealthSnapshot,
   mapPortfolioAttentionItems,
 } from "../services/portfolioHealthService";
+import { getPropertyHealthInsight } from "../services/propertyHealthInsightService";
 import {
   getAccountReportSettings,
   sendWeeklySummaryNow,
@@ -29,6 +30,7 @@ import {
 import { isManageRole } from "../utils/permissions";
 import OnboardingHintCard from "../components/OnboardingHintCard";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
+import { formatAttentionInsightTimestamp } from "../services/attentionInsightService";
 
 function pctDelta(current, previous) {
   const c = Number(current || 0);
@@ -155,6 +157,113 @@ function BarCard({ title, rows = [], labels = {}, toByKey = {} }) {
   );
 }
 
+function PropertyHealthExplainerCard({ insight, loading, onRefresh, t }) {
+  if (!loading && !insight) return null;
+
+  const sourceLabel = insight?.source === "openai" ? t("portfolio.ai.sourceOpenAi") : t("portfolio.ai.sourceFallback");
+  const confidenceLabel = insight?.confidence ? t(`portfolio.ai.confidence.${insight.confidence}`) : "";
+  const categoryLabel = insight?.category ? t(`propertyHealth.status.${insight.category}`) : "";
+
+  return (
+    <Card className="p-4 border shadow-sm" data-testid="property-health-ai-card">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">
+            {t("portfolio.ai.eyebrow")}
+          </p>
+          <h3 className="mt-1 text-lg font-semibold text-slate-900">{t("portfolio.ai.title")}</h3>
+          <p className="mt-1 text-sm text-slate-500">{t("portfolio.ai.subtitle")}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={loading}
+          className="px-3 py-2 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+        >
+          {t("portfolio.ai.refresh")}
+        </button>
+      </div>
+
+      {loading && !insight ? (
+        <div className="mt-4 space-y-2">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </div>
+      ) : null}
+
+      {insight ? (
+        <div className="mt-4 space-y-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            {categoryLabel ? (
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
+                {categoryLabel}
+              </span>
+            ) : null}
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
+              {sourceLabel}
+            </span>
+          </div>
+
+          <div>
+            <p className="text-sm font-semibold text-slate-900">
+              {insight.propertyLabel || t("portfolio.ai.defaultPropertyLabel")}
+            </p>
+            <p className="mt-2 text-sm text-slate-700">{insight.healthExplanation}</p>
+            <p className="mt-2 text-xs text-slate-500">
+              {t("portfolio.ai.generatedAt", {
+                value: formatAttentionInsightTimestamp(insight.generatedAt),
+                confidence: confidenceLabel,
+              })}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("portfolio.ai.riskDrivers")}</p>
+              <div className="mt-2 space-y-2">
+                {(insight.riskDrivers || []).length === 0 ? (
+                  <p className="text-sm text-slate-500">{t("portfolio.ai.noDrivers")}</p>
+                ) : (
+                  insight.riskDrivers.map((driver, index) => (
+                    <div key={`${driver.driver}-${index}`} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-slate-900">{t(`portfolio.ai.driver.${driver.driver}`)}</p>
+                        <span className="text-xs text-slate-500">{t(`portfolio.ai.severity.${driver.severity}`)}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-600">{driver.explanation}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("portfolio.ai.factsUsed")}</p>
+              <div className="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-3">
+                <ul className="space-y-2 text-sm text-slate-700">
+                  {(insight.factsUsed || []).map((fact) => (
+                    <li key={fact} className="flex gap-2">
+                      <span className="text-slate-400">•</span>
+                      <span>{fact}</span>
+                    </li>
+                  ))}
+                </ul>
+                {insight.recommendedNextStep ? (
+                  <div className="mt-4 border-t border-slate-200 pt-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("portfolio.ai.nextStep")}</p>
+                    <p className="mt-1 text-sm text-slate-700">{insight.recommendedNextStep}</p>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
 export default function PortfolioHealthDashboardPage() {
   const { setTitle } = usePageTitle();
   const { activeRole, activeAccountId, isRootOperator } = useAccount();
@@ -171,6 +280,8 @@ export default function PortfolioHealthDashboardPage() {
   const [leaseAttentionItems, setLeaseAttentionItems] = useState([]);
   const [leaseSummary, setLeaseSummary] = useState(null);
   const [propertyHealthRows, setPropertyHealthRows] = useState([]);
+  const [propertyHealthInsight, setPropertyHealthInsight] = useState(null);
+  const [propertyHealthInsightLoading, setPropertyHealthInsightLoading] = useState(false);
   const [reporting, setReporting] = useState(null);
   const [reportSaving, setReportSaving] = useState(false);
   const [reportSending, setReportSending] = useState(false);
@@ -425,6 +536,57 @@ export default function PortfolioHealthDashboardPage() {
     [propertyHealthRows],
   );
 
+  const explainerPropertyId = useMemo(
+    () => propertyHealthSummary.lowestProperties?.[0]?.propertyId || null,
+    [propertyHealthSummary],
+  );
+
+  useEffect(() => {
+    if (!activeAccountId || !canManage || !explainerPropertyId) {
+      setPropertyHealthInsight(null);
+      return;
+    }
+
+    let dead = false;
+    async function loadInsight(forceRefresh = false) {
+      setPropertyHealthInsightLoading(true);
+      try {
+        const insight = await getPropertyHealthInsight({
+          accountId: activeAccountId,
+          propertyId: explainerPropertyId,
+          forceRefresh,
+        });
+        if (!dead) setPropertyHealthInsight(insight);
+      } catch {
+        if (!dead) setPropertyHealthInsight(null);
+      } finally {
+        if (!dead) setPropertyHealthInsightLoading(false);
+      }
+    }
+
+    loadInsight(false);
+    return () => {
+      dead = true;
+    };
+  }, [activeAccountId, canManage, explainerPropertyId]);
+
+  async function handleRefreshPropertyInsight() {
+    if (!activeAccountId || !explainerPropertyId) return;
+    setPropertyHealthInsightLoading(true);
+    try {
+      const insight = await getPropertyHealthInsight({
+        accountId: activeAccountId,
+        propertyId: explainerPropertyId,
+        forceRefresh: true,
+      });
+      setPropertyHealthInsight(insight);
+    } catch {
+      setPropertyHealthInsight(null);
+    } finally {
+      setPropertyHealthInsightLoading(false);
+    }
+  }
+
   const propertyHealthDistributionRows = useMemo(
     () => [
       { key: "healthy", value: propertyHealthSummary.healthyCount },
@@ -510,6 +672,13 @@ export default function PortfolioHealthDashboardPage() {
       {error ? (
         <Card className="p-4 border border-rose-200 bg-rose-50 text-rose-700 text-sm">{error}</Card>
       ) : null}
+
+      <PropertyHealthExplainerCard
+        insight={propertyHealthInsight}
+        loading={propertyHealthInsightLoading}
+        onRefresh={handleRefreshPropertyInsight}
+        t={t}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
         <StatCard title={t("portfolio.kpi.properties")} value={Number(snapshotView.property_count || 0)} to="/properties" tone="blue" />
