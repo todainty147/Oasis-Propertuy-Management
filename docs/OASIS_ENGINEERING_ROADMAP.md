@@ -586,7 +586,7 @@ Suggested schema:
 
 #### Phase 1: AI Attention Insight Card
 
-Status: best first AI slice.
+Status: first slice now shipped in a guarded foundation form.
 
 Why first:
 
@@ -595,6 +595,14 @@ Why first:
 - uses already-aggregated operational data
 - cheap to run compared with document-heavy AI
 - easy to demo and explain
+
+Current repo state:
+
+- [ai_attention_insights.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/ai_attention_insights.sql) now adds the first cached AI/control-plane tables
+- [generate-attention-insight/index.ts](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions/generate-attention-insight/index.ts) now provides the server-side boundary
+- [CommandCenterPage.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/CommandCenterPage.jsx) now renders the first attention briefing card
+- when `OPENAI_API_KEY` is missing or the model path fails, OASIS falls back to a deterministic queue briefing instead of breaking the Command Center
+- this slice is still account-scoped, read-only, and intentionally limited to the existing Command Center workflow
 
 Use existing repo-backed sources:
 

@@ -62,6 +62,7 @@ const OVERLAY_SEQUENCE = [
   "attention_center_items.sql",
   "portfolio_attention_items.sql",
   "portfolio_weekly_summary.sql",
+  "ai_attention_insights.sql",
   "playbook_status_snapshot.sql",
   "automation_playbooks.sql",
   "create_notifications.sql",

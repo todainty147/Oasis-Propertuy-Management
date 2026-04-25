@@ -7,6 +7,7 @@ import { useI18n } from "../context/I18nContext";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { getCommandCenterData } from "../services/commandCenterService";
+import { formatAttentionInsightTimestamp, getAttentionInsight } from "../services/attentionInsightService";
 import { formatCurrencyAmount } from "../utils/currency";
 import { isManageRole } from "../utils/permissions";
 import OnboardingHintCard from "../components/OnboardingHintCard";
@@ -118,6 +119,106 @@ function SummaryCard({ label, value, hint = "", tone = "blue" }) {
   );
 }
 
+function AttentionInsightCard({ insight, loading, onRefresh, t }) {
+  if (loading) {
+    return <Skeleton className="h-44" />;
+  }
+
+  if (!insight) return null;
+
+  const priorityClasses = {
+    urgent: "border-rose-200 bg-rose-50 text-rose-700",
+    high: "border-amber-200 bg-amber-50 text-amber-700",
+    medium: "border-blue-200 bg-blue-50 text-blue-700",
+    low: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  };
+
+  const sourceLabel = insight.source === "openai"
+    ? t("commandCenter.ai.source.openai")
+    : t("commandCenter.ai.source.fallback");
+
+  return (
+    <Card
+      data-testid="attention-insight-card"
+      className="p-4 border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 dark:border-sky-900/60 dark:from-slate-900 dark:via-slate-900 dark:to-cyan-950/20"
+    >
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="max-w-3xl">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700 dark:text-sky-300">
+              {t("commandCenter.ai.eyebrow")}
+            </span>
+            <span className={`inline-flex rounded-full border px-2 py-1 text-[11px] font-medium ${priorityClasses[insight.priority] || priorityClasses.medium}`}>
+              {t(`commandCenter.ai.priority.${insight.priority}`)}
+            </span>
+            <span className="inline-flex rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+              {sourceLabel}
+            </span>
+          </div>
+          <h3 className="mt-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
+            {t("commandCenter.ai.title")}
+          </h3>
+          <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">{insight.summary}</p>
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            {t("commandCenter.ai.generatedAt", {
+              time: formatAttentionInsightTimestamp(insight.generatedAt),
+              confidence: t(`commandCenter.ai.confidence.${insight.confidence}`),
+            })}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          {t("commandCenter.ai.refresh")}
+        </button>
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-[1.1fr_1fr]">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            {t("commandCenter.ai.reasons")}
+          </p>
+          <ul className="mt-2 space-y-2 text-sm text-slate-700 dark:text-slate-300">
+            {insight.topReasons.map((reason) => (
+              <li key={reason} className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
+                {reason}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            {t("commandCenter.ai.actions")}
+          </p>
+          <div className="mt-2 space-y-2">
+            {insight.suggestedActions.map((action) => {
+              const content = (
+                <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800">
+                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{action.label}</p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {t(`commandCenter.ai.actionType.${action.actionType}`)}
+                  </p>
+                </div>
+              );
+
+              return action.linkPath ? (
+                <Link key={`${action.entityType}-${action.entityId || action.label}`} to={action.linkPath} className="block">
+                  {content}
+                </Link>
+              ) : (
+                <div key={`${action.entityType}-${action.entityId || action.label}`}>{content}</div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function Section({ title, items = [], emptyText, t }) {
   return (
     <Card className="p-4">
@@ -172,25 +273,41 @@ export default function CommandCenterPage() {
   const canManage = useMemo(() => isManageRole(role, { isRootOperator }), [isRootOperator, role]);
 
   const [loading, setLoading] = useState(false);
+  const [insightLoading, setInsightLoading] = useState(false);
   const [error, setError] = useState("");
   const [data, setData] = useState(null);
+  const [insight, setInsight] = useState(null);
 
   useEffect(() => {
     setTitle(t("commandCenter.pageTitle"));
   }, [setTitle, t]);
 
-  async function loadData() {
+  async function loadData({ forceInsightRefresh = false } = {}) {
     if (!activeAccountId) return;
     setLoading(true);
+    setInsightLoading(true);
     setError("");
     try {
-      const next = await getCommandCenterData(activeAccountId);
+      const [dataResult, insightResult] = await Promise.allSettled([
+        getCommandCenterData(activeAccountId),
+        getAttentionInsight({ accountId: activeAccountId, forceRefresh: forceInsightRefresh }),
+      ]);
+
+      if (dataResult.status === "rejected") {
+        throw dataResult.reason;
+      }
+
+      const next = dataResult.value;
       setData(next);
+      if (insightResult.status === "fulfilled") setInsight(insightResult.value);
+      else setInsight(null);
     } catch (e) {
       setData(null);
+      setInsight(null);
       setError(e?.message || t("attentionCenter.error"));
     } finally {
       setLoading(false);
+      setInsightLoading(false);
     }
   }
 
@@ -255,6 +372,13 @@ export default function CommandCenterPage() {
       <OnboardingHintCard
         title={t("pageHints.commandCenter.title")}
         body={t("pageHints.commandCenter.body")}
+      />
+
+      <AttentionInsightCard
+        insight={insight}
+        loading={insightLoading && !insight}
+        onRefresh={() => loadData({ forceInsightRefresh: true })}
+        t={t}
       />
 
       {error ? (
