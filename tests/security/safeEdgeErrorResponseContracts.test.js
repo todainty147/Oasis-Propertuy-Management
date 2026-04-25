@@ -14,6 +14,7 @@ const migratedFunctions = [
   "supabase/functions/send-password-reset-email/index.ts",
   "supabase/functions/generate-attention-insight/index.ts",
   "supabase/functions/generate-property-health-explainer/index.ts",
+  "supabase/functions/generate-maintenance-triage/index.ts",
   "supabase/functions/generate-security-audit-export/index.ts",
   "supabase/functions/ingest-security-observability/index.ts",
   "supabase/functions/stripe-webhook/index.ts",

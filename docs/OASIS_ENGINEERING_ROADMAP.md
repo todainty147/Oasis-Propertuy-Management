@@ -34,6 +34,7 @@ The roadmap should now move away from "basic UX polish" and toward two sharper t
 
 - hardening live behavior, routing, and browser-level confidence around the existing surfaces
 - adding richer product depth where the current repo already shows a strong foundation
+- layering AI into existing operational surfaces where it can explain and prioritize without mutating the system
 
 ## Current Product State (2026-04-22)
 
@@ -44,6 +45,7 @@ This section reflects checked-in code, SQL, and tests rather than planned intent
 - **Operations Hub / Command Center**: real account-scoped queueing and prioritization
 - **Maintenance and work-order coordination**: tenant intake, manager triage, contractor updates, quote/approval, and audit trail
 - **Portfolio Health**: score-backed risk visibility, not decorative analytics
+- **Operational AI helpers**: Command Center briefing, property health explainer, and maintenance triage suggestions all now sit behind the same server-side AI control plane with deterministic fallback
 - **Tenant portal foundation**: tenant dashboard overview, maintenance status, tenant payments, documents, and timeline
 - **Security / auditability**: append-only audit, observability feeds, denied-event logging, and manager/root surfaces
 - **Contractor workflow depth**: assigned-job portal and workflow follow-through

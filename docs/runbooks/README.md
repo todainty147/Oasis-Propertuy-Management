@@ -24,6 +24,8 @@ If the symptom is:
   - start with [ai-attention-insights-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/ai-attention-insights-operations.md)
 - Portfolio Health AI explainer is missing, falling back, or not matching the current risk signals:
   - start with [ai-property-health-explainer-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/ai-property-health-explainer-operations.md)
+- Maintenance inbox AI triage suggestion is missing, falling back, or not matching the request context:
+  - start with [ai-maintenance-triage-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/ai-maintenance-triage-operations.md)
 - membership, tenant, payment, work-order, or invite rows look broken or detached:
   - start with [data-orphaned-rows.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/data-orphaned-rows.md)
 - invite exists but acceptance is broken, duplicated, revoked unexpectedly, or tied to the wrong account:

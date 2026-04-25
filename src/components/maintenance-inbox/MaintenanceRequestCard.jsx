@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import MaintenanceTimeline from "./MaintenanceTimeline";
 import MaintenanceRequestWorkOrders from "./MaintenanceRequestWorkOrders";
 import { useI18n } from "../../context/I18nContext";
+import Skeleton from "../ui/Skeleton";
+import { formatAttentionInsightTimestamp } from "../../services/attentionInsightService";
+import { getMaintenanceTriageInsight } from "../../services/maintenanceTriageInsightService";
 
 function statusLabel(status, t) {
   const s = String(status ?? "").toLowerCase();
@@ -104,6 +107,166 @@ function slaMeta(status, createdAt, t) {
   };
 }
 
+function MaintenanceTriageCard({ accountId, request, canManage, t }) {
+  const requestStatus = String(request?.status || "").toLowerCase();
+  const shouldLoad = canManage && request?.id && !["closed", "resolved"].includes(requestStatus);
+  const [loading, setLoading] = useState(false);
+  const [insight, setInsight] = useState(null);
+  const [error, setError] = useState("");
+
+  async function loadInsight(forceRefresh = false) {
+    if (!shouldLoad) return;
+    setLoading(true);
+    setError("");
+    try {
+      const nextInsight = await getMaintenanceTriageInsight({
+        accountId,
+        requestId: request.id,
+        forceRefresh,
+      });
+      setInsight(nextInsight);
+    } catch (nextError) {
+      setError(nextError?.message || t("maintenance.ai.loadError"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!shouldLoad) {
+      setInsight(null);
+      setError("");
+      setLoading(false);
+      return;
+    }
+    loadInsight(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldLoad, accountId, request?.id]);
+
+  if (!shouldLoad) return null;
+
+  const urgencyClasses = {
+    low: "border-slate-200 bg-slate-50 text-slate-700",
+    normal: "border-blue-200 bg-blue-50 text-blue-700",
+    high: "border-amber-200 bg-amber-50 text-amber-700",
+    urgent: "border-rose-200 bg-rose-50 text-rose-700",
+  };
+
+  if (loading && !insight) {
+    return (
+      <div data-testid={`maintenance-triage-card-${request.id}`}>
+        <Skeleton className="h-40" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      data-testid={`maintenance-triage-card-${request.id}`}
+      className="rounded-xl border border-cyan-200 bg-cyan-50/40 p-3 space-y-3"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-700">
+              {t("maintenance.ai.eyebrow")}
+            </span>
+            {insight ? (
+              <>
+                <span className={`inline-flex rounded-full border px-2 py-1 text-[11px] font-medium ${urgencyClasses[insight.urgency] || urgencyClasses.normal}`}>
+                  {t(`maintenance.ai.urgency.${insight.urgency}`)}
+                </span>
+                <span className="inline-flex rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
+                  {insight.source === "openai" ? t("maintenance.ai.source.openai") : t("maintenance.ai.source.fallback")}
+                </span>
+                {insight.safetyFlag ? (
+                  <span className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-medium text-rose-700">
+                    {t("maintenance.ai.safetyFlag")}
+                  </span>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+          <h4 className="mt-2 text-sm font-semibold text-slate-900">{t("maintenance.ai.title")}</h4>
+        </div>
+        <button
+          type="button"
+          onClick={() => loadInsight(true)}
+          disabled={loading}
+          className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+        >
+          {t("maintenance.ai.refresh")}
+        </button>
+      </div>
+
+      {error && !insight ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          {error}
+        </div>
+      ) : null}
+
+      {insight ? (
+        <>
+          <div className="grid gap-3 xl:grid-cols-[0.9fr_1.1fr]">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {t("maintenance.ai.summary")}
+              </p>
+              <div className="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-3 space-y-2">
+                <p className="text-sm text-slate-700">
+                  <span className="font-medium text-slate-900">{t("maintenance.ai.categoryLabel")}</span>{" "}
+                  {insight.category.replaceAll("_", " ")}
+                </p>
+                <p className="text-sm text-slate-700">
+                  <span className="font-medium text-slate-900">{t("maintenance.ai.tradeLabel")}</span>{" "}
+                  {insight.suggestedTrade}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {t("maintenance.ai.generatedAt", {
+                    value: formatAttentionInsightTimestamp(insight.generatedAt),
+                    confidence: t(`maintenance.ai.confidence.${insight.confidence}`),
+                  })}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {t("maintenance.ai.facts")}
+              </p>
+              <div className="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-3">
+                <ul className="space-y-2 text-sm text-slate-700">
+                  {(insight.factsUsed || []).map((fact) => (
+                    <li key={fact} className="flex gap-2">
+                      <span className="text-slate-400">•</span>
+                      <span>{fact}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 xl:grid-cols-2">
+            <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {t("maintenance.ai.tenantAcknowledgement")}
+              </p>
+              <p className="mt-2 text-sm text-slate-700">{insight.tenantAcknowledgement}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {t("maintenance.ai.managerNote")}
+              </p>
+              <p className="mt-2 text-sm text-slate-700">{insight.managerNote}</p>
+            </div>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 export default function MaintenanceRequestCard({
   accountId,
   request,
@@ -158,6 +321,13 @@ export default function MaintenanceRequestCard({
       ) : (
         <p className="text-sm text-slate-400">{t("maintenance.card.noDescription")}</p>
       )}
+
+      <MaintenanceTriageCard
+        accountId={accountId}
+        request={request}
+        canManage={canManage}
+        t={t}
+      />
 
       <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
         <span className="px-2 py-0.5 rounded border border-slate-200 bg-slate-50">
