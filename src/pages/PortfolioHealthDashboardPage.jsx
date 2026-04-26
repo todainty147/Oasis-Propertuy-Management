@@ -158,7 +158,15 @@ function BarCard({ title, rows = [], labels = {}, toByKey = {} }) {
   );
 }
 
-function PropertyHealthExplainerCard({ insight, loading, onRefresh, t }) {
+function PropertyHealthExplainerCard({
+  insight,
+  loading,
+  onRefresh,
+  t,
+  candidates = [],
+  selectedPropertyId = null,
+  onSelectProperty,
+}) {
   if (!loading && !insight) return null;
 
   const sourceLabel = insight?.source === "openai" ? t("portfolio.ai.sourceOpenAi") : t("portfolio.ai.sourceFallback");
@@ -195,6 +203,41 @@ function PropertyHealthExplainerCard({ insight, loading, onRefresh, t }) {
 
       {insight ? (
         <div className="mt-4 space-y-4">
+          {candidates.length > 1 ? (
+            <div>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {t("portfolio.ai.chooseProperty")}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {t("portfolio.ai.showingOneOf", { count: candidates.length })}
+                </p>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {candidates.map((candidate) => {
+                  const isActive = String(candidate.propertyId) === String(selectedPropertyId || insight?.propertyId || "");
+                  return (
+                    <button
+                      key={candidate.propertyId}
+                      type="button"
+                      onClick={() => onSelectProperty?.(candidate.propertyId)}
+                      className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+                        isActive
+                          ? "border-sky-300 bg-sky-50 text-sky-900"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <p className="text-sm font-medium">{candidate.propertyLabel || t("portfolio.ai.defaultPropertyLabel")}</p>
+                      <p className="mt-0.5 text-xs">
+                        {t(`propertyHealth.status.${candidate.category || "healthy"}`)}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
           <div className="flex items-center gap-2 flex-wrap">
             {categoryLabel ? (
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
@@ -701,10 +744,31 @@ export default function PortfolioHealthDashboardPage() {
     [propertyHealthRows],
   );
 
-  const explainerPropertyId = useMemo(
-    () => propertyHealthSummary.lowestProperties?.[0]?.propertyId || null,
-    [propertyHealthSummary],
-  );
+  const explainerCandidates = useMemo(() => {
+    const rows = Array.isArray(propertyHealthRows) ? propertyHealthRows : [];
+    const affected = rows.filter((row) => {
+      const reasons = Array.isArray(row?.reasons) ? row.reasons : [];
+      return reasons.length > 0 || row?.category === "attention_needed" || row?.category === "high_risk";
+    });
+    return (affected.length > 0 ? affected : propertyHealthSummary.lowestProperties || []).slice(0, 6);
+  }, [propertyHealthRows, propertyHealthSummary]);
+
+  const [selectedExplainerPropertyId, setSelectedExplainerPropertyId] = useState(null);
+
+  useEffect(() => {
+    if (!explainerCandidates.length) {
+      setSelectedExplainerPropertyId(null);
+      return;
+    }
+    setSelectedExplainerPropertyId((current) => {
+      if (current && explainerCandidates.some((row) => String(row.propertyId) === String(current))) {
+        return current;
+      }
+      return explainerCandidates[0]?.propertyId || null;
+    });
+  }, [explainerCandidates]);
+
+  const explainerPropertyId = selectedExplainerPropertyId || explainerCandidates[0]?.propertyId || null;
 
   useEffect(() => {
     if (!activeAccountId || !canManage || !explainerPropertyId) {
@@ -842,6 +906,9 @@ export default function PortfolioHealthDashboardPage() {
         insight={propertyHealthInsight}
         loading={propertyHealthInsightLoading}
         onRefresh={handleRefreshPropertyInsight}
+        candidates={explainerCandidates}
+        selectedPropertyId={explainerPropertyId}
+        onSelectProperty={setSelectedExplainerPropertyId}
         t={t}
       />
 
@@ -1054,8 +1121,6 @@ export default function PortfolioHealthDashboardPage() {
             />
           </label>
         </div>
-
-        <p className="text-xs text-slate-500 mt-3">{t("portfolio.reporting.note")}</p>
       </Card>
 
       <Card className="p-4 border shadow-sm">
