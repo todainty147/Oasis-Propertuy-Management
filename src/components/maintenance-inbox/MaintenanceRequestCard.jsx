@@ -175,6 +175,9 @@ function MaintenanceTriageCard({ accountId, request, canManage, t }) {
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-300">
               {t("maintenance.ai.eyebrow")}
             </span>
+            <span className="inline-flex rounded-full border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-300">
+              {t("maintenance.ai.scope.singleRequest")}
+            </span>
             {insight ? (
               <>
                 <span className={`inline-flex rounded-full border px-2 py-1 text-[11px] font-medium ${urgencyClasses[insight.urgency] || urgencyClasses.normal}`}>

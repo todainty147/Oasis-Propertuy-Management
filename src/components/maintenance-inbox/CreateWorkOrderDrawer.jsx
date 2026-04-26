@@ -111,6 +111,9 @@ export default function CreateWorkOrderDrawer({
                   <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-700">
                     {t("maintenance.drawer.ai.eyebrow")}
                   </span>
+                  <span className="inline-flex rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
+                    {t("maintenance.drawer.ai.scope.singleRequest")}
+                  </span>
                   {recommendation ? (
                     <>
                       <span className="inline-flex rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600">

@@ -152,6 +152,9 @@ function AttentionInsightCard({ insight, loading, onRefresh, t }) {
             <span className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700 dark:text-sky-300">
               {t("commandCenter.ai.eyebrow")}
             </span>
+            <span className="inline-flex rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+              {t("commandCenter.ai.scope.portfolio")}
+            </span>
             <span className={`inline-flex rounded-full border px-2 py-1 text-[11px] font-medium ${priorityClasses[insight.priority] || priorityClasses.medium}`}>
               {t(`commandCenter.ai.priority.${insight.priority}`)}
             </span>

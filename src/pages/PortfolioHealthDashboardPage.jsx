@@ -172,6 +172,8 @@ function PropertyHealthExplainerCard({
   const sourceLabel = insight?.source === "openai" ? t("portfolio.ai.sourceOpenAi") : t("portfolio.ai.sourceFallback");
   const confidenceLabel = insight?.confidence ? t(`portfolio.ai.confidence.${insight.confidence}`) : "";
   const categoryLabel = insight?.category ? t(`propertyHealth.status.${insight.category}`) : "";
+  const showPicker = candidates.length > 1;
+  const useSelectPicker = candidates.length > 6;
 
   return (
     <Card className="p-4 border shadow-sm" data-testid="property-health-ai-card">
@@ -203,7 +205,7 @@ function PropertyHealthExplainerCard({
 
       {insight ? (
         <div className="mt-4 space-y-4">
-          {candidates.length > 1 ? (
+          {showPicker ? (
             <div>
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -213,32 +215,52 @@ function PropertyHealthExplainerCard({
                   {t("portfolio.ai.showingOneOf", { count: candidates.length })}
                 </p>
               </div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {candidates.map((candidate) => {
-                  const isActive = String(candidate.propertyId) === String(selectedPropertyId || insight?.propertyId || "");
-                  return (
-                    <button
-                      key={candidate.propertyId}
-                      type="button"
-                      onClick={() => onSelectProperty?.(candidate.propertyId)}
-                      className={`rounded-lg border px-3 py-2 text-left transition-colors ${
-                        isActive
-                          ? "border-sky-300 bg-sky-50 text-sky-900"
-                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      <p className="text-sm font-medium">{candidate.propertyLabel || t("portfolio.ai.defaultPropertyLabel")}</p>
-                      <p className="mt-0.5 text-xs">
-                        {t(`propertyHealth.status.${candidate.category || "healthy"}`)}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
+              {useSelectPicker ? (
+                <label className="mt-2 block">
+                  <span className="sr-only">{t("portfolio.ai.chooseProperty")}</span>
+                  <select
+                    value={selectedPropertyId || insight?.propertyId || ""}
+                    onChange={(event) => onSelectProperty?.(event.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                  >
+                    {candidates.map((candidate) => (
+                      <option key={candidate.propertyId} value={candidate.propertyId}>
+                        {`${candidate.propertyLabel || t("portfolio.ai.defaultPropertyLabel")} - ${t(`propertyHealth.status.${candidate.category || "healthy"}`)}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {candidates.map((candidate) => {
+                    const isActive = String(candidate.propertyId) === String(selectedPropertyId || insight?.propertyId || "");
+                    return (
+                      <button
+                        key={candidate.propertyId}
+                        type="button"
+                        onClick={() => onSelectProperty?.(candidate.propertyId)}
+                        className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+                          isActive
+                            ? "border-sky-300 bg-sky-50 text-sky-900"
+                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <p className="text-sm font-medium">{candidate.propertyLabel || t("portfolio.ai.defaultPropertyLabel")}</p>
+                        <p className="mt-0.5 text-xs">
+                          {t(`propertyHealth.status.${candidate.category || "healthy"}`)}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ) : null}
 
           <div className="flex items-center gap-2 flex-wrap">
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
+              {t("portfolio.ai.scope.singleProperty")}
+            </span>
             {categoryLabel ? (
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
                 {categoryLabel}
@@ -342,6 +364,9 @@ function WeeklyPortfolioAiCard({ insight, loading, onRefresh, t }) {
       {insight ? (
         <div className="mt-4 space-y-4">
           <div className="flex items-center gap-2 flex-wrap">
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
+              {t("portfolio.weeklyAi.scope.portfolio")}
+            </span>
             <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
               {insight.source === "openai" ? t("portfolio.weeklyAi.sourceOpenAi") : t("portfolio.weeklyAi.sourceFallback")}
             </span>
@@ -750,7 +775,7 @@ export default function PortfolioHealthDashboardPage() {
       const reasons = Array.isArray(row?.reasons) ? row.reasons : [];
       return reasons.length > 0 || row?.category === "attention_needed" || row?.category === "high_risk";
     });
-    return (affected.length > 0 ? affected : propertyHealthSummary.lowestProperties || []).slice(0, 6);
+    return affected.length > 0 ? affected : propertyHealthSummary.lowestProperties || [];
   }, [propertyHealthRows, propertyHealthSummary]);
 
   const [selectedExplainerPropertyId, setSelectedExplainerPropertyId] = useState(null);
