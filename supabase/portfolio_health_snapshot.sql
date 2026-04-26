@@ -285,11 +285,15 @@ as $$
   ),
   maintenance as (
     select
-      (select count(*) from scoped_requests where status_norm not in ('closed', 'zamkniete', 'zamknięte')) as open_requests,
       (
         select count(*)
         from scoped_requests
-        where status_norm not in ('closed', 'zamkniete', 'zamknięte')
+        where status_norm in ('open', 'in_progress', 'waiting', 'otwarte', 'w trakcie', 'oczekuje')
+      ) as open_requests,
+      (
+        select count(*)
+        from scoped_requests
+        where status_norm in ('open', 'in_progress', 'waiting', 'otwarte', 'w trakcie', 'oczekuje')
           and priority_norm in ('high', 'critical', 'wysoki', 'krytyczny')
       ) as high_priority_open_requests,
       (
@@ -301,18 +305,18 @@ as $$
       (
         select count(*)
         from scoped_work_orders
-        where status_norm in ('assigned', 'in_progress', 'blocked')
+        where status_norm in ('assigned', 'in_progress', 'blocked', 'przypisane', 'w trakcie', 'zablokowane')
       ) as active_work_orders,
       (
         select count(*)
         from scoped_work_orders
-        where status_norm in ('assigned', 'in_progress', 'blocked')
+        where status_norm in ('assigned', 'in_progress', 'blocked', 'przypisane', 'w trakcie', 'zablokowane')
           and contractor_user_id is null
       ) as work_orders_without_contractor,
       (
         select count(*)
         from scoped_work_orders
-        where status_norm not in ('completed', 'cancelled', 'zakończone', 'anulowane')
+        where status_norm in ('assigned', 'in_progress', 'blocked', 'przypisane', 'w trakcie', 'zablokowane')
           and (contractor_user_id is not null or nullif(coalesce(contractor_name, ''), '') is not null)
           and acknowledgement_due_at is not null
           and acknowledgement_due_at < now()
@@ -328,7 +332,7 @@ as $$
       (
         select count(*)
         from scoped_work_orders
-        where status_norm not in ('completed', 'cancelled', 'zakończone', 'anulowane')
+        where status_norm in ('assigned', 'in_progress', 'blocked', 'przypisane', 'w trakcie', 'zablokowane')
           and created_at <= now() - interval '14 days'
       ) as long_running_repairs,
       (select count(*) from repeat_repair_properties) as repeat_repair_properties,

@@ -83,7 +83,7 @@ as $$
     select
       sp.id as property_id,
       count(*) filter (
-        where lower(coalesce(r.status, '')) not in ('closed', 'zamkniete', 'zamknięte')
+        where lower(coalesce(r.status, '')) in ('open', 'in_progress', 'waiting', 'otwarte', 'w trakcie', 'oczekuje')
       )::bigint as open_request_count,
       count(*) filter (
         where r.created_at >= now() - interval '90 days'
@@ -98,20 +98,20 @@ as $$
     select
       sp.id as property_id,
       count(*) filter (
-        where lower(coalesce(w.status, '')) not in ('completed', 'cancelled', 'closed', 'zakończone', 'zakonczone', 'anulowane')
+        where lower(coalesce(w.status, '')) in ('assigned', 'in_progress', 'blocked', 'przypisane', 'w trakcie', 'zablokowane')
       )::bigint as active_work_order_count,
       count(*) filter (
         where lower(coalesce(w.status, '')) in ('in_progress', 'w trakcie', 'blocked', 'zablokowane')
           and coalesce(w.updated_at, w.created_at) <= now() - interval '5 days'
       )::bigint as stalled_repair_count,
       count(*) filter (
-        where lower(coalesce(w.status, '')) not in ('completed', 'cancelled', 'closed', 'zakończone', 'zakonczone', 'anulowane')
+        where lower(coalesce(w.status, '')) in ('assigned', 'in_progress', 'blocked', 'przypisane', 'w trakcie', 'zablokowane')
           and coalesce(lower(w.acknowledgement_status), 'pending') not in ('acknowledged', 'not_required')
           and w.acknowledgement_due_at is not null
           and w.acknowledgement_due_at < now()
       )::bigint as ack_overdue_count,
       count(*) filter (
-        where lower(coalesce(w.status, '')) not in ('completed', 'cancelled', 'closed', 'zakończone', 'zakonczone', 'anulowane')
+        where lower(coalesce(w.status, '')) in ('assigned', 'in_progress', 'blocked', 'przypisane', 'w trakcie', 'zablokowane')
           and w.created_at <= now() - interval '14 days'
       )::bigint as long_running_repair_count,
       coalesce(sum(

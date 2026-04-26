@@ -80,24 +80,54 @@ as $$
   aging_counts as (
     select jsonb_build_object(
       'b0_24',
-        (select count(*) from req where status_norm <> 'closed' and created_at > now() - interval '24 hours'),
+        (
+          select count(*)
+          from req
+          where status_norm in ('open', 'in_progress', 'waiting', 'otwarte', 'w trakcie', 'oczekuje')
+            and created_at > now() - interval '24 hours'
+        ),
       'b24_48',
-        (select count(*) from req where status_norm <> 'closed' and created_at <= now() - interval '24 hours' and created_at > now() - interval '48 hours'),
+        (
+          select count(*)
+          from req
+          where status_norm in ('open', 'in_progress', 'waiting', 'otwarte', 'w trakcie', 'oczekuje')
+            and created_at <= now() - interval '24 hours'
+            and created_at > now() - interval '48 hours'
+        ),
       'b48_72',
-        (select count(*) from req where status_norm <> 'closed' and created_at <= now() - interval '48 hours' and created_at > now() - interval '72 hours'),
+        (
+          select count(*)
+          from req
+          where status_norm in ('open', 'in_progress', 'waiting', 'otwarte', 'w trakcie', 'oczekuje')
+            and created_at <= now() - interval '48 hours'
+            and created_at > now() - interval '72 hours'
+        ),
       'b72_plus',
-        (select count(*) from req where status_norm <> 'closed' and created_at <= now() - interval '72 hours')
+        (
+          select count(*)
+          from req
+          where status_norm in ('open', 'in_progress', 'waiting', 'otwarte', 'w trakcie', 'oczekuje')
+            and created_at <= now() - interval '72 hours'
+        )
     ) as aging
   )
   select
-    (select count(*) from req where status_norm <> 'closed') as open_requests,
-    (select count(*) from wo where status_norm = 'in_progress') as active_work_orders,
+    (
+      select count(*)
+      from req
+      where status_norm in ('open', 'in_progress', 'waiting', 'otwarte', 'w trakcie', 'oczekuje')
+    ) as open_requests,
+    (
+      select count(*)
+      from wo
+      where status_norm in ('assigned', 'in_progress', 'blocked', 'przypisane', 'w trakcie', 'zablokowane')
+    ) as active_work_orders,
     (select count(*) from req where status_norm = 'waiting') as awaiting_action,
     (select count(*) from req where status_norm = 'resolved') as resolved_pending_closure,
     (
       select count(*)
       from req
-      where status_norm <> 'closed'
+      where status_norm in ('open', 'in_progress', 'waiting', 'otwarte', 'w trakcie', 'oczekuje')
         and priority_norm in ('high', 'urgent')
     ) as open_high_priority,
     (
@@ -114,7 +144,7 @@ as $$
     (
       select count(*)
       from wo
-      where status_norm not in ('completed', 'cancelled', 'zakończone', 'anulowane')
+      where status_norm in ('assigned', 'in_progress', 'blocked', 'przypisane', 'w trakcie', 'zablokowane')
         and (contractor_user_id is not null or nullif(coalesce(contractor_name, ''), '') is not null)
         and acknowledgement_due_at is not null
         and acknowledgement_due_at < now()
@@ -130,7 +160,7 @@ as $$
     (
       select count(*)
       from wo
-      where status_norm not in ('completed', 'cancelled', 'zakończone', 'anulowane')
+      where status_norm in ('assigned', 'in_progress', 'blocked', 'przypisane', 'w trakcie', 'zablokowane')
         and created_at <= now() - interval '14 days'
     ) as long_running_repairs,
     (select count(*) from recent_repair_properties) as repeat_repair_properties,

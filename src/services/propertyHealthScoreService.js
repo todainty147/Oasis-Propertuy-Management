@@ -59,11 +59,17 @@ function isOverduePayment(row) {
 }
 
 function isOpenRequest(row) {
-  return !["closed", "zamkniete", "zamknięte"].includes(normalize(row?.status));
+  return ["open", "in_progress", "waiting", "otwarte", "w trakcie", "oczekuje"].includes(normalize(row?.status));
 }
 
 function isFinalWorkOrder(row) {
   return ["completed", "cancelled", "closed", "zakończone", "zakonczone", "anulowane"].includes(
+    normalize(row?.status),
+  );
+}
+
+function isActiveWorkOrder(row) {
+  return ["assigned", "in_progress", "blocked", "przypisane", "w trakcie", "zablokowane"].includes(
     normalize(row?.status),
   );
 }
@@ -123,7 +129,7 @@ export function calculatePropertyOperationalHealth({
   }, 0);
 
   const openRequests = maintenanceRequests.filter(isOpenRequest);
-  const activeWorkOrders = workOrders.filter((row) => !isFinalWorkOrder(row));
+  const activeWorkOrders = workOrders.filter(isActiveWorkOrder);
 
   const stalledRepairs = activeWorkOrders.filter((row) => {
     if (!isInProgressLikeWorkOrder(row)) return false;
