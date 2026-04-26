@@ -5,7 +5,7 @@ import Card from "../components/Card";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useI18n } from "../context/I18nContext";
 import { useAccount } from "../context/AccountContext";
-import { getAccountSandboxStatus } from "../services/selfServeSignupService";
+import { getAccountSandboxStatus, resetDemoAccount, seedDemoAccountFixtures } from "../services/selfServeSignupService";
 
 const STEP_META = [
   { key: "step1", icon: Home, ctaPath: "/properties", ctaKey: "cta.addProperty" },
@@ -20,6 +20,9 @@ export default function LandlordOnboardingPage() {
   const { setTitle } = usePageTitle();
   const { activeAccountId, activeRole } = useAccount();
   const [sandboxStatus, setSandboxStatus] = useState(null);
+  const [sandboxBusy, setSandboxBusy] = useState(false);
+  const [sandboxActionMessage, setSandboxActionMessage] = useState("");
+  const [sandboxActionError, setSandboxActionError] = useState("");
 
   const role = String(activeRole ?? "").toLowerCase();
   const isOwner = role === "owner";
@@ -61,6 +64,43 @@ export default function LandlordOnboardingPage() {
     );
   }
 
+  async function refreshSandboxStatus() {
+    if (!activeAccountId || !isOwner) return;
+    const status = await getAccountSandboxStatus(activeAccountId);
+    setSandboxStatus(status);
+  }
+
+  async function handleSandboxAction() {
+    if (!activeAccountId || !sandboxStatus?.is_demo) return;
+
+    setSandboxBusy(true);
+    setSandboxActionError("");
+    setSandboxActionMessage("");
+
+    try {
+      const result = sandboxStatus.seeded_fixture_version
+        ? await resetDemoAccount(activeAccountId)
+        : await seedDemoAccountFixtures(activeAccountId, { forceReset: false });
+
+      await refreshSandboxStatus();
+      setSandboxActionMessage(
+        t(
+          sandboxStatus.seeded_fixture_version
+            ? "onboarding.sandbox.resetSuccess"
+            : "onboarding.sandbox.seedSuccess",
+          {
+            properties: result.property_count,
+            requests: result.maintenance_request_count,
+          },
+        ),
+      );
+    } catch (error) {
+      setSandboxActionError(error?.message || t("onboarding.sandbox.actionError"));
+    } finally {
+      setSandboxBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-6 pb-8 pt-3 lg:pt-4">
       <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-sky-50 p-6 shadow-lg dark:border-slate-800 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950">
@@ -98,6 +138,11 @@ export default function LandlordOnboardingPage() {
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700 dark:text-slate-200">
             {t("onboarding.sandbox.body")}
           </p>
+          <p className="mt-3 text-xs font-medium text-amber-900 dark:text-amber-100">
+            {sandboxStatus.seeded_fixture_version
+              ? t("onboarding.sandbox.ready", { version: sandboxStatus.seeded_fixture_version })
+              : t("onboarding.sandbox.notSeeded")}
+          </p>
           {sandboxStatus.demo_expires_at ? (
             <p className="mt-3 text-xs font-medium text-amber-800 dark:text-amber-100">
               {t("onboarding.sandbox.expires", {
@@ -105,6 +150,26 @@ export default function LandlordOnboardingPage() {
               })}
             </p>
           ) : null}
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleSandboxAction}
+              disabled={sandboxBusy}
+              className="inline-flex items-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-400 dark:bg-white dark:text-slate-900 dark:hover:bg-amber-100"
+            >
+              {sandboxBusy
+                ? t("onboarding.sandbox.working")
+                : sandboxStatus.seeded_fixture_version
+                  ? t("onboarding.sandbox.resetCta")
+                  : t("onboarding.sandbox.seedCta")}
+            </button>
+            {sandboxActionMessage ? (
+              <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">{sandboxActionMessage}</p>
+            ) : null}
+            {sandboxActionError ? (
+              <p className="text-xs font-medium text-red-700 dark:text-red-300">{sandboxActionError}</p>
+            ) : null}
+          </div>
         </section>
       ) : null}
 

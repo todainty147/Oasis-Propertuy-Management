@@ -340,6 +340,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply account sandbox demo seed overlay",
+    file: path.join(supabaseDir, "account_sandbox_demo_seed.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply self-serve landlord signup overlay",
     file: path.join(supabaseDir, "self_serve_landlord_signup.sql"),
     onErrorStop: true,

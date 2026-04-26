@@ -11,12 +11,28 @@ Phase 3 starts with a small, explicit account-level sandbox contract.
 
 ## Current Product Behavior
 
-The signup page can mark a newly created landlord account as a sandbox. The onboarding page shows a demo-mode notice when the active account has sandbox status.
+The signup page can mark a newly created landlord account as a sandbox. When the signup succeeds, OASIS now attempts to seed a deterministic demo dataset for that new account.
 
-This first slice does not seed demo fixtures or reset data yet. That is deliberate: the account identity layer now exists, so reset/fixture automation can target only accounts explicitly marked as demo.
+The onboarding page shows a demo-mode notice when the active account has sandbox status and gives the owner a safe way to:
 
-## Next Slice
+- load demo fixtures if the initial seed did not complete
+- reset the demo account back to the default seeded state
 
-- Create deterministic demo fixture seeding for sandbox accounts.
-- Add reset-request semantics that only operate on `mode = 'demo'`.
-- Add E2E coverage for the signup-to-onboarding demo path once fixture reset is available.
+The seeded demo dataset currently includes:
+
+- occupied and vacant properties
+- a tenant
+- a contractor directory entry
+- due and overdue payments
+- open and waiting maintenance requests
+- an assigned work order
+- compliance items
+- a lease
+- operating expense facts
+- a document request when the document-request tables are available
+
+## Remaining Follow-up
+
+- Expand demo fixtures further if we want deeper document/signature examples or richer tenant-side walkthroughs.
+- Decide whether demo expiry should archive, disable, or soft-warn before reset.
+- Add any support-team tooling needed for remote reseed / inspection workflows.

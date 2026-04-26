@@ -96,6 +96,11 @@ const verificationChecks = [
     sql: "select to_regprocedure('public.get_account_sandbox_status(uuid)') is not null;",
   },
   {
+    label: "Account sandbox fixture seed RPC",
+    why: "Confirms demo accounts can be seeded and reset from a manager-safe server-side contract.",
+    sql: "select to_regprocedure('public.seed_demo_account_fixtures(uuid,boolean)') is not null and to_regprocedure('public.reset_demo_account(uuid)') is not null;",
+  },
+  {
     label: "Documents bucket",
     why: "Confirms the checked-in private documents bucket exists for document flows.",
     sql: "select exists (select 1 from storage.buckets where id = 'documents');",

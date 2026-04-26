@@ -419,6 +419,24 @@ export function parseAccountSandboxStatusRow(row) {
   };
 }
 
+export function parseSandboxFixtureSeedResult(row) {
+  const value = assertRecord(row, "sandbox fixture seed result");
+  return {
+    account_id: toNullableString(value.account_id),
+    seeded_fixture_version: toNullableString(value.seeded_fixture_version),
+    reset_performed: toBooleanOr(value.reset_performed),
+    property_count: toNumberOr(value.property_count),
+    tenant_count: toNumberOr(value.tenant_count),
+    contractor_count: toNumberOr(value.contractor_count),
+    payment_count: toNumberOr(value.payment_count),
+    maintenance_request_count: toNumberOr(value.maintenance_request_count),
+    work_order_count: toNumberOr(value.work_order_count),
+    compliance_item_count: toNumberOr(value.compliance_item_count),
+    lease_count: toNumberOr(value.lease_count),
+    document_request_count: toNumberOr(value.document_request_count),
+  };
+}
+
 export function parsePaymentRow(row) {
   const value = assertRecord(row, "payment row");
   return {

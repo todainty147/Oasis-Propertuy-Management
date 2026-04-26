@@ -123,12 +123,25 @@ begin
     v_new_account_id,
     case when coalesce(p_sandbox_mode, false) then 'demo' else 'production' end,
     'active',
-    case when coalesce(p_sandbox_mode, false) then 'self-serve-v1' else null end,
+    null,
     case when coalesce(p_sandbox_mode, false) then now() + interval '14 days' else null end,
     v_uid,
     v_uid
   )
   on conflict (account_id) do nothing;
+
+  if coalesce(p_sandbox_mode, false) then
+    begin
+      perform public.seed_demo_account_fixtures(v_new_account_id, false);
+    exception
+      when others then
+        -- Keep account creation successful even if demo seeding needs a retry from onboarding.
+        update public.account_sandbox_profiles
+        set lifecycle_status = 'active',
+            updated_by = v_uid
+        where account_id = v_new_account_id;
+    end;
+  end if;
 
   select
     coalesce(asp.mode, 'production'),

@@ -26,6 +26,7 @@ import {
   parseRpcRows,
   parseRootAccountMutationRow,
   parseRootAccountRow,
+  parseSandboxFixtureSeedResult,
   parsePropertyOperationalHealthSnapshotRow,
   parseSelfServeLandlordAccountResult,
   parseTenantActivityFeedRow,
@@ -240,10 +241,24 @@ describe("rpc contracts", () => {
       account_id: "account-3",
       mode: "DEMO",
       lifecycle_status: "RESET_REQUESTED",
-      seeded_fixture_version: "self-serve-v1",
+      seeded_fixture_version: "demo-fixtures-v1",
       demo_expires_at: "2026-04-26T00:00:00Z",
       reset_pending: "true",
       is_demo: "true",
+    });
+    const sandboxSeed = parseSandboxFixtureSeedResult({
+      account_id: "account-3",
+      seeded_fixture_version: "demo-fixtures-v1",
+      reset_performed: "false",
+      property_count: "2",
+      tenant_count: "1",
+      contractor_count: "1",
+      payment_count: "2",
+      maintenance_request_count: "2",
+      work_order_count: "1",
+      compliance_item_count: "2",
+      lease_count: "1",
+      document_request_count: "1",
     });
 
     expect(rootAccount.is_root).toBe(true);
@@ -255,6 +270,8 @@ describe("rpc contracts", () => {
     expect(selfServe.sandbox_mode).toBe("demo");
     expect(sandboxStatus.mode).toBe("demo");
     expect(sandboxStatus.reset_pending).toBe(true);
+    expect(sandboxSeed.property_count).toBe(2);
+    expect(sandboxSeed.document_request_count).toBe(1);
   });
 
   it("normalizes custom role management rpc rows", () => {

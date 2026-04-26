@@ -73,6 +73,7 @@ const OVERLAY_SEQUENCE = [
   "fn_documents_notify_uploaded_patch.sql",
   "notifications_rpc_grants.sql",
   "payment_write_authorization.sql",
+  "account_sandbox_demo_seed.sql",
   "security_denied_event_stream.sql",
   "security_observability_events.sql",
   "api_rate_limits.sql",

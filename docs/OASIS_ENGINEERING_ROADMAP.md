@@ -104,7 +104,7 @@ The product gap is also more specific now than this document previously captured
 | --- | --- | --- | --- |
 | Backup / DR / RTO / RPO | Availability is the least mature control area. The repo says PITR is database-wide, account-level recovery is not implemented, and restore drills/RTO/RPO are not evidenced. | [OASIS_WHITEPAPER_V5.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OASIS_WHITEPAPER_V5.md), [OASIS_ISO27001_CIA_AUDIT.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OASIS_ISO27001_CIA_AUDIT.md) | Define RTO/RPO, backup ownership, restore drill cadence, production restore runbook, and an account-level export/recovery decision. |
 | Deployment / release operations | CI is strong, but production promotion remains operator-driven. Staging smoke is manual and docs repeatedly warn that SQL overlays and Edge Function deploys must stay synchronized. | [.github/workflows/tests.yml](/mnt/c/Users/Home/oasisrentalmanagementapp/.github/workflows/tests.yml), [.github/workflows/staging-security-smoke.yml](/mnt/c/Users/Home/oasisrentalmanagementapp/.github/workflows/staging-security-smoke.yml), [SCHEMA_WORKFLOW.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/SCHEMA_WORKFLOW.md) | Create a release checklist with migration/apply verification, Edge Function redeploy list, rollback steps, staging smoke evidence, and production signoff. |
-| Sandbox / demo onboarding | The sandbox identity layer exists, but fixture seeding and reset semantics are explicitly deferred. This is high-leverage for sales demos, onboarding, QA, and support. | [ACCOUNT_SANDBOX_PROFILES.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/ACCOUNT_SANDBOX_PROFILES.md), [LandlordSignup.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/LandlordSignup.jsx), [LandlordOnboardingPage.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/LandlordOnboardingPage.jsx) | Add deterministic demo data seeding, reset-demo-account semantics, demo lifecycle rules, and E2E coverage for signup-to-demo. |
+| Sandbox / demo onboarding | The first-value experience is now real, but lifecycle and support tooling still need maturity. This remains high-leverage for sales demos, onboarding, QA, and support. | [ACCOUNT_SANDBOX_PROFILES.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/ACCOUNT_SANDBOX_PROFILES.md), [account_sandbox_demo_seed.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/account_sandbox_demo_seed.sql), [LandlordSignup.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/LandlordSignup.jsx), [LandlordOnboardingPage.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/LandlordOnboardingPage.jsx) | Expand fixture breadth, define demo expiry/archive policy, add support-side reseed tooling, and keep signup-to-demo coverage current. |
 | Support operations | Support runbooks and root telemetry exist, but the repo does not evidence a ticket workflow, support escalation model, or recurring access-review evidence beyond security alert response ownership. | [docs/runbooks](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks), [RootTelemetryPage.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/RootTelemetryPage.jsx), [security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md) | Define support triage workflow, ticket fields, escalation owner, customer communication templates, and quarterly privileged access review. |
 | Production monitoring execution | Golden signals and alert thresholds are documented, but repo evidence frames them as launch guidance, not proven production alerting or operated review routines. | [OPERATIONAL_GOLDEN_SIGNALS.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OPERATIONAL_GOLDEN_SIGNALS.md), [security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md) | Turn documented thresholds into daily checks, weekly trend review, incident ticket linkage, and named alert ownership. |
 
@@ -910,7 +910,7 @@ Recommended implementation notes:
 | AI weekly summary, document assistant, finance explainer, and security copilot | Partial to Strong depending on surface | Medium to High | Later, after foundation proves value | These are credible follow-on AI layers, but only after the control plane, usage limits, and first operator-facing slices are stable. |
 | Natural-language operational query assistant | Partial but higher risk | High | Much later | Valuable, but it should sit on top of an approved-RPC intent router and never be allowed to generate raw SQL or free-scope cross-account queries. |
 | Tenant/account rate limiting | Partial | Medium | Now, limited Edge/API scope | `account_id` scoping exists everywhere, so the identity model supports quotas and limits. Start with narrow provider/API abuse protection before considering infrastructure-level quotas. |
-| Demo data / self-service sandbox | Strong | Medium | Later, product-driven | The current schema already supports seeded accounts, properties, tenants, payments, work orders, and documents. What is missing is a productized onboarding experience around those fixtures. |
+| Demo data / self-service sandbox | Strong | Medium | Now in first shipped form | The sandbox identity layer, seeded demo data, reset semantics, and onboarding controls now exist. Remaining work is fixture breadth, expiry policy, and support tooling rather than first-value viability. |
 | Materialized feed caching / Redis/KV caching | Strong | Medium | Later, after measurement | Technically feasible now, but should be driven by real latency/traffic evidence. Snapshot RPCs and account scoping make this viable when needed. |
 | Declarative partitioning by account | Partial but expensive | High | Much later, only with proven scale pain | Most core tables carry `account_id`, so partitioning is possible in principle. In practice, retrofitting partitioning into an existing RLS-heavy Supabase/Postgres app would be expensive and operationally risky unless production scale clearly demands it. |
 
@@ -1205,13 +1205,13 @@ Feasible and product-useful.
 
 **Current fit**
 
-OASIS already has deterministic fixture patterns locally and in staging. The schema supports this well. Phase 3 now has the first production-safe sandbox identity layer: `account_sandbox_profiles`, `get_account_sandbox_status(...)`, and an optional self-serve signup flag that can mark new landlord accounts as demo/sandbox without changing existing production account behavior.
+OASIS already has deterministic fixture patterns locally and in staging. The schema supports this well. Phase 3 now has the production-safe sandbox identity layer, deterministic demo fixture seeding, reset semantics, and onboarding controls for demo accounts: `account_sandbox_profiles`, `get_account_sandbox_status(...)`, `seed_demo_account_fixtures(...)`, `reset_demo_account(...)`, and an optional self-serve signup flag that can mark new landlord accounts as demo/sandbox without changing existing production account behavior.
 
 **What is missing**
 
-- demo fixture seeding behind the sandbox flag
-- sandbox lifecycle UX
-- demo reset semantics
+- richer demo fixture breadth if we want deeper document/signature walkthroughs
+- more explicit expiry/archive lifecycle once demo accounts age out
+- support-facing reseed / inspection tooling beyond the current owner-facing UX
 
 **Effort**
 
@@ -1322,3 +1322,55 @@ The best near-term investments are:
 6. a bounded AI foundation and Attention Insight Card only after the current trust-critical document/signature and runtime-hardening work is complete
 
 The main item to defer is partitioning. It is the one recommendation that would likely require material architectural and operational effort relative to the value it would deliver today.
+
+## Repo-Backed Feature Completion Snapshot
+
+This snapshot compares the roadmap against checked-in implementation evidence across app routes, SQL overlays, Edge Functions, tests, runbooks, and the marketing site. It is meant to keep the roadmap honest about what is fully shipped, what is only partially productized, and what is still intentionally deferred.
+
+### Done / strong
+
+| Slice | Repo-backed status | Evidence |
+| --- | --- | --- |
+| Core landlord operations | Strong. Properties, tenants, finance, documents, maintenance, command center, and portfolio health are all materially represented in the product shell. | [App.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/App.jsx), [src/pages](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages) |
+| Security and audit foundation | Strong. OASIS has a real audit and observability spine with root-safe/admin-safe surfaces and broad security test coverage. | [security_audit_ledger.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/security_audit_ledger.sql), [security_observability_events.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/security_observability_events.sql), [security_anomaly_alerts.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/security_anomaly_alerts.sql), [tests/security](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/security) |
+| Document operations and agreement workflow | Strong foundation and materially shipped. Template repository, document intake, review flow, agreement packets, provider readiness, webhook sync, and DocuSeal integration are all present. | [document_requests.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/document_requests.sql), [document_packets.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/document_packets.sql), [document_signature_readiness.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/document_signature_readiness.sql), [document_signature_docuseal.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/document_signature_docuseal.sql), [documentPackets.test.js](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/integration/documentPackets.test.js) |
+| AI Phase 1 operator surfaces | Strong. The first operator-facing AI wave is now real and sits behind a shared control plane with deterministic fallback. | [generate-attention-insight](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions/generate-attention-insight), [generate-property-health-explainer](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions/generate-property-health-explainer), [generate-maintenance-triage](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions/generate-maintenance-triage), [generate-contractor-recommendation](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions/generate-contractor-recommendation), [generate-weekly-portfolio-summary](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions/generate-weekly-portfolio-summary) |
+| Tenant portal foundation | Strong foundation. Dashboard overview, payments visibility, documents, maintenance, and timeline are materially implemented. | [tenant-quick-start.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/tenant-quick-start.md), [tenant_activity_feed.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/tenant_activity_feed.sql), [TenantPortalLayout.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/layout/TenantPortalLayout.jsx) |
+| Marketing site v1 | Strong enough for launch-stage storytelling. The marketing site exists, has current screenshots, and reflects the major product pillars now in repo. | [marketing-site](/mnt/c/Users/Home/oasisrentalmanagementapp/marketing-site), [marketing-screenshots.spec.js](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/e2e/marketing-screenshots.spec.js) |
+
+### Partially done
+
+| Slice | What is done | What is still missing | Evidence |
+| --- | --- | --- | --- |
+| Demo / sandbox experience | Sandbox identity/profile layer exists. Self-serve signup can mark an account as demo. Signup now attempts deterministic seeding and onboarding can load or reset demo fixtures. | Broader fixture coverage, lifecycle UX beyond simple reset, expiry policy, and deeper support/admin tooling. | [account_sandbox_profiles.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/account_sandbox_profiles.sql), [account_sandbox_demo_seed.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/account_sandbox_demo_seed.sql), [self_serve_landlord_signup.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/self_serve_landlord_signup.sql), [LandlordSignup.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/LandlordSignup.jsx), [LandlordOnboardingPage.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/LandlordOnboardingPage.jsx) |
+| Tenant portal depth | Tenant portal is credible and no longer a shell. Payments, maintenance, documents, and timeline are present. | Richer timeline depth, maintenance history, document semantics, and the later premium/standalone layer remain future work. | [TENANT_PORTAL_RUNTIME_HARDENING_SPRINT_BRIEF_2026-04-22.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/TENANT_PORTAL_RUNTIME_HARDENING_SPRINT_BRIEF_2026-04-22.md), [TenantPortalLayout.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/layout/TenantPortalLayout.jsx) |
+| Payment collection | Payment visibility and landlord-configured tenant payment setup are implemented. | Native payment rails, autopay, and true payment execution remain intentionally deferred. | [account_payment_collection_settings.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/account_payment_collection_settings.sql), [tenant-payment-setup.spec.js](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/e2e/tenant-payment-setup.spec.js) |
+| Automation playbooks | There is a real playbook schema and UI shell. | This still reads as a strong foundation rather than a fully mature automation product with deeper lifecycle and operator routines. | [automation_playbooks.sql](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/automation_playbooks.sql), [PlaybooksPage.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/pages/PlaybooksPage.jsx) |
+| Support / release / production operations | CI, smoke checks, runbooks, and operational guidance exist. | Release signoff discipline, support workflow, escalation ownership, and operated production routines remain more doc-backed than productized. | [.github/workflows/tests.yml](/mnt/c/Users/Home/oasisrentalmanagementapp/.github/workflows/tests.yml), [.github/workflows/staging-security-smoke.yml](/mnt/c/Users/Home/oasisrentalmanagementapp/.github/workflows/staging-security-smoke.yml), [docs/runbooks](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks) |
+| Accessibility and browser confidence | Browser and accessibility discipline are real and improving. | Coverage breadth still needs expansion across the main commercial flows. | [tests/e2e/README.md](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/e2e/README.md), [tests/e2e](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/e2e) |
+
+### Missing or intentionally later
+
+| Slice | Repo-backed status | Evidence |
+| --- | --- | --- |
+| AI message drafting | Not yet implemented. Roadmap still places it as the next AI slice after the first operator wave. | [OASIS_ENGINEERING_ROADMAP.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OASIS_ENGINEERING_ROADMAP.md) |
+| Document AI assistant | Not yet implemented and intentionally later than the current document/signature hardening work. | [OASIS_ENGINEERING_ROADMAP.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OASIS_ENGINEERING_ROADMAP.md) |
+| Finance AI explainer | Not yet implemented. | [OASIS_ENGINEERING_ROADMAP.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OASIS_ENGINEERING_ROADMAP.md) |
+| Security / audit copilot | Not yet implemented. | [OASIS_ENGINEERING_ROADMAP.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OASIS_ENGINEERING_ROADMAP.md) |
+| Natural-language operational query | Not yet implemented and intentionally kept for a later, more controlled phase. | [OASIS_ENGINEERING_ROADMAP.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OASIS_ENGINEERING_ROADMAP.md) |
+| Native payment rails / autopay | Not repo-backed today. Payment setup exists, but execution remains a deliberate later expansion. | [tenant-payment-setup.spec.js](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/e2e/tenant-payment-setup.spec.js), [OASIS_ENGINEERING_ROADMAP.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OASIS_ENGINEERING_ROADMAP.md) |
+| Premium standalone tenant portal | Not yet. The current portal is a strong shared-product foundation, not a distinct premium product layer. | [TenantPortal Roadmap](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OASIS_ENGINEERING_ROADMAP.md) |
+| CMS / content operations platform | Not present by design for the current marketing stage. | [marketing-site/README.md](/mnt/c/Users/Home/oasisrentalmanagementapp/marketing-site/README.md) |
+| Advanced SIEM / automated paging | Not present by design at the current operating stage. | [security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md), [HOSTED_SECURITY_LOG_SINK.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/HOSTED_SECURITY_LOG_SINK.md) |
+
+### Product management read
+
+The main gap is no longer "the repo lacks feature categories." The main gap is that a few high-value slices are only partially productized:
+
+1. demo/sandbox first-value experience
+2. payment execution beyond visibility and setup
+3. tenant portal depth beyond the current strong foundation
+4. support, release, and production operating discipline
+5. product analytics and funnel measurement
+
+This matters because OASIS is now broad enough that the next maturity risk is not missing pages. It is trust, first-value speed, recovery, and operational clarity.

@@ -339,11 +339,25 @@ describe.skipIf(!isIntegrationHarnessConfigured())("account owner contact and se
       account_id: createdRow.account_id,
       mode: "demo",
       lifecycle_status: "active",
-      seeded_fixture_version: "self-serve-v1",
+      seeded_fixture_version: "demo-fixtures-v1",
       is_demo: true,
       reset_pending: false,
     });
     expect(statusRow.demo_expires_at).toBeTruthy();
+
+    const propertyCount = await admin
+      .from("properties")
+      .select("id", { count: "exact", head: true })
+      .eq("account_id", createdRow.account_id);
+    expect(propertyCount.error).toBeNull();
+    expect(propertyCount.count).toBeGreaterThanOrEqual(2);
+
+    const requestCount = await admin
+      .from("maintenance_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("account_id", createdRow.account_id);
+    expect(requestCount.error).toBeNull();
+    expect(requestCount.count).toBeGreaterThanOrEqual(2);
 
     const profileLookup = await admin
       .from("account_sandbox_profiles")
@@ -356,7 +370,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("account owner contact and se
       account_id: createdRow.account_id,
       mode: "demo",
       lifecycle_status: "active",
-      seeded_fixture_version: "self-serve-v1",
+      seeded_fixture_version: "demo-fixtures-v1",
     });
   });
 
