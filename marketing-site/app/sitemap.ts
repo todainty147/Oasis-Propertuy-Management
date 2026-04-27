@@ -5,6 +5,8 @@ import { siteConfig } from "../content/site";
 
 const routes = [
   "",
+  "/pl",
+  "/de",
   "/pricing",
   "/features",
   "/features/tenant-management",

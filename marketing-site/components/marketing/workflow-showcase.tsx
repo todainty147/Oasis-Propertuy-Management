@@ -14,10 +14,12 @@ type WorkflowItem = {
 export function WorkflowShowcase({
   title,
   body,
+  itemCtaLabel = "Explore this workflow",
   items,
 }: {
   title: string;
   body: string;
+  itemCtaLabel?: string;
   items: WorkflowItem[];
 }) {
   return (
@@ -44,7 +46,7 @@ export function WorkflowShowcase({
                 </ul>
                 <div className="button-row">
                   <Link href={item.href} className="button button-secondary">
-                    Explore this workflow
+                    {itemCtaLabel}
                   </Link>
                 </div>
               </div>

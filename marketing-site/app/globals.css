@@ -145,9 +145,37 @@ a {
 .site-nav {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 1.1rem;
   font: 600 0.95rem/1.2 var(--font-sans);
   color: var(--muted);
+}
+
+.language-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+}
+
+.language-switcher__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.1rem;
+  min-height: 2rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 6px;
+  color: var(--muted);
+  font: 700 0.78rem/1 var(--font-sans);
+}
+
+.language-switcher__link--active {
+  background: var(--brand);
+  color: #fff;
 }
 
 .logo {
@@ -602,6 +630,14 @@ a {
   .site-nav,
   .footer-links {
     flex-wrap: wrap;
+  }
+
+  .site-nav {
+    justify-content: center;
+  }
+
+  .language-switcher {
+    order: 99;
   }
 
   .hero {

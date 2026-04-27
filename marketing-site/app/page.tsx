@@ -1,28 +1,23 @@
 import type { Metadata } from "next";
 
-import { ContentSection } from "../components/marketing/content-section";
-import { FeatureGrid } from "../components/marketing/feature-grid";
-import { FinalCta } from "../components/marketing/final-cta";
-import { HeroSection } from "../components/marketing/hero-section";
-import { ProductPreview } from "../components/marketing/product-preview";
-import { WorkflowShowcase } from "../components/marketing/workflow-showcase";
-import { homepageContent } from "../content/homepage";
+import { MarketingHomePage } from "../components/marketing/home-page";
+import { homepageContentByLocale } from "../content/homepage";
 import { buildMetadata } from "../lib/metadata";
 
-export const metadata: Metadata = buildMetadata(homepageContent.seo);
+const englishHomepage = homepageContentByLocale.en;
+
+export const metadata: Metadata = buildMetadata({
+  title: englishHomepage.seo.title,
+  description: englishHomepage.seo.description,
+  canonical: englishHomepage.seo.canonicalPath,
+  languages: {
+    en: "/",
+    pl: "/pl",
+    de: "/de",
+    "x-default": "/",
+  },
+});
 
 export default function HomePage() {
-  return (
-    <>
-      <HeroSection {...homepageContent.hero} />
-      <ContentSection {...homepageContent.problemSection} />
-      <FeatureGrid {...homepageContent.solutionSection} />
-      <ProductPreview {...homepageContent.productPreview} />
-      <ContentSection {...homepageContent.healthSection} />
-      <ContentSection {...homepageContent.tenantPortalSection} />
-      <WorkflowShowcase {...homepageContent.workflowSection} />
-      <ContentSection {...homepageContent.securitySection} />
-      <FinalCta {...homepageContent.finalCta} />
-    </>
-  );
+  return <MarketingHomePage locale="en" />;
 }
