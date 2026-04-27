@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
 import ContractorAttachmentsPanel from "./work-orders/ContractorAttachmentsPanel";
+import ExternalMarketplacePanel from "./work-orders/ExternalMarketplacePanel";
 import { useAccount } from "../context/AccountContext";
 import {
   approveWorkOrderTenantCancellation,
@@ -210,7 +211,7 @@ function PaginationFooter({ page, totalPages, totalCount, pageSize, onPrev, onNe
 
 export default function WorkOrdersSection({ propertyId }) {
   const { activeAccountId, activeRole } = useAccount();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
 
   // ✅ NEXT-4: allow deep-link from Maintenance Requests list
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1496,6 +1497,14 @@ export default function WorkOrdersSection({ propertyId }) {
             {selectedWO.notes && (
               <div className="bg-slate-50 border rounded-lg p-3 text-sm text-slate-700 whitespace-pre-wrap">{selectedWO.notes}</div>
             )}
+
+            <ExternalMarketplacePanel
+              key={`${activeAccountId || "no-account"}:${selectedWO.id}:${selectedWO?.properties?.country_code || "unknown"}`}
+              accountId={activeAccountId}
+              workOrder={selectedWO}
+              canManage={canManage}
+              lang={lang}
+            />
 
             {/* ✅ B3 Financials */}
             <div className="border rounded-xl p-4 bg-white">

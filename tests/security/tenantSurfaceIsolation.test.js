@@ -161,6 +161,8 @@ describe("tenant surface isolation contracts", () => {
 
     expect(workOrdersSource).toContain("const canManage = useMemo(() => isManageRole(role), [role]);");
     expect(workOrdersSource).not.toContain("isManageRole(role, { isRootOperator })");
+    expect(workOrdersSource).toContain("<ExternalMarketplacePanel");
+    expect(workOrdersSource).toContain("lang={lang}");
 
     expect(workOrderDetailsSource).toContain("const canManage = useMemo(() => isManageRole(role), [role]);");
     expect(workOrderDetailsSource).not.toContain("isManageRole(role, { isRootOperator })");
