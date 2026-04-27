@@ -410,12 +410,19 @@ export async function submitMarketplaceJobToProvider({ accountId, marketplaceJob
   }
 
   return {
+    ok: data?.ok !== false,
     providerKey: String(data?.providerKey || ""),
     marketplaceJobId: String(data?.marketplaceJobId || marketplaceJobId),
     status: String(data?.status || ""),
     message: String(data?.message || "").trim(),
     liveSubmissionAvailable: data?.liveSubmissionAvailable === true,
     manualFallbackRecommended: data?.manualFallbackRecommended !== false,
+    retryable: data?.retryable === true,
+    attemptCount: Number.isFinite(Number(data?.attemptCount)) ? Number(data.attemptCount) : null,
+    maxAttempts: Number.isFinite(Number(data?.maxAttempts)) ? Number(data.maxAttempts) : null,
+    externalJobId: typeof data?.externalJobId === "string" ? data.externalJobId.trim() : "",
+    externalReference: typeof data?.externalReference === "string" ? data.externalReference.trim() : "",
+    externalUrl: typeof data?.externalUrl === "string" ? data.externalUrl.trim() : "",
     externalSubmissionUrl:
       typeof data?.externalSubmissionUrl === "string" && data.externalSubmissionUrl.trim()
         ? data.externalSubmissionUrl.trim()

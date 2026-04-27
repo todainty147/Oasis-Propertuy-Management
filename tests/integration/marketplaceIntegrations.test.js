@@ -323,4 +323,148 @@ describe.skipIf(!isIntegrationHarnessConfigured())("marketplace integrations", (
       submission_mode: "manual",
     });
   });
+
+  it("surfaces actionable marketplace lifecycle states in the command center and records manager notifications", async () => {
+    const users = await ensureIsolationHarnessSeed();
+    const { client } = await signInAsFixtureUser("ownerA");
+    const accountId = isolationFixtures.accounts.accountA.id;
+    const workOrderId = isolationSeedIds.workOrderIds.accountA;
+
+    const readyJob = await client.rpc("create_marketplace_job", {
+      p_account_id: accountId,
+      p_work_order_id: workOrderId,
+      p_provider_key: "checkatrade",
+      p_trade_category: "plumbing",
+      p_contact_name: "Alice Owner",
+      p_contact_email: "owner.a@oasis.test",
+      p_contact_phone: "+44 111 222 333",
+      p_consent_confirmed: true,
+      p_title: "Ready to submit",
+      p_description: "Ready",
+      p_metadata: { lifecycle: "ready" },
+    });
+    expect(readyJob.error).toBeNull();
+
+    const failedJob = await client.rpc("create_marketplace_job", {
+      p_account_id: accountId,
+      p_work_order_id: workOrderId,
+      p_provider_key: "checkatrade",
+      p_trade_category: "plumbing",
+      p_contact_name: "Alice Owner",
+      p_contact_email: "owner.a@oasis.test",
+      p_contact_phone: "+44 111 222 333",
+      p_consent_confirmed: true,
+      p_title: "Failed handoff",
+      p_description: "Failed",
+      p_metadata: { lifecycle: "failed" },
+    });
+    expect(failedJob.error).toBeNull();
+    const failedJobId = firstRow(failedJob.data)?.id;
+
+    const failedUpdate = await client.rpc("update_marketplace_job_status", {
+      p_account_id: accountId,
+      p_marketplace_job_id: failedJobId,
+      p_status: "failed",
+      p_payload: { reason: "provider_timeout" },
+    });
+    expect(failedUpdate.error).toBeNull();
+
+    const followUpJob = await client.rpc("create_marketplace_job", {
+      p_account_id: accountId,
+      p_work_order_id: workOrderId,
+      p_provider_key: "fixly",
+      p_trade_category: "electrician",
+      p_consent_confirmed: true,
+      p_title: "Manual follow-up",
+      p_description: "Manual follow-up",
+      p_metadata: { lifecycle: "follow_up" },
+    });
+    expect(followUpJob.error).toBeNull();
+    const followUpJobId = firstRow(followUpJob.data)?.id;
+
+    const followUpUpdate = await client.rpc("update_marketplace_job_status", {
+      p_account_id: accountId,
+      p_marketplace_job_id: followUpJobId,
+      p_status: "manual_follow_up",
+      p_payload: { reason: "operator_review" },
+    });
+    expect(followUpUpdate.error).toBeNull();
+
+    const quoteJob = await client.rpc("create_marketplace_job", {
+      p_account_id: accountId,
+      p_work_order_id: workOrderId,
+      p_provider_key: "myhammer",
+      p_trade_category: "locksmith",
+      p_consent_confirmed: true,
+      p_title: "Quote received",
+      p_description: "Quote received",
+      p_metadata: { lifecycle: "quote" },
+    });
+    expect(quoteJob.error).toBeNull();
+    const quoteJobId = firstRow(quoteJob.data)?.id;
+
+    const quoteUpdate = await client.rpc("update_marketplace_job_status", {
+      p_account_id: accountId,
+      p_marketplace_job_id: quoteJobId,
+      p_status: "quote_received",
+      p_payload: { quote_reference: "mkp-quote-1" },
+    });
+    expect(quoteUpdate.error).toBeNull();
+
+    const commandCenter = await client.rpc("command_center_items", {
+      p_account_id: accountId,
+      p_limit: 200,
+    });
+
+    expect(commandCenter.error).toBeNull();
+    const marketplaceItems = (commandCenter.data || []).filter(
+      (row) => row.source_table === "external_marketplace_jobs",
+    );
+    expect(marketplaceItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          item_type: "marketplace_ready_to_submit",
+          category: "marketplace",
+          source_table: "external_marketplace_jobs",
+        }),
+        expect.objectContaining({
+          item_type: "marketplace_failed_submission",
+          category: "marketplace",
+          severity: "urgent",
+        }),
+        expect.objectContaining({
+          item_type: "marketplace_manual_follow_up",
+          category: "marketplace",
+          severity: "action",
+        }),
+        expect.objectContaining({
+          item_type: "marketplace_quote_received",
+          category: "marketplace",
+          severity: "action",
+        }),
+      ]),
+    );
+
+    const statusChangeNotifications = await admin
+      .from("notifications")
+      .select("recipient_user_id, type, entity_type, entity_id, title")
+      .eq("account_id", accountId)
+      .eq("type", "marketplace_handoff_status_changed")
+      .eq("entity_type", "work_order")
+      .eq("entity_id", workOrderId);
+
+    expect(statusChangeNotifications.error).toBeNull();
+    expect(statusChangeNotifications.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          recipient_user_id: users.adminA.id,
+          type: "marketplace_handoff_status_changed",
+        }),
+        expect.objectContaining({
+          recipient_user_id: users.staffA.id,
+          type: "marketplace_handoff_status_changed",
+        }),
+      ]),
+    );
+  });
 });

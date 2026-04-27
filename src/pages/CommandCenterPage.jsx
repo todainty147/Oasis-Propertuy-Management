@@ -96,6 +96,8 @@ function categoryClasses(category) {
       return "border-cyan-200 bg-cyan-50 text-cyan-700";
     case "portfolio":
       return "border-indigo-200 bg-indigo-50 text-indigo-700";
+    case "marketplace":
+      return "border-sky-200 bg-sky-50 text-sky-700";
     default:
       return "border-slate-200 bg-slate-50 text-slate-600";
   }

@@ -255,12 +255,18 @@ describe("marketplace integration service", () => {
   it("submits persisted marketplace handoffs through the Edge Function seam", async () => {
     invokeMock.mockResolvedValue({
       data: {
+        ok: true,
         providerKey: "checkatrade",
         marketplaceJobId: "11111111-1111-1111-1111-111111111111",
-        status: "scaffold_ready",
-        message: "Checkatrade API rollout is enabled for this account, but live provider submission is not configured yet. Use the manual handoff flow for now.",
-        liveSubmissionAvailable: false,
-        manualFallbackRecommended: true,
+        status: "submitted",
+        message: "Marketplace handoff was submitted through the configured Checkatrade transport.",
+        liveSubmissionAvailable: true,
+        manualFallbackRecommended: false,
+        externalJobId: "provider-job-1",
+        externalReference: "provider-ref-1",
+        externalUrl: "https://provider.example/jobs/1",
+        attemptCount: 1,
+        maxAttempts: 3,
         preparedPayload: {
           title: "Leaking boiler",
         },
@@ -281,11 +287,17 @@ describe("marketplace integration service", () => {
       },
     });
     expect(result).toMatchObject({
+      ok: true,
       providerKey: "checkatrade",
       marketplaceJobId: "11111111-1111-1111-1111-111111111111",
-      status: "scaffold_ready",
-      liveSubmissionAvailable: false,
-      manualFallbackRecommended: true,
+      status: "submitted",
+      liveSubmissionAvailable: true,
+      manualFallbackRecommended: false,
+      externalJobId: "provider-job-1",
+      externalReference: "provider-ref-1",
+      externalUrl: "https://provider.example/jobs/1",
+      attemptCount: 1,
+      maxAttempts: 3,
       preparedPayload: {
         title: "Leaking boiler",
       },

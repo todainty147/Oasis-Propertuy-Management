@@ -1363,7 +1363,7 @@ This snapshot compares the roadmap against checked-in implementation evidence ac
 
 ### Marketplace Integrations Foundation
 
-Status: **Partially done, with persistence and Checkatrade API scaffolding now in place**
+Status: **Partially done, with persistence, operational surfacing, and a real Checkatrade transport seam now in place**
 
 What is now visible in the product:
 - work-order detail page now includes a **Choose fulfilment route** section
@@ -1379,12 +1379,10 @@ What is now visible in the product:
 - handoff route choice and marketplace jobs now persist through secured Supabase RPCs
 - legacy browser-local marketplace handoffs still remain visible/editable on the originating browser during the rollout so existing operator workflows are not broken
 - account-scoped marketplace provider settings now gate Checkatrade API rollout state
-- a browser-authenticated `submit-marketplace-handoff` Edge Function now exists as the Checkatrade submission seam
-- the portal surfaces Checkatrade rollout state without pretending live provider submission has already shipped
-
-What is still missing to complete the full story:
-- broader lifecycle tests across provider execution and notifications
-- command-centre marketplace attention signals
+- a browser-authenticated `submit-marketplace-handoff` Edge Function now performs live provider HTTP submission when account rollout and Edge secrets are configured
+- the provider transport now records idempotent submission outcomes back into marketplace jobs, events, activity history, and manager notifications
+- the portal surfaces Checkatrade rollout state and provider execution outcomes without pretending every account is globally live by default
+- Command Center now surfaces actionable marketplace handoff states such as ready-to-submit, failed, follow-up, and quote-received
 
 Why this shape was chosen:
 - it gives the portal a real, visible fulfilment-route experience now

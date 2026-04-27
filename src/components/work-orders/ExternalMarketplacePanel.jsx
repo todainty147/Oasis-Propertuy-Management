@@ -520,6 +520,7 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
                                       accountId,
                                       marketplaceJobId: job.id,
                                     });
+                                    await refreshJobs();
                                     setProviderFeedback((prev) => ({
                                       ...prev,
                                       [job.id]: result.message || copy.apiResultFallback,

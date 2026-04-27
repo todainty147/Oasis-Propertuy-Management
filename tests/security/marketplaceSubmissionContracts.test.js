@@ -15,8 +15,12 @@ describe("marketplace submission contracts", () => {
     expect(source).toContain('assert_manage_account_access');
     expect(source).toContain('marketplace_integration_settings');
     expect(source).toContain('external_marketplace_jobs');
+    expect(source).toContain('CHECKATRADE_API_KEY');
+    expect(source).toContain('CHECKATRADE_API_SECRET');
+    expect(source).toContain('submitMarketplaceTransport');
+    expect(source).toContain('edge_record_marketplace_submission_result');
+    expect(source).toContain('already_submitted');
     expect(source).toContain('marketplace_provider_not_enabled');
-    expect(source).toContain('configured_not_implemented');
     expect(source).not.toContain('"Access-Control-Allow-Origin": "*"');
   });
 

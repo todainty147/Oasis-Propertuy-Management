@@ -1058,6 +1058,157 @@ as $$
       item_key
     limit (select max_items from cfg)
   ),
+  marketplace_job_items as (
+    select
+      'marketplace-ready-' || j.id::text as item_key,
+      'marketplace_ready_to_submit'::text as item_type,
+      'marketplace'::text as category,
+      'action'::text as severity,
+      'action'::text as bucket,
+      'work_order'::text as entity_type,
+      j.work_order_id::text as entity_id,
+      'Marketplace handoff ready to submit'::text as title,
+      trim(both ' ' from coalesce(mp.label, j.provider_key) || case when nullif(j.trade_category, '') is not null then ' • ' || j.trade_category else '' end) as body,
+      '/work-orders/' || j.work_order_id::text as link_path,
+      wo.property_id,
+      coalesce(pr.address, '—') as property_label,
+      null::uuid as tenant_id,
+      ''::text as tenant_label,
+      coalesce(nullif(j.title, ''), coalesce(mr.title, 'Marketplace handoff')) as entity_label,
+      ''::text as contractor_label,
+      null::numeric as amount,
+      floor(extract(epoch from (now() - coalesce(j.updated_at, j.created_at))) / 3600)::int as age_hours,
+      null::int as due_days,
+      coalesce(j.updated_at, j.created_at) as created_at,
+      false as resolved_state,
+      'external_marketplace_jobs'::text as source_table,
+      33 as sort_order
+    from public.external_marketplace_jobs j
+    left join public.work_orders wo on wo.id = j.work_order_id
+    left join public.properties pr on pr.id = wo.property_id
+    left join public.maintenance_requests mr on mr.id = wo.maintenance_request_id
+    left join public.marketplace_providers mp on mp.provider_key = j.provider_key
+    where j.account_id = p_account_id
+      and lower(coalesce(j.status, 'draft')) = 'ready_to_submit'
+
+    union all
+
+    select
+      'marketplace-failed-' || j.id::text,
+      'marketplace_failed_submission'::text,
+      'marketplace'::text,
+      'urgent'::text,
+      'urgent'::text,
+      'work_order'::text,
+      j.work_order_id::text,
+      'Marketplace submission failed'::text,
+      trim(both ' ' from coalesce(mp.label, j.provider_key) || case when nullif(j.last_error, '') is not null then ' • ' || j.last_error else '' end),
+      '/work-orders/' || j.work_order_id::text,
+      wo.property_id,
+      coalesce(pr.address, '—'),
+      null::uuid,
+      ''::text,
+      coalesce(nullif(j.title, ''), coalesce(mr.title, 'Marketplace handoff')),
+      ''::text,
+      null::numeric,
+      floor(extract(epoch from (now() - coalesce(j.updated_at, j.created_at))) / 3600)::int,
+      null::int,
+      coalesce(j.updated_at, j.created_at),
+      false,
+      'external_marketplace_jobs'::text,
+      13 as sort_order
+    from public.external_marketplace_jobs j
+    left join public.work_orders wo on wo.id = j.work_order_id
+    left join public.properties pr on pr.id = wo.property_id
+    left join public.maintenance_requests mr on mr.id = wo.maintenance_request_id
+    left join public.marketplace_providers mp on mp.provider_key = j.provider_key
+    where j.account_id = p_account_id
+      and lower(coalesce(j.status, 'draft')) = 'failed'
+
+    union all
+
+    select
+      'marketplace-follow-up-' || j.id::text,
+      'marketplace_manual_follow_up'::text,
+      'marketplace'::text,
+      'action'::text,
+      'action'::text,
+      'work_order'::text,
+      j.work_order_id::text,
+      'Marketplace handoff needs follow-up'::text,
+      trim(both ' ' from coalesce(mp.label, j.provider_key) || case when nullif(j.external_reference, '') is not null then ' • ' || j.external_reference else '' end),
+      '/work-orders/' || j.work_order_id::text,
+      wo.property_id,
+      coalesce(pr.address, '—'),
+      null::uuid,
+      ''::text,
+      coalesce(nullif(j.title, ''), coalesce(mr.title, 'Marketplace handoff')),
+      ''::text,
+      null::numeric,
+      floor(extract(epoch from (now() - coalesce(j.updated_at, j.created_at))) / 3600)::int,
+      null::int,
+      coalesce(j.updated_at, j.created_at),
+      false,
+      'external_marketplace_jobs'::text,
+      34 as sort_order
+    from public.external_marketplace_jobs j
+    left join public.work_orders wo on wo.id = j.work_order_id
+    left join public.properties pr on pr.id = wo.property_id
+    left join public.maintenance_requests mr on mr.id = wo.maintenance_request_id
+    left join public.marketplace_providers mp on mp.provider_key = j.provider_key
+    where j.account_id = p_account_id
+      and lower(coalesce(j.status, 'draft')) = 'manual_follow_up'
+
+    union all
+
+    select
+      'marketplace-quote-' || j.id::text,
+      'marketplace_quote_received'::text,
+      'marketplace'::text,
+      'action'::text,
+      'action'::text,
+      'work_order'::text,
+      j.work_order_id::text,
+      'Marketplace quote received'::text,
+      trim(both ' ' from coalesce(mp.label, j.provider_key) || case when nullif(j.external_reference, '') is not null then ' • ' || j.external_reference else '' end),
+      '/work-orders/' || j.work_order_id::text,
+      wo.property_id,
+      coalesce(pr.address, '—'),
+      null::uuid,
+      ''::text,
+      coalesce(nullif(j.title, ''), coalesce(mr.title, 'Marketplace handoff')),
+      ''::text,
+      null::numeric,
+      floor(extract(epoch from (now() - coalesce(j.updated_at, j.created_at))) / 3600)::int,
+      null::int,
+      coalesce(j.updated_at, j.created_at),
+      false,
+      'external_marketplace_jobs'::text,
+      35 as sort_order
+    from public.external_marketplace_jobs j
+    left join public.work_orders wo on wo.id = j.work_order_id
+    left join public.properties pr on pr.id = wo.property_id
+    left join public.maintenance_requests mr on mr.id = wo.maintenance_request_id
+    left join public.marketplace_providers mp on mp.provider_key = j.provider_key
+    where j.account_id = p_account_id
+      and lower(coalesce(j.status, 'draft')) = 'quote_received'
+  ),
+  limited_marketplace_job_items as (
+    select *
+    from marketplace_job_items
+    order by
+      case bucket
+        when 'urgent' then 1
+        when 'action' then 2
+        when 'upcoming' then 3
+        else 4
+      end,
+      sort_order,
+      coalesce(age_hours, 999999),
+      coalesce(due_days, 999999),
+      item_key
+    limit (select max_items from cfg)
+  ),
   automation_items as (
     select
       'automation-' || ar.id::text as item_key,
@@ -1202,6 +1353,7 @@ as $$
     union all select * from limited_preventive_items
     union all select * from limited_compliance_items
     union all select * from limited_notification_items
+    union all select * from limited_marketplace_job_items
     union all select * from limited_automation_items
     union all select * from limited_security_alert_items
   ),

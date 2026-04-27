@@ -720,6 +720,7 @@ begin
       external_job_id = case when coalesce(p_external_job_id, '') = '' then j.external_job_id else p_external_job_id end,
       external_reference = case when coalesce(p_external_reference, '') = '' then j.external_reference else p_external_reference end,
       external_url = case when coalesce(p_external_url, '') = '' then j.external_url else p_external_url end,
+      last_error = '',
       response_payload = case
         when p_response_payload is null or p_response_payload = '{}'::jsonb then j.response_payload
         else p_response_payload
@@ -840,6 +841,15 @@ begin
   update public.external_marketplace_jobs j
   set status = p_status,
       last_synced_at = now(),
+      last_error = case
+        when p_status = 'submitted' then ''
+        when p_status in ('failed', 'manual_follow_up') then coalesce(
+          nullif(coalesce(p_payload->>'error', ''), ''),
+          nullif(coalesce(p_payload->>'message', ''), ''),
+          j.last_error
+        )
+        else j.last_error
+      end,
       response_payload = case
         when p_payload is null or p_payload = '{}'::jsonb then j.response_payload
         else p_payload
@@ -913,6 +923,162 @@ begin
 end;
 $$;
 
+create or replace function public.edge_record_marketplace_submission_result(
+  p_account_id uuid,
+  p_marketplace_job_id uuid,
+  p_actor_user_id uuid,
+  p_outcome text,
+  p_external_job_id text default '',
+  p_external_reference text default '',
+  p_external_url text default '',
+  p_last_error text default '',
+  p_response_payload jsonb default '{}'::jsonb
+)
+returns setof public.external_marketplace_jobs
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_job public.external_marketplace_jobs%rowtype;
+  v_previous_status text;
+  v_event_type text;
+  v_notification_type text;
+  v_notification_title text;
+  v_notification_body text;
+begin
+  if p_outcome not in ('submitted', 'failed', 'manual_follow_up') then
+    raise exception 'Unsupported marketplace submission outcome';
+  end if;
+
+  select j.status
+  into v_previous_status
+  from public.external_marketplace_jobs j
+  where j.id = p_marketplace_job_id
+    and j.account_id = p_account_id;
+
+  update public.external_marketplace_jobs j
+  set status = p_outcome,
+      submitted_at = case when p_outcome = 'submitted' then coalesce(j.submitted_at, now()) else j.submitted_at end,
+      last_synced_at = now(),
+      external_job_id = case when coalesce(p_external_job_id, '') = '' then j.external_job_id else p_external_job_id end,
+      external_reference = case when coalesce(p_external_reference, '') = '' then j.external_reference else p_external_reference end,
+      external_url = case when coalesce(p_external_url, '') = '' then j.external_url else p_external_url end,
+      last_error = case when p_outcome = 'submitted' then '' else coalesce(p_last_error, '') end,
+      response_payload = case
+        when p_response_payload is null or p_response_payload = '{}'::jsonb then j.response_payload
+        else p_response_payload
+      end,
+      updated_by = p_actor_user_id,
+      updated_at = now()
+  where j.id = p_marketplace_job_id
+    and j.account_id = p_account_id
+  returning *
+  into v_job;
+
+  if v_job.id is null then
+    raise exception 'Marketplace job not found' using errcode = 'P0002';
+  end if;
+
+  if p_outcome = 'submitted' then
+    v_event_type := 'job_submitted';
+    v_notification_type := 'marketplace_handoff_submitted';
+    v_notification_title := 'Marketplace handoff submitted';
+    v_notification_body := coalesce(v_job.title, 'Work order handoff') || ' submitted to ' || coalesce(v_job.provider_key, 'marketplace');
+  else
+    v_event_type := 'status_updated';
+    v_notification_type := 'marketplace_handoff_status_changed';
+    v_notification_title := 'Marketplace handoff status changed';
+    v_notification_body := coalesce(v_job.title, 'Work order handoff') || ' status: ' || v_job.status;
+  end if;
+
+  insert into public.external_marketplace_events (
+    marketplace_job_id,
+    account_id,
+    work_order_id,
+    event_type,
+    payload,
+    actor_user_id
+  )
+  values (
+    v_job.id,
+    v_job.account_id,
+    v_job.work_order_id,
+    v_event_type,
+    jsonb_build_object(
+      'status', v_job.status,
+      'external_job_id', v_job.external_job_id,
+      'external_reference', v_job.external_reference,
+      'external_url', v_job.external_url,
+      'last_error', v_job.last_error,
+      'payload', coalesce(p_response_payload, '{}'::jsonb)
+    ),
+    p_actor_user_id
+  );
+
+  if p_outcome = 'submitted' then
+    perform public.activity_log_write(
+      v_job.account_id,
+      'work_order',
+      v_job.work_order_id,
+      'marketplace_job_submitted',
+      'status',
+      v_previous_status,
+      v_job.status,
+      jsonb_build_object(
+        'table', 'external_marketplace_jobs',
+        'marketplace_job_id', v_job.id,
+        'provider_key', v_job.provider_key,
+        'external_job_id', v_job.external_job_id,
+        'external_reference', v_job.external_reference,
+        'external_url', v_job.external_url,
+        'payload', coalesce(p_response_payload, '{}'::jsonb)
+      )
+    );
+  else
+    perform public.activity_log_write(
+      v_job.account_id,
+      'work_order',
+      v_job.work_order_id,
+      'marketplace_job_status_changed',
+      'status',
+      v_previous_status,
+      v_job.status,
+      jsonb_build_object(
+        'table', 'external_marketplace_jobs',
+        'marketplace_job_id', v_job.id,
+        'provider_key', v_job.provider_key,
+        'status', v_job.status,
+        'last_error', v_job.last_error,
+        'payload', coalesce(p_response_payload, '{}'::jsonb)
+      )
+    );
+  end if;
+
+  perform public.marketplace_notify_managers(
+    v_job.account_id,
+    v_job.work_order_id,
+    v_notification_type,
+    v_notification_title,
+    v_notification_body,
+    jsonb_build_object(
+      'marketplace_job_id', v_job.id,
+      'provider_key', v_job.provider_key,
+      'status', v_job.status,
+      'old_status', v_previous_status,
+      'external_job_id', v_job.external_job_id,
+      'external_reference', v_job.external_reference,
+      'external_url', v_job.external_url
+    )
+  );
+
+  return query
+  select *
+  from public.external_marketplace_jobs j
+  where j.id = v_job.id;
+end;
+$$;
+
 grant execute on function public.list_marketplace_integration_settings(uuid) to authenticated;
 grant execute on function public.upsert_marketplace_integration_setting(uuid, text, boolean, jsonb) to authenticated;
 grant execute on function public.marketplace_manager_recipient_ids(uuid, uuid) to authenticated;
@@ -952,3 +1118,14 @@ grant execute on function public.update_marketplace_job_status(
   text,
   jsonb
 ) to authenticated;
+grant execute on function public.edge_record_marketplace_submission_result(
+  uuid,
+  uuid,
+  uuid,
+  text,
+  text,
+  text,
+  text,
+  text,
+  jsonb
+) to service_role;
