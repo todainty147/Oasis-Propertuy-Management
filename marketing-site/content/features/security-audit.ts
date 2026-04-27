@@ -5,7 +5,7 @@ export const securityAuditContent = {
     title: "Security Audit Trail for Landlords | OASIS Rental",
     description:
       "Review permissions, workflow-sensitive actions, and account-scoped audit trails in OASIS.",
-    canonical: "https://oasisrental.com/features/security-audit",
+    canonical: "https://marketing.oasisrentalmgt.app/features/security-audit",
   },
   hero: {
     eyebrow: "Security and audit",

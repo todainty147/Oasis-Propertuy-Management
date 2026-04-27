@@ -5,7 +5,7 @@ export const maintenanceManagementContent = {
     title: "Maintenance Management Software for Landlords | OASIS Rental",
     description:
       "Move repair requests into tracked work orders, clear ownership, and cleaner follow-through with OASIS.",
-    canonical: "https://oasisrental.com/features/maintenance-management",
+    canonical: "https://marketing.oasisrentalmgt.app/features/maintenance-management",
   },
   hero: {
     eyebrow: "Maintenance management",

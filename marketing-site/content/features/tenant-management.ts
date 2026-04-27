@@ -5,7 +5,7 @@ export const tenantManagementContent = {
     title: "Tenant Management and Tenant Portal Software | OASIS Rental",
     description:
       "Keep tenant records, tenant portal activity, documents, and rent context organized with OASIS tenant management software for landlords.",
-    canonical: "https://oasisrental.com/features/tenant-management",
+    canonical: "https://marketing.oasisrentalmgt.app/features/tenant-management",
   },
   hero: {
     eyebrow: "Tenant management",

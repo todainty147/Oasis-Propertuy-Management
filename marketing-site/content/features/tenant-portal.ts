@@ -5,7 +5,7 @@ export const tenantPortalContent = {
     title: "Tenant Portal Software for Landlords | OASIS Rental",
     description:
       "Give tenants a clearer way to follow payments, maintenance activity, documents, and agreement review through a modern portal experience.",
-    canonical: "https://oasisrental.com/features/tenant-portal",
+    canonical: "https://marketing.oasisrentalmgt.app/features/tenant-portal",
   },
   hero: {
     eyebrow: "Tenant portal",

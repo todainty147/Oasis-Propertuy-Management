@@ -27,7 +27,13 @@ export function SiteHeader() {
         </Link>
         <nav className="site-nav" aria-label="Primary">
           {siteConfig.nav.map((item) => (
-            <Link key={item.href} href={getLocalizedMarketingHref(locale, item.href)}>
+            <Link
+              key={item.key}
+              href={getLocalizedMarketingHref(
+                locale,
+                copy.navHrefOverrides?.[item.key] || item.href,
+              )}
+            >
               {copy.nav[item.key]}
             </Link>
           ))}

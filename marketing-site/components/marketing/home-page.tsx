@@ -13,15 +13,15 @@ export function MarketingHomePage({ locale }: { locale: Locale }) {
 
   return (
     <main lang={locale}>
-      <HeroSection {...homepageContent.hero} />
-      <ContentSection {...homepageContent.problemSection} />
+      <HeroSection {...homepageContent.hero} locale={locale} />
+      <ContentSection {...homepageContent.problemSection} locale={locale} />
       <FeatureGrid {...homepageContent.solutionSection} />
       <ProductPreview {...homepageContent.productPreview} />
-      <ContentSection {...homepageContent.healthSection} />
-      <ContentSection {...homepageContent.tenantPortalSection} />
-      <WorkflowShowcase {...homepageContent.workflowSection} />
-      <ContentSection {...homepageContent.securitySection} />
-      <FinalCta {...homepageContent.finalCta} />
+      <ContentSection {...homepageContent.healthSection} locale={locale} />
+      <ContentSection {...homepageContent.tenantPortalSection} locale={locale} />
+      <WorkflowShowcase {...homepageContent.workflowSection} locale={locale} />
+      <ContentSection {...homepageContent.securitySection} locale={locale} />
+      <FinalCta {...homepageContent.finalCta} locale={locale} />
     </main>
   );
 }

@@ -23,8 +23,10 @@ export function SiteFooter() {
         <div className="footer-links">
           <Link href={getLocalizedMarketingHref(locale, "/features")}>{copy.footerLinks.features}</Link>
           <Link href={getLocalizedMarketingHref(locale, "/pricing")}>{copy.footerLinks.pricing}</Link>
-          <Link href="/compare/oasis-vs-landlordstudio">{copy.footerLinks.compare}</Link>
-          <Link href="/blog">{copy.footerLinks.blog}</Link>
+          <Link href={getLocalizedMarketingHref(locale, "/compare/oasis-vs-landlordstudio")}>
+            {copy.footerLinks.compare}
+          </Link>
+          <Link href={getLocalizedMarketingHref(locale, "/blog")}>{copy.footerLinks.blog}</Link>
           <Link href={siteConfig.appUrl}>{copy.footerLinks.earlyAccess}</Link>
         </div>
       </div>

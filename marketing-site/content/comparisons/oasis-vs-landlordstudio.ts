@@ -5,7 +5,7 @@ export const oasisVsLandlordStudioContent = {
     title: "OASIS vs Landlord Studio | Which Is Better for Landlords?",
     description:
       "Compare OASIS Rental vs Landlord Studio for landlords weighing accounting and rent collection strengths against deeper property operations control.",
-    canonical: "https://oasisrental.com/compare/oasis-vs-landlordstudio",
+    canonical: "https://marketing.oasisrentalmgt.app/compare/oasis-vs-landlordstudio",
   },
   hero: {
     eyebrow: "Comparison",

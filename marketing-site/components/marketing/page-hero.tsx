@@ -1,7 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import type { Locale } from "../../lib/i18n";
+import { getLocalizedMarketingHref } from "../../lib/i18n";
+
 export function PageHero({
+  locale = "en",
   eyebrow,
   title,
   body,
@@ -9,6 +13,7 @@ export function PageHero({
   imageSrc,
   imageAlt,
 }: {
+  locale?: Locale;
   eyebrow?: string;
   title: string;
   body: string;
@@ -27,7 +32,10 @@ export function PageHero({
           </p>
           {cta ? (
             <div className="button-row">
-              <Link href={cta.href} className="button button-primary">
+              <Link
+                href={getLocalizedMarketingHref(locale, cta.href)}
+                className="button button-primary"
+              >
                 {cta.label}
               </Link>
             </div>

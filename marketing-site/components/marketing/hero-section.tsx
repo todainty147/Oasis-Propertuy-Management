@@ -1,7 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import type { Locale } from "../../lib/i18n";
+import { getLocalizedMarketingHref } from "../../lib/i18n";
+
 type HeroProps = {
+  locale?: Locale;
   eyebrow: string;
   title: string;
   body: string;
@@ -16,6 +20,8 @@ type HeroProps = {
 };
 
 export function HeroSection(props: HeroProps) {
+  const locale = props.locale || "en";
+
   return (
     <section className="hero">
       <div className="container hero__layout">
@@ -38,10 +44,16 @@ export function HeroSection(props: HeroProps) {
             </p>
           ) : null}
           <div className="button-row">
-            <Link href={props.primaryCta.href} className="button button-primary">
+            <Link
+              href={getLocalizedMarketingHref(locale, props.primaryCta.href)}
+              className="button button-primary"
+            >
               {props.primaryCta.label}
             </Link>
-            <Link href={props.secondaryCta.href} className="button button-secondary">
+            <Link
+              href={getLocalizedMarketingHref(locale, props.secondaryCta.href)}
+              className="button button-secondary"
+            >
               {props.secondaryCta.label}
             </Link>
           </div>
@@ -71,7 +83,7 @@ export function HeroSection(props: HeroProps) {
                   return (
                     <Link
                       key={next.label}
-                      href={next.href}
+                      href={getLocalizedMarketingHref(locale, next.href)}
                       style={commonStyle}
                     >
                       {next.label}

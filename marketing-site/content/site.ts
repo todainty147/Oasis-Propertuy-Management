@@ -20,6 +20,7 @@ export const siteConfig = {
 
 type SiteCopy = {
   nav: Record<(typeof siteConfig.nav)[number]["key"], string>;
+  navHrefOverrides?: Partial<Record<(typeof siteConfig.nav)[number]["key"], string>>;
   signIn: string;
   primaryCta: string;
   footerBlurb: string;
@@ -43,6 +44,9 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       pricing: "Pricing",
       compare: "Compare",
       blog: "Blog",
+    },
+    navHrefOverrides: {
+      tenantPortal: "/tenant-portal-software",
     },
     signIn: "Sign in",
     primaryCta: "See how OASIS works",
@@ -71,6 +75,9 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       compare: "Porównanie",
       blog: "Blog",
     },
+    navHrefOverrides: {
+      tenantPortal: "/tenant-portal-software",
+    },
     signIn: "Zaloguj się",
     primaryCta: "Zobacz, jak działa OASIS",
     footerBlurb:
@@ -97,6 +104,9 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       pricing: "Preise",
       compare: "Vergleich",
       blog: "Blog",
+    },
+    navHrefOverrides: {
+      tenantPortal: "/tenant-portal-software",
     },
     signIn: "Anmelden",
     primaryCta: "OASIS ansehen",

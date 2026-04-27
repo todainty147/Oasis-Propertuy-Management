@@ -1,6 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import type { Locale } from "../../lib/i18n";
+import { getLocalizedMarketingHref } from "../../lib/i18n";
+
 type SectionItem = {
   title: string;
   body: string;
@@ -21,6 +24,7 @@ export function ContentSection({
   imageAlign = "right",
   primaryCta,
   secondaryCta,
+  locale = "en",
 }: {
   eyebrow?: string;
   title: string;
@@ -31,6 +35,7 @@ export function ContentSection({
   imageAlign?: "left" | "right";
   primaryCta?: Cta;
   secondaryCta?: Cta;
+  locale?: Locale;
 }) {
   return (
     <section className="section">
@@ -53,11 +58,17 @@ export function ContentSection({
               ) : null}
               {primaryCta ? (
                 <div className="button-row">
-                  <Link href={primaryCta.href} className="button button-primary">
+                  <Link
+                    href={getLocalizedMarketingHref(locale, primaryCta.href)}
+                    className="button button-primary"
+                  >
                     {primaryCta.label}
                   </Link>
                   {secondaryCta ? (
-                    <Link href={secondaryCta.href} className="button button-secondary">
+                    <Link
+                      href={getLocalizedMarketingHref(locale, secondaryCta.href)}
+                      className="button button-secondary"
+                    >
                       {secondaryCta.label}
                     </Link>
                   ) : null}

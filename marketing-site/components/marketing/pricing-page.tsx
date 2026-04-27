@@ -13,12 +13,12 @@ export function MarketingPricingPage({ locale }: { locale: Locale }) {
 
   return (
     <>
-      <PageHero {...content.hero} />
-      <ContentSection {...content.intro} />
+      <PageHero {...content.hero} locale={locale} />
+      <ContentSection {...content.intro} locale={locale} />
       <PricingCards plans={content.plans} ctaLabel={content.planCtaLabel} />
       <IncludedFeatures {...content.included} />
       <FaqList title={content.faqTitle} items={content.faqs} />
-      <FinalCta {...content.finalCta} />
+      <FinalCta {...content.finalCta} locale={locale} />
     </>
   );
 }

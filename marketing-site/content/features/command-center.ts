@@ -5,7 +5,7 @@ export const commandCenterContent = {
     title: "Command Center for Landlords | OASIS Rental",
     description:
       "See urgent queues, overdue balances, and operational priorities in one command center built for landlords.",
-    canonical: "https://oasisrental.com/features/command-center",
+    canonical: "https://marketing.oasisrentalmgt.app/features/command-center",
   },
   hero: {
     eyebrow: "Command center",

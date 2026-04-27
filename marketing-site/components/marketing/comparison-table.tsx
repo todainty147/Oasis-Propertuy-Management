@@ -8,11 +8,15 @@ export function ComparisonTable({
   title,
   intro,
   competitorName,
+  categoryLabel = "Category",
+  oasisLabel = "OASIS Rental",
   rows,
 }: {
   title: string;
   intro?: string;
   competitorName: string;
+  categoryLabel?: string;
+  oasisLabel?: string;
   rows: ComparisonRow[];
 }) {
   return (
@@ -26,8 +30,8 @@ export function ComparisonTable({
           <table className="comparison-table">
             <thead>
               <tr>
-                <th>Category</th>
-                <th>OASIS Rental</th>
+                <th>{categoryLabel}</th>
+                <th>{oasisLabel}</th>
                 <th>{competitorName}</th>
               </tr>
             </thead>

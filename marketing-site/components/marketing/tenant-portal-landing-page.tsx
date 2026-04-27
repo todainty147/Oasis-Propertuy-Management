@@ -12,12 +12,12 @@ export function MarketingTenantPortalLandingPage({ locale }: { locale: Locale })
 
   return (
     <>
-      <HeroSection {...content.hero} />
+      <HeroSection {...content.hero} locale={locale} />
       <FeatureGrid {...content.problemSection} />
-      <ContentSection {...content.portalSection} />
-      <WorkflowShowcase {...content.workflowSection} />
-      <ContentSection {...content.proofSection} />
-      <FinalCta {...content.finalCta} />
+      <ContentSection {...content.portalSection} locale={locale} />
+      <WorkflowShowcase {...content.workflowSection} locale={locale} />
+      <ContentSection {...content.proofSection} locale={locale} />
+      <FinalCta {...content.finalCta} locale={locale} />
     </>
   );
 }

@@ -5,7 +5,7 @@ export const rentalAccountingContent = {
     title: "Rental Accounting Software for Landlords | OASIS Rental",
     description:
       "Track rent status, overdue balances, arrears pressure, and follow-up priority without rebuilding spreadsheets.",
-    canonical: "https://oasisrental.com/features/rental-accounting",
+    canonical: "https://marketing.oasisrentalmgt.app/features/rental-accounting",
   },
   hero: {
     eyebrow: "Rental accounting",

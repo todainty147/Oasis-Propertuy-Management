@@ -4,7 +4,19 @@ export type Locale = (typeof locales)[number];
 
 export const defaultLocale: Locale = "en";
 
-const localizedPaths = new Set(["/", "/features", "/pricing", "/tenant-portal-software"]);
+const localizedPaths = new Set([
+  "/",
+  "/features",
+  "/pricing",
+  "/tenant-portal-software",
+  "/blog",
+  "/compare/oasis-vs-landlordstudio",
+]);
+
+const localizedPathAliases: Partial<Record<string, string>> = {
+  "/features/tenant-portal": "/tenant-portal-software",
+  "/features/tenant-management": "/tenant-portal-software",
+};
 
 export function isLocale(value: string): value is Locale {
   return locales.includes(value as Locale);
@@ -64,9 +76,11 @@ export function getLocalizedMarketingHref(locale: Locale, href: string): string 
     return href;
   }
 
-  if (!localizedPaths.has(href)) {
+  const nextHref = locale === defaultLocale ? href : localizedPathAliases[href] || href;
+
+  if (!localizedPaths.has(nextHref)) {
     return href;
   }
 
-  return getLocalePath(locale, href);
+  return getLocalePath(locale, nextHref);
 }

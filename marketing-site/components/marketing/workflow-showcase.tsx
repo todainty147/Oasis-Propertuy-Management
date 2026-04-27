@@ -1,6 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import type { Locale } from "../../lib/i18n";
+import { getLocalizedMarketingHref } from "../../lib/i18n";
+
 type WorkflowItem = {
   title: string;
   body: string;
@@ -12,11 +15,13 @@ type WorkflowItem = {
 };
 
 export function WorkflowShowcase({
+  locale = "en",
   title,
   body,
   itemCtaLabel = "Explore this workflow",
   items,
 }: {
+  locale?: Locale;
   title: string;
   body: string;
   itemCtaLabel?: string;
@@ -45,7 +50,10 @@ export function WorkflowShowcase({
                   ))}
                 </ul>
                 <div className="button-row">
-                  <Link href={item.href} className="button button-secondary">
+                  <Link
+                    href={getLocalizedMarketingHref(locale, item.href)}
+                    className="button button-secondary"
+                  >
                     {itemCtaLabel}
                   </Link>
                 </div>

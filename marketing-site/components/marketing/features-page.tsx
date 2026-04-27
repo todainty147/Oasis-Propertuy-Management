@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import type { Locale } from "../../lib/i18n";
+import { getLocalizedMarketingHref } from "../../lib/i18n";
 import { featuresPageContentByLocale } from "../../content/features-page";
 import { PageHero } from "./page-hero";
 import { FinalCta } from "./final-cta";
@@ -10,7 +11,7 @@ export function MarketingFeaturesPage({ locale }: { locale: Locale }) {
 
   return (
     <>
-      <PageHero {...content.hero} />
+      <PageHero {...content.hero} locale={locale} />
       <section className="section">
         <div className="container">
           <div className="section-title">
@@ -29,7 +30,10 @@ export function MarketingFeaturesPage({ locale }: { locale: Locale }) {
                   ))}
                 </ul>
                 <div className="button-row">
-                  <Link href={section.href} className="button button-secondary">
+                  <Link
+                    href={getLocalizedMarketingHref(locale, section.href)}
+                    className="button button-secondary"
+                  >
                     {section.cta}
                   </Link>
                 </div>
@@ -38,7 +42,7 @@ export function MarketingFeaturesPage({ locale }: { locale: Locale }) {
           </div>
         </div>
       </section>
-      <FinalCta {...content.finalCta} />
+      <FinalCta {...content.finalCta} locale={locale} />
     </>
   );
 }

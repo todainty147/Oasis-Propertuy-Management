@@ -5,7 +5,7 @@ export const portfolioHealthContent = {
     title: "Portfolio Health Scoring for Landlords | OASIS Rental",
     description:
       "Spot arrears pressure, maintenance strain, and property risk earlier with portfolio health scoring in OASIS.",
-    canonical: "https://oasisrental.com/features/portfolio-health",
+    canonical: "https://marketing.oasisrentalmgt.app/features/portfolio-health",
   },
   hero: {
     eyebrow: "Portfolio health",

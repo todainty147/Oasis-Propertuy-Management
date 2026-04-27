@@ -5,7 +5,7 @@ export const oasisVsBuildiumContent = {
     title: "OASIS vs Buildium | Which Is Better for Landlords?",
     description:
       "Compare OASIS Rental vs Buildium for landlords choosing between a heavier platform and faster property operations control.",
-    canonical: "https://oasisrental.com/compare/oasis-vs-buildium",
+    canonical: "https://marketing.oasisrentalmgt.app/compare/oasis-vs-buildium",
   },
   hero: {
     eyebrow: "Comparison",
