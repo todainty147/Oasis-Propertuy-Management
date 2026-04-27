@@ -61,6 +61,7 @@ const COPY = {
     consent:
       "I confirm this job and relevant contact/property details can be shared with the selected external marketplace.",
     create: "Create marketplace handoff",
+    createBlockedByRisk: "Confirm the duplication warning before creating the marketplace handoff.",
     openProvider: "Open marketplace site",
     copy: "Copy handoff text",
     copied: "Handoff text copied.",
@@ -110,6 +111,7 @@ const COPY = {
     consent:
       "Potwierdzam, że to zlecenie i odpowiednie dane kontaktowe / dane nieruchomości mogą zostać udostępnione wybranemu marketplace.",
     create: "Utwórz handoff marketplace",
+    createBlockedByRisk: "Potwierdź ostrzeżenie o duplikacji przed utworzeniem handoffu marketplace.",
     openProvider: "Otwórz stronę marketplace",
     copy: "Kopiuj tekst handoff",
     copied: "Tekst handoff skopiowany.",
@@ -205,16 +207,14 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
         <button
           type="button"
           onClick={() => persistRoute("internal")}
-          disabled={hasMarketplaceJobs && !duplicateConfirmed}
-          className={`rounded-lg border px-3 py-2 text-sm ${route === "internal" ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-300 hover:bg-slate-50"} disabled:opacity-50`}
+          className={`rounded-lg border px-3 py-2 text-sm ${route === "internal" ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-300 hover:bg-slate-50"}`}
         >
           {copy.internal}
         </button>
         <button
           type="button"
           onClick={() => persistRoute("marketplace")}
-          disabled={hasInternalContractor && !duplicateConfirmed}
-          className={`rounded-lg border px-3 py-2 text-sm ${route === "marketplace" || route === "hybrid" ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-300 hover:bg-slate-50"} disabled:opacity-50`}
+          className={`rounded-lg border px-3 py-2 text-sm ${route === "marketplace" || route === "hybrid" ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-300 hover:bg-slate-50"}`}
         >
           {copy.marketplace}
         </button>
@@ -331,6 +331,9 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
           </label>
 
           {!consentConfirmed ? <p className="text-xs text-amber-700">{copy.draftNote}</p> : null}
+          {showMarketplaceRisk && !duplicateConfirmed ? (
+            <p className="text-xs text-amber-700">{copy.createBlockedByRisk}</p>
+          ) : null}
 
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -358,7 +361,12 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
                 refreshJobs();
                 persistRoute("marketplace");
               }}
-              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              disabled={showMarketplaceRisk && !duplicateConfirmed}
+              className={`rounded-lg px-3 py-2 text-sm font-medium text-white ${
+                showMarketplaceRisk && !duplicateConfirmed
+                  ? "bg-slate-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700"
+              }`}
             >
               {copy.create}
             </button>
