@@ -63,6 +63,22 @@ describe.skipIf(!isIntegrationHarnessConfigured())("schema regression guards", (
     await expectSelectableColumns("documents", ["account_id", "uploaded_by", "upload_status", "storage_path", "scope", "visibility"]);
   });
 
+  it("protects marketplace routing and handoff tables required by external fulfilment workflows", async () => {
+    await expectSelectableColumns("marketplace_providers", ["provider_key", "country_code", "label", "submission_mode", "website_url"]);
+    await expectSelectableColumns("work_order_fulfilment_routes", ["account_id", "work_order_id", "route", "updated_by"]);
+    await expectSelectableColumns("external_marketplace_jobs", [
+      "account_id",
+      "work_order_id",
+      "provider_key",
+      "status",
+      "submission_mode",
+      "trade_category",
+      "external_reference",
+      "metadata",
+    ]);
+    await expectSelectableColumns("external_marketplace_events", ["marketplace_job_id", "account_id", "work_order_id", "event_type", "actor_user_id"]);
+  });
+
   it("protects seeded payment linkage assumptions for account, tenant, and property scope", async () => {
     const { data, error } = await admin
       .from("payments")

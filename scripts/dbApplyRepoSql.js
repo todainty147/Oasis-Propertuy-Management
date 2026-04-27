@@ -53,6 +53,7 @@ const OVERLAY_SEQUENCE = [
   "property_operational_health_snapshot.sql",
   "contractor_work_order_cards.sql",
   "contractor_ratings.sql",
+  "marketplace_integrations.sql",
   "dashboard_snapshot.sql",
   "finance_snapshot.sql",
   "portfolio_health_snapshot.sql",

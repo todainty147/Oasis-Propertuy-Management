@@ -1363,7 +1363,7 @@ This snapshot compares the roadmap against checked-in implementation evidence ac
 
 ### Marketplace Integrations Foundation
 
-Status: **Partially done**
+Status: **Partially done, with Phase 1 persistence now in place**
 
 What is now visible in the product:
 - work-order detail page now includes a **Choose fulfilment route** section
@@ -1376,21 +1376,14 @@ What is now visible in the product:
   - Fixly (PL)
   - MyHammer (DE)
 - manual handoff text can be generated and copied for outbound posting
-- handoff route choice and marketplace jobs are stored locally in the browser so the slice is tangible without pretending the secured backend already exists
+- handoff route choice and marketplace jobs now persist through secured Supabase RPCs
+- legacy browser-local marketplace handoffs still remain visible/editable on the originating browser during the rollout so existing operator workflows are not broken
 
 What is still missing to complete the full story:
-- `supabase/marketplace_integrations.sql`
-- RLS-backed tables:
-  - `marketplace_providers`
-  - `marketplace_integration_settings`
-  - `external_marketplace_jobs`
-  - `external_marketplace_events`
-- guarded SECURITY DEFINER RPCs for create / submit / status update / list
-- account-isolated persistence in Supabase instead of browser-local storage
 - audit event wiring into the existing work-order audit surfaces
 - manager/internal notifications
 - Checkatrade Edge Function scaffold and configuration gating
-- tests for security, lifecycle, and route-selection behaviour
+- broader lifecycle tests across provider execution and notifications
 - command-centre marketplace attention signals
 - full ops documentation in `docs/MARKETPLACE_INTEGRATIONS.md`
 

@@ -180,6 +180,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply marketplace integrations overlay",
+    file: path.join(supabaseDir, "marketplace_integrations.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply dashboard snapshot overlay",
     file: path.join(supabaseDir, "dashboard_snapshot.sql"),
     onErrorStop: true,

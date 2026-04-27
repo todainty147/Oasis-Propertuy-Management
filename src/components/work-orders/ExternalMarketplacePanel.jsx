@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { marketplaceProviders } from "../../config/marketplaceProviders";
 import {
@@ -77,6 +77,8 @@ const COPY = {
     draftNote: "Consent is required before contact details are included in marketplace handoff.",
     existingJobs: "Existing marketplace handoffs",
     chooseTrade: "e.g. plumbing, electrical, lock change",
+    syncing: "Syncing marketplace state…",
+    syncFailed: "Marketplace persistence is temporarily unavailable. Existing browser-local handoffs are still shown.",
   },
   pl: {
     title: "Wybierz ścieżkę realizacji",
@@ -127,6 +129,8 @@ const COPY = {
     draftNote: "Zgoda jest wymagana, zanim dane kontaktowe trafią do marketplace.",
     existingJobs: "Istniejące handoffy marketplace",
     chooseTrade: "np. hydraulika, elektryka, wymiana zamka",
+    syncing: "Synchronizowanie stanu marketplace…",
+    syncFailed: "Trwały zapis marketplace jest chwilowo niedostępny. Nadal pokazujemy istniejące lokalne handoffy przeglądarki.",
   },
 };
 
@@ -146,16 +150,8 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
     "";
   const suggestedProvider = getMarketplaceSuggestion(countryCode);
   const providers = useMemo(() => getMarketplaceProviders(), []);
-  const [route, setRoute] = useState(() =>
-    accountId && workOrder?.id
-      ? getFulfilmentRoute({ accountId, workOrderId: workOrder.id })
-      : "internal",
-  );
-  const [jobs, setJobs] = useState(() =>
-    accountId && workOrder?.id
-      ? getMarketplaceJobsForWorkOrder({ accountId, workOrderId: workOrder.id })
-      : [],
-  );
+  const [route, setRoute] = useState("internal");
+  const [jobs, setJobs] = useState([]);
   const [providerKey, setProviderKey] = useState(() => suggestedProvider || "checkatrade");
   const [tradeCategory, setTradeCategory] = useState("");
   const [contactName, setContactName] = useState("");
@@ -164,6 +160,8 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [duplicateConfirmed, setDuplicateConfirmed] = useState(false);
   const [externalMeta, setExternalMeta] = useState({});
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState("");
   const hasInternalContractor = !!(workOrder?.contractor_name || workOrder?.contractor_user_id);
   const propertyLabel =
     [workOrder?.properties?.address, workOrder?.properties?.city].filter(Boolean).join(", ") ||
@@ -176,17 +174,51 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
   const showInternalRisk = route === "internal" && internalRouteConflict;
   const showMarketplaceRisk = (route === "marketplace" || route === "hybrid") && marketplaceRouteConflict;
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMarketplaceState() {
+      if (!accountId || !workOrder?.id) return;
+
+      setIsSyncing(true);
+      setSyncError("");
+
+      try {
+        const [nextRoute, nextJobs] = await Promise.all([
+          getFulfilmentRoute({ accountId, workOrderId: workOrder.id }),
+          getMarketplaceJobsForWorkOrder({ accountId, workOrderId: workOrder.id }),
+        ]);
+
+        if (cancelled) return;
+
+        setRoute(nextRoute);
+        setJobs(nextJobs);
+      } catch (error) {
+        if (cancelled) return;
+        setSyncError(error?.message || copy.syncFailed);
+      } finally {
+        if (!cancelled) setIsSyncing(false);
+      }
+    }
+
+    loadMarketplaceState();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, workOrder?.id]);
+
   if (!canManage || !workOrder?.id) return null;
 
-  function refreshJobs() {
-    setJobs(getMarketplaceJobsForWorkOrder({ accountId, workOrderId: workOrder.id }));
+  async function refreshJobs() {
+    const nextJobs = await getMarketplaceJobsForWorkOrder({ accountId, workOrderId: workOrder.id });
+    setJobs(nextJobs);
   }
 
-  function persistRoute(nextRoute) {
+  async function persistRoute(nextRoute) {
     let persisted = nextRoute;
     if (nextRoute === "internal" && hasMarketplaceJobs) persisted = "hybrid";
     if (nextRoute === "marketplace" && hasInternalContractor) persisted = "hybrid";
-    const saved = setFulfilmentRoute({ accountId, workOrderId: workOrder.id, route: persisted });
+    const saved = await setFulfilmentRoute({ accountId, workOrderId: workOrder.id, route: persisted });
     setRoute(saved);
   }
 
@@ -206,26 +238,50 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={() => persistRoute("internal")}
+          onClick={async () => {
+            try {
+              setSyncError("");
+              await persistRoute("internal");
+            } catch (error) {
+              setSyncError(error?.message || copy.syncFailed);
+            }
+          }}
           className={`rounded-lg border px-3 py-2 text-sm ${route === "internal" ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-300 hover:bg-slate-50"}`}
         >
           {copy.internal}
         </button>
         <button
           type="button"
-          onClick={() => persistRoute("marketplace")}
+          onClick={async () => {
+            try {
+              setSyncError("");
+              await persistRoute("marketplace");
+            } catch (error) {
+              setSyncError(error?.message || copy.syncFailed);
+            }
+          }}
           className={`rounded-lg border px-3 py-2 text-sm ${route === "marketplace" || route === "hybrid" ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-300 hover:bg-slate-50"}`}
         >
           {copy.marketplace}
         </button>
         <button
           type="button"
-          onClick={() => persistRoute("undecided")}
+          onClick={async () => {
+            try {
+              setSyncError("");
+              await persistRoute("undecided");
+            } catch (error) {
+              setSyncError(error?.message || copy.syncFailed);
+            }
+          }}
           className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50"
         >
           {copy.undecided}
         </button>
       </div>
+
+      {isSyncing ? <p className="text-xs text-slate-500">{copy.syncing}</p> : null}
+      {syncError ? <p className="text-xs text-amber-700">{syncError}</p> : null}
 
       <p className="text-xs text-slate-500">
         {copy.currentRoute}:{" "}
@@ -338,28 +394,34 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => {
-                createMarketplaceJob({
-                  accountId,
-                  workOrderId: workOrder.id,
-                  providerKey,
-                  tradeCategory,
-                  contactName,
-                  contactEmail,
-                  contactPhone,
-                  consentConfirmed,
-                  title:
-                    workOrder?.maintenance_requests?.title ||
-                    workOrder?.notes?.slice(0, 80) ||
-                    `Work order ${workOrder.id}`,
-                  description: workOrder?.notes || workOrder?.maintenance_requests?.title || "",
-                  urgency: workOrder?.status || "",
-                  city: workOrder?.properties?.city || "",
-                  propertyLabel,
-                  metadata: { route },
-                });
-                refreshJobs();
-                persistRoute("marketplace");
+              onClick={async () => {
+                try {
+                  setSyncError("");
+                  await createMarketplaceJob({
+                    accountId,
+                    workOrderId: workOrder.id,
+                    providerKey,
+                    tradeCategory,
+                    contactName,
+                    contactEmail,
+                    contactPhone,
+                    consentConfirmed,
+                    title:
+                      workOrder?.maintenance_requests?.title ||
+                      workOrder?.notes?.slice(0, 80) ||
+                      `Work order ${workOrder.id}`,
+                    description: workOrder?.notes || workOrder?.maintenance_requests?.title || "",
+                    urgency: workOrder?.status || "",
+                    city: workOrder?.properties?.city || "",
+                    propertyLabel,
+                    requestPayload: { source: "oasis_marketplace_panel" },
+                    metadata: { route },
+                  });
+                  await refreshJobs();
+                  await persistRoute("marketplace");
+                } catch (error) {
+                  setSyncError(error?.message || copy.syncFailed);
+                }
               }}
               disabled={showMarketplaceRisk && !duplicateConfirmed}
               className={`rounded-lg px-3 py-2 text-sm font-medium text-white ${
@@ -477,15 +539,20 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
                           <div className="flex flex-wrap gap-2">
                             <button
                               type="button"
-                              onClick={() => {
-                                markMarketplaceJobSubmitted({
-                                  accountId,
-                                  marketplaceJobId: job.id,
-                                  externalReference: extState.externalReference,
-                                  externalUrl: extState.externalUrl,
-                                  responsePayload: { source: "manual" },
-                                });
-                                refreshJobs();
+                              onClick={async () => {
+                                try {
+                                  setSyncError("");
+                                  await markMarketplaceJobSubmitted({
+                                    accountId,
+                                    marketplaceJobId: job.id,
+                                    externalReference: extState.externalReference,
+                                    externalUrl: extState.externalUrl,
+                                    responsePayload: { source: "manual" },
+                                  });
+                                  await refreshJobs();
+                                } catch (error) {
+                                  setSyncError(error?.message || copy.syncFailed);
+                                }
                               }}
                               className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
                             >
@@ -493,17 +560,22 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
                             </button>
                             <button
                               type="button"
-                              onClick={() => {
-                                updateMarketplaceJobStatus({
-                                  accountId,
-                                  marketplaceJobId: job.id,
-                                  status: extState.status,
-                                  payload: {
-                                    externalReference: extState.externalReference,
-                                    externalUrl: extState.externalUrl,
-                                  },
-                                });
-                                refreshJobs();
+                              onClick={async () => {
+                                try {
+                                  setSyncError("");
+                                  await updateMarketplaceJobStatus({
+                                    accountId,
+                                    marketplaceJobId: job.id,
+                                    status: extState.status,
+                                    payload: {
+                                      externalReference: extState.externalReference,
+                                      externalUrl: extState.externalUrl,
+                                    },
+                                  });
+                                  await refreshJobs();
+                                } catch (error) {
+                                  setSyncError(error?.message || copy.syncFailed);
+                                }
                               }}
                               className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50"
                             >

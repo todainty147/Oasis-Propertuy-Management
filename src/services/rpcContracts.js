@@ -390,6 +390,64 @@ export function parseAccountOwnerContactRow(row) {
   };
 }
 
+export function parseMarketplaceIntegrationSettingRow(row) {
+  const value = assertRecord(row, "marketplace integration setting row");
+  return {
+    providerKey: toStringOr(value.provider_key).trim().toLowerCase(),
+    enabled: toBooleanOr(value.enabled),
+    configuration: toObjectOr(value.configuration),
+    updatedAt: toNullableString(value.updated_at),
+  };
+}
+
+export function parseMarketplaceRouteRow(row) {
+  const value = assertRecord(row, "marketplace route row");
+  return {
+    accountId: toNullableString(value.account_id),
+    workOrderId: toNullableString(value.work_order_id),
+    route: toStringOr(value.route, "internal").trim().toLowerCase(),
+    updatedAt: toNullableString(value.updated_at),
+    isPersisted: toBooleanOr(value.is_persisted),
+  };
+}
+
+export function parseMarketplaceJobRow(row) {
+  const value = assertRecord(row, "marketplace job row");
+  return {
+    id: toStringOr(value.id),
+    accountId: toNullableString(value.account_id),
+    workOrderId: toNullableString(value.work_order_id),
+    providerKey: toStringOr(value.provider_key).trim().toLowerCase(),
+    countryCode: toStringOr(value.country_code).trim().toUpperCase(),
+    tradeCategory: toStringOr(value.trade_category),
+    externalJobId: toStringOr(value.external_job_id),
+    externalReference: toStringOr(value.external_reference),
+    externalUrl: toStringOr(value.external_url),
+    status: toStringOr(value.status, "draft").trim().toLowerCase(),
+    submissionMode: toStringOr(value.submission_mode, "manual").trim().toLowerCase(),
+    title: toStringOr(value.title),
+    description: toStringOr(value.description),
+    urgency: toStringOr(value.urgency),
+    postcode: toStringOr(value.postcode),
+    city: toStringOr(value.city),
+    propertyLabel: toStringOr(value.property_label),
+    contactName: toStringOr(value.contact_name),
+    contactEmail: toStringOr(value.contact_email),
+    contactPhone: toStringOr(value.contact_phone),
+    consentConfirmedAt: toNullableString(value.consent_confirmed_at),
+    submittedAt: toNullableString(value.submitted_at),
+    lastSyncedAt: toNullableString(value.last_synced_at),
+    lastError: toStringOr(value.last_error),
+    requestPayload: toObjectOr(value.request_payload),
+    responsePayload: toObjectOr(value.response_payload),
+    metadata: toObjectOr(value.metadata),
+    createdBy: toNullableString(value.created_by),
+    updatedBy: toNullableString(value.updated_by),
+    createdAt: toNullableString(value.created_at),
+    updatedAt: toNullableString(value.updated_at),
+  };
+}
+
 export function parseSelfServeLandlordAccountResult(row) {
   const value = assertRecord(row, "self-serve landlord account result");
   return {
