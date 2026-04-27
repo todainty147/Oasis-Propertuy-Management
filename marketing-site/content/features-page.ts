@@ -154,7 +154,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
       title: "Dowód, że OASIS wspiera realną pracę właściciela",
       body:
         "To nie jest kolejna lista modułów. OASIS jest zbudowany wokół efektów, które naprawdę uspokajają najem: jasne płatności, sprawnie prowadzone zgłoszenia, gotowe dokumenty i czytelny następny krok.",
-      cta: { label: "Zobacz OASIS", href: siteConfig.appUrl },
+      cta: { label: "Zobacz, jak działa OASIS", href: siteConfig.appUrl },
       imageSrc: "/screenshots/command-center.png",
       imageAlt: "Command Center OASIS z pilnymi kolejkami, zaległościami i działaniami.",
     },
@@ -166,7 +166,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
         eyebrow: "Command Center",
         title: "Zacznij od tego, co naprawdę wymaga działania",
         why:
-          "Dzień operacyjny idzie szybciej, gdy pilna kolejka, briefing AI i najważniejsze przeglądy są już w jednym miejscu.",
+          "Dzień operacyjny idzie szybciej, gdy pilna kolejka, briefing operacyjny AI i najważniejsze przeglądy są już w jednym miejscu.",
         bullets: [
           "Widzisz presję w całym portfelu zanim się rozleje.",
           "Przeglądasz briefing AI oparty na realnych sygnałach z konta.",
@@ -261,7 +261,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
       title: "Der Nachweis, dass OASIS die echte Vermieterarbeit unterstützt",
       body:
         "Das ist keine weitere Liste generischer Software-Module. OASIS ist um die Ergebnisse gebaut, die ein Portfolio operativ ruhig halten: klare Zahlungsübersicht, laufende Instandhaltung, greifbare Dokumente und ein eindeutiger nächster Schritt.",
-      cta: { label: "OASIS ansehen", href: siteConfig.appUrl },
+      cta: { label: "OASIS im Einsatz sehen", href: siteConfig.appUrl },
       imageSrc: "/screenshots/command-center.png",
       imageAlt: "OASIS Command Center mit dringenden Warteschlangen, Rückständen und Aufgaben.",
     },
@@ -273,10 +273,10 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
         eyebrow: "Command Center",
         title: "Mit dem anfangen, was jetzt Handlungsbedarf hat",
         why:
-          "Der operative Tag läuft sauberer, wenn dringende Listen, das AI-Briefing und die nächsten Prüfpunkte bereits an einem Ort vorliegen.",
+          "Der operative Tag läuft sauberer, wenn dringende Listen, eine operative Kurzanalyse und die nächsten Prüfpunkte bereits an einem Ort vorliegen.",
         bullets: [
           "Sie sehen portfolioweiten Druck, bevor er eskaliert.",
-          "Sie prüfen ein AI-Briefing auf Basis echter Kontosignale.",
+          "Sie prüfen eine operative Kurzanalyse auf Basis echter Kontosignale.",
           "Sie starten aus Aufgabenlisten statt aus verteilten Postfächern.",
         ],
         href: "/features/command-center",
@@ -352,7 +352,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
       title: "Wählen Sie zuerst den Bereich, der mehr Kontrolle braucht",
       body:
         "Starten Sie mit Instandhaltung, Immobilienzustand, Mieterportal oder Aufgabenpriorisierung. OASIS hält die Arbeit nah genug, damit die Woche nicht im Nacharbeiten endet.",
-      primaryCta: { label: "OASIS ansehen", href: siteConfig.appUrl },
+      primaryCta: { label: "OASIS im Einsatz sehen", href: siteConfig.appUrl },
       secondaryCta: { label: "Preise ansehen", href: "/pricing" },
     },
   },

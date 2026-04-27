@@ -380,7 +380,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       imageSrc: "/screenshots/command-center.png",
       imageAlt:
         "Panel Command Center w OASIS z briefingiem AI, pilnymi kolejkami i działaniami w całym portfelu.",
-      primaryCta: { label: "Zobacz OASIS", href: siteConfig.appUrl },
+      primaryCta: { label: "Zobacz, jak działa OASIS", href: siteConfig.appUrl },
       secondaryCta: { label: "Zobacz portal najemcy", href: "/features/tenant-portal" },
     },
     problemSection: {
@@ -421,7 +421,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
           body: "Cały proces najemca → właściciel → wykonawca pozostaje widoczny od pierwszego zgłoszenia do zakończonego zlecenia.",
         },
         {
-          title: "AI wspiera decyzję",
+          title: "AI wspiera decyzję, nie zgaduje",
           body: "Briefing Command Center, triage zgłoszeń, rekomendacje wykonawców i objaśnienia ryzyka przyspieszają pracę bez odbierania właścicielowi kontroli.",
         },
         {
@@ -438,7 +438,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
         {
           label: "Command Center",
           title: "Kolejki działań wspierane przez AI",
-          body: "Command Center zbiera pilne sygnały, presję follow-upu i briefing operatora, aby kolejny ruch był jasny.",
+          body: "Command Center zbiera pilne sygnały, presję follow-upu i briefing operacyjny, aby kolejny ruch był jasny.",
           points: ["briefing całego portfela", "kolejki uwagi", "następne cele przeglądu"],
           imageSrc: "/screenshots/command-center.png",
           imageAlt: "Command Center w OASIS z briefingiem AI i kolejkami działań dla całego konta.",
@@ -602,7 +602,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       title: "Zobacz OASIS przed publicznym startem",
       body:
         "Jeśli Twoim realnym problemem jest utrzymanie zgłoszeń, dokumentów, płatności i follow-upu w jednym rytmie pracy, OASIS powstał właśnie dla tego etapu.",
-      primaryCta: { label: "Zobacz OASIS", href: siteConfig.appUrl },
+      primaryCta: { label: "Zobacz, jak działa OASIS", href: siteConfig.appUrl },
       secondaryCta: { label: "Zobacz portal najemcy", href: "/features/tenant-portal" },
     },
   },
@@ -623,7 +623,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       support:
         "Entwickelt für Vermieter, die nicht nur verwalten, sondern Zuständigkeiten, Nachverfolgung und operative Klarheit sauber steuern wollen.",
       highlights: [
-        { label: "AI Command Center", href: "/features/command-center" },
+        { label: "Operatives Priorisierungs-Dashboard", href: "/features/command-center" },
         { label: "Instandhaltung und Arbeitsaufträge", href: "/features/maintenance-management" },
         { label: "Immobilienzustand", href: "/features/portfolio-health" },
         { label: "Sicherheit und Audit Trail", href: "/features/security-audit" },
@@ -636,7 +636,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       imageSrc: "/screenshots/command-center.png",
       imageAlt:
         "OASIS Command Center mit AI-Briefing, dringenden Aufgaben und operativen Warteschlangen im Portfolio.",
-      primaryCta: { label: "OASIS ansehen", href: siteConfig.appUrl },
+      primaryCta: { label: "OASIS im Einsatz sehen", href: siteConfig.appUrl },
       secondaryCta: { label: "Mieterportal ansehen", href: "/features/tenant-portal" },
     },
     problemSection: {
@@ -677,8 +677,8 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
           body: "Der Ablauf Mieter → Vermieter → Handwerker bleibt vom ersten Hinweis bis zum erledigten Arbeitsauftrag sichtbar.",
         },
         {
-          title: "AI gezielt einsetzen",
-          body: "Command Center Briefings, Instandhaltungs-Triage, Handwerkerempfehlungen und Risiko-Erklärungen beschleunigen die nächste Entscheidung, ohne sie zu automatisieren.",
+          title: "KI gezielt und nachvollziehbar einsetzen",
+          body: "Command-Center-Briefings, Instandhaltungs-Triage, Handwerkerempfehlungen und Risiko-Analysen beschleunigen die nächste Entscheidung, ohne sie zu automatisieren.",
         },
         {
           title: "Den Verlauf sauber halten",
@@ -693,8 +693,8 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       items: [
         {
           label: "Command Center",
-          title: "AI-gestützte Aufgabenpriorisierung",
-          body: "Das Command Center bündelt dringende Signale, Nachverfolgungsdruck und ein operatives Briefing, damit der nächste Schritt sofort klar ist.",
+          title: "Nachvollziehbare Aufgabenpriorisierung",
+          body: "Das Command Center bündelt dringende Signale, Nachverfolgungsdruck und eine operative Kurzanalyse, damit der nächste Schritt sofort klar ist.",
           points: ["portfolioweite Zusammenfassung", "Aufmerksamkeitslisten", "nächste Prüfpunkte"],
           imageSrc: "/screenshots/command-center.png",
           imageAlt: "OASIS Command Center mit AI-Briefing und portfolioweiten Aufgabenlisten.",
@@ -858,7 +858,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       title: "OASIS vor dem öffentlichen Start ansehen",
       body:
         "Wenn Ihr echtes Problem darin liegt, Instandhaltung, Dokumente, Zahlungsübersicht und Nachverfolgung zusammenzuhalten, ist OASIS genau für diese Phase gebaut.",
-      primaryCta: { label: "OASIS ansehen", href: siteConfig.appUrl },
+      primaryCta: { label: "OASIS im Einsatz sehen", href: siteConfig.appUrl },
       secondaryCta: { label: "Mieterportal ansehen", href: "/features/tenant-portal" },
     },
   },

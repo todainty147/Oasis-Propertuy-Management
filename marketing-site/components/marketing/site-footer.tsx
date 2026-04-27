@@ -27,6 +27,7 @@ export function SiteFooter() {
             {copy.footerLinks.compare}
           </Link>
           <Link href={getLocalizedMarketingHref(locale, "/blog")}>{copy.footerLinks.blog}</Link>
+          <Link href={getLocalizedMarketingHref(locale, "/impressum")}>{copy.footerLinks.legalNotice}</Link>
           <Link href={siteConfig.appUrl}>{copy.footerLinks.earlyAccess}</Link>
         </div>
       </div>

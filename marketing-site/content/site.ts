@@ -28,6 +28,7 @@ type SiteCopy = {
     pricing: string;
     compare: string;
     blog: string;
+    legalNotice: string;
     earlyAccess: string;
   };
   languageSwitcherLabel: string;
@@ -47,7 +48,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       tenantPortal: "/tenant-portal-software",
     },
     signIn: "Sign in",
-    primaryCta: "See how OASIS works",
+    primaryCta: "See OASIS in action",
     footerBlurb:
       "OASIS helps landlords run property operations with clearer follow-up, stronger maintenance control, and a tighter audit trail.",
     footerLinks: {
@@ -55,6 +56,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       pricing: "Pricing",
       compare: "Compare",
       blog: "Blog",
+      legalNotice: "Legal notice",
       earlyAccess: "Early access",
     },
     languageSwitcherLabel: "Language",
@@ -76,7 +78,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       tenantPortal: "/tenant-portal-software",
     },
     signIn: "Zaloguj się",
-    primaryCta: "Zobacz OASIS",
+    primaryCta: "Zobacz, jak działa OASIS",
     footerBlurb:
       "OASIS pomaga właścicielom mieszkań prowadzić najem z pełną kontrolą nad zgłoszeniami, płatnościami, dokumentami i historią działań.",
     footerLinks: {
@@ -84,6 +86,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       pricing: "Cennik",
       compare: "Porównanie",
       blog: "Blog",
+      legalNotice: "Informacje prawne",
       earlyAccess: "Wczesny dostęp",
     },
     languageSwitcherLabel: "Język",
@@ -105,14 +108,15 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       tenantPortal: "/tenant-portal-software",
     },
     signIn: "Anmelden",
-    primaryCta: "OASIS ansehen",
+    primaryCta: "OASIS im Einsatz sehen",
     footerBlurb:
-      "OASIS hilft Vermietern, Immobilienabläufe mit klareren Zuständigkeiten, besserer Instandhaltungssteuerung und sauberer Nachverfolgung zu führen.",
+      "OASIS unterstützt Vermieter mit nachvollziehbaren Abläufen, strukturierter Instandhaltungssteuerung und klarer operativer Nachverfolgung.",
     footerLinks: {
       features: "Funktionen",
       pricing: "Preise",
       compare: "Vergleich",
       blog: "Blog",
+      legalNotice: "Impressum",
       earlyAccess: "Frühzugang",
     },
     languageSwitcherLabel: "Sprache",

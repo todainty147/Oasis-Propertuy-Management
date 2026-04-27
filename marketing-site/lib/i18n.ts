@@ -10,6 +10,7 @@ const localizedPaths = new Set([
   "/pricing",
   "/tenant-portal-software",
   "/blog",
+  "/impressum",
   "/compare/oasis-vs-landlordstudio",
 ]);
 

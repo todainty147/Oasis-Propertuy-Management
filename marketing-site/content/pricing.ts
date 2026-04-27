@@ -225,7 +225,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
         ],
       },
     ],
-    planCtaLabel: "Zobacz OASIS",
+    planCtaLabel: "Zobacz, jak działa OASIS",
     included: {
       title: "Każdy plan pomaga ograniczyć zbędną administrację",
       bullets: [
@@ -273,7 +273,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       title: "Wypróbuj OASIS przed publicznym startem",
       body:
         "Uzyskaj wcześniejszy dostęp, przetestuj workflow i pomóż kształtować to, jak OASIS wspiera właścicieli mieszkań.",
-      primaryCta: { label: "Zobacz OASIS", href: siteConfig.appUrl },
+      primaryCta: { label: "Zobacz, jak działa OASIS", href: siteConfig.appUrl },
     },
   },
   de: {
@@ -319,7 +319,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
         bullets: [
           "alles aus Starter",
           "Command-Center-Warteschlangen für dringende Arbeit",
-          "AI-Briefing und Instandhaltungs-Triage",
+          "Operative Kurzanalyse und Instandhaltungs-Triage",
           "Ansichten für Portfolio Health, Rückstands- und Instandhaltungsdruck",
           "schnellere Priorisierung bei konkurrierenden Themen",
           "besserer Schutz vor verpasstem Follow-up",
@@ -341,7 +341,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
         ],
       },
     ],
-    planCtaLabel: "OASIS ansehen",
+    planCtaLabel: "OASIS im Einsatz sehen",
     included: {
       title: "Jeder Plan reduziert vermeidbaren Verwaltungsaufwand",
       bullets: [
@@ -389,7 +389,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       title: "Testen Sie OASIS vor dem öffentlichen Start",
       body:
         "Sichern Sie sich Frühzugang, testen Sie die Workflows und helfen Sie mit, wie OASIS Vermieter weiter unterstützt.",
-      primaryCta: { label: "OASIS ansehen", href: siteConfig.appUrl },
+      primaryCta: { label: "OASIS im Einsatz sehen", href: siteConfig.appUrl },
     },
   },
 };
