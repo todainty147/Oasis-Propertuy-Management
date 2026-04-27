@@ -1,25 +1,23 @@
 import type { Metadata } from "next";
 
-import { FaqList } from "../../components/marketing/faq-list";
-import { FinalCta } from "../../components/marketing/final-cta";
-import { IncludedFeatures } from "../../components/marketing/included-features";
-import { ContentSection } from "../../components/marketing/content-section";
-import { PageHero } from "../../components/marketing/page-hero";
-import { PricingCards } from "../../components/marketing/pricing-cards";
-import { pricingContent } from "../../content/pricing";
+import { MarketingPricingPage } from "../../components/marketing/pricing-page";
+import { pricingContentByLocale } from "../../content/pricing";
 import { buildMetadata } from "../../lib/metadata";
 
-export const metadata: Metadata = buildMetadata(pricingContent.seo);
+const englishPricingContent = pricingContentByLocale.en;
+
+export const metadata: Metadata = buildMetadata({
+  title: englishPricingContent.seo.title,
+  description: englishPricingContent.seo.description,
+  canonical: englishPricingContent.seo.canonicalPath,
+  languages: {
+    en: "/pricing",
+    pl: "/pl/pricing",
+    de: "/de/pricing",
+    "x-default": "/pricing",
+  },
+});
 
 export default function PricingPage() {
-  return (
-    <>
-      <PageHero {...pricingContent.hero} />
-      <ContentSection {...pricingContent.intro} />
-      <PricingCards plans={pricingContent.plans} />
-      <IncludedFeatures {...pricingContent.included} />
-      <FaqList items={pricingContent.faqs} />
-      <FinalCta {...pricingContent.finalCta} />
-    </>
-  );
+  return <MarketingPricingPage locale="en" />;
 }

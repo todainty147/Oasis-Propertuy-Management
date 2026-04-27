@@ -3,12 +3,18 @@ type Faq = {
   answer: string;
 };
 
-export function FaqList({ items }: { items: Faq[] }) {
+export function FaqList({
+  title = "Frequently asked questions",
+  items,
+}: {
+  title?: string;
+  items: Faq[];
+}) {
   return (
     <section className="section">
       <div className="container">
         <div className="section-title">
-          <h2>Frequently asked questions</h2>
+          <h2>{title}</h2>
         </div>
         <div className="grid">
           {items.map((item) => (

@@ -4,7 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { siteConfig, siteCopyByLocale } from "../../content/site";
-import { getEquivalentMarketingPath, getLocaleFromPathname, type Locale } from "../../lib/i18n";
+import {
+  getEquivalentMarketingPath,
+  getLocaleFromPathname,
+  getLocalizedMarketingHref,
+  type Locale,
+} from "../../lib/i18n";
 
 const languageOrder: Locale[] = ["en", "pl", "de"];
 
@@ -22,7 +27,7 @@ export function SiteHeader() {
         </Link>
         <nav className="site-nav" aria-label="Primary">
           {siteConfig.nav.map((item) => (
-            <Link key={item.href} href={item.href}>
+            <Link key={item.href} href={getLocalizedMarketingHref(locale, item.href)}>
               {copy.nav[item.key]}
             </Link>
           ))}

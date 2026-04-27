@@ -4,7 +4,7 @@ export type Locale = (typeof locales)[number];
 
 export const defaultLocale: Locale = "en";
 
-const localizedHomeOnlyPaths = new Set(["/"]);
+const localizedPaths = new Set(["/", "/features", "/pricing", "/tenant-portal-software"]);
 
 export function isLocale(value: string): value is Locale {
   return locales.includes(value as Locale);
@@ -48,7 +48,7 @@ export function getLocalePath(locale: Locale, pathname: string = "/"): string {
 export function getEquivalentMarketingPath(pathname: string, targetLocale: Locale): string {
   const normalizedPath = stripLocalePrefix(pathname || "/");
 
-  if (localizedHomeOnlyPaths.has(normalizedPath)) {
+  if (localizedPaths.has(normalizedPath)) {
     return getLocalePath(targetLocale, normalizedPath);
   }
 
@@ -57,4 +57,16 @@ export function getEquivalentMarketingPath(pathname: string, targetLocale: Local
   }
 
   return getLocalePath(targetLocale, "/");
+}
+
+export function getLocalizedMarketingHref(locale: Locale, href: string): string {
+  if (href.startsWith("http://") || href.startsWith("https://") || !href.startsWith("/")) {
+    return href;
+  }
+
+  if (!localizedPaths.has(href)) {
+    return href;
+  }
+
+  return getLocalePath(locale, href);
 }

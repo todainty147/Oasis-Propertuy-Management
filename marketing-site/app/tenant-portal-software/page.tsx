@@ -1,24 +1,23 @@
 import type { Metadata } from "next";
 
-import { ContentSection } from "../../components/marketing/content-section";
-import { FeatureGrid } from "../../components/marketing/feature-grid";
-import { FinalCta } from "../../components/marketing/final-cta";
-import { HeroSection } from "../../components/marketing/hero-section";
-import { WorkflowShowcase } from "../../components/marketing/workflow-showcase";
-import { tenantPortalLandingContent } from "../../content/tenant-portal-landing";
+import { MarketingTenantPortalLandingPage } from "../../components/marketing/tenant-portal-landing-page";
+import { tenantPortalLandingContentByLocale } from "../../content/tenant-portal-landing";
 import { buildMetadata } from "../../lib/metadata";
 
-export const metadata: Metadata = buildMetadata(tenantPortalLandingContent.seo);
+const englishTenantPortalLandingContent = tenantPortalLandingContentByLocale.en;
+
+export const metadata: Metadata = buildMetadata({
+  title: englishTenantPortalLandingContent.seo.title,
+  description: englishTenantPortalLandingContent.seo.description,
+  canonical: englishTenantPortalLandingContent.seo.canonicalPath,
+  languages: {
+    en: "/tenant-portal-software",
+    pl: "/pl/tenant-portal-software",
+    de: "/de/tenant-portal-software",
+    "x-default": "/tenant-portal-software",
+  },
+});
 
 export default function TenantPortalSoftwarePage() {
-  return (
-    <>
-      <HeroSection {...tenantPortalLandingContent.hero} />
-      <FeatureGrid {...tenantPortalLandingContent.problemSection} />
-      <ContentSection {...tenantPortalLandingContent.portalSection} />
-      <WorkflowShowcase {...tenantPortalLandingContent.workflowSection} />
-      <ContentSection {...tenantPortalLandingContent.proofSection} />
-      <FinalCta {...tenantPortalLandingContent.finalCta} />
-    </>
-  );
+  return <MarketingTenantPortalLandingPage locale="en" />;
 }

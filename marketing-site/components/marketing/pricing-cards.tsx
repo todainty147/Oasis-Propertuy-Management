@@ -11,7 +11,13 @@ type Plan = {
   tag?: string;
 };
 
-export function PricingCards({ plans }: { plans: Plan[] }) {
+export function PricingCards({
+  plans,
+  ctaLabel,
+}: {
+  plans: Plan[];
+  ctaLabel: string;
+}) {
   return (
     <section className="section">
       <div className="container">
@@ -32,7 +38,7 @@ export function PricingCards({ plans }: { plans: Plan[] }) {
               </ul>
               <div className="button-row">
                 <Link href={siteConfig.appUrl} className="button button-primary">
-                  Get Early Access
+                  {ctaLabel}
                 </Link>
               </div>
             </article>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { siteConfig, siteCopyByLocale } from "../../content/site";
-import { getLocaleFromPathname } from "../../lib/i18n";
+import { getLocaleFromPathname, getLocalizedMarketingHref } from "../../lib/i18n";
 
 export function SiteFooter() {
   const pathname = usePathname() || "/";
@@ -21,8 +21,8 @@ export function SiteFooter() {
           </p>
         </div>
         <div className="footer-links">
-          <Link href="/features">{copy.footerLinks.features}</Link>
-          <Link href="/pricing">{copy.footerLinks.pricing}</Link>
+          <Link href={getLocalizedMarketingHref(locale, "/features")}>{copy.footerLinks.features}</Link>
+          <Link href={getLocalizedMarketingHref(locale, "/pricing")}>{copy.footerLinks.pricing}</Link>
           <Link href="/compare/oasis-vs-landlordstudio">{copy.footerLinks.compare}</Link>
           <Link href="/blog">{copy.footerLinks.blog}</Link>
           <Link href={siteConfig.appUrl}>{copy.footerLinks.earlyAccess}</Link>
