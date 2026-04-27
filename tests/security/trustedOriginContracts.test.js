@@ -128,6 +128,7 @@ describe("trusted Edge Function origin contracts", () => {
       readSource("supabase/functions/create-customer-portal-session/index.ts"),
       readSource("supabase/functions/invite-user/index.ts"),
       readSource("supabase/functions/send-password-reset-email/index.ts"),
+      readSource("supabase/functions/submit-marketplace-handoff/index.ts"),
       readSource("supabase/functions/generate-security-audit-export/index.ts"),
       readSource("supabase/functions/ingest-security-observability/index.ts"),
     ];

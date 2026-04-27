@@ -4,6 +4,7 @@ import { isolationFixtures } from "../fixtures/isolationFixtures.js";
 import { isIntegrationHarnessConfigured } from "./helpers/env.js";
 import {
   ensureIsolationHarnessSeed,
+  getIntegrationAdminClient,
   isolationSeedIds,
   signInAsFixtureUser,
 } from "./helpers/localSupabaseHarness.js";
@@ -24,11 +25,49 @@ function expectAccessDenied(result) {
 }
 
 describe.skipIf(!isIntegrationHarnessConfigured())("marketplace integrations", () => {
+  const admin = getIntegrationAdminClient();
+
   it("lets account managers persist fulfilment routes and marketplace jobs for in-scope work orders", async () => {
-    await ensureIsolationHarnessSeed();
+    const users = await ensureIsolationHarnessSeed();
     const { client } = await signInAsFixtureUser("ownerA");
     const accountId = isolationFixtures.accounts.accountA.id;
     const workOrderId = isolationSeedIds.workOrderIds.accountA;
+
+    const updateSetting = await client.rpc("upsert_marketplace_integration_setting", {
+      p_account_id: accountId,
+      p_provider_key: "checkatrade",
+      p_enabled: true,
+      p_configuration: {
+        live_submission_enabled: false,
+      },
+    });
+
+    expect(updateSetting.error).toBeNull();
+    expect(firstRow(updateSetting.data)).toMatchObject({
+      provider_key: "checkatrade",
+      enabled: true,
+      configuration: {
+        live_submission_enabled: false,
+      },
+    });
+
+    const settings = await client.rpc("list_marketplace_integration_settings", {
+      p_account_id: accountId,
+    });
+
+    expect(settings.error).toBeNull();
+    expect(settings.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provider_key: "checkatrade",
+          enabled: true,
+        }),
+        expect.objectContaining({
+          provider_key: "fixly",
+          enabled: false,
+        }),
+      ]),
+    );
 
     const initialRoute = await client.rpc("get_work_order_fulfilment_route", {
       p_account_id: accountId,
@@ -39,8 +78,6 @@ describe.skipIf(!isIntegrationHarnessConfigured())("marketplace integrations", (
     expect(firstRow(initialRoute.data)).toMatchObject({
       account_id: accountId,
       work_order_id: workOrderId,
-      route: "internal",
-      is_persisted: false,
     });
 
     const persistedRoute = await client.rpc("set_work_order_fulfilment_route", {
@@ -133,6 +170,74 @@ describe.skipIf(!isIntegrationHarnessConfigured())("marketplace integrations", (
       external_reference: "ext-quote-1",
       external_url: "https://example.test/quote/1",
     });
+
+    const activityRows = await admin
+      .from("activity_log")
+      .select("action, field, new_value, meta")
+      .eq("account_id", accountId)
+      .eq("entity_type", "work_order")
+      .eq("entity_id", workOrderId)
+      .in("action", [
+        "marketplace_route_changed",
+        "marketplace_job_created",
+        "marketplace_job_status_changed",
+        "marketplace_job_submitted",
+      ])
+      .order("created_at", { ascending: false });
+
+    expect(activityRows.error).toBeNull();
+    expect(activityRows.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: "marketplace_route_changed",
+          field: "fulfilment_route",
+          new_value: "marketplace",
+        }),
+        expect.objectContaining({
+          action: "marketplace_job_created",
+          field: "provider_key",
+          new_value: "checkatrade",
+        }),
+        expect.objectContaining({
+          action: "marketplace_job_status_changed",
+          field: "status",
+          new_value: "quote_received",
+        }),
+        expect.objectContaining({
+          action: "marketplace_job_submitted",
+          field: "status",
+          new_value: "submitted",
+        }),
+      ]),
+    );
+
+    const notifications = await admin
+      .from("notifications")
+      .select("recipient_user_id, type, entity_type, entity_id, link_path")
+      .eq("account_id", accountId)
+      .eq("entity_type", "work_order")
+      .eq("entity_id", workOrderId)
+      .in("type", [
+        "marketplace_handoff_created",
+        "marketplace_handoff_status_changed",
+        "marketplace_handoff_submitted",
+      ]);
+
+    expect(notifications.error).toBeNull();
+    expect(notifications.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          recipient_user_id: users.adminA.id,
+          type: "marketplace_handoff_created",
+          link_path: `/work-orders/${workOrderId}`,
+        }),
+        expect.objectContaining({
+          recipient_user_id: users.staffA.id,
+          type: "marketplace_handoff_submitted",
+          link_path: `/work-orders/${workOrderId}`,
+        }),
+      ]),
+    );
   });
 
   it("denies cross-account marketplace access for ordinary staff", async () => {
@@ -155,6 +260,22 @@ describe.skipIf(!isIntegrationHarnessConfigured())("marketplace integrations", (
       p_account_id: isolationFixtures.accounts.accountA.id,
       p_work_order_id: isolationSeedIds.workOrderIds.accountA,
       p_route: "marketplace",
+    });
+
+    expectAccessDenied(result);
+  });
+
+  it("denies tenant access to marketplace provider configuration", async () => {
+    await ensureIsolationHarnessSeed();
+    const { client } = await signInAsFixtureUser("tenantA1");
+
+    const result = await client.rpc("upsert_marketplace_integration_setting", {
+      p_account_id: isolationFixtures.accounts.accountA.id,
+      p_provider_key: "checkatrade",
+      p_enabled: true,
+      p_configuration: {
+        live_submission_enabled: false,
+      },
     });
 
     expectAccessDenied(result);

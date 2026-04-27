@@ -6,9 +6,11 @@ import {
   getFulfilmentRoute,
   getMarketplaceJobsForWorkOrder,
   getMarketplaceProviders,
+  getMarketplaceSettings,
   getMarketplaceSuggestion,
   markMarketplaceJobSubmitted,
   setFulfilmentRoute,
+  submitMarketplaceJobToProvider,
   updateMarketplaceJobStatus,
 } from "../../services/marketplaceIntegrationService";
 import { buildMarketplaceHandoffCopy } from "../../utils/marketplaceHandoffCopy";
@@ -79,6 +81,13 @@ const COPY = {
     chooseTrade: "e.g. plumbing, electrical, lock change",
     syncing: "Syncing marketplace state…",
     syncFailed: "Marketplace persistence is temporarily unavailable. Existing browser-local handoffs are still shown.",
+    apiDisabled:
+      "Checkatrade API submission is not enabled for this account yet. Manual handoff remains available.",
+    apiRolloutReady:
+      "Checkatrade API rollout is staged for this account. Live provider submission remains gated until the transport goes live.",
+    submitApi: "Submit to Checkatrade API",
+    apiResultFallback:
+      "Provider API scaffolding is ready, but manual handoff is still the safe fallback in this rollout phase.",
   },
   pl: {
     title: "Wybierz ścieżkę realizacji",
@@ -131,6 +140,13 @@ const COPY = {
     chooseTrade: "np. hydraulika, elektryka, wymiana zamka",
     syncing: "Synchronizowanie stanu marketplace…",
     syncFailed: "Trwały zapis marketplace jest chwilowo niedostępny. Nadal pokazujemy istniejące lokalne handoffy przeglądarki.",
+    apiDisabled:
+      "Wysyłka API Checkatrade nie jest jeszcze włączona dla tego konta. Ręczny handoff nadal pozostaje dostępny.",
+    apiRolloutReady:
+      "Rollout API Checkatrade jest przygotowany dla tego konta. Żywa wysyłka do providera pozostaje bramkowana do czasu uruchomienia transportu.",
+    submitApi: "Wyślij do API Checkatrade",
+    apiResultFallback:
+      "Scaffold API providera jest gotowy, ale w tej fazie rolloutu bezpiecznym fallbackiem pozostaje ręczny handoff.",
   },
 };
 
@@ -153,6 +169,7 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
   const [route, setRoute] = useState("internal");
   const [jobs, setJobs] = useState([]);
   const [providerKey, setProviderKey] = useState(() => suggestedProvider || "checkatrade");
+  const [settings, setSettings] = useState([]);
   const [tradeCategory, setTradeCategory] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -162,6 +179,7 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
   const [externalMeta, setExternalMeta] = useState({});
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState("");
+  const [providerFeedback, setProviderFeedback] = useState({});
   const hasInternalContractor = !!(workOrder?.contractor_name || workOrder?.contractor_user_id);
   const propertyLabel =
     [workOrder?.properties?.address, workOrder?.properties?.city].filter(Boolean).join(", ") ||
@@ -169,6 +187,14 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
     "Property";
 
   const hasMarketplaceJobs = jobs.length > 0;
+  const settingsByProvider = useMemo(
+    () =>
+      Object.fromEntries(
+        settings.map((entry) => [entry.providerKey, entry]),
+      ),
+    [settings],
+  );
+  const selectedProviderSetting = settingsByProvider[providerKey] || null;
   const internalRouteConflict = hasMarketplaceJobs;
   const marketplaceRouteConflict = hasInternalContractor;
   const showInternalRisk = route === "internal" && internalRouteConflict;
@@ -184,15 +210,17 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
       setSyncError("");
 
       try {
-        const [nextRoute, nextJobs] = await Promise.all([
+        const [nextRoute, nextJobs, nextSettings] = await Promise.all([
           getFulfilmentRoute({ accountId, workOrderId: workOrder.id }),
           getMarketplaceJobsForWorkOrder({ accountId, workOrderId: workOrder.id }),
+          getMarketplaceSettings({ accountId }),
         ]);
 
         if (cancelled) return;
 
         setRoute(nextRoute);
-        setJobs(nextJobs);
+        setJobs(nextJobs || []);
+        setSettings(nextSettings || []);
       } catch (error) {
         if (cancelled) return;
         setSyncError(error?.message || copy.syncFailed);
@@ -225,6 +253,7 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
   function providerNotice(key) {
     if (key === "fixly") return copy.manualFixly;
     if (key === "myhammer") return copy.manualMyHammer;
+    if (selectedProviderSetting?.enabled === true) return copy.apiRolloutReady;
     return copy.manualCheckatrade;
   }
 
@@ -321,6 +350,18 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
               {copy.suggested}: <span className="font-medium text-slate-700">{marketplaceProviders[suggestedProvider]?.label}</span>
             </p>
           )}
+
+          {providerKey === "checkatrade" && selectedProviderSetting?.enabled !== true ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              {copy.apiDisabled}
+            </div>
+          ) : null}
+
+          {providerKey === "checkatrade" && selectedProviderSetting?.enabled === true ? (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
+              {copy.apiRolloutReady}
+            </div>
+          ) : null}
 
           <div className="grid gap-3 md:grid-cols-2">
             <label className="text-sm text-slate-700">
@@ -443,6 +484,7 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
               <div className="mt-3 space-y-3">
                 {jobs.map((job) => {
                   const provider = marketplaceProviders[job.providerKey];
+                  const providerSetting = settingsByProvider[job.providerKey] || null;
                   const handoffText = buildMarketplaceHandoffCopy(job, { locale: lang });
                   const extState = externalMeta[job.id] || {
                     externalReference: job.externalReference || "",
@@ -468,6 +510,34 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
 
                         <div className="space-y-3">
                           <div className="flex flex-wrap gap-2">
+                            {job.providerKey === "checkatrade" ? (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    setSyncError("");
+                                    const result = await submitMarketplaceJobToProvider({
+                                      accountId,
+                                      marketplaceJobId: job.id,
+                                    });
+                                    setProviderFeedback((prev) => ({
+                                      ...prev,
+                                      [job.id]: result.message || copy.apiResultFallback,
+                                    }));
+                                  } catch (error) {
+                                    setSyncError(error?.message || copy.syncFailed);
+                                  }
+                                }}
+                                disabled={providerSetting?.enabled !== true}
+                                className={`rounded-lg px-3 py-2 text-sm font-medium ${
+                                  providerSetting?.enabled === true
+                                    ? "border border-blue-600 text-blue-700 hover:bg-blue-50"
+                                    : "cursor-not-allowed border border-slate-300 text-slate-400"
+                                }`}
+                              >
+                                {copy.submitApi}
+                              </button>
+                            ) : null}
                             <a
                               href={provider?.websiteUrl}
                               target="_blank"
@@ -487,6 +557,10 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
                               {copy.copy}
                             </button>
                           </div>
+
+                          {providerFeedback[job.id] ? (
+                            <p className="text-xs text-blue-700">{providerFeedback[job.id]}</p>
+                          ) : null}
 
                           <label className="block text-xs text-slate-500">
                             {copy.extRef}

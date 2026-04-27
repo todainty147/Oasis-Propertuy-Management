@@ -1363,7 +1363,7 @@ This snapshot compares the roadmap against checked-in implementation evidence ac
 
 ### Marketplace Integrations Foundation
 
-Status: **Partially done, with Phase 1 persistence now in place**
+Status: **Partially done, with persistence and Checkatrade API scaffolding now in place**
 
 What is now visible in the product:
 - work-order detail page now includes a **Choose fulfilment route** section
@@ -1378,14 +1378,13 @@ What is now visible in the product:
 - manual handoff text can be generated and copied for outbound posting
 - handoff route choice and marketplace jobs now persist through secured Supabase RPCs
 - legacy browser-local marketplace handoffs still remain visible/editable on the originating browser during the rollout so existing operator workflows are not broken
+- account-scoped marketplace provider settings now gate Checkatrade API rollout state
+- a browser-authenticated `submit-marketplace-handoff` Edge Function now exists as the Checkatrade submission seam
+- the portal surfaces Checkatrade rollout state without pretending live provider submission has already shipped
 
 What is still missing to complete the full story:
-- audit event wiring into the existing work-order audit surfaces
-- manager/internal notifications
-- Checkatrade Edge Function scaffold and configuration gating
 - broader lifecycle tests across provider execution and notifications
 - command-centre marketplace attention signals
-- full ops documentation in `docs/MARKETPLACE_INTEGRATIONS.md`
 
 Why this shape was chosen:
 - it gives the portal a real, visible fulfilment-route experience now

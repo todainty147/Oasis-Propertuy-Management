@@ -234,13 +234,130 @@ begin
 
   return query
   select
+    mp.provider_key,
+    coalesce(s.enabled, false) as enabled,
+    coalesce(s.configuration, '{}'::jsonb) as configuration,
+    s.updated_at
+  from public.marketplace_providers mp
+  left join public.marketplace_integration_settings s
+    on s.provider_key = mp.provider_key
+   and s.account_id = v_account_id
+  order by mp.provider_key;
+end;
+$$;
+
+create or replace function public.upsert_marketplace_integration_setting(
+  p_account_id uuid,
+  p_provider_key text,
+  p_enabled boolean default false,
+  p_configuration jsonb default '{}'::jsonb
+)
+returns table(
+  provider_key text,
+  enabled boolean,
+  configuration jsonb,
+  updated_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_account_id uuid;
+begin
+  v_account_id := public.assert_manage_account_access(p_account_id);
+
+  if not exists (
+    select 1
+    from public.marketplace_providers mp
+    where mp.provider_key = p_provider_key
+  ) then
+    raise exception 'Unknown marketplace provider';
+  end if;
+
+  insert into public.marketplace_integration_settings (
+    account_id,
+    provider_key,
+    enabled,
+    configuration
+  )
+  values (
+    v_account_id,
+    p_provider_key,
+    coalesce(p_enabled, false),
+    coalesce(p_configuration, '{}'::jsonb)
+  )
+  on conflict on constraint marketplace_integration_settings_pkey do update
+  set enabled = excluded.enabled,
+      configuration = excluded.configuration,
+      updated_at = now();
+
+  return query
+  select
     s.provider_key,
     s.enabled,
     s.configuration,
     s.updated_at
   from public.marketplace_integration_settings s
   where s.account_id = v_account_id
-  order by s.provider_key;
+    and s.provider_key = p_provider_key;
+end;
+$$;
+
+create or replace function public.marketplace_manager_recipient_ids(
+  p_account_id uuid,
+  p_exclude_user_id uuid default auth.uid()
+)
+returns uuid[]
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    array_agg(distinct am.user_id) filter (where am.user_id is not null),
+    '{}'::uuid[]
+  )
+  from public.account_members am
+  where am.account_id = p_account_id
+    and am.user_id is not null
+    and am.user_id is distinct from p_exclude_user_id
+    and public.account_member_effective_role(p_account_id, am.user_id) = any (array['owner', 'admin', 'staff']);
+$$;
+
+create or replace function public.marketplace_notify_managers(
+  p_account_id uuid,
+  p_work_order_id uuid,
+  p_type text,
+  p_title text,
+  p_body text,
+  p_metadata jsonb default '{}'::jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_recipient_user_ids uuid[];
+begin
+  v_recipient_user_ids := public.marketplace_manager_recipient_ids(p_account_id, auth.uid());
+
+  if coalesce(array_length(v_recipient_user_ids, 1), 0) = 0 then
+    return;
+  end if;
+
+  perform public.create_notifications_system(
+    p_account_id,
+    v_recipient_user_ids,
+    p_type,
+    p_title,
+    p_body,
+    'work_order',
+    p_work_order_id,
+    '/work-orders/' || p_work_order_id::text,
+    coalesce(p_metadata, '{}'::jsonb)
+  );
 end;
 $$;
 
@@ -354,6 +471,20 @@ begin
       account_id = excluded.account_id,
       updated_by = auth.uid(),
       updated_at = now();
+
+  perform public.activity_log_write(
+    v_account_id,
+    'work_order',
+    p_work_order_id,
+    'marketplace_route_changed',
+    'fulfilment_route',
+    null,
+    p_route,
+    jsonb_build_object(
+      'table', 'work_order_fulfilment_routes',
+      'route', p_route
+    )
+  );
 
   return query
   select
@@ -525,6 +656,38 @@ begin
     auth.uid()
   );
 
+  perform public.activity_log_write(
+    v_job.account_id,
+    'work_order',
+    v_job.work_order_id,
+    'marketplace_job_created',
+    'provider_key',
+    null,
+    v_job.provider_key,
+    jsonb_build_object(
+      'table', 'external_marketplace_jobs',
+      'marketplace_job_id', v_job.id,
+      'provider_key', v_job.provider_key,
+      'submission_mode', v_job.submission_mode,
+      'status', v_job.status,
+      'trade_category', v_job.trade_category
+    )
+  );
+
+  perform public.marketplace_notify_managers(
+    v_job.account_id,
+    v_job.work_order_id,
+    'marketplace_handoff_created',
+    'Marketplace handoff created',
+    coalesce(v_job.title, 'Work order handoff') || ' → ' || coalesce(v_provider.label, v_job.provider_key),
+    jsonb_build_object(
+      'marketplace_job_id', v_job.id,
+      'provider_key', v_job.provider_key,
+      'submission_mode', v_job.submission_mode,
+      'status', v_job.status
+    )
+  );
+
   return query
   select *
   from public.external_marketplace_jobs j
@@ -593,6 +756,39 @@ begin
     auth.uid()
   );
 
+  perform public.activity_log_write(
+    v_job.account_id,
+    'work_order',
+    v_job.work_order_id,
+    'marketplace_job_submitted',
+    'status',
+    null,
+    v_job.status,
+    jsonb_build_object(
+      'table', 'external_marketplace_jobs',
+      'marketplace_job_id', v_job.id,
+      'provider_key', v_job.provider_key,
+      'external_job_id', v_job.external_job_id,
+      'external_reference', v_job.external_reference,
+      'external_url', v_job.external_url
+    )
+  );
+
+  perform public.marketplace_notify_managers(
+    v_job.account_id,
+    v_job.work_order_id,
+    'marketplace_handoff_submitted',
+    'Marketplace handoff submitted',
+    coalesce(v_job.title, 'Work order handoff') || ' submitted to ' || coalesce(v_job.provider_key, 'marketplace'),
+    jsonb_build_object(
+      'marketplace_job_id', v_job.id,
+      'provider_key', v_job.provider_key,
+      'external_job_id', v_job.external_job_id,
+      'external_reference', v_job.external_reference,
+      'external_url', v_job.external_url
+    )
+  );
+
   return query
   select *
   from public.external_marketplace_jobs j
@@ -614,6 +810,7 @@ as $$
 declare
   v_account_id uuid;
   v_job public.external_marketplace_jobs%rowtype;
+  v_previous_status text;
 begin
   v_account_id := public.assert_manage_account_access(p_account_id);
 
@@ -633,6 +830,12 @@ begin
   ) then
     raise exception 'Unsupported marketplace job status';
   end if;
+
+  select j.status
+  into v_previous_status
+  from public.external_marketplace_jobs j
+  where j.id = p_marketplace_job_id
+    and j.account_id = v_account_id;
 
   update public.external_marketplace_jobs j
   set status = p_status,
@@ -672,6 +875,37 @@ begin
     auth.uid()
   );
 
+  perform public.activity_log_write(
+    v_job.account_id,
+    'work_order',
+    v_job.work_order_id,
+    'marketplace_job_status_changed',
+    'status',
+    v_previous_status,
+    v_job.status,
+    jsonb_build_object(
+      'table', 'external_marketplace_jobs',
+      'marketplace_job_id', v_job.id,
+      'provider_key', v_job.provider_key,
+      'status', v_job.status,
+      'payload', coalesce(p_payload, '{}'::jsonb)
+    )
+  );
+
+  perform public.marketplace_notify_managers(
+    v_job.account_id,
+    v_job.work_order_id,
+    'marketplace_handoff_status_changed',
+    'Marketplace handoff status changed',
+    coalesce(v_job.title, 'Work order handoff') || ' status: ' || v_job.status,
+    jsonb_build_object(
+      'marketplace_job_id', v_job.id,
+      'provider_key', v_job.provider_key,
+      'status', v_job.status,
+      'old_status', v_previous_status
+    )
+  );
+
   return query
   select *
   from public.external_marketplace_jobs j
@@ -680,6 +914,9 @@ end;
 $$;
 
 grant execute on function public.list_marketplace_integration_settings(uuid) to authenticated;
+grant execute on function public.upsert_marketplace_integration_setting(uuid, text, boolean, jsonb) to authenticated;
+grant execute on function public.marketplace_manager_recipient_ids(uuid, uuid) to authenticated;
+grant execute on function public.marketplace_notify_managers(uuid, uuid, text, text, text, jsonb) to authenticated;
 grant execute on function public.get_work_order_fulfilment_route(uuid, uuid) to authenticated;
 grant execute on function public.set_work_order_fulfilment_route(uuid, uuid, text) to authenticated;
 grant execute on function public.list_marketplace_jobs(uuid, uuid) to authenticated;

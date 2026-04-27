@@ -12,6 +12,7 @@ const migratedFunctions = [
   "supabase/functions/create-customer-portal-session/index.ts",
   "supabase/functions/invite-user/index.ts",
   "supabase/functions/send-password-reset-email/index.ts",
+  "supabase/functions/submit-marketplace-handoff/index.ts",
   "supabase/functions/generate-attention-insight/index.ts",
   "supabase/functions/generate-property-health-explainer/index.ts",
   "supabase/functions/generate-maintenance-triage/index.ts",

@@ -1,16 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const rpcMock = vi.fn();
+const invokeMock = vi.fn();
 
 vi.mock("../../src/lib/supabase.js", () => ({
   supabase: {
     rpc: (...args) => rpcMock(...args),
+    functions: {
+      invoke: (...args) => invokeMock(...args),
+    },
   },
+}));
+
+vi.mock("../../src/services/securityFailureLogger.js", () => ({
+  logSecurityRelevantFailure: vi.fn(),
 }));
 
 describe("marketplace integration service", () => {
   beforeEach(() => {
     rpcMock.mockReset();
+    invokeMock.mockReset();
     const store = new Map();
     global.window = {
       localStorage: {
@@ -199,5 +208,87 @@ describe("marketplace integration service", () => {
         }),
       ]),
     );
+  });
+
+  it("persists account-level marketplace settings through the secured RPC seam", async () => {
+    rpcMock.mockResolvedValue({
+      data: [
+        {
+          provider_key: "checkatrade",
+          enabled: true,
+          configuration: {
+            live_submission_enabled: false,
+          },
+          updated_at: "2026-04-27T14:00:00.000Z",
+        },
+      ],
+      error: null,
+    });
+
+    const { upsertMarketplaceIntegrationSetting } = await import("../../src/services/marketplaceIntegrationService.js");
+    const result = await upsertMarketplaceIntegrationSetting({
+      accountId: "account-1",
+      providerKey: "checkatrade",
+      enabled: true,
+      configuration: {
+        live_submission_enabled: false,
+      },
+    });
+
+    expect(rpcMock).toHaveBeenCalledWith("upsert_marketplace_integration_setting", {
+      p_account_id: "account-1",
+      p_provider_key: "checkatrade",
+      p_enabled: true,
+      p_configuration: {
+        live_submission_enabled: false,
+      },
+    });
+    expect(result).toMatchObject({
+      providerKey: "checkatrade",
+      enabled: true,
+      configuration: {
+        live_submission_enabled: false,
+      },
+    });
+  });
+
+  it("submits persisted marketplace handoffs through the Edge Function seam", async () => {
+    invokeMock.mockResolvedValue({
+      data: {
+        providerKey: "checkatrade",
+        marketplaceJobId: "11111111-1111-1111-1111-111111111111",
+        status: "scaffold_ready",
+        message: "Checkatrade API rollout is enabled for this account, but live provider submission is not configured yet. Use the manual handoff flow for now.",
+        liveSubmissionAvailable: false,
+        manualFallbackRecommended: true,
+        preparedPayload: {
+          title: "Leaking boiler",
+        },
+      },
+      error: null,
+    });
+
+    const { submitMarketplaceJobToProvider } = await import("../../src/services/marketplaceIntegrationService.js");
+    const result = await submitMarketplaceJobToProvider({
+      accountId: "account-1",
+      marketplaceJobId: "11111111-1111-1111-1111-111111111111",
+    });
+
+    expect(invokeMock).toHaveBeenCalledWith("submit-marketplace-handoff", {
+      body: {
+        accountId: "account-1",
+        marketplaceJobId: "11111111-1111-1111-1111-111111111111",
+      },
+    });
+    expect(result).toMatchObject({
+      providerKey: "checkatrade",
+      marketplaceJobId: "11111111-1111-1111-1111-111111111111",
+      status: "scaffold_ready",
+      liveSubmissionAvailable: false,
+      manualFallbackRecommended: true,
+      preparedPayload: {
+        title: "Leaking boiler",
+      },
+    });
   });
 });

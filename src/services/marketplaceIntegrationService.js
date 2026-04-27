@@ -4,6 +4,7 @@ import {
   marketplaceProviders,
 } from "../config/marketplaceProviders";
 import { supabase } from "../lib/supabase";
+import { buildEdgeFunctionFailure } from "./edgeFunctionFailure";
 import {
   firstRpcRow,
   parseMarketplaceIntegrationSettingRow,
@@ -11,6 +12,7 @@ import {
   parseMarketplaceRouteRow,
   parseRpcRows,
 } from "./rpcContracts";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 const JOBS_KEY = "oasis_marketplace_jobs_v1";
 const ROUTES_KEY = "oasis_marketplace_routes_v1";
@@ -206,6 +208,27 @@ export async function getMarketplaceSettings({ accountId } = {}) {
   );
 }
 
+export async function upsertMarketplaceIntegrationSetting({
+  accountId,
+  providerKey,
+  enabled = false,
+  configuration = {},
+} = {}) {
+  if (!accountId || !providerKey) {
+    throw new Error("accountId and providerKey are required");
+  }
+
+  const { data, error } = await supabase.rpc("upsert_marketplace_integration_setting", {
+    p_account_id: accountId,
+    p_provider_key: providerKey,
+    p_enabled: Boolean(enabled),
+    p_configuration: isRecord(configuration) ? configuration : {},
+  });
+
+  if (error) throw friendly(error, "Failed to save marketplace integration setting");
+  return parseMarketplaceIntegrationSettingRow(firstRpcRow(data));
+}
+
 export async function getFulfilmentRoute({ accountId, workOrderId }) {
   const localRoute = getLocalFulfilmentRoute({ accountId, workOrderId });
 
@@ -347,6 +370,58 @@ export async function updateMarketplaceJobStatus({ accountId, marketplaceJobId, 
   });
 
   if (error) throw friendly(error, "Failed to update marketplace handoff status");
+}
+
+export async function submitMarketplaceJobToProvider({ accountId, marketplaceJobId } = {}) {
+  if (!accountId || !marketplaceJobId) {
+    throw new Error("accountId and marketplaceJobId are required");
+  }
+
+  if (isLocalMarketplaceId(marketplaceJobId)) {
+    throw new Error("API submission is only available for persisted marketplace handoffs");
+  }
+
+  const { data, error } = await supabase.functions.invoke("submit-marketplace-handoff", {
+    body: {
+      accountId,
+      marketplaceJobId,
+    },
+  });
+
+  if (error) {
+    const wrapped = buildEdgeFunctionFailure({
+      payload: data,
+      status: error?.context?.status || null,
+      surface: "submit_marketplace_handoff",
+      fallback: error.message || "Could not submit marketplace handoff",
+      entityType: "external_marketplace_job",
+      entityId: marketplaceJobId,
+      accountId,
+    });
+    logSecurityRelevantFailure("submit_marketplace_handoff", {
+      error: wrapped,
+      context: {
+        accountId,
+        marketplaceJobId,
+        surface: "marketplace_handoff",
+      },
+    });
+    throw wrapped;
+  }
+
+  return {
+    providerKey: String(data?.providerKey || ""),
+    marketplaceJobId: String(data?.marketplaceJobId || marketplaceJobId),
+    status: String(data?.status || ""),
+    message: String(data?.message || "").trim(),
+    liveSubmissionAvailable: data?.liveSubmissionAvailable === true,
+    manualFallbackRecommended: data?.manualFallbackRecommended !== false,
+    externalSubmissionUrl:
+      typeof data?.externalSubmissionUrl === "string" && data.externalSubmissionUrl.trim()
+        ? data.externalSubmissionUrl.trim()
+        : null,
+    preparedPayload: isRecord(data?.preparedPayload) ? data.preparedPayload : {},
+  };
 }
 
 export function getMarketplaceSuggestion(countryCode) {

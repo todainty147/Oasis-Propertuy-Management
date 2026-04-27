@@ -65,6 +65,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("schema regression guards", (
 
   it("protects marketplace routing and handoff tables required by external fulfilment workflows", async () => {
     await expectSelectableColumns("marketplace_providers", ["provider_key", "country_code", "label", "submission_mode", "website_url"]);
+    await expectSelectableColumns("marketplace_integration_settings", ["account_id", "provider_key", "enabled", "configuration"]);
     await expectSelectableColumns("work_order_fulfilment_routes", ["account_id", "work_order_id", "route", "updated_by"]);
     await expectSelectableColumns("external_marketplace_jobs", [
       "account_id",
