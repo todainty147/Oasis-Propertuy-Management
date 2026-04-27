@@ -225,7 +225,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
         ],
       },
     ],
-    planCtaLabel: "Zobacz, jak działa OASIS",
+    planCtaLabel: "Zobacz OASIS",
     included: {
       title: "Każdy plan pomaga ograniczyć zbędną administrację",
       bullets: [
@@ -273,7 +273,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       title: "Wypróbuj OASIS przed publicznym startem",
       body:
         "Uzyskaj wcześniejszy dostęp, przetestuj workflow i pomóż kształtować to, jak OASIS wspiera właścicieli mieszkań.",
-      primaryCta: { label: "Zobacz, jak działa OASIS", href: siteConfig.appUrl },
+      primaryCta: { label: "Zobacz OASIS", href: siteConfig.appUrl },
     },
   },
   de: {

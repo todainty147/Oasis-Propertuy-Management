@@ -11,7 +11,6 @@ export const siteConfig = {
   nav: [
     { key: "features", href: "/features" },
     { key: "tenantPortal", href: "/features/tenant-portal" },
-    { key: "tenantPortalSoftware", href: "/tenant-portal-software" },
     { key: "pricing", href: "/pricing" },
     { key: "compare", href: "/compare/oasis-vs-landlordstudio" },
     { key: "blog", href: "/blog" },
@@ -40,7 +39,6 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
     nav: {
       features: "Features",
       tenantPortal: "Tenant Portal",
-      tenantPortalSoftware: "Tenant Portal Software",
       pricing: "Pricing",
       compare: "Compare",
       blog: "Blog",
@@ -70,7 +68,6 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
     nav: {
       features: "Funkcje",
       tenantPortal: "Portal najemcy",
-      tenantPortalSoftware: "Oprogramowanie dla portalu najemcy",
       pricing: "Cennik",
       compare: "Porównanie",
       blog: "Blog",
@@ -79,7 +76,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       tenantPortal: "/tenant-portal-software",
     },
     signIn: "Zaloguj się",
-    primaryCta: "Zobacz, jak działa OASIS",
+    primaryCta: "Zobacz OASIS",
     footerBlurb:
       "OASIS pomaga właścicielom mieszkań prowadzić najem z pełną kontrolą nad zgłoszeniami, płatnościami, dokumentami i historią działań.",
     footerLinks: {
@@ -100,7 +97,6 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
     nav: {
       features: "Funktionen",
       tenantPortal: "Mieterportal",
-      tenantPortalSoftware: "Mieterportal-Software",
       pricing: "Preise",
       compare: "Vergleich",
       blog: "Blog",

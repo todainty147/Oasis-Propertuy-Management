@@ -154,7 +154,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
       title: "Dowód, że OASIS wspiera realną pracę właściciela",
       body:
         "To nie jest kolejna lista modułów. OASIS jest zbudowany wokół efektów, które naprawdę uspokajają najem: jasne płatności, sprawnie prowadzone zgłoszenia, gotowe dokumenty i czytelny następny krok.",
-      cta: { label: "Zobacz, jak działa OASIS", href: siteConfig.appUrl },
+      cta: { label: "Zobacz OASIS", href: siteConfig.appUrl },
       imageSrc: "/screenshots/command-center.png",
       imageAlt: "Command Center OASIS z pilnymi kolejkami, zaległościami i działaniami.",
     },
@@ -245,7 +245,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
       title: "Wybierz obszar najmu, który najbardziej potrzebuje kontroli",
       body:
         "Zacznij od zgłoszeń, kondycji nieruchomości, portalu najemcy albo kolejek działań. OASIS trzyma pracę wystarczająco blisko, by działać zanim tydzień zamieni się w nadrabianie zaległości.",
-      primaryCta: { label: "Zobacz, jak działa OASIS", href: siteConfig.appUrl },
+      primaryCta: { label: "Zobacz OASIS", href: siteConfig.appUrl },
       secondaryCta: { label: "Porównaj plany", href: "/pricing" },
     },
   },

@@ -238,7 +238,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
       ],
       imageSrc: "/screenshots/tenant-home.png",
       imageAlt: "Dashboard portalu najemcy OASIS z kartami podsumowania, zgłoszeniami i płatnościami.",
-      primaryCta: { label: "Zobacz, jak działa OASIS", href: siteConfig.appUrl },
+      primaryCta: { label: "Zobacz OASIS", href: siteConfig.appUrl },
       secondaryCta: { label: "Zobacz portal najemcy", href: "/features/tenant-portal" },
     },
     problemSection: {
@@ -348,7 +348,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
       title: "Zamień chaos pytań najemcy w czytelniejszą samoobsługę",
       body:
         "Jeśli realnym problemem są powtarzające się pytania o płatności, mgliste zgłoszenia albo chaos dokumentów, OASIS daje mocniejszy kanał dla najemcy bez utraty kontroli nad operacją.",
-      primaryCta: { label: "Zobacz, jak działa OASIS", href: siteConfig.appUrl },
+      primaryCta: { label: "Zobacz OASIS", href: siteConfig.appUrl },
       secondaryCta: { label: "Poznaj portal najemcy", href: "/features/tenant-portal" },
     },
   },

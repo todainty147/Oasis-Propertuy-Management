@@ -380,7 +380,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       imageSrc: "/screenshots/command-center.png",
       imageAlt:
         "Panel Command Center w OASIS z briefingiem AI, pilnymi kolejkami i działaniami w całym portfelu.",
-      primaryCta: { label: "Zobacz, jak działa OASIS", href: siteConfig.appUrl },
+      primaryCta: { label: "Zobacz OASIS", href: siteConfig.appUrl },
       secondaryCta: { label: "Zobacz portal najemcy", href: "/features/tenant-portal" },
     },
     problemSection: {
@@ -602,7 +602,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       title: "Zobacz OASIS przed publicznym startem",
       body:
         "Jeśli Twoim realnym problemem jest utrzymanie zgłoszeń, dokumentów, płatności i follow-upu w jednym rytmie pracy, OASIS powstał właśnie dla tego etapu.",
-      primaryCta: { label: "Zobacz, jak działa OASIS", href: siteConfig.appUrl },
+      primaryCta: { label: "Zobacz OASIS", href: siteConfig.appUrl },
       secondaryCta: { label: "Zobacz portal najemcy", href: "/features/tenant-portal" },
     },
   },
