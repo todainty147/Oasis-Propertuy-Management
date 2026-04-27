@@ -520,6 +520,7 @@ export function parseWorkOrderRow(row) {
     acknowledgement_due_at: toNullableString(value.acknowledgement_due_at),
     acknowledgement_status: toStringOr(value.acknowledgement_status).trim().toLowerCase(),
     maintenance_requests: value.maintenance_requests == null ? null : toObjectOr(value.maintenance_requests, null),
+    properties: value.properties == null ? null : toObjectOr(value.properties, null),
   };
 }
 

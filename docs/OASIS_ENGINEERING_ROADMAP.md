@@ -1360,6 +1360,46 @@ This snapshot compares the roadmap against checked-in implementation evidence ac
 | Natural-language operational query | Not yet implemented and intentionally kept for a later, more controlled phase. | [OASIS_ENGINEERING_ROADMAP.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OASIS_ENGINEERING_ROADMAP.md) |
 | Native payment rails / autopay | Not repo-backed today. Payment setup exists, but execution remains a deliberate later expansion. | [tenant-payment-setup.spec.js](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/e2e/tenant-payment-setup.spec.js), [OASIS_ENGINEERING_ROADMAP.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OASIS_ENGINEERING_ROADMAP.md) |
 | Premium standalone tenant portal | Not yet. The current portal is a strong shared-product foundation, not a distinct premium product layer. | [TenantPortal Roadmap](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OASIS_ENGINEERING_ROADMAP.md) |
+
+### Marketplace Integrations Foundation
+
+Status: **Partially done**
+
+What is now visible in the product:
+- work-order detail page now includes a **Choose fulfilment route** section
+- owner/admin/staff can explicitly choose:
+  - internal contractor
+  - marketplace handoff
+- duplicate-risk warnings are shown when a contractor is already assigned or a marketplace handoff already exists
+- a first **External marketplace handoff** panel is available in the portal for:
+  - Checkatrade (GB)
+  - Fixly (PL)
+  - MyHammer (DE)
+- manual handoff text can be generated and copied for outbound posting
+- handoff route choice and marketplace jobs are stored locally in the browser so the slice is tangible without pretending the secured backend already exists
+
+What is still missing to complete the full story:
+- `supabase/marketplace_integrations.sql`
+- RLS-backed tables:
+  - `marketplace_providers`
+  - `marketplace_integration_settings`
+  - `external_marketplace_jobs`
+  - `external_marketplace_events`
+- guarded SECURITY DEFINER RPCs for create / submit / status update / list
+- account-isolated persistence in Supabase instead of browser-local storage
+- audit event wiring into the existing work-order audit surfaces
+- manager/internal notifications
+- Checkatrade Edge Function scaffold and configuration gating
+- tests for security, lifecycle, and route-selection behaviour
+- command-centre marketplace attention signals
+- full ops documentation in `docs/MARKETPLACE_INTEGRATIONS.md`
+
+Why this shape was chosen:
+- it gives the portal a real, visible fulfilment-route experience now
+- it keeps OASIS as the source-of-truth UX
+- it avoids faking provider API success, scraping, or unsecured shared-data persistence
+- it creates a clean seam for the Supabase/RPC layer to replace the local foundation next
+
 | CMS / content operations platform | Not present by design for the current marketing stage. | [marketing-site/README.md](/mnt/c/Users/Home/oasisrentalmanagementapp/marketing-site/README.md) |
 | Advanced SIEM / automated paging | Not present by design at the current operating stage. | [security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md), [HOSTED_SECURITY_LOG_SINK.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/HOSTED_SECURITY_LOG_SINK.md) |
 

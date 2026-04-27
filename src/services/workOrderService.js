@@ -167,7 +167,8 @@ export async function fetchWorkOrderById(id, { signal } = {}) {
       acknowledged_at,
       acknowledgement_due_at,
       acknowledgement_status,
-      maintenance_requests:maintenance_request_id ( id, title, status, priority )
+      maintenance_requests:maintenance_request_id ( id, title, status, priority ),
+      properties:property_id ( id, address, city )
       `
     )
     .eq("id", id)

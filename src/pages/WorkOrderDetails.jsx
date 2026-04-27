@@ -20,6 +20,7 @@ import {
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount, getDefaultCurrency } from "../utils/currency";
 import { isManageRole } from "../utils/permissions";
+import ExternalMarketplacePanel from "../components/work-orders/ExternalMarketplacePanel";
 
 /* -----------------------------
    Status label helper (Polish)
@@ -280,7 +281,7 @@ export default function WorkOrderDetails() {
   const { setTitle } = usePageTitle();
 
   const { activeAccountId, activeRole } = useAccount();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const role = useMemo(() => String(activeRole ?? "").toLowerCase(), [activeRole]);
   const canManage = useMemo(() => isManageRole(role), [role]);
 
@@ -825,6 +826,14 @@ export default function WorkOrderDetails() {
 	          </div>
 	        </Card>
 	      )}
+
+      <ExternalMarketplacePanel
+        key={`${activeAccountId || "no-account"}:${wo?.id || "no-work-order"}:${wo?.properties?.country_code || "unknown"}`}
+        accountId={activeAccountId}
+        workOrder={wo}
+        canManage={canManage}
+        lang={lang}
+      />
 
       {/* Financial summary */}
       <Card className="p-6">
