@@ -108,7 +108,13 @@ function createAnonClient() {
 function isConnectionRefusedError(error) {
   const message = String(error?.message || "").toLowerCase();
   const causeCode = error?.cause?.code || "";
-  return causeCode === "ECONNREFUSED" || message.includes("econnrefused") || message.includes("fetch failed");
+  return (
+    causeCode === "ECONNREFUSED" ||
+    causeCode === "EPERM" ||
+    message.includes("econnrefused") ||
+    message.includes("fetch failed") ||
+    message.includes("eperm")
+  );
 }
 
 function isMissingRelationError(error) {
@@ -126,6 +132,34 @@ function isMissingColumnError(error) {
   return error?.code === "42703" || message.includes("column") && message.includes("does not exist");
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function probeCoreTables(admin) {
+  const missingTables = [];
+
+  for (const { table, probeColumn } of requiredCoreTables) {
+    const { error } = await admin.from(table).select(probeColumn).limit(1);
+    if (!error) continue;
+
+    if (isMissingRelationError(error)) {
+      missingTables.push(table);
+      continue;
+    }
+
+    if (isMissingColumnError(error)) {
+      throw new Error(
+        `Local integration harness probe mismatch for ${table}.${probeColumn}. Update the harness probe column to match the local schema.`,
+      );
+    }
+
+    throw error;
+  }
+
+  return missingTables;
+}
+
 export async function assertIsolationHarnessReady() {
   if (!isIntegrationHarnessConfigured()) {
     throw new Error(
@@ -134,32 +168,26 @@ export async function assertIsolationHarnessReady() {
   }
 
   const admin = createAdminClient();
-  const missingTables = [];
+  let missingTables = [];
+  const maxAttempts = 12;
 
-  for (const { table, probeColumn } of requiredCoreTables) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      const { error } = await admin.from(table).select(probeColumn).limit(1);
-      if (error) {
-        if (isMissingRelationError(error)) {
-          missingTables.push(table);
-          continue;
-        }
-        if (isMissingColumnError(error)) {
-          throw new Error(
-            `Local integration harness probe mismatch for ${table}.${probeColumn}. Update the harness probe column to match the local schema.`,
-          );
-        }
-        throw error;
-      }
+      missingTables = await probeCoreTables(admin);
+      break;
     } catch (error) {
       if (isConnectionRefusedError(error)) {
-        throw new Error(
-          "Local Supabase is not reachable at TEST_SUPABASE_URL. Start your local Supabase stack and confirm the API URL in .env.integration.local.",
-        );
+        if (attempt === maxAttempts) {
+          throw new Error(
+            "Local Supabase is not reachable at TEST_SUPABASE_URL. Start your local Supabase stack, confirm the API URL in .env.integration.local, and if you are running inside a restricted sandbox make sure localhost connections are allowed.",
+          );
+        }
+        await sleep(500 * attempt);
+        continue;
       }
       if (isMissingRelationError(error)) {
-        missingTables.push(table);
-        continue;
+        missingTables = requiredCoreTables.map(({ table }) => table);
+        break;
       }
       throw error;
     }
