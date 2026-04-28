@@ -1,5 +1,5 @@
 // src/hooks/useProperties.js
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
@@ -27,8 +27,10 @@ export function useProperties({ enabled = true } = {}) {
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState(null);
+  const channelRef = useRef(null);
 
   const loadAccountProperties = useCallback(async () => {
+    if (!activeAccountId) return;
     const { data, error } = await supabase
       .from("properties")
       .select(`
@@ -109,12 +111,10 @@ export function useProperties({ enabled = true } = {}) {
       return;
     }
 
-    let channel;
-
     loadProperties();
 
-    channel = supabase
-      .channel("properties-realtime")
+    channelRef.current = supabase
+      .channel(`properties-realtime:${activeAccountId}`)
       .on(
         "postgres_changes",
         {
@@ -128,7 +128,10 @@ export function useProperties({ enabled = true } = {}) {
       .subscribe();
 
     return () => {
-      if (channel) supabase.removeChannel(channel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [enabled, activeAccountId, loadProperties]);
 

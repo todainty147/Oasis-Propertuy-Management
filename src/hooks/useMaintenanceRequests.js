@@ -26,6 +26,7 @@ export function useMaintenanceRequests({
     let channel;
 
     async function load() {
+      if (!effectiveAccountId) return;
       setLoading(true);
       setError(null);
 

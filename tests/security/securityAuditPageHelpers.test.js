@@ -2,18 +2,20 @@ import { describe, expect, it } from "vitest";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { InvestigationContextStrip } from "../../src/pages/security-audit/InvestigationPanel.jsx";
 import {
-  InvestigationContextStrip,
   buildAnomalyFlagContext,
   buildAnomalyEmptyGuidance,
   buildHostedEventsEmptyGuidance,
   buildInvestigationEntityContext,
   buildInvestigationEntityLinks,
   buildInvestigationTimelineItems,
-  buildSearchParams,
+} from "../../src/pages/security-audit/investigationHelpers.js";
+import { buildSearchParams } from "../../src/pages/security-audit/utils.js";
+import {
   findRelatedAnomalyAlertForHostedEvent,
   findRelatedHostedEventForAnomalyAlert,
-} from "../../src/pages/SecurityAuditPage.jsx";
+} from "../../src/pages/security-audit/hostedEventHelpers.js";
 
 describe("security audit page helpers", () => {
   it("includes focused alert and hosted event ids in shareable search params", () => {

@@ -5,16 +5,18 @@ import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
 import { listAccountPayments } from "../services/paymentService";
 
-export function usePayments({ enabled = true } = {}) {
+export function usePayments({ enabled = true, accountId: accountIdProp = null } = {}) {
   const { activeAccountId } = useAccount();
   const { activeTenantId } = useTenant();
+
+  const effectiveAccountId = accountIdProp ?? activeAccountId;
 
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!enabled || !activeAccountId) {
+    if (!enabled || !effectiveAccountId) {
       setLoading(false);
       return;
     }
@@ -26,7 +28,7 @@ export function usePayments({ enabled = true } = {}) {
       setError(null);
 
       try {
-        const data = await listAccountPayments(activeAccountId);
+        const data = await listAccountPayments(effectiveAccountId);
         setPayments(
           activeTenantId ? data.filter((payment) => payment.tenantId === activeTenantId) : data,
         );
@@ -48,7 +50,7 @@ export function usePayments({ enabled = true } = {}) {
           event: "*",
           schema: "public",
           table: "payments",
-          filter: `account_id=eq.${activeAccountId}`,
+          filter: `account_id=eq.${effectiveAccountId}`,
         },
         loadPayments
       )
@@ -57,7 +59,7 @@ export function usePayments({ enabled = true } = {}) {
     return () => {
       if (channel) supabase.removeChannel(channel);
     };
-  }, [enabled, activeAccountId, activeTenantId]);
+  }, [enabled, effectiveAccountId, activeTenantId]);
 
   return { payments, loading, error };
 }

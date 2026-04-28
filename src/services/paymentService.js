@@ -71,6 +71,7 @@ export async function createPayment({
   amount,
   dueDate,
   paidAt = null,
+  notes = null,
 }) {
   if (!accountId) throw new Error("Missing accountId");
   if (!propertyId) throw new Error("Missing propertyId");
@@ -82,6 +83,10 @@ export async function createPayment({
     throw new Error("Invalid amount");
   }
 
+  if (isNaN(new Date(dueDate).getTime())) {
+    throw new Error("Invalid dueDate: must be a valid date string");
+  }
+
   const { data, error } = await supabase.rpc("create_payment", {
     p_account_id: accountId,
     p_property_id: propertyId,
@@ -89,7 +94,7 @@ export async function createPayment({
     p_amount: amt,
     p_due_date: dueDate,
     p_paid_at: paidAt,
-    p_notes: null,
+    p_notes: notes ?? null,
   });
 
   if (error) throw error;
@@ -100,7 +105,7 @@ export async function createPayment({
    OWNER/ADMIN: UPDATE (RPC)
    ====================== */
 
-export async function updatePayment(paymentId, { amount = null, dueDate = null } = {}) {
+export async function updatePayment(paymentId, { amount = null, dueDate = null, notes = null } = {}) {
   if (!paymentId) throw new Error("Missing paymentId");
 
   const amt = amount === null || amount === undefined ? null : Number(amount);
@@ -108,11 +113,15 @@ export async function updatePayment(paymentId, { amount = null, dueDate = null }
     throw new Error("Invalid amount");
   }
 
+  if (dueDate !== null && isNaN(new Date(dueDate).getTime())) {
+    throw new Error("Invalid dueDate: must be a valid date string");
+  }
+
   const { data, error } = await supabase.rpc("update_payment", {
     p_payment_id: paymentId,
     p_amount: amt,
     p_due_date: dueDate,
-    p_notes: null,
+    p_notes: notes ?? null,
   });
 
   if (error) throw error;

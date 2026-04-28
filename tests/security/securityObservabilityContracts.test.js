@@ -22,6 +22,7 @@ describe("security observability contracts", () => {
     const loggerSource = readSql("src/services/securityFailureLogger.js");
     const hostedSinkServiceSource = readSql("src/services/securityObservabilityService.js");
     const securityAuditPageSource = readSql("src/pages/SecurityAuditPage.jsx");
+    const hostedEventsCardSource = readSql("src/pages/security-audit/HostedEventsCard.jsx");
 
     expect(createNotificationsSql).toContain("public.security_failure_context(");
     expect(invitationSql).toContain("public.security_failure_context(");
@@ -49,7 +50,7 @@ describe("security observability contracts", () => {
     expect(loggerSource).toContain("correlationId: classification.correlationId");
     expect(hostedSinkServiceSource).toContain('supabase.rpc("security_observability_event_feed"');
     expect(securityAuditPageSource).toContain('listSecurityObservabilityEvents(activeAccountId, hostedEventFilters)');
-    expect(securityAuditPageSource).toContain('t("securityAudit.hostedEvents.title")');
+    expect(hostedEventsCardSource).toContain('t("securityAudit.hostedEvents.title")');
   });
 
   it("keeps durable denied-event follow-up logging wired into the next highest-value app-observed gaps", () => {

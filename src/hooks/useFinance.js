@@ -20,6 +20,7 @@ export function useFinance({ enabled = true } = {}) {
   const [payments, setPayments] = useState([]);
   const [propertyFinance, setPropertyFinance] = useState([]);
   const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState(null);
 
   const loadFinance = useCallback(async ({ forceRefresh = false } = {}) => {
     if (!enabled || !activeAccountId) {
@@ -29,37 +30,52 @@ export function useFinance({ enabled = true } = {}) {
 
     setLoading(true);
 
-    try {
-      const [snapshot, paymentsRes] = await Promise.all([
-        getFinanceSnapshot(activeAccountId, activeTenantId || null, { forceRefresh }),
-        (() => {
-          let paymentsQuery = supabase
-            .from("payments")
-            .select(`
-                id,
-                amount,
-                status,
-                due_date,
-                paid_at,
-                tenant_id,
-                property_id,
-                tenants ( id, name ),
-                properties ( id, address, city, rent )
-              `)
-            .eq("account_id", activeAccountId)
-            .order("due_date", { ascending: false });
+    let paymentsQuery = supabase
+      .from("payments")
+      .select(`
+          id,
+          amount,
+          status,
+          due_date,
+          paid_at,
+          tenant_id,
+          property_id,
+          tenants ( id, name ),
+          properties ( id, address, city, rent )
+        `)
+      .eq("account_id", activeAccountId)
+      .order("due_date", { ascending: false });
 
-          if (activeTenantId) {
-            paymentsQuery = paymentsQuery.eq("tenant_id", activeTenantId);
-          }
+    if (activeTenantId) {
+      paymentsQuery = paymentsQuery.eq("tenant_id", activeTenantId);
+    }
 
-          return paymentsQuery;
-        })(),
-      ]);
+    const [snapshotResult, paymentsResult] = await Promise.allSettled([
+      getFinanceSnapshot(activeAccountId, activeTenantId || null, { forceRefresh }),
+      paymentsQuery,
+    ]);
 
-      if (paymentsRes.error) throw paymentsRes.error;
+    const snapshotFailed = snapshotResult.status === "rejected";
+    const paymentsSupabaseError = paymentsResult.status === "fulfilled" ? paymentsResult.value?.error : null;
+    const paymentsFailed = paymentsResult.status === "rejected" || !!paymentsSupabaseError;
+    const firstError = snapshotResult.reason ?? paymentsResult.reason ?? paymentsSupabaseError ?? null;
 
-      const mappedPayments = (paymentsRes.data ?? []).map((p) => ({
+    setError(firstError);
+    if (firstError) console.error("[useFinance]", firstError);
+
+    if (!snapshotFailed) {
+      const snapshot = snapshotResult.value;
+      setSummary({
+        totalIncome: Number(snapshot?.total_income ?? 0),
+        overdueIncome: Number(snapshot?.overdue_income ?? 0),
+        dueSoonIncome: Number(snapshot?.due_soon_income ?? 0),
+        outstandingIncome: Number(snapshot?.outstanding_income ?? 0),
+      });
+      setPropertyFinance(Array.isArray(snapshot?.property_finance) ? snapshot.property_finance : []);
+    }
+
+    if (!paymentsFailed) {
+      setPayments((paymentsResult.value.data ?? []).map((p) => ({
         id: p.id,
         amount: Number(p.amount ?? 0),
         status: p.status,
@@ -70,29 +86,10 @@ export function useFinance({ enabled = true } = {}) {
         propertyRent: Number(p.properties?.rent ?? 0),
         tenantName: p.tenants?.name ?? "—",
         propertyAddress: p.properties?.address ?? "—",
-      }));
-
-      setPayments(mappedPayments);
-      setSummary({
-        totalIncome: Number(snapshot?.total_income ?? 0),
-        overdueIncome: Number(snapshot?.overdue_income ?? 0),
-        dueSoonIncome: Number(snapshot?.due_soon_income ?? 0),
-        outstandingIncome: Number(snapshot?.outstanding_income ?? 0),
-      });
-      setPropertyFinance(Array.isArray(snapshot?.property_finance) ? snapshot.property_finance : []);
-    } catch (error) {
-      console.error(error);
-      setPayments([]);
-      setSummary({
-        totalIncome: 0,
-        overdueIncome: 0,
-        dueSoonIncome: 0,
-        outstandingIncome: 0,
-      });
-      setPropertyFinance([]);
-    } finally {
-      setLoading(false);
+      })));
     }
+
+    setLoading(false);
   }, [activeAccountId, activeTenantId, enabled]);
 
   useEffect(() => {
@@ -131,5 +128,6 @@ export function useFinance({ enabled = true } = {}) {
     payments,
     propertyFinance,
     loading,
+    error,
   };
 }

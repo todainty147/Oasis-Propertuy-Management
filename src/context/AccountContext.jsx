@@ -79,6 +79,7 @@ export function AccountProvider({ children }) {
 
       let memberships = null;
       let membershipErr = null;
+      let successFields = null;
       const fieldsPriority = [
         "id,name,is_root,is_disabled,subscription_plan,subscription_status,billing_locked_at",
         "id,name,is_root,is_disabled,subscription_plan,subscription_status",
@@ -90,7 +91,7 @@ export function AccountProvider({ children }) {
         const res = await queryMemberships(fields);
         memberships = res.data;
         membershipErr = res.error;
-        if (!membershipErr) break;
+        if (!membershipErr) { successFields = fields; break; }
         if (membershipErr.code !== "42703") break;
       }
 
@@ -101,6 +102,13 @@ export function AccountProvider({ children }) {
           setAuthzError("Nie udało się załadować kont.");
         }
         return;
+      }
+
+      if (successFields && !successFields.includes("subscription_plan")) {
+        console.warn(
+          "AccountContext: loaded accounts without subscription_plan — billing entitlements will default to 'starter'. Schema may need migration.",
+          { successFields },
+        );
       }
 
       if (cancelled) return;
@@ -209,28 +217,54 @@ export function AccountProvider({ children }) {
       }
 
       /* ======================
-         2) TENANT PATH: tenants.user_id mapping
-         IMPORTANT: tenantErr MUST NOT block contractor path
+         2) TENANT + CONTRACTOR paths
+         Run in parallel: tenant RLS errors must not block the contractor path
+         and vice versa. Tenant takes priority when both match.
          ====================== */
-      let tenantRow = null;
-
-      const { data: tRow, error: tenantErr } = await supabase
-        .from("tenants")
-        .select("id, account_id, status, archived_at")
-        .eq("user_id", user.id)
-        .is("archived_at", null)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (tenantErr) {
-        // Non-fatal: contractors can hit tenant RLS errors
-        console.warn("Tenant context lookup failed (non-fatal):", tenantErr);
-      } else {
-        tenantRow = tRow;
-      }
+      const [tenantRes, contractorRes] = await Promise.allSettled([
+        supabase
+          .from("tenants")
+          .select("id, account_id, status, archived_at")
+          .eq("user_id", user.id)
+          .is("archived_at", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("work_orders")
+          .select("id, account_id")
+          .eq("contractor_user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
 
       if (cancelled) return;
+
+      const tenantRow = tenantRes.status === "fulfilled" && !tenantRes.value.error
+        ? tenantRes.value.data
+        : null;
+      const contractorRow = contractorRes.status === "fulfilled" && !contractorRes.value.error
+        ? contractorRes.value.data
+        : null;
+
+      const tenantErr = tenantRes.status === "rejected"
+        ? tenantRes.reason
+        : (tenantRes.value?.error ?? null);
+      const contractorErr = contractorRes.status === "rejected"
+        ? contractorRes.reason
+        : (contractorRes.value?.error ?? null);
+
+      if (tenantErr) console.warn("Tenant context lookup (non-fatal):", tenantErr);
+      if (contractorErr) console.warn("Contractor context lookup (non-fatal):", contractorErr);
+
+      // Explicit dual-role guard — makes the priority decision visible and observable
+      if (tenantRow?.account_id && contractorRow?.account_id) {
+        console.warn(
+          "AccountContext: user matches both tenant and contractor — tenant portal takes priority.",
+          { tenantAccountId: tenantRow.account_id, contractorAccountId: contractorRow.account_id },
+        );
+      }
 
       // ✅ Tenant found -> allow tenant portal
       if (tenantRow?.account_id) {
@@ -240,12 +274,10 @@ export function AccountProvider({ children }) {
           status: tenantRow.status,
         });
 
-        // Tenant users: no membership list / no switching (for now)
         setAccounts([]);
 
         const stored = localStorage.getItem("activeAccountId");
         const useStored = stored && stored === tenantRow.account_id;
-
         const nextId = useStored ? stored : tenantRow.account_id;
         setActiveAccountId(nextId);
         localStorage.setItem("activeAccountId", nextId);
@@ -253,29 +285,6 @@ export function AccountProvider({ children }) {
         setAccountLoading(false);
         return;
       }
-
-      /* ======================
-         2B) CONTRACTOR PATH: work_orders.contractor_user_id mapping
-         IMPORTANT: contractorErr MUST NOT block landlord account creation
-         ====================== */
-      let contractorRow = null;
-
-      const { data: cRow, error: contractorErr } = await supabase
-        .from("work_orders")
-        .select("id, account_id")
-        .eq("contractor_user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (contractorErr) {
-        // Non-fatal: if RLS blocks this, we still allow owner creation path
-        console.warn("Contractor context lookup failed (non-fatal):", contractorErr);
-      } else {
-        contractorRow = cRow;
-      }
-
-      if (cancelled) return;
 
       // ✅ Contractor found -> allow contractor portal
       if (contractorRow?.account_id) {
@@ -287,7 +296,6 @@ export function AccountProvider({ children }) {
 
         const stored = localStorage.getItem("activeAccountId");
         const useStored = stored && stored === contractorRow.account_id;
-
         const nextId = useStored ? stored : contractorRow.account_id;
         setActiveAccountId(nextId);
         localStorage.setItem("activeAccountId", nextId);

@@ -47,9 +47,14 @@ function toNullableNumber(value) {
 function toBooleanOr(value, fallback = false) {
   if (typeof value === "boolean") return value;
   if (value == null) return fallback;
-  if (value === "true") return true;
-  if (value === "false") return false;
-  return Boolean(value);
+  if (typeof value === "string") {
+    const lower = value.toLowerCase();
+    if (lower === "true") return true;
+    if (lower === "false") return false;
+    return fallback;
+  }
+  if (typeof value === "number") return value !== 0;
+  return fallback;
 }
 
 function toObjectOr(value, fallback = {}) {
