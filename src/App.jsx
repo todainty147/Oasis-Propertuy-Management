@@ -1,6 +1,6 @@
 // src/App.jsx
 import { Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 
 import Login from "./pages/Login";
 import Invite from "./pages/Invite";
@@ -28,6 +28,7 @@ import { ENTITLEMENT_FEATURES } from "./lib/entitlements";
 import { assertUsageCapacity, getPlanUsageLimit, normalizePlan } from "./lib/entitlements";
 import FeatureAccessCard from "./components/FeatureAccessCard";
 import { saveEntityCustomFieldValues } from "./services/customFieldService";
+import { listLeases } from "./services/leaseService";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Properties = lazy(() => import("./pages/Properties"));
@@ -62,7 +63,11 @@ function EntitledRoute({ feature, children }) {
   const canManage = isManageRole(role, { isRootOperator });
   const canEvaluate = feature === ENTITLEMENT_FEATURES.ROOT_TELEMETRY ? canAccessTelemetry : canManage;
 
-  if (!canEvaluate || hasEntitlement(feature)) {
+  if (!canEvaluate) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (hasEntitlement(feature)) {
     return children;
   }
 
@@ -101,6 +106,8 @@ export default function App() {
   const { activeAccountId, activeAccount, activeRole, accountLoading, activePlan } = useAccount();
   const tenantRole = isTenantRole(activeRole);
   const contractorRole = isContractorRole(activeRole);
+  const portfolioDataEnabled = !!session && !contractorRole;
+  const leaseDataEnabled = portfolioDataEnabled && !tenantRole;
 
   /* ======================
      DATA HOOKS
@@ -111,16 +118,17 @@ export default function App() {
     properties,
     loading: propertiesLoading,
     error: propertiesError,
-  } = useProperties({ enabled: !!session, accountId: activeAccountId });
+    refetch: refetchProperties,
+  } = useProperties({ enabled: portfolioDataEnabled, accountId: activeAccountId });
 
   const {
     payments,
     loading: paymentsLoading,
     error: paymentsError,
-  } = usePayments({ enabled: !!session, accountId: activeAccountId });
+  } = usePayments({ enabled: portfolioDataEnabled, accountId: activeAccountId });
 
   const { tenants, loading: tenantsLoading, error: tenantsError } = useTenants({
-    enabled: !!session,
+    enabled: portfolioDataEnabled,
     accountId: activeAccountId,
   });
 
@@ -132,6 +140,8 @@ export default function App() {
   const [editingProperty, setEditingProperty] = useState(null);
 
   const [accountOwnerEmail, setAccountOwnerEmail] = useState("");
+  const [leases, setLeases] = useState([]);
+  const [leasesError, setLeasesError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,6 +166,126 @@ export default function App() {
       cancelled = true;
     };
   }, [activeAccountId, activeRole]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLeases() {
+      if (!leaseDataEnabled || !activeAccountId) {
+        setLeases([]);
+        setLeasesError(null);
+        return;
+      }
+
+      try {
+        const rows = await listLeases({ accountId: activeAccountId, limit: 500 });
+        if (!cancelled) {
+          setLeases(rows);
+          setLeasesError(null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLeases([]);
+          setLeasesError(error);
+        }
+      }
+    }
+
+    loadLeases();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeAccountId, leaseDataEnabled]);
+
+  /* ======================
+     OWNER (LEGACY SHIM)
+     ====================== */
+  // Keep AppLayout API unchanged, but represent "owner" as the active account.
+  const owners = useMemo(
+    () => [
+      {
+        id: activeAccountId,
+        name: accountOwnerEmail || activeAccount?.name || "Account owner",
+      },
+    ],
+    [activeAccountId, accountOwnerEmail, activeAccount?.name],
+  );
+
+  /* ======================
+     DERIVED DATA
+     ====================== */
+
+  const ownerTenants = tenants;
+
+  const ownerProperties = useMemo(
+    () =>
+      properties.map((p) => {
+        const isOccupied = tenants.some(
+          (tenant) => String(tenant.propertyId) === String(p.id),
+        );
+        return {
+          ...p,
+          status: isOccupied ? OCCUPANCY_STATUS.OCCUPIED : OCCUPANCY_STATUS.VACANT,
+        };
+      }),
+    [properties, tenants],
+  );
+
+  const ownerPropertyIds = useMemo(
+    () => new Set(ownerProperties.map((p) => String(p.id))),
+    [ownerProperties],
+  );
+
+  const ownerPayments = useMemo(
+    () => payments.filter((p) => ownerPropertyIds.has(String(p.propertyId))),
+    [payments, ownerPropertyIds],
+  );
+
+  const { occupiedCount, vacantCount, occupancyRate } = useMemo(() => {
+    const occupied = ownerProperties.filter(
+      (p) => p.status === OCCUPANCY_STATUS.OCCUPIED,
+    ).length;
+    const vacant = ownerProperties.length - occupied;
+    const rate =
+      ownerProperties.length > 0
+        ? Math.round((occupied / ownerProperties.length) * 100)
+        : 0;
+
+    return {
+      occupiedCount: occupied,
+      vacantCount: vacant,
+      occupancyRate: rate,
+    };
+  }, [ownerProperties]);
+
+  const longVacantProperties = useMemo(() => {
+    const now = new Date();
+
+    return ownerProperties
+      .filter((p) => p.status === OCCUPANCY_STATUS.VACANT)
+      .map((property) => {
+        const latestEndedLease = leases
+          .filter((lease) => String(lease.property_id) === String(property.id))
+          .filter((lease) => {
+            if (!lease.lease_end_date) return false;
+            const leaseEnd = new Date(`${lease.lease_end_date}T00:00:00`);
+            return !Number.isNaN(leaseEnd.getTime()) && leaseEnd <= now;
+          })
+          .sort((a, b) => String(b.lease_end_date).localeCompare(String(a.lease_end_date)))[0];
+
+        const vacancyStart =
+          latestEndedLease?.lease_end_date || property.createdAt || property.created_at;
+        const vacancyStartDate = vacancyStart ? new Date(vacancyStart) : null;
+        const daysVacant =
+          vacancyStartDate && !Number.isNaN(vacancyStartDate.getTime())
+            ? Math.floor((now - vacancyStartDate) / (1000 * 60 * 60 * 24))
+            : 0;
+
+        return { ...property, daysVacant };
+      })
+      .filter((p) => p.daysVacant > 30);
+  }, [leases, ownerProperties]);
 
   /* ======================
      RENDER GATES
@@ -199,7 +329,7 @@ export default function App() {
     );
   }
 
-  if (propertiesError || paymentsError || tenantsError) {
+  if (propertiesError || paymentsError || tenantsError || leasesError) {
     return (
       <div className="p-6 bg-white rounded-xl border">
         <p className="font-medium">{t("app.loadErrorTitle")}</p>
@@ -207,75 +337,14 @@ export default function App() {
           {String(
             propertiesError?.message ||
               paymentsError?.message ||
-              tenantsError?.message
+              tenantsError?.message ||
+              leasesError?.message
           )}
         </pre>
       </div>
     );
   }
 
-  /* ======================
-     OWNER (LEGACY SHIM)
-     ====================== */
-  // Keep AppLayout API unchanged, but represent "owner" as the active account.
-  const owners = [
-    {
-      id: activeAccountId,
-      name: accountOwnerEmail || activeAccount?.name || "Account owner",
-    },
-  ];
-
-  /* ======================
-     DERIVED DATA
-     ====================== */
-
-  const ownerProperties = properties.map((p) => {
-    const isOccupied = tenants.some(
-      (t) => String(t.propertyId) === String(p.id)
-    );
-    return {
-      ...p,
-      status: isOccupied ? OCCUPANCY_STATUS.OCCUPIED : OCCUPANCY_STATUS.VACANT,
-    };
-  });
-
-  const ownerTenants = tenants;
-
-  const ownerPropertyIds = ownerProperties.map((p) => p.id);
-  const ownerPayments = payments.filter((p) =>
-    ownerPropertyIds.includes(p.propertyId)
-  );
-
-  const occupiedCount = ownerProperties.filter(
-    (p) => p.status === OCCUPANCY_STATUS.OCCUPIED
-  ).length;
-  const vacantCount = ownerProperties.length - occupiedCount;
-
-  const occupancyRate =
-    ownerProperties.length > 0
-      ? Math.round((occupiedCount / ownerProperties.length) * 100)
-      : 0;
-
-  /* ---------- Vacancy aging ---------- */
-  const now = new Date();
-
-  const vacancyAging = ownerProperties
-    .filter((p) => p.status === OCCUPANCY_STATUS.VACANT)
-    .map((property) => {
-      const pastTenants = ownerTenants
-        .filter((t) => String(t.propertyId) === String(property.id))
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-      const vacancyStart = pastTenants[0]?.created_at || property.created_at;
-
-      const daysVacant = Math.floor(
-        (now - new Date(vacancyStart)) / (1000 * 60 * 60 * 24)
-      );
-
-      return { ...property, daysVacant };
-    });
-
-  const longVacantProperties = vacancyAging.filter((p) => p.daysVacant > 30);
   const safeActivePlan = normalizePlan(activePlan);
   const propertyPlanLimit = getPlanUsageLimit(safeActivePlan, "properties");
   const canCreateMoreProperties =
@@ -358,6 +427,7 @@ export default function App() {
                   onDeleteProperty={async (propertyId) => {
                     if (!confirm(t("properties.confirmDelete"))) return;
                     await deleteProperty(propertyId);
+                    await refetchProperties();
                   }}
                 />
 
