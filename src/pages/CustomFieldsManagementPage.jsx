@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 
 import Card from "../components/Card";
 import { useAccount } from "../context/AccountContext";
+import { useI18n } from "../context/I18nContext";
 import { usePageTitle } from "../layout/PageTitleContext";
 import {
   createCustomFieldDefinition,
@@ -12,21 +13,23 @@ import {
 import { isManageRole } from "../utils/permissions";
 
 const ENTITY_OPTIONS = [
-  { value: "property", label: "Property" },
-  { value: "tenant", label: "Tenant" },
+  { value: "property", labelKey: "customFields.entity.property" },
+  { value: "tenant", labelKey: "customFields.entity.tenant" },
 ];
 
 const FIELD_TYPE_OPTIONS = [
-  { value: "text", label: "Text" },
-  { value: "number", label: "Number" },
-  { value: "date", label: "Date" },
+  { value: "text", labelKey: "customFields.type.text" },
+  { value: "number", labelKey: "customFields.type.number" },
+  { value: "date", labelKey: "customFields.type.date" },
 ];
 
-function formatFieldTypeLabel(fieldType) {
-  return FIELD_TYPE_OPTIONS.find((option) => option.value === fieldType)?.label || "Unknown";
+function formatFieldTypeLabel(fieldType, t) {
+  const labelKey = FIELD_TYPE_OPTIONS.find((option) => option.value === fieldType)?.labelKey;
+  return labelKey ? t(labelKey) : t("customFields.type.unknown");
 }
 
 export default function CustomFieldsManagementPage() {
+  const { t } = useI18n();
   const { setTitle } = usePageTitle();
   const { activeAccountId, activeRole, isRootOperator } = useAccount();
   const canManageCustomFields = isRootOperator || isManageRole(activeRole);
@@ -40,8 +43,8 @@ export default function CustomFieldsManagementPage() {
   const [fieldType, setFieldType] = useState("text");
 
   useEffect(() => {
-    setTitle("Custom Fields");
-  }, [setTitle]);
+    setTitle(t("customFields.title"));
+  }, [setTitle, t]);
 
   async function loadDefinitions() {
     if (!activeAccountId || !canManageCustomFields) return;
@@ -50,7 +53,7 @@ export default function CustomFieldsManagementPage() {
       const rows = await listCustomFieldDefinitions(activeAccountId);
       setDefinitions(rows);
     } catch (error) {
-      window.alert(error?.message || "Failed to load custom fields");
+      window.alert(error?.message || t("customFields.loadError"));
     } finally {
       setLoading(false);
     }
@@ -86,7 +89,7 @@ export default function CustomFieldsManagementPage() {
       setFieldType("text");
       await loadDefinitions();
     } catch (error) {
-      window.alert(error?.message || "Failed to create custom field");
+      window.alert(error?.message || t("customFields.createError"));
     } finally {
       setSaving(false);
     }
@@ -102,7 +105,7 @@ export default function CustomFieldsManagementPage() {
       });
       await loadDefinitions();
     } catch (error) {
-      window.alert(error?.message || "Failed to delete custom field");
+      window.alert(error?.message || t("customFields.deleteError"));
     } finally {
       setDeletingDefinitionId("");
     }
@@ -115,31 +118,30 @@ export default function CustomFieldsManagementPage() {
   return (
     <div className="space-y-6">
       <Card className="p-6">
-        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Custom Fields</h1>
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{t("customFields.title")}</h1>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-          Configure simple property and tenant fields for this account. These definitions drive
-          the read-only sections on the detail pages and can be wired into edit flows later.
+          {t("customFields.subtitle")}
         </p>
       </Card>
 
       <Card className="p-6">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Create field</h2>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t("customFields.createTitle")}</h2>
         <form className="mt-4 grid gap-4 md:grid-cols-3" onSubmit={handleCreateDefinition}>
           <div className="md:col-span-3">
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="custom-field-name">
-              Field name
+              {t("customFields.fieldName")}
             </label>
             <input
               id="custom-field-name"
               className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Access notes"
+              placeholder={t("customFields.fieldNamePlaceholder")}
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="custom-field-entity-type">
-              Entity type
+              {t("customFields.entityType")}
             </label>
             <select
               id="custom-field-entity-type"
@@ -149,14 +151,14 @@ export default function CustomFieldsManagementPage() {
             >
               {ENTITY_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label}
+                  {t(option.labelKey)}
                 </option>
               ))}
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="custom-field-field-type">
-              Field type
+              {t("customFields.fieldType")}
             </label>
             <select
               id="custom-field-field-type"
@@ -166,7 +168,7 @@ export default function CustomFieldsManagementPage() {
             >
               {FIELD_TYPE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label}
+                  {t(option.labelKey)}
                 </option>
               ))}
             </select>
@@ -177,7 +179,7 @@ export default function CustomFieldsManagementPage() {
               disabled={saving || !name.trim()}
               className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:bg-slate-400"
             >
-              {saving ? "Creating..." : "Create field"}
+              {saving ? t("common.creating") : t("customFields.create")}
             </button>
           </div>
         </form>
@@ -189,20 +191,20 @@ export default function CustomFieldsManagementPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  {group.label} fields
+                  {t("customFields.groupTitle", { entity: t(group.labelKey) })}
                 </h2>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  Simple definitions for {group.label.toLowerCase()} records.
+                  {t("customFields.groupSubtitle", { entity: t(group.labelKey).toLowerCase() })}
                 </p>
               </div>
               {loading ? (
-                <span className="text-xs text-slate-500 dark:text-slate-400">Loading...</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">{t("customFields.loading")}</span>
               ) : null}
             </div>
 
             {group.fields.length === 0 ? (
               <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
-                No {group.label.toLowerCase()} custom fields configured yet.
+                {t("customFields.groupEmpty", { entity: t(group.labelKey).toLowerCase() })}
               </p>
             ) : (
               <div className="mt-4 space-y-3">
@@ -216,7 +218,7 @@ export default function CustomFieldsManagementPage() {
                         {definition.name}
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {group.label} / {formatFieldTypeLabel(definition.fieldType)}
+                        {t(group.labelKey)} / {formatFieldTypeLabel(definition.fieldType, t)}
                       </p>
                     </div>
                     <button
@@ -225,7 +227,7 @@ export default function CustomFieldsManagementPage() {
                       onClick={() => handleDeleteDefinition(definition.id)}
                       className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 disabled:opacity-60 dark:border-red-900/60 dark:text-red-300"
                     >
-                      {deletingDefinitionId === definition.id ? "Deleting..." : "Delete"}
+                      {deletingDefinitionId === definition.id ? t("customFields.deleting") : t("common.delete")}
                     </button>
                   </div>
                 ))}

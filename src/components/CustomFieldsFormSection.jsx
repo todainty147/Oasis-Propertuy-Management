@@ -1,3 +1,5 @@
+import { useI18n } from "../context/I18nContext";
+
 function normalizeFieldType(fieldType) {
   return String(fieldType || "").trim().toLowerCase();
 }
@@ -24,24 +26,29 @@ export default function CustomFieldsFormSection({
   title = "Custom fields",
   emptyMessage = "No custom fields configured.",
 }) {
+  const { t } = useI18n();
+  const sectionTitle = title === "Custom fields" ? t("customFields.title") : title;
+  const sectionEmptyMessage =
+    emptyMessage === "No custom fields configured." ? t("customFields.empty") : emptyMessage;
+
   if (!Array.isArray(definitions) || definitions.length === 0) {
     return (
       <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
-        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{emptyMessage}</p>
+        <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{sectionTitle}</h3>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{sectionEmptyMessage}</p>
       </div>
     );
   }
 
   return (
     <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-      <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
+      <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{sectionTitle}</h3>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         {definitions.map((definition) => {
           const definitionId = String(definition?.id || "");
           const fieldType = normalizeFieldType(definition?.fieldType ?? definition?.field_type);
           const inputType = getCustomFieldInputType(fieldType);
-          const label = String(definition?.name || "Custom field");
+          const label = String(definition?.name || t("customFields.fieldFallback"));
           const errorMessage = String(errors?.[definitionId] || "");
 
           return (

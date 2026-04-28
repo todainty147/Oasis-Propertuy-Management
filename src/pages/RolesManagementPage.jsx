@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 
 import Card from "../components/Card";
 import { useAccount } from "../context/AccountContext";
+import { useI18n } from "../context/I18nContext";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { isManageRole } from "../utils/permissions";
 import {
@@ -50,6 +51,7 @@ function PermissionChecklist({ selectedKeys, onToggle, disabled = false }) {
 }
 
 export default function RolesManagementPage() {
+  const { t } = useI18n();
   const { setTitle } = usePageTitle();
   const { activeAccountId, activeRole, isRootOperator } = useAccount();
   const canManageRoles = isRootOperator || isManageRole(activeRole);
@@ -65,8 +67,8 @@ export default function RolesManagementPage() {
   const [editingPermissionsByRoleId, setEditingPermissionsByRoleId] = useState({});
 
   useEffect(() => {
-    setTitle("Roles");
-  }, [setTitle]);
+    setTitle(t("roles.title"));
+  }, [setTitle, t]);
 
   async function loadPage() {
     if (!activeAccountId || !canManageRoles) return;
@@ -82,7 +84,7 @@ export default function RolesManagementPage() {
         Object.fromEntries(roleRows.map((role) => [role.id, role.permissionKeys])),
       );
     } catch (error) {
-      window.alert(error?.message || "Failed to load roles");
+      window.alert(error?.message || t("roles.loadError"));
     } finally {
       setLoading(false);
     }
@@ -132,7 +134,7 @@ export default function RolesManagementPage() {
       setNewRolePermissions([]);
       await loadPage();
     } catch (error) {
-      window.alert(error?.message || "Failed to create role");
+      window.alert(error?.message || t("roles.createError"));
     } finally {
       setSavingRoleId("");
     }
@@ -149,7 +151,7 @@ export default function RolesManagementPage() {
       });
       await loadPage();
     } catch (error) {
-      window.alert(error?.message || "Failed to update role permissions");
+      window.alert(error?.message || t("roles.updateError"));
     } finally {
       setSavingRoleId("");
     }
@@ -166,7 +168,7 @@ export default function RolesManagementPage() {
       });
       await loadPage();
     } catch (error) {
-      window.alert(error?.message || "Failed to assign role");
+      window.alert(error?.message || t("roles.assignError"));
     } finally {
       setAssigningUserId("");
     }
@@ -179,26 +181,25 @@ export default function RolesManagementPage() {
   return (
     <div className="space-y-6">
       <Card className="p-6">
-        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Roles</h1>
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{t("roles.title")}</h1>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-          Create simple custom roles, choose permission keys, and assign them to account members.
-          Existing owner/admin/staff labels stay in place for compatibility while custom role permissions apply underneath.
+          {t("roles.subtitle")}
         </p>
       </Card>
 
       <Card className="p-6">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Create role</h2>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t("roles.createTitle")}</h2>
         <form className="mt-4 space-y-4" onSubmit={handleCreateRole}>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="role-name">
-              Role name
+              {t("roles.roleName")}
             </label>
             <input
               id="role-name"
               className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
               value={newRoleName}
               onChange={(event) => setNewRoleName(event.target.value)}
-              placeholder="Leasing coordinator"
+              placeholder={t("roles.roleNamePlaceholder")}
             />
           </div>
           <PermissionChecklist
@@ -211,7 +212,7 @@ export default function RolesManagementPage() {
             disabled={savingRoleId === "new" || !newRoleName.trim()}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:bg-slate-400"
           >
-            {savingRoleId === "new" ? "Creating..." : "Create role"}
+            {savingRoleId === "new" ? t("roles.creating") : t("roles.create")}
           </button>
         </form>
       </Card>
@@ -220,9 +221,9 @@ export default function RolesManagementPage() {
         <Card className="p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Custom roles</h2>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t("roles.customTitle")}</h2>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                Update permission keys for the custom roles in this account.
+                {t("roles.customSubtitle")}
               </p>
             </div>
             <button
@@ -230,14 +231,14 @@ export default function RolesManagementPage() {
               onClick={loadPage}
               className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700"
             >
-              Refresh
+              {t("common.refresh")}
             </button>
           </div>
 
           <div className="mt-4 space-y-4">
-            {loading ? <p className="text-sm text-slate-500">Loading roles...</p> : null}
+            {loading ? <p className="text-sm text-slate-500">{t("roles.loading")}</p> : null}
             {!loading && customRoles.length === 0 ? (
-              <p className="text-sm text-slate-500">No custom roles yet.</p>
+              <p className="text-sm text-slate-500">{t("roles.empty")}</p>
             ) : null}
             {customRoles.map((role) => (
               <div key={role.id} className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
@@ -245,7 +246,7 @@ export default function RolesManagementPage() {
                   <div>
                     <h3 className="font-medium text-slate-900 dark:text-slate-100">{role.name}</h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Assigned members: {role.memberCount}
+                      {t("roles.assignedMembers", { count: role.memberCount })}
                     </p>
                   </div>
                   <button
@@ -254,7 +255,7 @@ export default function RolesManagementPage() {
                     onClick={() => handleSavePermissions(role.id)}
                     className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white disabled:bg-slate-400 dark:bg-slate-100 dark:text-slate-900"
                   >
-                    {savingRoleId === role.id ? "Saving..." : "Save"}
+                    {savingRoleId === role.id ? t("common.saving") : t("common.save")}
                   </button>
                 </div>
                 <div className="mt-4">
@@ -270,15 +271,15 @@ export default function RolesManagementPage() {
         </Card>
 
         <Card className="p-6">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Assign roles</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{t("roles.assignTitle")}</h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-            Assign a custom role to a member. Legacy owner/admin/staff labels stay unchanged for compatibility.
+            {t("roles.assignSubtitle")}
           </p>
 
           <div className="mt-4 space-y-3">
-            {loading ? <p className="text-sm text-slate-500">Loading members...</p> : null}
+            {loading ? <p className="text-sm text-slate-500">{t("roles.loadingMembers")}</p> : null}
             {!loading && members.length === 0 ? (
-              <p className="text-sm text-slate-500">No members found in this account.</p>
+              <p className="text-sm text-slate-500">{t("roles.noMembers")}</p>
             ) : null}
             {members.map((member) => (
               <div
@@ -290,8 +291,10 @@ export default function RolesManagementPage() {
                     {member.email || member.userId}
                   </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Legacy role: {member.legacyRole}
-                    {member.roleName ? ` • Custom role: ${member.roleName}` : " • Custom role: none"}
+                    {t("roles.legacyRole", { role: member.legacyRole })}
+                    {member.roleName
+                      ? ` • ${t("roles.customRole", { role: member.roleName })}`
+                      : ` • ${t("roles.customRoleNone")}`}
                   </p>
                 </div>
 
@@ -302,7 +305,7 @@ export default function RolesManagementPage() {
                     onChange={(event) => handleAssignRole(member.userId, event.target.value)}
                     className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
                   >
-                    <option value="">System role only</option>
+                    <option value="">{t("roles.systemRoleOnly")}</option>
                     {customRoles.map((role) => (
                       <option key={role.id} value={role.id}>
                         {role.name}
@@ -310,7 +313,7 @@ export default function RolesManagementPage() {
                     ))}
                   </select>
                   {assigningUserId === member.userId ? (
-                    <span className="text-xs text-slate-500">Saving…</span>
+                    <span className="text-xs text-slate-500">{t("common.saving")}</span>
                   ) : null}
                 </div>
               </div>

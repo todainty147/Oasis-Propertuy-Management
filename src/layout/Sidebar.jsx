@@ -65,6 +65,7 @@ function Item({ to, icon, label, onNavigate }) {
 
 function AccountSwitcher() {
   const { accounts, activeAccountId, switchAccount, accountLoading, isRootOperator } = useAccount();
+  const { t } = useI18n();
 
   if (accountLoading || !isRootOperator || accounts.length <= 1) return null;
 
@@ -73,7 +74,7 @@ function AccountSwitcher() {
       value={activeAccountId ?? ""}
       onChange={(e) => switchAccount(e.target.value)}
       className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
-      aria-label="Account"
+      aria-label={t("tenantPortal.shell.accountLabel")}
     >
       {accounts.map((a) => (
         <option key={a.id} value={a.id}>

@@ -1,4 +1,5 @@
 import Card from "./Card";
+import { useI18n } from "../context/I18nContext";
 
 export default function CustomFieldsReadOnlySection({
   title = "Custom fields",
@@ -6,6 +7,7 @@ export default function CustomFieldsReadOnlySection({
   loading = false,
   emptyMessage = "No custom fields configured yet.",
 }) {
+  const { t } = useI18n();
   const hasRows = Array.isArray(rows) && rows.length > 0;
 
   return (
@@ -13,7 +15,7 @@ export default function CustomFieldsReadOnlySection({
       <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         {loading ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Loading custom fields...</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t("customFields.loading")}</p>
         ) : null}
         {!loading && !hasRows ? (
           <p className="text-sm text-slate-500 dark:text-slate-400">{emptyMessage}</p>

@@ -269,13 +269,13 @@ export default function AddPropertyModal({
           )}
 
           <CustomFieldsFormSection
-            title="Custom property fields"
+            title={t("customFields.propertyFieldsTitle")}
             definitions={customFieldDefinitions}
             values={customFieldValues}
             errors={customFieldErrors}
             onChange={handleCustomFieldChange}
             disabled={customFieldsLoading}
-            emptyMessage="No custom property fields configured yet."
+            emptyMessage={t("customFields.propertyFieldsEmpty")}
           />
 
           <div className="flex justify-end gap-3 pt-4">

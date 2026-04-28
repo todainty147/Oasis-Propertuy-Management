@@ -329,11 +329,11 @@ export default function TenantDetails({
 
       {canUpdateTenant ? (
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-slate-900">Edit tenant details</h3>
+          <h3 className="text-lg font-semibold text-slate-900">{t("tenants.editDetails")}</h3>
           <form className="mt-4 space-y-4" onSubmit={handleSaveTenantDetails}>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block space-y-1">
-                <span className="text-sm font-medium text-slate-700">Name</span>
+                <span className="text-sm font-medium text-slate-700">{t("tenants.name")}</span>
                 <input
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
                   value={editForm.name}
@@ -343,7 +343,7 @@ export default function TenantDetails({
                 />
               </label>
               <label className="block space-y-1">
-                <span className="text-sm font-medium text-slate-700">Email</span>
+                <span className="text-sm font-medium text-slate-700">{t("tenants.email")}</span>
                 <input
                   type="email"
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
@@ -354,7 +354,7 @@ export default function TenantDetails({
                 />
               </label>
               <label className="block space-y-1">
-                <span className="text-sm font-medium text-slate-700">Phone</span>
+                <span className="text-sm font-medium text-slate-700">{t("tenants.phone")}</span>
                 <input
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
                   value={editForm.phone}
@@ -364,7 +364,7 @@ export default function TenantDetails({
                 />
               </label>
               <label className="block space-y-1">
-                <span className="text-sm font-medium text-slate-700">Property</span>
+                <span className="text-sm font-medium text-slate-700">{t("common.property")}</span>
                 <select
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
                   value={editForm.propertyId}
@@ -372,7 +372,7 @@ export default function TenantDetails({
                     setEditForm((current) => ({ ...current, propertyId: event.target.value }))
                   }
                 >
-                  <option value="">No property</option>
+                  <option value="">{t("properties.noProperty")}</option>
                   {properties.map((entry) => (
                     <option key={entry.id} value={entry.id}>
                       {entry.address}
@@ -383,13 +383,13 @@ export default function TenantDetails({
             </div>
 
             <CustomFieldsFormSection
-              title="Custom tenant fields"
+              title={t("customFields.tenantFieldsTitle")}
               definitions={editCustomFieldDefinitions}
               values={editCustomFieldValues}
               errors={editCustomFieldErrors}
               onChange={handleEditCustomFieldChange}
               disabled={savingEdit}
-              emptyMessage="No custom tenant fields configured yet."
+              emptyMessage={t("customFields.tenantFieldsEmpty")}
             />
 
             <div className="flex justify-end">
@@ -398,7 +398,7 @@ export default function TenantDetails({
                 disabled={savingEdit}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:bg-slate-400"
               >
-                {savingEdit ? "Saving..." : "Save tenant"}
+                {savingEdit ? t("common.saving") : t("tenants.save")}
               </button>
             </div>
           </form>
@@ -406,7 +406,7 @@ export default function TenantDetails({
       ) : null}
 
       <CustomFieldsReadOnlySection
-        title="Custom tenant fields"
+        title={t("customFields.tenantFieldsTitle")}
         rows={customFieldRows}
         loading={customFieldsLoading}
       />

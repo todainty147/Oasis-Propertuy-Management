@@ -261,7 +261,7 @@ export default function PropertyDetails({
 
         <div className="pt-2">
           <CustomFieldsReadOnlySection
-            title="Custom property fields"
+            title={t("customFields.propertyFieldsTitle")}
             rows={customFieldRows}
             loading={customFieldsLoading}
           />
