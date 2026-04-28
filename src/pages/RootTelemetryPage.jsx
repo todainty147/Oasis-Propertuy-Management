@@ -884,6 +884,7 @@ export default function RootTelemetryPage() {
           <form onSubmit={handleGrantSupportAccess} className="mt-4 grid gap-3 lg:grid-cols-[1.2fr_1fr_0.9fr_auto]">
             <input
               type="email"
+              aria-label={t("rootTelemetry.supportAccess.emailPlaceholder")}
               value={supportGrantForm.userEmail}
               onChange={(event) =>
                 setSupportGrantForm((current) => ({ ...current, userEmail: event.target.value }))
@@ -893,6 +894,7 @@ export default function RootTelemetryPage() {
             />
             <input
               type="text"
+              aria-label={t("rootTelemetry.supportAccess.notesPlaceholder")}
               value={supportGrantForm.notes}
               onChange={(event) =>
                 setSupportGrantForm((current) => ({ ...current, notes: event.target.value }))
@@ -902,6 +904,7 @@ export default function RootTelemetryPage() {
             />
             <input
               type="datetime-local"
+              aria-label={t("rootTelemetry.supportAccess.expiresInput")}
               value={supportGrantForm.expiresAt}
               onChange={(event) =>
                 setSupportGrantForm((current) => ({ ...current, expiresAt: event.target.value }))

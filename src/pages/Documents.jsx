@@ -477,6 +477,7 @@ export default function Documents({
 
           <div className="flex gap-4 flex-wrap">
             <select
+              aria-label={t("documents.selectProperty")}
               value={uploadPropertyId}
               onChange={(e) => {
                 const v = e.target.value;
@@ -496,6 +497,7 @@ export default function Documents({
             <span className="text-sm text-slate-400 self-center">{t("common.or")}</span>
 
             <select
+              aria-label={t("documents.selectTenant")}
               value={uploadTenantId}
               onChange={(e) => {
                 const v = e.target.value;
@@ -614,6 +616,7 @@ export default function Documents({
                     </p>
                     <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,160px)_92px_minmax(0,220px)_auto] sm:items-center">
                       <select
+                        aria-label={t("documents.tenantPriority.title")}
                         value={getTenantPriorityDraft(doc).highlight}
                         onChange={(event) => {
                           updateTenantPriorityDraft(doc.id, { highlight: event.target.value });
@@ -808,6 +811,7 @@ function PaginationFooter({
       <div className="flex items-center gap-2">
         <span className="text-xs text-slate-500">{t("common.perPage")}</span>
         <select
+          aria-label={t("common.perPage")}
           value={pageSize}
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
           className="rounded-md border border-slate-300 px-2 py-1 text-sm"

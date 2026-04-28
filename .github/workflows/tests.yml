@@ -164,3 +164,42 @@ jobs:
       - name: Stop local Supabase
         if: always()
         run: npx supabase stop
+
+  e2e-critical:
+    name: Critical E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run critical E2E lane
+        run: npm run test:e2e:local:critical
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-critical-report
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore

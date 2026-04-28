@@ -461,6 +461,7 @@ function PaginationFooter({
       <div className="flex items-center gap-2">
         <span className="text-xs text-slate-500">{t("common.perPage")}</span>
         <select
+          aria-label={t("common.perPage")}
           value={pageSize}
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
           className="rounded-md border border-slate-300 px-2 py-1 text-sm"

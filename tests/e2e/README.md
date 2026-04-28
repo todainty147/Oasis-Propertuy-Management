@@ -61,6 +61,54 @@ The operator pack covers:
 - contractor recommendation in the create-work-order drawer
 - weekly portfolio briefing visibility
 
+## Responsive / accessibility release pack
+
+Use the responsive pack when changing shell layout, commercial pages, or role-specific page structure:
+
+```bash
+npm run test:e2e:responsive
+```
+
+The pack runs desktop and mobile-width accessibility checks for:
+
+- dashboard
+- finance
+- documents
+- contractor portal
+- security/root telemetry
+
+These checks intentionally scan release-level page states rather than every possible modal. If a route gains a new primary card, action panel, or subscription state, extend this pack before release.
+
+## Degraded-path pack
+
+Use the degraded-path pack when changing routing, RPC loading, signup, invite handling, entitlement gates, or empty states:
+
+```bash
+npm run test:e2e:degraded
+```
+
+The pack currently proves:
+
+- invalid invite links fail with a visible message
+- stale property query parameters show a clear empty state
+- new landlord accounts start with a safe empty property state
+- starter accounts see a subscription upgrade card for gated operator surfaces
+- Command Center RPC failures render a visible degraded-path banner
+
+## Extended and visual lanes
+
+The release lanes are split by risk and runtime:
+
+```bash
+npm run test:e2e:critical
+npm run test:e2e:extended
+npm run test:e2e:visual
+```
+
+- `critical` must pass before every release and covers the highest-risk business journeys.
+- `extended` adds operator/AI, document, payment setup, responsive, and degraded-path confidence.
+- `visual` is for marketing/social screenshot generation and UI presentation checks.
+
 ## Local full flow
 
 To mirror the working `APStaffCommandCenter` local browser flow, OASIS also includes:
@@ -125,7 +173,6 @@ If a new Axe failure appears, prefer fixing the markup or accessible name first.
 
 ## Suggested next tests
 
-- dashboard accessibility scan after key cards settle
-- finance accessibility scan
-- contractor portal accessibility scan
-- security/root telemetry accessibility scan
+- expand responsive checks to tablet width after layout breakpoints stabilize
+- add degraded-path coverage for unavailable AI insight fallback copy once that UI copy is formalized
+- add CI scheduling for the extended lane if runtime remains acceptable
