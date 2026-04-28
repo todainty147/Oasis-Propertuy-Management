@@ -11,7 +11,8 @@ describe("custom fields management page contracts", () => {
     const sidebarSource = readSource("src/layout/Sidebar.jsx");
 
     expect(appSource).toContain('const CustomFieldsManagementPage = lazy(() => import("./pages/CustomFieldsManagementPage"));');
-    expect(appSource).toContain('<Route path="settings/custom-fields" element={<CustomFieldsManagementPage />} />');
+    expect(appSource).toContain('<ManagerOnlyRoute>');
+    expect(appSource).toContain('<CustomFieldsManagementPage />');
     expect(sidebarSource).toContain('to="/settings/custom-fields"');
     expect(sidebarSource).toContain('label="Custom fields"');
   });
@@ -22,9 +23,9 @@ describe("custom fields management page contracts", () => {
 
     expect(pageSource).toContain("const canManageCustomFields = isRootOperator || isManageRole(activeRole);");
     expect(pageSource).toContain('return <Navigate to="/dashboard" replace />;');
-    expect(pageSource).toContain("Create field");
-    expect(pageSource).toContain('{ value: "property", label: "Property" }');
-    expect(pageSource).toContain('{ value: "tenant", label: "Tenant" }');
+    expect(pageSource).toContain('t("customFields.create")');
+    expect(pageSource).toContain('{ value: "property", labelKey: "customFields.entity.property" }');
+    expect(pageSource).toContain('{ value: "tenant", labelKey: "customFields.entity.tenant" }');
     expect(pageSource).toContain("handleCreateDefinition");
     expect(pageSource).toContain("handleDeleteDefinition");
 

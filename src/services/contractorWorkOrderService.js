@@ -84,6 +84,9 @@ export async function loadContractorPortalRows(context = {}) {
   if (authError) throw authError;
 
   const authedUserId = authData?.user?.id || "";
+  if (!authedUserId) {
+    throw new Error("Missing authenticated contractor");
+  }
   let rows = [];
 
   const baseSelect = `
@@ -106,6 +109,7 @@ export async function loadContractorPortalRows(context = {}) {
   const { data: fromView, error: fromViewError } = await supabase
     .from("work_orders_with_flags")
     .select(baseSelect)
+    .eq("contractor_user_id", authedUserId)
     .order("created_at", { ascending: false });
 
   if (fromViewError) {
@@ -114,6 +118,7 @@ export async function loadContractorPortalRows(context = {}) {
       .select(
         "id, account_id, property_id, maintenance_request_id, contractor_user_id, contractor_name, contractor_phone, status, scheduled_at, notes, created_at, updated_at",
       )
+      .eq("contractor_user_id", authedUserId)
       .order("created_at", { ascending: false });
 
     if (fallbackError) throw fallbackError;
@@ -195,6 +200,16 @@ export async function loadContractorPortalRows(context = {}) {
 export async function getContractorJobDetailsBundle(workOrderId, context = {}) {
   if (!workOrderId) throw new Error("Missing workOrderId");
 
+  const {
+    data: authData,
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError) throw authError;
+  const authedUserId = authData?.user?.id || "";
+  if (!authedUserId) {
+    throw new Error("Missing authenticated contractor");
+  }
+
   let workOrder = null;
   let financials = null;
   let request = null;
@@ -206,6 +221,7 @@ export async function getContractorJobDetailsBundle(workOrderId, context = {}) {
       "id, maintenance_request_id, property_id, status, scheduled_at, notes, contractor_name, contractor_phone, created_at, updated_at, assigned_at, acknowledged_at, acknowledgement_due_at, acknowledgement_status",
     )
     .eq("id", workOrderId)
+    .eq("contractor_user_id", authedUserId)
     .maybeSingle();
 
   if (error) throw error;

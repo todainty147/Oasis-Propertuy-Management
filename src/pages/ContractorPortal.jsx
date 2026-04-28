@@ -132,6 +132,7 @@ export default function ContractorPortal() {
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [savingId, setSavingId] = useState(null);
   const [allowedById, setAllowedById] = useState({});
   const [statusFilter, setStatusFilter] = useState("all");
@@ -142,6 +143,7 @@ export default function ContractorPortal() {
 
   async function load() {
     setLoading(true);
+    setError("");
     try {
       const list = await loadContractorPortalRows({
         source: "ContractorPortal",
@@ -166,7 +168,7 @@ export default function ContractorPortal() {
       );
       setAllowedById(Object.fromEntries(pairs));
     } catch (e) {
-      console.error(e);
+      setError(t("contractor.loadError"));
       setRows([]);
       setAllowedById({});
     } finally {
@@ -278,6 +280,12 @@ export default function ContractorPortal() {
         t={t}
         mode="participant"
       />
+
+      {error ? (
+        <Card className="border-red-200 bg-red-50 p-4">
+          <p className="text-sm font-medium text-red-700">{error}</p>
+        </Card>
+      ) : null}
 
       {loading ? (
         <div className="space-y-2">

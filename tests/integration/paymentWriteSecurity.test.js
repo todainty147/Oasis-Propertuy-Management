@@ -96,6 +96,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
     const { client } = await signInAsFixtureUser("adminA");
 
     const result = await client.rpc("update_payment", {
+      p_account_id: isolationFixtures.accounts.accountA.id,
       p_payment_id: payment.id,
       p_amount: 1325.5,
       p_due_date: "2099-04-09",
@@ -168,6 +169,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
     const { client } = await signInAsFixtureUser("adminA");
 
     const paidResult = await client.rpc("mark_payment_paid", {
+      p_account_id: isolationFixtures.accounts.accountA.id,
       p_payment_id: payment.id,
       p_paid_at: "2099-04-07",
     });
@@ -213,6 +215,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
     expect((paidEvents || []).some((row) => row.event_type === "payment_paid")).toBe(true);
 
     const unpaidResult = await client.rpc("mark_payment_unpaid", {
+      p_account_id: isolationFixtures.accounts.accountA.id,
       p_payment_id: payment.id,
     });
 
@@ -265,6 +268,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
 
     const { client } = await signInAsFixtureUser("staffA");
     const result = await client.rpc("mark_payment_paid", {
+      p_account_id: isolationFixtures.accounts.accountA.id,
       p_payment_id: payment.id,
       p_paid_at: "2099-04-11",
     });
@@ -309,6 +313,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
     const { client } = await signInAsFixtureUser("ownerA");
 
     const result = await client.rpc("delete_payment", {
+      p_account_id: isolationFixtures.accounts.accountA.id,
       p_payment_id: payment.id,
     });
 
@@ -367,6 +372,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
       const { client } = await signInAsFixtureUser(testCase.fixtureKey);
 
       const result = await client.rpc("delete_payment", {
+        p_account_id: isolationFixtures.accounts.accountA.id,
         p_payment_id: payment.id,
       });
 

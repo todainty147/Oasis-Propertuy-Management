@@ -20,11 +20,12 @@ export function buildCsv(rows = [], columns = []) {
 }
 
 export function downloadTextFile(filename, content, mimeType = "text/plain;charset=utf-8") {
+  const safeFilename = String(filename || "export.txt").replace(/[/\\]/g, "_");
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = filename;
+  anchor.download = safeFilename;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();

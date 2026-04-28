@@ -75,7 +75,7 @@ describe("RPC mutation contracts", () => {
       amount: 1200,
       dueDate: "2026-03-24",
     });
-    const paid = await markPaymentPaid("pay-1", "2026-03-25");
+    const paid = await markPaymentPaid("pay-1", "2026-03-25", "account-1");
 
     expect(myPayments[0]).toEqual({
       payment_id: "pay-tenant-1",
@@ -88,6 +88,11 @@ describe("RPC mutation contracts", () => {
     });
     expect(created.status).toBe("pending");
     expect(paid.status).toBe("paid");
+    expect(rpcMock).toHaveBeenLastCalledWith("mark_payment_paid", {
+      p_account_id: "account-1",
+      p_payment_id: "pay-1",
+      p_paid_at: "2026-03-25",
+    });
   });
 
   it("returns parsed document rows from document RPC writes", async () => {

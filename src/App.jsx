@@ -74,6 +74,13 @@ function EntitledRoute({ feature, children }) {
   return <FeatureAccessCard feature={feature} currentPlan={activePlan} />;
 }
 
+function ManagerOnlyRoute({ children }) {
+  const { activeRole, isRootOperator } = useAccount();
+  const role = String(activeRole || "").toLowerCase();
+
+  return isManageRole(role, { isRootOperator }) ? children : <Navigate to="/dashboard" replace />;
+}
+
 function isTenantRole(activeRole) {
   return String(activeRole || "").toLowerCase() === "tenant";
 }
@@ -333,14 +340,7 @@ export default function App() {
     return (
       <div className="p-6 bg-white rounded-xl border">
         <p className="font-medium">{t("app.loadErrorTitle")}</p>
-        <pre className="mt-3 text-xs text-gray-600 whitespace-pre-wrap">
-          {String(
-            propertiesError?.message ||
-              paymentsError?.message ||
-              tenantsError?.message ||
-              leasesError?.message
-          )}
-        </pre>
+        <p className="mt-3 text-sm text-gray-600">{t("app.loadErrorRetry")}</p>
       </div>
     );
   }
@@ -627,10 +627,38 @@ export default function App() {
                 path="settings/profile"
                 element={tenantRole ? <Navigate to="/tenant/profile" replace /> : <ProfilePage />}
               />
-              <Route path="settings/branding" element={<AccountBrandingPage />} />
-              <Route path="settings/billing" element={<BillingPage />} />
-              <Route path="settings/roles" element={<RolesManagementPage />} />
-              <Route path="settings/custom-fields" element={<CustomFieldsManagementPage />} />
+              <Route
+                path="settings/branding"
+                element={
+                  <ManagerOnlyRoute>
+                    <AccountBrandingPage />
+                  </ManagerOnlyRoute>
+                }
+              />
+              <Route
+                path="settings/billing"
+                element={
+                  <ManagerOnlyRoute>
+                    <BillingPage />
+                  </ManagerOnlyRoute>
+                }
+              />
+              <Route
+                path="settings/roles"
+                element={
+                  <ManagerOnlyRoute>
+                    <RolesManagementPage />
+                  </ManagerOnlyRoute>
+                }
+              />
+              <Route
+                path="settings/custom-fields"
+                element={
+                  <ManagerOnlyRoute>
+                    <CustomFieldsManagementPage />
+                  </ManagerOnlyRoute>
+                }
+              />
               <Route
                 path="settings/playbooks"
                 element={

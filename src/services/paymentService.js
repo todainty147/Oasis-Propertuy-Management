@@ -2,6 +2,8 @@
 import { supabase } from "../lib/supabase";
 import { parseMyPaymentRow, parsePaymentRow, parseRpcRows } from "./rpcContracts";
 
+const MAX_PAYMENT_AMOUNT = 1_000_000;
+
 function parsePaymentListRow(row) {
   const payment = parsePaymentRow(row);
   return {
@@ -82,6 +84,9 @@ export async function createPayment({
   if (!Number.isFinite(amt) || amt <= 0) {
     throw new Error("Invalid amount");
   }
+  if (amt > MAX_PAYMENT_AMOUNT) {
+    throw new Error("Payment amount exceeds allowed maximum");
+  }
 
   if (isNaN(new Date(dueDate).getTime())) {
     throw new Error("Invalid dueDate: must be a valid date string");
@@ -105,12 +110,16 @@ export async function createPayment({
    OWNER/ADMIN: UPDATE (RPC)
    ====================== */
 
-export async function updatePayment(paymentId, { amount = null, dueDate = null, notes = null } = {}) {
+export async function updatePayment(paymentId, { accountId = null, amount = null, dueDate = null, notes = null } = {}) {
   if (!paymentId) throw new Error("Missing paymentId");
+  if (!accountId) throw new Error("Missing accountId");
 
   const amt = amount === null || amount === undefined ? null : Number(amount);
   if (amt !== null && (!Number.isFinite(amt) || amt <= 0)) {
     throw new Error("Invalid amount");
+  }
+  if (amt !== null && amt > MAX_PAYMENT_AMOUNT) {
+    throw new Error("Payment amount exceeds allowed maximum");
   }
 
   if (dueDate !== null && isNaN(new Date(dueDate).getTime())) {
@@ -118,6 +127,7 @@ export async function updatePayment(paymentId, { amount = null, dueDate = null, 
   }
 
   const { data, error } = await supabase.rpc("update_payment", {
+    p_account_id: accountId,
     p_payment_id: paymentId,
     p_amount: amt,
     p_due_date: dueDate,
@@ -132,10 +142,12 @@ export async function updatePayment(paymentId, { amount = null, dueDate = null, 
    OWNER: DELETE (RPC)
    ====================== */
 
-export async function deletePayment(paymentId) {
+export async function deletePayment(paymentId, accountId = null) {
   if (!paymentId) throw new Error("Missing paymentId");
+  if (!accountId) throw new Error("Missing accountId");
 
   const { error } = await supabase.rpc("delete_payment", {
+    p_account_id: accountId,
     p_payment_id: paymentId,
   });
 
@@ -146,10 +158,12 @@ export async function deletePayment(paymentId) {
    OWNER/ADMIN: MARK PAID/UNPAID
    ====================== */
 
-export async function markPaymentPaid(paymentId, paidAt = null) {
+export async function markPaymentPaid(paymentId, paidAt = null, accountId = null) {
   if (!paymentId) throw new Error("Missing paymentId");
+  if (!accountId) throw new Error("Missing accountId");
 
   const { data, error } = await supabase.rpc("mark_payment_paid", {
+    p_account_id: accountId,
     p_payment_id: paymentId,
     p_paid_at: paidAt,
   });
@@ -158,10 +172,12 @@ export async function markPaymentPaid(paymentId, paidAt = null) {
   return parsePaymentRow(data);
 }
 
-export async function markPaymentUnpaid(paymentId) {
+export async function markPaymentUnpaid(paymentId, accountId = null) {
   if (!paymentId) throw new Error("Missing paymentId");
+  if (!accountId) throw new Error("Missing accountId");
 
   const { data, error } = await supabase.rpc("mark_payment_unpaid", {
+    p_account_id: accountId,
     p_payment_id: paymentId,
   });
 

@@ -143,7 +143,13 @@ begin
 end;
 $$;
 
+drop function if exists public.update_payment(uuid, numeric, date, text);
+drop function if exists public.delete_payment(uuid);
+drop function if exists public.mark_payment_paid(uuid, date);
+drop function if exists public.mark_payment_unpaid(uuid);
+
 create or replace function public.update_payment(
+  p_account_id uuid,
   p_payment_id uuid,
   p_amount numeric default null::numeric,
   p_due_date date default null::date,
@@ -159,7 +165,8 @@ declare
 begin
   select * into v_row
   from public.payments
-  where id = p_payment_id;
+  where id = p_payment_id
+    and account_id = p_account_id;
 
   if v_row.id is null then
     raise exception 'Payment not found';
@@ -174,13 +181,17 @@ begin
     amount   = coalesce(p_amount, amount),
     due_date = coalesce(p_due_date, due_date)
   where id = p_payment_id
+    and account_id = p_account_id
   returning * into v_row;
 
   return v_row;
 end;
 $$;
 
-create or replace function public.delete_payment(p_payment_id uuid)
+create or replace function public.delete_payment(
+  p_account_id uuid,
+  p_payment_id uuid
+)
 returns void
 language plpgsql
 security definer
@@ -191,7 +202,8 @@ declare
 begin
   select account_id into v_account_id
   from public.payments
-  where id = p_payment_id;
+  where id = p_payment_id
+    and account_id = p_account_id;
 
   if v_account_id is null then
     raise exception 'Payment not found';
@@ -201,11 +213,14 @@ begin
     raise exception 'Not allowed';
   end if;
 
-  delete from public.payments where id = p_payment_id;
+  delete from public.payments
+  where id = p_payment_id
+    and account_id = p_account_id;
 end;
 $$;
 
 create or replace function public.mark_payment_paid(
+  p_account_id uuid,
   p_payment_id uuid,
   p_paid_at date default current_date
 )
@@ -220,7 +235,8 @@ declare
 begin
   select * into v_pay
   from public.payments
-  where id = p_payment_id;
+  where id = p_payment_id
+    and account_id = p_account_id;
 
   if not found then
     raise exception 'Payment not found';
@@ -234,13 +250,17 @@ begin
   update public.payments
   set paid_at = coalesce(p_paid_at, current_date)
   where id = p_payment_id
+    and account_id = p_account_id
   returning * into v_pay;
 
   return v_pay;
 end;
 $$;
 
-create or replace function public.mark_payment_unpaid(p_payment_id uuid)
+create or replace function public.mark_payment_unpaid(
+  p_account_id uuid,
+  p_payment_id uuid
+)
 returns public.payments
 language plpgsql
 security definer
@@ -251,7 +271,8 @@ declare
 begin
   select * into v_row
   from public.payments
-  where id = p_payment_id;
+  where id = p_payment_id
+    and account_id = p_account_id;
 
   if v_row.id is null then
     raise exception 'Payment not found';
@@ -264,6 +285,7 @@ begin
   update public.payments
   set paid_at = null
   where id = p_payment_id
+    and account_id = p_account_id
   returning * into v_row;
 
   return v_row;
@@ -335,3 +357,13 @@ begin
   return v_pay;
 end;
 $$;
+
+revoke all on function public.update_payment(uuid, uuid, numeric, date, text) from public;
+revoke all on function public.delete_payment(uuid, uuid) from public;
+revoke all on function public.mark_payment_paid(uuid, uuid, date) from public;
+revoke all on function public.mark_payment_unpaid(uuid, uuid) from public;
+
+grant execute on function public.update_payment(uuid, uuid, numeric, date, text) to authenticated;
+grant execute on function public.delete_payment(uuid, uuid) to authenticated;
+grant execute on function public.mark_payment_paid(uuid, uuid, date) to authenticated;
+grant execute on function public.mark_payment_unpaid(uuid, uuid) to authenticated;

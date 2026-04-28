@@ -323,9 +323,6 @@ export async function cleanupOrphanAttachmentPaths(orphanPaths = []) {
 
   const { data, error } = await supabase.storage.from(BUCKET).remove(paths);
 
-  console.log("cleanup data:", data);
-  console.log("cleanup error:", error);
-
   return { data, error };
 }
 

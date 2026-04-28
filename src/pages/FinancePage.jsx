@@ -42,7 +42,7 @@ export default function FinancePage() {
           setEditingPayment(null);
           setIsAddOpen(true);
         }}
-        onDeletePayment={deletePayment}
+        onDeletePayment={(paymentId) => deletePayment(paymentId, activeAccountId)}
       />
 
       <AddPaymentModal

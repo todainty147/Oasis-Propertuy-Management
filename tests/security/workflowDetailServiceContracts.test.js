@@ -238,6 +238,11 @@ describe("workflow detail service contracts", () => {
   });
 
   it("returns a parsed contractor job details bundle", async () => {
+    getUserMock.mockResolvedValue({
+      data: { user: { id: "contractor-user-1" } },
+      error: null,
+    });
+
     rpcMock.mockResolvedValue({
       data: [
         {

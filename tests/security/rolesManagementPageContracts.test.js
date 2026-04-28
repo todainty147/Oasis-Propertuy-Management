@@ -11,7 +11,8 @@ describe("roles management page contracts", () => {
     const sidebarSource = readSource("src/layout/Sidebar.jsx");
 
     expect(appSource).toContain('const RolesManagementPage = lazy(() => import("./pages/RolesManagementPage"));');
-    expect(appSource).toContain('<Route path="settings/roles" element={<RolesManagementPage />} />');
+    expect(appSource).toContain('<ManagerOnlyRoute>');
+    expect(appSource).toContain('<RolesManagementPage />');
     expect(sidebarSource).toContain('to="/settings/roles"');
     expect(sidebarSource).toContain('label="Roles"');
   });
@@ -22,9 +23,9 @@ describe("roles management page contracts", () => {
 
     expect(pageSource).toContain("const canManageRoles = isRootOperator || isManageRole(activeRole);");
     expect(pageSource).toContain('return <Navigate to="/dashboard" replace />;');
-    expect(pageSource).toContain("Create role");
-    expect(pageSource).toContain("Custom roles");
-    expect(pageSource).toContain("Assign roles");
+    expect(pageSource).toContain('t("roles.create")');
+    expect(pageSource).toContain('t("roles.customTitle")');
+    expect(pageSource).toContain('t("roles.assignTitle")');
     expect(pageSource).toContain("handleCreateRole");
     expect(pageSource).toContain("handleSavePermissions");
     expect(pageSource).toContain("handleAssignRole");

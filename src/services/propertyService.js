@@ -7,6 +7,12 @@ import {
   normalizeText,
 } from "../utils/validation";
 
+function logPropertyServiceError(event, error) {
+  console.error(`[property-service] ${event}`, {
+    code: error?.code || "unknown",
+  });
+}
+
 async function syncTenantAssignment({ accountId, propertyId, previousTenantId = null, nextTenantId = null }) {
   if (!accountId || !propertyId) return;
   const previousId = previousTenantId || null;
@@ -68,7 +74,7 @@ export async function createProperty({
     .single();
 
   if (error) {
-    console.error("createProperty failed:", error);
+    logPropertyServiceError("create_failed", error);
     throw error;
   }
 
@@ -107,7 +113,7 @@ export async function updateProperty(id, {
     .single();
 
   if (currentError) {
-    console.error("load property before update failed:", currentError);
+    logPropertyServiceError("load_before_update_failed", currentError);
     throw currentError;
   }
 
@@ -125,7 +131,7 @@ export async function updateProperty(id, {
     .single();
 
   if (error) {
-    console.error("updateProperty failed:", error);
+    logPropertyServiceError("update_failed", error);
     throw error;
   }
 
@@ -154,7 +160,7 @@ export async function deleteProperty(id) {
     .eq("id", id);
 
   if (error) {
-    console.error("deleteProperty failed:", error);
+    logPropertyServiceError("delete_failed", error);
     throw error;
   }
 }
