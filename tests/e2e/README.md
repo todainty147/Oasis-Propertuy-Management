@@ -24,6 +24,23 @@ npm run test:e2e:ui
 npm run test:e2e:debug
 ```
 
+## Release-critical pack
+
+Use the critical pack before release-style checks when you want the fastest browser signal over the highest-risk app paths:
+
+```bash
+npm run test:e2e:critical
+```
+
+The critical pack covers:
+
+- app shell sign-in
+- owner property creation and downstream Finance visibility
+- role navigation and direct-route restrictions
+- tenant-scoped navigation
+- root invitations surface
+- self-serve signup
+
 ## Local full flow
 
 To mirror the working `APStaffCommandCenter` local browser flow, OASIS also includes:
@@ -40,6 +57,30 @@ That command will:
 4. seed the integration harness
 5. run Playwright
 6. stop local Supabase
+
+To run the same local stack bootstrap with only the critical pack:
+
+```bash
+npm run test:e2e:local:critical
+```
+
+## Marketing / social screenshots
+
+To generate the LinkedIn-ready product shots for the AI-led operator surfaces, run:
+
+```bash
+npm run marketing:screenshots:linkedin
+```
+
+That flow captures reusable screenshots into:
+
+- [marketing-site/public/screenshots/linkedin](/mnt/c/Users/Home/oasisrentalmanagementapp/marketing-site/public/screenshots/linkedin)
+
+The dedicated social set currently covers:
+
+- Command Center operator briefing
+- Portfolio Health explainer
+- Maintenance Inbox triage guidance
 
 ## Accessibility checks
 
