@@ -95,6 +95,21 @@ The pack currently proves:
 - starter accounts see a subscription upgrade card for gated operator surfaces
 - Command Center RPC failures render a visible degraded-path banner
 
+## Localization pack
+
+Use the localization pack when changing app language selectors, public auth copy, or the landlord shell navigation:
+
+```bash
+npm run test:e2e:localization
+```
+
+The pack currently proves:
+
+- German (`de`) is available from the public login language selector
+- German auth copy persists after reload through `oasis_lang`
+- the authenticated landlord shell exposes German navigation labels
+- German coverage uses native overrides for priority surfaces with English fallback for long-tail operational strings
+
 ## Extended and visual lanes
 
 The release lanes are split by risk and runtime:
@@ -106,7 +121,7 @@ npm run test:e2e:visual
 ```
 
 - `critical` must pass before every release and covers the highest-risk business journeys.
-- `extended` adds operator/AI, document, payment setup, responsive, and degraded-path confidence.
+- `extended` adds operator/AI, document, payment setup, responsive, degraded-path, and localization confidence.
 - `visual` is for marketing/social screenshot generation and UI presentation checks.
 
 ## Current matrix status
@@ -119,12 +134,14 @@ The browser test matrix is currently at release baseline for Phases 2-7:
 - Phase 5 responsive/accessibility pack: covered by `responsive-accessibility-release`.
 - Phase 6 degraded-path pack: covered by `degraded-paths`.
 - Phase 7 lane packaging: covered by the `critical`, `extended`, and `visual` scripts, with the critical local E2E lane wired into GitHub Actions.
+- German app localization: covered by `german-localization` and included in `test:e2e:extended`.
 
 Remaining matrix work is second-order hardening rather than baseline coverage:
 
 - add tablet-width responsive checks after breakpoints stabilize
 - add deeper modal/form Axe scans for Add Property, Add Tenant, work order drawer, role management, and document review flows
 - add AI unavailable/fallback-copy tests once those fallback states are standardized across AI surfaces
+- expand German native copy coverage beyond the current priority surfaces after native review
 - decide whether `test:e2e:extended` should run nightly or manually in CI, based on runtime and stability
 - add more targeted browser failure simulations for documents, finance snapshots, storage upload errors, and expired invite acceptance
 

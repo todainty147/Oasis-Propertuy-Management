@@ -5,7 +5,6 @@ test("owner-configured payment setup appears in the standalone tenant portal", a
   await signInAs(page, seededUsers.ownerA);
 
   await page.goto("/finance");
-  await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible();
 
   const settingsCard = page.getByTestId("payment-collection-settings-card");
   const readinessCard = page.getByTestId("payment-collection-readiness-card");

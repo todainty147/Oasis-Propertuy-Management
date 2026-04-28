@@ -29,6 +29,7 @@ import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { APP_LANGUAGES } from "../i18n/languages";
 import { can, isManageRole } from "../utils/permissions";
 import TenantSwitcher from "../components/TenantSwitcher";
 import { ENTITLEMENT_FEATURES } from "../lib/entitlements";
@@ -171,8 +172,11 @@ function SidebarContent({ onNavigate }) {
             className="text-sm bg-transparent focus:outline-none text-slate-800 dark:text-slate-200"
             aria-label={t("topbar.language")}
           >
-            <option value="pl">{t("lang.polish")}</option>
-            <option value="en">{t("lang.english")}</option>
+            {APP_LANGUAGES.map((language) => (
+              <option key={language.code} value={language.code}>
+                {t(language.labelKey)}
+              </option>
+            ))}
           </select>
         </div>
       </div>

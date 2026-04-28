@@ -6,14 +6,11 @@ import { usePageTitle } from "../layout/PageTitleContext";
 import NotificationsBell from "../components/NotificationsBell";
 import { useI18n } from "../context/I18nContext";
 import { useTheme } from "../context/ThemeContext";
+import { APP_LANGUAGES, getLanguageFlag } from "../i18n/languages";
 
 import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
 import { useTenants } from "../hooks/useTenants";
-
-function langFlag(lang) {
-  return lang === "pl" ? "🇵🇱" : "🇬🇧";
-}
 
 export default function Topbar({ onMenuClick }) {
   const navigate = useNavigate();
@@ -161,7 +158,7 @@ export default function Topbar({ onMenuClick }) {
           <NotificationsBell />
           <div className="hidden lg:flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 shadow-sm">
             <span className="mr-2 text-base leading-none" aria-hidden="true">
-              {langFlag(lang)}
+              {getLanguageFlag(lang)}
             </span>
             <select
               value={lang}
@@ -169,8 +166,11 @@ export default function Topbar({ onMenuClick }) {
               className="min-w-[4.5rem] bg-transparent text-sm text-slate-800 dark:text-slate-200 focus:outline-none"
               aria-label={t("topbar.language")}
             >
-              <option value="pl">{`${langFlag("pl")} ${t("lang.polish")}`}</option>
-              <option value="en">{`${langFlag("en")} ${t("lang.english")}`}</option>
+              {APP_LANGUAGES.map((language) => (
+                <option key={language.code} value={language.code}>
+                  {`${language.flag} ${t(language.labelKey)}`}
+                </option>
+              ))}
             </select>
           </div>
         </div>

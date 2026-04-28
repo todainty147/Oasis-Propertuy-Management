@@ -3,14 +3,11 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
+import { APP_LANGUAGES, getLanguageFlag } from "../i18n/languages";
 import { acceptAccountInvite } from "../services/invitationService";
 
 const USE_BRANDED_INVITES =
   String(import.meta.env.VITE_USE_BRANDED_INVITES || "").toLowerCase() === "true";
-
-function langFlag(lang) {
-  return lang === "pl" ? "PL" : "GB";
-}
 
 export default function Invite() {
   const [params] = useSearchParams();
@@ -145,7 +142,7 @@ export default function Invite() {
       <div className="mx-auto flex w-full max-w-5xl justify-end">
         <div className="mb-4 flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 shadow-sm">
           <span className="mr-2 text-sm leading-none text-slate-700 dark:text-slate-200" aria-hidden="true">
-            {langFlag(lang)}
+            {getLanguageFlag(lang, { short: true })}
           </span>
           <select
             value={lang}
@@ -153,8 +150,11 @@ export default function Invite() {
             className="min-w-[4.5rem] bg-transparent text-sm text-slate-800 dark:text-slate-200 focus:outline-none"
             aria-label={t("topbar.language")}
           >
-            <option value="pl">{`${langFlag("pl")} ${t("lang.polish")}`}</option>
-            <option value="en">{`${langFlag("en")} ${t("lang.english")}`}</option>
+            {APP_LANGUAGES.map((language) => (
+              <option key={language.code} value={language.code}>
+                {`${language.shortFlag} ${t(language.labelKey)}`}
+              </option>
+            ))}
           </select>
         </div>
       </div>

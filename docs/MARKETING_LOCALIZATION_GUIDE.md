@@ -114,6 +114,7 @@ Notes:
 - Use formal `Sie`.
 - Treat legal and trust surfaces as product requirements, not footer decoration.
 - Where possible, prefer "explainable" framing over "clever" framing.
+- The app now exposes German (`de`) as a first-class selectable locale. Priority app surfaces use native German overrides, with English fallback for long-tail operational strings until native review is complete.
 
 ## Shared content rules
 

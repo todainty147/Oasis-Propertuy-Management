@@ -16,6 +16,7 @@ import { useAccount } from "../context/AccountContext";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
 import { useTheme } from "../context/ThemeContext";
+import { APP_LANGUAGES } from "../i18n/languages";
 import { PageTitleContext } from "./PageTitleContext";
 
 function useMediaQuery(query) {
@@ -143,8 +144,11 @@ export default function TenantPortalLayout() {
                   className="min-w-0 flex-1 bg-transparent text-right outline-none"
                   aria-label={t("topbar.language")}
                 >
-                  <option value="pl">{t("lang.polish")}</option>
-                  <option value="en">{t("lang.english")}</option>
+                  {APP_LANGUAGES.map((language) => (
+                    <option key={language.code} value={language.code}>
+                      {t(language.labelKey)}
+                    </option>
+                  ))}
                 </select>
               </label>
 
