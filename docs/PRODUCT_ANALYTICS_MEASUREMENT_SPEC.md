@@ -187,6 +187,23 @@ OASIS should choose one primary analytics sink later. Options:
 
 Recommended first implementation: a small Supabase-backed event table or Edge Function that records only the events in this spec, with strict redaction and account-scoped analysis. Add external tooling later if funnel/cohort exploration becomes a bottleneck.
 
+## Implementation Decision
+
+The first code layer is a centralized, no-op-safe frontend analytics wrapper:
+
+- [productAnalyticsService.js](/mnt/c/Users/Home/oasisrentalmanagementapp/src/services/productAnalyticsService.js)
+
+Current behavior:
+
+- defines the approved event names
+- allowlists approved event properties
+- drops sensitive or unapproved properties before any sink sees them
+- defaults to disabled unless `VITE_PRODUCT_ANALYTICS_ENABLED=true`
+- accepts an injected sink so a Supabase-backed capture path can be added without changing UI call sites
+- swallows sink failures so analytics never blocks product workflows
+
+The actual production sink is intentionally not enabled yet. The next implementation slice should choose and add one sink, with Supabase as the preferred first target because it keeps account-scoped product events close to the existing RLS/RPC architecture.
+
 ## Implementation Guardrails
 
 - Add a single product analytics service wrapper rather than scattering vendor calls through components.
@@ -213,4 +230,3 @@ Recommended first implementation: a small Supabase-backed event table or Edge Fu
 - [sandbox-demo-onboarding-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/sandbox-demo-onboarding-operations.md)
 - [OPERATIONAL_GOLDEN_SIGNALS.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OPERATIONAL_GOLDEN_SIGNALS.md)
 - [OASIS_WHITEPAPER_V5.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OASIS_WHITEPAPER_V5.md)
-
