@@ -40,7 +40,7 @@ The critical pack covers:
 - owner property creation, tenant assignment, and downstream Finance visibility
 - maintenance request triage to contractor-completed linked work order
 - invited staff acceptance and scoped account landing
-- role navigation and direct-route restrictions
+- reusable role navigation, direct-route, action visibility, and account switcher matrix checks
 - tenant-scoped navigation
 - root invitations surface
 - self-serve signup
