@@ -14,6 +14,8 @@ If the symptom is:
   - start with [release-operations-checklist.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/release-operations-checklist.md)
 - validating backup/restore readiness or deciding whether a production restore is necessary:
   - start with [backup-restore-drill.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/backup-restore-drill.md)
+- reviewing, reseeding, resetting, or expiring a demo/sandbox account:
+  - start with [sandbox-demo-onboarding-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/sandbox-demo-onboarding-operations.md)
 - user sees `Access denied`, missing account access, or manager-only page denial:
   - start with [security-denied-events.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-denied-events.md)
 - user/support needs to inspect centralized hosted security events:
@@ -69,4 +71,5 @@ If the symptom is:
 - [support-triage-workflow.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/support-triage-workflow.md)
 - [release-operations-checklist.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/release-operations-checklist.md)
 - [backup-restore-drill.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/backup-restore-drill.md)
+- [sandbox-demo-onboarding-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/sandbox-demo-onboarding-operations.md)
 - [security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md)

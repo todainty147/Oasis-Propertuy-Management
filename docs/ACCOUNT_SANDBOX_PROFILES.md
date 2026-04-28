@@ -34,5 +34,6 @@ The seeded demo dataset currently includes:
 ## Remaining Follow-up
 
 - Expand demo fixtures further if we want deeper document/signature examples or richer tenant-side walkthroughs.
-- Decide whether demo expiry should archive, disable, or soft-warn before reset.
-- Add any support-team tooling needed for remote reseed / inspection workflows.
+- Demo expiry is currently handled as a soft operational review date, not an automated archive/delete action.
+- The operational policy, safe reseed/reset workflow, and first-value checks are documented in [sandbox-demo-onboarding-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/sandbox-demo-onboarding-operations.md).
+- Add any future support-team tooling needed for remote reseed, expiry review, archive/disable, or inspection workflows.
