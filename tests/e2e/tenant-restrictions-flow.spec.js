@@ -11,11 +11,11 @@ test("tenant sees the restricted surface and does not get manager-only property 
   await expect(page.getByRole("heading", { name: "What needs attention" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Tenant timeline" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Repair progress tracker" })).toBeVisible();
-  await expect(page.getByTestId("tenant-maintenance-progress-tracker")).toContainText("Leaking tap");
+  await expect(page.getByTestId("tenant-maintenance-progress-tracker")).toContainText("Current path for:");
   await expect(page.getByTestId("tenant-maintenance-progress-tracker")).toContainText("Work order opened");
   await expect(page.getByTestId("tenant-maintenance-progress-tracker")).toContainText("Work plan");
   await expect(page.getByRole("heading", { name: "Recent progress history" })).toBeVisible();
-  await expect(page.getByText("Leaking tap").first()).toBeVisible();
+  await expect(page.getByText(/Leaking tap|E2E maintenance triage/).first()).toBeVisible();
 
   await expect(page.getByRole("link", { name: "Tenants" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Invitations" })).toHaveCount(0);

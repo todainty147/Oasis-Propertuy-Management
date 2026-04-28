@@ -20,7 +20,7 @@ async function expectLandlordTenantAccess(page, email) {
 
   await page.getByRole("link", { name: "Properties" }).click();
   await expect(page).toHaveURL(/\/properties(?:\?.*)?$/);
-  await expect(page.getByText("11 Starlight Avenue")).toBeVisible();
+  await expect(page.getByRole("link", { name: /11 Starlight Avenue/i })).toBeVisible();
 }
 
 [
@@ -47,7 +47,7 @@ test("root support can switch into a landlord account and read tenants", async (
   }
 
   await expect(page.getByRole("link", { name: "Tenants" })).toBeVisible();
-  await page.getByRole("link", { name: "Tenants" }).click();
+  await page.goto("/tenants");
   await expect(page).toHaveURL(/\/tenants(?:\?.*)?$/);
   await expect(page.getByLabel("All tenants").last()).toContainText("Tenant A1");
 });

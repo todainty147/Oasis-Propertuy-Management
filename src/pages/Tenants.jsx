@@ -49,7 +49,7 @@ export default function Tenants() {
   const { activePermissionContext, activeAccountId, activeRole, isRootOperator } = useAccount();
   const { t } = useI18n();
 
-  const { tenants, loading } = useTenants();
+  const { tenants, loading, createTenant } = useTenants();
   const { properties } = useProperties();
   const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
@@ -61,6 +61,15 @@ export default function Tenants() {
   );
   const [leaseRows, setLeaseRows] = useState([]);
   const [leaseLoading, setLeaseLoading] = useState(false);
+  const [addTenantOpen, setAddTenantOpen] = useState(false);
+  const [tenantSaving, setTenantSaving] = useState(false);
+  const [tenantError, setTenantError] = useState("");
+  const [tenantForm, setTenantForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    propertyId: "",
+  });
 
   useEffect(() => {
     const nextQ = String(searchParams.get("q") || "");
@@ -191,6 +200,9 @@ export default function Tenants() {
       canCreateTenant(activePermissionContext)
     );
   }, [activePermissionContext, activeRole, isRootOperator]);
+  const canAddTenant = useMemo(() => {
+    return isManageRole(activeRole, { isRootOperator }) || canCreateTenant(activePermissionContext);
+  }, [activePermissionContext, activeRole, isRootOperator]);
   const canReadTenants = useMemo(() => {
     if (activeRole === "tenant" || activeRole === "contractor") {
       return false;
@@ -201,6 +213,140 @@ export default function Tenants() {
   useEffect(() => {
     setTitle(t("sidebar.tenants"));
   }, [setTitle, t]);
+
+  function updateTenantForm(field, value) {
+    setTenantForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function resetTenantForm() {
+    setTenantForm({
+      name: "",
+      email: "",
+      phone: "",
+      propertyId: "",
+    });
+    setTenantError("");
+  }
+
+  async function handleCreateTenant() {
+    setTenantSaving(true);
+    setTenantError("");
+    try {
+      const created = await createTenant({
+        name: tenantForm.name,
+        email: tenantForm.email,
+        phone: tenantForm.phone,
+        propertyId: tenantForm.propertyId || null,
+      });
+      setAddTenantOpen(false);
+      resetTenantForm();
+      if (created?.name) {
+        updateListParams({ q: created.name });
+      }
+    } catch (error) {
+      setTenantError(error?.message || t("tenant.createError"));
+    } finally {
+      setTenantSaving(false);
+    }
+  }
+
+  const addTenantModal = addTenantOpen ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+      <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold text-white">{t("tenant.add")}</h3>
+            <p className="mt-1 text-sm text-slate-300">{t("tenant.addSubtitle")}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setAddTenantOpen(false);
+              resetTenantForm();
+            }}
+            disabled={tenantSaving}
+            className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-100 hover:bg-slate-800 disabled:opacity-50"
+          >
+            {t("common.close")}
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {tenantError && (
+            <div className="rounded-lg border border-rose-500/50 bg-rose-950/40 p-3 text-sm text-rose-100">
+              {tenantError}
+            </div>
+          )}
+          <label className="block text-sm font-medium text-slate-200">
+            {t("tenant.fullName")}
+            <input
+              value={tenantForm.name}
+              onChange={(event) => updateTenantForm("name", event.target.value)}
+              disabled={tenantSaving}
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-400 disabled:opacity-50"
+            />
+          </label>
+          <label className="block text-sm font-medium text-slate-200">
+            {t("tenant.email")}
+            <input
+              type="email"
+              value={tenantForm.email}
+              onChange={(event) => updateTenantForm("email", event.target.value)}
+              disabled={tenantSaving}
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-400 disabled:opacity-50"
+            />
+          </label>
+          <label className="block text-sm font-medium text-slate-200">
+            {t("tenant.phone")}
+            <input
+              value={tenantForm.phone}
+              onChange={(event) => updateTenantForm("phone", event.target.value)}
+              disabled={tenantSaving}
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-400 disabled:opacity-50"
+            />
+          </label>
+          <label className="block text-sm font-medium text-slate-200">
+            {t("tenant.assignedProperty")}
+            <select
+              value={tenantForm.propertyId}
+              onChange={(event) => updateTenantForm("propertyId", event.target.value)}
+              disabled={tenantSaving}
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-400 disabled:opacity-50"
+            >
+              <option value="">{t("tenant.noAssignment")}</option>
+              {(properties || []).map((property) => (
+                <option key={property.id} value={property.id}>
+                  {property.address}{property.city ? `, ${property.city}` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setAddTenantOpen(false);
+              resetTenantForm();
+            }}
+            disabled={tenantSaving}
+            className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-100 hover:bg-slate-800 disabled:opacity-50"
+          >
+            {t("common.cancel")}
+          </button>
+          <button
+            type="button"
+            onClick={handleCreateTenant}
+            disabled={tenantSaving}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+          >
+            {tenantSaving ? t("common.saving") : t("common.save")}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   /* ---------- LOADING ---------- */
   if (loading || leaseLoading) {
@@ -215,6 +361,7 @@ export default function Tenants() {
   if (tenants.length === 0) {
     return (
       <div className="space-y-6">
+        {addTenantModal}
         <DashboardBreadcrumbs items={[{ label: t("sidebar.tenants") }]} />
         <div className="text-center py-20">
           <h3 className="text-xl font-semibold text-slate-900">
@@ -226,14 +373,25 @@ export default function Tenants() {
               : t("tenant.emptyAddFirst")}
           </p>
 
-          {canInviteTenant && (
-            <Link
-              to="/invitations"
-              className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
-            >
-              {t("tenant.inviteCta")}
-            </Link>
-          )}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            {canAddTenant && (
+              <button
+                type="button"
+                onClick={() => setAddTenantOpen(true)}
+                className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg"
+              >
+                {t("tenant.add")}
+              </button>
+            )}
+            {canInviteTenant && (
+              <Link
+                to="/invitations"
+                className="inline-block px-4 py-2 border border-slate-300 text-slate-700 rounded-lg"
+              >
+                {t("tenant.inviteCta")}
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -241,6 +399,7 @@ export default function Tenants() {
 
   return (
     <div className="space-y-6">
+      {addTenantModal}
       <DashboardBreadcrumbs items={[{ label: t("sidebar.tenants") }]} />
       {/* HEADER */}
       <div className="flex justify-between items-center">
@@ -248,14 +407,25 @@ export default function Tenants() {
           {t("sidebar.tenants")}
         </h2>
 
-        {canInviteTenant && (
-          <Link
-            to="/invitations"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg"
-          >
-            {t("tenant.inviteCta")}
-          </Link>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {canAddTenant && (
+            <button
+              type="button"
+              onClick={() => setAddTenantOpen(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+            >
+              {t("tenant.add")}
+            </button>
+          )}
+          {canInviteTenant && (
+            <Link
+              to="/invitations"
+              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg"
+            >
+              {t("tenant.inviteCta")}
+            </Link>
+          )}
+        </div>
       </div>
 
       <OnboardingHintCard

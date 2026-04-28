@@ -16,6 +16,8 @@ npm run test:e2e
 
 Playwright starts the Vite app automatically on `http://127.0.0.1:4173`.
 
+If you switch between PowerShell and WSL, reinstall dependencies in the shell you will run tests from. Native packages such as `esbuild` install platform-specific binaries, so a `node_modules` folder created in WSL will not run Vite from Windows PowerShell, and vice versa.
+
 ## Useful variants
 
 ```bash
@@ -35,11 +37,29 @@ npm run test:e2e:critical
 The critical pack covers:
 
 - app shell sign-in
-- owner property creation and downstream Finance visibility
+- owner property creation, tenant assignment, and downstream Finance visibility
+- maintenance request triage to contractor-completed linked work order
+- invited staff acceptance and scoped account landing
 - role navigation and direct-route restrictions
 - tenant-scoped navigation
 - root invitations surface
 - self-serve signup
+
+## Operator / AI journey pack
+
+Use the operator pack when changing the AI-led surfaces that explain issues, facts, and next steps:
+
+```bash
+npm run test:e2e:operator
+```
+
+The operator pack covers:
+
+- Command Center operator briefing action click-through
+- Portfolio Health explainer drill-down into the affected property
+- Maintenance Inbox AI triage handoff into contractor recommendation
+- contractor recommendation in the create-work-order drawer
+- weekly portfolio briefing visibility
 
 ## Local full flow
 

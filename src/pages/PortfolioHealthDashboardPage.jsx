@@ -282,6 +282,15 @@ function PropertyHealthExplainerCard({
                 confidence: confidenceLabel,
               })}
             </p>
+            {insight.propertyId ? (
+              <Link
+                to={`/properties/${insight.propertyId}`}
+                className="mt-3 inline-flex items-center justify-center rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-800 transition hover:bg-sky-100"
+                data-testid="property-health-open-property-link"
+              >
+                {t("portfolio.ai.openProperty")}
+              </Link>
+            ) : null}
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">

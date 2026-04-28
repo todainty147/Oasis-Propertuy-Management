@@ -336,7 +336,10 @@ export default function MaintenanceRequestCard({
   const sla = slaMeta(request.status, request.created_at, t);
 
   return (
-    <div className={`rounded-xl border-2 p-3 space-y-3 shadow-sm ${priorityCardTone(request.priority)}`}>
+    <div
+      data-testid={request?.id ? `maintenance-request-card-${request.id}` : undefined}
+      className={`rounded-xl border-2 p-3 space-y-3 shadow-sm ${priorityCardTone(request.priority)}`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-100 break-words">{request.title || t("maintenance.card.noTitle")}</p>

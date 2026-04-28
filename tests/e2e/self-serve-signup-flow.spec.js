@@ -16,11 +16,11 @@ test("self-serve landlord signup provisions an owner account and lands on the da
   await page.getByRole("button", { name: "Create account" }).click();
 
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByRole("main")).toBeVisible();
   await expect(page.getByText(accountName)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
 });
 
-test("self-serve sandbox signup seeds demo data for the new account", async ({ page }) => {
+test("self-serve sandbox signup seeds demo data and supports a first landlord action", async ({ page }) => {
   const stamp = Date.now();
   const accountName = `Sandbox Flow Rentals ${stamp}`;
   const email = `selfserve.sandbox.${stamp}@oasis.test`;
@@ -42,5 +42,8 @@ test("self-serve sandbox signup seeds demo data for the new account", async ({ p
 
   await page.goto("/landlord-onboarding");
   await expect(page.getByText("Demo fixtures are ready (demo-fixtures-v1).")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Reset demo data" })).toBeVisible();
+  await page.getByRole("button", { name: "Reset demo data" }).click();
+  await expect(page.getByText("Demo fixtures are ready (demo-fixtures-v1).")).toBeVisible({ timeout: 20_000 });
+  await page.goto("/properties");
+  await expect(page.getByText("21 Demo Crescent")).toBeVisible();
 });

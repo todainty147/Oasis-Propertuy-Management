@@ -214,7 +214,12 @@ function AttentionInsightCard({ insight, loading, onRefresh, t }) {
               );
 
               return action.linkPath ? (
-                <Link key={`${action.entityType}-${action.entityId || action.label}`} to={action.linkPath} className="block">
+                <Link
+                  key={`${action.entityType}-${action.entityId || action.label}`}
+                  to={action.linkPath}
+                  className="block"
+                  data-testid="attention-insight-action-link"
+                >
                   {content}
                 </Link>
               ) : (
@@ -263,7 +268,7 @@ function Section({ title, items = [], emptyText, t }) {
 
             if (!item.linkPath) return <div key={item.id}>{content}</div>;
             return (
-              <Link key={item.id} to={item.linkPath} className="block">
+              <Link key={item.id} to={item.linkPath} className="block" data-testid="command-center-item-link">
                 {content}
               </Link>
             );

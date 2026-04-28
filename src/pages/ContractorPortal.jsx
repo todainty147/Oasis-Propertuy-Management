@@ -301,6 +301,7 @@ export default function ContractorPortal() {
             return (
               <div
                 key={wo.id}
+                data-testid="contractor-work-order-card"
                 className={`p-4 border rounded-xl border-l-4 ${accent} bg-white hover:bg-slate-50 cursor-pointer`}
                 role="button"
                 tabIndex={0}

@@ -85,7 +85,7 @@ export default function CreateWorkOrderDrawer({
     : null;
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-50" data-testid="create-work-order-drawer">
       <div className="absolute inset-0 bg-black/30" onClick={saving ? undefined : onClose} />
       <div className="absolute right-0 top-0 h-full w-[96vw] max-w-xl bg-white border-l shadow-xl p-4 overflow-y-auto">
         <div className="flex items-start justify-between gap-3">
