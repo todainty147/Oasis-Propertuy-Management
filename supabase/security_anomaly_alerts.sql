@@ -193,6 +193,14 @@ begin
     raise exception 'Missing account id';
   end if;
 
+  if auth.role() is distinct from 'service_role' then
+    if auth.uid() is null then
+      raise exception 'Not authenticated' using errcode = '42501';
+    end if;
+
+    perform public.assert_manage_account_access(p_account_id);
+  end if;
+
   if nullif(v_alert_type, '') is null then
     raise exception 'Missing alert type';
   end if;
@@ -209,7 +217,7 @@ begin
     v_severity := 'action';
   end if;
 
-  if v_dedupe_key = '' then
+  if auth.role() is distinct from 'service_role' or v_dedupe_key = '' then
     v_dedupe_key := v_alert_type || ':' || coalesce(p_actor_user_id::text, 'account') || ':' || coalesce(p_entity_id::text, 'na');
   end if;
 
@@ -269,6 +277,10 @@ $$;
 
 comment on function public.upsert_security_anomaly_alert(uuid, text, text, text, text, uuid, text, uuid, text, jsonb) is
   'Creates or refreshes an open internal security anomaly alert using a dedupe key to avoid alert storms.';
+
+revoke all on function public.upsert_security_anomaly_alert(uuid, text, text, text, text, uuid, text, uuid, text, jsonb) from public;
+revoke all on function public.upsert_security_anomaly_alert(uuid, text, text, text, text, uuid, text, uuid, text, jsonb) from anon;
+grant execute on function public.upsert_security_anomaly_alert(uuid, text, text, text, text, uuid, text, uuid, text, jsonb) to service_role;
 
 create or replace function public.security_audit_detect_anomalies()
 returns trigger

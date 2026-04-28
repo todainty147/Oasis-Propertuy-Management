@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
       return respond({ error: "Method not allowed" }, 405);
     }
 
-    const secret = String(new URL(req.url).searchParams.get("secret") || "").trim();
+    const secret = String(req.headers.get("x-docuseal-secret") || "").trim();
     if (!DOCUSEAL_WEBHOOK_SECRET || secret !== DOCUSEAL_WEBHOOK_SECRET) {
       return respond({ error: "Unauthorized webhook" }, 401);
     }

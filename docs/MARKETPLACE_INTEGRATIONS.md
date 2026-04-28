@@ -142,15 +142,19 @@ Checkatrade’s affiliate job API uses a `key + secret` pair and HMAC-SHA256 sig
 OASIS now prepares requests using:
 
 - `Date: <ISO-8601 timestamp>`
-- `Authorization: Signature keyId="...",algorithm="hmac-sha256",signature="..."`
+- `Digest: SHA-256=<base64 body digest>`
+- `Authorization: Signature keyId="...",algorithm="hmac-sha256",headers="(request-target) date content-type digest",signature="..."`
 
-The signature is calculated from the documented Checkatrade signing string:
+The signature is calculated from a replay-resistant signing string:
 
 ```text
+(request-target): post /v1/affiliate-job/jobs
 date: <ISO-8601 timestamp>
+content-type: application/json
+digest: SHA-256=<base64 body digest>
 ```
 
-This keeps the transport aligned with Checkatrade’s current developer documentation and avoids misrepresenting a bearer-token integration as production-ready.
+This keeps the transport aligned with an HTTP-signature style `key + secret` integration and avoids signing only a reusable timestamp.
 
 ## Current Checkatrade field mapping
 

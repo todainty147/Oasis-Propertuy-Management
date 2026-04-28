@@ -71,7 +71,7 @@ describe("marketplace transport helpers", () => {
     });
   });
 
-  it("builds Checkatrade HMAC headers with a date-based signature", () => {
+  it("builds Checkatrade HMAC headers over request target, date, content type, and body digest", () => {
     expect(buildMarketplaceRequestDate(new Date("2026-04-27T12:34:56.789Z"))).toBe(
       "2026-04-27T12:34:56.789Z",
     );
@@ -87,6 +87,7 @@ describe("marketplace transport helpers", () => {
           "X-Provider-Tenant": "tenant-1",
         },
         idempotencyKey: "oasis:account-1:job-1",
+        signatureBody: JSON.stringify({ categoryId: 667 }),
       }),
     ).toEqual({
       "Content-Type": "application/json",
@@ -94,8 +95,9 @@ describe("marketplace transport helpers", () => {
       "X-OASIS-Marketplace-Job-Id": "oasis:account-1:job-1",
       "X-Provider-Tenant": "tenant-1",
       Date: "2026-04-27T12:34:56.789Z",
+      Digest: "SHA-256=fS0KWEuQ0AttVYW38VfhSSp9q7OnnhOMxwMEin0tOgw=",
       Authorization:
-        'Signature keyId="affiliate-key",algorithm="hmac-sha256",signature="qXHeo+Yc1T02KibXcWXC6d5VA2opP49ny0MLNCgvjAY="',
+        'Signature keyId="affiliate-key",algorithm="hmac-sha256",headers="(request-target) date content-type digest",signature="O52CQ68OXy3XCwUvBlWVqFmir8xLSXv6tGAQ4w4PBzA="',
     });
   });
 

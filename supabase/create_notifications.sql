@@ -1,3 +1,11 @@
+create index if not exists tenants_account_user_id_idx
+  on public.tenants (account_id, user_id)
+  where user_id is not null;
+
+create index if not exists contractors_account_user_id_active_idx
+  on public.contractors (account_id, user_id)
+  where user_id is not null and active = true;
+
 create or replace function public.create_notifications(
   p_account_id uuid,
   p_recipient_user_ids uuid[],
@@ -57,6 +65,25 @@ begin
         )
       ),
       hint = 'Provide at least one account-scoped recipient before calling create_notifications.';
+  end if;
+
+  if v_recipient_count > 250 then
+    raise exception using
+      errcode = '22023',
+      message = 'Recipient list exceeds maximum size',
+      detail = public.security_failure_context(
+        'create_notifications',
+        'recipient_count_exceeded',
+        p_account_id,
+        'notification',
+        p_entity_id,
+        jsonb_build_object(
+          'recipient_count', v_recipient_count,
+          'max_recipients', 250,
+          'notification_type', lower(coalesce(p_type, ''))
+        )
+      ),
+      hint = 'Split large notification batches into groups of 250 recipients or fewer.';
   end if;
 
   if exists (

@@ -268,6 +268,8 @@ begin
     return jsonb_build_object('ok', false, 'code', 'missing_account', 'message', 'Missing account id');
   end if;
 
+  perform public.assert_manage_account_access(p_account_id);
+
   if v_email = '' then
     return jsonb_build_object('ok', false, 'code', 'missing_email', 'message', 'Missing email');
   end if;
@@ -563,7 +565,7 @@ begin
   values (v_new_account_id, v_uid, v_support_role)
   on conflict (account_id, user_id) do nothing;
 
-  v_token := gen_random_uuid()::text;
+  v_token := encode(gen_random_bytes(32), 'hex');
 
   insert into public.account_invitations(
     account_id,
@@ -945,7 +947,8 @@ begin
   into v_inv
   from public.account_invitations
   where token = invite_token
-  limit 1;
+  limit 1
+  for update;
 
   if v_inv.id is null then
     raise exception using

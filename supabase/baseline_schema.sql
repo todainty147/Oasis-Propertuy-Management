@@ -316,7 +316,8 @@ begin
   into v_inv
   from public.account_invitations
   where token = invite_token
-  limit 1;
+  limit 1
+  for update;
 
   if v_inv.id is null then
     raise exception 'Invitation not found';
@@ -785,7 +786,7 @@ ALTER FUNCTION public.account_report_settings_set_updated_at() OWNER TO postgres
 --
 
 CREATE FUNCTION public.account_role_for(p_account_id uuid) RETURNS text
-    LANGUAGE sql STABLE SECURITY DEFINER
+    LANGUAGE sql VOLATILE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
   select am.role::text
@@ -2174,6 +2175,8 @@ begin
   if p_account_id is null then
     return jsonb_build_object('ok', false, 'code', 'missing_account', 'message', 'Missing account id');
   end if;
+
+  perform public.assert_manage_account_access(p_account_id);
 
   if v_email = '' then
     return jsonb_build_object('ok', false, 'code', 'missing_email', 'message', 'Missing email');
@@ -3938,7 +3941,7 @@ begin
   values (v_new_account_id, v_uid, v_support_role)
   on conflict (account_id, user_id) do nothing;
 
-  v_token := gen_random_uuid()::text;
+  v_token := encode(gen_random_bytes(32), 'hex');
 
   insert into public.account_invitations(
     account_id,
@@ -4053,6 +4056,10 @@ begin
 
   if p_recipient_user_ids is null or coalesce(array_length(p_recipient_user_ids, 1), 0) = 0 then
     raise exception 'Recipient list cannot be empty';
+  end if;
+
+  if coalesce(array_length(p_recipient_user_ids, 1), 0) > 250 then
+    raise exception 'Recipient list exceeds maximum size';
   end if;
 
   if exists (
@@ -7847,7 +7854,7 @@ CREATE FUNCTION public.prevent_closing_if_work_order_open() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 begin
-  if new.status = 'zamkniete' then
+  if lower(new.status) = 'closed' then
     if exists (
       select 1
       from work_orders
@@ -11888,6 +11895,14 @@ begin
     raise exception 'Missing account id';
   end if;
 
+  if auth.role() is distinct from 'service_role' then
+    if auth.uid() is null then
+      raise exception 'Not authenticated' using errcode = '42501';
+    end if;
+
+    perform public.assert_manage_account_access(p_account_id);
+  end if;
+
   if nullif(v_alert_type, '') is null then
     raise exception 'Missing alert type';
   end if;
@@ -11904,7 +11919,7 @@ begin
     v_severity := 'action';
   end if;
 
-  if v_dedupe_key = '' then
+  if auth.role() is distinct from 'service_role' or v_dedupe_key = '' then
     v_dedupe_key := v_alert_type || ':' || coalesce(p_actor_user_id::text, 'account') || ':' || coalesce(p_entity_id::text, 'na');
   end if;
 
@@ -18485,6 +18500,13 @@ CREATE INDEX contractors_user_id_idx ON public.contractors USING btree (user_id)
 
 
 --
+-- Name: contractors_account_user_id_active_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX contractors_account_user_id_active_idx ON public.contractors USING btree (account_id, user_id) WHERE ((user_id IS NOT NULL) AND (active = true));
+
+
+--
 -- Name: document_audit_document_id_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -22447,7 +22469,7 @@ GRANT ALL ON FUNCTION auth.uid() TO dashboard_user;
 -- Name: FUNCTION accept_account_invite(invite_token text); Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public.accept_account_invite(invite_token text) TO anon;
+REVOKE ALL ON FUNCTION public.accept_account_invite(invite_token text) FROM anon;
 GRANT ALL ON FUNCTION public.accept_account_invite(invite_token text) TO authenticated;
 GRANT ALL ON FUNCTION public.accept_account_invite(invite_token text) TO service_role;
 
@@ -22700,7 +22722,7 @@ GRANT ALL ON FUNCTION public.check_account_consistency() TO service_role;
 -- Name: FUNCTION check_account_invitation_eligibility(p_account_id uuid, p_email text, p_role text); Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public.check_account_invitation_eligibility(p_account_id uuid, p_email text, p_role text) TO anon;
+REVOKE ALL ON FUNCTION public.check_account_invitation_eligibility(p_account_id uuid, p_email text, p_role text) FROM anon;
 GRANT ALL ON FUNCTION public.check_account_invitation_eligibility(p_account_id uuid, p_email text, p_role text) TO authenticated;
 GRANT ALL ON FUNCTION public.check_account_invitation_eligibility(p_account_id uuid, p_email text, p_role text) TO service_role;
 
@@ -22891,7 +22913,7 @@ GRANT ALL ON FUNCTION public.create_payment(p_account_id uuid, p_property_id uui
 -- Name: FUNCTION create_self_serve_landlord_account(p_account_name text); Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public.create_self_serve_landlord_account(p_account_name text) TO anon;
+REVOKE ALL ON FUNCTION public.create_self_serve_landlord_account(p_account_name text) FROM anon;
 GRANT ALL ON FUNCTION public.create_self_serve_landlord_account(p_account_name text) TO authenticated;
 GRANT ALL ON FUNCTION public.create_self_serve_landlord_account(p_account_name text) TO service_role;
 
@@ -23934,8 +23956,8 @@ GRANT ALL ON FUNCTION public.update_payment_status_on_due() TO service_role;
 -- Name: FUNCTION upsert_security_anomaly_alert(p_account_id uuid, p_alert_type text, p_severity text, p_title text, p_summary text, p_actor_user_id uuid, p_entity_type text, p_entity_id uuid, p_dedupe_key text, p_metadata jsonb); Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public.upsert_security_anomaly_alert(p_account_id uuid, p_alert_type text, p_severity text, p_title text, p_summary text, p_actor_user_id uuid, p_entity_type text, p_entity_id uuid, p_dedupe_key text, p_metadata jsonb) TO anon;
-GRANT ALL ON FUNCTION public.upsert_security_anomaly_alert(p_account_id uuid, p_alert_type text, p_severity text, p_title text, p_summary text, p_actor_user_id uuid, p_entity_type text, p_entity_id uuid, p_dedupe_key text, p_metadata jsonb) TO authenticated;
+REVOKE ALL ON FUNCTION public.upsert_security_anomaly_alert(p_account_id uuid, p_alert_type text, p_severity text, p_title text, p_summary text, p_actor_user_id uuid, p_entity_type text, p_entity_id uuid, p_dedupe_key text, p_metadata jsonb) FROM anon;
+REVOKE ALL ON FUNCTION public.upsert_security_anomaly_alert(p_account_id uuid, p_alert_type text, p_severity text, p_title text, p_summary text, p_actor_user_id uuid, p_entity_type text, p_entity_id uuid, p_dedupe_key text, p_metadata jsonb) FROM authenticated;
 GRANT ALL ON FUNCTION public.upsert_security_anomaly_alert(p_account_id uuid, p_alert_type text, p_severity text, p_title text, p_summary text, p_actor_user_id uuid, p_entity_type text, p_entity_id uuid, p_dedupe_key text, p_metadata jsonb) TO service_role;
 
 

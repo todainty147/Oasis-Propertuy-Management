@@ -8,8 +8,8 @@ returns trigger
 language plpgsql
 as $$
 begin
-  -- App uses 'closed'; keep 'zamkniete' as compatibility fallback.
-  if lower(new.status) in ('closed', 'zamkniete') then
+  -- Status values are canonical English codes; locale labels are presentation-only.
+  if lower(new.status) = 'closed' then
     if exists (
       select 1
       from work_orders
@@ -31,4 +31,3 @@ before update of status
 on maintenance_requests
 for each row
 execute function prevent_closing_if_work_order_open();
-

@@ -192,27 +192,27 @@ The current webhook function expects:
 
 - `POST`
 - JSON body from the provider
-- a `secret` query parameter
+- an `X-Docuseal-Secret` request header
 
 The function checks:
 
 ```ts
-const secret = String(new URL(req.url).searchParams.get("secret") || "").trim();
+const secret = String(req.headers.get("x-docuseal-secret") || "").trim();
 if (!DOCUSEAL_WEBHOOK_SECRET || secret !== DOCUSEAL_WEBHOOK_SECRET) {
   return respond({ error: "Unauthorized webhook" }, 401);
 }
 ```
 
-So the hosted webhook URL must look like:
+So the hosted webhook URL must not include the secret:
 
 ```text
-https://<project-ref>.supabase.co/functions/v1/handle-signature-webhook?secret=<DOCUSEAL_WEBHOOK_SECRET>
+https://<project-ref>.supabase.co/functions/v1/handle-signature-webhook
 ```
 
 For your current production project ref:
 
 ```text
-https://nodpjtkuefcmnxqxjtul.supabase.co/functions/v1/handle-signature-webhook?secret=<DOCUSEAL_WEBHOOK_SECRET>
+https://nodpjtkuefcmnxqxjtul.supabase.co/functions/v1/handle-signature-webhook
 ```
 
 ## What URL To Enter In The Provider
@@ -268,7 +268,7 @@ For the current EU DocuSeal setup, a healthy configuration is typically:
 In the provider admin UI:
 
 - paste the OASIS webhook URL
-- include the `secret=<DOCUSEAL_WEBHOOK_SECRET>` query value
+- configure the `X-Docuseal-Secret: <DOCUSEAL_WEBHOOK_SECRET>` request header
 - save the webhook
 
 ### Step 5. Run a real test packet
@@ -336,7 +336,7 @@ Typical symptoms:
 Likely cause:
 
 - `DOCUSEAL_WEBHOOK_SECRET` mismatch
-- webhook URL missing the `secret` query parameter
+- provider request missing the `X-Docuseal-Secret` header
 
 ### 3. Webhook hits OASIS, but signed PDF is missing
 

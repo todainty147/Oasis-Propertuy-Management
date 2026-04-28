@@ -2,7 +2,7 @@ create or replace function public.account_role_for(
   p_account_id uuid
 ) returns text
 language sql
-stable
+volatile
 security definer
 set search_path = public
 as $$

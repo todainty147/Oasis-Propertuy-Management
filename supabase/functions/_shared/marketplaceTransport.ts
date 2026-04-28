@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 
 export type MarketplacePreparedPayload = {
   marketplaceJobId: string;
@@ -30,6 +30,7 @@ export type MarketplaceSubmissionConfig = {
   idempotencyKey: string;
   providerAccountReference?: string | null;
   providerConfiguration?: Record<string, unknown>;
+  signatureBody?: string;
 };
 
 export type MarketplaceSubmissionTransportResult = {
@@ -250,6 +251,15 @@ export function buildMarketplaceSubmissionBody(
   };
 }
 
+function buildMarketplaceRequestTarget(endpointUrl: string) {
+  try {
+    const url = new URL(endpointUrl);
+    return `post ${url.pathname || "/"}${url.search}`;
+  } catch {
+    return "post /";
+  }
+}
+
 export function buildMarketplaceTransportHeaders(config: MarketplaceSubmissionConfig) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -260,13 +270,25 @@ export function buildMarketplaceTransportHeaders(config: MarketplaceSubmissionCo
 
   if (trim(config.apiSecret)) {
     const requestDate = trim(config.requestDate) || buildMarketplaceRequestDate();
+    const digest = createHash("sha256")
+      .update(config.signatureBody || "")
+      .digest("base64");
+    const digestHeader = `SHA-256=${digest}`;
+    const requestTarget = buildMarketplaceRequestTarget(config.endpointUrl);
+    const signingString = [
+      `(request-target): ${requestTarget}`,
+      `date: ${requestDate}`,
+      `content-type: ${headers["Content-Type"]}`,
+      `digest: ${digestHeader}`,
+    ].join("\n");
     const signature = createHmac("sha256", trim(config.apiSecret))
-      .update(`date: ${requestDate}`)
+      .update(signingString)
       .digest("base64");
 
     headers.Date = requestDate;
+    headers.Digest = digestHeader;
     headers.Authorization =
-      `Signature keyId="${trim(config.apiKey)}",algorithm="hmac-sha256",signature="${signature}"`;
+      `Signature keyId="${trim(config.apiKey)}",algorithm="hmac-sha256",headers="(request-target) date content-type digest",signature="${signature}"`;
     return headers;
   }
 
@@ -350,18 +372,19 @@ export async function submitMarketplaceTransport(
   const timeoutMs = Number.isFinite(config.timeoutMs) && config.timeoutMs > 0 ? config.timeoutMs : 15000;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort("marketplace_timeout"), timeoutMs);
+  const requestBody = JSON.stringify(
+    buildMarketplaceSubmissionBody(
+      preparedPayload,
+      config.providerAccountReference,
+      config.providerConfiguration,
+    ),
+  );
 
   try {
     const response = await fetch(config.endpointUrl, {
       method: "POST",
-      headers: buildMarketplaceTransportHeaders(config),
-      body: JSON.stringify(
-        buildMarketplaceSubmissionBody(
-          preparedPayload,
-          config.providerAccountReference,
-          config.providerConfiguration,
-        ),
-      ),
+      headers: buildMarketplaceTransportHeaders({ ...config, signatureBody: requestBody }),
+      body: requestBody,
       signal: controller.signal,
     });
 

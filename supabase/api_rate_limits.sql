@@ -66,6 +66,15 @@ begin
       using errcode = '22023';
   end if;
 
+  perform pg_advisory_xact_lock(
+    hashtext(v_surface),
+    hashtext(
+      coalesce(p_account_id::text, 'global')
+      || ':' || coalesce(p_actor_user_id::text, 'actorless')
+      || ':' || coalesce(v_identifier_hash, 'identifierless')
+    )
+  );
+
   select count(*)::integer + 1
     into v_attempt_count
   from public.api_rate_limit_events e

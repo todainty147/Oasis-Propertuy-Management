@@ -164,5 +164,5 @@ begin
 end;
 $$;
 
-grant execute on function public.create_self_serve_landlord_account(text, boolean) to anon;
+revoke execute on function public.create_self_serve_landlord_account(text, boolean) from anon;
 grant execute on function public.create_self_serve_landlord_account(text, boolean) to authenticated;
