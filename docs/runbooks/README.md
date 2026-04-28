@@ -8,6 +8,10 @@ Use these documents when the issue is already narrowed to a concrete operational
 
 If the symptom is:
 
+- preparing or approving a production-facing release:
+  - start with [release-operations-checklist.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/release-operations-checklist.md)
+- validating backup/restore readiness or deciding whether a production restore is necessary:
+  - start with [backup-restore-drill.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/backup-restore-drill.md)
 - user sees `Access denied`, missing account access, or manager-only page denial:
   - start with [security-denied-events.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-denied-events.md)
 - user/support needs to inspect centralized hosted security events:
@@ -57,4 +61,6 @@ If the symptom is:
 - [HOSTED_SECURITY_LOG_SINK.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/HOSTED_SECURITY_LOG_SINK.md)
 - [DENIED_EVENT_COVERAGE_MATRIX.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/DENIED_EVENT_COVERAGE_MATRIX.md)
 - [OPERATIONAL_GOLDEN_SIGNALS.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OPERATIONAL_GOLDEN_SIGNALS.md)
+- [release-operations-checklist.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/release-operations-checklist.md)
+- [backup-restore-drill.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/backup-restore-drill.md)
 - [security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md)

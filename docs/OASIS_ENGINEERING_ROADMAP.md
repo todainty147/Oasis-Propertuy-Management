@@ -133,7 +133,7 @@ The product gap is also more specific now than this document previously captured
 
 From a product and delivery perspective, sequence the next maturity work as:
 
-1. Launch operations readiness: release checklist, restore drill, support process, staging smoke discipline.
+1. Launch operations readiness: release checklist, restore drill, support process, staging smoke discipline. The release and recovery control pack now starts with [release-operations-checklist.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/release-operations-checklist.md), [backup-restore-drill.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/backup-restore-drill.md), and [release-evidence-template.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/templates/release-evidence-template.md).
 2. Demo/onboarding maturity: seeded sandbox, reset demo, first-value journey, onboarding success metric.
 3. Measurement layer: activation funnel, product usage events, conversion, support tags.
 4. Performance baseline: real staging/production plans and p95 latency before more caching.

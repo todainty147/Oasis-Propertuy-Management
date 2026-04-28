@@ -124,6 +124,16 @@ npm run test:e2e:visual
 - `extended` adds operator/AI, document, payment setup, responsive, degraded-path, and localization confidence.
 - `visual` is for marketing/social screenshot generation and UI presentation checks.
 
+Record release-gate results in [release-evidence-template.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/templates/release-evidence-template.md) whenever the change is production-facing.
+
+Release-gate guidance:
+
+- run `critical` before every production app release
+- run `extended` before releases touching role behavior, route guards, operator/AI surfaces, documents, payment setup, localization, responsive layout, degraded paths, or subscription gates
+- run `visual` before marketing screenshot refreshes, public-facing visual changes, or UI presentation releases
+- rerun the affected lane after production SQL or Edge Function deploys when the release changes browser-visible behavior
+- preserve Playwright reports or key screenshots for high-risk releases and recovery drills
+
 ## Current matrix status
 
 The browser test matrix is currently at release baseline for Phases 2-7:

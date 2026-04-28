@@ -125,6 +125,12 @@ npm run db:ready
 
 It does not replace the full integration suite.
 
+## Production SQL apply discipline
+
+Production SQL apply remains an operator-controlled release step. Before applying repository SQL to a hosted environment, use [release-operations-checklist.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/release-operations-checklist.md) and record the output in [release-evidence-template.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/templates/release-evidence-template.md).
+
+Do not paste production database passwords into docs, issues, screenshots, or chat. The production `db:apply:repo` command requires the full Postgres connection string at runtime, but the credential should stay in the operator's secure secret store.
+
 ## Refreshing the checked-in baseline
 
 Prerequisites:
