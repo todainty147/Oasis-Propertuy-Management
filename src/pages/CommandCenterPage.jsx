@@ -39,17 +39,35 @@ function formatCreatedAt(value) {
   }).format(date);
 }
 
-function itemTitle(item, t) {
+function localizeOperationalText(value, lang) {
+  if (lang !== "de" || !value) return value;
+  const replacements = [
+    [/Review Overdue rent/gi, "Überfällige Miete prüfen"],
+    [/Overdue rent/gi, "Überfällige Miete"],
+    [/Finance follow-up/gi, "Finanz-Follow-up"],
+    [/Repair stalled without updates/gi, "Reparatur ohne Updates ins Stocken geraten"],
+    [/Contractor acknowledgement overdue/gi, "Dienstleisterbestätigung überfällig"],
+    [/Compliance calendar not set up/gi, "Compliance-Kalender nicht eingerichtet"],
+    [/Long-vacant unit/gi, "Lang leerstehende Einheit"],
+    [/urgent items need attention/gi, "dringende Punkte benötigen Aufmerksamkeit"],
+    [/Start with/gi, "Beginnen Sie mit"],
+    [/amount/gi, "Betrag"],
+  ];
+  return replacements.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), String(value));
+}
+
+function itemTitle(item, t, lang) {
   if (item.source === "notifications") {
     return localizeNotificationContent(item, t).title;
   }
   if ((item.source === "automation_runs" || item.source === "security_anomaly_alerts") && item.title) {
-    return item.title;
+    if (lang !== "en" && item.kind) return t(`attentionCenter.kind.${item.kind}`);
+    return localizeOperationalText(item.title, lang);
   }
   return t(`attentionCenter.kind.${item.kind}`);
 }
 
-function itemSubtitle(item, t) {
+function itemSubtitle(item, t, lang) {
   const localizedNotification = item.source === "notifications"
     ? localizeNotificationContent(item, t)
     : null;
@@ -64,7 +82,7 @@ function itemSubtitle(item, t) {
   if (age) parts.push(age);
   if (item.contractorLabel) parts.push(`${t("common.contractor")}: ${item.contractorLabel}`);
   if (localizedNotification?.body) parts.push(localizedNotification.body);
-  else if (item.body) parts.push(item.body);
+  else if (item.body) parts.push(localizeOperationalText(item.body, lang));
   if (item.createdAt) parts.push(formatCreatedAt(item.createdAt));
   return parts.filter(Boolean).join(" • ");
 }
@@ -121,7 +139,7 @@ function SummaryCard({ label, value, hint = "", tone = "blue" }) {
   );
 }
 
-function AttentionInsightCard({ insight, loading, onRefresh, t }) {
+function AttentionInsightCard({ insight, loading, onRefresh, t, lang }) {
   if (loading) {
     return (
       <div data-testid="attention-insight-card">
@@ -167,7 +185,7 @@ function AttentionInsightCard({ insight, loading, onRefresh, t }) {
           <h3 className="mt-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
             {t("commandCenter.ai.title")}
           </h3>
-          <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">{insight.summary}</p>
+          <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">{localizeOperationalText(insight.summary, lang)}</p>
           <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
             {t("commandCenter.ai.generatedAt", {
               time: formatAttentionInsightTimestamp(insight.generatedAt),
@@ -192,7 +210,7 @@ function AttentionInsightCard({ insight, loading, onRefresh, t }) {
           <ul className="mt-2 space-y-2 text-sm text-slate-700 dark:text-slate-300">
             {insight.topReasons.map((reason) => (
               <li key={reason} className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
-                {reason}
+                {localizeOperationalText(reason, lang)}
               </li>
             ))}
           </ul>
@@ -206,7 +224,7 @@ function AttentionInsightCard({ insight, loading, onRefresh, t }) {
             {insight.suggestedActions.map((action) => {
               const content = (
                 <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800">
-                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{action.label}</p>
+                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{localizeOperationalText(action.label, lang)}</p>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                     {t(`commandCenter.ai.actionType.${action.actionType}`)}
                   </p>
@@ -233,7 +251,7 @@ function AttentionInsightCard({ insight, loading, onRefresh, t }) {
   );
 }
 
-function Section({ title, items = [], emptyText, t }) {
+function Section({ title, items = [], emptyText, t, lang }) {
   return (
     <Card className="p-4">
       <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
@@ -246,8 +264,8 @@ function Section({ title, items = [], emptyText, t }) {
               <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 hover:bg-slate-50">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="text-sm font-medium text-slate-900">{itemTitle(item, t)}</p>
-                    <p className="text-xs text-slate-600 mt-1">{itemSubtitle(item, t)}</p>
+                    <p className="text-sm font-medium text-slate-900">{itemTitle(item, t, lang)}</p>
+                    <p className="text-xs text-slate-600 mt-1">{itemSubtitle(item, t, lang)}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-1 justify-end">
                     <span className={`inline-flex rounded-full border px-2 py-1 text-[11px] font-medium ${categoryClasses(item.category)}`}>
@@ -281,7 +299,7 @@ function Section({ title, items = [], emptyText, t }) {
 
 export default function CommandCenterPage() {
   const { setTitle } = usePageTitle();
-  const { t } = useI18n();
+  const { lang, t } = useI18n();
   const { activeAccountId, activeRole, isRootOperator } = useAccount();
   const role = useMemo(() => String(activeRole || "").toLowerCase(), [activeRole]);
   const canManage = useMemo(() => isManageRole(role, { isRootOperator }), [isRootOperator, role]);
@@ -393,6 +411,7 @@ export default function CommandCenterPage() {
         loading={insightLoading && !insight}
         onRefresh={() => loadData({ forceInsightRefresh: true })}
         t={t}
+        lang={lang}
       />
 
       {error ? (
@@ -427,12 +446,14 @@ export default function CommandCenterPage() {
               items={view.groups.urgent}
               emptyText={t("attentionCenter.empty.urgent")}
               t={t}
+              lang={lang}
             />
             <Section
               title={t("attentionCenter.section.needsAction")}
               items={view.groups.action}
               emptyText={t("attentionCenter.empty.needsAction")}
               t={t}
+              lang={lang}
             />
           </div>
 
@@ -442,12 +463,14 @@ export default function CommandCenterPage() {
               items={view.groups.upcoming}
               emptyText={t("attentionCenter.empty.upcoming")}
               t={t}
+              lang={lang}
             />
             <Section
               title={t("attentionCenter.section.recent")}
               items={view.groups.recent}
               emptyText={t("attentionCenter.empty.recent")}
               t={t}
+              lang={lang}
             />
           </div>
 

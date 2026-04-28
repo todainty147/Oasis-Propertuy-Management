@@ -63,6 +63,24 @@ function StatCard({ title, value, hint = "", to = "", tone = "blue" }) {
   );
 }
 
+function localizePortfolioInsightText(value, lang) {
+  if (lang !== "de" || !value) return value;
+  const replacements = [
+    [/is under pressure mainly because/gi, "steht vor allem unter Druck, weil"],
+    [/maintenance pressure is active across requests and work orders/gi, "Instandhaltungsdruck über Meldungen und Arbeitsaufträge hinweg aktiv ist"],
+    [/Repairs are slowing down because contractor follow-up is overdue or stalled/gi, "Reparaturen verlangsamen sich, weil Dienstleister-Follow-up überfällig ist oder stockt"],
+    [/Compliance work needs attention before it becomes a larger operational risk/gi, "Compliance-Arbeit benötigt Aufmerksamkeit, bevor daraus ein größeres operatives Risiko wird"],
+    [/Review the slowest repair and move the contractor follow-up forward/gi, "Prüfen Sie die langsamste Reparatur und bringen Sie das Dienstleister-Follow-up voran"],
+    [/Open maintenance requests/gi, "Offene Instandhaltungsmeldungen"],
+    [/Active work orders/gi, "Aktive Arbeitsaufträge"],
+    [/Stalled repairs/gi, "Stockende Reparaturen"],
+    [/Contractor acknowledgement overdue/gi, "Dienstleisterbestätigung überfällig"],
+    [/Long-running repairs/gi, "Lang laufende Reparaturen"],
+    [/Requests in last 90 days/gi, "Meldungen der letzten 90 Tage"],
+  ];
+  return replacements.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), String(value));
+}
+
 function DonutCard({ title, totalLabel, rows = [], toByKey = {}, labels = {} }) {
   const total = rows.reduce((sum, r) => sum + Number(r.value || 0), 0);
   const palette = ["#0ea5e9", "#22c55e", "#f59e0b", "#ef4444", "#6366f1"];
@@ -163,6 +181,7 @@ function PropertyHealthExplainerCard({
   loading,
   onRefresh,
   t,
+  lang,
   candidates = [],
   selectedPropertyId = null,
   onSelectProperty,
@@ -275,7 +294,7 @@ function PropertyHealthExplainerCard({
             <p className="text-sm font-semibold text-slate-900">
               {insight.propertyLabel || t("portfolio.ai.defaultPropertyLabel")}
             </p>
-            <p className="mt-2 text-sm text-slate-700">{insight.healthExplanation}</p>
+            <p className="mt-2 text-sm text-slate-700">{localizePortfolioInsightText(insight.healthExplanation, lang)}</p>
             <p className="mt-2 text-xs text-slate-500">
               {t("portfolio.ai.generatedAt", {
                 value: formatAttentionInsightTimestamp(insight.generatedAt),
@@ -306,7 +325,7 @@ function PropertyHealthExplainerCard({
                         <p className="text-sm font-medium text-slate-900">{t(`portfolio.ai.driver.${driver.driver}`)}</p>
                         <span className="text-xs text-slate-500">{t(`portfolio.ai.severity.${driver.severity}`)}</span>
                       </div>
-                      <p className="mt-1 text-xs text-slate-600">{driver.explanation}</p>
+                      <p className="mt-1 text-xs text-slate-600">{localizePortfolioInsightText(driver.explanation, lang)}</p>
                     </div>
                   ))
                 )}
@@ -320,14 +339,14 @@ function PropertyHealthExplainerCard({
                   {(insight.factsUsed || []).map((fact) => (
                     <li key={fact} className="flex gap-2">
                       <span className="text-slate-400">•</span>
-                      <span>{fact}</span>
+                      <span>{localizePortfolioInsightText(fact, lang)}</span>
                     </li>
                   ))}
                 </ul>
                 {insight.recommendedNextStep ? (
                   <div className="mt-4 border-t border-slate-200 pt-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("portfolio.ai.nextStep")}</p>
-                    <p className="mt-1 text-sm text-slate-700">{insight.recommendedNextStep}</p>
+                    <p className="mt-1 text-sm text-slate-700">{localizePortfolioInsightText(insight.recommendedNextStep, lang)}</p>
                   </div>
                 ) : null}
               </div>
@@ -480,7 +499,7 @@ export default function PortfolioHealthDashboardPage() {
   const { setTitle } = usePageTitle();
   const { activeRole, activeAccountId, isRootOperator } = useAccount();
   const { activeTenantId } = useTenant();
-  const { t } = useI18n();
+  const { lang, t } = useI18n();
 
   const role = useMemo(() => String(activeRole || "").toLowerCase(), [activeRole]);
   const canManage = useMemo(() => isManageRole(role, { isRootOperator }), [isRootOperator, role]);
@@ -944,6 +963,7 @@ export default function PortfolioHealthDashboardPage() {
         selectedPropertyId={explainerPropertyId}
         onSelectProperty={setSelectedExplainerPropertyId}
         t={t}
+        lang={lang}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">

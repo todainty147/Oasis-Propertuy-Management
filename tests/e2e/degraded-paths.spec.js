@@ -74,5 +74,5 @@ test("command center RPC failures render a visible degraded-path banner", async 
 
   await page.goto("/command-center");
 
-  await expect(page.getByText("Synthetic command center failure")).toBeVisible();
+  await expect(page.locator("main")).toContainText("Synthetic command center failure");
 });
