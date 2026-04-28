@@ -115,7 +115,7 @@ The product gap is also more specific now than this document previously captured
 | Product analytics / funnel measurement | The repo has security and operational telemetry, but no product analytics, activation funnel metrics, retention cohorts, or user feedback instrumentation were evidenced. | Signup, onboarding, billing, invite, and core app routes are visible in [App.jsx](/mnt/c/Users/Home/oasisrentalmanagementapp/src/App.jsx); product analytics artifacts are not evidenced. | Define activation metrics: signup started, account created, first property, first tenant, first invite, first maintenance request, first payment, and billing conversion. |
 | Marketing / growth content | The marketing site exists, but the blog is explicitly placeholder content and the first version is local-content driven. | [marketing-site/README.md](/mnt/c/Users/Home/oasisrentalmanagementapp/marketing-site/README.md), [blog/page.tsx](/mnt/c/Users/Home/oasisrentalmanagementapp/marketing-site/app/blog/page.tsx) | Build a content calendar, claim-reviewed comparison pages, proof points, case-study structure, and conversion tracking. |
 | Performance / capacity baselines | Query-shape review exists, but staging EXPLAIN capture was deferred because staging DB access was unavailable. Further optimization should follow real data. | [PERFORMANCE_REVIEW.md](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/integration/PERFORMANCE_REVIEW.md), [OPERATIONAL_GOLDEN_SIGNALS.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OPERATIONAL_GOLDEN_SIGNALS.md) | Capture staging/production p95s, EXPLAIN plans for known hot RPCs, and account-size thresholds for index/caching decisions. |
-| Accessibility expansion | Accessibility testing exists, but docs list dashboard, finance, contractor portal, and security/root telemetry as next coverage. | [tests/e2e/README.md](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/e2e/README.md) | Expand Axe/Playwright coverage to the main commercial workflows and document exceptions only when justified. |
+| Accessibility expansion | Release-baseline accessibility now covers dashboard, finance, documents, contractor portal, and security/root telemetry at desktop and mobile widths. Remaining work is deeper modal/form coverage and tablet-width checks once breakpoints stabilize. | [tests/e2e/README.md](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/e2e/README.md), [responsive-accessibility-release.spec.js](/mnt/c/Users/Home/oasisrentalmanagementapp/tests/e2e/responsive-accessibility-release.spec.js) | Expand Axe/Playwright coverage into high-risk modals and document exceptions only when justified. |
 | Customer-facing documentation | Quick starts exist for landlord, tenant, and contractor roles, but the product surface is broader than those first guides. | [landlord-quick-start.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/landlord-quick-start.md), [tenant-quick-start.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/tenant-quick-start.md), [contractor-quick-start.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/contractor-quick-start.md) | Add role-based help material for billing, maintenance, documents, invites, contractor flows, security/audit features, and common support scenarios. |
 | Roadmap governance | The roadmap is strong technically, but it is more engineering-sequenced than product-outcome-sequenced. | This document and related technical readiness docs. | Add product roadmap fields: target segment, user problem, success metric, release owner, launch criteria, customer impact, and de-scope criteria. |
 
@@ -1117,12 +1117,15 @@ Add Playwright + Axe for:
 
 - Added `@axe-core/playwright` and shared E2E helper coverage in `tests/e2e/helpers/accessibility.js`.
 - The first blocking-violation checks now run on sign-in, owner property details, tenant-scoped property details, and root invitations admin.
+- Release-level responsive/Axe coverage now runs on dashboard, finance, documents, contractor portal, and root telemetry at desktop and mobile widths via `tests/e2e/responsive-accessibility-release.spec.js`.
 - Fixed critical missing accessible names on account/tenant switchers and property-detail workflow selects surfaced by Axe.
+- Fixed additional accessible names on Finance pagination, Documents upload/priority controls, and Root Telemetry support access inputs surfaced by the release pack.
 - The first pass intentionally blocks `critical` and `serious` WCAG 2.0/2.1 A/AA violations while avoiding broad selector exclusions.
 
 **Remaining follow-up**
 
-- Extend Axe coverage to dashboard, finance, contractor portal, and security/root telemetry once each flow has stable Playwright navigation.
+- Add tablet-width checks once layout breakpoints stabilize.
+- Add deeper modal/form scans for Add Property, Add Tenant, work order drawer, role management, and document review flows.
 - Add a documented exception list only for confirmed false positives or unavoidable third-party widgets.
 
 **Effort**
@@ -1288,8 +1291,8 @@ Possible, but costly enough that it should be evidence-driven.
 
 ### Phase 2
 
-- fault injection on critical workflows, with first service-level coverage now in place
-- accessibility automation
+- fault injection on critical workflows, with first browser-level degraded-path coverage now in place through `tests/e2e/degraded-paths.spec.js`
+- accessibility automation, with release-level desktop/mobile coverage now in place through `tests/e2e/responsive-accessibility-release.spec.js`
 - limited edge/API rate limiting, with first provider/API abuse guardrails now in place
 
 ### Phase 3

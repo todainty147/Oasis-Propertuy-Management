@@ -109,6 +109,25 @@ npm run test:e2e:visual
 - `extended` adds operator/AI, document, payment setup, responsive, and degraded-path confidence.
 - `visual` is for marketing/social screenshot generation and UI presentation checks.
 
+## Current matrix status
+
+The browser test matrix is currently at release baseline for Phases 2-7:
+
+- Phase 2 business journeys: covered by `critical-owner-business-flow`, `maintenance-work-order-flow`, `invite-acceptance-flow`, and `self-serve-signup-flow`.
+- Phase 3 operator journeys: covered by `command-center-ai`, `portfolio-health-ai`, `maintenance-inbox-ai`, `contractor-recommendation-ai`, and `weekly-portfolio-ai`.
+- Phase 4 role/permission matrix: covered by `role-navigation-permissions`.
+- Phase 5 responsive/accessibility pack: covered by `responsive-accessibility-release`.
+- Phase 6 degraded-path pack: covered by `degraded-paths`.
+- Phase 7 lane packaging: covered by the `critical`, `extended`, and `visual` scripts, with the critical local E2E lane wired into GitHub Actions.
+
+Remaining matrix work is second-order hardening rather than baseline coverage:
+
+- add tablet-width responsive checks after breakpoints stabilize
+- add deeper modal/form Axe scans for Add Property, Add Tenant, work order drawer, role management, and document review flows
+- add AI unavailable/fallback-copy tests once those fallback states are standardized across AI surfaces
+- decide whether `test:e2e:extended` should run nightly or manually in CI, based on runtime and stability
+- add more targeted browser failure simulations for documents, finance snapshots, storage upload errors, and expired invite acceptance
+
 ## Local full flow
 
 To mirror the working `APStaffCommandCenter` local browser flow, OASIS also includes:
