@@ -109,6 +109,8 @@ The existing burst rollup is the first-pass pressure detector.
 5. Confirm provider-side details only when the app event includes provider correlation fields or the failure is provider-led.
 6. Record whether the event is expected denial, configuration issue, product bug, or provider incident.
 
+The operated daily and weekly monitoring routine is defined in [runbooks/production-monitoring-rhythm.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/production-monitoring-rhythm.md). Use that runbook for owner assignment, review cadence, action thresholds, and evidence capture.
+
 ## Alerting Backlog
 
 Phase 1 alerting can be lightweight:
@@ -147,4 +149,5 @@ Rules:
 - [HOSTED_SECURITY_LOG_SINK.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/HOSTED_SECURITY_LOG_SINK.md)
 - [DENIED_EVENT_COVERAGE_MATRIX.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/DENIED_EVENT_COVERAGE_MATRIX.md)
 - [runbooks/security-observability-feed.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-observability-feed.md)
+- [runbooks/production-monitoring-rhythm.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/production-monitoring-rhythm.md)
 - [runbooks/security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md)

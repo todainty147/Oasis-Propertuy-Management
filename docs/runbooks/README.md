@@ -20,6 +20,8 @@ If the symptom is:
   - start with [security-observability-feed.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-observability-feed.md)
 - support/root needs to understand whether a symptom is latency, traffic, error, or repeated-pressure related:
   - start with [OPERATIONAL_GOLDEN_SIGNALS.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OPERATIONAL_GOLDEN_SIGNALS.md)
+- running the daily/weekly production monitoring routine:
+  - start with [production-monitoring-rhythm.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/production-monitoring-rhythm.md)
 - support/security needs to classify alert severity, assign owners, decide response SLA, or preserve evidence:
   - start with [security-alert-response.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/security-alert-response.md)
 - document preview/upload/download fails and app logs are not enough:
@@ -63,6 +65,7 @@ If the symptom is:
 - [HOSTED_SECURITY_LOG_SINK.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/HOSTED_SECURITY_LOG_SINK.md)
 - [DENIED_EVENT_COVERAGE_MATRIX.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/DENIED_EVENT_COVERAGE_MATRIX.md)
 - [OPERATIONAL_GOLDEN_SIGNALS.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/OPERATIONAL_GOLDEN_SIGNALS.md)
+- [production-monitoring-rhythm.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/production-monitoring-rhythm.md)
 - [support-triage-workflow.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/support-triage-workflow.md)
 - [release-operations-checklist.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/release-operations-checklist.md)
 - [backup-restore-drill.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/backup-restore-drill.md)
