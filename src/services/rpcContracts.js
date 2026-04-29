@@ -1412,6 +1412,25 @@ export function parseLeaseRow(row) {
   };
 }
 
+export function parseMyLeaseRow(row) {
+  const value = assertRecord(row, "my lease row");
+  return {
+    id: toNullableString(value.id),
+    account_id: toNullableString(value.account_id),
+    property_id: toNullableString(value.property_id),
+    tenant_id: toNullableString(value.tenant_id),
+    lease_start_date: toNullableString(value.lease_start_date),
+    lease_end_date: toNullableString(value.lease_end_date),
+    renewal_status: toStringOr(value.renewal_status).trim().toLowerCase(),
+    notice_period_days: toNumberOr(value.notice_period_days),
+    auto_renew: toBooleanOr(value.auto_renew),
+    notes: toStringOr(value.notes),
+    created_at: toNullableString(value.created_at),
+    updated_at: toNullableString(value.updated_at),
+    property_address: toStringOr(value.property_address),
+  };
+}
+
 export function parseEdgeUrlResult(row) {
   const value = assertRecord(row, "edge url response");
   return {

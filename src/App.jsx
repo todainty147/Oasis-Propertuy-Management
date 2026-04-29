@@ -39,6 +39,8 @@ const Documents = lazy(() => import("./pages/Documents"));
 const ContractorPortal = lazy(() => import("./pages/ContractorPortal"));
 const ContractorJobDetails = lazy(() => import("./pages/ContractorJobDetails"));
 const TenantPayments = lazy(() => import("./pages/TenantPayments"));
+const TenantHomePage = lazy(() => import("./pages/TenantHomePage"));
+const TenantLeasePage = lazy(() => import("./pages/TenantLeasePage"));
 const WorkOrderDetails = lazy(() => import("./pages/WorkOrderDetails"));
 const MaintenanceInboxPage = lazy(() => import("./pages/MaintenanceInboxPage"));
 const MaintenanceKPIDashboardPage = lazy(() => import("./pages/MaintenanceKPIDashboardPage"));
@@ -710,21 +712,8 @@ export default function App() {
           }
         >
           <Route index element={<Navigate to="/tenant/home" replace />} />
-          <Route
-            path="home"
-            element={
-              <Dashboard
-                loading={propertiesLoading || paymentsLoading || tenantsLoading}
-                properties={ownerProperties}
-                tenants={ownerTenants}
-                payments={payments}
-                occupiedCount={occupiedCount}
-                vacantCount={vacantCount}
-                occupancyRate={occupancyRate}
-                longVacantProperties={longVacantProperties}
-              />
-            }
-          />
+          <Route path="home" element={<TenantHomePage />} />
+          <Route path="lease" element={<TenantLeasePage />} />
           <Route
             path="property"
             element={

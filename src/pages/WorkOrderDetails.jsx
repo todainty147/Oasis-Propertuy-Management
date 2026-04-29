@@ -415,26 +415,40 @@ function WorkOrderFinancialsCard({ accountId, workOrderId, workOrder, canManage,
                   Issued: {formatDateTime(financials.invoice_issued_at)} • Due:{" "}
                   {formatDateTime(financials.invoice_due_at)}
                 </p>
+                {financials.approved_at ? (
+                  <p className="mt-1 text-xs text-emerald-700">
+                    Approved {formatDateTime(financials.approved_at)}
+                  </p>
+                ) : null}
+                {financials.rejected_at ? (
+                  <p className="mt-1 text-xs text-rose-700">
+                    Rejected {formatDateTime(financials.rejected_at)}
+                    {financials.rejection_reason ? ` — ${financials.rejection_reason}` : ""}
+                  </p>
+                ) : null}
               </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => openConfirm("approveInvoice")}
-                  className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
-                >
-                  Approve Invoice
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openConfirm("rejectInvoice")}
-                  className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
-                >
-                  Reject Invoice
-                </button>
-              </div>
+              {!financials.approved_at && !financials.rejected_at ? (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openConfirm("approveInvoice")}
+                    className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+                  >
+                    Approve Invoice
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openConfirm("rejectInvoice")}
+                    className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
+                  >
+                    Reject Invoice
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}
+
       </Card>
 
       <ConfirmModal

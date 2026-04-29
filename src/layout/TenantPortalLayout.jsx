@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   LogOut,
   Moon,
+  ScrollText,
   Sun,
   UserRound,
   Wallet,
@@ -61,6 +62,7 @@ function TenantPortalNav() {
   return (
     <nav className="grid grid-cols-2 gap-2 lg:grid-cols-1">
       <TenantNavItem to="/tenant/home" icon={LayoutDashboard} label={t("tenantPortal.shell.nav.home")} />
+      <TenantNavItem to="/tenant/lease" icon={ScrollText} label={t("tenantPortal.shell.nav.lease")} />
       <TenantNavItem to="/tenant/property" icon={Home} label={t("tenantPortal.shell.nav.homeDetails")} />
       <TenantNavItem to="/tenant/documents" icon={FileText} label={t("tenantPortal.shell.nav.documents")} />
       <TenantNavItem to="/tenant/payments" icon={Wallet} label={t("tenantPortal.shell.nav.payments")} />

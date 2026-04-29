@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase";
-import { parseLeaseAttentionItemRow, parseLeaseRow, parseRpcRows } from "./rpcContracts";
+import { parseLeaseAttentionItemRow, parseLeaseRow, parseMyLeaseRow, parseRpcRows } from "./rpcContracts";
 
 export const LEASE_EXPIRING_SOON_DAYS = 60;
 
@@ -317,4 +317,23 @@ export async function getLeaseAttentionItems(
     .slice(0, limit);
 
   return items;
+}
+
+export async function fetchMyLease(accountId) {
+  if (!accountId) throw new Error("Missing accountId");
+
+  const { data, error } = await supabase.rpc("get_my_lease", {
+    p_account_id: accountId,
+  });
+
+  if (error) throw friendly(error, "Failed to load your lease");
+  const rows = parseRpcRows(Array.isArray(data) ? data : (data ? [data] : []), parseMyLeaseRow, "my lease rows");
+  const row = rows[0] ?? null;
+  if (!row) return null;
+  return {
+    ...row,
+    propertyLabel: row.property_address || "—",
+    derivedStatus: getDerivedLeaseStatus(row),
+    daysUntilEnd: daysBetween(row.lease_end_date, todayDateString()),
+  };
 }

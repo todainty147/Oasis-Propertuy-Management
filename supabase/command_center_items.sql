@@ -668,7 +668,8 @@ as $$
      and fin.account_id = p_account_id
     where swo.status not in ('completed', 'cancelled', 'zakończone', 'anulowane')
       and fin.invoice_amount is not null
-      and lower(coalesce(to_jsonb(fin)->>'invoice_status', 'submitted')) = 'submitted'
+      and fin.approved_at is null
+      and fin.rejected_at is null
   ),
   limited_work_order_items as (
     select
