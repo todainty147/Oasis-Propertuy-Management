@@ -116,6 +116,8 @@ function categoryClasses(category) {
       return "border-indigo-200 bg-indigo-50 text-indigo-700";
     case "marketplace":
       return "border-sky-200 bg-sky-50 text-sky-700";
+    case "security":
+      return "border-rose-200 bg-rose-50 text-rose-700";
     default:
       return "border-slate-200 bg-slate-50 text-slate-600";
   }
@@ -123,6 +125,43 @@ function categoryClasses(category) {
 
 function isFinancialApprovalItem(item) {
   return item?.kind === "pending_quote_approval" || item?.kind === "invoice_awaiting_approval";
+}
+
+const ALL_CATEGORIES = [
+  "finance", "maintenance", "contractor", "lease",
+  "compliance", "preventive", "marketplace", "security",
+];
+
+function CategoryFilter({ active, onChange, t }) {
+  return (
+    <div className="flex flex-wrap gap-2" role="group" aria-label={t("commandCenter.filter.label")}>
+      <button
+        type="button"
+        onClick={() => onChange(null)}
+        className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+          active == null
+            ? "border-slate-900 bg-slate-900 text-white"
+            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+        }`}
+      >
+        {t("commandCenter.filter.all")}
+      </button>
+      {ALL_CATEGORIES.map((cat) => (
+        <button
+          key={cat}
+          type="button"
+          onClick={() => onChange(active === cat ? null : cat)}
+          className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+            active === cat
+              ? `${categoryClasses(cat)} ring-1 ring-offset-0`
+              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          {t(`commandCenter.category.${cat}`)}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function SummaryCard({ label, value, hint = "", tone = "blue" }) {
@@ -318,6 +357,7 @@ export default function CommandCenterPage() {
   const [error, setError] = useState("");
   const [data, setData] = useState(null);
   const [insight, setInsight] = useState(null);
+  const [activeCategory, setActiveCategory] = useState(null);
 
   useEffect(() => {
     setTitle(t("commandCenter.pageTitle"));
@@ -372,6 +412,8 @@ export default function CommandCenterPage() {
       { channel: `command-center-automation-runs:${activeAccountId}`, table: "automation_runs", filter: `account_id=eq.${activeAccountId}` },
       { channel: `command-center-security-alerts:${activeAccountId}`, table: "security_anomaly_alerts", filter: `account_id=eq.${activeAccountId}` },
       { channel: `command-center-tenants:${activeAccountId}`, table: "tenants", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `command-center-marketplace:${activeAccountId}`, table: "external_marketplace_jobs", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `command-center-properties:${activeAccountId}`, table: "properties", filter: `account_id=eq.${activeAccountId}` },
     ],
     onChange: loadData,
   });
@@ -450,17 +492,19 @@ export default function CommandCenterPage() {
             />
           </div>
 
+          <CategoryFilter active={activeCategory} onChange={setActiveCategory} t={t} />
+
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
             <Section
               title={t("attentionCenter.section.urgent")}
-              items={view.groups.urgent}
+              items={activeCategory ? view.groups.urgent.filter((item) => item.category === activeCategory) : view.groups.urgent}
               emptyText={t("attentionCenter.empty.urgent")}
               t={t}
               lang={lang}
             />
             <Section
               title={t("attentionCenter.section.needsAction")}
-              items={view.groups.action}
+              items={activeCategory ? view.groups.action.filter((item) => item.category === activeCategory) : view.groups.action}
               emptyText={t("attentionCenter.empty.needsAction")}
               t={t}
               lang={lang}
@@ -470,14 +514,14 @@ export default function CommandCenterPage() {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
             <Section
               title={t("attentionCenter.section.upcoming")}
-              items={view.groups.upcoming}
+              items={activeCategory ? view.groups.upcoming.filter((item) => item.category === activeCategory) : view.groups.upcoming}
               emptyText={t("attentionCenter.empty.upcoming")}
               t={t}
               lang={lang}
             />
             <Section
               title={t("attentionCenter.section.recent")}
-              items={view.groups.recent}
+              items={activeCategory ? view.groups.recent.filter((item) => item.category === activeCategory) : view.groups.recent}
               emptyText={t("attentionCenter.empty.recent")}
               t={t}
               lang={lang}

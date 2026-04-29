@@ -364,6 +364,52 @@ export async function assignWorkOrderContractor(
   });
 }
 
+async function notifyTenantCancellationDecision({ workOrderId, accountId, approved, reason = null }) {
+  if (!workOrderId || !accountId) return;
+  try {
+    const { data: wo } = await supabase
+      .from("work_orders")
+      .select("maintenance_request_id")
+      .eq("id", workOrderId)
+      .eq("account_id", accountId)
+      .maybeSingle();
+
+    let tenantUserId = null;
+    const maintenanceRequestId = wo?.maintenance_request_id || null;
+
+    if (maintenanceRequestId) {
+      const { data: mr } = await supabase
+        .from("maintenance_requests")
+        .select("reported_by_tenant_id")
+        .eq("id", maintenanceRequestId)
+        .maybeSingle();
+
+      if (mr?.reported_by_tenant_id) {
+        const { data: tenant } = await supabase
+          .from("tenants")
+          .select("user_id")
+          .eq("id", mr.reported_by_tenant_id)
+          .maybeSingle();
+        tenantUserId = tenant?.user_id || null;
+      }
+    }
+
+    await createNotifications({
+      accountId,
+      recipientUserIds: tenantUserId ? [tenantUserId] : [],
+      type: approved ? "cancellation_approved" : "cancellation_denied",
+      title: approved ? "Cancellation request approved" : "Cancellation request denied",
+      body: !approved && reason ? reason : undefined,
+      entityType: "work_order",
+      entityId: workOrderId,
+      linkPath: `/work-orders/${workOrderId}`,
+      metadata: { work_order_id: workOrderId, approved, reason: reason || null },
+    });
+  } catch (notifyErr) {
+    console.warn(`[notifications] cancellation_${approved ? "approved" : "denied"} failed`, notifyErr);
+  }
+}
+
 export async function approveWorkOrderTenantCancellation(workOrderId, context = {}) {
   if (!workOrderId) throw new Error("Missing workOrderId");
 
@@ -377,6 +423,16 @@ export async function approveWorkOrderTenantCancellation(workOrderId, context = 
       context: { ...context, workOrderId },
     });
     throw friendly(error, "Failed to approve tenant cancellation");
+  }
+
+  try {
+    await notifyTenantCancellationDecision({
+      workOrderId,
+      accountId: context?.accountId || null,
+      approved: true,
+    });
+  } catch {
+    // notification is best-effort
   }
 
   return parseWorkOrderMutationAck({
@@ -403,6 +459,17 @@ export async function denyWorkOrderTenantCancellation(
       context: { ...context, workOrderId, reason },
     });
     throw friendly(error, "Failed to deny tenant cancellation");
+  }
+
+  try {
+    await notifyTenantCancellationDecision({
+      workOrderId,
+      accountId: context?.accountId || null,
+      approved: false,
+      reason: reason || null,
+    });
+  } catch {
+    // notification is best-effort
   }
 
   return parseWorkOrderMutationAck({

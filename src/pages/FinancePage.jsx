@@ -7,7 +7,7 @@ import { useFinance } from "../hooks/useFinance";
 import { useAccount } from "../context/AccountContext";
 import { useProperties } from "../hooks/useProperties";
 import { useTenants } from "../hooks/useTenants";
-import { createPayment, deletePayment, updatePayment } from "../services/paymentService";
+import { createPayment, deletePayment, markPaymentPaid, updatePayment } from "../services/paymentService";
 import { PAYMENT_STATUS } from "../utils/statuses";
 
 export default function FinancePage() {
@@ -43,6 +43,9 @@ export default function FinancePage() {
           setIsAddOpen(true);
         }}
         onDeletePayment={(paymentId) => deletePayment(paymentId, activeAccountId)}
+        onMarkPaid={async (paymentId) => {
+          await markPaymentPaid(paymentId, new Date().toISOString().slice(0, 10), activeAccountId);
+        }}
       />
 
       <AddPaymentModal

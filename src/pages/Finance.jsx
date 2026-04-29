@@ -87,6 +87,7 @@ export default function Finance({
   propertyFinance = [],
   onAddPayment,
   onDeletePayment,
+  onMarkPaid,
 }) {
   const { accountLoading, activeAccountId, activePermissionContext, isRootOperator } = useAccount();
   const { setTitle } = usePageTitle();
@@ -393,18 +394,29 @@ export default function Finance({
                     </td>
 
                     <td className="px-6 py-3 text-right">
-                      {canDelete ? (
-                        <button
-                          onClick={() => {
-                            if (confirm(t("finance.confirmDeletePayment"))) onDeletePayment(p.id);
-                          }}
-                          className="text-red-600 hover:underline"
-                        >
-                          {t("attachments.delete")}
-                        </button>
-                      ) : (
-                        <span className="text-xs text-slate-400">—</span>
-                      )}
+                      <div className="flex items-center justify-end gap-3">
+                        {canDelete && !p.paidAt && normalizePaymentStatus(p.status) !== "paid" && onMarkPaid ? (
+                          <button
+                            data-testid={`mark-paid-${p.id}`}
+                            onClick={() => onMarkPaid(p.id)}
+                            className="text-sm text-emerald-700 hover:underline"
+                          >
+                            {t("payments.markPaid")}
+                          </button>
+                        ) : null}
+                        {canDelete ? (
+                          <button
+                            onClick={() => {
+                              if (confirm(t("finance.confirmDeletePayment"))) onDeletePayment(p.id);
+                            }}
+                            className="text-red-600 hover:underline"
+                          >
+                            {t("attachments.delete")}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

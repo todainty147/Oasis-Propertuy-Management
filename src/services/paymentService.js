@@ -1,6 +1,55 @@
 // src/services/paymentService.js
 import { supabase } from "../lib/supabase";
 import { parseMyPaymentRow, parsePaymentRow, parseRpcRows } from "./rpcContracts";
+import { createNotifications } from "./notificationService";
+
+async function notifyTenantPaymentDue({ paymentId, amount, dueDate, tenantId, accountId }) {
+  if (!tenantId || !accountId) return;
+  try {
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("user_id")
+      .eq("id", tenantId)
+      .eq("account_id", accountId)
+      .maybeSingle();
+    await createNotifications({
+      accountId,
+      recipientUserIds: tenant?.user_id ? [tenant.user_id] : [],
+      type: "payment_due",
+      title: "New payment recorded",
+      entityType: "payment",
+      entityId: paymentId,
+      linkPath: "/tenant/payments",
+      metadata: { payment_id: paymentId, amount, due_date: dueDate },
+    });
+  } catch (notifyErr) {
+    console.warn("[notifications] payment_due failed", notifyErr);
+  }
+}
+
+async function notifyTenantPaymentReceived({ payment, accountId }) {
+  if (!payment?.tenant_id || !accountId) return;
+  try {
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("user_id")
+      .eq("id", payment.tenant_id)
+      .eq("account_id", accountId)
+      .maybeSingle();
+    await createNotifications({
+      accountId,
+      recipientUserIds: tenant?.user_id ? [tenant.user_id] : [],
+      type: "payment_received",
+      title: "Your payment has been received",
+      entityType: "payment",
+      entityId: payment.id,
+      linkPath: "/tenant/payments",
+      metadata: { payment_id: payment.id, amount: payment.amount, paid_at: payment.paid_at },
+    });
+  } catch (notifyErr) {
+    console.warn("[notifications] payment_received failed", notifyErr);
+  }
+}
 
 const MAX_PAYMENT_AMOUNT = 1_000_000;
 
@@ -103,7 +152,15 @@ export async function createPayment({
   });
 
   if (error) throw error;
-  return parsePaymentRow(data);
+  const parsed = parsePaymentRow(data);
+  await notifyTenantPaymentDue({
+    paymentId: parsed.id,
+    amount: parsed.amount,
+    dueDate: parsed.due_date,
+    tenantId,
+    accountId,
+  });
+  return parsed;
 }
 
 /* ======================
@@ -169,7 +226,9 @@ export async function markPaymentPaid(paymentId, paidAt = null, accountId = null
   });
 
   if (error) throw error;
-  return parsePaymentRow(data);
+  const parsed = parsePaymentRow(data);
+  await notifyTenantPaymentReceived({ payment: parsed, accountId });
+  return parsed;
 }
 
 export async function markPaymentUnpaid(paymentId, accountId = null) {

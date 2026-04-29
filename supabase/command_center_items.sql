@@ -576,6 +576,37 @@ as $$
     group by sr.property_id
     having count(*) >= 3
   ),
+  pending_cancellation_requests as (
+    select
+      'wo-cancel-' || wo.id::text as item_key,
+      'pending_cancellation_request'::text as item_type,
+      'maintenance'::text as category,
+      'action'::text as severity,
+      'action'::text as bucket,
+      'work_order'::text as entity_type,
+      wo.id::text as entity_id,
+      'Tenant requested cancellation'::text as title,
+      ''::text as body,
+      '/work-orders/' || wo.id::text as link_path,
+      wo.property_id,
+      coalesce(pr.address, '—') as property_label,
+      null::uuid as tenant_id,
+      ''::text as tenant_label,
+      coalesce(mr.title, '') as entity_label,
+      coalesce(wo.contractor_name, '') as contractor_label,
+      null::numeric as amount,
+      floor(extract(epoch from (now() - coalesce(wo.last_cancel_request_at, wo.updated_at, wo.created_at))) / 3600)::int as age_hours,
+      null::int as due_days,
+      coalesce(wo.last_cancel_request_at, wo.updated_at, wo.created_at) as created_at,
+      false as resolved_state,
+      'work_orders'::text as source_table,
+      27 as sort_order
+    from public.work_orders_pending_cancellation wo
+    left join public.properties pr on pr.id = wo.property_id
+    left join public.maintenance_requests mr on mr.id = wo.maintenance_request_id
+    where wo.account_id = p_account_id
+      and lower(coalesce(wo.status, '')) not in ('completed', 'cancelled', 'zakończone', 'anulowane')
+  ),
   recently_updated_open as (
     select
       'wo-recent-' || swo.id::text as item_key,
@@ -710,6 +741,7 @@ as $$
       from (
         select * from work_order_without_contractor
         union all select * from contractor_no_response
+        union all select * from pending_cancellation_requests
         union all select * from work_order_overdue
         union all select * from blocked_work_orders
         union all select * from stalled_work_orders
@@ -1413,6 +1445,76 @@ as $$
       item_key
     limit (select max_items from cfg)
   ),
+  long_vacant_properties as (
+    select
+      'property-vacant-' || p.id::text as item_key,
+      'long_vacant_property'::text as item_type,
+      'finance'::text as category,
+      'action'::text as severity,
+      'action'::text as bucket,
+      'property'::text as entity_type,
+      p.id::text as entity_id,
+      'Long-vacant unit'::text as title,
+      ''::text as body,
+      '/properties/' || p.id::text as link_path,
+      p.id as property_id,
+      coalesce(p.address, '—') as property_label,
+      null::uuid as tenant_id,
+      ''::text as tenant_label,
+      coalesce(p.address, '') as entity_label,
+      ''::text as contractor_label,
+      null::numeric as amount,
+      floor(extract(epoch from (
+        now() - coalesce(
+          (select max(l.lease_end_date::timestamptz)
+             from public.leases l
+            where l.property_id = p.id
+              and l.account_id = p_account_id),
+          p.created_at
+        )
+      )) / 3600)::int as age_hours,
+      null::int as due_days,
+      coalesce(
+        (select max(l.lease_end_date::timestamptz)
+           from public.leases l
+          where l.property_id = p.id
+            and l.account_id = p_account_id),
+        p.created_at
+      ) as created_at,
+      false as resolved_state,
+      'properties'::text as source_table,
+      55 as sort_order
+    from public.properties p
+    where p.account_id = p_account_id
+      and not exists (
+        select 1 from public.tenants t
+        where t.property_id = p.id
+          and t.account_id = p_account_id
+          and t.archived_at is null
+      )
+      and coalesce(
+        (select max(l.lease_end_date)
+           from public.leases l
+          where l.property_id = p.id
+            and l.account_id = p_account_id),
+        p.created_at::date
+      ) < current_date - interval '30 days'
+  ),
+  limited_property_items as (
+    select *
+    from long_vacant_properties
+    order by
+      case bucket
+        when 'urgent' then 1
+        when 'action' then 2
+        when 'upcoming' then 3
+        else 4
+      end,
+      sort_order,
+      coalesce(age_hours, 999999),
+      item_key
+    limit (select max_items from cfg)
+  ),
   unioned as (
     select * from limited_payment_items
     union all select * from limited_request_items
@@ -1424,6 +1526,7 @@ as $$
     union all select * from limited_marketplace_job_items
     union all select * from limited_automation_items
     union all select * from limited_security_alert_items
+    union all select * from limited_property_items
   ),
   ordered as (
     select
