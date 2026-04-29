@@ -14,9 +14,10 @@ import { isManageRole } from "../utils/permissions";
 import OnboardingHintCard from "../components/OnboardingHintCard";
 
 const PLANS = [
-  { key: "starter", nameKey: "billing.plan.starter", limitKey: "billing.plan.starterLimit" },
-  { key: "growth", nameKey: "billing.plan.growth", limitKey: "billing.plan.growthLimit" },
-  { key: "pro", nameKey: "billing.plan.pro", limitKey: "billing.plan.proLimit" },
+  { key: "starter",          nameKey: "billing.plan.starter",          limitKey: "billing.plan.starterLimit" },
+  { key: "growth",           nameKey: "billing.plan.growth",           limitKey: "billing.plan.growthLimit" },
+  { key: "pro",              nameKey: "billing.plan.pro",              limitKey: "billing.plan.proLimit" },
+  { key: "operator_agency",  nameKey: "billing.plan.operatorAgency",   limitKey: "billing.plan.operatorAgencyLimit" },
 ];
 
 function formatDate(value) {
@@ -225,7 +226,7 @@ export default function BillingPage() {
         body={t("pageHints.billing.body")}
       />
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {PLANS.map((plan) => (
           <div
             key={plan.key}

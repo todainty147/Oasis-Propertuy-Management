@@ -450,7 +450,8 @@ export function AccountProvider({ children }) {
   }, [activeAccount, tenantContext, contractorContext, activeAccountId]);
 
   const activePlan = useMemo(() => {
-    if (isRootOperator) return "pro";
+    // Root operators get the highest plan tier so all features are accessible.
+    if (isRootOperator) return "operator_agency";
     return normalizePlan(activeAccount?.subscription_plan);
   }, [activeAccount?.subscription_plan, isRootOperator]);
 
