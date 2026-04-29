@@ -291,8 +291,8 @@ describe("Epic D – frontend AI feature gates", () => {
     expect(upsellBanner).toContain("data-testid=\"ai-upsell-banner\"");
   });
 
-  it("AiUpsellBanner shows a link to /billing", () => {
-    expect(upsellBanner).toContain("to=\"/billing\"");
+  it("AiUpsellBanner shows a link to account billing settings", () => {
+    expect(upsellBanner).toContain("to=\"/settings/billing\"");
   });
 
   it("AiUpsellBanner shows upgrade button with i18n key", () => {
