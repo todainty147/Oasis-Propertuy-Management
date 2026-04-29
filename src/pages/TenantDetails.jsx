@@ -212,7 +212,7 @@ export default function TenantDetails({
     }
     setSavingEdit(true);
     try {
-      await updateTenant(tenant.id, {
+      await updateTenant(activeAccountId, tenant.id, {
         name: editForm.name,
         email: editForm.email,
         phone: editForm.phone,

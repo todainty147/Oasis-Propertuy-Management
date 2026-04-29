@@ -349,6 +349,7 @@ begin
   set status = case when status = 'sent' then 'viewed' else status end,
       viewed_at = coalesce(viewed_at, now())
   where packet_id = p_packet_id
+    and account_id = v_packet.account_id
     and public.is_document_packet_recipient(packet_id, v_actor);
 
   if v_packet.status = 'sent' then

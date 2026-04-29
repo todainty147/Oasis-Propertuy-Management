@@ -14,7 +14,11 @@ describe("database security hardening contracts", () => {
       expect(sql).toContain("auth.role() is distinct from 'service_role'");
       expect(sql).toContain("raise exception 'Not authenticated' using errcode = '42501';");
       expect(sql).toContain("perform public.assert_manage_account_access(p_account_id);");
-      expect(sql).toContain("auth.role() is distinct from 'service_role' or v_dedupe_key = ''");
+      expect(sql).toContain(
+        "v_dedupe_key := v_alert_type || ':' || coalesce(p_actor_user_id::text, 'account') || ':' || coalesce(p_entity_id::text, 'na');",
+      );
+      expect(sql).not.toContain("auth.role() is distinct from 'service_role' or v_dedupe_key = ''");
+      expect(sql).not.toContain("trim(coalesce(p_dedupe_key, ''))");
       expect(sql).toContain("revoke all on function public.upsert_security_anomaly_alert");
       expect(sql).toContain("from anon");
       expect(sql).toContain("to service_role");
@@ -170,5 +174,48 @@ describe("database security hardening contracts", () => {
     expect(maintenanceSql).toContain(
       "revoke all on function public.sync_work_order_expense_fact(uuid) from authenticated;",
     );
+  });
+
+  it("keeps third-pass account scoping guards on table mutations and detail queries", () => {
+    const leaseService = readSource("src/services/leaseService.js");
+    const tenantService = readSource("src/services/tenantService.js");
+    const tenantHook = readSource("src/hooks/useTenants.js");
+    const tenantDetails = readSource("src/pages/TenantDetails.jsx");
+    const maintenanceService = readSource("src/services/maintenanceDashboardService.js");
+
+    expect(leaseService).toContain('query = query.update(payload).eq("id", id).eq("account_id", accountId);');
+    expect(leaseService).toContain('throw new Error("Lease end date must be on or after the start date")');
+    expect(leaseService).toContain("parsed.toISOString().slice(0, 10) !== raw");
+
+    expect(tenantService).toContain("export async function updateTenant(accountId, id, data)");
+    expect(tenantService).toContain("export async function deleteTenant(accountId, id)");
+    expect(tenantService).toContain('.eq("account_id", accountId)');
+    expect(tenantHook).toContain("return updateTenantRecord(activeAccountId, id, payload);");
+    expect(tenantHook).toContain("return deleteTenantRecord(activeAccountId, id);");
+    expect(tenantDetails).toContain("await updateTenant(activeAccountId, tenant.id");
+
+    expect(maintenanceService).toContain('.from("work_order_attachments")');
+    expect(maintenanceService).toContain('.from("work_order_financials")');
+    expect(maintenanceService).toContain('.eq("account_id", accountId)');
+  });
+
+  it("keeps third-pass SQL hardening for triggers, packet views, anomaly dedupe, and automation config", () => {
+    const operationsSql = readSource("supabase/operations_foundations.sql");
+    const documentPacketsSql = readSource("supabase/document_packets.sql");
+    const anomalySql = readSource("supabase/security_anomaly_alerts.sql");
+    const automationSql = readSource("supabase/automation_playbooks.sql");
+    const auditWiringSql = readSource("supabase/security_audit_event_wiring.sql");
+
+    expect(operationsSql).toContain(
+      "create or replace function public.tg_capture_payment_events()\nreturns trigger\nlanguage plpgsql\nset search_path = public",
+    );
+    expect(documentPacketsSql).toContain("and account_id = v_packet.account_id");
+    expect(anomalySql).toContain(
+      "v_dedupe_key := v_alert_type || ':' || coalesce(p_actor_user_id::text, 'account') || ':' || coalesce(p_entity_id::text, 'na');",
+    );
+    expect(anomalySql).not.toContain("trim(coalesce(p_dedupe_key, ''))");
+    expect(automationSql).toContain("automation_rule_settings_config_object_check");
+    expect(automationSql).toContain("check (jsonb_typeof(config) = 'object')");
+    expect(auditWiringSql).toContain("nullif(v_doc->>'account_id', '')::uuid");
   });
 });

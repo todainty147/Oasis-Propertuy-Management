@@ -69,7 +69,8 @@ export async function createTenant({
       await supabase
       .from("properties")
       .update({ status: OCCUPANCY_STATUS.OCCUPIED })
-      .eq("id", propertyId);
+      .eq("id", propertyId)
+      .eq("account_id", accountId);
   }
 
   return parseTenantRow(tenant);
@@ -79,7 +80,8 @@ export async function createTenant({
    UPDATE TENANT
    ====================== */
 
-export async function updateTenant(id, data) {
+export async function updateTenant(accountId, id, data) {
+  assertRequiredText(accountId, "Missing accountId");
   if (!id) throw new Error("Missing tenantId");
   assertRequiredText(data?.name, "Tenant name required");
   const cleanEmail = assertEmail(data?.email, "Valid tenant email required");
@@ -89,6 +91,7 @@ export async function updateTenant(id, data) {
   const { data: current, error: currentError } = await supabase
     .from("tenants")
     .select("property_id")
+    .eq("account_id", accountId)
     .eq("id", id)
     .single();
 
@@ -102,6 +105,7 @@ export async function updateTenant(id, data) {
       phone: cleanPhone || null,
       property_id: data.propertyId ?? null,
     })
+    .eq("account_id", accountId)
     .eq("id", id)
     .select()
     .single();
@@ -114,14 +118,16 @@ export async function updateTenant(id, data) {
       await supabase
         .from("properties")
         .update({ status: OCCUPANCY_STATUS.VACANT })
-        .eq("id", current.property_id);
+        .eq("id", current.property_id)
+        .eq("account_id", accountId);
     }
 
     if (data.propertyId) {
       await supabase
         .from("properties")
         .update({ status: OCCUPANCY_STATUS.OCCUPIED })
-        .eq("id", data.propertyId);
+        .eq("id", data.propertyId)
+        .eq("account_id", accountId);
     }
   }
 
@@ -132,10 +138,14 @@ export async function updateTenant(id, data) {
    DELETE TENANT
    ====================== */
 
-export async function deleteTenant(id) {
+export async function deleteTenant(accountId, id) {
+  assertRequiredText(accountId, "Missing accountId");
+  if (!id) throw new Error("Missing tenantId");
+
   const { data: tenant, error: tenantError } = await supabase
     .from("tenants")
     .select("property_id")
+    .eq("account_id", accountId)
     .eq("id", id)
     .single();
 
@@ -144,6 +154,7 @@ export async function deleteTenant(id) {
   const { error } = await supabase
     .from("tenants")
     .delete()
+    .eq("account_id", accountId)
     .eq("id", id);
 
   if (error) throw error;
@@ -152,7 +163,8 @@ export async function deleteTenant(id) {
     await supabase
       .from("properties")
       .update({ status: OCCUPANCY_STATUS.VACANT })
-      .eq("id", tenant.property_id);
+      .eq("id", tenant.property_id)
+      .eq("account_id", accountId);
   }
 
   return tenant ? { property_id: tenant.property_id ?? null } : null;

@@ -176,6 +176,7 @@ export async function getMaintenanceTimelineEvents({
       ? supabase
           .from("work_order_attachments")
           .select("id, account_id, work_order_id, uploaded_by, file_name, mime_type, file_size, storage_bucket, storage_path, kind, created_at")
+          .eq("account_id", accountId)
           .in("work_order_id", workOrderIds)
           .order("created_at", { ascending: true })
           .limit(500)
@@ -184,6 +185,7 @@ export async function getMaintenanceTimelineEvents({
       ? supabase
           .from("work_order_financials")
           .select("id, account_id, work_order_id, quote_amount, quote_currency, quote_notes, quote_submitted_at, quote_submitted_by, quote_status, invoice_amount, invoice_currency, invoice_issued_at, invoice_due_at, approved_at, approved_by, rejected_at, rejected_by, rejection_reason, created_at, updated_at")
+          .eq("account_id", accountId)
           .in("work_order_id", workOrderIds)
       : Promise.resolve({ data: [], error: null }),
   ]);

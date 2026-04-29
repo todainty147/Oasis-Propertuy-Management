@@ -187,7 +187,7 @@ declare
   v_alert_type text := lower(trim(coalesce(p_alert_type, '')));
   v_severity text := lower(trim(coalesce(p_severity, 'action')));
   v_status text := 'open';
-  v_dedupe_key text := trim(coalesce(p_dedupe_key, ''));
+  v_dedupe_key text;
 begin
   if p_account_id is null then
     raise exception 'Missing account id';
@@ -217,9 +217,7 @@ begin
     v_severity := 'action';
   end if;
 
-  if auth.role() is distinct from 'service_role' or v_dedupe_key = '' then
-    v_dedupe_key := v_alert_type || ':' || coalesce(p_actor_user_id::text, 'account') || ':' || coalesce(p_entity_id::text, 'na');
-  end if;
+  v_dedupe_key := v_alert_type || ':' || coalesce(p_actor_user_id::text, 'account') || ':' || coalesce(p_entity_id::text, 'na');
 
   update public.security_anomaly_alerts saa
   set

@@ -82,11 +82,13 @@ export function useTenants({ enabled = true } = {}) {
   }
 
   async function updateTenant(id, payload) {
-    return updateTenantRecord(id, payload);
+    if (!activeAccountId) throw new Error("Brak aktywnego konta");
+    return updateTenantRecord(activeAccountId, id, payload);
   }
 
   async function deleteTenant(id) {
-    return deleteTenantRecord(id);
+    if (!activeAccountId) throw new Error("Brak aktywnego konta");
+    return deleteTenantRecord(activeAccountId, id);
   }
 
   return {

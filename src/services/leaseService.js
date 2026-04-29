@@ -40,6 +40,16 @@ function todayDateString() {
   return `${year}-${month}-${day}`;
 }
 
+function assertDateOnly(value, message) {
+  const raw = String(value || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    throw new Error(message);
+  }
+  const parsed = parseDateOnly(raw);
+  if (!parsed || parsed.toISOString().slice(0, 10) !== raw) throw new Error(message);
+  return parsed;
+}
+
 export function getDerivedLeaseStatus(row, expiringSoonDays = LEASE_EXPIRING_SOON_DAYS) {
   const explicit = String(row?.renewal_status || "").toLowerCase();
   const daysUntilEnd = daysBetween(row?.lease_end_date, todayDateString());
@@ -159,6 +169,9 @@ export async function upsertLease({
   if (!propertyId) throw new Error("Missing propertyId");
   if (!tenantId) throw new Error("Missing tenantId");
   if (!leaseStartDate || !leaseEndDate) throw new Error("Lease dates are required");
+  const startDate = assertDateOnly(leaseStartDate, "Lease start date must be a valid YYYY-MM-DD date");
+  const endDate = assertDateOnly(leaseEndDate, "Lease end date must be a valid YYYY-MM-DD date");
+  if (endDate < startDate) throw new Error("Lease end date must be on or after the start date");
 
   const payload = {
     account_id: accountId,
@@ -174,7 +187,7 @@ export async function upsertLease({
 
   let query = supabase.from("leases");
   if (id) {
-    query = query.update(payload).eq("id", id);
+    query = query.update(payload).eq("id", id).eq("account_id", accountId);
   } else {
     query = query.insert(payload);
   }

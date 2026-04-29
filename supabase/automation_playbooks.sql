@@ -10,6 +10,13 @@ create table if not exists public.automation_rule_settings (
   primary key (account_id, rule_id)
 );
 
+alter table public.automation_rule_settings
+  drop constraint if exists automation_rule_settings_config_object_check;
+
+alter table public.automation_rule_settings
+  add constraint automation_rule_settings_config_object_check
+  check (jsonb_typeof(config) = 'object');
+
 create table if not exists public.automation_runs (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts(id) on delete cascade,

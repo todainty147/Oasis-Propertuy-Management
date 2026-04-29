@@ -60,7 +60,7 @@ declare
   v_doc jsonb := to_jsonb(old);
 begin
   perform public.log_security_event(
-    (v_doc->>'account_id')::uuid,
+    nullif(v_doc->>'account_id', '')::uuid,
     'document_deleted',
     'document',
     old.id,

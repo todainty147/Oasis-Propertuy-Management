@@ -211,6 +211,7 @@ execute function public.tg_work_order_ack_defaults();
 create or replace function public.tg_capture_payment_events()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 declare
   next_event_type text;
