@@ -45,7 +45,7 @@ function FinanceSkeleton() {
         </div>
         <div className="divide-y">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="px-6 py-4 grid grid-cols-5 gap-4">
+            <div key={i} className="px-4 sm:px-6 py-4 grid grid-cols-2 sm:grid-cols-5 gap-4">
               <Skeleton className="h-4 col-span-2" />
               <Skeleton className="h-4" />
               <Skeleton className="h-4" />
@@ -61,13 +61,13 @@ function FinanceSkeleton() {
         </div>
         <div className="divide-y">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="px-6 py-4 grid grid-cols-6 gap-4">
-              <Skeleton className="h-4" />
-              <Skeleton className="h-4" />
-              <Skeleton className="h-4" />
-              <Skeleton className="h-4" />
-              <Skeleton className="h-4" />
-              <Skeleton className="h-4" />
+            <div key={i} className="px-4 sm:px-6 py-4 space-y-2">
+              <div className="flex justify-between gap-4">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-16" />
+              </div>
+              <Skeleton className="h-3 w-48" />
+              <Skeleton className="h-3 w-24" />
             </div>
           ))}
         </div>
@@ -223,19 +223,17 @@ export default function Finance({
   return (
     <div className="space-y-8">
       <DashboardBreadcrumbs items={[{ label: t("finance.title") }]} />
-      {/* HEADER */}
-      <div className="flex justify-between items-center">
+
+      {/* HEADER — wraps to column on narrow screens */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{t("finance.title")}</h1>
-          <p className="text-sm text-gray-500">
-            {t("finance.subtitle")}
-          </p>
+          <p className="text-sm text-gray-500">{t("finance.subtitle")}</p>
         </div>
-
         {canCreate && (
           <button
             onClick={onAddPayment}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+            className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium"
           >
             {t("finance.addPayment")}
           </button>
@@ -262,7 +260,7 @@ export default function Finance({
         </div>
       ) : null}
 
-      {/* SUMMARY */}
+      {/* SUMMARY CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <SummaryCard
           label={t("finance.summary.received")}
@@ -292,7 +290,7 @@ export default function Finance({
 
       {/* PROPERTY FINANCE */}
       <div className="bg-white rounded-xl border overflow-hidden">
-        <div className="px-6 py-4 border-b">
+        <div className="px-4 sm:px-6 py-4 border-b">
           <h2 className="font-semibold">{t("finance.byProperty")}</h2>
           <p className="mt-1 text-sm text-slate-500">{t("finance.byPropertySubtitle")}</p>
         </div>
@@ -301,34 +299,82 @@ export default function Finance({
           <p className="p-6 text-sm text-gray-500">{t("finance.noPropertyData")}</p>
         ) : (
           <>
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left">
-                <tr>
-                  <th className="px-6 py-3">{t("finance.table.address")}</th>
-                  <th className="px-6 py-3 text-right">{t("finance.table.rent")}</th>
-                  <th className="px-6 py-3 text-right">{t("finance.table.paid")}</th>
-                  <th className="px-6 py-3 text-right">{t("finance.table.remaining")}</th>
-                  <th className="px-6 py-3">{t("finance.table.status")}</th>
-                </tr>
-              </thead>
+            {/* ── Mobile: stacked property cards (hidden on md+) ── */}
+            <div className="md:hidden divide-y" data-testid="property-finance-cards">
+              {visiblePropertyFinance.map((p) => (
+                <div key={p.propertyId} className="px-4 py-4">
+                  <p className="text-sm font-semibold text-slate-900">{p.address}</p>
+                  {p.city ? (
+                    <p className="mt-0.5 text-xs text-slate-500">{p.city}</p>
+                  ) : null}
+                  <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                        {t("finance.table.rent")}
+                      </p>
+                      <p className="mt-0.5 text-sm font-medium text-slate-900">
+                        {formatCurrency(p.rent)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                        {t("finance.table.paid")}
+                      </p>
+                      <p className="mt-0.5 text-sm font-medium text-green-600">
+                        {formatCurrency(p.paid)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                        {t("finance.table.remaining")}
+                      </p>
+                      <p className="mt-0.5 text-sm font-medium text-red-600">
+                        {formatCurrency(p.remaining)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                        {t("finance.table.status")}
+                      </p>
+                      <div className="mt-1">
+                        <StatusBadge status={p.paymentStatus} t={t} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-              <tbody>
-                {visiblePropertyFinance.map((p) => (
-                  <tr key={p.propertyId} className="border-t hover:bg-gray-50">
-                    <td className="px-6 py-3">
-                      <div className="font-medium">{p.address}</div>
-                      <div className="text-xs text-gray-500">{p.city}</div>
-                    </td>
-                    <td className="px-6 py-3 text-right">{formatCurrency(p.rent)}</td>
-                    <td className="px-6 py-3 text-right text-green-600">{formatCurrency(p.paid)}</td>
-                    <td className="px-6 py-3 text-right text-red-600">{formatCurrency(p.remaining)}</td>
-                    <td className="px-6 py-3">
-                      <StatusBadge status={p.paymentStatus} t={t} />
-                    </td>
+            {/* ── Desktop: table (hidden below md) ── */}
+            <div className="hidden md:block overflow-x-auto" data-testid="property-finance-table">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-left">
+                  <tr>
+                    <th className="px-6 py-3">{t("finance.table.address")}</th>
+                    <th className="px-6 py-3 text-right">{t("finance.table.rent")}</th>
+                    <th className="px-6 py-3 text-right">{t("finance.table.paid")}</th>
+                    <th className="px-6 py-3 text-right">{t("finance.table.remaining")}</th>
+                    <th className="px-6 py-3">{t("finance.table.status")}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {visiblePropertyFinance.map((p) => (
+                    <tr key={p.propertyId} className="border-t hover:bg-gray-50">
+                      <td className="px-6 py-3">
+                        <div className="font-medium">{p.address}</div>
+                        <div className="text-xs text-gray-500">{p.city}</div>
+                      </td>
+                      <td className="px-6 py-3 text-right">{formatCurrency(p.rent)}</td>
+                      <td className="px-6 py-3 text-right text-green-600">{formatCurrency(p.paid)}</td>
+                      <td className="px-6 py-3 text-right text-red-600">{formatCurrency(p.remaining)}</td>
+                      <td className="px-6 py-3">
+                        <StatusBadge status={p.paymentStatus} t={t} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
             <PaginationFooter
               page={Math.min(propertyPage, propertyTotalPages)}
@@ -346,16 +392,13 @@ export default function Finance({
 
       {/* PAYMENTS */}
       <div className="bg-white rounded-xl border overflow-hidden">
-        <div className="px-6 py-4 border-b flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-4 border-b flex items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold">{t("payments.title")}</h2>
             <p className="mt-1 text-sm text-slate-500">{t("finance.paymentsSubtitle")}</p>
           </div>
-
           {!canCreate && (
-            <span className="text-xs text-slate-500">
-              {t("finance.readOnly")}
-            </span>
+            <span className="text-xs text-slate-500">{t("finance.readOnly")}</span>
           )}
         </div>
 
@@ -363,65 +406,126 @@ export default function Finance({
           <p className="p-6 text-sm text-gray-500">{t("finance.noPaymentsForAccount")}</p>
         ) : (
           <>
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left">
-                <tr>
-                  <th className="px-6 py-3">{t("finance.table.tenant")}</th>
-                  <th className="px-6 py-3">{t("finance.table.property")}</th>
-                  <th className="px-6 py-3 text-right">{t("payments.amount")}</th>
-                  <th className="px-6 py-3">{t("finance.table.status")}</th>
-                  <th className="px-6 py-3">{t("payments.dueDate")}</th>
-                  <th className="px-6 py-3 text-right"></th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {visiblePayments.map((p) => (
-                  <tr key={p.id} className="border-t hover:bg-gray-50">
-                    <td className="px-6 py-3">{p.tenantName ?? "—"}</td>
-                    <td className="px-6 py-3">{p.propertyAddress ?? "—"}</td>
-                    <td className="px-6 py-3 text-right">{formatCurrency(p.amount)}</td>
-                    <td className="px-6 py-3">
+            {/* ── Mobile: stacked payment cards (hidden on md+) ── */}
+            <div className="md:hidden divide-y" data-testid="payments-cards">
+              {visiblePayments.map((p) => (
+                <div key={p.id} className="px-4 py-4 space-y-2">
+                  {/* Row 1: tenant name + status badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm font-semibold text-slate-900 break-words min-w-0">
+                      {p.tenantName ?? "—"}
+                    </span>
+                    <div className="shrink-0">
                       <StatusBadge status={p.status} t={t} />
-                    </td>
-                    <td className="px-6 py-3">
-                      <div>{formatDate(p.dueDate)}</div>
-                      {p.paidAt ? (
-                        <div className="text-xs text-slate-500">
-                          {t("payments.paidAt")}: {formatDate(p.paidAt)}
-                        </div>
-                      ) : null}
-                    </td>
+                    </div>
+                  </div>
 
-                    <td className="px-6 py-3 text-right">
-                      <div className="flex items-center justify-end gap-3">
-                        {canDelete && !p.paidAt && normalizePaymentStatus(p.status) !== "paid" && onMarkPaid ? (
-                          <button
-                            data-testid={`mark-paid-${p.id}`}
-                            onClick={() => onMarkPaid(p.id)}
-                            className="text-sm text-emerald-700 hover:underline"
-                          >
-                            {t("payments.markPaid")}
-                          </button>
-                        ) : null}
-                        {canDelete ? (
-                          <button
-                            onClick={() => {
-                              if (confirm(t("finance.confirmDeletePayment"))) onDeletePayment(p.id);
-                            }}
-                            className="text-red-600 hover:underline"
-                          >
-                            {t("attachments.delete")}
-                          </button>
-                        ) : (
-                          <span className="text-xs text-slate-400">—</span>
-                        )}
-                      </div>
-                    </td>
+                  {/* Row 2: property address */}
+                  <p className="text-xs text-slate-500 truncate">{p.propertyAddress ?? "—"}</p>
+
+                  {/* Row 3: amount · due/paid date */}
+                  <p className="text-sm text-slate-700">
+                    <span className="font-medium">{formatCurrency(p.amount)}</span>
+                    <span className="mx-1.5 text-slate-300">·</span>
+                    {p.paidAt ? (
+                      <span className="text-slate-500">
+                        {t("payments.paidAt")}: {formatDate(p.paidAt)}
+                      </span>
+                    ) : (
+                      <span className="text-slate-500">
+                        {t("payments.dueDate")}: {formatDate(p.dueDate)}
+                      </span>
+                    )}
+                  </p>
+
+                  {/* Row 4: action buttons (full-width 2-col grid) */}
+                  {canDelete && (
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      {!p.paidAt && normalizePaymentStatus(p.status) !== "paid" && onMarkPaid ? (
+                        <button
+                          data-testid={`mark-paid-${p.id}`}
+                          onClick={() => onMarkPaid(p.id)}
+                          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                        >
+                          {t("payments.markPaid")}
+                        </button>
+                      ) : (
+                        <div />
+                      )}
+                      <button
+                        onClick={() => {
+                          if (confirm(t("finance.confirmDeletePayment"))) onDeletePayment(p.id);
+                        }}
+                        className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-100"
+                      >
+                        {t("attachments.delete")}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* ── Desktop: table (hidden below md) ── */}
+            <div className="hidden md:block overflow-x-auto" data-testid="payments-table">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-left">
+                  <tr>
+                    <th className="px-6 py-3">{t("finance.table.tenant")}</th>
+                    <th className="px-6 py-3">{t("finance.table.property")}</th>
+                    <th className="px-6 py-3 text-right">{t("payments.amount")}</th>
+                    <th className="px-6 py-3">{t("finance.table.status")}</th>
+                    <th className="px-6 py-3">{t("payments.dueDate")}</th>
+                    <th className="px-6 py-3 text-right"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {visiblePayments.map((p) => (
+                    <tr key={p.id} className="border-t hover:bg-gray-50">
+                      <td className="px-6 py-3">{p.tenantName ?? "—"}</td>
+                      <td className="px-6 py-3">{p.propertyAddress ?? "—"}</td>
+                      <td className="px-6 py-3 text-right">{formatCurrency(p.amount)}</td>
+                      <td className="px-6 py-3">
+                        <StatusBadge status={p.status} t={t} />
+                      </td>
+                      <td className="px-6 py-3">
+                        <div>{formatDate(p.dueDate)}</div>
+                        {p.paidAt ? (
+                          <div className="text-xs text-slate-500">
+                            {t("payments.paidAt")}: {formatDate(p.paidAt)}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="px-6 py-3 text-right">
+                        <div className="flex items-center justify-end gap-3">
+                          {canDelete && !p.paidAt && normalizePaymentStatus(p.status) !== "paid" && onMarkPaid ? (
+                            <button
+                              data-testid={`mark-paid-${p.id}`}
+                              onClick={() => onMarkPaid(p.id)}
+                              className="text-sm text-emerald-700 hover:underline"
+                            >
+                              {t("payments.markPaid")}
+                            </button>
+                          ) : null}
+                          {canDelete ? (
+                            <button
+                              onClick={() => {
+                                if (confirm(t("finance.confirmDeletePayment"))) onDeletePayment(p.id);
+                              }}
+                              className="text-red-600 hover:underline"
+                            >
+                              {t("attachments.delete")}
+                            </button>
+                          ) : (
+                            <span className="text-xs text-slate-400">—</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
             <PaginationFooter
               page={Math.min(paymentsPage, paymentsTotalPages)}
@@ -469,7 +573,7 @@ function PaginationFooter({
   if (totalCount <= 0) return null;
 
   return (
-    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-t px-6 py-4">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t px-4 sm:px-6 py-4">
       <div className="flex items-center gap-2">
         <span className="text-xs text-slate-500">{t("common.perPage")}</span>
         <select
@@ -496,9 +600,12 @@ function PaginationFooter({
           {t("common.prev")}
         </button>
         <span className="text-sm text-slate-600">
-          {t("common.page")} <span className="font-medium text-slate-900">{page}</span> {t("common.of")}{" "}
+          {t("common.page")} <span className="font-medium text-slate-900">{page}</span>{" "}
+          {t("common.of")}{" "}
           <span className="font-medium text-slate-900">{totalPages}</span>
-          <span className="ml-2 text-xs text-slate-500">({totalCount} {t("common.total").toLowerCase()})</span>
+          <span className="ml-2 text-xs text-slate-500">
+            ({totalCount} {t("common.total").toLowerCase()})
+          </span>
         </span>
         <button
           type="button"
