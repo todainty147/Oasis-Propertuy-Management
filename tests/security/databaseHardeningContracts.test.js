@@ -90,4 +90,85 @@ describe("database security hardening contracts", () => {
     expect(runbook).toContain("X-Docuseal-Secret");
     expect(runbook).not.toContain("secret=<DOCUSEAL_WEBHOOK_SECRET>");
   });
+
+  it("keeps billing event visibility scoped and direct billing writes denied", () => {
+    const billingSql = readSource("supabase/20260315_billing.sql");
+    const stripeWebhook = readSource("supabase/functions/stripe-webhook/index.ts");
+
+    expect(billingSql).toContain(
+      "add column if not exists account_id uuid references public.accounts(id) on delete set null;",
+    );
+    expect(billingSql).toContain("payload #>> '{data,object,metadata,account_id}'");
+    expect(billingSql).toContain("payload #>> '{data,object,customer}' = bc.stripe_customer_id");
+    expect(billingSql).toContain('create policy "billing_events_select_managers"');
+    expect(billingSql).toContain("public.user_can_manage_account(billing_events.account_id)");
+    for (const policy of [
+      "billing_customers_no_direct_write",
+      "billing_subscriptions_no_direct_write",
+      "billing_events_no_direct_write",
+    ]) {
+      expect(billingSql).toContain(`"${policy}"`);
+      expect(billingSql).toContain("using (false)");
+      expect(billingSql).toContain("with check (false)");
+    }
+    expect(stripeWebhook).toContain("let resolvedAccountId: string | null = null;");
+    expect(stripeWebhook).toContain("account_id: resolvedAccountId");
+  });
+
+  it("requires account authorization before completing preventive maintenance tasks", () => {
+    const preventiveSql = readSource("supabase/preventive_maintenance.sql");
+    const serviceSource = readSource("src/services/preventiveMaintenanceService.js");
+
+    expect(preventiveSql).toContain(
+      "drop function if exists public.complete_preventive_maintenance_task(uuid, timestamptz);",
+    );
+    expect(preventiveSql).toContain("p_account_id uuid");
+    expect(preventiveSql).toContain("perform public.assert_manage_account_access(p_account_id);");
+    expect(preventiveSql).toContain("and account_id = p_account_id");
+    expect(preventiveSql).toContain(
+      "grant execute on function public.complete_preventive_maintenance_task(uuid, uuid, timestamptz) to authenticated;",
+    );
+    expect(serviceSource).toContain("p_account_id: accountId");
+  });
+
+  it("keeps tenant-scoped operational snapshots from using raw account scope", () => {
+    const dashboardSql = readSource("supabase/dashboard_snapshot.sql");
+    const hubSql = readSource("supabase/dashboard_hub_extras.sql");
+    const portfolioSql = readSource("supabase/portfolio_attention_items.sql");
+
+    for (const sql of [dashboardSql, hubSql, portfolioSql]) {
+      expect(sql).toContain("tenant_auth as (");
+      expect(sql).toContain("public.assert_tenant_scope_access(p_account_id, p_tenant_id)");
+      expect(sql).toContain("public.assert_manage_account_access(p_account_id)");
+      expect(sql).not.toContain("else p_account_id\n      end as account_id,\n      public.assert_tenant_scope_access");
+    }
+
+    expect(dashboardSql).toContain("where p.account_id = a.account_id");
+    expect(dashboardSql).toContain("where r.account_id = a.account_id");
+    expect(dashboardSql).toContain("where w.account_id = a.account_id");
+    expect(hubSql).toContain("where t.account_id = a.account_id");
+    expect(portfolioSql).toContain("left join properties pr on pr.id = p.property_id and pr.account_id = a.account_id");
+  });
+
+  it("keeps signature provider URLs HTTPS-only and sandbox status authenticated-only", () => {
+    const signatureSql = readSource("supabase/document_signature_readiness.sql");
+    const sandboxSql = readSource("supabase/account_sandbox_profiles.sql");
+
+    expect(signatureSql).toContain("document_signature_provider_settings_base_url_https");
+    expect(signatureSql).toContain("check (provider_base_url is null or provider_base_url ~* '^https://')");
+    expect(signatureSql).toContain("Signature provider base URL must use HTTPS");
+    expect(sandboxSql).toContain("revoke execute on function public.get_account_sandbox_status(uuid) from anon;");
+    expect(sandboxSql).toContain("grant execute on function public.get_account_sandbox_status(uuid) to authenticated;");
+  });
+
+  it("documents maintenance expense fact internals as trigger-only helpers", () => {
+    const maintenanceSql = readSource("supabase/maintenance_expense_facts.sql");
+
+    expect(maintenanceSql).toContain("maintenance_expenses_work_order_idx");
+    expect(maintenanceSql).toContain("tg_set_updated_at_maintenance_budgets");
+    expect(maintenanceSql).toContain("execute function public.tg_set_updated_at_maintenance_budgets();");
+    expect(maintenanceSql).toContain(
+      "revoke all on function public.sync_work_order_expense_fact(uuid) from authenticated;",
+    );
+  });
 });

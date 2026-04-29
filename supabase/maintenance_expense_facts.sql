@@ -30,6 +30,8 @@ create index if not exists maintenance_expenses_property_idx
   on public.maintenance_expenses(property_id);
 create index if not exists maintenance_expenses_vendor_idx
   on public.maintenance_expenses(vendor_id);
+create index if not exists maintenance_expenses_work_order_idx
+  on public.maintenance_expenses(work_order_id);
 create index if not exists maintenance_expenses_expense_date_idx
   on public.maintenance_expenses(expense_date);
 create index if not exists maintenance_expenses_category_idx
@@ -70,11 +72,21 @@ before update on public.maintenance_expenses
 for each row
 execute function public.tg_set_updated_at_maintenance_expenses();
 
+create or replace function public.tg_set_updated_at_maintenance_budgets()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
 drop trigger if exists trg_maintenance_budgets_updated_at on public.maintenance_budgets;
 create trigger trg_maintenance_budgets_updated_at
 before update on public.maintenance_budgets
 for each row
-execute function public.tg_set_updated_at_maintenance_expenses();
+execute function public.tg_set_updated_at_maintenance_budgets();
 
 alter table public.maintenance_expenses enable row level security;
 alter table public.maintenance_budgets enable row level security;
@@ -237,6 +249,10 @@ begin
     updated_at = now();
 end;
 $$;
+
+revoke all on function public.sync_work_order_expense_fact(uuid) from public;
+revoke all on function public.sync_work_order_expense_fact(uuid) from anon;
+revoke all on function public.sync_work_order_expense_fact(uuid) from authenticated;
 
 create or replace function public.tg_sync_work_order_expense_fact()
 returns trigger

@@ -31,10 +31,17 @@ as $$
   with cfg as (
     select greatest(1, least(coalesce(p_horizon_days, 1), 30)) as horizon_days
   ),
+  tenant_auth as (
+    select public.assert_tenant_scope_access(p_account_id, p_tenant_id) as tenant_id
+  ),
   authz as (
     select
-      p_account_id as account_id,
-      public.assert_tenant_scope_access(p_account_id, p_tenant_id) as tenant_id
+      case
+        when tenant_auth.tenant_id is null then public.assert_manage_account_access(p_account_id)
+        else p_account_id
+      end as account_id,
+      tenant_auth.tenant_id
+    from tenant_auth
   ),
   tenant_scope as (
     select t.property_id
@@ -49,9 +56,10 @@ as $$
       p.id,
       coalesce(p.rent, 0) as rent
     from properties p
-    where p.account_id = p_account_id
+    cross join authz a
+    where p.account_id = a.account_id
       and (
-        (select tenant_id from authz) is null
+        a.tenant_id is null
         or p.id = (select property_id from tenant_scope)
       )
   ),
@@ -62,6 +70,7 @@ as $$
       select 1
       from tenants t
       where t.property_id = sp.id
+        and t.account_id = (select account_id from authz)
     )
   ),
   scoped_payments as (
@@ -73,10 +82,11 @@ as $$
       p.paid_at,
       p.due_date
     from payments p
-    where p.account_id = p_account_id
+    cross join authz a
+    where p.account_id = a.account_id
       and (
-        (select tenant_id from authz) is null
-        or p.tenant_id = (select tenant_id from authz)
+        a.tenant_id is null
+        or p.tenant_id = a.tenant_id
       )
   ),
   payment_rows as (
@@ -141,9 +151,10 @@ as $$
       lower(coalesce(r.priority, '')) as priority_norm,
       r.created_at
     from maintenance_requests r
-    where r.account_id = p_account_id
+    cross join authz a
+    where r.account_id = a.account_id
       and (
-        (select tenant_id from authz) is null
+        a.tenant_id is null
         or r.property_id = (select property_id from tenant_scope)
       )
   ),
@@ -152,9 +163,10 @@ as $$
       lower(coalesce(w.status, '')) as status_norm,
       w.contractor_user_id
     from work_orders_with_flags w
-    where w.account_id = p_account_id
+    cross join authz a
+    where w.account_id = a.account_id
       and (
-        (select tenant_id from authz) is null
+        a.tenant_id is null
         or w.property_id = (select property_id from tenant_scope)
       )
   ),

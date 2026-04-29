@@ -21,13 +21,17 @@ as $$
   with cfg as (
     select greatest(1, least(coalesce(p_limit, 10), 50)) as max_items
   ),
+  tenant_auth as (
+    select public.assert_tenant_scope_access(p_account_id, p_tenant_id) as tenant_id
+  ),
   authz as (
     select
       case
-        when p_tenant_id is null then public.assert_manage_account_access(p_account_id)
+        when tenant_auth.tenant_id is null then public.assert_manage_account_access(p_account_id)
         else p_account_id
       end as account_id,
-      public.assert_tenant_scope_access(p_account_id, p_tenant_id) as tenant_id
+      tenant_auth.tenant_id
+    from tenant_auth
   ),
   tenant_scope as (
     select t.property_id
@@ -47,6 +51,7 @@ as $$
         select 1
         from tenants t
         where t.property_id = p.id
+          and t.account_id = a.account_id
       ) as is_vacant
     from properties p
     cross join authz a
@@ -69,6 +74,7 @@ as $$
                 select max(t.created_at)
                 from tenants t
                 where t.property_id = sp.id
+                  and t.account_id = (select account_id from authz)
               ),
               sp.created_at
             )
@@ -86,7 +92,7 @@ as $$
       coalesce(p.amount, 0) as amount
     from payments p
     cross join authz a
-    left join properties pr on pr.id = p.property_id
+    left join properties pr on pr.id = p.property_id and pr.account_id = a.account_id
     where p.account_id = a.account_id
       and (
         a.tenant_id is null
@@ -111,7 +117,7 @@ as $$
       coalesce(p.amount, 0) as amount
     from payments p
     cross join authz a
-    left join properties pr on pr.id = p.property_id
+    left join properties pr on pr.id = p.property_id and pr.account_id = a.account_id
     where p.account_id = a.account_id
       and (
         a.tenant_id is null

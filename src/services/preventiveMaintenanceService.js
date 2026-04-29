@@ -188,10 +188,16 @@ export async function upsertPreventiveMaintenanceTask(input = {}) {
   return mapTaskRow(parsePreventiveMaintenanceTaskRow(data));
 }
 
-export async function completePreventiveMaintenanceTask(taskId, { completedAt = new Date().toISOString() } = {}) {
+export async function completePreventiveMaintenanceTask(
+  accountId,
+  taskId,
+  { completedAt = new Date().toISOString() } = {},
+) {
+  if (!accountId) throw new Error("Missing accountId");
   if (!taskId) throw new Error("Missing preventive task ID");
 
   const { data, error } = await supabase.rpc("complete_preventive_maintenance_task", {
+    p_account_id: accountId,
     p_task_id: taskId,
     p_completed_at: completedAt,
   });
@@ -200,6 +206,7 @@ export async function completePreventiveMaintenanceTask(taskId, { completedAt = 
     const { data: existing, error: existingError } = await supabase
       .from("preventive_maintenance_tasks")
       .select("id, frequency, frequency_interval_days, status")
+      .eq("account_id", accountId)
       .eq("id", taskId)
       .single();
 
@@ -218,6 +225,7 @@ export async function completePreventiveMaintenanceTask(taskId, { completedAt = 
         next_due_date: nextDueDate,
         status: normalizeStatus(existing?.status) === "paused" ? "paused" : "active",
       })
+      .eq("account_id", accountId)
       .eq("id", taskId)
       .select(TASK_SELECT)
       .single();

@@ -147,7 +147,10 @@ as $$
     end
 $$;
 
+drop function if exists public.complete_preventive_maintenance_task(uuid, timestamptz);
+
 create or replace function public.complete_preventive_maintenance_task(
+  p_account_id uuid,
   p_task_id uuid,
   p_completed_at timestamptz default now()
 )
@@ -160,6 +163,12 @@ declare
   task_row public.preventive_maintenance_tasks;
   effective_completed_at timestamptz := coalesce(p_completed_at, now());
 begin
+  if p_account_id is null then
+    raise exception 'account_id is required';
+  end if;
+
+  perform public.assert_manage_account_access(p_account_id);
+
   update public.preventive_maintenance_tasks
   set
     last_completed_at = effective_completed_at,
@@ -171,13 +180,19 @@ begin
     status = case when lower(status) = 'paused' then status else 'active' end,
     updated_at = now()
   where id = p_task_id
+    and account_id = p_account_id
   returning * into task_row;
+
+  if task_row.id is null then
+    raise exception 'Preventive maintenance task not found';
+  end if;
 
   return task_row;
 end;
 $$;
 
-grant execute on function public.complete_preventive_maintenance_task(uuid, timestamptz) to authenticated;
+revoke all on function public.complete_preventive_maintenance_task(uuid, uuid, timestamptz) from public;
+grant execute on function public.complete_preventive_maintenance_task(uuid, uuid, timestamptz) to authenticated;
 
 create or replace function public.preventive_maintenance_attention(
   p_account_id uuid,

@@ -220,7 +220,7 @@ export default function PropertyPreventiveMaintenanceCard({ accountId, propertyI
     setActionMessage("");
     setError("");
     try {
-      await completePreventiveMaintenanceTask(task.id);
+      await completePreventiveMaintenanceTask(accountId, task.id);
       setActionMessage(t("preventiveMaintenance.completed"));
       await load();
     } catch (e) {

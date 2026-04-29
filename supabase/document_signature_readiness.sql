@@ -18,6 +18,20 @@ create table if not exists public.document_signature_provider_settings (
     check (provider in ('docuseal', 'opensign', 'libresign', 'manual'))
 );
 
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'document_signature_provider_settings_base_url_https'
+      and conrelid = 'public.document_signature_provider_settings'::regclass
+  ) then
+    alter table public.document_signature_provider_settings
+      add constraint document_signature_provider_settings_base_url_https
+      check (provider_base_url is null or provider_base_url ~* '^https://');
+  end if;
+end $$;
+
 alter table public.document_packets
   add column if not exists signature_provider text,
   add column if not exists signature_template_id text,
@@ -130,12 +144,16 @@ declare
   v_actor uuid := auth.uid();
   v_settings public.document_signature_provider_settings;
   v_provider text := lower(trim(coalesce(p_provider, 'docuseal')));
+  v_provider_base_url text := nullif(trim(coalesce(p_provider_base_url, '')), '');
 begin
   if v_actor is null then raise exception 'Not authenticated'; end if;
   if p_actor_user_id is not null and p_actor_user_id <> v_actor then raise exception 'Actor mismatch'; end if;
   if p_account_id is null then raise exception 'account_id is required'; end if;
   if not public.can_manage_document_packets(p_account_id, v_actor) then raise exception 'Not permitted'; end if;
   if v_provider not in ('docuseal', 'opensign', 'libresign', 'manual') then raise exception 'Unsupported signature provider'; end if;
+  if v_provider_base_url is not null and v_provider_base_url !~* '^https://' then
+    raise exception 'Signature provider base URL must use HTTPS';
+  end if;
 
   insert into public.document_signature_provider_settings (
     account_id,
@@ -150,7 +168,7 @@ begin
   values (
     p_account_id,
     v_provider,
-    nullif(trim(coalesce(p_provider_base_url, '')), ''),
+    v_provider_base_url,
     nullif(trim(coalesce(p_default_signature_template_id, '')), ''),
     coalesce(p_is_enabled, false),
     coalesce(p_webhook_configured, false),

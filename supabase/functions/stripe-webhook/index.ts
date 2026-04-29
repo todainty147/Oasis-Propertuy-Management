@@ -37,6 +37,8 @@ Deno.serve(async (req) => {
       return new Response("Already processed", { status: 200 });
     }
 
+    let resolvedAccountId: string | null = null;
+
     await admin.from("billing_events").insert({
       stripe_event_id: event.id,
       event_type: event.type,
@@ -49,6 +51,7 @@ Deno.serve(async (req) => {
           const session = event.data.object as Stripe.Checkout.Session;
           const accountId = session.metadata?.account_id;
           if (accountId && session.customer) {
+            resolvedAccountId = accountId;
             await admin.from("billing_customers").upsert({
               account_id: accountId,
               stripe_customer_id: String(session.customer),
@@ -66,6 +69,7 @@ Deno.serve(async (req) => {
           const item = sub.items.data[0];
 
           if (accountId) {
+            resolvedAccountId = accountId;
             const [{ data: existingAccount }, { data: existingSubscription }] = await Promise.all([
               admin
                 .from("accounts")
@@ -153,6 +157,7 @@ Deno.serve(async (req) => {
               .maybeSingle();
 
             if (customer?.account_id) {
+              resolvedAccountId = customer.account_id;
               await admin
                 .from("accounts")
                 .update({ subscription_status: "past_due" })
@@ -166,6 +171,7 @@ Deno.serve(async (req) => {
       await admin
         .from("billing_events")
         .update({
+          account_id: resolvedAccountId,
           processed_at: new Date().toISOString(),
           processing_error: null,
         })
@@ -177,6 +183,7 @@ Deno.serve(async (req) => {
       await admin
         .from("billing_events")
         .update({
+          account_id: resolvedAccountId,
           processed_at: new Date().toISOString(),
           processing_error: `Operation failed: ${correlationId}`,
         })

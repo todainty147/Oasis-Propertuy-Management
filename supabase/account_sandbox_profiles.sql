@@ -97,5 +97,5 @@ end;
 $$;
 
 grant select on table public.account_sandbox_profiles to authenticated;
-grant execute on function public.get_account_sandbox_status(uuid) to anon;
+revoke execute on function public.get_account_sandbox_status(uuid) from anon;
 grant execute on function public.get_account_sandbox_status(uuid) to authenticated;

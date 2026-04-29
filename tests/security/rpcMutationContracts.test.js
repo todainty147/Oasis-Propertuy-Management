@@ -281,7 +281,7 @@ describe("RPC mutation contracts", () => {
       quoteCurrency: "GBP",
       quoteNotes: "draft",
     });
-    const task = await completePreventiveMaintenanceTask("task-1", {
+    const task = await completePreventiveMaintenanceTask("account-1", "task-1", {
       completedAt: "2026-03-24T10:00:00Z",
     });
 
@@ -289,5 +289,10 @@ describe("RPC mutation contracts", () => {
     expect(financial.quote_status).toBe("draft");
     expect(task.frequency).toBe("monthly");
     expect(task.propertyLabel).toBe("11 Starlight Avenue");
+    expect(rpcMock).toHaveBeenLastCalledWith("complete_preventive_maintenance_task", {
+      p_account_id: "account-1",
+      p_task_id: "task-1",
+      p_completed_at: "2026-03-24T10:00:00Z",
+    });
   });
 });
