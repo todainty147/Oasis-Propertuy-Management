@@ -1,3 +1,5 @@
+import { aliasForId, buildUntrustedJsonPrompt, redactForAiPrompt } from "./aiSafety.ts";
+
 export type MaintenanceTriageWorkOrder = {
   id?: string | null;
   status?: string | null;
@@ -189,30 +191,27 @@ export function buildFallbackMaintenanceTriageInsight(
 }
 
 export function buildMaintenanceTriagePrompt(input: MaintenanceTriageInput) {
-  return [
-    "You are generating a maintenance triage suggestion for a manager inside a property operations platform.",
-    "Use only the facts provided. Do not invent hidden safety issues, contractors, or policy. Keep it operational and calm.",
-    "Return JSON only.",
-    JSON.stringify({
+  return buildUntrustedJsonPrompt({
       requestId: input.requestId,
       request: {
-        title: String(input.request?.title || ""),
-        description: String(input.request?.description || ""),
+        title: redactForAiPrompt(input.request?.title),
+        description: redactForAiPrompt(input.request?.description, 1_200),
         priority: String(input.request?.priority || ""),
         status: String(input.request?.status || ""),
         waitingReason: String(input.request?.waitingReason || ""),
-        propertyLabel: String(input.request?.propertyLabel || ""),
-        reporterName: String(input.request?.reporterName || ""),
+        propertyAlias: aliasForId("property", input.request?.propertyLabel || input.requestId),
+        reporterAlias: input.request?.reporterName ? "tenant:reported" : null,
       },
       linkedWorkOrders: (input.workOrders || []).slice(0, 5).map((row) => ({
         status: String(row?.status || ""),
-        contractorName: String(row?.contractorName || ""),
+        contractorAlias: row?.contractorName ? "contractor:assigned" : null,
       })),
       recentPropertyRequestCount: Number(input.recentPropertyRequestCount || 0),
-      factsUsed: buildFacts(input),
+      factsUsed: buildFacts(input)
+        .filter((fact) => !/^Property:|^Reported by:/i.test(fact))
+        .map((fact) => redactForAiPrompt(fact, 200)),
       allowedUrgency: ["low", "normal", "high", "urgent"],
-    }),
-  ].join("\n\n");
+  });
 }
 
 export function parseMaintenanceTriageInsightPayload(value: unknown): MaintenanceTriageInsightOutput {

@@ -8,12 +8,18 @@ import {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const CRON_SECRET = Deno.env.get("CRON_SECRET") || "";
+const AUTOMATION_ALL_ACCOUNTS_SECRET = Deno.env.get("AUTOMATION_ALL_ACCOUNTS_SECRET") || "";
+const ALL_ACCOUNTS_BATCH_SIZE = Math.max(
+  1,
+  Math.min(Number(Deno.env.get("OASIS_AUTOMATION_ALL_ACCOUNTS_BATCH_SIZE") || "100"), 500),
+);
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-cron-secret, x-automation-scope, x-automation-all-accounts-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -145,12 +151,22 @@ Deno.serve(async (req) => {
     }
 
     const body = (await readJson(req)) as SyncBody;
-    const accountIds = await resolveAccountIds(body?.accountId || null);
+    const requestedAccountId = String(body?.accountId || "").trim();
+    const allAccountsAuth = await authorizeAllAccountsSync({
+      req,
+      requestId,
+      requestedAccountId,
+      authMethod: auth.method,
+    });
+    if (allAccountsAuth) return allAccountsAuth;
+
+    const accountIds = await resolveAccountIds(requestedAccountId || null);
     const dryRun = body?.dryRun === true;
     logInfo(requestId, "accounts_resolved", {
       authMethod: auth.method,
       dryRun,
-      requestedAccountId: body?.accountId || null,
+      requestedAccountId: requestedAccountId || null,
+      allAccountsBatchSize: requestedAccountId ? null : ALL_ACCOUNTS_BATCH_SIZE,
       accountCount: accountIds.length,
     });
 
@@ -325,9 +341,76 @@ async function readJson(req: Request) {
 async function resolveAccountIds(accountId: string | null) {
   if (accountId) return [accountId];
 
-  const { data, error } = await admin.from("accounts").select("id");
+  const { data, error } = await admin
+    .from("accounts")
+    .select("id")
+    .order("created_at", { ascending: true })
+    .limit(ALL_ACCOUNTS_BATCH_SIZE);
   if (error) throw error;
   return (data || []).map((row) => row.id).filter(Boolean);
+}
+
+async function authorizeAllAccountsSync({
+  req,
+  requestId,
+  requestedAccountId,
+  authMethod,
+}: {
+  req: Request;
+  requestId: string;
+  requestedAccountId: string;
+  authMethod: string;
+}) {
+  if (requestedAccountId) return null;
+
+  const scope = String(req.headers.get("x-automation-scope") || "").trim().toLowerCase();
+  const secret = String(req.headers.get("x-automation-all-accounts-secret") || "").trim();
+
+  if (!AUTOMATION_ALL_ACCOUNTS_SECRET) {
+    logError(requestId, "all_accounts_secret_not_configured", { authMethod });
+    await recordScheduledFunctionEvent(admin, {
+      surface: "sync-operational-automation",
+      reason: "all_accounts_secret_not_configured",
+      code: "all_accounts_secret_not_configured",
+      outcome: "denied",
+      correlationId: requestId,
+      metadata: { auth_method: authMethod },
+    });
+    return jsonError(
+      500,
+      "all_accounts_secret_not_configured",
+      "AUTOMATION_ALL_ACCOUNTS_SECRET is required for all-account automation sync.",
+      requestId,
+    );
+  }
+
+  if (scope !== "all" || secret !== AUTOMATION_ALL_ACCOUNTS_SECRET) {
+    logWarn(requestId, "all_accounts_scope_denied", {
+      authMethod,
+      hasScopeHeader: Boolean(scope),
+      hasAllAccountsSecretHeader: Boolean(secret),
+    });
+    await recordScheduledFunctionEvent(admin, {
+      surface: "sync-operational-automation",
+      reason: "all_accounts_scope_denied",
+      code: "all_accounts_scope_denied",
+      outcome: "denied",
+      correlationId: requestId,
+      metadata: {
+        auth_method: authMethod,
+        has_scope_header: Boolean(scope),
+        has_all_accounts_secret_header: Boolean(secret),
+      },
+    });
+    return jsonError(
+      403,
+      "all_accounts_scope_denied",
+      "All-account automation sync requires x-automation-scope: all and x-automation-all-accounts-secret.",
+      requestId,
+    );
+  }
+
+  return null;
 }
 
 function normalize(value: unknown) {

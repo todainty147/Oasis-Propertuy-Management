@@ -1,3 +1,5 @@
+import { aliasForId, buildUntrustedJsonPrompt } from "./aiSafety.ts";
+
 export type PropertyHealthReason = {
   key?: string | null;
   penalty?: number | null;
@@ -230,13 +232,9 @@ export function buildFallbackPropertyHealthInsight(
 
 export function buildPropertyHealthPrompt(input: PropertyHealthInsightInput) {
   const property = input.property;
-  return [
-    "You are generating a concise portfolio health explanation for one property inside a property operations platform.",
-    "Use only the facts provided. Do not invent data. Keep it operational, specific, and calm.",
-    "Return JSON only.",
-    JSON.stringify({
+  return buildUntrustedJsonPrompt({
       propertyId: property?.propertyId || null,
-      propertyLabel: property?.propertyLabel || "",
+      propertyAlias: aliasForId("property", property?.propertyId || property?.propertyLabel),
       score: numberOrZero(property?.score),
       category: normalizeCategory(property?.category),
       reasons: (property?.reasons || []).map((reason) => ({
@@ -247,8 +245,7 @@ export function buildPropertyHealthPrompt(input: PropertyHealthInsightInput) {
       })),
       signals: property?.signals || {},
       nonAiFacts: property ? buildFacts(property) : [],
-    }),
-  ].join("\n\n");
+  });
 }
 
 export function parsePropertyHealthInsightPayload(value: unknown): PropertyHealthInsightOutput {

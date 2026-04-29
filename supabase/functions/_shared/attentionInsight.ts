@@ -1,3 +1,5 @@
+import { aliasForId, buildUntrustedJsonPrompt, redactForAiPrompt } from "./aiSafety.ts";
+
 export type AttentionInsightInput = {
   accountId: string;
   generatedAt?: string | null;
@@ -167,27 +169,22 @@ export function buildAttentionPrompt(input: PromptInput) {
     },
     items: (input.items || []).slice(0, 12).map((item) => ({
       id: String(item.id || ""),
-      title: String(item.title || ""),
-      body: String(item.body || ""),
+      title: redactForAiPrompt(item.title, 240),
+      body: redactForAiPrompt(item.body, 500),
       category: String(item.category || ""),
       severity: String(item.severity || ""),
       entityType: String(item.entityType || ""),
       entityId: item.entityId ? String(item.entityId) : null,
       linkPath: item.linkPath ? String(item.linkPath) : null,
-      propertyLabel: String(item.propertyLabel || ""),
-      tenantLabel: String(item.tenantLabel || ""),
+      propertyAlias: item.propertyLabel ? aliasForId("property", item.entityId || item.propertyLabel) : null,
+      tenantAlias: item.tenantLabel ? "tenant:related" : null,
       amount: Number(item.amount || 0),
       ageHours: Number(item.ageHours || 0),
       dueDays: item.dueDays == null ? null : Number(item.dueDays),
     })),
   };
 
-  return [
-    "You are generating a concise account-scoped operator briefing for a property operations command center.",
-    "Use only the facts provided. Do not invent data. Keep the summary direct and action-oriented.",
-    "Return JSON only.",
-    JSON.stringify(normalized),
-  ].join("\n\n");
+  return buildUntrustedJsonPrompt(normalized);
 }
 
 export function parseAttentionInsightPayload(value: unknown): AttentionInsightOutput {
@@ -254,4 +251,3 @@ export function buildAttentionSourceHash(input: AttentionInsightInput) {
     itemFingerprint,
   ].join("::");
 }
-

@@ -1,3 +1,5 @@
+import { aliasForId, buildUntrustedJsonPrompt, redactForAiPrompt } from "./aiSafety.ts";
+
 export type ContractorRecommendationContractor = {
   id: string;
   name?: string | null;
@@ -188,26 +190,22 @@ export function buildFallbackContractorRecommendation(
 }
 
 export function buildContractorRecommendationPrompt(input: ContractorRecommendationInput) {
-  return [
-    "You are generating a read-only contractor recommendation for a maintenance manager inside a property operations platform.",
-    "Use only the facts provided. Do not invent contractors, prices, or hidden qualifications.",
-    "Return JSON only.",
-    JSON.stringify({
+  return buildUntrustedJsonPrompt({
       requestId: input.requestId,
       request: {
-        title: String(input.request?.title || ""),
-        description: String(input.request?.description || ""),
+        title: redactForAiPrompt(input.request?.title),
+        description: redactForAiPrompt(input.request?.description, 1_200),
         priority: String(input.request?.priority || ""),
-        propertyLabel: String(input.request?.propertyLabel || ""),
+        propertyAlias: aliasForId("property", input.request?.propertyId || input.request?.propertyLabel),
       },
       suggestedTrade: String(input.suggestedTrade || ""),
       contractors: (input.contractors || []).slice(0, 12).map((contractor) => ({
         id: contractor.id,
-        name: String(contractor.name || contractor.email || ""),
+        alias: aliasForId("contractor", contractor.id || contractor.userId || contractor.name || contractor.email),
       })),
       contractorHistory: (input.history || []).slice(0, 80).map((row) => ({
         contractorUserId: row.contractorUserId || null,
-        contractorName: row.contractorName || null,
+        contractorAlias: row.contractorName ? aliasForId("contractor", row.contractorUserId || row.contractorName) : null,
         propertyId: row.propertyId || null,
         status: row.status || "",
         quoteAmount: Number(row.quoteAmount || 0),
@@ -215,8 +213,7 @@ export function buildContractorRecommendationPrompt(input: ContractorRecommendat
         rating: row.rating == null ? null : Number(row.rating),
         acknowledgementHours: acknowledgementHours(row),
       })),
-    }),
-  ].join("\n\n");
+  });
 }
 
 export function parseContractorRecommendationPayload(value: unknown): ContractorRecommendationOutput {

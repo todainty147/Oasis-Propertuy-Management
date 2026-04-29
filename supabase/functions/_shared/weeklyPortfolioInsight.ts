@@ -1,3 +1,5 @@
+import { aliasForId, buildUntrustedJsonPrompt, redactForAiPrompt } from "./aiSafety.ts";
+
 export type WeeklyPortfolioInsightInput = {
   accountId: string;
   generatedAt?: string | null;
@@ -98,11 +100,7 @@ export function buildFallbackWeeklyPortfolioInsight(
 }
 
 export function buildWeeklyPortfolioPrompt(input: WeeklyPortfolioInsightInput) {
-  return [
-    "You are generating a weekly portfolio summary for a landlord operations platform.",
-    "Use only the facts provided. Do not invent data. Keep the output executive, specific, and operational.",
-    "Return JSON only.",
-    JSON.stringify({
+  return buildUntrustedJsonPrompt({
       summary: {
         occupancyRate: Number(input.summary?.occupancyRate || 0),
         openRequests: Number(input.summary?.openRequests || 0),
@@ -112,10 +110,17 @@ export function buildWeeklyPortfolioPrompt(input: WeeklyPortfolioInsightInput) {
         averageHealthScore: Number(input.summary?.averageHealthScore || 0),
         securityAlertCount: Number(input.summary?.securityAlertCount || 0),
       },
-      topAttentionItems: (input.topAttentionItems || []).slice(0, 5),
-      lowHealthProperties: (input.lowHealthProperties || []).slice(0, 5),
-    }),
-  ].join("\n\n");
+      topAttentionItems: (input.topAttentionItems || []).slice(0, 5).map((item) => ({
+        title: redactForAiPrompt(item?.title, 240),
+        subtitle: redactForAiPrompt(item?.subtitle, 240),
+        linkPath: item?.linkPath || null,
+      })),
+      lowHealthProperties: (input.lowHealthProperties || []).slice(0, 5).map((item) => ({
+        propertyAlias: aliasForId("property", item?.propertyId || item?.label),
+        score: item?.score == null ? null : Number(item.score),
+        category: item?.category || null,
+      })),
+  });
 }
 
 export function parseWeeklyPortfolioInsightPayload(value: unknown): WeeklyPortfolioInsightOutput {
