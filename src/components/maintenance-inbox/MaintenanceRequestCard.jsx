@@ -5,6 +5,8 @@ import { useI18n } from "../../context/I18nContext";
 import Skeleton from "../ui/Skeleton";
 import { formatAttentionInsightTimestamp } from "../../services/attentionInsightService";
 import { getMaintenanceTriageInsight } from "../../services/maintenanceTriageInsightService";
+import { useAiFeatureAccess } from "../../hooks/useAiFeatureAccess";
+import AiUpsellBanner from "../AiUpsellBanner";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -134,6 +136,30 @@ function OverflowMenu({ items, label }) {
       )}
     </div>
   );
+}
+
+// ─── AI triage feature gate wrapper ─────────────────────────────────────────
+
+function TriageFeatureGate({ compact, children }) {
+  const { allowed, requiredPlan } = useAiFeatureAccess("ai_maintenance_triage");
+  const { t } = useI18n();
+  if (!allowed) {
+    if (compact) {
+      // In collapsed mode show a muted pill rather than the full banner
+      return (
+        <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] text-slate-400">
+          ✦ AI · {t("ai.upsell.upgradeButton")}
+        </span>
+      );
+    }
+    return (
+      <AiUpsellBanner
+        featureLabel="Maintenance AI Triage"
+        requiredPlan={requiredPlan}
+      />
+    );
+  }
+  return children;
 }
 
 // ─── AI triage – compact pill shown in collapsed card ────────────────────────
@@ -482,13 +508,15 @@ export default function MaintenanceRequestCard({
 
       {/* ── Triage pill (compact) + work order pill – below header, always visible ── */}
       <div className="px-3 pb-2 flex flex-wrap items-center gap-1.5">
-        <MaintenanceTriageCard
-          accountId={accountId}
-          request={request}
-          canManage={canManage}
-          compact={!expanded}
-          t={t}
-        />
+        <TriageFeatureGate compact={!expanded}>
+          <MaintenanceTriageCard
+            accountId={accountId}
+            request={request}
+            canManage={canManage}
+            compact={!expanded}
+            t={t}
+          />
+        </TriageFeatureGate>
         {linkedWorkOrders.length > 0 ? (
           <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] text-blue-700">
             {linkedWorkOrders.length === 1

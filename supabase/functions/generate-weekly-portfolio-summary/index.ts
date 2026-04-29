@@ -11,8 +11,11 @@ import {
 } from "../_shared/weeklyPortfolioInsight.ts";
 import {
   assertAiDailyLimit,
+  assertAiMonthlyLimit,
   clampAiInsightPayload,
   getDailyAiPeriodKey,
+  getMonthlyAiPeriodKey,
+  isCacheStaleByPromptVersion,
 } from "../_shared/aiSafety.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -68,27 +71,49 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Epic A3: plan-based feature gate
+    const featureAccess = await userClient.rpc("assert_account_feature_access", {
+      p_account_id: accountId,
+      p_feature: "ai_weekly_portfolio_summary",
+    });
+    if (featureAccess.error) {
+      return respond({ error: "Weekly AI portfolio summary is not available on your current plan." }, 403);
+    }
+
     const input = await loadInput(accountId);
     const cached = !forceRefresh ? await getCachedInsight(accountId) : null;
     const generatedAt = new Date().toISOString();
     input.generatedAt = generatedAt;
     const sourceHash = buildWeeklyPortfolioSourceHash(input);
 
-    if (!forceRefresh && cached?.payload_json && cached.source_hash === sourceHash && isInsightFresh(cached.expires_at)) {
+    // Epic F2: invalidate cache when prompt version changes
+    const promptVersionStale = isCacheStaleByPromptVersion(cached?.prompt_version, PROMPT_VERSION);
+    if (
+      !forceRefresh &&
+      cached?.payload_json &&
+      cached.source_hash === sourceHash &&
+      !promptVersionStale &&
+      isInsightFresh(cached.expires_at)
+    ) {
       return respond({
         insight: cached.payload_json,
         cached: true,
       });
     }
 
+    // Epic B1 + B2: plan-aware daily + monthly limit checks
     if (OPENAI_API_KEY) {
       try {
         await assertAiDailyLimit(admin, {
           accountId,
           featureKey: "weekly_portfolio_summary_ai",
         });
+        await assertAiMonthlyLimit(admin, {
+          accountId,
+          featureKey: "weekly_portfolio_summary_ai",
+        });
       } catch (error) {
-        return respond({ error: String((error as Error)?.message || "Daily AI generation limit reached") }, 429);
+        return respond({ error: String((error as Error)?.message || "AI generation limit reached") }, 429);
       }
     }
 
@@ -433,10 +458,23 @@ async function upsertUsageMeter({
   inputTokens: number;
   outputTokens: number;
 }) {
-  const periodKey = getDailyAiPeriodKey();
+  // Epic B3: write both daily and monthly rows
+  await Promise.all([
+    upsertUsageMeterRow(accountId, featureKey, getDailyAiPeriodKey(), inputTokens, outputTokens),
+    upsertUsageMeterRow(accountId, featureKey, getMonthlyAiPeriodKey(), inputTokens, outputTokens),
+  ]);
+}
+
+async function upsertUsageMeterRow(
+  accountId: string,
+  featureKey: string,
+  periodKey: string,
+  inputTokens: number,
+  outputTokens: number,
+) {
   const { data } = await admin
     .from("ai_usage_meter")
-    .select("*")
+    .select("prompt_runs, input_tokens, output_tokens")
     .eq("account_id", accountId)
     .eq("period_key", periodKey)
     .eq("feature_key", featureKey)

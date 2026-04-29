@@ -9,8 +9,11 @@ import {
 } from "../_shared/attentionInsight.ts";
 import {
   assertAiDailyLimit,
+  assertAiMonthlyLimit,
   clampAiInsightPayload,
   getDailyAiPeriodKey,
+  getMonthlyAiPeriodKey,
+  isCacheStaleByPromptVersion,
 } from "../_shared/aiSafety.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -167,14 +170,19 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Epic B1 + B2: plan-aware daily + monthly limit checks
     if (OPENAI_API_KEY) {
       try {
         await assertAiDailyLimit(admin, {
           accountId,
           featureKey: "attention_briefing",
         });
+        await assertAiMonthlyLimit(admin, {
+          accountId,
+          featureKey: "attention_briefing",
+        });
       } catch (error) {
-        return respond({ error: String((error as Error)?.message || "Daily AI generation limit reached") }, 429);
+        return respond({ error: String((error as Error)?.message || "AI generation limit reached") }, 429);
       }
     }
 
@@ -522,10 +530,22 @@ async function upsertUsageMeter({
   inputTokens: number;
   outputTokens: number;
 }) {
-  const periodKey = getDailyAiPeriodKey();
+  // Epic B3: write both daily and monthly rows
+  await Promise.all([
+    upsertUsageMeterRow(accountId, getDailyAiPeriodKey(), inputTokens, outputTokens),
+    upsertUsageMeterRow(accountId, getMonthlyAiPeriodKey(), inputTokens, outputTokens),
+  ]);
+}
+
+async function upsertUsageMeterRow(
+  accountId: string,
+  periodKey: string,
+  inputTokens: number,
+  outputTokens: number,
+) {
   const current = await admin
     .from("ai_usage_meter")
-    .select("*")
+    .select("prompt_runs, input_tokens, output_tokens")
     .eq("account_id", accountId)
     .eq("period_key", periodKey)
     .eq("feature_key", "attention_briefing")
@@ -555,6 +575,7 @@ async function upsertUsageMeter({
     console.error(JSON.stringify({
       event: "ai_usage_meter_upsert_failed",
       accountId,
+      periodKey,
       error: upsert.error,
     }));
   }

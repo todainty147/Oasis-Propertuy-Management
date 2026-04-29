@@ -11,8 +11,10 @@ import {
 } from "../_shared/propertyHealthInsight.ts";
 import {
   assertAiDailyLimit,
+  assertAiMonthlyLimit,
   clampAiInsightPayload,
   getDailyAiPeriodKey,
+  getMonthlyAiPeriodKey,
 } from "../_shared/aiSafety.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -118,14 +120,19 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Epic B1 + B2: plan-aware daily + monthly limit checks
     if (OPENAI_API_KEY) {
       try {
         await assertAiDailyLimit(admin, {
           accountId,
           featureKey: "property_health_explainer",
         });
+        await assertAiMonthlyLimit(admin, {
+          accountId,
+          featureKey: "property_health_explainer",
+        });
       } catch (error) {
-        return respond({ error: String((error as Error)?.message || "Daily AI generation limit reached") }, 429);
+        return respond({ error: String((error as Error)?.message || "AI generation limit reached") }, 429);
       }
     }
 
@@ -505,10 +512,23 @@ async function upsertUsageMeter({
   inputTokens: number;
   outputTokens: number;
 }) {
-  const periodKey = getDailyAiPeriodKey();
+  // Epic B3: write both daily and monthly rows
+  await Promise.all([
+    upsertUsageMeterRow(accountId, featureKey, getDailyAiPeriodKey(), inputTokens, outputTokens),
+    upsertUsageMeterRow(accountId, featureKey, getMonthlyAiPeriodKey(), inputTokens, outputTokens),
+  ]);
+}
+
+async function upsertUsageMeterRow(
+  accountId: string,
+  featureKey: string,
+  periodKey: string,
+  inputTokens: number,
+  outputTokens: number,
+) {
   const { data } = await admin
     .from("ai_usage_meter")
-    .select("*")
+    .select("prompt_runs, input_tokens, output_tokens")
     .eq("account_id", accountId)
     .eq("period_key", periodKey)
     .eq("feature_key", featureKey)

@@ -68,15 +68,7 @@ export async function getAttentionInsight({ accountId, forceRefresh = false } = 
   return normalizeInsight(data?.insight);
 }
 
-export function formatAttentionInsightTimestamp(value) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat(undefined, {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
+// Epic C2: delegate to relative time utility — shows "4 minutes ago" for
+// recent insights, absolute date+time for anything older than 24 hours.
+export { formatRelativeTimestamp as formatAttentionInsightTimestamp } from "../utils/relativeTime";
 
