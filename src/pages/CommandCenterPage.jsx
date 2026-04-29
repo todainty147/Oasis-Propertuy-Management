@@ -121,6 +121,10 @@ function categoryClasses(category) {
   }
 }
 
+function isFinancialApprovalItem(item) {
+  return item?.kind === "pending_quote_approval" || item?.kind === "invoice_awaiting_approval";
+}
+
 function SummaryCard({ label, value, hint = "", tone = "blue" }) {
   const tones = {
     blue: "from-blue-600/10 to-cyan-500/10 border-blue-200",
@@ -279,6 +283,11 @@ function Section({ title, items = [], emptyText, t, lang }) {
                         {t("commandCenter.badge.automation")}
                       </span>
                     ) : null}
+                    {isFinancialApprovalItem(item) ? (
+                      <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-700">
+                        {t("commandCenter.badge.approval")}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -355,6 +364,7 @@ export default function CommandCenterPage() {
       { channel: `command-center-payments:${activeAccountId}`, table: "payments", filter: `account_id=eq.${activeAccountId}` },
       { channel: `command-center-requests:${activeAccountId}`, table: "maintenance_requests", filter: `account_id=eq.${activeAccountId}` },
       { channel: `command-center-work-orders:${activeAccountId}`, table: "work_orders", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `command-center-work-order-financials:${activeAccountId}`, table: "work_order_financials", filter: `account_id=eq.${activeAccountId}` },
       { channel: `command-center-leases:${activeAccountId}`, table: "leases", filter: `account_id=eq.${activeAccountId}` },
       { channel: `command-center-preventive:${activeAccountId}`, table: "preventive_maintenance_tasks", filter: `account_id=eq.${activeAccountId}` },
       { channel: `command-center-compliance:${activeAccountId}`, table: "compliance_items", filter: `account_id=eq.${activeAccountId}` },

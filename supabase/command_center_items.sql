@@ -605,6 +605,71 @@ as $$
     where swo.status in ('assigned', 'przypisane', 'in_progress', 'w trakcie')
       and coalesce(swo.updated_at, swo.created_at) >= now() - interval '72 hours'
   ),
+  pending_quote_approval as (
+    select
+      'wo-quote-approval-' || swo.id::text as item_key,
+      'pending_quote_approval'::text as item_type,
+      'finance'::text as category,
+      'action'::text as severity,
+      'action'::text as bucket,
+      'work_order'::text as entity_type,
+      swo.id::text as entity_id,
+      'Pending quote approval'::text as title,
+      coalesce(fin.quote_notes, '')::text as body,
+      '/work-orders/' || swo.id::text as link_path,
+      swo.property_id,
+      swo.property_label,
+      null::uuid as tenant_id,
+      ''::text as tenant_label,
+      swo.request_title as entity_label,
+      coalesce(swo.contractor_name, '') as contractor_label,
+      coalesce(fin.quote_amount, 0)::numeric as amount,
+      floor(extract(epoch from (now() - coalesce(fin.quote_submitted_at, fin.updated_at, swo.updated_at, swo.created_at))) / 3600)::int as age_hours,
+      case when swo.scheduled_at is not null then (swo.scheduled_at::date - current_date)::int else null::int end as due_days,
+      coalesce(fin.quote_submitted_at, fin.updated_at, swo.updated_at, swo.created_at),
+      false as resolved_state,
+      'work_order_financials'::text as source_table,
+      28 as sort_order
+    from scoped_work_orders swo
+    join public.work_order_financials fin
+      on fin.work_order_id = swo.id
+     and fin.account_id = p_account_id
+    where swo.status not in ('completed', 'cancelled', 'zakończone', 'anulowane')
+      and lower(coalesce(fin.quote_status, '')) = 'submitted'
+  ),
+  invoice_awaiting_approval as (
+    select
+      'wo-invoice-approval-' || swo.id::text as item_key,
+      'invoice_awaiting_approval'::text as item_type,
+      'finance'::text as category,
+      'action'::text as severity,
+      'action'::text as bucket,
+      'work_order'::text as entity_type,
+      swo.id::text as entity_id,
+      'Invoice awaiting approval'::text as title,
+      ''::text as body,
+      '/work-orders/' || swo.id::text as link_path,
+      swo.property_id,
+      swo.property_label,
+      null::uuid as tenant_id,
+      ''::text as tenant_label,
+      swo.request_title as entity_label,
+      coalesce(swo.contractor_name, '') as contractor_label,
+      coalesce(fin.invoice_amount, 0)::numeric as amount,
+      floor(extract(epoch from (now() - coalesce(fin.invoice_issued_at, fin.updated_at, swo.updated_at, swo.created_at))) / 3600)::int as age_hours,
+      case when fin.invoice_due_at is not null then (fin.invoice_due_at::date - current_date)::int else null::int end as due_days,
+      coalesce(fin.invoice_issued_at, fin.updated_at, swo.updated_at, swo.created_at),
+      false as resolved_state,
+      'work_order_financials'::text as source_table,
+      29 as sort_order
+    from scoped_work_orders swo
+    join public.work_order_financials fin
+      on fin.work_order_id = swo.id
+     and fin.account_id = p_account_id
+    where swo.status not in ('completed', 'cancelled', 'zakończone', 'anulowane')
+      and fin.invoice_amount is not null
+      and lower(coalesce(to_jsonb(fin)->>'invoice_status', 'submitted')) = 'submitted'
+  ),
   limited_work_order_items as (
     select
       ranked.item_key,
@@ -650,6 +715,8 @@ as $$
         union all select * from long_running_repairs
         union all select * from repeated_repairs
         union all select * from recently_updated_open
+        union all select * from pending_quote_approval
+        union all select * from invoice_awaiting_approval
       ) x
     ) ranked
     order by

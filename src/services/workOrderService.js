@@ -18,6 +18,7 @@ import {
 } from "./rpcContracts";
 import { listActiveContractors } from "./contractorDirectoryService";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
+import { createNotifications } from "./notificationService";
 
 function friendlyError(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -323,6 +324,37 @@ export async function assignWorkOrderContractor(
       context: { ...context, workOrderId, contractorId },
     });
     throw friendly(error, "Failed to assign contractor");
+  }
+
+  try {
+    let assignedQuery = supabase
+      .from("work_orders")
+      .select("account_id, contractor_user_id")
+      .eq("id", workOrderId);
+
+    if (context?.accountId) assignedQuery = assignedQuery.eq("account_id", context.accountId);
+
+    const { data: assigned, error: assignedError } = await assignedQuery.maybeSingle();
+    if (assignedError) throw assignedError;
+
+    const contractorUserId = assigned?.contractor_user_id || null;
+    const accountId = assigned?.account_id || context?.accountId || null;
+
+    await createNotifications({
+      accountId,
+      recipientUserIds: contractorUserId ? [contractorUserId] : [],
+      type: "work_order_assigned",
+      title: "You have been assigned a new work order",
+      entityType: "work_order",
+      entityId: workOrderId,
+      linkPath: `/contractor/jobs/${workOrderId}`,
+      metadata: {
+        work_order_id: workOrderId,
+        contractor_id: contractorId,
+      },
+    });
+  } catch (notifyErr) {
+    console.warn("[notifications] work_order_assigned failed", notifyErr);
   }
 
   return parseWorkOrderMutationAck({

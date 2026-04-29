@@ -24,6 +24,18 @@ describe("RPC isolation SQL contracts", () => {
     expect(commandCenterSql).not.toContain("assert_tenant_scope_access");
   });
 
+  it("surfaces financial approval work orders through account-scoped command center items", () => {
+    const commandCenterSql = readSql("supabase/command_center_items.sql");
+
+    expect(commandCenterSql).toContain("'pending_quote_approval'::text as item_type");
+    expect(commandCenterSql).toContain("lower(coalesce(fin.quote_status, '')) = 'submitted'");
+    expect(commandCenterSql).toContain("'invoice_awaiting_approval'::text as item_type");
+    expect(commandCenterSql).toContain("fin.invoice_amount is not null");
+    expect(commandCenterSql).toContain("fin.account_id = p_account_id");
+    expect(commandCenterSql).toContain("'work_order'::text as entity_type");
+    expect(commandCenterSql).toContain("'action'::text as severity");
+  });
+
   it("uses deterministic denied-path fixtures for cross-account, tenant, and contractor cases", () => {
     const { accountA, accountB } = isolationFixtures.accounts;
     const { tenantA1, tenantB1, contractorA1 } = isolationFixtures.users;

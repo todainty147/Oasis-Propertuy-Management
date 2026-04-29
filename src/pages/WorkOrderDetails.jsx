@@ -9,6 +9,13 @@ import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
 import { getContractorRatingByWorkOrder, upsertContractorRating } from "../services/contractorRatingService";
 import {
+  approveInvoice,
+  approveQuote,
+  getWorkOrderFinancials,
+  rejectInvoice,
+  rejectQuote,
+} from "../services/workOrderFinancialsService";
+import {
   assignWorkOrderContractor,
   fetchWorkOrderById,
   getWorkOrderAllowedActions,
@@ -185,6 +192,285 @@ function StatusPill({ status, labels, t }) {
     <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>
       {label}
     </span>
+  );
+}
+
+function ConfirmModal({
+  open,
+  title,
+  message,
+  confirmLabel,
+  cancelLabel,
+  requireReason = false,
+  reason,
+  onReasonChange,
+  busy = false,
+  onCancel,
+  onConfirm,
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+        <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+        <p className="mt-2 text-sm text-slate-600">{message}</p>
+        {requireReason ? (
+          <label className="mt-4 block">
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Reason</span>
+            <textarea
+              value={reason}
+              onChange={(event) => onReasonChange(event.target.value)}
+              className="mt-1 min-h-[96px] w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              placeholder="Add the rejection reason"
+              disabled={busy}
+            />
+          </label>
+        ) : null}
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+          >
+            {cancelLabel}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy || (requireReason && !String(reason || "").trim())}
+            className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-slate-400"
+          >
+            {busy ? "Processing..." : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function hasInvoice(financials) {
+  return Boolean(
+    financials &&
+      (financials.invoice_amount != null ||
+        financials.invoice_due_at ||
+        financials.invoice_issued_at)
+  );
+}
+
+function WorkOrderFinancialsCard({ accountId, workOrderId, workOrder, canManage, onChanged }) {
+  const [financials, setFinancials] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState(null);
+  const [reason, setReason] = useState("");
+
+  const contractorName = workOrder?.contractor_name || "contractor";
+  const quoteCurrency = financials?.quote_currency || getDefaultCurrency();
+  const invoiceCurrency = financials?.invoice_currency || quoteCurrency;
+  const quoteSubmitted = String(financials?.quote_status || "").toLowerCase() === "submitted";
+  const invoicePresent = hasInvoice(financials);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      if (!accountId || !workOrderId || !canManage) {
+        setFinancials(null);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        const row = await getWorkOrderFinancials({ accountId, workOrderId });
+        if (!cancelled) setFinancials(row);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err);
+          setFinancials(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, canManage, workOrderId]);
+
+  if (!canManage) return null;
+
+  async function reload() {
+    const row = await getWorkOrderFinancials({ accountId, workOrderId });
+    setFinancials(row);
+    if (typeof onChanged === "function") await onChanged();
+  }
+
+  async function runAction() {
+    if (!confirm) return;
+    setBusy(true);
+    try {
+      if (confirm.type === "approveQuote") await approveQuote({ workOrderId });
+      if (confirm.type === "rejectQuote") await rejectQuote({ workOrderId, reason });
+      if (confirm.type === "approveInvoice") await approveInvoice({ workOrderId });
+      if (confirm.type === "rejectInvoice") await rejectInvoice({ workOrderId, reason });
+      setConfirm(null);
+      setReason("");
+      await reload();
+    } catch (err) {
+      alert(err?.message || "Financial action failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openConfirm(type) {
+    setReason("");
+    setConfirm({ type });
+  }
+
+  if (loading) {
+    return (
+      <Card className="p-6 space-y-3">
+        <Skeleton className="h-5 w-48" />
+        <Skeleton className="h-20" />
+        <Skeleton className="h-20" />
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="border-rose-200 bg-rose-50 p-6">
+        <p className="font-semibold text-rose-800">Work order financials could not be loaded</p>
+        <p className="mt-2 text-sm text-rose-700">{error?.message || "Please refresh and try again."}</p>
+      </Card>
+    );
+  }
+
+  return (
+    <>
+      <Card className="p-6 space-y-5">
+        <div>
+          <p className="font-semibold text-slate-900">Finance approval</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Review submitted quotes and invoices already recorded against this work order.
+          </p>
+        </div>
+
+        {quoteSubmitted ? (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Submitted quote</p>
+                <p className="mt-1 text-xl font-semibold text-slate-900">
+                  {formatMoney(financials.quote_amount, quoteCurrency)}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Submitted: {formatDateTime(financials.quote_submitted_at)}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => openConfirm("approveQuote")}
+                  className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+                >
+                  Approve Quote
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openConfirm("rejectQuote")}
+                  className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
+                >
+                  Reject Quote
+                </button>
+              </div>
+            </div>
+            {financials.quote_notes ? (
+              <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700 whitespace-pre-wrap">
+                {financials.quote_notes}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+            No submitted quote is waiting for approval.
+          </p>
+        )}
+
+        {invoicePresent ? (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Invoice</p>
+                <p className="mt-1 text-xl font-semibold text-slate-900">
+                  {formatMoney(financials.invoice_amount, invoiceCurrency)}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Issued: {formatDateTime(financials.invoice_issued_at)} • Due:{" "}
+                  {formatDateTime(financials.invoice_due_at)}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => openConfirm("approveInvoice")}
+                  className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+                >
+                  Approve Invoice
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openConfirm("rejectInvoice")}
+                  className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
+                >
+                  Reject Invoice
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </Card>
+
+      <ConfirmModal
+        open={Boolean(confirm)}
+        title={
+          confirm?.type === "approveQuote"
+            ? "Approve quote"
+            : confirm?.type === "approveInvoice"
+              ? "Approve invoice"
+              : confirm?.type === "rejectInvoice"
+                ? "Reject invoice"
+                : "Reject quote"
+        }
+        message={
+          confirm?.type === "approveQuote"
+            ? `Approve ${formatMoney(financials?.quote_amount, quoteCurrency)} quote from ${contractorName}?`
+            : confirm?.type === "approveInvoice"
+              ? `Approve ${formatMoney(financials?.invoice_amount, invoiceCurrency)} invoice from ${contractorName}?`
+              : confirm?.type === "rejectInvoice"
+                ? "Reject invoice — reason required"
+                : "Reject quote — reason required"
+        }
+        confirmLabel={confirm?.type?.startsWith("approve") ? "Approve" : "Reject"}
+        cancelLabel="Cancel"
+        requireReason={confirm?.type?.startsWith("reject")}
+        reason={reason}
+        onReasonChange={setReason}
+        busy={busy}
+        onCancel={() => {
+          if (busy) return;
+          setConfirm(null);
+          setReason("");
+        }}
+        onConfirm={runAction}
+      />
+    </>
   );
 }
 
@@ -707,6 +993,14 @@ export default function WorkOrderDetails() {
           </div>
         </div>
       </Card>
+
+      <WorkOrderFinancialsCard
+        accountId={activeAccountId}
+        workOrderId={wo.id}
+        workOrder={wo}
+        canManage={canManage}
+        onChanged={refreshAll}
+      />
 
       {/* Manager actions */}
       {canManage && (

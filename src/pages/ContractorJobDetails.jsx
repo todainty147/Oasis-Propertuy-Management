@@ -308,6 +308,18 @@ export default function ContractorJobDetails() {
       const data = await submitWorkOrderQuote({ workOrderId: id });
       setFin(data ?? null);
       syncFinInputs(data ?? null);
+      await notifyManagers({
+        type: "quote_submitted",
+        title: "Quote submitted",
+        body: row?.contractor_name
+          ? `${t("common.contractor")}: ${row.contractor_name}`
+          : "A contractor submitted a quote for review.",
+        metadata: {
+          quote_amount: data?.quote_amount ?? null,
+          quote_currency: data?.quote_currency ?? null,
+          quote_status: data?.quote_status ?? null,
+        },
+      });
     } catch (e) {
       logSecurityRelevantFailure("wo_fin_submit_quote", {
         error: e,
