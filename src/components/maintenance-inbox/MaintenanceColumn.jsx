@@ -11,6 +11,46 @@ function titleForStatus(status, t) {
   return status || t("common.other");
 }
 
+function statusAccent(status) {
+  const s = String(status ?? "").toLowerCase();
+  if (s === "open") return "border-t-blue-400";
+  if (s === "in_progress") return "border-t-amber-400";
+  if (s === "waiting") return "border-t-purple-400";
+  if (s === "resolved") return "border-t-emerald-400";
+  if (s === "closed") return "border-t-slate-300";
+  return "border-t-slate-200";
+}
+
+// Mini SLA bar: renders up to 8 colored dots summarising age distribution
+function SlaBar({ items }) {
+  if (!items.length) return null;
+  const dots = items.slice(0, 8).map((item) => {
+    const h = item.created_at
+      ? Math.max(0, Math.floor((Date.now() - new Date(item.created_at).getTime()) / 3600000))
+      : 0;
+    const s = String(item.status || "").toLowerCase();
+    let color;
+    if (s === "closed" || s === "resolved") {
+      color = "bg-emerald-400";
+    } else if (h > 48) {
+      color = "bg-rose-500";
+    } else if (h > 24) {
+      color = "bg-amber-400";
+    } else {
+      color = "bg-emerald-400";
+    }
+    return color;
+  });
+
+  return (
+    <div className="flex items-center gap-0.5 mt-1">
+      {dots.map((color, i) => (
+        <span key={i} className={`h-1.5 w-1.5 rounded-full ${color}`} />
+      ))}
+    </div>
+  );
+}
+
 export default function MaintenanceColumn({
   accountId,
   status,
@@ -27,36 +67,44 @@ export default function MaintenanceColumn({
 }) {
   const { t } = useI18n();
   return (
-    <div className="rounded-2xl border border-slate-700 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 p-3 space-y-3 min-h-[240px] shadow-sm">
-      <div className="flex items-center justify-between border-b border-slate-700 pb-2">
-        <h3 className="text-sm font-semibold text-slate-100">{titleForStatus(status, t)}</h3>
+    <div
+      className={`rounded-xl border border-slate-200 border-t-4 bg-slate-50 p-3 space-y-3 min-h-[240px] ${statusAccent(
+        status,
+      )}`}
+    >
+      <div className="flex items-start justify-between border-b border-slate-200 pb-2">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-800">{titleForStatus(status, t)}</h3>
+          <SlaBar items={items} />
+        </div>
         <div className="text-right">
-          <div className="text-xs text-slate-200 font-medium">{totalForStatus}</div>
-          <div className="text-[10px] text-slate-400">{t("maintenance.inbox.onPage", { count: items.length })}</div>
+          <div className="text-sm font-semibold text-slate-900">{totalForStatus}</div>
+          <div className="text-[10px] text-slate-400">
+            {t("maintenance.inbox.onPage", { count: items.length })}
+          </div>
         </div>
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/70 px-3 py-4 text-xs text-slate-400">
+        <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-4 text-xs text-slate-400 text-center">
           {t("maintenance.inbox.emptyColumn")}
         </div>
       ) : (
-        <div className="space-y-3 rounded-xl">
+        <div className="space-y-2">
           {items.map((request) => (
-            <div key={request.id}>
-              <MaintenanceRequestCard
-                accountId={accountId}
-                request={request}
-                linkedWorkOrders={workOrdersByRequestId[request.id] || []}
-                propertyLabel={propertyLabelById[request.property_id] || ""}
-                busy={busyRequestId === request.id}
-                canManage={canManage}
-                onCreateWorkOrder={onCreateWorkOrder}
-                onCloseRequest={onCloseRequest}
-                onAddNote={onAddNote}
-                onSetWaitingReason={onSetWaitingReason}
-              />
-            </div>
+            <MaintenanceRequestCard
+              key={request.id}
+              accountId={accountId}
+              request={request}
+              linkedWorkOrders={workOrdersByRequestId[request.id] || []}
+              propertyLabel={propertyLabelById[request.property_id] || ""}
+              busy={busyRequestId === request.id}
+              canManage={canManage}
+              onCreateWorkOrder={onCreateWorkOrder}
+              onCloseRequest={onCloseRequest}
+              onAddNote={onAddNote}
+              onSetWaitingReason={onSetWaitingReason}
+            />
           ))}
         </div>
       )}

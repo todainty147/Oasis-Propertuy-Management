@@ -10,7 +10,6 @@ import { updateMaintenanceRequest } from "../services/maintenanceService";
 import { createWorkOrder } from "../services/workOrderService";
 import { useI18n } from "../context/I18nContext";
 import { isManageRole } from "../utils/permissions";
-import OnboardingHintCard from "../components/OnboardingHintCard";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 
 const STATUS_ORDER = ["open", "in_progress", "waiting", "resolved", "closed"];
@@ -334,102 +333,113 @@ export default function MaintenanceInboxPage() {
     );
   }
 
+  // Count by status for badges
+  const statusCounts = useMemo(() => {
+    const source =
+      ageFilter || agingFilter || woStatusFilter || priorityFilterValues.length > 0
+        ? requestsAfterWoFilter
+        : requests;
+    return STATUS_ORDER.reduce((acc, s) => {
+      acc[s] = (source || []).filter((r) => String(r?.status || "").toLowerCase() === s).length;
+      return acc;
+    }, {});
+  }, [ageFilter, agingFilter, woStatusFilter, priorityFilterValues, requestsAfterWoFilter, requests]);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <DashboardBreadcrumbs items={[{ label: t("maintenance.inbox.title") }]} />
-      <div className="rounded-xl border bg-white p-4 flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">{t("maintenance.inbox.title")}</h2>
-          <p className="text-sm text-slate-500 mt-1">{t("maintenance.inbox.subtitle")}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <select
-            value={pageSize}
-            onChange={(e) => {
-              const n = Number(e.target.value);
-              setPage(1);
-              setPageSize(Number.isFinite(n) && n > 0 ? n : 5);
-            }}
-            className="px-2 py-2 text-sm rounded-lg border bg-white"
-            disabled={loading}
-            title={t("maintenance.inbox.perPage")}
-          >
-            {[5].map((n) => (
-              <option key={n} value={n}>
-                {n}/str
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={loading || page <= 1}
-            className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50 disabled:opacity-50"
-          >
-            {t("common.prev")}
-          </button>
-          <div className="text-xs text-slate-600 min-w-[84px] text-center">
-            {page}/{totalPages}
-          </div>
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={loading || page >= totalPages}
-            className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50 disabled:opacity-50"
-          >
-            {t("common.next")}
-          </button>
-          <button
-            type="button"
-            onClick={loadAll}
-            disabled={loading}
-            className="px-3 py-2 text-sm rounded-lg border hover:bg-slate-50 disabled:opacity-50"
-          >
-            {t("common.refresh")}
-          </button>
-        </div>
-      </div>
 
-      <OnboardingHintCard
-        title={t("onboarding.hints.maintenance.title")}
-        body={t("onboarding.hints.maintenance.body")}
-      />
-
-      <div className="rounded-xl border bg-white p-4">
-        <div>
-          <p className="font-semibold text-slate-900">{t("maintenance.inbox.handoff.title")}</p>
-          <p className="text-sm text-slate-500 mt-1">{t("maintenance.inbox.subtitle")}</p>
+      {/* ── Compact toolbar header ── */}
+      <div className="rounded-xl border bg-white px-4 py-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">{t("maintenance.inbox.title")}</h2>
+            <p className="mt-0.5 text-xs text-slate-500">{t("maintenance.inbox.subtitle")}</p>
+          </div>
+          {/* Status count badges */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {STATUS_ORDER.filter((s) => s !== "closed").map((s) => {
+              const count = statusCounts[s] || 0;
+              if (!count) return null;
+              const tones = {
+                open: "border-blue-200 bg-blue-50 text-blue-700",
+                in_progress: "border-amber-200 bg-amber-50 text-amber-700",
+                waiting: "border-purple-200 bg-purple-50 text-purple-700",
+                resolved: "border-emerald-200 bg-emerald-50 text-emerald-700",
+              };
+              return (
+                <span
+                  key={s}
+                  className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${tones[s] || "border-slate-200 bg-slate-50 text-slate-600"}`}
+                >
+                  {count} {t(`status.req.${s}`).toLowerCase()}
+                </span>
+              );
+            })}
+          </div>
         </div>
-        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-sm font-semibold text-slate-900">{t("maintenance.inbox.handoff.reviewTitle")}</p>
-            <p className="mt-1 text-sm text-slate-600">{t("maintenance.inbox.handoff.reviewBody")}</p>
+
+        {/* Second row: SLA legend + total + pagination controls */}
+        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2.5">
+          <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" /> {t("maintenance.sla.green")} &lt;24h
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-amber-400" /> {t("maintenance.sla.yellow")} 24–48h
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-rose-500" /> {t("maintenance.sla.red")} &gt;48h
+            </span>
+            <span className="text-slate-400">
+              {t("maintenance.inbox.total")}: <strong className="text-slate-700">{ageFilter || agingFilter || woStatusFilter ? requestsAfterWoFilter.length : totalCount}</strong>
+            </span>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-sm font-semibold text-slate-900">{t("maintenance.inbox.handoff.assignTitle")}</p>
-            <p className="mt-1 text-sm text-slate-600">{t("maintenance.inbox.handoff.assignBody")}</p>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-sm font-semibold text-slate-900">{t("maintenance.inbox.handoff.trackTitle")}</p>
-            <p className="mt-1 text-sm text-slate-600">{t("maintenance.inbox.handoff.trackBody")}</p>
+          <div className="flex items-center gap-1.5">
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setPage(1);
+                setPageSize(Number.isFinite(n) && n > 0 ? n : 5);
+              }}
+              className="rounded-lg border bg-white px-2 py-1 text-xs"
+              disabled={loading}
+              title={t("maintenance.inbox.perPage")}
+            >
+              {[5, 10, 20].map((n) => (
+                <option key={n} value={n}>
+                  {n}/{t("maintenance.inbox.perPage").toLowerCase().split(" ")[0]}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={loading || page <= 1}
+              className="rounded-lg border bg-white px-2.5 py-1 text-xs hover:bg-slate-50 disabled:opacity-40"
+            >
+              {t("common.prev")}
+            </button>
+            <span className="text-xs text-slate-500 tabular-nums">{page}/{totalPages}</span>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={loading || page >= totalPages}
+              className="rounded-lg border bg-white px-2.5 py-1 text-xs hover:bg-slate-50 disabled:opacity-40"
+            >
+              {t("common.next")}
+            </button>
+            <button
+              type="button"
+              onClick={loadAll}
+              disabled={loading}
+              className="rounded-lg border bg-white px-2.5 py-1 text-xs hover:bg-slate-50 disabled:opacity-40"
+            >
+              {t("common.refresh")}
+            </button>
           </div>
         </div>
-      </div>
-
-      <div className="text-sm text-slate-600 px-1">
-        {t("maintenance.inbox.total")}: <span className="font-medium text-slate-900">{ageFilter || agingFilter || woStatusFilter ? requestsAfterWoFilter.length : totalCount}</span>
-      </div>
-      <div className="flex flex-wrap items-center gap-2 px-1">
-        <span className="text-xs text-slate-500">{t("maintenance.sla.legend")}:</span>
-        <span className="text-[11px] px-2 py-0.5 rounded border bg-emerald-50 border-emerald-200 text-emerald-700">
-          {t("maintenance.sla.green")} (0-24h)
-        </span>
-        <span className="text-[11px] px-2 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-700">
-          {t("maintenance.sla.yellow")} (24-48h)
-        </span>
-        <span className="text-[11px] px-2 py-0.5 rounded border bg-rose-50 border-rose-200 text-rose-700">
-          {t("maintenance.sla.red")} ({">"}48h)
-        </span>
       </div>
 
       {error ? (
