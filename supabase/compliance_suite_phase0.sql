@@ -75,6 +75,7 @@ COMMENT ON TABLE public.tax_records IS
 
 ALTER TABLE public.tax_records ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS tax_records_account_member ON public.tax_records;
 CREATE POLICY tax_records_account_member ON public.tax_records
   FOR ALL TO authenticated
   USING  (public.user_can_manage_account(account_id))
@@ -116,6 +117,7 @@ COMMENT ON TABLE public.tax_exports IS
 
 ALTER TABLE public.tax_exports ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS tax_exports_account_member ON public.tax_exports;
 CREATE POLICY tax_exports_account_member ON public.tax_exports
   FOR ALL TO authenticated
   USING  (public.user_can_manage_account(account_id))
@@ -155,6 +157,7 @@ COMMENT ON TABLE public.rent_shield_assessments IS
 
 ALTER TABLE public.rent_shield_assessments ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS rent_shield_account_member ON public.rent_shield_assessments;
 CREATE POLICY rent_shield_account_member ON public.rent_shield_assessments
   FOR ALL TO authenticated
   USING  (public.user_can_manage_account(account_id))
@@ -195,6 +198,7 @@ COMMENT ON TABLE public.lease_audits IS
 
 ALTER TABLE public.lease_audits ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS lease_audits_account_member ON public.lease_audits;
 CREATE POLICY lease_audits_account_member ON public.lease_audits
   FOR ALL TO authenticated
   USING  (public.user_can_manage_account(account_id))
@@ -232,6 +236,7 @@ COMMENT ON TABLE public.lease_audit_findings IS
 
 ALTER TABLE public.lease_audit_findings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS lease_audit_findings_account_member ON public.lease_audit_findings;
 CREATE POLICY lease_audit_findings_account_member ON public.lease_audit_findings
   FOR ALL TO authenticated
   USING  (public.user_can_manage_account(account_id))

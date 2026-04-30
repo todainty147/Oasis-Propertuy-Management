@@ -43,9 +43,12 @@ create trigger trg_lease_audit_findings_updated_at
 -- The RPC already uppercases; this constraint enforces it at the DB level.
 -- Allows NULL (non-tax compliance_items have no jurisdiction).
 
-alter table public.compliance_items
-  add constraint if not exists compliance_items_jurisdiction_valid
-  check (jurisdiction is null or jurisdiction in ('GB', 'PL', 'DE'));
+do $$ begin
+  alter table public.compliance_items
+    add constraint compliance_items_jurisdiction_valid
+    check (jurisdiction is null or jurisdiction in ('GB', 'PL', 'DE'));
+exception when duplicate_object then null;
+end $$;
 
 
 -- ─── L-010: compliance_audit_log table + mark_as_filed logging ───────────────
