@@ -55,30 +55,31 @@ describe("get_my_lease SQL contract", () => {
 });
 
 describe("tenant portal routing contract", () => {
-  const appSource = readFileSync(path.join(repoRoot, "src/App.jsx"), "utf8");
+  // Tenant portal routes moved from App.jsx to src/routes/TenantRoutes.jsx
+  const tenantRoutesSource = readFileSync(path.join(repoRoot, "src/routes/TenantRoutes.jsx"), "utf8");
 
   it("registers /tenant/home route pointing to TenantHomePage", () => {
-    expect(appSource).toContain("TenantHomePage");
-    expect(appSource).toContain('path="home"');
+    expect(tenantRoutesSource).toContain("TenantHomePage");
+    expect(tenantRoutesSource).toContain('path="home"');
   });
 
   it("registers /tenant/lease route pointing to TenantLeasePage", () => {
-    expect(appSource).toContain("TenantLeasePage");
-    expect(appSource).toContain('path="lease"');
+    expect(tenantRoutesSource).toContain("TenantLeasePage");
+    expect(tenantRoutesSource).toContain('path="lease"');
   });
 
   it("imports TenantHomePage lazily", () => {
-    expect(appSource).toContain("import(\"./pages/TenantHomePage\")");
+    expect(tenantRoutesSource).toContain("import(\"../pages/TenantHomePage\")");
   });
 
   it("imports TenantLeasePage lazily", () => {
-    expect(appSource).toContain("import(\"./pages/TenantLeasePage\")");
+    expect(tenantRoutesSource).toContain("import(\"../pages/TenantLeasePage\")");
   });
 
   it("tenant home no longer renders the owner Dashboard directly", () => {
-    const tenantHomeSection = appSource.slice(
-      appSource.indexOf('path="home"'),
-      appSource.indexOf('path="home"') + 200,
+    const tenantHomeSection = tenantRoutesSource.slice(
+      tenantRoutesSource.indexOf('path="home"'),
+      tenantRoutesSource.indexOf('path="home"') + 200,
     );
     expect(tenantHomeSection).not.toContain("<Dashboard");
   });

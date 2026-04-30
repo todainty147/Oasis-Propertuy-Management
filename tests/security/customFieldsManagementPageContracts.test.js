@@ -7,10 +7,10 @@ function readSource(relativePath) {
 
 describe("custom fields management page contracts", () => {
   it("registers the custom fields management route and sidebar entry", () => {
-    const appSource = readSource("src/App.jsx");
+    const appSource = readSource("src/routes/ManagerRoutes.jsx");
     const sidebarSource = readSource("src/layout/Sidebar.jsx");
 
-    expect(appSource).toContain('const CustomFieldsManagementPage = lazy(() => import("./pages/CustomFieldsManagementPage"));');
+    expect(appSource).toContain('const CustomFieldsManagementPage = lazy(() => import("../pages/CustomFieldsManagementPage"));');
     expect(appSource).toContain('<ManagerOnlyRoute>');
     expect(appSource).toContain('<CustomFieldsManagementPage />');
     expect(sidebarSource).toContain('to="/settings/custom-fields"');

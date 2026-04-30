@@ -7,10 +7,10 @@ function readSource(relativePath) {
 
 describe("roles management page contracts", () => {
   it("registers the roles management route and sidebar entry", () => {
-    const appSource = readSource("src/App.jsx");
+    const appSource = readSource("src/routes/ManagerRoutes.jsx");
     const sidebarSource = readSource("src/layout/Sidebar.jsx");
 
-    expect(appSource).toContain('const RolesManagementPage = lazy(() => import("./pages/RolesManagementPage"));');
+    expect(appSource).toContain('const RolesManagementPage = lazy(() => import("../pages/RolesManagementPage"));');
     expect(appSource).toContain('<ManagerOnlyRoute>');
     expect(appSource).toContain('<RolesManagementPage />');
     expect(sidebarSource).toContain('to="/settings/roles"');

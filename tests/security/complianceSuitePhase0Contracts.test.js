@@ -330,35 +330,38 @@ describe("entitlements.js: compliance feature constants", () => {
 
 // ─── Frontend — routes ────────────────────────────────────────────────────────
 
-describe("App.jsx: compliance routes", () => {
+// Compliance routes moved from App.jsx to src/routes/ManagerRoutes.jsx
+const managerRoutes = read("src/routes/ManagerRoutes.jsx");
+
+describe("ManagerRoutes.jsx: compliance routes", () => {
   it("imports TaxReadinessPage", () => {
-    expect(appJsx).toContain("TaxReadinessPage");
-    expect(appJsx).toContain("pages/compliance/TaxReadinessPage");
+    expect(managerRoutes).toContain("TaxReadinessPage");
+    expect(managerRoutes).toContain("pages/compliance/TaxReadinessPage");
   });
 
   it("imports RentShieldPage", () => {
-    expect(appJsx).toContain("RentShieldPage");
-    expect(appJsx).toContain("pages/compliance/RentShieldPage");
+    expect(managerRoutes).toContain("RentShieldPage");
+    expect(managerRoutes).toContain("pages/compliance/RentShieldPage");
   });
 
   it("imports LeaseAuditorPage", () => {
-    expect(appJsx).toContain("LeaseAuditorPage");
-    expect(appJsx).toContain("pages/compliance/LeaseAuditorPage");
+    expect(managerRoutes).toContain("LeaseAuditorPage");
+    expect(managerRoutes).toContain("pages/compliance/LeaseAuditorPage");
   });
 
   it("tax route is guarded by TAX_READINESS_DASHBOARD entitlement", () => {
-    expect(appJsx).toContain("compliance/tax");
-    expect(appJsx).toContain("TAX_READINESS_DASHBOARD");
+    expect(managerRoutes).toContain("compliance/tax");
+    expect(managerRoutes).toContain("TAX_READINESS_DASHBOARD");
   });
 
   it("rent-shield route is guarded by RENT_SHIELD entitlement", () => {
-    expect(appJsx).toContain("compliance/rent-shield");
-    expect(appJsx).toContain("RENT_SHIELD");
+    expect(managerRoutes).toContain("compliance/rent-shield");
+    expect(managerRoutes).toContain("RENT_SHIELD");
   });
 
   it("leases route is guarded by AI_LEASE_AUDITOR entitlement", () => {
-    expect(appJsx).toContain("compliance/leases");
-    expect(appJsx).toContain("AI_LEASE_AUDITOR");
+    expect(managerRoutes).toContain("compliance/leases");
+    expect(managerRoutes).toContain("AI_LEASE_AUDITOR");
   });
 });
 
