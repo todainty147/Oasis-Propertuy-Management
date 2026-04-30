@@ -190,9 +190,28 @@ export async function listRentShieldAssessments(accountId, { propertyId = null }
     .rpc("list_rent_shield_assessments", {
       p_account_id:  accountId,
       p_property_id: propertyId || null,
-      p_limit:       24, // up to 2 years of monthly snapshots
+      p_limit:       24,
     });
 
+  if (error) {
+    if (error.code === "PGRST202") return _listRentShieldAssessmentsDirect(accountId, { propertyId });
+    if (isMissingBackendObject(error)) return [];
+    throw error;
+  }
+  return parseRpcRows(data ?? [], parseRentShieldAssessmentRow, "rent shield assessments");
+}
+
+async function _listRentShieldAssessmentsDirect(accountId, { propertyId = null } = {}) {
+  let query = supabase
+    .from("rent_shield_assessments")
+    .select(ASSESSMENT_SELECT)
+    .eq("account_id", accountId)
+    .order("period", { ascending: false })
+    .limit(24);
+
+  if (propertyId) query = query.eq("property_id", propertyId);
+
+  const { data, error } = await query;
   if (error) {
     if (isMissingBackendObject(error)) return [];
     throw error;

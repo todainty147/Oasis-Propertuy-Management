@@ -29,6 +29,25 @@ export async function listTaxItems(accountId, { jurisdiction = null } = {}) {
     });
 
   if (error) {
+    if (error.code === "PGRST202") return _listTaxItemsDirect(accountId, { jurisdiction });
+    if (isMissingBackendObject(error)) return [];
+    throw error;
+  }
+  return parseRpcRows(data ?? [], parseComplianceItemRow, "tax items");
+}
+
+async function _listTaxItemsDirect(accountId, { jurisdiction = null } = {}) {
+  let query = supabase
+    .from("compliance_items")
+    .select(TAX_SELECT)
+    .eq("account_id", accountId)
+    .eq("category", "tax")
+    .order("deadline_date", { ascending: true, nullsFirst: false });
+
+  if (jurisdiction) query = query.eq("jurisdiction", String(jurisdiction).toUpperCase().slice(0, 2));
+
+  const { data, error } = await query;
+  if (error) {
     if (isMissingBackendObject(error)) return [];
     throw error;
   }

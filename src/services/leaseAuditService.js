@@ -68,6 +68,24 @@ export async function listLeaseAudits(accountId, { leaseId = null } = {}) {
     });
 
   if (error) {
+    if (error.code === "PGRST202") return _listLeaseAuditsDirect(accountId, { leaseId });
+    if (isMissingBackendObject(error)) return [];
+    throw error;
+  }
+  return parseRpcRows(data ?? [], parseLeaseAuditRow, "lease audits");
+}
+
+async function _listLeaseAuditsDirect(accountId, { leaseId = null } = {}) {
+  let query = supabase
+    .from("lease_audits")
+    .select(AUDIT_SELECT)
+    .eq("account_id", accountId)
+    .order("created_at", { ascending: false });
+
+  if (leaseId) query = query.eq("lease_id", leaseId);
+
+  const { data, error } = await query;
+  if (error) {
     if (isMissingBackendObject(error)) return [];
     throw error;
   }
@@ -84,12 +102,31 @@ export async function getLatestLeaseAudit(accountId, leaseId) {
     });
 
   if (error) {
+    if (error.code === "PGRST202") return _getLatestLeaseAuditDirect(accountId, leaseId);
     if (error.code === "PGRST116") return null;
     if (isMissingBackendObject(error)) return null;
     throw error;
   }
   const rows = data ?? [];
   return rows.length > 0 ? parseLeaseAuditRow(rows[0]) : null;
+}
+
+async function _getLatestLeaseAuditDirect(accountId, leaseId) {
+  const { data, error } = await supabase
+    .from("lease_audits")
+    .select(AUDIT_SELECT)
+    .eq("account_id", accountId)
+    .eq("lease_id", leaseId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    if (isMissingBackendObject(error)) return null;
+    throw error;
+  }
+  return parseLeaseAuditRow(data);
 }
 
 export async function createLeaseAudit(accountId, leaseId) {
@@ -135,6 +172,22 @@ export async function listLeaseAuditFindings(accountId, leaseAuditId) {
       p_account_id:     accountId,
       p_lease_audit_id: leaseAuditId,
     });
+
+  if (error) {
+    if (error.code === "PGRST202") return _listLeaseAuditFindingsDirect(accountId, leaseAuditId);
+    if (isMissingBackendObject(error)) return [];
+    throw error;
+  }
+  return parseRpcRows(data ?? [], parseLeaseAuditFindingRow, "lease audit findings");
+}
+
+async function _listLeaseAuditFindingsDirect(accountId, leaseAuditId) {
+  const { data, error } = await supabase
+    .from("lease_audit_findings")
+    .select(FINDING_SELECT)
+    .eq("account_id", accountId)
+    .eq("lease_audit_id", leaseAuditId)
+    .order("created_at", { ascending: true });
 
   if (error) {
     if (isMissingBackendObject(error)) return [];
