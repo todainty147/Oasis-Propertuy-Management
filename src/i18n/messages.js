@@ -165,6 +165,7 @@ export const messages = {
     "billing.plan.starterLimit": "Do 10 nieruchomości",
     "billing.plan.growthLimit": "Do 50 nieruchomości",
     "billing.plan.proLimit": "Nielimitowana liczba nieruchomości",
+    "billing.plan.operator_agency": "Operator / Agencja",
     "billing.plan.operatorAgency": "Operator / Agencja",
     "billing.plan.operatorAgencyLimit": "Wszystkie funkcje AI + Security Copilot",
     "entitlements.locked.badge": "Upgrade planu",
@@ -2684,6 +2685,7 @@ export const messages = {
     "billing.plan.starterLimit": "Up to 10 properties",
     "billing.plan.growthLimit": "Up to 50 properties",
     "billing.plan.proLimit": "Unlimited properties",
+    "billing.plan.operator_agency": "Operator / Agency",
     "billing.plan.operatorAgency": "Operator / Agency",
     "billing.plan.operatorAgencyLimit": "All AI features + Security Copilot",
     "entitlements.locked.badge": "Plan upgrade",
@@ -6581,6 +6583,7 @@ Object.assign(messages.de, {
   "billing.plan.starterLimit": "Bis zu 10 Immobilien",
   "billing.plan.growthLimit": "Bis zu 50 Immobilien",
   "billing.plan.proLimit": "Unbegrenzte Immobilien",
+  "billing.plan.operator_agency": "Operator / Agentur",
   "billing.plan.operatorAgency": "Operator / Agentur",
   "billing.plan.operatorAgencyLimit": "Alle KI-Funktionen + Security Copilot",
 

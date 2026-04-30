@@ -12,6 +12,7 @@ import {
 } from "../services/billingService";
 import { isManageRole } from "../utils/permissions";
 import OnboardingHintCard from "../components/OnboardingHintCard";
+import AiUsageSummaryCard from "../components/AiUsageSummaryCard";
 
 const PLANS = [
   { key: "starter",          nameKey: "billing.plan.starter",          limitKey: "billing.plan.starterLimit" },
@@ -225,6 +226,8 @@ export default function BillingPage() {
         title={t("pageHints.billing.title")}
         body={t("pageHints.billing.body")}
       />
+
+      <AiUsageSummaryCard accountId={activeAccountId} />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {PLANS.map((plan) => (
