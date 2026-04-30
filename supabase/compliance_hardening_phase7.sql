@@ -13,19 +13,24 @@
 --
 -- Uses the existing public.tg_set_updated_at() defined in baseline_schema.sql.
 -- Attaches it to the four Phase-0 compliance tables that lacked it.
+-- Uses DROP IF EXISTS + CREATE to be idempotent on re-runs.
 
+drop trigger if exists trg_tax_records_updated_at on public.tax_records;
 create trigger trg_tax_records_updated_at
   before update on public.tax_records
   for each row execute function public.tg_set_updated_at();
 
+drop trigger if exists trg_rent_shield_assessments_updated_at on public.rent_shield_assessments;
 create trigger trg_rent_shield_assessments_updated_at
   before update on public.rent_shield_assessments
   for each row execute function public.tg_set_updated_at();
 
+drop trigger if exists trg_lease_audits_updated_at on public.lease_audits;
 create trigger trg_lease_audits_updated_at
   before update on public.lease_audits
   for each row execute function public.tg_set_updated_at();
 
+drop trigger if exists trg_lease_audit_findings_updated_at on public.lease_audit_findings;
 create trigger trg_lease_audit_findings_updated_at
   before update on public.lease_audit_findings
   for each row execute function public.tg_set_updated_at();
@@ -64,12 +69,14 @@ comment on table public.compliance_audit_log is
 
 alter table public.compliance_audit_log enable row level security;
 
+drop policy if exists compliance_audit_log_manage_read on public.compliance_audit_log;
 create policy compliance_audit_log_manage_read
   on public.compliance_audit_log
   for select
   to authenticated
   using (public.user_can_manage_account(account_id));
 
+drop policy if exists compliance_audit_log_no_direct_write on public.compliance_audit_log;
 create policy compliance_audit_log_no_direct_write
   on public.compliance_audit_log
   for all
