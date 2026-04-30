@@ -7,9 +7,10 @@ stable
 set search_path = public
 as $$
   select case lower(trim(coalesce(p_plan, 'starter')))
-    when 'pro' then 3
-    when 'growth' then 2
-    else 1
+    when 'operator_agency' then 4
+    when 'pro'             then 3
+    when 'growth'          then 2
+    else 1  -- starter
   end;
 $$;
 
@@ -29,7 +30,7 @@ stable
 set search_path = public
 as $$
   select case
-    when a.is_root then 'pro'
+    when a.is_root then 'operator_agency'
     else lower(trim(coalesce(a.subscription_plan, 'starter')))
   end
   from public.accounts a
@@ -51,20 +52,48 @@ stable
 set search_path = public
 as $$
   select case lower(trim(coalesce(p_feature, '')))
-    when 'command_center' then 'growth'
-    when 'portfolio_health' then 'growth'
-    when 'maintenance_kpi' then 'growth'
-    when 'playbooks' then 'pro'
-    when 'advanced_automation' then 'pro'
-    when 'security_audit' then 'pro'
-    when 'root_telemetry' then 'pro'
-    when 'support_tooling' then 'pro'
+    -- ── Core features ────────────────────────────────────────────────────
+    when 'command_center'          then 'growth'
+    when 'portfolio_health'        then 'growth'
+    when 'maintenance_kpi'         then 'growth'
+    when 'playbooks'               then 'pro'
+    when 'advanced_automation'     then 'pro'
+    when 'security_audit'          then 'pro'
+    when 'root_telemetry'          then 'pro'
+    when 'support_tooling'         then 'pro'
+
+    -- ── AI features: Growth tier ─────────────────────────────────────────
+    when 'ai_maintenance_triage'        then 'growth'
+    when 'ai_attention_insight'         then 'growth'
+    when 'ai_property_health'           then 'growth'
+
+    -- ── AI features: Pro tier ────────────────────────────────────────────
+    when 'ai_contractor_recommendation' then 'pro'
+    when 'ai_weekly_portfolio_summary'  then 'pro'
+    when 'ai_message_drafts'            then 'pro'
+    when 'ai_document_summaries'        then 'pro'
+
+    -- ── AI features: Operator/Agency tier ────────────────────────────────
+    when 'ai_security_copilot'          then 'operator_agency'
+    when 'ai_natural_language_query'    then 'operator_agency'
+    when 'ai_advanced_audit_summaries'  then 'operator_agency'
+
+    -- ── Compliance & Risk Suite: Growth tier ─────────────────────────────
+    when 'tax_readiness_dashboard'      then 'growth'
+    when 'rent_shield'                  then 'growth'
+    when 'ai_rent_shield_explainer'     then 'growth'
+
+    -- ── Compliance & Risk Suite: Pro tier ────────────────────────────────
+    when 'ai_lease_auditor'             then 'pro'
+
     else 'starter'
   end;
 $$;
 
 comment on function public.account_feature_required_plan(text) is
-  'Returns the minimum billing plan required for a feature key.';
+  'Canonical definition — single source of truth for all feature plan requirements. '
+  'Duplicate definitions in ai_cost_controls.sql and compliance_suite_phase0.sql are '
+  'no-ops; this file must be applied last. (L-001 resolved)';
 
 revoke all on function public.account_feature_required_plan(text) from public;
 grant execute on function public.account_feature_required_plan(text) to authenticated;

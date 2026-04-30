@@ -58,6 +58,9 @@ const PlaybooksPage = lazy(() => import("./pages/PlaybooksPage"));
 const SecurityAuditPage = lazy(() => import("./pages/SecurityAuditPage"));
 const RootTelemetryPage = lazy(() => import("./pages/RootTelemetryPage"));
 const AddPropertyModal = lazy(() => import("./components/AddPropertyModal"));
+const TaxReadinessPage = lazy(() => import("./pages/compliance/TaxReadinessPage"));
+const RentShieldPage = lazy(() => import("./pages/compliance/RentShieldPage"));
+const LeaseAuditorPage = lazy(() => import("./pages/compliance/LeaseAuditorPage"));
 
 function EntitledRoute({ feature, children }) {
   const { activeRole, isRootOperator, canAccessTelemetry, hasEntitlement, activePlan } = useAccount();
@@ -690,6 +693,30 @@ export default function App() {
           element={
             <EntitledRoute feature={ENTITLEMENT_FEATURES.PORTFOLIO_HEALTH}>
               <PortfolioHealthDashboardPage />
+            </EntitledRoute>
+          }
+        />
+        <Route
+          path="compliance/tax"
+          element={
+            <EntitledRoute feature={ENTITLEMENT_FEATURES.TAX_READINESS_DASHBOARD}>
+              <TaxReadinessPage />
+            </EntitledRoute>
+          }
+        />
+        <Route
+          path="compliance/rent-shield"
+          element={
+            <EntitledRoute feature={ENTITLEMENT_FEATURES.RENT_SHIELD}>
+              <RentShieldPage />
+            </EntitledRoute>
+          }
+        />
+        <Route
+          path="compliance/leases"
+          element={
+            <EntitledRoute feature={ENTITLEMENT_FEATURES.AI_LEASE_AUDITOR}>
+              <LeaseAuditorPage />
             </EntitledRoute>
           }
         />

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, CreditCard, ExternalLink } from "lucide-react";
+import { AlertTriangle, Check, Minus, CheckCircle2, CreditCard, ExternalLink } from "lucide-react";
 
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
@@ -21,6 +21,17 @@ const PLANS = [
   { key: "operator_agency",  nameKey: "billing.plan.operatorAgency",   limitKey: "billing.plan.operatorAgencyLimit" },
 ];
 
+// Compliance feature rows: [labelKey, minPlanRank]
+// Ranks: starter=1, growth=2, pro=3, operator_agency=4
+const COMPLIANCE_FEATURES = [
+  { labelKey: "billing.feature.taxReadiness",        minRank: 2 },
+  { labelKey: "billing.feature.rentShield",          minRank: 2 },
+  { labelKey: "billing.feature.aiRentShield",        minRank: 2 },
+  { labelKey: "billing.feature.aiLeaseAuditor",      minRank: 3 },
+];
+
+const PLAN_RANKS = { starter: 1, growth: 2, pro: 3, operator_agency: 4 };
+
 function formatDate(value) {
   if (!value) return "—";
   const date = new Date(value);
@@ -29,7 +40,7 @@ function formatDate(value) {
 }
 
 export default function BillingPage() {
-  const { activeAccountId, activeRole, isRootOperator } = useAccount();
+  const { activeAccountId, activeRole, isRootOperator, activePlan } = useAccount();
   const { t } = useI18n();
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -254,6 +265,83 @@ export default function BillingPage() {
             </button>
           </div>
         ))}
+      </div>
+
+      {/* Compliance & Risk feature comparison */}
+      <div
+        className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+        data-testid="compliance-feature-matrix"
+      >
+        <div className="border-b border-slate-100 px-6 py-4 dark:border-slate-800">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+            {t("billing.complianceSuite.title")}
+          </h2>
+          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+            {t("billing.complianceSuite.subtitle")}
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 dark:border-slate-800">
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 w-1/2">
+                  {t("billing.complianceSuite.feature")}
+                </th>
+                {PLANS.map((plan) => {
+                  const isCurrent = activePlan === plan.key;
+                  return (
+                    <th
+                      key={plan.key}
+                      className={`px-3 py-3 text-center text-xs font-semibold uppercase tracking-wide ${
+                        isCurrent
+                          ? "text-blue-700 dark:text-blue-400"
+                          : "text-slate-500 dark:text-slate-400"
+                      }`}
+                      data-testid={isCurrent ? "current-plan-column" : undefined}
+                    >
+                      {t(plan.nameKey)}
+                      {isCurrent && (
+                        <span className="ml-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                          {t("billing.complianceSuite.currentPlan")}
+                        </span>
+                      )}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50 dark:divide-slate-800/60">
+              {COMPLIANCE_FEATURES.map((feat) => (
+                <tr key={feat.labelKey} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                  <td className="px-6 py-3 text-slate-700 dark:text-slate-200">
+                    {t(feat.labelKey)}
+                  </td>
+                  {PLANS.map((plan) => {
+                    const included = (PLAN_RANKS[plan.key] ?? 1) >= feat.minRank;
+                    const isCurrent = activePlan === plan.key;
+                    return (
+                      <td
+                        key={plan.key}
+                        className={`px-3 py-3 text-center ${isCurrent ? "bg-blue-50/60 dark:bg-blue-950/20" : ""}`}
+                      >
+                        {included ? (
+                          <Check size={16} className="mx-auto text-emerald-500 dark:text-emerald-400" aria-label="Included" />
+                        ) : (
+                          <Minus size={16} className="mx-auto text-slate-300 dark:text-slate-600" aria-label="Not included" />
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="border-t border-slate-100 px-6 py-3 dark:border-slate-800">
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            {t("billing.complianceSuite.disclaimer")}
+          </p>
+        </div>
       </div>
     </div>
   );

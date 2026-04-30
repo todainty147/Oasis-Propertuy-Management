@@ -7,72 +7,12 @@
 -- Epic E1: get_account_ai_usage_summary RPC
 -- =========================================================
 
--- ─── Epic A1: add operator_agency plan tier ──────────────────────────────────
-
-create or replace function public.account_plan_rank(
-  p_plan text
-)
-returns integer
-language sql
-stable
-set search_path = public
-as $$
-  select case lower(trim(coalesce(p_plan, 'starter')))
-    when 'operator_agency' then 4
-    when 'pro'             then 3
-    when 'growth'          then 2
-    else 1  -- starter
-  end;
-$$;
-
-comment on function public.account_plan_rank(text) is
-  'Maps canonical billing plan keys to a comparable numeric rank. '
-  'Plans in rank order: starter(1) < growth(2) < pro(3) < operator_agency(4).';
-
--- ─── Epic A2: register AI feature keys ───────────────────────────────────────
-
-create or replace function public.account_feature_required_plan(
-  p_feature text
-)
-returns text
-language sql
-stable
-set search_path = public
-as $$
-  select case lower(trim(coalesce(p_feature, '')))
-    -- ── existing non-AI features ─────────────────────────────────────
-    when 'command_center'          then 'growth'
-    when 'portfolio_health'        then 'growth'
-    when 'maintenance_kpi'         then 'growth'
-    when 'playbooks'               then 'pro'
-    when 'advanced_automation'     then 'pro'
-    when 'security_audit'          then 'pro'
-    when 'root_telemetry'          then 'pro'
-    when 'support_tooling'         then 'pro'
-
-    -- ── AI features: Growth tier ─────────────────────────────────────
-    when 'ai_maintenance_triage'       then 'growth'
-    when 'ai_attention_insight'        then 'growth'
-    when 'ai_property_health'          then 'growth'
-
-    -- ── AI features: Pro tier ────────────────────────────────────────
-    when 'ai_contractor_recommendation' then 'pro'
-    when 'ai_weekly_portfolio_summary'  then 'pro'
-    when 'ai_message_drafts'            then 'pro'
-    when 'ai_document_summaries'        then 'pro'
-
-    -- ── AI features: Operator/Agency tier ────────────────────────────
-    when 'ai_security_copilot'          then 'operator_agency'
-    when 'ai_natural_language_query'    then 'operator_agency'
-    when 'ai_advanced_audit_summaries'  then 'operator_agency'
-
-    else 'starter'
-  end;
-$$;
-
-comment on function public.account_feature_required_plan(text) is
-  'Returns the minimum billing plan required for a feature key. '
-  'AI feature keys follow the convention ai_<feature_name>.';
+-- ─── Epic A1 + A2: account_plan_rank / account_feature_required_plan ─────────
+-- CANONICAL DEFINITIONS moved to account_entitlements.sql (L-001 resolved).
+-- account_entitlements.sql is now the single source of truth for both functions,
+-- including all feature keys: core, AI, and Compliance & Risk Suite.
+-- IMPORTANT: apply account_entitlements.sql before this file.
+-- ─────────────────────────────────────────────────────────────────────────────
 
 -- ─── Epic B1: per-plan daily AI call limits ──────────────────────────────────
 

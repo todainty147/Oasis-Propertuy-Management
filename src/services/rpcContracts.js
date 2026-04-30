@@ -700,6 +700,11 @@ export function parseComplianceItemRow(row) {
     last_completed_at: toNullableString(value.last_completed_at),
     created_at: toNullableString(value.created_at),
     updated_at: toNullableString(value.updated_at),
+    jurisdiction: toNullableString(value.jurisdiction),
+    tax_filing_type: toNullableString(value.tax_filing_type),
+    deadline_date: toNullableString(value.deadline_date),
+    filed_at: toNullableString(value.filed_at),
+    filing_reference: toNullableString(value.filing_reference),
   };
 }
 
@@ -1448,6 +1453,103 @@ export function parseSecurityAuditExportRunResult(row) {
     rowCount: value.rowCount == null ? null : toNumberOr(value.rowCount),
     artifactBucket: toStringOr(value.artifactBucket),
     artifactPath: toStringOr(value.artifactPath),
+  };
+}
+
+export function parseLeaseAuditRow(row) {
+  const value = assertRecord(row, "lease audit row");
+  return {
+    id: toNullableString(value.id),
+    account_id: toNullableString(value.account_id),
+    lease_id: toNullableString(value.lease_id),
+    status: toStringOr(value.status, "pending").trim().toLowerCase(),
+    overall_risk: toNullableString(value.overall_risk),
+    summary: toNullableString(value.summary),
+    prompt_version: toNullableString(value.prompt_version),
+    source_hash: toNullableString(value.source_hash),
+    requested_by: toNullableString(value.requested_by),
+    completed_at: toNullableString(value.completed_at),
+    created_at: toNullableString(value.created_at),
+    updated_at: toNullableString(value.updated_at),
+  };
+}
+
+export function parseLeaseAuditFindingRow(row) {
+  const value = assertRecord(row, "lease audit finding row");
+  return {
+    id: toNullableString(value.id),
+    account_id: toNullableString(value.account_id),
+    lease_audit_id: toNullableString(value.lease_audit_id),
+    clause_ref: toNullableString(value.clause_ref),
+    clause_text: toNullableString(value.clause_text),
+    risk_level: toStringOr(value.risk_level, "medium").trim().toLowerCase(),
+    category: toNullableString(value.category),
+    explanation: toNullableString(value.explanation),
+    dismissed: toBooleanOr(value.dismissed, false),
+    dismissed_by: toNullableString(value.dismissed_by),
+    dismissed_at: toNullableString(value.dismissed_at),
+    created_at: toNullableString(value.created_at),
+  };
+}
+
+export function parseRentShieldAssessmentRow(row) {
+  const value = assertRecord(row, "rent shield assessment row");
+  return {
+    id: toNullableString(value.id),
+    account_id: toNullableString(value.account_id),
+    property_id: toNullableString(value.property_id),
+    period: toNullableString(value.period),
+    shield_score: toNumberOr(value.shield_score, 0),
+    shield_tier: toStringOr(value.shield_tier, "elevated"),
+    arrears_amount: toNullableNumber(value.arrears_amount),
+    days_overdue_p90: toNullableNumber(value.days_overdue_p90),
+    ai_narrative: toNullableString(value.ai_narrative),
+    generated_at: toNullableString(value.generated_at),
+    prompt_version: toNullableString(value.prompt_version),
+  };
+}
+
+export function parseTaxRecordRow(row) {
+  const value = assertRecord(row, "tax record row");
+  return {
+    id: toNullableString(value.id),
+    account_id: toNullableString(value.account_id),
+    property_id: toNullableString(value.property_id),
+    tenant_id: toNullableString(value.tenant_id),
+    payment_id: toNullableString(value.payment_id),
+    document_id: toNullableString(value.document_id),
+    country_code: toNullableString(value.country_code),
+    record_type: toStringOr(value.record_type).trim().toLowerCase(),
+    amount: toNullableNumber(value.amount),
+    currency: toStringOr(value.currency, "GBP"),
+    tax_category_code: toNullableString(value.tax_category_code),
+    tax_treatment: toStringOr(value.tax_treatment, "review_required"),
+    source_table: toNullableString(value.source_table),
+    source_id: toNullableString(value.source_id),
+    record_date: toNullableString(value.record_date),
+    description: toNullableString(value.description),
+    evidence_status: toStringOr(value.evidence_status, "missing"),
+    review_status: toStringOr(value.review_status, "unreviewed"),
+    metadata: toObjectOr(value.metadata),
+    created_at: toNullableString(value.created_at),
+    updated_at: toNullableString(value.updated_at),
+  };
+}
+
+export function parseTaxExportRow(row) {
+  const value = assertRecord(row, "tax export row");
+  return {
+    id: toNullableString(value.id),
+    account_id: toNullableString(value.account_id),
+    country_code: toNullableString(value.country_code),
+    tax_mode: toNullableString(value.tax_mode),
+    period_label: toNullableString(value.period_label),
+    export_type: toStringOr(value.export_type),
+    status: toStringOr(value.status, "pending"),
+    generated_by: toNullableString(value.generated_by),
+    generated_at: toNullableString(value.generated_at),
+    metadata: toObjectOr(value.metadata),
+    created_at: toNullableString(value.created_at),
   };
 }
 

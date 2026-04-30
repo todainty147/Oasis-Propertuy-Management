@@ -36,6 +36,14 @@ export const ENTITLEMENT_FEATURES = Object.freeze({
   AI_SECURITY_COPILOT: "ai_security_copilot",
   AI_NATURAL_LANGUAGE_QUERY: "ai_natural_language_query",
   AI_ADVANCED_AUDIT_SUMMARIES: "ai_advanced_audit_summaries",
+
+  // ── Compliance & Risk Suite: Growth tier ──────────────────────────────────
+  TAX_READINESS_DASHBOARD: "tax_readiness_dashboard",
+  RENT_SHIELD: "rent_shield",
+  AI_RENT_SHIELD_EXPLAINER: "ai_rent_shield_explainer",
+
+  // ── Compliance & Risk Suite: Pro tier ─────────────────────────────────────
+  AI_LEASE_AUDITOR: "ai_lease_auditor",
 });
 
 export const PLAN_RANKS = Object.freeze({
@@ -61,6 +69,9 @@ const GROWTH_FEATURES = [
   ENTITLEMENT_FEATURES.AI_MAINTENANCE_TRIAGE,
   ENTITLEMENT_FEATURES.AI_ATTENTION_INSIGHT,
   ENTITLEMENT_FEATURES.AI_PROPERTY_HEALTH,
+  ENTITLEMENT_FEATURES.TAX_READINESS_DASHBOARD,
+  ENTITLEMENT_FEATURES.RENT_SHIELD,
+  ENTITLEMENT_FEATURES.AI_RENT_SHIELD_EXPLAINER,
 ];
 
 const PRO_FEATURES = [
@@ -74,6 +85,7 @@ const PRO_FEATURES = [
   ENTITLEMENT_FEATURES.AI_WEEKLY_PORTFOLIO_SUMMARY,
   ENTITLEMENT_FEATURES.AI_MESSAGE_DRAFTS,
   ENTITLEMENT_FEATURES.AI_DOCUMENT_SUMMARIES,
+  ENTITLEMENT_FEATURES.AI_LEASE_AUDITOR,
 ];
 
 const OPERATOR_AGENCY_FEATURES = [

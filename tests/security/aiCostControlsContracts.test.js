@@ -11,6 +11,8 @@ function read(rel) {
 // ─── Source files under test ──────────────────────────────────────────────────
 
 const aiCostControlsSql = read("supabase/ai_cost_controls.sql");
+// L-001: canonical function definitions moved to account_entitlements.sql
+const entitlementsSql   = read("supabase/account_entitlements.sql");
 const aiSafety = read("supabase/functions/_shared/aiSafety.ts");
 const entitlements = read("src/lib/entitlements.js");
 const relativeTime = read("src/utils/relativeTime.js");
@@ -32,10 +34,11 @@ const ALL_FIVE = [triageFn, contractorFn, weeklyFn, attentionFn, propertyHealthF
 // ─── Epic A1: operator_agency plan tier ──────────────────────────────────────
 
 describe("Epic A1 – operator_agency plan tier", () => {
-  it("SQL defines operator_agency with rank 4", () => {
-    expect(aiCostControlsSql).toContain("when 'operator_agency' then 4");
-    expect(aiCostControlsSql).toContain("when 'pro'             then 3");
-    expect(aiCostControlsSql).toContain("when 'growth'          then 2");
+  it("SQL defines operator_agency with rank 4 (canonical: account_entitlements.sql)", () => {
+    // L-001: canonical definition in account_entitlements.sql
+    expect(entitlementsSql).toContain("when 'operator_agency' then 4");
+    expect(entitlementsSql).toContain("when 'pro'             then 3");
+    expect(entitlementsSql).toContain("when 'growth'          then 2");
   });
 
   it("frontend PLAN_RANKS includes operator_agency at 4", () => {
@@ -67,29 +70,30 @@ describe("Epic A2 – AI feature keys in account_feature_required_plan", () => {
     "ai_advanced_audit_summaries",
   ];
 
+  // L-001: feature key definitions consolidated into account_entitlements.sql
   for (const key of growthFeatures) {
-    it(`SQL maps ${key} → growth`, () => {
-      expect(aiCostControlsSql).toContain(`when '${key}'`);
-      const idx = aiCostControlsSql.indexOf(`when '${key}'`);
-      const snippet = aiCostControlsSql.slice(idx, idx + 60);
+    it(`SQL maps ${key} → growth (canonical: account_entitlements.sql)`, () => {
+      expect(entitlementsSql).toContain(`when '${key}'`);
+      const idx = entitlementsSql.indexOf(`when '${key}'`);
+      const snippet = entitlementsSql.slice(idx, idx + 60);
       expect(snippet).toContain("growth");
     });
   }
 
   for (const key of proFeatures) {
-    it(`SQL maps ${key} → pro`, () => {
-      expect(aiCostControlsSql).toContain(`when '${key}'`);
-      const idx = aiCostControlsSql.indexOf(`when '${key}'`);
-      const snippet = aiCostControlsSql.slice(idx, idx + 60);
+    it(`SQL maps ${key} → pro (canonical: account_entitlements.sql)`, () => {
+      expect(entitlementsSql).toContain(`when '${key}'`);
+      const idx = entitlementsSql.indexOf(`when '${key}'`);
+      const snippet = entitlementsSql.slice(idx, idx + 60);
       expect(snippet).toContain("pro");
     });
   }
 
   for (const key of operatorFeatures) {
-    it(`SQL maps ${key} → operator_agency`, () => {
-      expect(aiCostControlsSql).toContain(`when '${key}'`);
-      const idx = aiCostControlsSql.indexOf(`when '${key}'`);
-      const snippet = aiCostControlsSql.slice(idx, idx + 70);
+    it(`SQL maps ${key} → operator_agency (canonical: account_entitlements.sql)`, () => {
+      expect(entitlementsSql).toContain(`when '${key}'`);
+      const idx = entitlementsSql.indexOf(`when '${key}'`);
+      const snippet = entitlementsSql.slice(idx, idx + 70);
       expect(snippet).toContain("operator_agency");
     });
   }

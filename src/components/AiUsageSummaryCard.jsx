@@ -8,6 +8,8 @@ const FEATURE_LABELS = {
   property_health_explainer: "Property Health",
   contractor_recommendation: "Contractor Recommendation",
   weekly_portfolio_summary_ai: "Weekly Portfolio Summary",
+  ai_rent_shield_explainer: "Rent Shield Explainer",
+  ai_lease_auditor: "Lease Auditor",
 };
 
 function featureLabel(key) {

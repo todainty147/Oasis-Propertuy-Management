@@ -88,6 +88,7 @@ export async function listLeases({
   propertyId = null,
   tenantId = null,
   limit = 20,
+  offset = 0,
 } = {}) {
   if (!accountId) throw new Error("Missing accountId");
 
@@ -111,7 +112,7 @@ export async function listLeases({
     `)
     .eq("account_id", accountId)
     .order("lease_end_date", { ascending: true })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
 
   if (propertyId) query = query.eq("property_id", propertyId);
   if (tenantId) query = query.eq("tenant_id", tenantId);

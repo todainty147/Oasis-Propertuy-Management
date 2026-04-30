@@ -19,9 +19,14 @@ import {
   ChevronDown,
   ChevronRight,
   AlertCircle,
-    Zap,
-    Shield,
-    Activity,
+  Zap,
+  Shield,
+  Activity,
+  Scale,
+  Receipt,
+  Umbrella,
+  FileSearch,
+  Lock,
 } from "lucide-react";
 
 import { useMemo, useState } from "react";
@@ -55,6 +60,22 @@ function Item({ to, icon, label, onNavigate }) {
     >
       <NavIcon size={20} />
       <span className="font-medium">{label}</span>
+    </NavLink>
+  );
+}
+
+function LockedItem({ to, icon, label, onNavigate }) {
+  const NavIcon = icon;
+  return (
+    <NavLink
+      to={to}
+      onClick={onNavigate}
+      className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"
+      data-testid={`locked-nav-${to.replace(/\//g, "-").replace(/^-/, "")}`}
+    >
+      <NavIcon size={20} />
+      <span className="flex-1 font-medium">{label}</span>
+      <Lock size={12} className="shrink-0" aria-label="Requires upgrade" />
     </NavLink>
   );
 }
@@ -112,6 +133,7 @@ function SidebarContent({ onNavigate }) {
   const canReadFinance = isTenant || isRootOperator || can(activePermissionContext, "finance", "read");
   const canReadDocuments = isTenant || isRootOperator || can(activePermissionContext, "documents", "read");
   const [operationsOpen, setOperationsOpen] = useState(true);
+  const [complianceOpen, setComplianceOpen] = useState(true);
   const [adminOpen, setAdminOpen] = useState(true);
   const [dismissedOnboardingKey, setDismissedOnboardingKey] = useState(null);
   const userId = user?.id || null;
@@ -307,6 +329,42 @@ function SidebarContent({ onNavigate }) {
                     {hasEntitlement(ENTITLEMENT_FEATURES.PORTFOLIO_HEALTH) ? (
                       <Item to="/portfolio-health" icon={LineChart} label={t("sidebar.portfolioHealth")} onNavigate={onNavigate} />
                     ) : null}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {canManage && (
+              <div className="space-y-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setComplianceOpen((v) => !v)}
+                  className="w-full px-1 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Scale size={12} />
+                    {t("sidebar.section.compliance")}
+                  </span>
+                  {complianceOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </button>
+                {complianceOpen && (
+                  <div className="space-y-1">
+                    {hasEntitlement(ENTITLEMENT_FEATURES.TAX_READINESS_DASHBOARD) ? (
+                      <>
+                        <Item to="/compliance/tax" icon={Receipt} label={t("sidebar.taxReadiness")} onNavigate={onNavigate} />
+                        <Item to="/compliance/rent-shield" icon={Umbrella} label={t("sidebar.rentShield")} onNavigate={onNavigate} />
+                      </>
+                    ) : (
+                      <>
+                        <LockedItem to="/compliance/tax" icon={Receipt} label={t("sidebar.taxReadiness")} onNavigate={onNavigate} />
+                        <LockedItem to="/compliance/rent-shield" icon={Umbrella} label={t("sidebar.rentShield")} onNavigate={onNavigate} />
+                      </>
+                    )}
+                    {hasEntitlement(ENTITLEMENT_FEATURES.AI_LEASE_AUDITOR) ? (
+                      <Item to="/compliance/leases" icon={FileSearch} label={t("sidebar.leaseAuditor")} onNavigate={onNavigate} />
+                    ) : (
+                      <LockedItem to="/compliance/leases" icon={FileSearch} label={t("sidebar.leaseAuditor")} onNavigate={onNavigate} />
+                    )}
                   </div>
                 )}
               </div>
