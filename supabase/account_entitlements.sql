@@ -86,6 +86,11 @@ as $$
     -- ── Compliance & Risk Suite: Pro tier ────────────────────────────────
     when 'ai_lease_auditor'             then 'pro'
 
+    -- ── Document Intelligence: Growth tier ───────────────────────────────
+    -- Foundation for AI Lease Auditor, document summaries, compliance checks.
+    -- Extraction text never exposed to tenants/contractors (enforced by RLS).
+    when 'document_extraction'          then 'growth'
+
     else 'starter'
   end;
 $$;

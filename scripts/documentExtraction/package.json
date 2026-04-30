@@ -1,0 +1,19 @@
+{
+  "name": "oasis-document-extraction-worker",
+  "private": true,
+  "description": "Server-side document extraction worker for OASIS. Runs outside of React / Vite.",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "main": "worker.js",
+  "scripts": {
+    "start": "node worker.js",
+    "start:once": "node worker.js --once"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.99.2",
+    "pdf-parse": "^1.1.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

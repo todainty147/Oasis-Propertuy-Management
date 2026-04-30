@@ -1553,6 +1553,48 @@ export function parseTaxExportRow(row) {
   };
 }
 
+export function parseDocumentExtractionRow(row) {
+  const value = assertRecord(row, "document extraction row");
+  return {
+    id: toNullableString(value.id),
+    account_id: toNullableString(value.account_id),
+    document_id: toNullableString(value.document_id),
+    extractor: toStringOr(value.extractor).trim().toLowerCase(),
+    language_hint: toNullableString(value.language_hint),
+    status: toStringOr(value.status, "pending").trim().toLowerCase(),
+    text_content: toNullableString(value.text_content),
+    markdown_content: toNullableString(value.markdown_content),
+    structured_payload: toObjectOr(value.structured_payload),
+    confidence_score: toNullableNumber(value.confidence_score),
+    source_hash: toStringOr(value.source_hash),
+    page_count: toNullableNumber(value.page_count),
+    character_count: toNullableNumber(value.character_count),
+    error_message: toNullableString(value.error_message),
+    created_by: toNullableString(value.created_by),
+    created_at: toNullableString(value.created_at),
+    updated_at: toNullableString(value.updated_at),
+    completed_at: toNullableString(value.completed_at),
+  };
+}
+
+export function parseDocumentExtractionRunRow(row) {
+  const value = assertRecord(row, "document extraction run row");
+  return {
+    id: toNullableString(value.id),
+    account_id: toNullableString(value.account_id),
+    document_id: toNullableString(value.document_id),
+    extraction_id: toNullableString(value.extraction_id),
+    extractor: toStringOr(value.extractor).trim().toLowerCase(),
+    status: toStringOr(value.status, "queued").trim().toLowerCase(),
+    started_at: toNullableString(value.started_at),
+    completed_at: toNullableString(value.completed_at),
+    error_message: toNullableString(value.error_message),
+    metadata: toObjectOr(value.metadata),
+    created_by: toNullableString(value.created_by),
+    created_at: toNullableString(value.created_at),
+  };
+}
+
 export function parseRpcRows(rows, parser, label = "RPC rows") {
   if (!Array.isArray(rows)) {
     throw new RpcContractError(`${label} must be an array`);

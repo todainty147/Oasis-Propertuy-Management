@@ -33,6 +33,7 @@ import DocumentTemplateLibrary from "../components/DocumentTemplateLibrary";
 import DocumentRequestsPanel from "../components/DocumentRequestsPanel";
 import DocumentPacketsPanel from "../components/DocumentPacketsPanel";
 import DocumentSignatureReadinessPanel from "../components/DocumentSignatureReadinessPanel";
+import DocumentExtractionPanel from "../components/DocumentExtractionPanel";
 
 /* ======================
    HELPERS
@@ -719,6 +720,15 @@ export default function Documents({
                     </button>
                   )}
                 </div>
+
+                {/* Extraction panel: visible to owner/admin/staff only, never tenant/contractor */}
+                {!isTenant && canUploadDocument(permissionContext) && (
+                  <DocumentExtractionPanel
+                    accountId={doc.account_id}
+                    documentId={doc.id}
+                    mimeType={doc.mime_type}
+                  />
+                )}
               </div>
             </div>
           ))}
