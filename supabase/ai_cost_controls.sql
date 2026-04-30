@@ -122,37 +122,50 @@ begin
       and m.period_key like v_period || '-__'
     group by m.feature_key
   ),
+  -- totals is a plain aggregate — always returns exactly one row even when
+  -- monthly_rows is empty, which means this query always returns at least
+  -- one row so callers can read the correct plan and limit for zero-usage months.
   totals as (
     select
-      sum(feat_runs)   as tot_runs,
-      sum(feat_input)  as tot_input,
-      sum(feat_output) as tot_output,
-      sum(feat_cost)   as tot_cost
+      coalesce(sum(feat_runs),   0) as tot_runs,
+      coalesce(sum(feat_input),  0) as tot_input,
+      coalesce(sum(feat_output), 0) as tot_output,
+      coalesce(sum(feat_cost),   0) as tot_cost
     from monthly_rows
+  ),
+  -- feature_or_sentinel: when there is no usage data, emit a single null-
+  -- feature row so the CROSS JOIN with totals still produces output.
+  feature_or_sentinel as (
+    select feature_key, feat_runs, feat_input, feat_output, feat_cost
+    from monthly_rows
+    union all
+    select null::text, 0, 0, 0, 0::numeric
+    where not exists (select 1 from monthly_rows)
   )
   select
     v_period                                    as period_key,
     v_plan                                      as plan,
     v_limit                                     as monthly_limit,
-    coalesce(t.tot_runs,   0)::bigint           as total_prompt_runs,
-    coalesce(t.tot_input,  0)::bigint           as total_input_tokens,
-    coalesce(t.tot_output, 0)::bigint           as total_output_tokens,
-    coalesce(t.tot_cost,   0)                   as total_estimated_cost,
-    r.feature_key,
-    coalesce(r.feat_runs,   0)::bigint          as feature_prompt_runs,
-    coalesce(r.feat_input,  0)::bigint          as feature_input_tokens,
-    coalesce(r.feat_output, 0)::bigint          as feature_output_tokens,
-    coalesce(r.feat_cost,   0)                  as feature_cost
-  from monthly_rows r
+    t.tot_runs::bigint                          as total_prompt_runs,
+    t.tot_input::bigint                         as total_input_tokens,
+    t.tot_output::bigint                        as total_output_tokens,
+    t.tot_cost                                  as total_estimated_cost,
+    f.feature_key,
+    f.feat_runs::bigint                         as feature_prompt_runs,
+    f.feat_input::bigint                        as feature_input_tokens,
+    f.feat_output::bigint                       as feature_output_tokens,
+    f.feat_cost                                 as feature_cost
+  from feature_or_sentinel f
   cross join totals t
-  order by r.feat_runs desc;
+  order by f.feat_runs desc nulls last;
 end;
 $$;
 
 comment on function public.get_account_ai_usage_summary(uuid, text) is
   'Returns per-feature and aggregate AI usage for an account in a calendar month '
-  '(p_period = YYYY-MM). Requires manage role. Sums daily rows only (period_key '
-  'YYYY-MM-DD); no separate monthly aggregate rows exist.';
+  '(p_period = YYYY-MM). Requires manage role. Always returns at least one row '
+  '(with null feature_key) so callers get correct plan/limit for zero-usage months. '
+  'Sums daily rows only (period_key YYYY-MM-DD); monthly total is account-wide.';
 
 revoke all on function public.get_account_ai_usage_summary(uuid, text) from public;
 grant execute on function public.get_account_ai_usage_summary(uuid, text) to authenticated;

@@ -85,8 +85,12 @@ function buildLimitError(message: string, status: number, code: string): Error {
 }
 
 /**
+ * @deprecated Use checkAndReserveAiCall instead. This read-only check has a
+ * race window (check-then-call) and enforces monthly limits per-feature rather
+ * than account-wide. Retained only for external callers not yet migrated.
+ * Will be removed once no callers remain.
+ *
  * Throws 429 if the account has exceeded its plan-based daily AI call limit.
- * Resolves the limit from the DB so it reflects the account's current plan.
  */
 export async function assertAiDailyLimit(
   client: SupabaseLikeClient,
@@ -118,6 +122,11 @@ export async function assertAiDailyLimit(
 }
 
 /**
+ * @deprecated Use checkAndReserveAiCall instead. This read-only check has a
+ * race window (check-then-call) and enforces the monthly limit per-feature
+ * rather than account-wide. Retained only for external callers not yet migrated.
+ * Will be removed once no callers remain.
+ *
  * Throws 429 if the account has exceeded its plan-based monthly AI call limit.
  * Sums daily rows for the current month — no separate monthly aggregate needed.
  */
@@ -200,8 +209,18 @@ export async function assertAiMonthlyLimit(
 /**
  * Atomically checks daily and monthly AI call quotas then increments the daily
  * meter row if both limits allow it. Calls the reserve_ai_call_checked SQL RPC
- * which holds a pg_advisory_xact_lock for (account_id, feature_key), making
- * the read-check-increment sequence serial for concurrent callers.
+ * which holds a pg_advisory_xact_lock at account level, making the
+ * read-check-increment sequence serial for all concurrent AI calls in the
+ * same account.
+ *
+ * Quota semantics:
+ *   - Monthly limit is account-wide (all features combined).
+ *   - Daily limit is per feature key.
+ *   - Attempted-generation billing: once this function returns, the slot is
+ *     consumed even if the subsequent model call fails into deterministic
+ *     fallback. This is intentional — the AI call was attempted and the quota
+ *     slot should be counted. Edge Functions only call this when OPENAI_API_KEY
+ *     is present, so fallback-mode deployments never consume quota at all.
  *
  * Throws 429 with code 'ai_daily_limit_reached' or 'ai_monthly_limit_reached'.
  */

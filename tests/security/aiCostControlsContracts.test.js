@@ -308,9 +308,36 @@ describe("Epic B3 – atomic quota check + reservation in all 5 edge functions",
     expect(sql).toContain("to service_role");
   });
 
+  it("reserve_ai_call_checked.sql enforces monthly limit account-wide (no feature_key filter on monthly query)", () => {
+    const sqlPath = path.resolve("supabase/reserve_ai_call_checked.sql");
+    const sql = readFileSync(sqlPath, "utf8");
+    // Monthly sum must not filter by feature_key — the monthly budget is shared across all features
+    const monthlyBlock = sql.slice(
+      sql.indexOf("-- Check monthly limit"),
+      sql.indexOf("-- Check daily limit"),
+    );
+    expect(monthlyBlock).not.toContain("feature_key = p_feature_key");
+    // Daily limit still scopes to the specific feature
+    const dailyBlock = sql.slice(sql.indexOf("-- Check daily limit"));
+    expect(dailyBlock).toContain("feature_key = p_feature_key");
+  });
+
+  it("reserve_ai_call_checked.sql advisory lock is account-level (not per-feature)", () => {
+    const sqlPath = path.resolve("supabase/reserve_ai_call_checked.sql");
+    const sql = readFileSync(sqlPath, "utf8");
+    // Account-level lock uses a fixed second arg of 0 (not hashtext of feature_key)
+    expect(sql).toContain("pg_advisory_xact_lock(hashtext(p_account_id::text), 0)");
+  });
+
   it("get_account_ai_usage_summary sums only daily rows (LIKE YYYY-MM-__)", () => {
     expect(aiCostControlsSql).toContain("like v_period || '-__'");
     expect(aiCostControlsSql).not.toContain("like v_period || '%'");
+  });
+
+  it("get_account_ai_usage_summary always returns a row for zero-usage months", () => {
+    // feature_or_sentinel CTE ensures at least one row even when monthly_rows is empty
+    expect(aiCostControlsSql).toContain("feature_or_sentinel");
+    expect(aiCostControlsSql).toContain("where not exists (select 1 from monthly_rows)");
   });
 });
 

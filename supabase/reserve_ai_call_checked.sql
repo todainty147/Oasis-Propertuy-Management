@@ -5,21 +5,34 @@
 -- reserveAiCall three-step pattern in every Edge Function with a single
 -- serialised SQL call.
 --
--- The old pattern had a race window:
---   1. Read current count (in TS)
---   2. Decide whether under limit (in TS)
---   3. Increment counter (RPC)
--- Two concurrent requests could both pass step 2 before either reaches step 3.
+-- Quota semantics (deliberate product decisions):
 --
--- This function closes the window using pg_advisory_xact_lock, which serialises
--- all callers for the same (account_id, feature_key) pair within the current
--- transaction. The sequence — read → check → increment — is then atomic for
--- that key.
+--   Monthly limit — account-wide across all AI features combined.
+--     A Growth account with a 500-call monthly limit gets 500 AI calls total
+--     regardless of which feature generated them. The monthly query sums
+--     ALL feature keys for the account, not just the one being requested.
+--
+--   Daily limit — per feature key.
+--     Each AI feature has its own daily ceiling so one heavy user of a single
+--     feature (e.g., maintenance triage) cannot exhaust the daily budget for
+--     every other feature. The daily query filters by feature_key.
+--
+--   Attempted-generation billing — if OpenAI is configured and the model call
+--     is attempted but returns an error that triggers deterministic fallback,
+--     the slot is still consumed. This is consistent with how AI APIs bill:
+--     the attempt counts, not the output quality. Edge Functions only reach
+--     this path when OPENAI_API_KEY is present, so fallback-mode deployments
+--     (no key) never consume quota.
+--
+-- Concurrency:
+--   pg_advisory_xact_lock is held at account level (not per-feature) because
+--   the monthly budget is account-wide. This serialises all AI calls from the
+--   same account. The lock is released automatically at transaction end.
 --
 -- Returns:
 --   'ok'                    — slot reserved, call may proceed
---   'daily_limit_reached'   — daily quota exhausted
---   'monthly_limit_reached' — monthly quota exhausted
+--   'daily_limit_reached'   — daily quota exhausted for this feature
+--   'monthly_limit_reached' — monthly quota exhausted across all features
 -- =============================================================================
 
 create or replace function public.reserve_ai_call_checked(
@@ -44,12 +57,10 @@ declare
   v_daily_runs    integer := 0;
   v_monthly_runs  bigint  := 0;
 begin
-  -- Serialise concurrent calls for the same (account, feature) pair.
-  -- pg_advisory_xact_lock is released automatically at transaction end.
-  perform pg_advisory_xact_lock(
-    hashtext(p_account_id::text),
-    hashtext(p_feature_key)
-  );
+  -- Serialise all AI calls for the same account. Lock is at account level
+  -- (not per-feature) because the monthly budget is account-wide. The fixed
+  -- second arg of 0 distinguishes this from any other advisory lock namespace.
+  perform pg_advisory_xact_lock(hashtext(p_account_id::text), 0);
 
   v_plan          := public.account_subscription_plan(p_account_id);
   v_daily_limit   := public.ai_daily_call_limit_for_plan(v_plan, p_feature_key);
@@ -63,9 +74,9 @@ begin
     return 'ok';
   end if;
 
-  -- Check monthly limit.
-  -- Only daily rows (period_key YYYY-MM-DD) are counted; there are no separate
-  -- monthly aggregate rows — the double-counting fix removed those.
+  -- Check monthly limit — account-wide (all features combined).
+  -- Sums ALL feature keys so the account budget is shared, not per-feature.
+  -- Only daily rows (period_key YYYY-MM-DD) are included.
   if v_monthly_limit is not null then
     if v_monthly_limit = 0 then
       return 'monthly_limit_reached';
@@ -75,7 +86,6 @@ begin
     into   v_monthly_runs
     from   public.ai_usage_meter
     where  account_id  = p_account_id
-      and  feature_key = p_feature_key
       and  period_key >= v_month_start
       and  period_key <  v_next_month;
 
@@ -111,10 +121,9 @@ end;
 $$;
 
 comment on function public.reserve_ai_call_checked(uuid, text) is
-  'Atomically checks daily and monthly AI call quotas then increments the daily '
-  'meter row if both limits allow it. Uses pg_advisory_xact_lock to serialise '
-  'concurrent calls for the same (account_id, feature_key) pair, closing the '
-  'check-then-call race window present in the previous 3-step pattern. '
+  'Atomically checks AI call quotas and increments the daily meter row. '
+  'Monthly limit is account-wide (all features); daily limit is per feature. '
+  'Uses pg_advisory_xact_lock at account level to serialise concurrent callers. '
   'Returns ''ok'', ''daily_limit_reached'', or ''monthly_limit_reached''.';
 
 -- Service_role only: called exclusively by Edge Functions.
