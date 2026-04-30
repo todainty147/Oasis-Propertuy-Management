@@ -7508,6 +7508,15 @@ Object.assign(messages.en, {
   "billing.aiUsage.showBreakdown": "Show feature breakdown",
   "billing.aiUsage.hideBreakdown": "Hide feature breakdown",
   "billing.aiUsage.quotaWarning": "You have used {pct}% of your monthly AI quota. Resets on {date}.",
+  "billing.aiUsage.callCount_one": "1 call",
+  "billing.aiUsage.callCount_other": "{count} calls",
+  "billing.aiUsage.feature.attention_briefing": "Attention Insights",
+  "billing.aiUsage.feature.maintenance_triage_suggestion": "Maintenance Triage",
+  "billing.aiUsage.feature.property_health_explainer": "Property Health",
+  "billing.aiUsage.feature.contractor_recommendation": "Contractor Recommendation",
+  "billing.aiUsage.feature.weekly_portfolio_summary_ai": "Weekly Portfolio Summary",
+  "billing.aiUsage.feature.ai_rent_shield_explainer": "Rent Shield Explainer",
+  "billing.aiUsage.feature.ai_lease_auditor": "Lease Auditor",
 });
 
 Object.assign(messages.pl, {
@@ -7531,6 +7540,15 @@ Object.assign(messages.pl, {
   "billing.aiUsage.showBreakdown": "Pokaż podział per funkcja",
   "billing.aiUsage.hideBreakdown": "Ukryj podział per funkcja",
   "billing.aiUsage.quotaWarning": "Wykorzystano {pct}% miesięcznego limitu AI. Resetuje się {date}.",
+  "billing.aiUsage.callCount_one": "1 wywołanie",
+  "billing.aiUsage.callCount_other": "{count} wywołań",
+  "billing.aiUsage.feature.attention_briefing": "Powiadomienia AI",
+  "billing.aiUsage.feature.maintenance_triage_suggestion": "Triage konserwacji",
+  "billing.aiUsage.feature.property_health_explainer": "Zdrowie nieruchomości",
+  "billing.aiUsage.feature.contractor_recommendation": "Rekomendacja wykonawcy",
+  "billing.aiUsage.feature.weekly_portfolio_summary_ai": "Tygodniowe podsumowanie",
+  "billing.aiUsage.feature.ai_rent_shield_explainer": "Wyjaśnienie Rent Shield",
+  "billing.aiUsage.feature.ai_lease_auditor": "Audytor umów",
 });
 
 Object.assign(messages.de, {
@@ -7554,4 +7572,13 @@ Object.assign(messages.de, {
   "billing.aiUsage.showBreakdown": "Aufschlüsselung anzeigen",
   "billing.aiUsage.hideBreakdown": "Aufschlüsselung ausblenden",
   "billing.aiUsage.quotaWarning": "{pct} % des monatlichen KI-Kontingents genutzt. Zurückgesetzt am {date}.",
+  "billing.aiUsage.callCount_one": "1 Aufruf",
+  "billing.aiUsage.callCount_other": "{count} Aufrufe",
+  "billing.aiUsage.feature.attention_briefing": "Aufmerksamkeits-Insights",
+  "billing.aiUsage.feature.maintenance_triage_suggestion": "Wartungs-Triage",
+  "billing.aiUsage.feature.property_health_explainer": "Objekt-Zustand",
+  "billing.aiUsage.feature.contractor_recommendation": "Handwerker-Empfehlung",
+  "billing.aiUsage.feature.weekly_portfolio_summary_ai": "Wöchentliche Zusammenfassung",
+  "billing.aiUsage.feature.ai_rent_shield_explainer": "Rent Shield-Erläuterung",
+  "billing.aiUsage.feature.ai_lease_auditor": "Mietvertragsprüfer",
 });

@@ -2,19 +2,6 @@ import { useEffect, useState } from "react";
 import { useI18n } from "../context/I18nContext";
 import { getAccountAiUsageSummary } from "../services/aiUsageService";
 
-const FEATURE_LABELS = {
-  attention_briefing: "Attention Insights",
-  maintenance_triage_suggestion: "Maintenance Triage",
-  property_health_explainer: "Property Health",
-  contractor_recommendation: "Contractor Recommendation",
-  weekly_portfolio_summary_ai: "Weekly Portfolio Summary",
-  ai_rent_shield_explainer: "Rent Shield Explainer",
-  ai_lease_auditor: "Lease Auditor",
-};
-
-function featureLabel(key) {
-  return FEATURE_LABELS[key] || key.replace(/_/g, " ");
-}
 
 function UsageBar({ used, limit, unlimitedLabel, className = "" }) {
   if (limit == null) {
@@ -161,9 +148,16 @@ export default function AiUsageSummaryCard({ accountId, period }) {
                     {summary.features.map((f) => (
                       <div key={f.featureKey}>
                         <div className="flex items-center justify-between mb-1">
-                          <p className="text-xs text-slate-600">{featureLabel(f.featureKey)}</p>
+                          <p className="text-xs text-slate-600">
+                            {t(`billing.aiUsage.feature.${f.featureKey}`) || f.featureKey.replace(/_/g, " ")}
+                          </p>
                           <p className="text-[11px] text-slate-400 tabular-nums">
-                            {f.promptRuns} call{f.promptRuns !== 1 ? "s" : ""}
+                            {t(
+                              f.promptRuns === 1
+                                ? "billing.aiUsage.callCount_one"
+                                : "billing.aiUsage.callCount_other",
+                              { count: f.promptRuns },
+                            )}
                             {f.estimatedCost > 0 ? ` · $${f.estimatedCost.toFixed(4)}` : ""}
                           </p>
                         </div>

@@ -63,24 +63,29 @@ describe("BillingPage: compliance feature matrix", () => {
 // ─── AiUsageSummaryCard: compliance AI feature labels ────────────────────────
 
 describe("AiUsageSummaryCard: compliance feature labels", () => {
-  it("includes ai_rent_shield_explainer label", () => {
-    expect(aiUsageCard).toContain("ai_rent_shield_explainer");
-    expect(aiUsageCard).toContain("Rent Shield Explainer");
+  // Feature labels moved from hardcoded FEATURE_LABELS in the component to
+  // i18n keys (billing.aiUsage.feature.*) in messages.js. The component now
+  // uses a dynamic t(`billing.aiUsage.feature.${f.featureKey}`) lookup.
+
+  it("includes ai_rent_shield_explainer i18n key in messages.js", () => {
+    expect(messagesJs).toContain("billing.aiUsage.feature.ai_rent_shield_explainer");
+    expect(messagesJs).toContain("Rent Shield Explainer");
   });
 
-  it("includes ai_lease_auditor label", () => {
-    expect(aiUsageCard).toContain("ai_lease_auditor");
-    expect(aiUsageCard).toContain("Lease Auditor");
+  it("includes ai_lease_auditor i18n key in messages.js", () => {
+    expect(messagesJs).toContain("billing.aiUsage.feature.ai_lease_auditor");
+    expect(messagesJs).toContain("Lease Auditor");
   });
 
-  it("has 7 total feature label entries", () => {
-    const labelMatches = aiUsageCard.match(/\w+_\w+[^"]*:/g) || [];
-    // Count lines inside FEATURE_LABELS
-    const idx = aiUsageCard.indexOf("const FEATURE_LABELS");
-    const end = aiUsageCard.indexOf("};", idx);
-    const block = aiUsageCard.slice(idx, end);
-    const entries = (block.match(/:/g) || []).length;
-    expect(entries).toBeGreaterThanOrEqual(7);
+  it("has 7 billing.aiUsage.feature.* entries in messages.js", () => {
+    const matches = messagesJs.match(/"billing\.aiUsage\.feature\.[^"]+"/g) || [];
+    // EN + PL + DE = 3 locales × 7 features = 21 total occurrences
+    const uniqueKeys = new Set(matches);
+    expect(uniqueKeys.size).toBeGreaterThanOrEqual(7);
+  });
+
+  it("component uses dynamic i18n lookup for feature labels", () => {
+    expect(aiUsageCard).toContain("billing.aiUsage.feature.");
   });
 });
 

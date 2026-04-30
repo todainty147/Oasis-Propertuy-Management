@@ -11,12 +11,10 @@ import {
 } from "../_shared/contractorRecommendationInsight.ts";
 import { buildFallbackMaintenanceTriageInsight } from "../_shared/maintenanceTriageInsight.ts";
 import {
-  assertAiDailyLimit,
-  assertAiMonthlyLimit,
+  checkAndReserveAiCall,
   clampAiInsightPayload,
   isCacheStaleByPromptVersion,
   recordAiTokens,
-  reserveAiCall,
 } from "../_shared/aiSafety.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -106,23 +104,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Epic B1 + B2: plan-aware daily + monthly limit checks
+    // Atomic quota check + reservation — skipped entirely in fallback mode
     if (OPENAI_API_KEY) {
       try {
-        await assertAiDailyLimit(admin, {
-          accountId,
-          featureKey: "contractor_recommendation",
-        });
-        await assertAiMonthlyLimit(admin, {
-          accountId,
-          featureKey: "contractor_recommendation",
-        });
+        await checkAndReserveAiCall(admin, { accountId, featureKey: "contractor_recommendation" });
       } catch (error) {
         return respond({ error: String((error as Error)?.message || "AI generation limit reached") }, 429);
       }
     }
-
-    await reserveAiCall(admin, { accountId, featureKey: "contractor_recommendation" });
 
     const result = await generateInsight(input);
     result.insight = clampAiInsightPayload(result.insight);

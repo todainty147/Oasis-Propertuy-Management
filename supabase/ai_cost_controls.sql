@@ -118,8 +118,8 @@ begin
       sum(m.estimated_cost)    as feat_cost
     from public.ai_usage_meter m
     where m.account_id = v_account_id
-      -- match both daily rows (YYYY-MM-DD) and monthly summary rows (YYYY-MM)
-      and (m.period_key like v_period || '%' or m.period_key = v_period)
+      -- daily rows only (YYYY-MM-DD); YYYY-MM-__ excludes legacy YYYY-MM aggregates
+      and m.period_key like v_period || '-__'
     group by m.feature_key
   ),
   totals as (
@@ -151,7 +151,8 @@ $$;
 
 comment on function public.get_account_ai_usage_summary(uuid, text) is
   'Returns per-feature and aggregate AI usage for an account in a calendar month '
-  '(p_period = YYYY-MM). Requires manage role. Sums daily and monthly meter rows.';
+  '(p_period = YYYY-MM). Requires manage role. Sums daily rows only (period_key '
+  'YYYY-MM-DD); no separate monthly aggregate rows exist.';
 
 revoke all on function public.get_account_ai_usage_summary(uuid, text) from public;
 grant execute on function public.get_account_ai_usage_summary(uuid, text) to authenticated;

@@ -210,14 +210,16 @@ describe("Epics B1+B2 – per-plan daily and monthly limit SQL functions", () =>
   });
 });
 
-// ─── Epic B3: all 5 functions write monthly meter rows ───────────────────────
+// ─── Epic B3: atomic check+reserve in all 5 edge functions ──────────────────
 
-describe("Epic B3 – monthly meter rows written in all 5 edge functions", () => {
-  // The old local upsertUsageMeterRow read-modify-write has been replaced by:
-  //   reserveAiCall  — atomic pre-call prompt_runs increment (daily + monthly)
-  //   recordAiTokens — atomic post-call token increment (daily + monthly)
-  // Both helpers call the increment_ai_usage_meter SQL RPC which uses
-  // ON CONFLICT DO UPDATE += to avoid concurrent under-counting.
+describe("Epic B3 – atomic quota check + reservation in all 5 edge functions", () => {
+  // The old 3-step pattern (assertAiDailyLimit + assertAiMonthlyLimit +
+  // reserveAiCall called outside the OPENAI_API_KEY guard) has been replaced by:
+  //   checkAndReserveAiCall — single atomic SQL RPC (reserve_ai_call_checked)
+  //     that uses pg_advisory_xact_lock to close the check-then-call race.
+  //   recordAiTokens        — fire-and-forget daily token increment post-call.
+  // Only daily rows (YYYY-MM-DD) are written; monthly totals are derived at
+  // query time, eliminating the ~2x double-counting from legacy YYYY-MM rows.
   for (const [label, src] of [
     ["triage", triageFn],
     ["contractor", contractorFn],
@@ -225,45 +227,90 @@ describe("Epic B3 – monthly meter rows written in all 5 edge functions", () =>
     ["attention", attentionFn],
     ["property-health", propertyHealthFn],
   ]) {
-    it(`${label} function imports reserveAiCall from aiSafety.ts`, () => {
-      expect(src).toContain("reserveAiCall");
+    it(`${label} function imports checkAndReserveAiCall from aiSafety.ts`, () => {
+      expect(src).toContain("checkAndReserveAiCall");
     });
 
-    it(`${label} function calls reserveAiCall before the AI model call`, () => {
-      // reserveAiCall must appear before generateInsight in the source
-      const reserveIdx = src.indexOf("await reserveAiCall(");
+    it(`${label} function calls checkAndReserveAiCall before the AI model call`, () => {
+      const reserveIdx = src.indexOf("await checkAndReserveAiCall(");
       const generateIdx = src.indexOf("const result = await generateInsight(");
       expect(reserveIdx).toBeGreaterThan(-1);
       expect(reserveIdx).toBeLessThan(generateIdx);
+    });
+
+    it(`${label} function gates checkAndReserveAiCall inside OPENAI_API_KEY check`, () => {
+      // The quota block must be inside if (OPENAI_API_KEY) — no quota consumed in fallback mode
+      const keyIdx  = src.indexOf("if (OPENAI_API_KEY)");
+      const closeIdx = src.indexOf("await checkAndReserveAiCall(");
+      expect(keyIdx).toBeGreaterThan(-1);
+      expect(closeIdx).toBeGreaterThan(keyIdx);
     });
 
     it(`${label} function calls recordAiTokens after the AI model call`, () => {
       expect(src).toContain("recordAiTokens(");
     });
 
-    it(`${label} function also calls assertAiMonthlyLimit`, () => {
-      expect(src).toContain("assertAiMonthlyLimit");
+    it(`${label} function does not call assertAiMonthlyLimit directly`, () => {
+      // Limit enforcement is now inside the SQL RPC, not in TS
+      expect(src).not.toContain("assertAiMonthlyLimit");
     });
   }
 
-  it("aiSafety.ts exports reserveAiCall and recordAiTokens", () => {
+  it("aiSafety.ts exports checkAndReserveAiCall", () => {
+    expect(aiSafety).toContain("export async function checkAndReserveAiCall");
+  });
+
+  it("aiSafety.ts checkAndReserveAiCall calls reserve_ai_call_checked RPC", () => {
+    const idx = aiSafety.indexOf("export async function checkAndReserveAiCall");
+    const snippet = aiSafety.slice(idx, idx + 800);
+    expect(snippet).toContain("reserve_ai_call_checked");
+    expect(snippet).toContain("daily_limit_reached");
+    expect(snippet).toContain("monthly_limit_reached");
+  });
+
+  it("aiSafety.ts still exports reserveAiCall and recordAiTokens as low-level helpers", () => {
     expect(aiSafety).toContain("export async function reserveAiCall");
     expect(aiSafety).toContain("export function recordAiTokens");
   });
 
-  it("aiSafety.ts reserveAiCall calls increment_ai_usage_meter RPC with prompt_runs=1", () => {
+  it("aiSafety.ts reserveAiCall writes only daily rows (no monthly YYYY-MM row)", () => {
     const idx = aiSafety.indexOf("export async function reserveAiCall");
-    const snippet = aiSafety.slice(idx, idx + 600);
+    const end = aiSafety.indexOf("export function recordAiTokens");
+    const snippet = aiSafety.slice(idx, end);
     expect(snippet).toContain("increment_ai_usage_meter");
     expect(snippet).toContain("p_prompt_runs:   1");
+    // Must NOT contain a second rpc call for the monthly period key
+    expect(snippet.split("increment_ai_usage_meter").length - 1).toBe(1);
   });
 
-  it("aiSafety.ts monthly limit query uses server-side period filter (no JS-side filter)", () => {
-    // Verify we use .gte/.lt range bounds rather than loading all rows
-    expect(aiSafety).toContain(".gte(\"period_key\"");
+  it("aiSafety.ts recordAiTokens writes only daily rows (no monthly YYYY-MM row)", () => {
+    const idx = aiSafety.indexOf("export function recordAiTokens");
+    const snippet = aiSafety.slice(idx, idx + 600);
+    expect(snippet).toContain("increment_ai_usage_meter");
+    // Must NOT contain a second rpc call for the monthly period key
+    expect(snippet.split("increment_ai_usage_meter").length - 1).toBe(1);
+  });
+
+  it("aiSafety.ts monthly limit query lower bound starts at first day of month", () => {
+    // gte lower bound must be monthKey + "-01" to exclude legacy YYYY-MM aggregate rows
+    expect(aiSafety).toContain(".gte(\"period_key\", monthKey + \"-01\")");
     expect(aiSafety).toContain(".lt(\"period_key\"");
-    // The old JS .filter() on all rows must be gone
     expect(aiSafety).not.toContain(".filter((r) => String(r.period_key");
+  });
+
+  it("reserve_ai_call_checked.sql uses pg_advisory_xact_lock for serialisation", () => {
+    const sqlPath = path.resolve("supabase/reserve_ai_call_checked.sql");
+    const sql = readFileSync(sqlPath, "utf8");
+    expect(sql).toContain("pg_advisory_xact_lock");
+    expect(sql).toContain("reserve_ai_call_checked");
+    expect(sql).toContain("daily_limit_reached");
+    expect(sql).toContain("monthly_limit_reached");
+    expect(sql).toContain("to service_role");
+  });
+
+  it("get_account_ai_usage_summary sums only daily rows (LIKE YYYY-MM-__)", () => {
+    expect(aiCostControlsSql).toContain("like v_period || '-__'");
+    expect(aiCostControlsSql).not.toContain("like v_period || '%'");
   });
 });
 

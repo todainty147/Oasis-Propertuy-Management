@@ -148,21 +148,9 @@ export async function assertAiMonthlyLimit(
 
   const monthKey = getMonthlyAiPeriodKey();
 
-  // Sum only rows for the current month. period_key is YYYY-MM-DD (daily rows)
-  // or YYYY-MM (monthly aggregate). The LIKE filter is applied server-side so
-  // we never load the full history of an account into the Edge runtime.
-  const monthPrefix = monthKey + "%"; // e.g. "2026-04%"
-  const queryBuilder = client
-    .from("ai_usage_meter")
-    .select("prompt_runs")
-    .eq("account_id", accountId)
-    .eq("feature_key", featureKey) as unknown as {
-      like: (col: string, pattern: string) => typeof queryBuilder;
-      then: SupabaseQueryBuilder["then"];
-    };
-
-  // Use gte/lt range bounds as a reliable alternative to LIKE across all
-  // Supabase JS versions (avoids relying on the .like() method being present).
+  // Sum only daily rows (YYYY-MM-DD) for the current month.
+  // Lower bound starts at the first calendar day to exclude any legacy YYYY-MM
+  // aggregate rows that might exist from before the double-counting fix.
   const nextMonthKey = (() => {
     const [y, m] = monthKey.split("-").map(Number);
     const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
@@ -177,7 +165,7 @@ export async function assertAiMonthlyLimit(
       gte: (col: string, val: string) => SupabaseQueryBuilder;
       lt:  (col: string, val: string) => SupabaseQueryBuilder;
     })
-    .gte("period_key", monthKey)
+    .gte("period_key", monthKey + "-01")
     .lt("period_key", nextMonthKey);
 
   // Fall back if the client doesn't support this query shape
@@ -192,63 +180,75 @@ export async function assertAiMonthlyLimit(
 
 // ─── Atomic AI usage meter helpers ───────────────────────────────────────────
 //
-// These replace the local upsertUsageMeterRow read-modify-write in each Edge
-// Function. Both call the increment_ai_usage_meter SQL RPC which uses
-// ON CONFLICT DO UPDATE SET col = col + excluded.col — fully atomic.
+// Usage pattern in each Edge Function (only when OPENAI_API_KEY is set):
 //
-// Usage pattern in each Edge Function:
+//   // 1. Atomic quota check + reservation — closes the check-then-call race.
+//   await checkAndReserveAiCall(admin, { accountId, featureKey });
 //
-//   // 1. Check quota (read-only soft guard)
-//   await assertAiDailyLimit(admin, { accountId, featureKey });
-//   await assertAiMonthlyLimit(admin, { accountId, featureKey });
-//
-//   // 2. Pre-reserve quota slot atomically BEFORE the AI call.
-//   //    Two concurrent calls will now see each other's reservation on the
-//   //    next check, closing the check-then-call race window.
-//   await reserveAiCall(admin, { accountId, featureKey });
-//
-//   // 3. AI call
+//   // 2. AI call
 //   const result = await generateInsight(input);
 //
-//   // 4. Record token counts after the call (fire-and-forget, non-blocking).
+//   // 3. Record token counts after the call (fire-and-forget, non-blocking).
 //   recordAiTokens(admin, { accountId, featureKey,
 //     inputTokens: result.inputTokens, outputTokens: result.outputTokens });
+//
+// Only daily rows (period_key YYYY-MM-DD) are written to ai_usage_meter.
+// Monthly usage is derived at query time by summing daily rows for the month;
+// there are no separate YYYY-MM aggregate rows (removing those fixed ~2x
+// over-reporting in the old reserveAiCall + assertAiMonthlyLimit pattern).
 
 /**
- * Atomically increments prompt_runs by 1 for both the daily and monthly period
- * rows BEFORE the AI model call. This pre-reserves the quota slot so that
- * concurrent calls from the same account see updated counts on their next check.
+ * Atomically checks daily and monthly AI call quotas then increments the daily
+ * meter row if both limits allow it. Calls the reserve_ai_call_checked SQL RPC
+ * which holds a pg_advisory_xact_lock for (account_id, feature_key), making
+ * the read-check-increment sequence serial for concurrent callers.
+ *
+ * Throws 429 with code 'ai_daily_limit_reached' or 'ai_monthly_limit_reached'.
+ */
+export async function checkAndReserveAiCall(
+  client: SupabaseLikeClient,
+  { accountId, featureKey }: { accountId: string; featureKey: string },
+): Promise<void> {
+  const result = await client.rpc("reserve_ai_call_checked", {
+    p_account_id:  accountId,
+    p_feature_key: featureKey,
+  });
+  if (result.error) {
+    throw buildLimitError("AI quota check failed", 500, "ai_limit_check_failed");
+  }
+  const status = String(result.data || "");
+  if (status === "daily_limit_reached") {
+    throw buildLimitError("Daily AI generation limit reached", 429, "ai_daily_limit_reached");
+  }
+  if (status === "monthly_limit_reached") {
+    throw buildLimitError("Monthly AI generation limit reached", 429, "ai_monthly_limit_reached");
+  }
+}
+
+/**
+ * Atomically increments prompt_runs by 1 for the daily meter row BEFORE the
+ * AI model call. Low-level helper — prefer checkAndReserveAiCall, which also
+ * enforces plan limits atomically. Only writes daily rows (YYYY-MM-DD).
  */
 export async function reserveAiCall(
   client: SupabaseLikeClient,
   { accountId, featureKey }: { accountId: string; featureKey: string },
 ): Promise<void> {
-  const dailyKey   = getDailyAiPeriodKey();
-  const monthlyKey = getMonthlyAiPeriodKey();
-  await Promise.all([
-    client.rpc("increment_ai_usage_meter", {
-      p_account_id:    accountId,
-      p_feature_key:   featureKey,
-      p_period_key:    dailyKey,
-      p_prompt_runs:   1,
-      p_input_tokens:  0,
-      p_output_tokens: 0,
-    }),
-    client.rpc("increment_ai_usage_meter", {
-      p_account_id:    accountId,
-      p_feature_key:   featureKey,
-      p_period_key:    monthlyKey,
-      p_prompt_runs:   1,
-      p_input_tokens:  0,
-      p_output_tokens: 0,
-    }),
-  ]);
+  const dailyKey = getDailyAiPeriodKey();
+  await client.rpc("increment_ai_usage_meter", {
+    p_account_id:    accountId,
+    p_feature_key:   featureKey,
+    p_period_key:    dailyKey,
+    p_prompt_runs:   1,
+    p_input_tokens:  0,
+    p_output_tokens: 0,
+  });
 }
 
 /**
- * Atomically adds actual token counts to the meter after the AI call completes.
+ * Atomically adds actual token counts to the daily meter row after the AI call.
  * Fire-and-forget: token tracking is observability, not quota-enforced.
- * Errors are logged but must not block the response.
+ * Only writes daily rows (YYYY-MM-DD); monthly totals are derived at query time.
  */
 export function recordAiTokens(
   client: SupabaseLikeClient,
@@ -264,26 +264,15 @@ export function recordAiTokens(
     outputTokens: number;
   },
 ): void {
-  const dailyKey   = getDailyAiPeriodKey();
-  const monthlyKey = getMonthlyAiPeriodKey();
-  Promise.all([
-    client.rpc("increment_ai_usage_meter", {
-      p_account_id:    accountId,
-      p_feature_key:   featureKey,
-      p_period_key:    dailyKey,
-      p_prompt_runs:   0,
-      p_input_tokens:  inputTokens,
-      p_output_tokens: outputTokens,
-    }),
-    client.rpc("increment_ai_usage_meter", {
-      p_account_id:    accountId,
-      p_feature_key:   featureKey,
-      p_period_key:    monthlyKey,
-      p_prompt_runs:   0,
-      p_input_tokens:  inputTokens,
-      p_output_tokens: outputTokens,
-    }),
-  ]).catch((err) => {
+  const dailyKey = getDailyAiPeriodKey();
+  client.rpc("increment_ai_usage_meter", {
+    p_account_id:    accountId,
+    p_feature_key:   featureKey,
+    p_period_key:    dailyKey,
+    p_prompt_runs:   0,
+    p_input_tokens:  inputTokens,
+    p_output_tokens: outputTokens,
+  }).catch((err) => {
     console.error(JSON.stringify({
       event:      "ai_token_meter_failed",
       accountId,
