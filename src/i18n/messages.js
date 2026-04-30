@@ -7499,6 +7499,15 @@ Object.assign(messages.en, {
   "compliance.tax.records.status.excluded": "Excluded",
   "compliance.rentShield.lowConfidence": "Low confidence: only {count} overdue payment(s) used for P90 calculation.",
   "billing.complianceSuite.currentPlan": "Current",
+  "billing.aiUsage.title": "AI Usage — {period}",
+  "billing.aiUsage.planLabel": "{plan} plan",
+  "billing.aiUsage.resets": "Resets {date}",
+  "billing.aiUsage.unlimited": "Unlimited",
+  "billing.aiUsage.callsThisMonth": "AI calls this month",
+  "billing.aiUsage.estimatedCost": "${cost} est.",
+  "billing.aiUsage.showBreakdown": "Show feature breakdown",
+  "billing.aiUsage.hideBreakdown": "Hide feature breakdown",
+  "billing.aiUsage.quotaWarning": "You have used {pct}% of your monthly AI quota. Resets on {date}.",
 });
 
 Object.assign(messages.pl, {
@@ -7513,6 +7522,15 @@ Object.assign(messages.pl, {
   "compliance.tax.records.status.excluded": "Wykluczone",
   "compliance.rentShield.lowConfidence": "Niski poziom ufności: tylko {count} przeterminowanych płatności użytych do obliczenia P90.",
   "billing.complianceSuite.currentPlan": "Aktualny",
+  "billing.aiUsage.title": "Użycie AI — {period}",
+  "billing.aiUsage.planLabel": "Plan {plan}",
+  "billing.aiUsage.resets": "Resetuje się {date}",
+  "billing.aiUsage.unlimited": "Bez limitu",
+  "billing.aiUsage.callsThisMonth": "Wywołania AI w tym miesiącu",
+  "billing.aiUsage.estimatedCost": "${cost} szac.",
+  "billing.aiUsage.showBreakdown": "Pokaż podział per funkcja",
+  "billing.aiUsage.hideBreakdown": "Ukryj podział per funkcja",
+  "billing.aiUsage.quotaWarning": "Wykorzystano {pct}% miesięcznego limitu AI. Resetuje się {date}.",
 });
 
 Object.assign(messages.de, {
@@ -7527,4 +7545,13 @@ Object.assign(messages.de, {
   "compliance.tax.records.status.excluded": "Ausgeschlossen",
   "compliance.rentShield.lowConfidence": "Geringe Konfidenz: nur {count} überfällige Zahlung(en) für P90-Berechnung genutzt.",
   "billing.complianceSuite.currentPlan": "Aktuell",
+  "billing.aiUsage.title": "KI-Nutzung — {period}",
+  "billing.aiUsage.planLabel": "Tarif {plan}",
+  "billing.aiUsage.resets": "Zurückgesetzt am {date}",
+  "billing.aiUsage.unlimited": "Unbegrenzt",
+  "billing.aiUsage.callsThisMonth": "KI-Aufrufe diesen Monat",
+  "billing.aiUsage.estimatedCost": "${cost} gesch.",
+  "billing.aiUsage.showBreakdown": "Aufschlüsselung anzeigen",
+  "billing.aiUsage.hideBreakdown": "Aufschlüsselung ausblenden",
+  "billing.aiUsage.quotaWarning": "{pct} % des monatlichen KI-Kontingents genutzt. Zurückgesetzt am {date}.",
 });

@@ -227,12 +227,20 @@ export async function getContractorJobDetailsBundle(workOrderId, context = {}) {
   if (error) throw error;
   workOrder = data ? parseWorkOrderRow(data) : null;
 
+  // Fail closed: if the work order doesn't exist or doesn't belong to this
+  // contractor, return null immediately — never query financials for an
+  // inaccessible work order.
+  if (!workOrder) {
+    return { workOrder: null, financials: null, request: null, propertyLabel: "" };
+  }
+
   const { data: financialRow, error: financialError } = await supabase
     .from("work_order_financials")
     .select(
       "id, account_id, work_order_id, quote_amount, quote_currency, quote_notes, quote_status, quote_submitted_at, quote_submitted_by, invoice_amount, invoice_currency, invoice_issued_at, invoice_due_at, approved_at, approved_by, rejected_at, rejected_by, rejection_reason, created_at, updated_at",
     )
     .eq("work_order_id", workOrderId)
+    .eq("account_id", workOrder.account_id)
     .maybeSingle();
 
   if (!financialError) {

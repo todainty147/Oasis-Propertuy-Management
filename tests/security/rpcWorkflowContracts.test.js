@@ -169,7 +169,7 @@ describe("RPC workflow contracts", () => {
     const updated = await updateWorkOrder("wo-1", {
       status: "in_progress",
       scheduled_at: "2026-03-29T10:00:00",
-    });
+    }, { accountId: "account-1" });
 
     expect(created).toMatchObject({
       id: "wo-1",

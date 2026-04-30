@@ -213,6 +213,11 @@ describe("Epics B1+B2 – per-plan daily and monthly limit SQL functions", () =>
 // ─── Epic B3: all 5 functions write monthly meter rows ───────────────────────
 
 describe("Epic B3 – monthly meter rows written in all 5 edge functions", () => {
+  // The old local upsertUsageMeterRow read-modify-write has been replaced by:
+  //   reserveAiCall  — atomic pre-call prompt_runs increment (daily + monthly)
+  //   recordAiTokens — atomic post-call token increment (daily + monthly)
+  // Both helpers call the increment_ai_usage_meter SQL RPC which uses
+  // ON CONFLICT DO UPDATE += to avoid concurrent under-counting.
   for (const [label, src] of [
     ["triage", triageFn],
     ["contractor", contractorFn],
@@ -220,19 +225,46 @@ describe("Epic B3 – monthly meter rows written in all 5 edge functions", () =>
     ["attention", attentionFn],
     ["property-health", propertyHealthFn],
   ]) {
-    it(`${label} function imports getMonthlyAiPeriodKey`, () => {
-      expect(src).toContain("getMonthlyAiPeriodKey");
+    it(`${label} function imports reserveAiCall from aiSafety.ts`, () => {
+      expect(src).toContain("reserveAiCall");
     });
 
-    it(`${label} function calls upsertUsageMeterRow with monthly period`, () => {
-      expect(src).toContain("getMonthlyAiPeriodKey()");
-      expect(src).toContain("upsertUsageMeterRow");
+    it(`${label} function calls reserveAiCall before the AI model call`, () => {
+      // reserveAiCall must appear before generateInsight in the source
+      const reserveIdx = src.indexOf("await reserveAiCall(");
+      const generateIdx = src.indexOf("const result = await generateInsight(");
+      expect(reserveIdx).toBeGreaterThan(-1);
+      expect(reserveIdx).toBeLessThan(generateIdx);
+    });
+
+    it(`${label} function calls recordAiTokens after the AI model call`, () => {
+      expect(src).toContain("recordAiTokens(");
     });
 
     it(`${label} function also calls assertAiMonthlyLimit`, () => {
       expect(src).toContain("assertAiMonthlyLimit");
     });
   }
+
+  it("aiSafety.ts exports reserveAiCall and recordAiTokens", () => {
+    expect(aiSafety).toContain("export async function reserveAiCall");
+    expect(aiSafety).toContain("export function recordAiTokens");
+  });
+
+  it("aiSafety.ts reserveAiCall calls increment_ai_usage_meter RPC with prompt_runs=1", () => {
+    const idx = aiSafety.indexOf("export async function reserveAiCall");
+    const snippet = aiSafety.slice(idx, idx + 600);
+    expect(snippet).toContain("increment_ai_usage_meter");
+    expect(snippet).toContain("p_prompt_runs:   1");
+  });
+
+  it("aiSafety.ts monthly limit query uses server-side period filter (no JS-side filter)", () => {
+    // Verify we use .gte/.lt range bounds rather than loading all rows
+    expect(aiSafety).toContain(".gte(\"period_key\"");
+    expect(aiSafety).toContain(".lt(\"period_key\"");
+    // The old JS .filter() on all rows must be gone
+    expect(aiSafety).not.toContain(".filter((r) => String(r.period_key");
+  });
 });
 
 // ─── Epic C: relative timestamp ───────────────────────────────────────────────
@@ -342,7 +374,8 @@ describe("Epic E – AI usage summary", () => {
 
   it("AiUsageSummaryCard shows warning at 90% usage threshold", () => {
     expect(usageSummaryCard).toContain("0.9");
-    expect(usageSummaryCard).toContain("monthly AI quota");
+    // Warning text is now localised via billing.aiUsage.quotaWarning i18n key
+    expect(usageSummaryCard).toContain("billing.aiUsage.quotaWarning");
   });
 
   it("AiUsageSummaryCard hides itself on Starter with zero usage", () => {

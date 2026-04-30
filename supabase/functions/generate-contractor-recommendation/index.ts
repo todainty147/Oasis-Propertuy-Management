@@ -14,9 +14,9 @@ import {
   assertAiDailyLimit,
   assertAiMonthlyLimit,
   clampAiInsightPayload,
-  getDailyAiPeriodKey,
-  getMonthlyAiPeriodKey,
   isCacheStaleByPromptVersion,
+  recordAiTokens,
+  reserveAiCall,
 } from "../_shared/aiSafety.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -122,6 +122,8 @@ Deno.serve(async (req) => {
       }
     }
 
+    await reserveAiCall(admin, { accountId, featureKey: "contractor_recommendation" });
+
     const result = await generateInsight(input);
     result.insight = clampAiInsightPayload(result.insight);
     const expiresAt = buildExpiry(generatedAt);
@@ -151,13 +153,14 @@ Deno.serve(async (req) => {
         errorCode: result.errorCode,
         errorMessage: result.errorMessage,
       }),
-      upsertUsageMeter({
-        accountId,
-        featureKey: "contractor_recommendation",
-        inputTokens: result.inputTokens,
-        outputTokens: result.outputTokens,
-      }),
     ]);
+
+    recordAiTokens(admin, {
+      accountId,
+      featureKey: "contractor_recommendation",
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+    });
 
     return respond({
       insight: result.insight,
@@ -548,54 +551,6 @@ async function recordPromptRun({
   });
 }
 
-async function upsertUsageMeter({
-  accountId,
-  featureKey,
-  inputTokens,
-  outputTokens,
-}: {
-  accountId: string;
-  featureKey: string;
-  inputTokens: number;
-  outputTokens: number;
-}) {
-  // Epic B3: write both daily (YYYY-MM-DD) and monthly (YYYY-MM) rows
-  await Promise.all([
-    upsertUsageMeterRow(accountId, featureKey, getDailyAiPeriodKey(), inputTokens, outputTokens),
-    upsertUsageMeterRow(accountId, featureKey, getMonthlyAiPeriodKey(), inputTokens, outputTokens),
-  ]);
-}
-
-async function upsertUsageMeterRow(
-  accountId: string,
-  featureKey: string,
-  periodKey: string,
-  inputTokens: number,
-  outputTokens: number,
-) {
-  const { data } = await admin
-    .from("ai_usage_meter")
-    .select("prompt_runs, input_tokens, output_tokens")
-    .eq("account_id", accountId)
-    .eq("period_key", periodKey)
-    .eq("feature_key", featureKey)
-    .maybeSingle();
-
-  const nextPromptRuns = Number(data?.prompt_runs || 0) + 1;
-  const nextInput = Number(data?.input_tokens || 0) + Number(inputTokens || 0);
-  const nextOutput = Number(data?.output_tokens || 0) + Number(outputTokens || 0);
-  const estimatedCost = Number((nextInput / 1_000_000) * 0.4 + (nextOutput / 1_000_000) * 1.6).toFixed(6);
-
-  await admin.from("ai_usage_meter").upsert({
-    account_id: accountId,
-    period_key: periodKey,
-    feature_key: featureKey,
-    prompt_runs: nextPromptRuns,
-    input_tokens: nextInput,
-    output_tokens: nextOutput,
-    estimated_cost: estimatedCost,
-  });
-}
 
 function safeError(
   req: Request,

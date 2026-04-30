@@ -233,7 +233,11 @@ begin
 end;
 $$;
 
+-- create_notifications_system is called only from SECURITY DEFINER trigger
+-- functions and server-side Edge Functions (service_role).  anon and
+-- authenticated must NOT be able to call it directly — a caller with known
+-- account/recipient UUIDs could otherwise forge in-app notifications.
 revoke all on function public.create_notifications_system(uuid, uuid[], text, text, text, text, uuid, text, jsonb) from public;
-grant execute on function public.create_notifications_system(uuid, uuid[], text, text, text, text, uuid, text, jsonb) to anon;
-grant execute on function public.create_notifications_system(uuid, uuid[], text, text, text, text, uuid, text, jsonb) to authenticated;
+revoke all on function public.create_notifications_system(uuid, uuid[], text, text, text, text, uuid, text, jsonb) from anon;
+revoke all on function public.create_notifications_system(uuid, uuid[], text, text, text, text, uuid, text, jsonb) from authenticated;
 grant execute on function public.create_notifications_system(uuid, uuid[], text, text, text, text, uuid, text, jsonb) to service_role;

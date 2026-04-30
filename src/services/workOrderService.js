@@ -574,8 +574,9 @@ export async function createWorkOrder({
  * If you also have DB notifications for status/assignment changes,
  * DO NOT send notifications from the client here (avoids duplicates/loops).
  */
-export async function updateWorkOrder(id, patch = {}, { signal } = {}) {
+export async function updateWorkOrder(id, patch = {}, { signal, accountId } = {}) {
   if (!id) throw new Error("Brak ID zlecenia");
+  if (!accountId) throw new Error("Brak accountId przy aktualizacji zlecenia");
 
   // Normalize scheduled_at if passed as a datetime-local string/Date
   const nextPatch = { ...patch };
@@ -602,7 +603,7 @@ export async function updateWorkOrder(id, patch = {}, { signal } = {}) {
     .from("work_orders")
     .update(nextPatch)
     .eq("id", id)
-    // keep response lighter & predictable (adjust if you need more fields)
+    .eq("account_id", accountId)
     .select("id, account_id, property_id, contractor_user_id, status, scheduled_at, updated_at")
     .single();
 
@@ -618,10 +619,11 @@ export async function updateWorkOrder(id, patch = {}, { signal } = {}) {
    DELETE
    ====================== */
 
-export async function deleteWorkOrder(id, { signal } = {}) {
+export async function deleteWorkOrder(id, { signal, accountId } = {}) {
   if (!id) throw new Error("Brak ID zlecenia");
+  if (!accountId) throw new Error("Brak accountId przy usuwaniu zlecenia");
 
-  let q = supabase.from("work_orders").delete().eq("id", id);
+  let q = supabase.from("work_orders").delete().eq("id", id).eq("account_id", accountId);
 
   if (signal) q = q.abortSignal(signal);
 

@@ -1,5 +1,7 @@
 create or replace function public.fn_documents_notify_uploaded() returns trigger
-language plpgsql security definer
+language plpgsql
+security definer
+set search_path = public
 as $$
 declare
   v_recipients uuid[];

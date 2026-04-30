@@ -16,7 +16,7 @@ function featureLabel(key) {
   return FEATURE_LABELS[key] || key.replace(/_/g, " ");
 }
 
-function UsageBar({ used, limit, className = "" }) {
+function UsageBar({ used, limit, unlimitedLabel, className = "" }) {
   if (limit == null) {
     // Unlimited plan — show a full green bar with "Unlimited" label
     return (
@@ -24,7 +24,7 @@ function UsageBar({ used, limit, className = "" }) {
         <div className="h-1.5 flex-1 rounded-full bg-emerald-200">
           <div className="h-1.5 w-full rounded-full bg-emerald-400" />
         </div>
-        <span className="text-[11px] text-slate-500 shrink-0">Unlimited</span>
+        <span className="text-[11px] text-slate-500 shrink-0">{unlimitedLabel}</span>
       </div>
     );
   }
@@ -105,18 +105,20 @@ export default function AiUsageSummaryCard({ accountId, period }) {
       <div className="px-4 sm:px-6 py-4 border-b border-slate-100">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-slate-900">AI Usage — {currentPeriod}</h3>
+            <h3 className="text-sm font-semibold text-slate-900">
+              {t("billing.aiUsage.title", { period: currentPeriod })}
+            </h3>
             {summary && (
               <p className="mt-0.5 text-xs text-slate-500 capitalize">
-                {summary.plan} plan
+                {t("billing.aiUsage.planLabel", { plan: summary.plan })}
                 {summary.monthlyLimit != null
-                  ? ` · Resets ${resetDate}`
-                  : " · Unlimited"}
+                  ? ` · ${t("billing.aiUsage.resets", { date: resetDate })}`
+                  : ` · ${t("billing.aiUsage.unlimited")}`}
               </p>
             )}
           </div>
           {loading && (
-            <span className="text-xs text-slate-400">Loading…</span>
+            <span className="text-xs text-slate-400">{t("common.loading")}</span>
           )}
         </div>
       </div>
@@ -131,14 +133,15 @@ export default function AiUsageSummaryCard({ accountId, period }) {
             {/* Total quota bar */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <p className="text-xs font-medium text-slate-700">AI calls this month</p>
+                <p className="text-xs font-medium text-slate-700">{t("billing.aiUsage.callsThisMonth")}</p>
                 <p className="text-xs text-slate-500 tabular-nums">
-                  ${summary.totalEstimatedCost.toFixed(4)} est.
+                  {t("billing.aiUsage.estimatedCost", { cost: summary.totalEstimatedCost.toFixed(4) })}
                 </p>
               </div>
               <UsageBar
                 used={summary.totalPromptRuns}
                 limit={summary.monthlyLimit}
+                unlimitedLabel={t("billing.aiUsage.unlimited")}
               />
             </div>
 
@@ -150,7 +153,7 @@ export default function AiUsageSummaryCard({ accountId, period }) {
                   onClick={() => setDetailOpen((v) => !v)}
                   className="text-xs text-blue-600 hover:underline"
                 >
-                  {detailOpen ? "Hide feature breakdown" : "Show feature breakdown"}
+                  {detailOpen ? t("billing.aiUsage.hideBreakdown") : t("billing.aiUsage.showBreakdown")}
                 </button>
 
                 {detailOpen && (
@@ -183,9 +186,10 @@ export default function AiUsageSummaryCard({ accountId, period }) {
 
             {summary.monthlyLimit != null && summary.totalPromptRuns >= summary.monthlyLimit * 0.9 && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                You have used{" "}
-                <strong>{Math.round((summary.totalPromptRuns / summary.monthlyLimit) * 100)}%</strong>{" "}
-                of your monthly AI quota. Resets on {resetDate}.
+                {t("billing.aiUsage.quotaWarning", {
+                  pct: Math.round((summary.totalPromptRuns / summary.monthlyLimit) * 100),
+                  date: resetDate,
+                })}
               </div>
             )}
           </>

@@ -11,9 +11,9 @@ import {
   assertAiDailyLimit,
   assertAiMonthlyLimit,
   clampAiInsightPayload,
-  getDailyAiPeriodKey,
-  getMonthlyAiPeriodKey,
   isCacheStaleByPromptVersion,
+  recordAiTokens,
+  reserveAiCall,
 } from "../_shared/aiSafety.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -186,6 +186,8 @@ Deno.serve(async (req) => {
       }
     }
 
+    await reserveAiCall(admin, { accountId, featureKey: "attention_briefing" });
+
     const result = await generateInsight(input);
     result.insight = clampAiInsightPayload(result.insight);
     const expiresAt = buildExpiry(generatedAt);
@@ -213,12 +215,14 @@ Deno.serve(async (req) => {
         errorCode: result.errorCode,
         errorMessage: result.errorMessage,
       }),
-      upsertUsageMeter({
-        accountId,
-        inputTokens: result.inputTokens,
-        outputTokens: result.outputTokens,
-      }),
     ]);
+
+    recordAiTokens(admin, {
+      accountId,
+      featureKey: "attention_briefing",
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+    });
 
     return respond({
       insight: result.insight,
@@ -521,65 +525,6 @@ async function recordPromptRun({
   }
 }
 
-async function upsertUsageMeter({
-  accountId,
-  inputTokens,
-  outputTokens,
-}: {
-  accountId: string;
-  inputTokens: number;
-  outputTokens: number;
-}) {
-  // Epic B3: write both daily and monthly rows
-  await Promise.all([
-    upsertUsageMeterRow(accountId, getDailyAiPeriodKey(), inputTokens, outputTokens),
-    upsertUsageMeterRow(accountId, getMonthlyAiPeriodKey(), inputTokens, outputTokens),
-  ]);
-}
-
-async function upsertUsageMeterRow(
-  accountId: string,
-  periodKey: string,
-  inputTokens: number,
-  outputTokens: number,
-) {
-  const current = await admin
-    .from("ai_usage_meter")
-    .select("prompt_runs, input_tokens, output_tokens")
-    .eq("account_id", accountId)
-    .eq("period_key", periodKey)
-    .eq("feature_key", "attention_briefing")
-    .maybeSingle();
-
-  const promptRuns = Number(current.data?.prompt_runs || 0) + 1;
-  const nextInput = Number(current.data?.input_tokens || 0) + inputTokens;
-  const nextOutput = Number(current.data?.output_tokens || 0) + outputTokens;
-  const estimatedCost = Number(((nextInput / 1_000_000) * 0.4) + ((nextOutput / 1_000_000) * 1.6)).toFixed(6);
-
-  const upsert = await admin
-    .from("ai_usage_meter")
-    .upsert({
-      account_id: accountId,
-      period_key: periodKey,
-      feature_key: "attention_briefing",
-      prompt_runs: promptRuns,
-      input_tokens: nextInput,
-      output_tokens: nextOutput,
-      estimated_cost: estimatedCost,
-    }, {
-      onConflict: "account_id,period_key,feature_key",
-      ignoreDuplicates: false,
-    });
-
-  if (upsert.error) {
-    console.error(JSON.stringify({
-      event: "ai_usage_meter_upsert_failed",
-      accountId,
-      periodKey,
-      error: upsert.error,
-    }));
-  }
-}
 
 function safeError(
   req: Request,

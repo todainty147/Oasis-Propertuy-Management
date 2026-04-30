@@ -115,19 +115,29 @@ export function AccountProvider({ children }) {
 
       // ✅ HAS ACCOUNTS (owner/admin/staff)
       if (memberships?.length > 0) {
-        async function loadPermissionKeys(accountId, role) {
-          const fallback = getPermissionKeysForRole(role);
+        // roleId is present when the membership uses a custom role (narrower than
+        // the legacy role). If the RPC fails for a custom-role member, we fail
+        // closed (return []) rather than expanding to the broader legacy role
+        // permissions — a transient error must not grant UI access the custom
+        // role intentionally withholds. For legacy-role members (roleId = null)
+        // the fallback to getPermissionKeysForRole is safe and correct.
+        async function loadPermissionKeys(accountId, role, roleId) {
+          const legacyFallback = getPermissionKeysForRole(role);
           try {
             const { data, error } = await supabase.rpc("account_member_permission_keys", {
               p_account_id: accountId,
             });
 
             if (error) {
+              if (roleId) {
+                console.warn("account_member_permission_keys failed for custom-role account — failing closed:", error);
+                return [];
+              }
               console.warn("account_member_permission_keys failed, falling back to legacy permissions:", error);
-              return fallback;
+              return legacyFallback;
             }
 
-            if (!Array.isArray(data)) return fallback;
+            if (!Array.isArray(data)) return roleId ? [] : legacyFallback;
 
             const normalized = data
               .map((key) => String(key ?? "").trim().toLowerCase())
@@ -135,8 +145,12 @@ export function AccountProvider({ children }) {
 
             return Array.from(new Set(normalized));
           } catch (error) {
+            if (roleId) {
+              console.warn("account_member_permission_keys threw for custom-role account — failing closed:", error);
+              return [];
+            }
             console.warn("account_member_permission_keys threw, falling back to legacy permissions:", error);
-            return fallback;
+            return legacyFallback;
           }
         }
 
@@ -144,7 +158,7 @@ export function AccountProvider({ children }) {
           memberships.map(async (m) => {
             const accountId = m.accounts?.id;
             if (!accountId) return [null, []];
-            return [accountId, await loadPermissionKeys(accountId, m.role)];
+            return [accountId, await loadPermissionKeys(accountId, m.role, m.role_id || null)];
           }),
         );
         const permissionKeysByAccountId = new Map(membershipPermissionKeys.filter(([accountId]) => accountId));
