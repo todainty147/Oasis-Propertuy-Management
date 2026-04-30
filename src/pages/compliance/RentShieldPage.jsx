@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, RefreshCw, ChevronDown } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronDown, RefreshCw } from "lucide-react";
 
 import { useAccount } from "../../context/AccountContext";
 import { useI18n } from "../../context/I18nContext";
@@ -262,6 +262,21 @@ export default function RentShieldPage() {
       {/* Property view: current assessment + history */}
       {selectedPropertyId ? (
         <>
+          {/* Breadcrumb */}
+          <nav className="flex items-center gap-1.5 text-sm" aria-label="breadcrumb">
+            <button
+              type="button"
+              onClick={() => setSelectedPropertyId(null)}
+              className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors"
+            >
+              <ChevronLeft size={14} />
+              {t("compliance.rentShield.title")}
+            </button>
+            <span className="text-slate-300 dark:text-slate-600" aria-hidden="true">/</span>
+            <span className="font-medium text-slate-900 dark:text-slate-100 truncate">
+              {propertyMap.get(selectedPropertyId) || selectedPropertyId}
+            </span>
+          </nav>
           {loading ? (
             <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">{t("common.loading")}</p>
           ) : !currentAssessment ? (
