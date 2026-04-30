@@ -30,6 +30,8 @@ If the symptom is:
   - start with [provider-log-correlation.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/provider-log-correlation.md)
 - template library, document request, participant upload, or agreement packet state looks wrong:
   - start with [document-workflow-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/document-workflow-operations.md)
+- extracted text is missing or stale, jobs are stuck in queue, PDF quality is poor, or the extraction worker needs to be set up for the first time:
+  - start with [document-extraction-worker-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/document-extraction-worker-operations.md)
 - Command Center AI briefing is missing, falling back, or not refreshing:
   - start with [ai-attention-insights-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/ai-attention-insights-operations.md)
 - Portfolio Health AI explainer is missing, falling back, or not matching the current risk signals:
