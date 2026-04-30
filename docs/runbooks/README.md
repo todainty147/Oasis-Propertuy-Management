@@ -32,6 +32,14 @@ If the symptom is:
   - start with [document-workflow-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/document-workflow-operations.md)
 - extracted text is missing or stale, jobs are stuck in queue, PDF quality is poor, or the extraction worker needs to be set up for the first time:
   - start with [document-extraction-worker-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/document-extraction-worker-operations.md)
+- AI usage totals look doubled, quota resets are not working, or a user is getting unexpected 429 rate-limit responses:
+  - start with [ai-cost-controls-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/ai-cost-controls-operations.md)
+- Tax Readiness Dashboard is missing deadlines, status badges look wrong, exports contain wrong data, or Records totals appear merged across currencies:
+  - start with [compliance-tax-readiness-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/compliance-tax-readiness-operations.md)
+- Rent Shield score looks wrong, portfolio overview is empty, or recalculation is not updating the score:
+  - start with [compliance-rent-shield-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/compliance-rent-shield-operations.md)
+- Lease Auditor findings are not saving, overall risk is not updating, or the lease list is not loading:
+  - start with [compliance-lease-auditor-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/compliance-lease-auditor-operations.md)
 - Command Center AI briefing is missing, falling back, or not refreshing:
   - start with [ai-attention-insights-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/ai-attention-insights-operations.md)
 - Portfolio Health AI explainer is missing, falling back, or not matching the current risk signals:
