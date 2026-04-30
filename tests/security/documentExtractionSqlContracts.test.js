@@ -197,18 +197,50 @@ describe("SQL: RPCs — get_document_extraction", () => {
     expect(snippet).toContain("returns setof public.document_extractions");
   });
 
-  it("logs extraction_viewed audit event", () => {
+  it("is marked stable (no audit side-effects on poll)", () => {
     const idx = extractionSql.indexOf("create or replace function public.get_document_extraction");
-    const snippet = extractionSql.slice(idx, idx + 1200);
-    expect(snippet).toContain("extraction_viewed");
+    const snippet = extractionSql.slice(idx, idx + 400);
+    expect(snippet).toContain("stable");
+  });
+
+  it("does NOT insert into document_audit_log directly (no poll noise)", () => {
+    const idx = extractionSql.indexOf("create or replace function public.get_document_extraction");
+    // Only look at this function's body — stop before the next function definition
+    const nextFnIdx = extractionSql.indexOf("create or replace function", idx + 50);
+    const body = extractionSql.slice(idx, nextFnIdx);
+    expect(body).not.toContain("insert into public.document_audit_log");
   });
 
   it("orders by status priority (completed first)", () => {
     const idx = extractionSql.indexOf("create or replace function public.get_document_extraction");
-    const snippet = extractionSql.slice(idx, idx + 2200);
+    const snippet = extractionSql.slice(idx, idx + 1800);
     expect(snippet).toContain("completed");
     expect(snippet).toContain("order by");
     expect(snippet).toContain("limit 1");
+  });
+});
+
+describe("SQL: RPCs — log_document_extraction_viewed", () => {
+  it("is defined as a separate RPC", () => {
+    expect(extractionSql).toContain("create or replace function public.log_document_extraction_viewed");
+  });
+
+  it("inserts extraction_viewed into document_audit_log", () => {
+    const idx = extractionSql.indexOf("create or replace function public.log_document_extraction_viewed");
+    const snippet = extractionSql.slice(idx, idx + 800);
+    expect(snippet).toContain("extraction_viewed");
+    expect(snippet).toContain("document_audit_log");
+  });
+
+  it("is security definer", () => {
+    const idx = extractionSql.indexOf("create or replace function public.log_document_extraction_viewed");
+    const snippet = extractionSql.slice(idx, idx + 300);
+    expect(snippet).toContain("security definer");
+  });
+
+  it("is revoked from public and granted to authenticated", () => {
+    expect(extractionSql).toContain("revoke all on function public.log_document_extraction_viewed");
+    expect(extractionSql).toContain("grant execute on function public.log_document_extraction_viewed");
   });
 });
 
@@ -328,12 +360,19 @@ describe("documentExtractionService: structure", () => {
     "listDocumentExtractionRuns",
     "markDocumentExtractionStale",
     "getBestDocumentExtractionForAudit",
+    "logDocumentExtractionViewed",
   ];
   for (const fn of EXPORTS) {
     it(`exports ${fn}`, () => {
       expect(extractionSvc).toContain(fn);
     });
   }
+
+  it("logDocumentExtractionViewed calls log_document_extraction_viewed RPC", () => {
+    expect(extractionSvc).toContain("log_document_extraction_viewed");
+    expect(extractionSvc).toContain("p_account_id");
+    expect(extractionSvc).toContain("p_document_id");
+  });
 
   it("uses PGRST202 fallback for getDocumentExtraction", () => {
     expect(extractionSvc).toContain('error.code === "PGRST202"');
@@ -388,6 +427,16 @@ describe("DocumentExtractionPanel: security", () => {
   it("panel includes disclaimer text about extraction accuracy", () => {
     expect(extractionPanel).toContain("Extracted text may contain errors");
   });
+
+  it("audit log is called only on preview open, not on every toggle", () => {
+    // logDocumentExtractionViewed must be called only when nextShow is true
+    expect(extractionPanel).toContain("logDocumentExtractionViewed");
+    expect(extractionPanel).toContain("if (nextShow)");
+  });
+
+  it("audit call is fire-and-forget and cannot block the UI", () => {
+    expect(extractionPanel).toContain(".catch(() => {})");
+  });
 });
 
 // ─── Worker: security and design ─────────────────────────────────────────────
@@ -404,8 +453,6 @@ describe("Worker: security contracts", () => {
   });
 
   it("uses optimistic claim pattern to avoid duplicate processing", () => {
-    // Claim is done by updating WHERE status = 'queued' — if another worker already
-    // claimed it, the update returns 0 rows and the job is skipped.
     expect(workerJs).toContain(".eq(\"status\", \"queued\")");
     expect(workerJs).toContain("status: \"processing\"");
   });
@@ -419,6 +466,24 @@ describe("Worker: security contracts", () => {
 
   it("uses computeSourceHash for document fingerprinting", () => {
     expect(workerJs).toContain("computeSourceHash");
+  });
+
+  it("handles routeResult.error (native PDF extractor failure) as a failRun", () => {
+    expect(workerJs).toContain("routeResult.error");
+    expect(workerJs).toContain("failRun");
+  });
+
+  it("failRun and skipRun signatures do not carry unused accountId/documentId params", () => {
+    // Correct signature: failRun(runId, errorMessage, extraMeta)
+    const failIdx = workerJs.indexOf("async function failRun(");
+    const failSig = workerJs.slice(failIdx, failIdx + 60);
+    expect(failSig).not.toContain("accountId");
+    expect(failSig).not.toContain("documentId");
+
+    const skipIdx = workerJs.indexOf("async function skipRun(");
+    const skipSig = workerJs.slice(skipIdx, skipIdx + 60);
+    expect(skipSig).not.toContain("accountId");
+    expect(skipSig).not.toContain("documentId");
   });
 });
 

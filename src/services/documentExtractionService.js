@@ -206,6 +206,21 @@ export async function markDocumentExtractionStale(accountId, documentId) {
   return parseRpcRows(data ?? [], parseDocumentExtractionRow, "stale extractions");
 }
 
+// ── Log extraction viewed (explicit user action only) ─────────────────────────
+//
+// Fire-and-forget audit event. Must not be called on every status poll —
+// only call when the user intentionally opens the extracted text preview.
+
+export async function logDocumentExtractionViewed(accountId, documentId) {
+  if (!accountId || !documentId) return;
+  // Intentionally not awaited by callers — audit failure must never block the UI.
+  await supabase.rpc("log_document_extraction_viewed", {
+    p_account_id:    accountId,
+    p_document_id:   documentId,
+    p_extraction_id: null,
+  });
+}
+
 // ── Lease Auditor readiness helper ────────────────────────────────────────────
 //
 // Returns a structured result for the AI Lease Auditor to consume.

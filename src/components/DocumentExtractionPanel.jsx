@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   getDocumentExtraction,
   listDocumentExtractionRuns,
+  logDocumentExtractionViewed,
   markDocumentExtractionStale,
   requestDocumentExtraction,
 } from "../services/documentExtractionService";
@@ -259,7 +260,15 @@ export default function DocumentExtractionPanel({ accountId, documentId, mimeTyp
             {canView && (
               <button
                 type="button"
-                onClick={() => setShowPreview((v) => !v)}
+                onClick={() => {
+                  const nextShow = !showPreview;
+                  setShowPreview(nextShow);
+                  // Audit only when opening the preview, not on every toggle.
+                  // Fire-and-forget — must not block or error the UI.
+                  if (nextShow) {
+                    logDocumentExtractionViewed(accountId, documentId).catch(() => {});
+                  }
+                }}
                 className="text-blue-600 hover:underline text-xs"
                 data-testid="view-extracted-text-button"
               >

@@ -164,7 +164,7 @@ async function processJob(run) {
     fileBuffer = Buffer.from(arrayBuffer);
 
   } catch (setupErr) {
-    await failRun(runId, accountId, documentId, setupErr.message);
+    await failRun(runId, setupErr.message);
     await writeAuditEvent(accountId, documentId, "extraction_failed", {
       run_id: runId, error: setupErr.message,
     });
@@ -180,7 +180,7 @@ async function processJob(run) {
   try {
     routeResult = await routeExtraction(fileBuffer, doc.mime_type, extractor, languageHint);
   } catch (extractErr) {
-    await failRun(runId, accountId, documentId, extractErr.message, { source_hash: sourceHash });
+    await failRun(runId, extractErr.message, { source_hash: sourceHash });
     await writeAuditEvent(accountId, documentId, "extraction_failed", {
       run_id: runId, error: extractErr.message,
     });
@@ -189,7 +189,18 @@ async function processJob(run) {
 
   // Unsupported MIME type
   if (routeResult.unsupported) {
-    await skipRun(runId, accountId, documentId, routeResult.unsupported_reason, { source_hash: sourceHash });
+    await skipRun(runId, routeResult.unsupported_reason, { source_hash: sourceHash });
+    return;
+  }
+
+  // Extractor-level error (e.g. corrupt PDF where native_pdf threw internally).
+  // _routePdf catches the throw and returns { error } rather than propagating it
+  // so the router can still return a result object. We treat this as a failure.
+  if (routeResult.error) {
+    await failRun(runId, routeResult.error, { source_hash: sourceHash });
+    await writeAuditEvent(accountId, documentId, "extraction_failed", {
+      run_id: runId, error: routeResult.error,
+    });
     return;
   }
 
@@ -236,7 +247,7 @@ async function processJob(run) {
     .single();
 
   if (upsertError) {
-    await failRun(runId, accountId, documentId, `Upsert failed: ${upsertError.message}`, { source_hash: sourceHash });
+    await failRun(runId, `Upsert failed: ${upsertError.message}`, { source_hash: sourceHash });
     await writeAuditEvent(accountId, documentId, "extraction_failed", {
       run_id: runId, error: upsertError.message,
     });
@@ -274,7 +285,7 @@ async function processJob(run) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-async function failRun(runId, accountId, documentId, errorMessage, extraMeta = {}) {
+async function failRun(runId, errorMessage, extraMeta = {}) {
   console.error(`[worker] ✗ Run ${runId} failed: ${errorMessage}`);
   await supabase
     .from("document_extraction_runs")
@@ -287,7 +298,7 @@ async function failRun(runId, accountId, documentId, errorMessage, extraMeta = {
     .eq("id", runId);
 }
 
-async function skipRun(runId, accountId, documentId, reason, extraMeta = {}) {
+async function skipRun(runId, reason, extraMeta = {}) {
   console.warn(`[worker] ~ Run ${runId} skipped: ${reason}`);
   await supabase
     .from("document_extraction_runs")

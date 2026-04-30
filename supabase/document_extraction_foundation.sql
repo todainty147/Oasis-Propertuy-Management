@@ -305,8 +305,9 @@ grant execute on function public.request_document_extraction(uuid, uuid, text, t
 --
 -- Returns the best available extraction for a document (most recent completed,
 -- falling back to processing / pending / stale).
--- Logs extraction_viewed if a completed extraction exists.
--- Returns at most 1 row.
+-- Returns at most 1 row. Read-only (stable) — no audit side-effect.
+-- Audit logging for views is done separately via log_document_extraction_viewed,
+-- called only when the user explicitly opens the text preview in the UI.
 
 create or replace function public.get_document_extraction(
   p_account_id  uuid,
@@ -316,6 +317,7 @@ create or replace function public.get_document_extraction(
 returns setof public.document_extractions
 language plpgsql
 security definer
+stable
 set search_path = public
 as $$
 declare
@@ -329,27 +331,6 @@ begin
       and account_id = v_account_id
   ) then
     raise exception 'Document not found';
-  end if;
-
-  -- Log view event only when a completed extraction is being returned
-  if exists (
-    select 1 from public.document_extractions
-    where document_id = p_document_id
-      and account_id  = v_account_id
-      and status      = 'completed'
-      and (p_extractor is null or extractor = p_extractor)
-  ) then
-    insert into public.document_audit_log (
-      document_id, action, performed_by, performed_at,
-      account_id, created_at
-    ) values (
-      p_document_id,
-      'extraction_viewed',
-      auth.uid(),
-      now(),
-      v_account_id,
-      now()
-    );
   end if;
 
   return query
@@ -371,12 +352,64 @@ end;
 $$;
 
 comment on function public.get_document_extraction(uuid, uuid, text) is
-  'Returns the best available extraction for a document. '
+  'Read-only: returns the best available extraction for a document. '
   'Priority: completed > processing > pending > stale > failed. '
-  'Logs extraction_viewed audit event when a completed extraction is returned.';
+  'Does not log extraction_viewed — call log_document_extraction_viewed separately '
+  'when the user explicitly opens the text preview.';
 
 revoke all on function public.get_document_extraction(uuid, uuid, text) from public;
 grant execute on function public.get_document_extraction(uuid, uuid, text) to authenticated;
+
+
+-- ─── log_document_extraction_viewed ──────────────────────────────────────────
+--
+-- Called by the UI when the user explicitly opens the extracted text preview.
+-- Kept separate from get_document_extraction so that background polling and
+-- status checks do not generate noisy audit rows before any text is viewed.
+
+create or replace function public.log_document_extraction_viewed(
+  p_account_id    uuid,
+  p_document_id   uuid,
+  p_extraction_id uuid default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_account_id uuid := public.assert_manage_account_access(p_account_id);
+begin
+  perform public.assert_account_feature_access(v_account_id, 'document_extraction');
+
+  if not exists (
+    select 1 from public.documents
+    where id = p_document_id
+      and account_id = v_account_id
+  ) then
+    raise exception 'Document not found';
+  end if;
+
+  insert into public.document_audit_log (
+    document_id, action, performed_by, performed_at,
+    account_id, created_at
+  ) values (
+    p_document_id,
+    'extraction_viewed',
+    auth.uid(),
+    now(),
+    v_account_id,
+    now()
+  );
+end;
+$$;
+
+comment on function public.log_document_extraction_viewed(uuid, uuid, uuid) is
+  'Writes an extraction_viewed audit event. Call only when the user intentionally '
+  'opens the extracted text preview — not on every status poll.';
+
+revoke all on function public.log_document_extraction_viewed(uuid, uuid, uuid) from public;
+grant execute on function public.log_document_extraction_viewed(uuid, uuid, uuid) to authenticated;
 
 
 -- ─── list_document_extractions ────────────────────────────────────────────────
