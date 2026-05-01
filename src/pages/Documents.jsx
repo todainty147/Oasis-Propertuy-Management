@@ -1,8 +1,8 @@
 // src/pages/Documents.jsx
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Skeleton from "../components/ui/Skeleton";
-import Card from "../components/Card";
+import { ChevronDown, X } from "lucide-react";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAuth } from "../context/AuthContext";
 import { useAccount } from "../context/AccountContext";
@@ -22,7 +22,6 @@ import {
 import { DOCUMENT_TAGS } from "../constants/documentTags";
 import { canUploadDocument, canDeleteDocument, canEditDocumentTags } from "../utils/permissions";
 
-// Optional fallback if you forget to pass props from App.jsx
 import { useProperties } from "../hooks/useProperties";
 import { useTenants } from "../hooks/useTenants";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
@@ -48,6 +47,27 @@ function getDocumentTagLabel(tag, t) {
   return t(`documents.tag.${value}`, { defaultValue: value || tag || "—" });
 }
 
+function formatMime(mime) {
+  if (!mime) return "—";
+  const map = {
+    "application/pdf": "PDF",
+    "image/jpeg": "JPEG",
+    "image/jpg": "JPEG",
+    "image/png": "PNG",
+    "image/webp": "WebP",
+    "image/gif": "GIF",
+    "application/msword": "DOC",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "DOCX",
+  };
+  return map[mime] || (mime.split("/")[1] || "").toUpperCase() || "—";
+}
+
+function formatFileSize(bytes) {
+  if (!bytes) return "";
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.round(bytes / 1024)} KB`;
+}
+
 /* ======================
    SKELETON
    ====================== */
@@ -55,9 +75,235 @@ function getDocumentTagLabel(tag, t) {
 function DocumentsSkeleton() {
   return (
     <div className="space-y-3">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <Skeleton key={i} className="h-14" />
-      ))}
+      {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-14" />)}
+    </div>
+  );
+}
+
+/* ======================
+   UPLOAD MODAL
+   ====================== */
+
+function UploadModal({ open, onClose, properties, tenants, activeAccountId, onUploaded, t }) {
+  const [scope, setScope] = useState("property");
+  const [propertyId, setPropertyId] = useState("");
+  const [tenantId, setTenantId] = useState("");
+  const [tags, setTags] = useState([]);
+  const [file, setFile] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(null);
+  const fileRef = useRef(null);
+  const backdropRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setScope("property");
+    setPropertyId("");
+    setTenantId("");
+    setTags([]);
+    setFile(null);
+    setDragOver(false);
+    setError(null);
+    setUploading(false);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  function toggleTag(tag) {
+    setTags((prev) => prev.includes(tag) ? prev.filter((v) => v !== tag) : [...prev, tag]);
+  }
+
+  async function handleSubmit() {
+    if (!activeAccountId) return;
+    if (scope === "property" && !propertyId) { setError(t("documents.pickPropertyOrTenant")); return; }
+    if (scope === "tenant"   && !tenantId)   { setError(t("documents.pickPropertyOrTenant")); return; }
+    if (!file) { setError(t("documents.noFileSelected")); return; }
+    setUploading(true);
+    setError(null);
+    try {
+      await uploadDocument({
+        accountId:  activeAccountId,
+        file,
+        propertyId: scope === "property" ? propertyId : null,
+        tenantId:   scope === "tenant"   ? tenantId   : null,
+        tags,
+      });
+      onUploaded();
+      onClose();
+    } catch (err) {
+      setError(err?.message ?? t("attachments.uploadError"));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  if (!open) return null;
+
+  return (
+    <div
+      ref={backdropRef}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onMouseDown={(e) => { if (e.target === backdropRef.current) onClose(); }}
+    >
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <h2 className="text-lg font-semibold text-slate-900">{t("documents.add")}</h2>
+          <button type="button" onClick={onClose}
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+          {/* Scope toggle */}
+          <div>
+            <p className="text-sm font-medium text-slate-700 mb-2">{t("documents.chooseScope")}</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: "property", label: t("finance.table.property") },
+                { value: "tenant",   label: t("finance.table.tenant")   },
+              ].map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setScope(value)}
+                  className={`rounded-xl border py-3 text-sm font-medium transition-colors ${
+                    scope === value
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-slate-200 text-slate-700 hover:border-slate-400"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Scope select */}
+          {scope === "property" ? (
+            <select
+              value={propertyId}
+              onChange={(e) => setPropertyId(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+            >
+              <option value="">{t("documents.selectProperty")}</option>
+              {(properties || []).map((p) => (
+                <option key={p.id} value={p.id}>{p.address}{p.city ? ` (${p.city})` : ""}</option>
+              ))}
+            </select>
+          ) : (
+            <select
+              value={tenantId}
+              onChange={(e) => setTenantId(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+            >
+              <option value="">{t("documents.selectTenant")}</option>
+              {(tenants || []).map((tn) => (
+                <option key={tn.id} value={tn.id}>{tn.name}</option>
+              ))}
+            </select>
+          )}
+
+          {/* Tags */}
+          <div>
+            <p className="text-sm font-medium text-slate-700 mb-2">Tags</p>
+            <div className="flex flex-wrap gap-2">
+              {DOCUMENT_TAGS.map((tag) => (
+                <button
+                  key={tag.value}
+                  type="button"
+                  onClick={() => toggleTag(tag.value)}
+                  className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+                    tags.includes(tag.value)
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-slate-300 bg-white text-slate-700 hover:border-slate-400"
+                  }`}
+                >
+                  {getDocumentTagLabel(tag.value, t)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Drop zone */}
+          <div>
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) setFile(f); }}
+              onClick={() => fileRef.current?.click()}
+              className={`rounded-xl border-2 border-dashed p-8 text-center cursor-pointer transition-colors ${
+                dragOver ? "border-blue-500 bg-blue-50" : "border-slate-300 hover:border-slate-400 hover:bg-slate-50"
+              }`}
+            >
+              {file ? (
+                <p className="text-sm font-medium text-slate-900">{file.name}</p>
+              ) : (
+                <p className="text-sm text-slate-500">{t("documents.dragOrClick")}</p>
+              )}
+              <p className="mt-1 text-xs text-slate-400">.pdf .jpg .png .webp .doc .docx</p>
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              className="hidden"
+              accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+            />
+          </div>
+
+          {error && (
+            <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100">
+          <button type="button" onClick={onClose}
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {t("common.cancel")}
+          </button>
+          <button type="button" onClick={handleSubmit} disabled={uploading}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400">
+            {uploading ? t("attachments.uploading") : t("documents.add")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ======================
+   ACCORDION SECTION
+   ====================== */
+
+function AccordionSection({ title, open, onToggle, children }) {
+  return (
+    <div className="rounded-xl border border-slate-200 overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 transition-colors"
+      >
+        <h2 className="font-semibold text-slate-900">{title}</h2>
+        <ChevronDown
+          size={18}
+          className={`text-slate-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="border-t border-slate-100 space-y-4 p-4">
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -66,10 +312,7 @@ function DocumentsSkeleton() {
    DOCUMENTS (GLOBAL)
    ====================== */
 
-export default function Documents({
-  tenants: tenantsProp = null,
-  properties: propertiesProp = null,
-} = {}) {
+export default function Documents({ tenants: tenantsProp = null, properties: propertiesProp = null } = {}) {
   const { setTitle } = usePageTitle();
   const { t } = useI18n();
   const { loading: authLoading } = useAuth();
@@ -77,98 +320,72 @@ export default function Documents({
   const { activeTenantId } = useTenant();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // If your AccountContext doesn't expose activeRole yet, fallback to membership lookup
-  const activeAccount = useMemo(() => {
-    return accounts?.find((a) => a.id === activeAccountId) ?? null;
-  }, [accounts, activeAccountId]);
-
+  const activeAccount = useMemo(() => accounts?.find((a) => a.id === activeAccountId) ?? null, [accounts, activeAccountId]);
   const role = activeRole ?? activeAccount?.role ?? null;
   const permissionContext = activePermissionContext ?? { role };
   const isTenant = String(role ?? "").toLowerCase() === "tenant";
 
   /* ---------- FALLBACK HOOKS ---------- */
   const useFallback = !tenantsProp || !propertiesProp;
-
-  const { properties: propertiesHook, loading: propertiesLoadingHook } =
-    useProperties({
-      enabled: !!activeAccountId && useFallback,
-    });
-
-  const { tenants: tenantsHook, loading: tenantsLoadingHook } = useTenants({
-    enabled: !!activeAccountId && useFallback,
-  });
-
+  const { properties: propertiesHook, loading: propertiesLoadingHook } = useProperties({ enabled: !!activeAccountId && useFallback });
+  const { tenants: tenantsHook, loading: tenantsLoadingHook } = useTenants({ enabled: !!activeAccountId && useFallback });
   const properties = propertiesProp ?? propertiesHook ?? [];
-  const tenants = tenantsProp ?? tenantsHook ?? [];
+  const tenants    = tenantsProp  ?? tenantsHook  ?? [];
+
+  /* ---------- SCOPE LOOKUP MAPS ---------- */
+  const propertyMap = useMemo(() => new Map((properties || []).map((p) => [String(p.id), p.address])), [properties]);
+  const tenantMap   = useMemo(() => new Map((tenants   || []).map((tn) => [String(tn.id), tn.name])),  [tenants]);
 
   /* ---------- URL STATE ---------- */
   const queryParam = searchParams.get("q") ?? "";
-  const tagsParam = searchParams.get("tags")?.split(",").filter(Boolean) ?? [];
-  const docParam = searchParams.get("doc") ?? null;
+  const tagsParam  = searchParams.get("tags")?.split(",").filter(Boolean) ?? [];
+  const docParam   = searchParams.get("doc") ?? null;
 
-  const [query, setQuery] = useState(queryParam);
+  const [query, setQuery]               = useState(queryParam);
   const [selectedTags, setSelectedTags] = useState(tagsParam);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage]                 = useState(1);
+  const [pageSize, setPageSize]         = useState(10);
 
   /* ---------- DATA ---------- */
   const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]     = useState(true);
 
-  /* ---------- UPLOAD STATE (SCOPED) ---------- */
-  const [uploadPropertyId, setUploadPropertyId] = useState("");
-  const [uploadTenantId, setUploadTenantId] = useState("");
-  const [uploadTags, setUploadTags] = useState([]);
-  const [uploading, setUploading] = useState(false);
+  /* ---------- UI STATE ---------- */
+  const [uploadOpen, setUploadOpen]               = useState(false);
+  const [expandedPriorityIds, setExpandedPriorityIds] = useState(new Set());
+  const [workflowsOpen, setWorkflowsOpen]         = useState(false);
+  const [resourcesOpen, setResourcesOpen]         = useState(false);
+
+  /* ---------- TENANT PRIORITY DRAFTS ---------- */
   const [savingHighlightId, setSavingHighlightId] = useState("");
   const [tenantPriorityDrafts, setTenantPriorityDrafts] = useState({});
 
   /* ---------- PREVIEW ---------- */
-  const [previewDoc, setPreviewDoc] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewDoc, setPreviewDoc]   = useState(null);
+  const [previewUrl, setPreviewUrl]   = useState(null);
   const [previewError, setPreviewError] = useState(null);
-
-  // ✅ prevents infinite deep-link loop
   const lastAutoOpenedDocRef = useRef(null);
 
   /* ---------- PAGE TITLE ---------- */
-  useEffect(() => {
-    setTitle(t("sidebar.documents"));
-  }, [setTitle, t]);
+  useEffect(() => { setTitle(t("sidebar.documents")); }, [setTitle, t]);
 
-  /* ---------- SYNC URL → STATE (q/tags only) ---------- */
+  /* ---------- SYNC URL → STATE ---------- */
   useEffect(() => {
     setQuery(queryParam);
     setSelectedTags(tagsParam);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [query, selectedTags, activeTenantId, pageSize]);
+  useEffect(() => { setPage(1); }, [query, selectedTags, activeTenantId, pageSize]);
 
-  /* ======================
-     LOAD DOCUMENTS
-     ====================== */
-
+  /* ---------- LOAD DOCUMENTS ---------- */
   const loadDocuments = useCallback(async () => {
     if (!activeAccountId) return;
-
     setLoading(true);
     try {
-      const data =
-        query || selectedTags.length > 0
-          ? await searchDocuments({
-              accountId: activeAccountId,
-              query,
-              tags: selectedTags,
-              tenantId: activeTenantId ?? null,
-            })
-          : await fetchDocuments({
-              accountId: activeAccountId,
-              tenantId: activeTenantId ?? null,
-            });
-
+      const data = query || selectedTags.length > 0
+        ? await searchDocuments({ accountId: activeAccountId, query, tags: selectedTags, tenantId: activeTenantId ?? null })
+        : await fetchDocuments({ accountId: activeAccountId, tenantId: activeTenantId ?? null });
       setDocuments(data ?? []);
     } finally {
       setLoading(false);
@@ -176,39 +393,25 @@ export default function Documents({
   }, [activeAccountId, query, selectedTags, activeTenantId]);
 
   useEffect(() => {
-    if (!authLoading && !accountLoading && activeAccountId) {
-      loadDocuments();
-    }
+    if (!authLoading && !accountLoading && activeAccountId) loadDocuments();
   }, [loadDocuments, authLoading, accountLoading, activeAccountId]);
 
   useEffect(() => {
     setTenantPriorityDrafts(
-      Object.fromEntries(
-        (documents ?? []).map((doc) => [
-          doc.id,
-          {
-            highlight: doc.tenant_highlight || "standard",
-            note: doc.tenant_highlight_note || "",
-            rank: doc.tenant_highlight_rank || 100,
-          },
-        ]),
-      ),
+      Object.fromEntries((documents ?? []).map((doc) => [
+        doc.id,
+        { highlight: doc.tenant_highlight || "standard", note: doc.tenant_highlight_note || "", rank: doc.tenant_highlight_rank || 100 },
+      ])),
     );
   }, [documents]);
 
   useRealtimeTables({
     enabled: !authLoading && !accountLoading && !!activeAccountId,
-    subscriptions: [
-      {
-        channel: `documents:${activeAccountId}`,
-        table: "documents",
-        filter: `account_id=eq.${activeAccountId}`,
-      },
-    ],
+    subscriptions: [{ channel: `documents:${activeAccountId}`, table: "documents", filter: `account_id=eq.${activeAccountId}` }],
     onChange: loadDocuments,
   });
 
-  /* ---------- UPDATE URL (preserve doc param if present) ---------- */
+  /* ---------- URL UPDATE ---------- */
   function updateUrl(nextQuery, nextTags) {
     const params = new URLSearchParams();
     if (nextQuery) params.set("q", nextQuery);
@@ -217,133 +420,63 @@ export default function Documents({
     setSearchParams(params, { replace: true });
   }
 
-  /* ---------- SEARCH ---------- */
   function handleSearch(value) {
     setQuery(value);
     updateUrl(value, selectedTags);
   }
 
-  /* ---------- TAG TOGGLE (FILTER) ---------- */
   function toggleTag(tag) {
     const nextTags = selectedTags.includes(tag)
-      ? selectedTags.filter((t) => t !== tag)
+      ? selectedTags.filter((v) => v !== tag)
       : [...selectedTags, tag];
-
     setSelectedTags(nextTags);
     updateUrl(query, nextTags);
   }
 
-  /* ---------- UPLOAD TAG TOGGLE ---------- */
-  function toggleUploadTag(tag) {
-    setUploadTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-  }
-
+  /* ---------- TENANT PRIORITY ---------- */
   function getTenantPriorityDraft(doc) {
-    return tenantPriorityDrafts[doc.id] || {
-      highlight: doc.tenant_highlight || "standard",
-      note: doc.tenant_highlight_note || "",
-      rank: doc.tenant_highlight_rank || 100,
-    };
+    return tenantPriorityDrafts[doc.id] || { highlight: doc.tenant_highlight || "standard", note: doc.tenant_highlight_note || "", rank: doc.tenant_highlight_rank || 100 };
   }
 
   function updateTenantPriorityDraft(docId, patch) {
-    setTenantPriorityDrafts((current) => ({
-      ...current,
-      [docId]: {
-        ...(current[docId] || {}),
-        ...patch,
-      },
-    }));
+    setTenantPriorityDrafts((cur) => ({ ...cur, [docId]: { ...(cur[docId] || {}), ...patch } }));
+  }
+
+  function togglePriorityExpanded(id) {
+    setExpandedPriorityIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   }
 
   async function handleTenantHighlightChange(doc, nextValue) {
     const draft = getTenantPriorityDraft(doc);
     setSavingHighlightId(doc.id);
     try {
-      await updateDocumentTenantHighlight({
-        documentId: doc.id,
-        tenantHighlight: nextValue,
-        tenantHighlightNote: draft.note,
-        tenantHighlightRank: draft.rank,
-      });
+      await updateDocumentTenantHighlight({ documentId: doc.id, tenantHighlight: nextValue, tenantHighlightNote: draft.note, tenantHighlightRank: draft.rank });
       await loadDocuments();
-    } finally {
-      setSavingHighlightId("");
-    }
+    } finally { setSavingHighlightId(""); }
   }
 
   async function handleTenantPrioritySave(doc) {
     const draft = getTenantPriorityDraft(doc);
     setSavingHighlightId(doc.id);
     try {
-      await updateDocumentTenantHighlight({
-        documentId: doc.id,
-        tenantHighlight: draft.highlight,
-        tenantHighlightNote: draft.note,
-        tenantHighlightRank: draft.rank,
-      });
+      await updateDocumentTenantHighlight({ documentId: doc.id, tenantHighlight: draft.highlight, tenantHighlightNote: draft.note, tenantHighlightRank: draft.rank });
       await loadDocuments();
-    } finally {
-      setSavingHighlightId("");
-    }
-  }
-
-  /* ---------- UPLOAD (SCOPED to tenant OR property) ---------- */
-  async function handleUpload(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!activeAccountId) {
-      alert(t("documents.noActiveAccount"));
-      e.target.value = "";
-      return;
-    }
-
-    if (!uploadPropertyId && !uploadTenantId) {
-      alert(t("documents.pickPropertyOrTenant"));
-      e.target.value = "";
-      return;
-    }
-
-    setUploading(true);
-    try {
-      await uploadDocument({
-        accountId: activeAccountId,
-        file,
-        propertyId: uploadPropertyId || null,
-        tenantId: uploadTenantId || null,
-        tags: uploadTags,
-      });
-
-      setUploadTags([]);
-      setUploadPropertyId("");
-      setUploadTenantId("");
-      e.target.value = "";
-
-      await loadDocuments();
-    } catch (err) {
-      alert(err?.message ?? t("attachments.uploadError"));
-      e.target.value = "";
-    } finally {
-      setUploading(false);
-    }
+    } finally { setSavingHighlightId(""); }
   }
 
   /* ---------- PREVIEW ---------- */
   const handlePreview = useCallback(async (doc) => {
     if (!canPreview(doc.mime_type)) return;
-
     try {
       setPreviewError(null);
       const url = await getDocumentPreviewUrl(doc.storage_path, {
-        accountId: doc.account_id,
-        documentId: doc.id,
-        propertyId: doc.property_id,
-        tenantId: doc.tenant_id,
-        scope: doc.scope,
-        visibility: doc.visibility,
+        accountId: doc.account_id, documentId: doc.id,
+        propertyId: doc.property_id, tenantId: doc.tenant_id,
+        scope: doc.scope, visibility: doc.visibility,
       });
       setPreviewDoc(doc);
       setPreviewUrl(url);
@@ -352,48 +485,51 @@ export default function Documents({
     }
   }, [t]);
 
-  // ✅ Open preview by id (deep-link). Important: do NOT depend on preview state.
-  const openPreviewById = useCallback(
-    async (docId) => {
-      if (!docId) return;
+  const openPreviewById = useCallback(async (docId) => {
+    if (!docId) return;
+    const found = documents.find((d) => String(d.id) === String(docId));
+    if (!found || !canPreview(found.mime_type)) return;
+    await handlePreview(found);
+  }, [documents, handlePreview]);
 
-      const found = documents.find((d) => String(d.id) === String(docId));
-      if (!found) return;
-      if (!canPreview(found.mime_type)) return;
-
-      await handlePreview(found);
-    },
-    [documents, handlePreview]
-  );
-
-  // ✅ Deep-link: /documents?doc=<uuid> opens preview once after list loads
   useEffect(() => {
-    if (!docParam) return;
-    if (loading) return;
-
-    // already auto-opened this doc param
-    if (lastAutoOpenedDocRef.current === docParam) return;
-
-    // if user manually opened something, don't fight them
-    if (previewDoc?.id) return;
-
+    if (!docParam || loading || lastAutoOpenedDocRef.current === docParam || previewDoc?.id) return;
     lastAutoOpenedDocRef.current = docParam;
     openPreviewById(docParam);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docParam, loading, openPreviewById]);
 
-  const tenantsLoading = useFallback ? tenantsLoadingHook : false;
+  function closePreview() {
+    setPreviewDoc(null);
+    setPreviewUrl(null);
+    setPreviewError(null);
+    lastAutoOpenedDocRef.current = null;
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    if (selectedTags.length > 0) params.set("tags", selectedTags.join(","));
+    setSearchParams(params, { replace: true });
+  }
+
+  // Escape key for preview
+  useEffect(() => {
+    if (!previewDoc) return;
+    function onKey(e) { if (e.key === "Escape") closePreview(); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewDoc]);
+
+  /* ---------- PAGINATION ---------- */
+  const tenantsLoading   = useFallback ? tenantsLoadingHook   : false;
   const propertiesLoading = useFallback ? propertiesLoadingHook : false;
   const totalPages = Math.max(1, Math.ceil(documents.length / pageSize));
-  const safePage = Math.min(page, totalPages);
+  const safePage   = Math.min(page, totalPages);
   const visibleDocuments = useMemo(() => {
     const start = (safePage - 1) * pageSize;
     return documents.slice(start, start + pageSize);
   }, [documents, safePage, pageSize]);
-  const tenantDocumentGroups = useMemo(
-    () => partitionTenantDocuments(documents),
-    [documents],
-  );
+
+  const tenantDocumentGroups = useMemo(() => partitionTenantDocuments(documents), [documents]);
 
   useEffect(() => {
     if (!docParam || documents.length === 0) return;
@@ -403,396 +539,321 @@ export default function Documents({
     if (targetPage !== page) setPage(targetPage);
   }, [docParam, documents, page, pageSize]);
 
-  /* ======================
-     RENDER
-     ====================== */
+  /* ---------- EARLY STATES ---------- */
+  if (authLoading || accountLoading || tenantsLoading || propertiesLoading) return <DocumentsSkeleton />;
 
-  if (authLoading || accountLoading || tenantsLoading || propertiesLoading) {
-    return <DocumentsSkeleton />;
-  }
-
+  /* ---------- RENDER ---------- */
   return (
-    <div className="space-y-6">
-      <DashboardBreadcrumbs items={[{ label: t("sidebar.documents") }]} />
-      {isTenant ? (
-        <TenantDocumentsOverview groups={tenantDocumentGroups} t={t} />
-      ) : null}
-
-      <DocumentRequestsPanel
-        accountId={activeAccountId}
-        permissionContext={permissionContext}
+    <>
+      <UploadModal
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        properties={properties}
         tenants={tenants}
+        activeAccountId={activeAccountId}
+        onUploaded={loadDocuments}
         t={t}
-        mode={isTenant ? "participant" : "manager"}
       />
 
-      <DocumentPacketsPanel
-        accountId={activeAccountId}
-        permissionContext={permissionContext}
-        tenants={tenants}
-        t={t}
-        mode={isTenant ? "participant" : "manager"}
-      />
+      <div className="space-y-4">
+        <DashboardBreadcrumbs items={[{ label: t("sidebar.documents") }]} />
 
-      {!isTenant ? (
-        <>
-          <DocumentSignatureReadinessPanel
-            accountId={activeAccountId}
-            t={t}
-          />
+        {/* Tenant overview stays near the top for tenant role */}
+        {isTenant && <TenantDocumentsOverview groups={tenantDocumentGroups} t={t} />}
 
-          <DocumentTemplateLibrary
-            accountId={activeAccountId}
-            permissionContext={permissionContext}
-            t={t}
-          />
-        </>
-      ) : null}
+        {/* Tenant-facing panels — important for tenants, shown near top */}
+        {isTenant && (
+          <>
+            <DocumentRequestsPanel accountId={activeAccountId} permissionContext={permissionContext} tenants={tenants} t={t} mode="participant" />
+            <DocumentPacketsPanel  accountId={activeAccountId} permissionContext={permissionContext} tenants={tenants} t={t} mode="participant" />
+          </>
+        )}
 
-      {canUploadDocument(permissionContext) && (
-        <Card className="p-4 space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="font-medium">{t("documents.add")}</p>
-              <p className="text-xs text-slate-500">
-                {t("documents.pickTenantOrPropertyIntro")} <b>{t("finance.table.tenant").toLowerCase()}</b> {t("common.or")} <b>{t("finance.table.property").toLowerCase()}</b>, {t("documents.assignSuffix")}
-                {" "}{t("attachments.document").toLowerCase()}.
-              </p>
-            </div>
-
-            <label
-              className={`px-3 py-2 rounded-lg cursor-pointer text-sm text-white ${
-                uploading ? "bg-slate-400" : "bg-blue-600"
-              }`}
-            >
-              {uploading ? t("attachments.uploading") : t("documents.add")}
-              <input
-                type="file"
-                className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
-                onChange={handleUpload}
-                disabled={uploading}
-              />
-            </label>
+        {/* HEADER */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">{t("sidebar.documents")}</h1>
           </div>
-
-          <div className="flex gap-4 flex-wrap">
-            <select
-              aria-label={t("documents.selectProperty")}
-              value={uploadPropertyId}
-              onChange={(e) => {
-                const v = e.target.value;
-                setUploadPropertyId(v);
-                if (v) setUploadTenantId("");
-              }}
-              className="border rounded px-3 py-2 text-sm"
+          {canUploadDocument(permissionContext) && (
+            <button
+              type="button"
+              onClick={() => setUploadOpen(true)}
+              className="shrink-0 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
             >
-              <option value="">{t("documents.selectProperty")}</option>
-              {properties.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.address} ({p.city})
-                </option>
-              ))}
-            </select>
+              {t("documents.add")}
+            </button>
+          )}
+        </div>
 
-            <span className="text-sm text-slate-400 self-center">{t("common.or")}</span>
-
-            <select
-              aria-label={t("documents.selectTenant")}
-              value={uploadTenantId}
-              onChange={(e) => {
-                const v = e.target.value;
-                setUploadTenantId(v);
-                if (v) setUploadPropertyId("");
-              }}
-              className="border rounded px-3 py-2 text-sm"
-            >
-              <option value="">{t("documents.selectTenant")}</option>
-              {tenants.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex gap-2 flex-wrap">
+        {/* SEARCH + TAG PILL FILTERS */}
+        <div className="space-y-3">
+          <input
+            type="text"
+            placeholder={t("documents.search")}
+            value={query}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"
+          />
+          <div className="flex flex-wrap gap-2">
             {DOCUMENT_TAGS.map((tag) => (
               <button
                 key={tag.value}
                 type="button"
-                onClick={() => toggleUploadTag(tag.value)}
-                className={`text-xs px-2 py-1 rounded border ${
-                  uploadTags.includes(tag.value)
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-slate-600 border-slate-300"
+                onClick={() => toggleTag(tag.value)}
+                className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+                  selectedTags.includes(tag.value)
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-300 bg-white text-slate-700 hover:border-slate-400"
                 }`}
               >
                 {getDocumentTagLabel(tag.value, t)}
               </button>
             ))}
           </div>
-        </Card>
-      )}
-
-      <div className="bg-white border rounded-xl p-4 space-y-4">
-        <input
-          type="text"
-          placeholder={t("documents.search")}
-          value={query}
-          onChange={(e) => handleSearch(e.target.value)}
-          className="w-full border rounded-lg px-3 py-2 text-sm"
-        />
-
-        <div className="flex flex-wrap gap-3">
-          {DOCUMENT_TAGS.map((tag) => (
-            <label
-              key={tag.value}
-              className="flex items-center gap-1 text-sm cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={selectedTags.includes(tag.value)}
-                onChange={() => toggleTag(tag.value)}
-              />
-              {getDocumentTagLabel(tag.value, t)}
-            </label>
-          ))}
         </div>
-      </div>
 
-      {loading && <DocumentsSkeleton />}
+        {/* DOCUMENT LIST */}
+        {loading && <DocumentsSkeleton />}
 
-      {!loading && documents.length === 0 && (
-        <div className="text-center py-20">
-          <h3 className="text-xl font-semibold text-slate-900">
-            {isTenant ? t("tenantPortal.documents.emptyTitle") : t("documents.emptyTitle")}
-          </h3>
-          <p className="text-slate-500 mt-2">
-            {isTenant ? t("tenantPortal.documents.emptyBody") : t("documents.emptySearchHint")}
-          </p>
-        </div>
-      )}
+        {!loading && documents.length === 0 && (
+          <div className="text-center py-20">
+            <h3 className="text-xl font-semibold text-slate-900">
+              {isTenant ? t("tenantPortal.documents.emptyTitle") : t("documents.emptyTitle")}
+            </h3>
+            <p className="text-slate-500 mt-2">
+              {isTenant ? t("tenantPortal.documents.emptyBody") : t("documents.emptySearchHint")}
+            </p>
+          </div>
+        )}
 
-      {!loading && documents.length > 0 && (
-        <div className="divide-y bg-white border rounded-xl">
-          {visibleDocuments.map((doc) => (
-            <div
-              key={doc.id}
-              className="px-6 py-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
-            >
-              <div>
-                <p className="font-medium flex items-center gap-2">
-                  {doc.name}
-                  {doc.tenant_id && doc.property_id && (
-                    <span className="text-xs px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">
-                      {t("documents.shared")}
-                    </span>
-                  )}
-                </p>
+        {!loading && documents.length > 0 && (
+          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden divide-y divide-slate-100">
+            {visibleDocuments.map((doc) => {
+              const scopeLabel = doc.property_id
+                ? propertyMap.get(String(doc.property_id))
+                : doc.tenant_id
+                  ? tenantMap.get(String(doc.tenant_id))
+                  : null;
+              const isPriorityExpanded = expandedPriorityIds.has(doc.id);
+              const showPriorityEditor = canEditDocumentTags(permissionContext) && doc.visibility === "tenant";
 
-                <p className="text-sm text-slate-500">
-                  {doc.mime_type ?? "—"} • {(doc.size_bytes / 1024).toFixed(1)} KB
-                </p>
+              return (
+                <div key={doc.id} className="px-6 py-4 space-y-3">
+                  {/* Row: name/meta on left, actions on right */}
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    {/* Left */}
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium text-slate-900 truncate">{doc.name}</p>
+                        {scopeLabel && (
+                          <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                            {scopeLabel}
+                          </span>
+                        )}
+                        {doc.tenant_id && doc.property_id && (
+                          <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                            {t("documents.shared")}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {formatMime(doc.mime_type)}
+                        {doc.size_bytes ? ` · ${formatFileSize(doc.size_bytes)}` : ""}
+                      </p>
+                      {doc.tags?.length > 0 && (
+                        <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                          {doc.tags.map((tag) => (
+                            <span key={tag} className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                              {getDocumentTagLabel(tag, t)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-                {doc.tags?.length > 0 && (
-                  <div className="flex gap-2 mt-1 flex-wrap">
-                    {doc.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700"
-                      >
-                        {getDocumentTagLabel(tag, t)}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-3 text-sm lg:items-end">
-                {canEditDocumentTags(permissionContext) && doc.visibility === "tenant" ? (
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                      {t("documents.tenantPriority.title")}
-                    </p>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,160px)_92px_minmax(0,220px)_auto] sm:items-center">
-                      <select
-                        aria-label={t("documents.tenantPriority.title")}
-                        value={getTenantPriorityDraft(doc).highlight}
-                        onChange={(event) => {
-                          updateTenantPriorityDraft(doc.id, { highlight: event.target.value });
-                          handleTenantHighlightChange(doc, event.target.value);
-                        }}
-                        disabled={savingHighlightId === doc.id}
-                        className="rounded border border-slate-300 bg-white px-2 py-2 text-xs text-slate-700"
-                      >
-                        <option value="standard">{t("tenantPortal.documents.highlight.standard")}</option>
-                        <option value="current">{t("tenantPortal.documents.highlight.current")}</option>
-                        <option value="action_required">{t("tenantPortal.documents.highlight.actionRequired")}</option>
-                      </select>
-
-                      <input
-                        type="number"
-                        min="1"
-                        max="999"
-                        value={getTenantPriorityDraft(doc).rank}
-                        onChange={(event) =>
-                          updateTenantPriorityDraft(doc.id, {
-                            rank: Math.max(1, Math.min(999, Number(event.target.value || 100))),
-                          })
-                        }
-                        className="rounded border border-slate-300 bg-white px-2 py-2 text-xs text-slate-700"
-                        aria-label={t("documents.tenantPriority.rank")}
-                      />
-
-                      <input
-                        type="text"
-                        value={getTenantPriorityDraft(doc).note}
-                        onChange={(event) =>
-                          updateTenantPriorityDraft(doc.id, { note: event.target.value })
-                        }
-                        placeholder={t("documents.tenantPriority.notePlaceholder")}
-                        className="rounded border border-slate-300 bg-white px-2 py-2 text-xs text-slate-700"
-                        aria-label={t("documents.tenantPriority.note")}
-                      />
-
+                    {/* Right: action buttons */}
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      {canPreview(doc.mime_type) && (
+                        <button
+                          type="button"
+                          onClick={() => handlePreview(doc)}
+                          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                        >
+                          {t("attachments.preview")}
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => handleTenantPrioritySave(doc)}
-                        disabled={savingHighlightId === doc.id}
-                        className="rounded border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => downloadDocument({
+                          storagePath: doc.storage_path, filename: doc.name,
+                          accountId: doc.account_id, documentId: doc.id,
+                          propertyId: doc.property_id, tenantId: doc.tenant_id,
+                          scope: doc.scope, visibility: doc.visibility,
+                        })}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                       >
-                        {savingHighlightId === doc.id
-                          ? t("documents.tenantPriority.saving")
-                          : t("documents.tenantPriority.save")}
+                        {t("attachments.download")}
                       </button>
+                      {canDeleteDocument(permissionContext) && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (confirm(t("documents.confirmDelete"))) {
+                              await deleteDocument({
+                                id: doc.id, storagePath: doc.storage_path,
+                                accountId: doc.account_id, propertyId: doc.property_id,
+                                tenantId: doc.tenant_id, scope: doc.scope, visibility: doc.visibility,
+                              });
+                              await loadDocuments();
+                            }
+                          }}
+                          className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50"
+                        >
+                          {t("common.delete")}
+                        </button>
+                      )}
                     </div>
                   </div>
-                ) : null}
 
-                <div className="flex gap-4 text-sm lg:justify-end">
-                  {canPreview(doc.mime_type) && (
-                    <button
-                      onClick={() => handlePreview(doc)}
-                      className="text-blue-600 hover:underline"
-                    >
-                      {t("attachments.preview")}
-                    </button>
+                  {/* Tenant priority (collapsible) */}
+                  {showPriorityEditor && (
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => togglePriorityExpanded(doc.id)}
+                        className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                      >
+                        <ChevronDown size={13} className={`transition-transform duration-150 ${isPriorityExpanded ? "rotate-180" : ""}`} />
+                        {t("documents.editVisibility")}
+                      </button>
+                      {isPriorityExpanded && (
+                        <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-2">
+                            {t("documents.tenantPriority.title")}
+                          </p>
+                          <div className="grid gap-2 sm:grid-cols-[minmax(0,160px)_80px_minmax(0,220px)_auto] sm:items-center">
+                            <select
+                              aria-label={t("documents.tenantPriority.title")}
+                              value={getTenantPriorityDraft(doc).highlight}
+                              onChange={(e) => { updateTenantPriorityDraft(doc.id, { highlight: e.target.value }); handleTenantHighlightChange(doc, e.target.value); }}
+                              disabled={savingHighlightId === doc.id}
+                              className="rounded border border-slate-300 bg-white px-2 py-2 text-xs text-slate-700"
+                            >
+                              <option value="standard">{t("tenantPortal.documents.highlight.standard")}</option>
+                              <option value="current">{t("tenantPortal.documents.highlight.current")}</option>
+                              <option value="action_required">{t("tenantPortal.documents.highlight.actionRequired")}</option>
+                            </select>
+                            <input
+                              type="number" min="1" max="999"
+                              value={getTenantPriorityDraft(doc).rank}
+                              onChange={(e) => updateTenantPriorityDraft(doc.id, { rank: Math.max(1, Math.min(999, Number(e.target.value || 100))) })}
+                              className="rounded border border-slate-300 bg-white px-2 py-2 text-xs text-slate-700"
+                              aria-label={t("documents.tenantPriority.rank")}
+                            />
+                            <input
+                              type="text"
+                              value={getTenantPriorityDraft(doc).note}
+                              onChange={(e) => updateTenantPriorityDraft(doc.id, { note: e.target.value })}
+                              placeholder={t("documents.tenantPriority.notePlaceholder")}
+                              className="rounded border border-slate-300 bg-white px-2 py-2 text-xs text-slate-700"
+                              aria-label={t("documents.tenantPriority.note")}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleTenantPrioritySave(doc)}
+                              disabled={savingHighlightId === doc.id}
+                              className="rounded border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+                            >
+                              {savingHighlightId === doc.id ? t("documents.tenantPriority.saving") : t("documents.tenantPriority.save")}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
 
-                  <button
-                    onClick={() =>
-                      downloadDocument({
-                        storagePath: doc.storage_path,
-                        filename: doc.name,
-                        accountId: doc.account_id,
-                        documentId: doc.id,
-                        propertyId: doc.property_id,
-                        tenantId: doc.tenant_id,
-                        scope: doc.scope,
-                        visibility: doc.visibility,
-                      })
-                    }
-                    className="text-slate-600 hover:underline"
-                  >
-                    {t("attachments.download")}
-                  </button>
-
-                  {canDeleteDocument(permissionContext) && (
-                    <button
-                      onClick={async () => {
-                        if (confirm(t("documents.confirmDelete"))) {
-                          await deleteDocument({
-                            id: doc.id,
-                            storagePath: doc.storage_path,
-                            accountId: doc.account_id,
-                            propertyId: doc.property_id,
-                            tenantId: doc.tenant_id,
-                            scope: doc.scope,
-                            visibility: doc.visibility,
-                          });
-                          await loadDocuments();
-                        }
-                      }}
-                      className="text-red-600 hover:underline"
-                    >
-                      {t("common.delete")}
-                    </button>
+                  {/* Extraction panel */}
+                  {!isTenant && canUploadDocument(permissionContext) && (
+                    <DocumentExtractionPanel accountId={doc.account_id} documentId={doc.id} mimeType={doc.mime_type} />
                   )}
                 </div>
+              );
+            })}
 
-                {/* Extraction panel: visible to owner/admin/staff only, never tenant/contractor */}
-                {!isTenant && canUploadDocument(permissionContext) && (
-                  <DocumentExtractionPanel
-                    accountId={doc.account_id}
-                    documentId={doc.id}
-                    mimeType={doc.mime_type}
-                  />
-                )}
+            <PaginationFooter
+              page={safePage}
+              totalPages={totalPages}
+              totalCount={documents.length}
+              pageSize={pageSize}
+              onPrev={() => setPage((p) => Math.max(1, p - 1))}
+              onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+              onPageSizeChange={(next) => setPageSize(next)}
+              t={t}
+            />
+          </div>
+        )}
+
+        {/* Manager-only accordion sections */}
+        {!isTenant && (
+          <>
+            <AccordionSection
+              title={t("documents.workflows")}
+              open={workflowsOpen}
+              onToggle={() => setWorkflowsOpen((o) => !o)}
+            >
+              <DocumentRequestsPanel accountId={activeAccountId} permissionContext={permissionContext} tenants={tenants} t={t} mode="manager" />
+              <DocumentPacketsPanel  accountId={activeAccountId} permissionContext={permissionContext} tenants={tenants} t={t} mode="manager" />
+            </AccordionSection>
+
+            <AccordionSection
+              title={t("documents.templatesAndSignatures")}
+              open={resourcesOpen}
+              onToggle={() => setResourcesOpen((o) => !o)}
+            >
+              <DocumentSignatureReadinessPanel accountId={activeAccountId} t={t} />
+              <DocumentTemplateLibrary accountId={activeAccountId} permissionContext={permissionContext} t={t} />
+            </AccordionSection>
+          </>
+        )}
+      </div>
+
+      {/* PREVIEW MODAL */}
+      {previewDoc && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+          onMouseDown={(e) => { if (e.currentTarget === e.target) closePreview(); }}
+        >
+          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b gap-3">
+              <p className="font-medium truncate flex-1">{previewDoc.name}</p>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => downloadDocument({
+                    storagePath: previewDoc.storage_path, filename: previewDoc.name,
+                    accountId: previewDoc.account_id, documentId: previewDoc.id,
+                    propertyId: previewDoc.property_id, tenantId: previewDoc.tenant_id,
+                    scope: previewDoc.scope, visibility: previewDoc.visibility,
+                  })}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  {t("attachments.download")}
+                </button>
+                <button type="button" onClick={closePreview}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                  <X size={18} />
+                </button>
               </div>
             </div>
-          ))}
-
-          <PaginationFooter
-            page={safePage}
-            totalPages={totalPages}
-            totalCount={documents.length}
-            pageSize={pageSize}
-            onPrev={() => setPage((p) => Math.max(1, p - 1))}
-            onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
-            onPageSizeChange={(next) => setPageSize(next)}
-            t={t}
-          />
-        </div>
-      )}
-
-      {previewDoc && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
-          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center px-4 py-3 border-b">
-              <p className="font-medium truncate">{previewDoc.name}</p>
-              <button
-                onClick={() => {
-                  setPreviewDoc(null);
-                  setPreviewUrl(null);
-                  setPreviewError(null);
-
-                  lastAutoOpenedDocRef.current = null;
-
-                  // remove doc=... but keep q/tags
-                  const params = new URLSearchParams();
-                  if (query) params.set("q", query);
-                  if (selectedTags.length > 0)
-                    params.set("tags", selectedTags.join(","));
-                  setSearchParams(params, { replace: true });
-                }}
-                className="text-sm text-gray-600 hover:text-black"
-              >
-                {t("common.close")} ✕
-              </button>
-            </div>
-
             <div className="flex-1 overflow-auto p-4">
-              {previewError && (
-                <p className="text-red-600 text-sm">{previewError}</p>
-              )}
-
+              {previewError && <p className="text-rose-600 text-sm">{previewError}</p>}
               {!previewError && previewUrl && (
                 <>
                   {previewDoc.mime_type?.startsWith("image/") && (
-                    <img
-                      src={previewUrl}
-                      alt={previewDoc.name}
-                      className="max-w-full mx-auto"
-                    />
+                    <img src={previewUrl} alt={previewDoc.name} className="max-w-full mx-auto rounded" />
                   )}
-
                   {previewDoc.mime_type === "application/pdf" && (
-                    <iframe
-                      src={previewUrl}
-                      title={previewDoc.name}
-                      className="w-full h-[70vh] border rounded"
-                    />
+                    <iframe src={previewUrl} title={previewDoc.name} className="w-full h-[70vh] border rounded" />
                   )}
                 </>
               )}
@@ -800,24 +861,18 @@ export default function Documents({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
-function PaginationFooter({
-  page,
-  totalPages,
-  totalCount,
-  pageSize,
-  onPrev,
-  onNext,
-  onPageSizeChange,
-  t,
-}) {
-  if (totalCount <= 0) return null;
+/* ======================
+   PAGINATION
+   ====================== */
 
+function PaginationFooter({ page, totalPages, totalCount, pageSize, onPrev, onNext, onPageSizeChange, t }) {
+  if (totalCount <= 0) return null;
   return (
-    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-6 py-4">
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-t border-slate-100 px-6 py-4">
       <div className="flex items-center gap-2">
         <span className="text-xs text-slate-500">{t("common.perPage")}</span>
         <select
@@ -826,21 +881,11 @@ function PaginationFooter({
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
           className="rounded-md border border-slate-300 px-2 py-1 text-sm"
         >
-          {[10, 20, 30, 50].map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
+          {[10, 20, 30, 50].map((n) => <option key={n} value={n}>{n}</option>)}
         </select>
       </div>
-
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          disabled={page <= 1}
-          onClick={onPrev}
-          className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-50"
-        >
+        <button type="button" disabled={page <= 1} onClick={onPrev} className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-50">
           {t("common.prev")}
         </button>
         <span className="text-sm text-slate-600">
@@ -848,12 +893,7 @@ function PaginationFooter({
           <span className="font-medium text-slate-900">{totalPages}</span>
           <span className="ml-2 text-xs text-slate-500">({totalCount} {t("common.total").toLowerCase()})</span>
         </span>
-        <button
-          type="button"
-          disabled={page >= totalPages}
-          onClick={onNext}
-          className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-50"
-        >
+        <button type="button" disabled={page >= totalPages} onClick={onNext} className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-50">
           {t("common.next")}
         </button>
       </div>
