@@ -182,11 +182,12 @@ export default function ManagerRoutes() {
   }
 
   // ── Routes ────────────────────────────────────────────────────────────────
+  // The modal is returned separately so App.jsx can render it outside <Routes>.
+  // React Router v7 validates every child of <Routes>/<Route> as a Route element;
+  // including the modal in the Fragment would cause a validation error.
 
-  return (
+  const routes = (
     <>
-      {sharedModal}
-
       <Route index element={<Navigate to="/dashboard" replace />} />
 
       <Route
@@ -423,4 +424,6 @@ export default function ManagerRoutes() {
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </>
   );
+
+  return { modal: sharedModal, routes };
 }

@@ -44,17 +44,15 @@ export default function App() {
     [activeAccountId, activeAccount?.name],
   );
 
-  // React Router v7 requires all children of <Route>/<Routes> to be <Route>
-  // elements — it validates types before rendering, so a component wrapper is
-  // rejected even if it returns a Route fragment. Calling these as plain
-  // functions lets React Router see the returned Route elements directly.
+  // React Router v7 validates every child of <Route>/<Routes> as a Route
+  // element before rendering — a component wrapper is rejected even if it
+  // returns a Route fragment. Both functions are called unconditionally here
+  // (before any early returns) so React's hook-call order is stable.
   //
-  // Both calls must happen here (before any early returns) so React's
-  // hook-call order is stable across every render of App. When the user is
-  // unauthenticated, the portfolio hooks inside each tree run with enabled=false
-  // and do not trigger any fetches.
-  const managerRouteTree = ManagerRoutes();
-  const tenantRouteTree  = TenantRoutes();
+  // ManagerRoutes returns { modal, routes }: the modal must render outside
+  // <Routes> so React Router never sees it as a non-Route child.
+  const { modal: managerModal, routes: managerRouteTree } = ManagerRoutes();
+  const tenantRouteTree = TenantRoutes();
 
   // ── Public routes rendered before the auth gate ──────────────────────────
 
@@ -87,6 +85,8 @@ export default function App() {
   // ── Authenticated routing ─────────────────────────────────────────────────
 
   return (
+    <>
+      {managerModal}
     <Suspense fallback={<div className="p-6">{t("common.loading")}</div>}>
       <Routes>
         {/* Manager + contractor surface — AppLayout shell */}
@@ -115,5 +115,6 @@ export default function App() {
         </Route>
       </Routes>
     </Suspense>
+    </>
   );
 }
