@@ -136,8 +136,8 @@ begin
   -- feature_or_sentinel: when there is no usage data, emit a single null-
   -- feature row so the CROSS JOIN with totals still produces output.
   feature_or_sentinel as (
-    select feature_key, feat_runs, feat_input, feat_output, feat_cost
-    from monthly_rows
+    select mr.feature_key, mr.feat_runs, mr.feat_input, mr.feat_output, mr.feat_cost
+    from monthly_rows mr
     union all
     select null::text, 0, 0, 0, 0::numeric
     where not exists (select 1 from monthly_rows)

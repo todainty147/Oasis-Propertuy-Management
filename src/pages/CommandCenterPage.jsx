@@ -214,9 +214,11 @@ function ItemCard({ item, t, lang }) {
 }
 
 function Section({ title, count = 0, items = [], emptyText, tone = "default", t, lang }) {
-  const bg = tone === "urgent" ? "bg-rose-50/40 border border-rose-100" :
-             tone === "action" ? "bg-amber-50/40 border border-amber-100" :
-             "bg-white border border-slate-200";
+  const bg = tone === "urgent"
+    ? "bg-rose-50/40 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40"
+    : tone === "action"
+      ? "bg-amber-50/40 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40"
+      : "bg-white border border-slate-200";
 
   return (
     <div className={`rounded-xl ${bg} p-4`}>
@@ -260,7 +262,7 @@ function AttentionInsightCard({ insight, loading, expanded, onToggle, onRefresh,
   const sourceLabel = insight.source === "openai" ? t("commandCenter.ai.source.openai") : t("commandCenter.ai.source.fallback");
 
   return (
-    <div data-testid="attention-insight-card" className="rounded-xl border border-sky-200 bg-sky-50/60 overflow-hidden">
+    <div data-testid="attention-insight-card" className="rounded-xl border border-sky-200 dark:border-sky-900/60 bg-sky-50/60 dark:bg-sky-950/30 overflow-hidden">
       {/* Collapsed strip — always visible */}
       <button
         type="button"
@@ -268,7 +270,7 @@ function AttentionInsightCard({ insight, loading, expanded, onToggle, onRefresh,
         className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-sky-100/50 transition-colors text-left"
       >
         <div className="flex flex-wrap items-center gap-2 min-w-0">
-          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700 shrink-0">
+          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-400 shrink-0">
             {t("commandCenter.ai.eyebrow")}
           </span>
           <span className={`shrink-0 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${priorityClasses[insight.priority] || priorityClasses.medium}`}>
@@ -289,7 +291,7 @@ function AttentionInsightCard({ insight, loading, expanded, onToggle, onRefresh,
 
       {/* Expanded content */}
       {expanded && (
-        <div className="border-t border-sky-200 px-4 py-4 bg-white/80">
+        <div className="border-t border-sky-200 dark:border-sky-900/50 px-4 py-4 bg-white/80 dark:bg-slate-900/80">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-3xl">
               <div className="flex flex-wrap items-center gap-2">

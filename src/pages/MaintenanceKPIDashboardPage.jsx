@@ -248,13 +248,13 @@ function SectionNav({ sections, t }) {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   return (
-    <div className="sticky top-0 z-10 -mx-1 overflow-x-auto rounded-xl border border-slate-200 bg-white/90 backdrop-blur-sm px-4 py-2 flex gap-1">
+    <div className="sticky top-0 z-10 -mx-1 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm px-4 py-2 flex gap-1">
       {sections.map(({ id, label }) => (
         <button
           key={id}
           type="button"
           onClick={() => scrollTo(id)}
-          className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+          className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors"
         >
           {label}
         </button>
@@ -287,6 +287,8 @@ export default function MaintenanceKPIDashboardPage() {
   const [budgetSaving, setBudgetSaving]     = useState(false);
   const [budgetError, setBudgetError]       = useState("");
   const [budgetFormOpen, setBudgetFormOpen] = useState(false);
+  const [activityPage, setActivityPage]     = useState(1);
+  const ACTIVITY_PAGE_SIZE = 10;
 
   useEffect(() => { setTitle(t("maintenance.kpi.pageTitle")); }, [setTitle, t]);
 
@@ -298,7 +300,7 @@ export default function MaintenanceKPIDashboardPage() {
       const [stats, attention, recentActivity, spendAnalytics, preventive, sla] = await Promise.all([
         getMaintenanceKpiSnapshot(activeAccountId),
         getMaintenanceAttention(activeAccountId),
-        getMaintenanceRecentActivity(activeAccountId, t, 10),
+        getMaintenanceRecentActivity(activeAccountId, t, 50),
         getMaintenanceFinancialAnalytics(activeAccountId),
         getPreventiveMaintenanceOverview(activeAccountId),
         getMaintenanceSlaAnalytics(activeAccountId),
@@ -478,17 +480,17 @@ export default function MaintenanceKPIDashboardPage() {
 
             {/* Compact attention banner */}
             {attentionItems.slice(0, 3).length > 0 && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+              <div className="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/60 dark:bg-amber-950/20 p-4">
                 <div className="flex items-center justify-between gap-3 mb-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">{t("maintenance.kpi.attentionNeeded")}</p>
-                  <Link to="/attention-center" className="text-xs text-amber-700 hover:underline font-medium">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">{t("maintenance.kpi.attentionNeeded")}</p>
+                  <Link to="/attention-center" className="text-xs text-amber-700 dark:text-amber-400 hover:underline font-medium">
                     {t("common.viewAll")} ({attentionItems.length}) ↗
                   </Link>
                 </div>
                 <div className="space-y-2">
                   {attentionItems.slice(0, 3).map((i) => (
                     <Link key={i.key} to={i.linkPath}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white px-3 py-2 hover:bg-amber-50 transition-colors">
+                      className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 dark:border-amber-900/40 bg-white dark:bg-slate-800 px-3 py-2 hover:bg-amber-50 dark:hover:bg-slate-700 transition-colors">
                       <p className="text-sm font-medium text-slate-900 truncate">{i.title}</p>
                       <span className={`shrink-0 text-[11px] px-2 py-0.5 rounded border ${slaToneByHours(i.ageHours, t).className}`}>
                         {slaToneByHours(i.ageHours, t).label}
@@ -814,17 +816,48 @@ export default function MaintenanceKPIDashboardPage() {
                 <h3 className="text-sm font-semibold text-slate-900">{t("maintenance.kpi.recentActivity")}</h3>
                 {feed.length === 0 ? (
                   <p className="text-sm text-slate-500 mt-3">{t("maintenance.kpi.noEvents")}</p>
-                ) : (
-                  <div className="mt-3 space-y-2">
-                    {feed.map((f) => (
-                      <Link key={f.key} to={f.linkPath} className="block rounded-lg border border-slate-200 hover:bg-slate-50 px-3 py-2">
-                        <p className="text-sm font-medium text-slate-900">{f.title}</p>
-                        <p className="text-xs text-slate-600">{f.detail}</p>
-                        <p className="text-xs text-slate-500 mt-0.5">{fmtDate(f.at)}</p>
-                      </Link>
-                    ))}
-                  </div>
-                )}
+                ) : (() => {
+                  const activityTotalPages = Math.max(1, Math.ceil(feed.length / ACTIVITY_PAGE_SIZE));
+                  const safePage = Math.min(activityPage, activityTotalPages);
+                  const visibleFeed = feed.slice((safePage - 1) * ACTIVITY_PAGE_SIZE, safePage * ACTIVITY_PAGE_SIZE);
+                  return (
+                    <>
+                      <div className="mt-3 space-y-2">
+                        {visibleFeed.map((f) => (
+                          <Link key={f.key} to={f.linkPath} className="block rounded-lg border border-slate-200 hover:bg-slate-50 px-3 py-2">
+                            <p className="text-sm font-medium text-slate-900">{f.title}</p>
+                            <p className="text-xs text-slate-600">{f.detail}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">{fmtDate(f.at)}</p>
+                          </Link>
+                        ))}
+                      </div>
+                      {activityTotalPages > 1 && (
+                        <div className="flex items-center justify-between gap-2 mt-3 border-t border-slate-100 pt-3">
+                          <button
+                            type="button"
+                            disabled={safePage <= 1}
+                            onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
+                            className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 disabled:opacity-40 hover:bg-slate-50"
+                          >
+                            {t("common.prev")}
+                          </button>
+                          <span className="text-xs text-slate-500">
+                            {t("common.page")} <span className="font-semibold text-slate-900">{safePage}</span> {t("common.of")} {activityTotalPages}
+                            <span className="ml-1.5 text-slate-400">({feed.length} {t("common.total").toLowerCase()})</span>
+                          </span>
+                          <button
+                            type="button"
+                            disabled={safePage >= activityTotalPages}
+                            onClick={() => setActivityPage((p) => Math.min(activityTotalPages, p + 1))}
+                            className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 disabled:opacity-40 hover:bg-slate-50"
+                          >
+                            {t("common.next")}
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </Card>
             </div>
           </div>
