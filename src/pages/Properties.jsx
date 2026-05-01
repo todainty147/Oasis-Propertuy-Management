@@ -355,7 +355,7 @@ export default function Properties({
               <Card className="relative hover:shadow-md transition-shadow">
                 {/* Property image placeholder */}
                 <div className="h-28 bg-slate-100 flex items-center justify-center rounded-t-xl">
-                  <Home size={36} className="text-slate-300" />
+                  <Home size={40} strokeWidth={2} className="text-slate-400 dark:text-slate-300" />
                 </div>
 
                 <div className="p-4">
@@ -392,9 +392,9 @@ export default function Properties({
                           e.stopPropagation();
                           onEditProperty(p);
                         }}
-                        className="rounded-md bg-white/90 p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 shadow-sm border border-slate-200/80"
+                        className="rounded-md bg-white dark:bg-slate-700 p-1.5 text-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-600 shadow-sm border border-slate-300 dark:border-slate-500"
                       >
-                        <Pencil size={14} />
+                        <Pencil size={15} strokeWidth={2.5} />
                       </button>
                     )}
 
@@ -410,9 +410,9 @@ export default function Properties({
                             e.stopPropagation();
                             setMenuOpenId(isMenuOpen ? null : p.id);
                           }}
-                          className="rounded-md bg-white/90 p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 shadow-sm border border-slate-200/80"
+                          className="rounded-md bg-white dark:bg-slate-700 p-1.5 text-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-600 shadow-sm border border-slate-300 dark:border-slate-500"
                         >
-                          <MoreVertical size={14} />
+                          <MoreVertical size={15} strokeWidth={2.5} />
                         </button>
 
                         {isMenuOpen && (
