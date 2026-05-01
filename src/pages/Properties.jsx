@@ -1,9 +1,9 @@
 import { Link, useSearchParams } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Skeleton from "../components/ui/Skeleton";
-import { Home, Pencil, Trash2 } from "lucide-react";
+import { Home, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { can } from "../utils/permissions";
@@ -24,10 +24,9 @@ function PropertiesSkeleton() {
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-10 w-40" />
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-[280px]" />
+          <Skeleton key={i} className="h-[240px]" />
         ))}
       </div>
     </div>
@@ -58,32 +57,47 @@ export default function Properties({
     String(searchParams.get("sort") || "").toLowerCase() === "desc" ? "desc" : "asc"
   );
 
+  // Overflow menu state — tracks which card's ⋯ menu is open
+  const [menuOpenId, setMenuOpenId] = useState(null);
+  const menuRef = useRef(null);
+
   useEffect(() => {
     setTitle(t("properties.title"));
   }, [setTitle, t]);
 
-  /* 🔒 READ ACCESS */
-  const canRead = isRootOperator || can(activePermissionContext, "properties", "read");
+  // Close overflow menu on outside click
+  useEffect(() => {
+    if (!menuOpenId) return;
+    function close(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpenId(null);
+      }
+    }
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [menuOpenId]);
+
+  /* 🔒 ACCESS */
+  const canRead   = isRootOperator || can(activePermissionContext, "properties", "read");
   const canCreate = can(activePermissionContext, "properties", "create");
   const canUpdate = can(activePermissionContext, "properties", "update");
   const canDelete = can(activePermissionContext, "properties", "delete");
-  const isTenant = String(activeRole || "").toLowerCase() === "tenant";
-  const propertyLimit = getPlanUsageLimit(activePlan, "properties");
+  const isTenant  = String(activeRole || "").toLowerCase() === "tenant";
+  const propertyLimit             = getPlanUsageLimit(activePlan, "properties");
   const propertyCapacityAvailable = hasUsageCapacity(activePlan, "properties", properties.length);
   const addDisabled = canCreate && !propertyCapacityAvailable;
 
+  // --- Filters (URL-synced) ---
   const statusFilter = useMemo(() => {
     const raw = String(searchParams.get("status") || "").toLowerCase();
-    if (!raw) return "";
     if (["vacant", "wolne"].includes(raw)) return "vacant";
     if (["occupied", "wynajete", "wynajęte"].includes(raw)) return "occupied";
     return "";
   }, [searchParams]);
 
   useEffect(() => {
-    const nextQ = String(searchParams.get("q") || "");
-    const nextSort =
-      String(searchParams.get("sort") || "").toLowerCase() === "desc" ? "desc" : "asc";
+    const nextQ    = String(searchParams.get("q") || "");
+    const nextSort = String(searchParams.get("sort") || "").toLowerCase() === "desc" ? "desc" : "asc";
     if (nextQ !== query) setQuery(nextQ);
     if (nextSort !== sortDir) setSortDir(nextSort);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -91,19 +105,22 @@ export default function Properties({
 
   function updateListParams(next = {}) {
     const params = new URLSearchParams(searchParams);
-    if (Object.prototype.hasOwnProperty.call(next, "q")) {
+    if ("q" in next) {
       const v = String(next.q || "").trim();
-      if (v) params.set("q", v);
-      else params.delete("q");
+      if (v) params.set("q", v); else params.delete("q");
     }
-    if (Object.prototype.hasOwnProperty.call(next, "sort")) {
+    if ("sort" in next) {
       const v = String(next.sort || "").toLowerCase();
-      if (v === "desc") params.set("sort", "desc");
-      else params.set("sort", "asc");
+      params.set("sort", v === "desc" ? "desc" : "asc");
+    }
+    if ("status" in next) {
+      const v = String(next.status || "").toLowerCase();
+      if (v) params.set("status", v); else params.delete("status");
     }
     setSearchParams(params, { replace: true });
   }
 
+  // --- Derived lists ---
   const occupiedSet = useMemo(() => {
     const ids = new Set();
     for (const tenant of tenants || []) {
@@ -111,6 +128,12 @@ export default function Properties({
     }
     return ids;
   }, [tenants]);
+
+  const occupiedCount = useMemo(
+    () => (properties || []).filter((p) => occupiedSet.has(String(p.id))).length,
+    [properties, occupiedSet],
+  );
+  const vacantCount = (properties || []).length - occupiedCount;
 
   const statusFilteredProperties = useMemo(() => {
     if (!statusFilter) return properties || [];
@@ -125,9 +148,8 @@ export default function Properties({
     if (!q) return statusFilteredProperties;
     return statusFilteredProperties.filter((p) => {
       const address = String(p?.address || "").toLowerCase();
-      const city = String(p?.city || "").toLowerCase();
-      const size = String(p?.size || "").toLowerCase();
-      return address.includes(q) || city.includes(q) || size.includes(q);
+      const city    = String(p?.city    || "").toLowerCase();
+      return address.includes(q) || city.includes(q);
     });
   }, [statusFilteredProperties, query]);
 
@@ -144,13 +166,10 @@ export default function Properties({
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil((visibleProperties.length || 0) / (pageSize || 1))),
-    [visibleProperties.length, pageSize]
+    [visibleProperties.length, pageSize],
   );
 
-  useEffect(() => {
-    setPage(1);
-  }, [statusFilter, pageSize, query, sortDir]);
-
+  useEffect(() => { setPage(1); }, [statusFilter, pageSize, query, sortDir]);
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
     if (page < 1) setPage(1);
@@ -158,13 +177,11 @@ export default function Properties({
 
   const pagedProperties = useMemo(() => {
     const from = (page - 1) * pageSize;
-    const to = from + pageSize;
-    return visibleProperties.slice(from, to);
+    return visibleProperties.slice(from, from + pageSize);
   }, [visibleProperties, page, pageSize]);
 
-  if (loading || accountLoading) {
-    return <PropertiesSkeleton />;
-  }
+  // --- Guard renders ---
+  if (loading || accountLoading) return <PropertiesSkeleton />;
 
   if (!canRead) {
     return (
@@ -172,9 +189,7 @@ export default function Properties({
         <DashboardBreadcrumbs items={[{ label: t("properties.title") }]} />
         <div className="bg-white border rounded-xl p-6">
           <h2 className="text-lg font-semibold text-slate-900">{t("common.noAccess")}</h2>
-          <p className="text-sm text-slate-600 mt-1">
-            {t("properties.noAccessBody")}
-          </p>
+          <p className="text-sm text-slate-600 mt-1">{t("properties.noAccessBody")}</p>
         </div>
       </div>
     );
@@ -191,7 +206,6 @@ export default function Properties({
           <p className="text-slate-500 mt-2">
             {isTenant ? t("properties.tenantEmptySubtitle") : t("properties.emptySubtitle")}
           </p>
-
           {canCreate && (
             <button
               onClick={onAddProperty}
@@ -201,7 +215,7 @@ export default function Properties({
               {t("properties.add")}
             </button>
           )}
-          {addDisabled ? (
+          {addDisabled && (
             <p className="mt-3 text-sm text-amber-700">
               {t("properties.limitReached", {
                 plan: t(`billing.plan.${activePlan}`),
@@ -209,31 +223,51 @@ export default function Properties({
                 limit: propertyLimit,
               })}
             </p>
-          ) : null}
+          )}
         </div>
       </div>
     );
   }
 
+  // --- Main render ---
+  const STATUS_PILLS = [
+    { value: "",         label: t("common.all") },
+    { value: "occupied", label: t("status.occupied") },
+    { value: "vacant",   label: t("status.vacant") },
+  ];
+
   return (
     <div className="space-y-6">
       <DashboardBreadcrumbs items={[{ label: t("properties.title") }]} />
+
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <h2 className="text-2xl font-bold">{t("properties.title")}</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">{t("properties.title")}</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            <span className="font-medium text-slate-900">{properties.length}</span>{" "}
+            {t("properties.title").toLowerCase()}
+            {" · "}
+            <span className="font-medium text-emerald-700">{occupiedCount}</span>{" "}
+            {t("status.occupied").toLowerCase()}
+            {" · "}
+            <span className="font-medium text-slate-600">{vacantCount}</span>{" "}
+            {t("status.vacant").toLowerCase()}
+          </p>
+        </div>
 
         {canCreate && (
           <button
             onClick={onAddProperty}
             disabled={addDisabled}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:cursor-not-allowed disabled:opacity-60"
+            className="shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {t("properties.add")}
           </button>
         )}
       </div>
 
-      {addDisabled ? (
+      {addDisabled && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {t("properties.limitReached", {
             plan: t(`billing.plan.${activePlan}`),
@@ -242,14 +276,15 @@ export default function Properties({
           })}{" "}
           {t("properties.limitUpgradeHint")}
         </div>
-      ) : null}
+      )}
 
       <OnboardingHintCard
         title={t("onboarding.hints.properties.title")}
         body={t("onboarding.hints.properties.body")}
       />
 
-      <div className="flex flex-col sm:flex-row gap-3">
+      {/* FILTER BAR */}
+      <div className="space-y-3">
         <input
           type="text"
           value={query}
@@ -259,21 +294,41 @@ export default function Properties({
             updateListParams({ q: v });
           }}
           placeholder={t("properties.searchPlaceholder")}
-          className="w-full sm:max-w-md rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
-        <select
-          value={sortDir}
-          onChange={(e) => {
-            const v = e.target.value === "desc" ? "desc" : "asc";
-            setSortDir(v);
-            updateListParams({ sort: v });
-          }}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          aria-label={t("common.sort")}
-        >
-          <option value="asc">{t("common.aToZ")}</option>
-          <option value="desc">{t("common.zToA")}</option>
-        </select>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Status pills */}
+          {STATUS_PILLS.map(({ value, label }) => (
+            <button
+              key={value || "all"}
+              type="button"
+              onClick={() => updateListParams({ status: value })}
+              className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+                statusFilter === value
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-300 bg-white text-slate-700 hover:border-slate-400"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+
+          {/* Sort — pushed to the right */}
+          <select
+            value={sortDir}
+            onChange={(e) => {
+              const v = e.target.value === "desc" ? "desc" : "asc";
+              setSortDir(v);
+              updateListParams({ sort: v });
+            }}
+            className="ml-auto rounded-lg border border-slate-300 px-3 py-1 text-sm focus:outline-none"
+            aria-label={t("common.sort")}
+          >
+            <option value="asc">{t("common.aToZ")}</option>
+            <option value="desc">{t("common.zToA")}</option>
+          </select>
+        </div>
       </div>
 
       {visibleProperties.length === 0 && (
@@ -285,13 +340,11 @@ export default function Properties({
       {/* GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {pagedProperties.map((p) => {
-          // ✅ SINGLE SOURCE OF TRUTH
-          const tenant = tenants.find(
-            (t) => t.propertyId === p.id
-          );
-
+          const tenant     = tenants.find((tn) => tn.propertyId === p.id);
           const isOccupied = Boolean(tenant);
           const statusLabel = isOccupied ? t("status.occupied") : t("status.vacant");
+          const hasActions  = canUpdate || canDelete;
+          const isMenuOpen  = menuOpenId === p.id;
 
           return (
             <Link
@@ -300,71 +353,92 @@ export default function Properties({
               className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-xl"
             >
               <Card className="relative hover:shadow-md transition-shadow">
-                <div className="h-32 bg-slate-100 flex items-center justify-center">
-                  <Home size={40} className="text-slate-300" />
+                {/* Property image placeholder */}
+                <div className="h-28 bg-slate-100 flex items-center justify-center rounded-t-xl">
+                  <Home size={36} className="text-slate-300" />
                 </div>
 
-                <div className="p-5">
-                  <h3 className="font-semibold">{p.address}</h3>
-                  <p className="text-sm text-slate-500">
-                    {p.city} • {p.size}
-                  </p>
+                <div className="p-4">
+                  <h3 className="font-semibold text-slate-900 leading-snug">{p.address}</h3>
+                  <p className="text-sm text-slate-500 mt-0.5">{p.city}</p>
 
-                  <div className="mt-3 flex justify-between text-sm">
-                    <span>{t("finance.table.rent")}</span>
-                    <span className="font-medium">
+                  <div className="mt-3 flex items-center justify-between text-sm">
+                    <span className="text-slate-500">{t("finance.table.rent")}</span>
+                    <span className="font-semibold text-slate-900">
                       {p.rent != null ? formatCurrencyAmount(p.rent) : "—"}
                     </span>
                   </div>
 
-                  <div className="mt-2 flex justify-between text-sm">
-                    <span>{t("finance.table.tenant")}</span>
-                    <span>{tenant ? tenant.name : t("common.none")}</span>
+                  <div className="mt-1.5 flex items-center justify-between text-sm">
+                    <span className="text-slate-500">{t("finance.table.tenant")}</span>
+                    <span className="text-slate-700">{tenant ? tenant.name : t("common.none")}</span>
                   </div>
                 </div>
 
-                {/* STATUS */}
+                {/* Status badge — top left */}
                 <div className="absolute top-3 left-3">
                   <Badge status={statusLabel} />
                 </div>
 
-                {/* ACTIONS */}
-                {(canUpdate || canDelete) && (
-                  <div className="absolute top-3 right-3 flex gap-2">
+                {/* Actions — top right */}
+                {hasActions && (
+                  <div className="absolute top-2 right-2 flex items-center gap-1">
                     {canUpdate && (
                       <button
+                        type="button"
+                        title={t("properties.edit")}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
                           onEditProperty(p);
                         }}
-                        className="p-1 bg-white rounded hover:bg-slate-100"
+                        className="rounded-md bg-white/90 p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 shadow-sm border border-slate-200/80"
                       >
-                        <Pencil size={16} />
+                        <Pencil size={14} />
                       </button>
                     )}
 
                     {canDelete && (
-                      <button
-                        disabled={isOccupied}
-                        title={
-                          isOccupied
-                            ? t("properties.removeTenantBeforeDelete")
-                            : t("properties.deleteProperty")
-                        }
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          onDeleteProperty(p.id);
-                        }}
-                        className={`p-1 rounded ${
-                          isOccupied
-                            ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                            : "bg-white hover:bg-slate-100"
-                        }`}
+                      <div
+                        className="relative"
+                        ref={isMenuOpen ? menuRef : null}
                       >
-                        <Trash2 size={16} />
-                      </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setMenuOpenId(isMenuOpen ? null : p.id);
+                          }}
+                          className="rounded-md bg-white/90 p-1.5 text-slate-600 hover:bg-white hover:text-slate-900 shadow-sm border border-slate-200/80"
+                        >
+                          <MoreVertical size={14} />
+                        </button>
+
+                        {isMenuOpen && (
+                          <div className="absolute top-full right-0 z-20 mt-1 w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                            <button
+                              type="button"
+                              disabled={isOccupied}
+                              title={
+                                isOccupied
+                                  ? t("properties.removeTenantBeforeDelete")
+                                  : t("properties.deleteProperty")
+                              }
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setMenuOpenId(null);
+                                onDeleteProperty(p.id);
+                              }}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <Trash2 size={14} />
+                              {t("properties.deleteProperty")}
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
@@ -374,6 +448,7 @@ export default function Properties({
         })}
       </div>
 
+      {/* PAGINATION */}
       {visibleProperties.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           <div className="flex items-center gap-2">
@@ -384,9 +459,7 @@ export default function Properties({
               className="rounded-md border border-slate-300 px-2 py-1 text-sm"
             >
               {[6, 12, 24].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
+                <option key={n} value={n}>{n}</option>
               ))}
             </select>
           </div>
@@ -401,7 +474,9 @@ export default function Properties({
               {t("common.prev")}
             </button>
             <span className="text-sm text-slate-600">
-              {t("common.page")} <span className="font-medium text-slate-900">{page}</span> {t("common.of")} {totalPages}
+              {t("common.page")}{" "}
+              <span className="font-medium text-slate-900">{page}</span>{" "}
+              {t("common.of")} {totalPages}
             </span>
             <button
               type="button"
@@ -416,9 +491,7 @@ export default function Properties({
       )}
 
       {!canCreate && (
-        <p className="text-xs text-slate-500">
-          {t("finance.readOnly")}
-        </p>
+        <p className="text-xs text-slate-500">{t("finance.readOnly")}</p>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
+import { ChevronDown } from "lucide-react";
 import { useI18n } from "../context/I18nContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount } from "../utils/currency";
@@ -73,6 +74,7 @@ export default function PropertyPerformanceCard({
   tenantCount = 0,
 }) {
   const { t } = useI18n();
+  const [showDetails, setShowDetails] = useState(false);
   const [loading, setLoading] = useState(true);
   const [requestRows, setRequestRows] = useState([]);
   const [workOrderRows, setWorkOrderRows] = useState([]);
@@ -406,13 +408,6 @@ export default function PropertyPerformanceCard({
     );
   }
 
-  const toneClasses =
-    summary.attentionTone === "rose"
-      ? "border-rose-200 bg-rose-50/50 text-rose-700"
-      : summary.attentionTone === "amber"
-        ? "border-amber-200 bg-amber-50/50 text-amber-700"
-        : "border-emerald-200 bg-emerald-50/50 text-emerald-700";
-
   const healthToneClasses =
     healthView.category === "high_risk"
       ? "border-rose-200 bg-rose-50 text-rose-700"
@@ -422,25 +417,13 @@ export default function PropertyPerformanceCard({
 
   return (
     <Card className="p-4 bg-slate-50">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h3 className="text-base font-semibold text-slate-900">
-            {t("propertyDetails.performanceTitle")}
-          </h3>
-          <p className="text-sm text-slate-500 mt-1">
-            {t("propertyDetails.performanceSubtitle")}
-          </p>
-        </div>
-        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${toneClasses}`}>
-          {summary.attentionLabel}
-        </span>
-      </div>
-
       {error ? (
-        <p className="mt-3 text-sm text-rose-700">{error}</p>
+        <p className="text-sm text-rose-700">{error}</p>
       ) : (
-        <div className="mt-3 space-y-4">
+        <>
+          {/* ── ALWAYS-VISIBLE SUMMARY ─────────────────────────────────── */}
           <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3">
+            {/* Health score */}
             <div className="rounded-lg border border-slate-200 bg-white p-4">
               <p className="text-xs text-slate-500">{t("propertyDetails.performanceHealthScore")}</p>
               <div className="mt-2 flex items-end gap-2">
@@ -452,213 +435,227 @@ export default function PropertyPerformanceCard({
               <p className="mt-2 text-xs text-slate-500">{t("propertyDetails.performanceHealthSummary")}</p>
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white p-4">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium text-slate-900">{t("propertyDetails.performanceHealthDrivers")}</p>
-                <span className="text-xs text-slate-500">{t("propertyDetails.performanceHealthPenaltyHint")}</span>
+            {/* 4 key financial metrics */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="rounded-lg border border-slate-200 bg-white p-3">
+                <p className="text-xs text-slate-500">{t("propertyDetails.performanceMonthlyRent")}</p>
+                <p className="text-base font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.monthlyRent)}</p>
               </div>
-              {healthView.primaryReasons.length === 0 ? (
-                <p className="mt-3 text-sm text-emerald-700">{t("propertyHealth.reason.healthy_baseline")}</p>
-              ) : (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {healthView.primaryReasons.map((reason) => (
-                    <span
-                      key={`${reason.key}-${reason.penalty}`}
-                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700"
-                    >
-                      <span>{t(`propertyHealth.reason.${reason.key}`)}</span>
-                      <span className="font-semibold text-slate-900">-{reason.penalty}</span>
-                    </span>
+              <div className="rounded-lg border border-slate-200 bg-white p-3">
+                <p className="text-xs text-slate-500">{t("propertyDetails.performanceCollected")}</p>
+                <p className="text-base font-bold text-emerald-700 mt-1">{formatCurrencyAmount(summary.collectedToDate)}</p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white p-3">
+                <p className="text-xs text-slate-500">{t("propertyDetails.performanceOverdue")}</p>
+                <p className="text-base font-bold text-rose-700 mt-1">{formatCurrencyAmount(summary.overdueRent)}</p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white p-3">
+                <p className="text-xs text-slate-500">{t("propertyDetails.performanceOutstanding")}</p>
+                <p className="text-base font-bold text-amber-700 mt-1">{formatCurrencyAmount(summary.outstandingRent)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* ── TOGGLE ─────────────────────────────────────────────────── */}
+          <button
+            type="button"
+            onClick={() => setShowDetails((v) => !v)}
+            className="mt-4 flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition-colors"
+          >
+            <ChevronDown
+              size={15}
+              className={`transition-transform ${showDetails ? "rotate-180" : ""}`}
+            />
+            {showDetails ? t("propertyDetails.hideAnalysis") : t("propertyDetails.showAnalysis")}
+          </button>
+
+          {/* ── COLLAPSIBLE DETAILS ─────────────────────────────────────── */}
+          {showDetails && (
+            <div className="mt-4 space-y-4">
+              {/* Health drivers */}
+              <div className="rounded-lg border border-slate-200 bg-white p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-slate-900">{t("propertyDetails.performanceHealthDrivers")}</p>
+                  <span className="text-xs text-slate-500">{t("propertyDetails.performanceHealthPenaltyHint")}</span>
+                </div>
+                {healthView.primaryReasons.length === 0 ? (
+                  <p className="mt-3 text-sm text-emerald-700">{t("propertyHealth.reason.healthy_baseline")}</p>
+                ) : (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {healthView.primaryReasons.map((reason) => (
+                      <span
+                        key={`${reason.key}-${reason.penalty}`}
+                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700"
+                      >
+                        <span>{t(`propertyHealth.reason.${reason.key}`)}</span>
+                        <span className="font-semibold text-slate-900">-{reason.penalty}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Operational metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("propertyDetails.performanceOccupancy")}</p>
+                  <p className="text-lg font-bold text-slate-900 mt-1">{t(`status.${summary.occupancyStatus}`)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("propertyDetails.performanceOpenRequests")}</p>
+                  <p className="text-lg font-bold text-slate-900 mt-1">{summary.openRequests}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("propertyDetails.performanceActiveWorkOrders")}</p>
+                  <p className="text-lg font-bold text-slate-900 mt-1">{summary.activeWorkOrders}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("propertyDetails.performanceMaintenanceInvoiced")}</p>
+                  <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.maintenanceInvoiced)}</p>
+                </div>
+              </div>
+
+              {/* Cost metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("propertyDetails.performanceBilledToDate")}</p>
+                  <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.billedToDate)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("propertyDetails.performanceMaintenanceCommitted")}</p>
+                  <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.maintenanceCommitted)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("propertyDetails.performanceOperatingExpenses")}</p>
+                  <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.operatingExpenses)}</p>
+                </div>
+              </div>
+
+              {/* Investment metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("propertyDetails.performanceTotalOperatingCosts")}</p>
+                  <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.totalOperatingCosts)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("propertyDetails.performanceNetOperating")}</p>
+                  <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.netOperatingSnapshot)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("propertyDetails.performanceEstimatedValue")}</p>
+                  <p className="text-lg font-bold text-slate-900 mt-1">
+                    {summary.estimatedMarketValue > 0 ? formatCurrencyAmount(summary.estimatedMarketValue) : "—"}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  <p className="text-xs text-slate-500">{t("propertyDetails.performanceGrossYield")}</p>
+                  <p className="text-lg font-bold text-slate-900 mt-1">
+                    {summary.grossYield != null ? `${summary.grossYield.toFixed(2)}%` : "—"}
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-500">{t("propertyDetails.performanceFootnote")}</p>
+
+              {/* Trends */}
+              <div className="border-t border-slate-200 pt-4 space-y-4">
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-900">{t("propertyDetails.performanceTrendsTitle")}</h4>
+                  <p className="text-xs text-slate-500 mt-1">{t("propertyDetails.performanceTrendsSubtitle")}</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {trendView.windows.map((window) => (
+                    <div key={window.days} className="rounded-lg border border-slate-200 bg-white p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-medium text-slate-900">
+                          {t("propertyDetails.performanceCollectionWindow", { days: window.days })}
+                        </p>
+                        <span className="text-xs text-slate-500">
+                          {window.collectionRate == null
+                            ? t("propertyDetails.performanceNoBilling")
+                            : t("propertyDetails.performanceCollectionRate", { value: window.collectionRate })}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
+                        <div>
+                          <p className="text-xs text-slate-500">{t("propertyDetails.performanceBilled")}</p>
+                          <p className="font-semibold text-slate-900 mt-1">{formatCurrencyAmount(window.billed)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">{t("propertyDetails.performanceCollectedShort")}</p>
+                          <p className="font-semibold text-emerald-700 mt-1">{formatCurrencyAmount(window.collected)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">{t("propertyDetails.performanceOverdueShort")}</p>
+                          <p className="font-semibold text-rose-700 mt-1">{formatCurrencyAmount(window.overdue)}</p>
+                        </div>
+                      </div>
+                    </div>
                   ))}
                 </div>
-              )}
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">{t("propertyDetails.performanceMonthlyRent")}</p>
-              <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.monthlyRent)}</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">{t("propertyDetails.performanceCollected")}</p>
-              <p className="text-lg font-bold text-emerald-700 mt-1">{formatCurrencyAmount(summary.collectedToDate)}</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">{t("propertyDetails.performanceOverdue")}</p>
-              <p className="text-lg font-bold text-rose-700 mt-1">{formatCurrencyAmount(summary.overdueRent)}</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">{t("propertyDetails.performanceOutstanding")}</p>
-              <p className="text-lg font-bold text-amber-700 mt-1">{formatCurrencyAmount(summary.outstandingRent)}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">{t("propertyDetails.performanceOccupancy")}</p>
-              <p className="text-lg font-bold text-slate-900 mt-1">{t(`status.${summary.occupancyStatus}`)}</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">{t("propertyDetails.performanceOpenRequests")}</p>
-              <p className="text-lg font-bold text-slate-900 mt-1">{summary.openRequests}</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">{t("propertyDetails.performanceActiveWorkOrders")}</p>
-              <p className="text-lg font-bold text-slate-900 mt-1">{summary.activeWorkOrders}</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">{t("propertyDetails.performanceMaintenanceInvoiced")}</p>
-              <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.maintenanceInvoiced)}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">{t("propertyDetails.performanceBilledToDate")}</p>
-              <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.billedToDate)}</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">{t("propertyDetails.performanceMaintenanceCommitted")}</p>
-              <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.maintenanceCommitted)}</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">{t("propertyDetails.performanceOperatingExpenses")}</p>
-              <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.operatingExpenses)}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">{t("propertyDetails.performanceTotalOperatingCosts")}</p>
-              <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.totalOperatingCosts)}</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">{t("propertyDetails.performanceEstimatedValue")}</p>
-              <p className="text-lg font-bold text-slate-900 mt-1">
-                {summary.estimatedMarketValue > 0 ? formatCurrencyAmount(summary.estimatedMarketValue) : "—"}
-              </p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">{t("propertyDetails.performanceGrossYield")}</p>
-              <p className="text-lg font-bold text-slate-900 mt-1">
-                {summary.grossYield != null ? `${summary.grossYield.toFixed(2)}%` : "—"}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">{t("propertyDetails.performanceNetOperating")}</p>
-              <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.netOperatingSnapshot)}</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-xs text-slate-500">{t("propertyDetails.performanceAnnualizedRent")}</p>
-              <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.annualizedRent)}</p>
-              <p className="text-xs text-slate-500 mt-1">{t("propertyDetails.performanceAnnualizedRentHint")}</p>
-            </div>
-          </div>
-
-          <p className="text-xs text-slate-500">
-            {t("propertyDetails.performanceFootnote")}
-          </p>
-
-          <div className="border-t border-slate-200 pt-4 space-y-4">
-            <div>
-              <h4 className="text-sm font-semibold text-slate-900">{t("propertyDetails.performanceTrendsTitle")}</h4>
-              <p className="text-xs text-slate-500 mt-1">{t("propertyDetails.performanceTrendsSubtitle")}</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {trendView.windows.map((window) => (
-                <div key={window.days} className="rounded-lg border border-slate-200 bg-white p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-medium text-slate-900">
-                      {t("propertyDetails.performanceCollectionWindow", { days: window.days })}
-                    </p>
-                    <span className="text-xs text-slate-500">
-                      {window.collectionRate == null
-                        ? t("propertyDetails.performanceNoBilling")
-                        : t("propertyDetails.performanceCollectionRate", { value: window.collectionRate })}
-                    </span>
-                  </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
-                    <div>
-                      <p className="text-xs text-slate-500">{t("propertyDetails.performanceBilled")}</p>
-                      <p className="font-semibold text-slate-900 mt-1">{formatCurrencyAmount(window.billed)}</p>
+                <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] gap-3">
+                  <div className="rounded-lg border border-slate-200 bg-white p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-slate-900">{t("propertyDetails.performanceMaintenanceTrend")}</p>
+                      <span className="text-xs text-slate-500">{t("propertyDetails.performanceLastMonths")}</span>
                     </div>
-                    <div>
-                      <p className="text-xs text-slate-500">{t("propertyDetails.performanceCollectedShort")}</p>
-                      <p className="font-semibold text-emerald-700 mt-1">{formatCurrencyAmount(window.collected)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">{t("propertyDetails.performanceOverdueShort")}</p>
-                      <p className="font-semibold text-rose-700 mt-1">{formatCurrencyAmount(window.overdue)}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] gap-3">
-              <div className="rounded-lg border border-slate-200 bg-white p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-slate-900">{t("propertyDetails.performanceMaintenanceTrend")}</p>
-                  <span className="text-xs text-slate-500">{t("propertyDetails.performanceLastMonths")}</span>
-                </div>
-                <div className="mt-3 grid grid-cols-4 gap-2 items-end">
-                  {trendView.monthlyMaintenance.map((month) => {
-                    const height = Math.max(12, Math.round((Number(month.amount || 0) / trendView.maxMaintenanceAmount) * 96));
-                    return (
-                      <div key={month.key} className="text-center">
-                        <div className="mx-auto flex h-28 w-full max-w-[56px] items-end justify-center rounded-lg bg-slate-100">
-                          <div
-                            className="w-8 rounded-t-md bg-gradient-to-t from-rose-500 to-amber-400"
-                            style={{ height }}
-                          />
-                        </div>
-                        <p className="mt-2 text-xs text-slate-500">{month.label}</p>
-                        <p className="text-xs font-medium text-slate-900">{formatCurrencyAmount(month.amount, { maximumFractionDigits: 0 })}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-slate-200 bg-white p-3">
-                <p className="text-sm font-medium text-slate-900">{t("propertyDetails.performanceIssueFrequency")}</p>
-                <div className="mt-3 space-y-3">
-                  <div className="rounded-lg border border-slate-200 p-3">
-                    <p className="text-xs text-slate-500">{t("propertyDetails.performanceIssues30")}</p>
-                    <p className="text-lg font-bold text-slate-900 mt-1">{trendView.requests30}</p>
-                  </div>
-                  <div className="rounded-lg border border-slate-200 p-3">
-                    <p className="text-xs text-slate-500">{t("propertyDetails.performanceIssues90")}</p>
-                    <p className="text-lg font-bold text-slate-900 mt-1">{trendView.requests90}</p>
-                  </div>
-                  <div className="rounded-lg border border-slate-200 p-3">
-                    <p className="text-xs text-slate-500">{t("propertyDetails.performanceAttentionFlags")}</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {trendView.flags.map((flag) => {
-                        const tone =
-                          flag.tone === "rose"
-                            ? "border-rose-200 bg-rose-50 text-rose-700"
-                            : flag.tone === "amber"
-                              ? "border-amber-200 bg-amber-50 text-amber-700"
-                              : "border-emerald-200 bg-emerald-50 text-emerald-700";
+                    <div className="mt-3 grid grid-cols-4 gap-2 items-end">
+                      {trendView.monthlyMaintenance.map((month) => {
+                        const height = Math.max(12, Math.round((Number(month.amount || 0) / trendView.maxMaintenanceAmount) * 96));
                         return (
-                          <span key={flag.key} className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${tone}`}>
-                            {flag.label}
-                          </span>
+                          <div key={month.key} className="text-center">
+                            <div className="mx-auto flex h-28 w-full max-w-[56px] items-end justify-center rounded-lg bg-slate-100">
+                              <div
+                                className="w-8 rounded-t-md bg-gradient-to-t from-rose-500 to-amber-400"
+                                style={{ height }}
+                              />
+                            </div>
+                            <p className="mt-2 text-xs text-slate-500">{month.label}</p>
+                            <p className="text-xs font-medium text-slate-900">{formatCurrencyAmount(month.amount, { maximumFractionDigits: 0 })}</p>
+                          </div>
                         );
                       })}
                     </div>
                   </div>
+
+                  <div className="rounded-lg border border-slate-200 bg-white p-3">
+                    <p className="text-sm font-medium text-slate-900">{t("propertyDetails.performanceIssueFrequency")}</p>
+                    <div className="mt-3 space-y-3">
+                      <div className="rounded-lg border border-slate-200 p-3">
+                        <p className="text-xs text-slate-500">{t("propertyDetails.performanceIssues30")}</p>
+                        <p className="text-lg font-bold text-slate-900 mt-1">{trendView.requests30}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 p-3">
+                        <p className="text-xs text-slate-500">{t("propertyDetails.performanceIssues90")}</p>
+                        <p className="text-lg font-bold text-slate-900 mt-1">{trendView.requests90}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 p-3">
+                        <p className="text-xs text-slate-500">{t("propertyDetails.performanceAttentionFlags")}</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {trendView.flags.map((flag) => {
+                            const tone =
+                              flag.tone === "rose"
+                                ? "border-rose-200 bg-rose-50 text-rose-700"
+                                : flag.tone === "amber"
+                                  ? "border-amber-200 bg-amber-50 text-amber-700"
+                                  : "border-emerald-200 bg-emerald-50 text-emerald-700";
+                            return (
+                              <span key={flag.key} className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${tone}`}>
+                                {flag.label}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
     </Card>
   );
