@@ -44,6 +44,18 @@ export default function App() {
     [activeAccountId, activeAccount?.name],
   );
 
+  // React Router v7 requires all children of <Route>/<Routes> to be <Route>
+  // elements — it validates types before rendering, so a component wrapper is
+  // rejected even if it returns a Route fragment. Calling these as plain
+  // functions lets React Router see the returned Route elements directly.
+  //
+  // Both calls must happen here (before any early returns) so React's
+  // hook-call order is stable across every render of App. When the user is
+  // unauthenticated, the portfolio hooks inside each tree run with enabled=false
+  // and do not trigger any fetches.
+  const managerRouteTree = ManagerRoutes();
+  const tenantRouteTree  = TenantRoutes();
+
   // ── Public routes rendered before the auth gate ──────────────────────────
 
   if (location.pathname === "/invite")         return <Invite />;
@@ -87,7 +99,7 @@ export default function App() {
             />
           }
         >
-          <ManagerRoutes />
+          {managerRouteTree}
         </Route>
 
         {/* Tenant portal — separate layout, tenant-scoped data hooks */}
@@ -99,7 +111,7 @@ export default function App() {
             </TenantOnlyRoute>
           }
         >
-          <TenantRoutes />
+          {tenantRouteTree}
         </Route>
       </Routes>
     </Suspense>
