@@ -113,7 +113,7 @@ function OverflowMenu({ items, label }) {
       </button>
       {open && (
         <div className="absolute right-0 top-full z-20 mt-1 min-w-[160px] rounded-lg border border-slate-200 bg-white shadow-md">
-          {items.map((item) =>
+          {items.map((item, idx) =>
             item ? (
               <button
                 key={item.label}
@@ -129,7 +129,7 @@ function OverflowMenu({ items, label }) {
                 {item.label}
               </button>
             ) : (
-              <div key={Math.random()} className="my-1 border-t border-slate-100" />
+              <div key={`divider-${idx}`} className="my-1 border-t border-slate-100" />
             )
           )}
         </div>

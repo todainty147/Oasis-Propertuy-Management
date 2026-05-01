@@ -11,11 +11,6 @@ const CRON_SECRET = Deno.env.get("CRON_SECRET") || "";
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
 
 type CleanupBody = {
   dryRun?: boolean;
@@ -32,7 +27,7 @@ Deno.serve(async (req) => {
   const requestId = crypto.randomUUID();
 
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { status: 405 });
   }
 
   try {
@@ -158,10 +153,7 @@ Deno.serve(async (req) => {
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
   });
 }
 

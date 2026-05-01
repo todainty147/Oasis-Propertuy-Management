@@ -16,7 +16,7 @@ function safeBaseName(fileName = "") {
 
   return base
     .replace(/\s+/g, "_")
-    .replace(/[^\w.\-]+/g, "_")
+    .replace(/[^\w.-]+/g, "_")
     .replace(/_+/g, "_")
     .replace(/^_+|_+$/g, "");
 }

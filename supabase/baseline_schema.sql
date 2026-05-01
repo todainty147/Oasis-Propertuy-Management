@@ -1950,19 +1950,17 @@ ALTER FUNCTION public.can_access_property(p_property_id uuid) OWNER TO postgres;
 --
 
 CREATE FUNCTION public.can_access_work_order(p_work_order_id uuid) RETURNS boolean
-    LANGUAGE sql STABLE
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ‘public’
     AS $$
-  -- TODO: Replace with your real rules:
-  -- owner/staff of account that owns the work order’s property
-  -- OR assigned contractor for that work order
-  -- OR (optional later) tenant linked to that work order
   select exists (
     select 1
     from public.work_orders wo
     where wo.id = p_work_order_id
       and (
-        public.is_account_owner_or_staff(wo.account_id)  -- if you have this
-        or wo.contractor_user_id = auth.uid()   -- if you have this
+        public.is_account_owner_or_staff(wo.account_id)
+        or wo.contractor_user_id = auth.uid()
+        or public.is_tenant_for_work_order(p_work_order_id)
       )
   );
 $$;
@@ -22668,18 +22666,16 @@ GRANT ALL ON FUNCTION public.can_access_property(p_property_id uuid) TO service_
 -- Name: FUNCTION can_access_work_order(p_work_order_id uuid); Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public.can_access_work_order(p_work_order_id uuid) TO anon;
-GRANT ALL ON FUNCTION public.can_access_work_order(p_work_order_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.can_access_work_order(p_work_order_id uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.can_access_work_order(p_work_order_id uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_access_work_order(p_work_order_id uuid) TO service_role;
 
 
 --
 -- Name: FUNCTION can_access_work_order(p_account_id uuid, p_work_order_id uuid); Type: ACL; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public.can_access_work_order(p_account_id uuid, p_work_order_id uuid) TO anon;
-GRANT ALL ON FUNCTION public.can_access_work_order(p_account_id uuid, p_work_order_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.can_access_work_order(p_account_id uuid, p_work_order_id uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.can_access_work_order(p_account_id uuid, p_work_order_id uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_access_work_order(p_account_id uuid, p_work_order_id uuid) TO service_role;
 
 
 --

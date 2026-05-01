@@ -247,7 +247,7 @@ export async function getBestDocumentExtractionForAudit(accountId, documentId) {
   let extraction = null;
   try {
     extraction = await getDocumentExtraction(accountId, documentId);
-  } catch (_err) {
+  } catch {
     return { status: "unavailable", extraction: null };
   }
 

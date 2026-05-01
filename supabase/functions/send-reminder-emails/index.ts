@@ -18,11 +18,6 @@ const OASIS_REMINDERS_FROM = Deno.env.get("OASIS_REMINDERS_FROM") || "reminders@
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
 
 type ReminderBody = {
   accountId?: string;
@@ -53,7 +48,7 @@ Deno.serve(async (req) => {
   const requestId = crypto.randomUUID();
 
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { status: 405 });
   }
 
   try {
@@ -445,9 +440,6 @@ function escapeHtml(value: string) {
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: {
-      "Content-Type": "application/json",
-      ...corsHeaders,
-    },
+    headers: { "Content-Type": "application/json" },
   });
 }
