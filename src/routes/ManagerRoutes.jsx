@@ -266,6 +266,7 @@ export default function ManagerRoutes() {
               loading={tenantsLoading}
               tenants={ownerTenants}
               properties={ownerProperties}
+              payments={payments}
             />
           )
         }

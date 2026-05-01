@@ -1,6 +1,6 @@
-import { useParams, useNavigate, Navigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import Card from "../components/Card";
+// src/pages/TenantDetails.jsx
+import { useParams, useNavigate, Navigate, useSearchParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
 import Badge from "../components/Badge";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 import Skeleton from "../components/ui/Skeleton";
@@ -12,8 +12,8 @@ import CustomFieldsReadOnlySection from "../components/CustomFieldsReadOnlySecti
 import CustomFieldsFormSection from "../components/CustomFieldsFormSection";
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
-import { isManageRole } from "../utils/permissions";
-import { can } from "../utils/permissions";
+import { isManageRole, can } from "../utils/permissions";
+import { formatCurrencyAmount } from "../utils/currency";
 import {
   listEntityCustomFieldEditorState,
   listEntityCustomFieldValues,
@@ -23,20 +23,248 @@ import {
 } from "../services/customFieldService";
 import { updateTenant } from "../services/tenantService";
 
+// ── Payment status helpers (locale-agnostic) ─────────────────────────────────
+
+function paymentIsOverdue(p) {
+  const s = String(p?.status || "").toLowerCase();
+  return s.includes("zaleg") || s === "overdue" || s.includes("fällig");
+}
+
+function paymentIsPaid(p) {
+  const s = String(p?.status || "").toLowerCase();
+  return s.includes("opłac") || s === "paid" || s.includes("bezahl");
+}
+
 /* ======================
    SKELETON
    ====================== */
 
 function TenantDetailsSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Skeleton className="h-4 w-32" />
-      <Skeleton className="h-4 w-56" />
-      <Card className="p-6 space-y-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
         <Skeleton className="h-7 w-48" />
-        <Skeleton className="h-4 w-40" />
-        <Skeleton className="h-4 w-32" />
-      </Card>
+        <Skeleton className="h-4 w-64" />
+        <div className="flex gap-2 pt-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-9 w-24 rounded-full" />
+          ))}
+        </div>
+      </div>
+      <Skeleton className="h-48" />
+      <Skeleton className="h-32" />
+    </div>
+  );
+}
+
+/* ======================
+   EDIT MODAL
+   ====================== */
+
+function EditTenantModal({
+  open,
+  onClose,
+  tenant,
+  properties,
+  activeAccountId,
+  canUpdateTenant,
+  t,
+  onSaved,
+}) {
+  const [form, setForm] = useState({ name: "", email: "", phone: "", propertyId: "" });
+  const [definitions, setDefinitions] = useState([]);
+  const [values, setValues] = useState({});
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState(null); // { type: "success"|"error", message }
+  const backdropRef = useRef(null);
+
+  useEffect(() => {
+    if (!open || !tenant) return;
+    setForm({
+      name: tenant.name ?? "",
+      email: tenant.email ?? "",
+      phone: tenant.phone ?? "",
+      propertyId: tenant.propertyId ?? "",
+    });
+    setFeedback(null);
+    setErrors({});
+  }, [open, tenant]);
+
+  useEffect(() => {
+    if (!open || !activeAccountId || !tenant?.id || !canUpdateTenant) {
+      setDefinitions([]);
+      setValues({});
+      return;
+    }
+    let cancelled = false;
+    listEntityCustomFieldEditorState({
+      accountId: activeAccountId,
+      entityType: "tenant",
+      entityId: tenant.id,
+    })
+      .then((state) => {
+        if (cancelled) return;
+        setDefinitions(state.definitions);
+        setValues(state.values);
+        setErrors({});
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDefinitions([]);
+        setValues({});
+      });
+    return () => { cancelled = true; };
+  }, [open, activeAccountId, canUpdateTenant, tenant?.id]);
+
+  function handleFieldChange(def, value) {
+    const defId = String(def?.id || "");
+    const v = validateCustomFieldInput(def, value);
+    setValues((cur) => ({ ...cur, [defId]: value }));
+    setErrors((cur) => ({ ...cur, [defId]: v.error || "" }));
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!tenant?.id || !activeAccountId) return;
+    const validation = validateCustomFieldEntries(definitions, values);
+    if (!validation.isValid) {
+      setErrors(validation.errors);
+      return;
+    }
+    setSaving(true);
+    setFeedback(null);
+    try {
+      await updateTenant(activeAccountId, tenant.id, {
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        propertyId: form.propertyId || null,
+      });
+      await saveEntityCustomFieldValues({
+        accountId: activeAccountId,
+        entityId: tenant.id,
+        definitions,
+        values: validation.normalizedValues,
+      });
+      setFeedback({ type: "success", message: t("tenantDetails.savedSuccess") });
+      onSaved?.();
+    } catch (err) {
+      setFeedback({ type: "error", message: err?.message || t("tenantDetails.saveError") });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) return null;
+
+  return (
+    <div
+      ref={backdropRef}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onMouseDown={(e) => { if (e.target === backdropRef.current) onClose(); }}
+    >
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <h2 className="text-lg font-semibold text-slate-900">{t("tenantDetails.editTitle")}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            aria-label="Close"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
+          <div className="px-6 py-4 space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block space-y-1">
+                <span className="text-sm font-medium text-slate-700">{t("tenants.name")}</span>
+                <input
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                  value={form.name}
+                  onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))}
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-sm font-medium text-slate-700">{t("tenants.email")}</span>
+                <input
+                  type="email"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                  value={form.email}
+                  onChange={(e) => setForm((c) => ({ ...c, email: e.target.value }))}
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-sm font-medium text-slate-700">{t("tenants.phone")}</span>
+                <input
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                  value={form.phone}
+                  onChange={(e) => setForm((c) => ({ ...c, phone: e.target.value }))}
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-sm font-medium text-slate-700">{t("common.property")}</span>
+                <select
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                  value={form.propertyId}
+                  onChange={(e) => setForm((c) => ({ ...c, propertyId: e.target.value }))}
+                >
+                  <option value="">{t("properties.noProperty")}</option>
+                  {properties.map((p) => (
+                    <option key={p.id} value={p.id}>{p.address}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <CustomFieldsFormSection
+              title={t("customFields.tenantFieldsTitle")}
+              definitions={definitions}
+              values={values}
+              errors={errors}
+              onChange={handleFieldChange}
+              disabled={saving}
+              emptyMessage={t("customFields.tenantFieldsEmpty")}
+            />
+
+            {feedback && (
+              <p className={`text-sm rounded-lg px-3 py-2 ${
+                feedback.type === "success"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-rose-50 text-rose-700"
+              }`}>
+                {feedback.message}
+              </p>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              {t("common.cancel")}
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400"
+            >
+              {saving ? t("common.saving") : t("tenants.save")}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
@@ -51,48 +279,51 @@ export default function TenantDetails({
   properties = [],
   payments = [],
 }) {
-  /* ---------- ROUTER ---------- */
   const { id } = useParams();
   const navigate = useNavigate();
-
-  /* ---------- ACCOUNT ---------- */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { setTitle } = usePageTitle();
   const { accountLoading, activeAccountId, activeRole, activePermissionContext } = useAccount();
   const { t } = useI18n();
-  const canManageLease = isManageRole(activeRole);
+  const canManageLease  = isManageRole(activeRole);
   const canUpdateTenant = can(activePermissionContext, "tenants", "update");
-  const [customFieldRows, setCustomFieldRows] = useState([]);
+
+  const [customFieldRows, setCustomFieldRows]     = useState([]);
   const [customFieldsLoading, setCustomFieldsLoading] = useState(false);
-  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", propertyId: "" });
-  const [editCustomFieldDefinitions, setEditCustomFieldDefinitions] = useState([]);
-  const [editCustomFieldValues, setEditCustomFieldValues] = useState({});
-  const [editCustomFieldErrors, setEditCustomFieldErrors] = useState({});
-  const [savingEdit, setSavingEdit] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
-  /* ---------- PAGE TITLE ---------- */
-  const { setTitle } = usePageTitle();
+  // ── Tabs ─────────────────────────────────────────────────────────────────────
 
-  /* ---------- DATA LOOKUPS ---------- */
-  const tenant = tenants.find((t) => String(t.id) === String(id));
-  const property = properties.find(
-    (p) => String(p.id) === String(tenant?.propertyId)
-  );
+  const TABS = [
+    { id: "overview",  label: t("tenantDetails.tab.overview")  },
+    { id: "payments",  label: t("tenantDetails.tab.payments")  },
+    { id: "documents", label: t("tenantDetails.tab.documents") },
+    { id: "timeline",  label: t("tenantDetails.tab.timeline")  },
+  ];
+  const VALID_TABS = new Set(TABS.map((tb) => tb.id));
+  const rawTab  = searchParams.get("tab");
+  const activeTab = (rawTab && VALID_TABS.has(rawTab)) ? rawTab : "overview";
 
-  /* ---------- EFFECTS ---------- */
+  function setTab(tab) {
+    setSearchParams({ tab }, { replace: true });
+  }
+
+  // ── Data ──────────────────────────────────────────────────────────────────────
+
+  const tenant   = tenants.find((tn) => String(tn.id) === String(id));
+  const property = properties.find((p) => String(p.id) === String(tenant?.propertyId));
+
   useEffect(() => {
-    if (tenant?.name) {
-      setTitle(tenant.name);
-    }
+    if (tenant?.name) setTitle(tenant.name);
   }, [tenant?.name, setTitle]);
 
   useEffect(() => {
     let cancelled = false;
-
-    async function loadCustomFields() {
+    async function load() {
       if (!activeAccountId || !tenant?.id) {
         if (!cancelled) setCustomFieldRows([]);
         return;
       }
-
       setCustomFieldsLoading(true);
       try {
         const rows = await listEntityCustomFieldValues({
@@ -107,83 +338,9 @@ export default function TenantDetails({
         if (!cancelled) setCustomFieldsLoading(false);
       }
     }
-
-    loadCustomFields();
-    return () => {
-      cancelled = true;
-    };
+    load();
+    return () => { cancelled = true; };
   }, [activeAccountId, tenant?.id]);
-
-  useEffect(() => {
-    if (!tenant) return;
-    setEditForm({
-      name: tenant.name ?? "",
-      email: tenant.email ?? "",
-      phone: tenant.phone ?? "",
-      propertyId: tenant.propertyId ?? "",
-    });
-  }, [tenant]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadCustomFieldEditorState() {
-      if (!activeAccountId || !tenant?.id || !canUpdateTenant) {
-        if (!cancelled) {
-          setEditCustomFieldDefinitions([]);
-          setEditCustomFieldValues({});
-        }
-        return;
-      }
-
-      try {
-        const state = await listEntityCustomFieldEditorState({
-          accountId: activeAccountId,
-          entityType: "tenant",
-          entityId: tenant.id,
-        });
-        if (!cancelled) {
-          setEditCustomFieldDefinitions(state.definitions);
-          setEditCustomFieldValues(state.values);
-          setEditCustomFieldErrors({});
-        }
-      } catch {
-        if (!cancelled) {
-          setEditCustomFieldDefinitions([]);
-          setEditCustomFieldValues({});
-          setEditCustomFieldErrors({});
-        }
-      }
-    }
-
-    loadCustomFieldEditorState();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeAccountId, canUpdateTenant, tenant?.id]);
-
-  /* ---------- EARLY STATES ---------- */
-  if (loading || accountLoading) {
-    return <TenantDetailsSkeleton />;
-  }
-
-  if (!canManageLease) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  if (!tenant) {
-    return (
-      <div className="p-6 bg-white rounded-xl border">
-        <p>{t("tenantDetails.notFound")}</p>
-        <button
-          className="mt-4 text-blue-600"
-          onClick={() => navigate("/tenants")}
-        >
-          {t("common.back")}
-        </button>
-      </div>
-    );
-  }
 
   async function refreshCustomFields() {
     if (!activeAccountId || !tenant?.id) return;
@@ -202,217 +359,209 @@ export default function TenantDetails({
     }
   }
 
-  async function handleSaveTenantDetails(event) {
-    event.preventDefault();
-    if (!tenant?.id || !activeAccountId) return;
-    const validation = validateCustomFieldEntries(editCustomFieldDefinitions, editCustomFieldValues);
-    if (!validation.isValid) {
-      setEditCustomFieldErrors(validation.errors);
-      return;
-    }
-    setSavingEdit(true);
-    try {
-      await updateTenant(activeAccountId, tenant.id, {
-        name: editForm.name,
-        email: editForm.email,
-        phone: editForm.phone,
-        propertyId: editForm.propertyId || null,
-      });
-      await saveEntityCustomFieldValues({
-        accountId: activeAccountId,
-        entityId: tenant.id,
-        definitions: editCustomFieldDefinitions,
-        values: validation.normalizedValues,
-      });
-      await refreshCustomFields();
-      window.alert("Tenant details saved.");
-    } catch (error) {
-      window.alert(error?.message || "Failed to save tenant details");
-    } finally {
-      setSavingEdit(false);
-    }
+  // ── Early states ──────────────────────────────────────────────────────────────
+
+  if (loading || accountLoading) return <TenantDetailsSkeleton />;
+  if (!canManageLease) return <Navigate to="/dashboard" replace />;
+
+  if (!tenant) {
+    return (
+      <div className="p-6 bg-white rounded-xl border">
+        <p>{t("tenantDetails.notFound")}</p>
+        <button className="mt-4 text-blue-600" onClick={() => navigate("/tenants")}>
+          {t("common.back")}
+        </button>
+      </div>
+    );
   }
 
-  function handleEditCustomFieldChange(definition, value) {
-    const definitionId = String(definition?.id || "");
-    const validation = validateCustomFieldInput(definition, value);
-    setEditCustomFieldValues((current) => ({
-      ...current,
-      [definitionId]: value,
-    }));
-    setEditCustomFieldErrors((current) => ({
-      ...current,
-      [definitionId]: validation.error || "",
-    }));
-  }
+  // ── Derived payment data ───────────────────────────────────────────────────────
 
-  /* ---------- PAYMENTS ---------- */
-  const tenantPayments = payments.filter(
-    (p) => String(p.tenantId) === String(tenant.id)
-  );
+  const tenantPayments = payments.filter((p) => String(p.tenantId) === String(tenant.id));
 
-  const paidCount = tenantPayments.filter(
-    (p) => p.status === "Opłacone"
-  ).length;
+  const paidAmount    = tenantPayments
+    .filter(paymentIsPaid)
+    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
-  const overdueCount = tenantPayments.filter(
-    (p) => p.status === "Zaległe"
-  ).length;
+  const overdueAmount = tenantPayments
+    .filter(paymentIsOverdue)
+    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
-  /* ---------- TENANT STATUS ---------- */
   let tenantStatus = t("payments.status.overdue");
-  if (overdueCount === 0 && paidCount > 0) tenantStatus = t("payments.status.paid");
-  else if (paidCount > 0 && overdueCount > 0) tenantStatus = t("payments.status.partial");
+  if (overdueAmount === 0 && paidAmount > 0) tenantStatus = t("payments.status.paid");
+  else if (paidAmount > 0 && overdueAmount > 0) tenantStatus = t("payments.status.partial");
+  else if (overdueAmount === 0 && paidAmount === 0) tenantStatus = t("payments.status.paid");
 
-  /* ======================
-     RENDER
-     ====================== */
+  // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6">
-      <DashboardBreadcrumbs
-        items={[
-          { label: t("sidebar.tenants"), to: "/tenants" },
-          { label: tenant.name },
-        ]}
+    <>
+      <EditTenantModal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        tenant={tenant}
+        properties={properties}
+        activeAccountId={activeAccountId}
+        canUpdateTenant={canUpdateTenant}
+        t={t}
+        onSaved={refreshCustomFields}
       />
 
-      {/* ---------- TENANT CARD ---------- */}
-      <Card className="p-6 space-y-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">
-              {tenant.name}
-            </h2>
-            <p className="text-slate-600 mt-1">{tenant.email}</p>
-            <p className="text-slate-600">{tenant.phone}</p>
+      <div className="space-y-4">
+        <DashboardBreadcrumbs
+          items={[
+            { label: t("sidebar.tenants"), to: "/tenants" },
+            { label: tenant.name },
+          ]}
+        />
+
+        {/* ── PERSISTENT HEADER ──────────────────────────────────────────────── */}
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+          <div className="px-6 py-5">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-2xl font-bold text-slate-900 truncate">{tenant.name}</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {tenant.email && <span>{tenant.email}</span>}
+                  {tenant.email && tenant.phone && (
+                    <span className="mx-2 text-slate-300">·</span>
+                  )}
+                  {tenant.phone && <span>{tenant.phone}</span>}
+                  {property && (
+                    <>
+                      <span className="mx-2 text-slate-300">·</span>
+                      <span className="text-slate-700 font-medium">{property.address}</span>
+                    </>
+                  )}
+                </p>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-3">
+                {canUpdateTenant && (
+                  <button
+                    type="button"
+                    onClick={() => setEditOpen(true)}
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 whitespace-nowrap"
+                  >
+                    {t("properties.edit")}
+                  </button>
+                )}
+                <Badge status={tenantStatus} />
+              </div>
+            </div>
           </div>
 
-          <Badge status={tenantStatus} />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="p-4 bg-slate-50">
-            <p className="text-xs text-slate-500">{t("tenantDetails.unit")}</p>
-            <p className="font-semibold">{property?.address || "—"}</p>
-            <p className="text-sm text-slate-500">
-              {property?.city || ""}
-            </p>
-          </Card>
-
-          <Card className="p-4 bg-slate-50">
-            <p className="text-xs text-slate-500">{t("finance.table.paid")}</p>
-            <p className="text-xl font-bold">{paidCount}</p>
-          </Card>
-
-          <Card className="p-4 bg-slate-50">
-            <p className="text-xs text-slate-500">{t("finance.summary.overdue")}</p>
-            <p className="text-xl font-bold text-rose-600">
-              {overdueCount}
-            </p>
-          </Card>
-        </div>
-      </Card>
-
-      <LeaseSummaryCard
-        accountId={activeAccountId}
-        propertyId={tenant.propertyId || null}
-        tenantId={tenant.id}
-        canManage={canManageLease}
-      />
-
-      <TenantTimelineCard
-        accountId={activeAccountId}
-        tenant={tenant}
-        property={property}
-      />
-
-      {canUpdateTenant ? (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-slate-900">{t("tenants.editDetails")}</h3>
-          <form className="mt-4 space-y-4" onSubmit={handleSaveTenantDetails}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="block space-y-1">
-                <span className="text-sm font-medium text-slate-700">{t("tenants.name")}</span>
-                <input
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
-                  value={editForm.name}
-                  onChange={(event) =>
-                    setEditForm((current) => ({ ...current, name: event.target.value }))
-                  }
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-sm font-medium text-slate-700">{t("tenants.email")}</span>
-                <input
-                  type="email"
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
-                  value={editForm.email}
-                  onChange={(event) =>
-                    setEditForm((current) => ({ ...current, email: event.target.value }))
-                  }
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-sm font-medium text-slate-700">{t("tenants.phone")}</span>
-                <input
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
-                  value={editForm.phone}
-                  onChange={(event) =>
-                    setEditForm((current) => ({ ...current, phone: event.target.value }))
-                  }
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-sm font-medium text-slate-700">{t("common.property")}</span>
-                <select
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
-                  value={editForm.propertyId}
-                  onChange={(event) =>
-                    setEditForm((current) => ({ ...current, propertyId: event.target.value }))
-                  }
+          {/* ── TAB NAV ──────────────────────────────────────────────────────── */}
+          <div className="border-t border-slate-100 px-6">
+            <nav className="-mb-px flex overflow-x-auto" aria-label="Tenant sections">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setTab(tab.id)}
+                  className={`shrink-0 border-b-2 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? "border-slate-900 text-slate-900"
+                      : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                  }`}
                 >
-                  <option value="">{t("properties.noProperty")}</option>
-                  {properties.map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.address}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+        </div>
+
+        {/* ── OVERVIEW ─────────────────────────────────────────────────────── */}
+        {activeTab === "overview" && (
+          <div className="space-y-4">
+            {/* Payment summary */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-xs text-slate-500">{t("tenantDetails.unit")}</p>
+                <p className="font-semibold text-slate-900 mt-1">{property?.address || "—"}</p>
+                {property?.city && (
+                  <p className="text-sm text-slate-500">{property.city}</p>
+                )}
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-xs text-slate-500">{t("tenantDetails.paidAmount")}</p>
+                <p className="text-xl font-bold text-emerald-600 mt-1">
+                  {formatCurrencyAmount(paidAmount)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-xs text-slate-500">{t("tenantDetails.overdueAmount")}</p>
+                <p className={`text-xl font-bold mt-1 ${overdueAmount > 0 ? "text-rose-600" : "text-slate-900"}`}>
+                  {formatCurrencyAmount(overdueAmount)}
+                </p>
+              </div>
             </div>
 
-            <CustomFieldsFormSection
-              title={t("customFields.tenantFieldsTitle")}
-              definitions={editCustomFieldDefinitions}
-              values={editCustomFieldValues}
-              errors={editCustomFieldErrors}
-              onChange={handleEditCustomFieldChange}
-              disabled={savingEdit}
-              emptyMessage={t("customFields.tenantFieldsEmpty")}
+            <LeaseSummaryCard
+              accountId={activeAccountId}
+              propertyId={tenant.propertyId || null}
+              tenantId={tenant.id}
+              canManage={canManageLease}
             />
 
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={savingEdit}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:bg-slate-400"
-              >
-                {savingEdit ? t("common.saving") : t("tenants.save")}
-              </button>
+            <CustomFieldsReadOnlySection
+              title={t("customFields.tenantFieldsTitle")}
+              rows={customFieldRows}
+              loading={customFieldsLoading}
+            />
+          </div>
+        )}
+
+        {/* ── PAYMENTS ─────────────────────────────────────────────────────── */}
+        {activeTab === "payments" && (
+          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100">
+              <h3 className="font-semibold text-slate-900">{t("tenantDetails.tab.payments")}</h3>
             </div>
-          </form>
-        </Card>
-      ) : null}
+            {tenantPayments.length === 0 ? (
+              <p className="px-6 py-8 text-sm text-slate-500 text-center">
+                {t("tenantDetails.noPayments")}
+              </p>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {tenantPayments.map((pmt) => (
+                  <div key={pmt.id} className="flex items-center justify-between px-6 py-3 gap-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">
+                        {pmt.description || t("finance.table.rent")}
+                      </p>
+                      {pmt.dueDate && (
+                        <p className="text-xs text-slate-500">{pmt.dueDate}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-sm font-semibold text-slate-900">
+                        {formatCurrencyAmount(pmt.amount)}
+                      </span>
+                      <Badge status={pmt.status} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-      <CustomFieldsReadOnlySection
-        title={t("customFields.tenantFieldsTitle")}
-        rows={customFieldRows}
-        loading={customFieldsLoading}
-      />
+        {/* ── DOCUMENTS ────────────────────────────────────────────────────── */}
+        {activeTab === "documents" && (
+          <TenantDocumentsSection tenantId={tenant.id} />
+        )}
 
-      {/* ---------- TENANT DOCUMENTS ---------- */}
-      <TenantDocumentsSection tenantId={tenant.id} />
-    </div>
+        {/* ── TIMELINE ─────────────────────────────────────────────────────── */}
+        {activeTab === "timeline" && (
+          <TenantTimelineCard
+            accountId={activeAccountId}
+            tenant={tenant}
+            property={property}
+          />
+        )}
+      </div>
+    </>
   );
 }
