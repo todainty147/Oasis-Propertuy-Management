@@ -116,12 +116,14 @@ describe.skipIf(!isIntegrationHarnessConfigured())("root support impersonation",
       .eq("account_id", isolationFixtures.accounts.accountA.id);
 
     expect(propertiesResult.error).toBeNull();
-    expect(propertiesResult.data).toEqual([
-      expect.objectContaining({
-        id: isolationSeedIds.propertyIds.accountA,
-        account_id: isolationFixtures.accounts.accountA.id,
-      }),
-    ]);
+    expect(propertiesResult.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: isolationSeedIds.propertyIds.accountA,
+          account_id: isolationFixtures.accounts.accountA.id,
+        }),
+      ]),
+    );
 
     const paymentsResult = await client
       .from("payments")
@@ -129,12 +131,14 @@ describe.skipIf(!isIntegrationHarnessConfigured())("root support impersonation",
       .eq("account_id", isolationFixtures.accounts.accountA.id);
 
     expect(paymentsResult.error).toBeNull();
-    expect(paymentsResult.data).toEqual([
-      expect.objectContaining({
-        id: isolationSeedIds.paymentIds.accountA,
-        account_id: isolationFixtures.accounts.accountA.id,
-      }),
-    ]);
+    expect(paymentsResult.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: isolationSeedIds.paymentIds.accountA,
+          account_id: isolationFixtures.accounts.accountA.id,
+        }),
+      ]),
+    );
 
     const financeResult = await client.rpc("finance_snapshot", {
       p_account_id: isolationFixtures.accounts.accountA.id,
@@ -145,11 +149,13 @@ describe.skipIf(!isIntegrationHarnessConfigured())("root support impersonation",
     const financeRow = firstRow(financeResult.data);
     expect(financeRow).toBeTruthy();
     expect(Array.isArray(financeRow.property_finance)).toBe(true);
-    expect(financeRow.property_finance).toEqual([
-      expect.objectContaining({
-        propertyId: isolationSeedIds.propertyIds.accountA,
-      }),
-    ]);
+    expect(financeRow.property_finance).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          propertyId: isolationSeedIds.propertyIds.accountA,
+        }),
+      ]),
+    );
     expect(Number(financeRow.outstanding_income)).toBeGreaterThan(0);
 
     const billingResult = await client

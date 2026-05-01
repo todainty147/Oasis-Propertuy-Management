@@ -15,6 +15,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("operations foundations secur
   const createdExpenseIds = new Set();
   const createdComplianceIds = new Set();
   const createdAutomationIds = new Set();
+  const createdPaymentIds = new Set();
   let previousFinancialProfile = undefined;
 
   function expectWriteDenied(result) {
@@ -89,6 +90,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("operations foundations secur
 
     expect(result.error).toBeNull();
     const row = Array.isArray(result.data) ? result.data[0] : result.data;
+    if (row?.id) createdPaymentIds.add(row.id);
     return row;
   }
 
@@ -97,6 +99,11 @@ describe.skipIf(!isIntegrationHarnessConfigured())("operations foundations secur
   });
 
   afterEach(async () => {
+    if (createdPaymentIds.size > 0) {
+      await admin.from("payments").delete().in("id", Array.from(createdPaymentIds));
+      createdPaymentIds.clear();
+    }
+
     if (createdAutomationIds.size > 0) {
       const { error } = await admin.from("automation_execution_log").delete().in("id", Array.from(createdAutomationIds));
       createdAutomationIds.clear();

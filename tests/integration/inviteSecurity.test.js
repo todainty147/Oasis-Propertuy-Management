@@ -50,7 +50,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("invite lifecycle security", 
         role,
         token,
       })
-      .select("id, account_id, email, role, token, invited_by, accepted_at, revoked_at")
+      .select("id, account_id, email, role, invited_by, accepted_at, revoked_at")
       .single();
 
     if (!result.error && result.data?.id) createdInviteIds.add(result.data.id);

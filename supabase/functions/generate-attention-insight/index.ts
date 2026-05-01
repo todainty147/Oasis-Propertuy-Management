@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
       try {
         await checkAndReserveAiCall(admin, { accountId, featureKey: "attention_briefing" });
       } catch (error) {
-        return respond({ error: String((error as Error)?.message || "AI generation limit reached") }, 429);
+        return respond({ error: "AI generation limit reached" }, 429);
       }
     }
 

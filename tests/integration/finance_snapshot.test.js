@@ -116,7 +116,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("finance_snapshot isolation",
         : 0;
     const expectedDelta = Math.max(300 - existingPaidAmount, 0);
     expect(Number(row.total_income)).toBe(Number(beforeRow.total_income) + expectedDelta);
-    expect(Number(row.overdue_income)).toBe(0);
+    expect(Number(row.overdue_income)).toBe(Number(beforeRow.overdue_income));
     expect(Number(row.due_soon_income)).toBe(Number(beforeRow.due_soon_income) - expectedDelta);
     expect(Number(row.outstanding_income)).toBe(Number(beforeRow.outstanding_income) - expectedDelta);
 

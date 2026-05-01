@@ -3939,7 +3939,7 @@ begin
   values (v_new_account_id, v_uid, v_support_role)
   on conflict (account_id, user_id) do nothing;
 
-  v_token := encode(gen_random_bytes(32), 'hex');
+  v_token := encode(extensions.gen_random_bytes(32), 'hex');
 
   insert into public.account_invitations(
     account_id,

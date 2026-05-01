@@ -305,6 +305,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply work order audit security fixes",
+    file: path.join(supabaseDir, "work_order_audit_security_fixes.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply security log event overlay",
     file: path.join(supabaseDir, "log_security_event.sql"),
     onErrorStop: true,
@@ -352,6 +357,11 @@ const bootstrapSteps = [
   {
     label: "Apply self-serve landlord signup overlay",
     file: path.join(supabaseDir, "self_serve_landlord_signup.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply create_landlord_invitation overlay",
+    file: path.join(supabaseDir, "create_landlord_invitation.sql"),
     onErrorStop: true,
   },
   {

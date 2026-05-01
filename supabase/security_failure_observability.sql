@@ -226,23 +226,7 @@ begin
   set status = v_next,
       updated_at = now()
   where id = p_work_order_id;
-
-  insert into public.work_order_audit_log (
-    work_order_id,
-    actor_user_id,
-    action,
-    old_value,
-    new_value,
-    account_id
-  )
-  values (
-    p_work_order_id,
-    auth.uid(),
-    'status_changed',
-    jsonb_build_object('status', v_old_status),
-    jsonb_build_object('status', v_next),
-    v_account_id
-  );
+  -- Audit entry is written by the trg_audit_work_order_status_change trigger.
 end;
 $$;
 

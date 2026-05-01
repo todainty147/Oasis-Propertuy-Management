@@ -33,13 +33,28 @@ describe.skipIf(!isIntegrationHarnessConfigured())("account owner contact and se
 
   afterAll(async () => {
     if (tempAccountIds.size > 0) {
-      const { error } = await admin.from("accounts").delete().in("id", Array.from(tempAccountIds));
-      if (error) throw error;
+      const ids = Array.from(tempAccountIds);
+      // Delete in FK-dependency order (errors ignored on intermediate steps)
+      await admin.from("work_order_audit_log").delete().in("account_id", ids);
+      await admin.from("work_order_financials").delete().in("account_id", ids);
+      await admin.from("work_orders").delete().in("account_id", ids);
+      await admin.from("maintenance_requests").delete().in("account_id", ids);
+      await admin.from("payments").delete().in("account_id", ids);
+      await admin.from("tenants").delete().in("account_id", ids);
+      await admin.from("properties").delete().in("account_id", ids);
+      await admin.from("account_members").delete().in("account_id", ids);
+      await admin.from("account_invitations").delete().in("account_id", ids);
+      await admin.from("roles").delete().in("account_id", ids);
+      // security_audit_ledger CASCADE DELETE is blocked by append-only trigger,
+      // so accounts with audit entries cannot be deleted via PostgREST.
+      // Swallow the error — stale test accounts are harmless in a local environment.
+      await admin.from("accounts").delete().in("id", ids);
     }
 
     for (const userId of tempUserIds) {
-      const { error } = await admin.auth.admin.deleteUser(userId);
-      if (error) throw error;
+      // Ignore deleteUser errors — security_audit_ledger CASCADE prevents cleanup
+      // in local test environments; stale auth users are harmless.
+      await admin.auth.admin.deleteUser(userId).catch(() => null);
     }
   });
 

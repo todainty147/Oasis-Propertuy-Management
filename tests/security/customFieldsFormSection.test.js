@@ -2,6 +2,21 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+// CustomFieldsFormSection uses useI18n() internally — provide a minimal mock
+// so the component can render outside a real I18nProvider.
+vi.mock("../../src/context/I18nContext", () => ({
+  useI18n: () => ({
+    t: (key) => {
+      const map = {
+        "customFields.title":       "Custom fields",
+        "customFields.fieldFallback": "Custom field",
+        "common.saving":            "Saving…",
+      };
+      return map[key] ?? key;
+    },
+  }),
+}));
+
 import CustomFieldsFormSection, {
   getCustomFieldInputType,
 } from "../../src/components/CustomFieldsFormSection.jsx";

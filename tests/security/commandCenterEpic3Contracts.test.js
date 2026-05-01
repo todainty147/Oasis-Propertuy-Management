@@ -105,14 +105,13 @@ describe("CommandCenterPage category filter", () => {
   });
 
   it("passes category filter to all four section groups", () => {
-    const urgentSection = pageSource.includes("view.groups.urgent.filter");
-    const actionSection = pageSource.includes("view.groups.action.filter");
-    const upcomingSection = pageSource.includes("view.groups.upcoming.filter");
-    const recentSection = pageSource.includes("view.groups.recent.filter");
-    expect(urgentSection).toBe(true);
-    expect(actionSection).toBe(true);
-    expect(upcomingSection).toBe(true);
-    expect(recentSection).toBe(true);
+    // filterGroup() applies activeCategory to each group — verify all four are passed through it
+    expect(pageSource).toContain("filterGroup(view.groups.urgent)");
+    expect(pageSource).toContain("filterGroup(view.groups.action)");
+    expect(pageSource).toContain("filterGroup(view.groups.upcoming)");
+    expect(pageSource).toContain("filterGroup(view.groups.recent)");
+    // filterGroup itself must reference activeCategory so the filter is not a no-op
+    expect(pageSource).toContain("activeCategory");
   });
 
   it("ALL_CATEGORIES includes security, finance, maintenance, contractor, lease", () => {

@@ -17,7 +17,10 @@ stable
 security definer
 set search_path to 'public'
 as $$
-  select public.account_member_effective_role(p_account_id, auth.uid()) in ('owner', 'admin', 'staff');
+  select coalesce(
+    public.account_member_effective_role(p_account_id, auth.uid()) in ('owner', 'admin', 'staff'),
+    false
+  );
 $$;
 
 create or replace function public.is_account_manager(p_account_id uuid, p_user_id uuid)
@@ -25,7 +28,10 @@ returns boolean
 language sql
 stable
 as $$
-  select public.account_member_effective_role(p_account_id, p_user_id) in ('owner', 'admin', 'staff');
+  select coalesce(
+    public.account_member_effective_role(p_account_id, p_user_id) in ('owner', 'admin', 'staff'),
+    false
+  );
 $$;
 
 create or replace function public.is_account_owner_or_staff(p_account_id uuid)

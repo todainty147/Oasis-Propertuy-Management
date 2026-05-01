@@ -93,29 +93,6 @@ export async function listTaxRecords(accountId, {
       p_offset:        offset,
     });
   if (error) {
-    if (error.code === "PGRST202") return _listTaxRecordsDirect(accountId, { countryCode, recordType, reviewStatus, recordDateFrom, recordDateTo, limit, offset });
-    if (isMissingBackendObject(error)) return [];
-    throw error;
-  }
-  return parseRpcRows(data ?? [], parseTaxRecordRow, "tax records");
-}
-
-async function _listTaxRecordsDirect(accountId, { countryCode, recordType, reviewStatus, recordDateFrom, recordDateTo, limit, offset } = {}) {
-  let query = supabase
-    .from("tax_records")
-    .select(RECORD_SELECT)
-    .eq("account_id", accountId)
-    .order("record_date", { ascending: false });
-
-  if (countryCode) query = query.eq("country_code", String(countryCode).toUpperCase().slice(0, 2));
-  if (recordType) query = query.eq("record_type", recordType);
-  if (reviewStatus) query = query.eq("review_status", reviewStatus);
-  if (recordDateFrom) query = query.gte("record_date", recordDateFrom);
-  if (recordDateTo) query = query.lte("record_date", recordDateTo);
-  query = query.range(offset ?? 0, (offset ?? 0) + (limit ?? 100) - 1);
-
-  const { data, error } = await query;
-  if (error) {
     if (isMissingBackendObject(error)) return [];
     throw error;
   }

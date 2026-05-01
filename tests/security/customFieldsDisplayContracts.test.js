@@ -24,11 +24,12 @@ describe("custom fields display contracts", () => {
 
     expect(propertyDetailsSource).toContain('entityType: "property"');
     expect(propertyDetailsSource).toContain("<CustomFieldsReadOnlySection");
-    expect(propertyDetailsSource).toContain('title="Custom property fields"');
+    // Title is passed through the i18n function — verify the key, not the hardcoded English string
+    expect(propertyDetailsSource).toContain('"customFields.propertyFieldsTitle"');
 
     expect(tenantDetailsSource).toContain('entityType: "tenant"');
     expect(tenantDetailsSource).toContain("<CustomFieldsReadOnlySection");
-    expect(tenantDetailsSource).toContain('title="Custom tenant fields"');
+    expect(tenantDetailsSource).toContain('"customFields.tenantFieldsTitle"');
 
     expect(sectionSource).toContain("No custom fields configured yet.");
     expect(sectionSource).toContain("!loading && !hasRows");

@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { parseDocumentRow } from "../../src/services/rpcContracts";
 
-const repoRoot = "/mnt/c/users/home/oasisrentalmanagementapp";
+const repoRoot = path.resolve(import.meta.dirname, "../../");
 
 describe("tenant portal backend contracts", () => {
   it("parses tenant document highlight metadata from document rows", () => {

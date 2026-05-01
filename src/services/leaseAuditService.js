@@ -174,22 +174,6 @@ export async function listLeaseAuditFindings(accountId, leaseAuditId) {
     });
 
   if (error) {
-    if (error.code === "PGRST202") return _listLeaseAuditFindingsDirect(accountId, leaseAuditId);
-    if (isMissingBackendObject(error)) return [];
-    throw error;
-  }
-  return parseRpcRows(data ?? [], parseLeaseAuditFindingRow, "lease audit findings");
-}
-
-async function _listLeaseAuditFindingsDirect(accountId, leaseAuditId) {
-  const { data, error } = await supabase
-    .from("lease_audit_findings")
-    .select(FINDING_SELECT)
-    .eq("account_id", accountId)
-    .eq("lease_audit_id", leaseAuditId)
-    .order("created_at", { ascending: true });
-
-  if (error) {
     if (isMissingBackendObject(error)) return [];
     throw error;
   }
