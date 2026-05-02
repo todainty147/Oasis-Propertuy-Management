@@ -119,37 +119,45 @@ begin
     v_name := split_part(v_email, '@', 1);
   end if;
 
-  insert into public.accounts(name)
-  values (v_name)
-  returning id into v_new_account_id;
+  -- Wrap all writes in a sub-block so PostgreSQL creates an implicit savepoint
+  -- before the first insert. Any failure (e.g. a unique constraint on the
+  -- invitation token) rolls back the account and membership rows atomically,
+  -- even when this function is called inside a larger outer transaction.
+  begin
+    insert into public.accounts(name)
+    values (v_name)
+    returning id into v_new_account_id;
 
-  -- Root operator attached as support member for account-switching workflows.
-  insert into public.account_members(account_id, user_id, role)
-  values (v_new_account_id, v_uid, v_support_role)
-  on conflict (account_id, user_id) do nothing;
+    -- Root operator attached as support member for account-switching workflows.
+    insert into public.account_members(account_id, user_id, role)
+    values (v_new_account_id, v_uid, v_support_role)
+    on conflict (account_id, user_id) do nothing;
 
-  -- extensions.gen_random_bytes is used explicitly because search_path = 'public'
-  -- does not include the extensions schema where pgcrypto is installed.
-  v_token := encode(extensions.gen_random_bytes(32), 'hex');
+    -- extensions.gen_random_bytes is used explicitly because search_path = 'public'
+    -- does not include the extensions schema where pgcrypto is installed.
+    v_token := encode(extensions.gen_random_bytes(32), 'hex');
 
-  insert into public.account_invitations(
-    account_id,
-    email,
-    role,
-    token,
-    invited_by,
-    created_at,
-    updated_at
-  )
-  values (
-    v_new_account_id,
-    v_email,
-    'owner',
-    v_token,
-    v_uid,
-    v_now,
-    v_now
-  );
+    insert into public.account_invitations(
+      account_id,
+      email,
+      role,
+      token,
+      invited_by,
+      created_at,
+      updated_at
+    )
+    values (
+      v_new_account_id,
+      v_email,
+      'owner',
+      v_token,
+      v_uid,
+      v_now,
+      v_now
+    );
+  exception when others then
+    raise;
+  end;
 
   return jsonb_build_object(
     'account_id',   v_new_account_id,

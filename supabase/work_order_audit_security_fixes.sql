@@ -58,8 +58,8 @@ begin
             new.account_id,
             array[v_uid],
             'work_order_created',
-            'Nowe zlecenie utworzone',
-            'Utworzono nowe zlecenie serwisowe.',
+            'New work order created',
+            'A new work order has been created.',
             'work_order',
             new.id,
             '/work-orders/' || new.id::text,
@@ -85,8 +85,8 @@ begin
           new.account_id,
           array[v_contractor],
           'work_order_assigned',
-          'Masz nowe zlecenie',
-          'Przypisano do Ciebie nowe zlecenie.',
+          'You have a new work order',
+          'You have been assigned a new work order.',
           'work_order',
           new.id,
           '/contractor/jobs/' || new.id::text,
@@ -115,8 +115,8 @@ begin
           new.account_id,
           array[new.contractor_user_id],
           'work_order_assigned',
-          'Masz nowe zlecenie',
-          'Przypisano do Ciebie zlecenie.',
+          'You have a new work order',
+          'You have been assigned a work order.',
           'work_order',
           new.id,
           '/contractor/jobs/' || new.id::text,
@@ -137,8 +137,8 @@ begin
       limit 1;
 
       v_label := coalesce(nullif(v_label, ''), new.status);
-      v_title := 'Zmieniono status zlecenia';
-      v_body  := 'Nowy status: ' || v_label;
+      v_title := 'Work order status changed';
+      v_body  := 'New status: ' || v_label;
 
       if v_members is not null and array_length(v_members, 1) is not null then
         foreach v_uid in array v_members loop
