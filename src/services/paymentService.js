@@ -152,6 +152,7 @@ export async function createPayment({
   });
 
   if (error) throw error;
+  if (!data) throw new Error("create_payment returned no data");
   const parsed = parsePaymentRow(data);
   await notifyTenantPaymentDue({
     paymentId: parsed.id,
@@ -192,6 +193,7 @@ export async function updatePayment(paymentId, { accountId = null, amount = null
   });
 
   if (error) throw error;
+  if (!data) throw new Error("update_payment returned no data");
   return parsePaymentRow(data);
 }
 
@@ -226,6 +228,7 @@ export async function markPaymentPaid(paymentId, paidAt = null, accountId = null
   });
 
   if (error) throw error;
+  if (!data) throw new Error("mark_payment_paid returned no data");
   const parsed = parsePaymentRow(data);
   await notifyTenantPaymentReceived({ payment: parsed, accountId });
   return parsed;
@@ -241,5 +244,6 @@ export async function markPaymentUnpaid(paymentId, accountId = null) {
   });
 
   if (error) throw error;
+  if (!data) throw new Error("mark_payment_unpaid returned no data");
   return parsePaymentRow(data);
 }

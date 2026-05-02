@@ -304,7 +304,9 @@ export async function createMarketplaceJob(input) {
     throw friendly(error, "Failed to create marketplace handoff");
   }
 
-  return parseMarketplaceJobRow(firstRpcRow(data));
+  const row = firstRpcRow(data);
+  if (!row) throw new Error("create_marketplace_job returned no data");
+  return parseMarketplaceJobRow(row);
 }
 
 export async function getMarketplaceJobsForWorkOrder({ accountId, workOrderId }) {

@@ -165,10 +165,12 @@ export async function createAccountInvitation({
       });
       throw friendly(error, "Failed to create landlord invitation");
     }
-    const invite = parseInvitationRow(firstRpcRow(data));
+    const inviteRow = firstRpcRow(data);
+    if (!inviteRow) throw new Error("create_landlord_invitation returned no data");
+    const invite = parseInvitationRow(inviteRow);
     if (!invite?.token) throw new Error("Landlord invitation token missing");
 
-    const redirectUrl = `${window.location.origin}${redirectPath}?token=${invite.token}`;
+    const redirectUrl = `${window.location.origin}${redirectPath}?token=${encodeURIComponent(invite.token)}`;
     const { error: otpErr } = await supabase.auth.signInWithOtp({
       email: cleanEmail,
       options: { emailRedirectTo: redirectUrl },
@@ -204,7 +206,7 @@ export async function createAccountInvitation({
     throw friendly(error, "Failed to create invitation");
   }
 
-  const redirectUrl = `${window.location.origin}${redirectPath}?token=${token}`;
+  const redirectUrl = `${window.location.origin}${redirectPath}?token=${encodeURIComponent(token)}`;
   const { error: otpErr } = await supabase.auth.signInWithOtp({
     email: cleanEmail,
     options: {
@@ -272,7 +274,7 @@ export async function resendInvitationEmail(invitation, redirectPath = "/invite"
 
   if (!token) throw new Error("Invitation token is not available for client-side resend");
 
-  const redirectUrl = `${window.location.origin}${redirectPath}?token=${token}`;
+  const redirectUrl = `${window.location.origin}${redirectPath}?token=${encodeURIComponent(token)}`;
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {

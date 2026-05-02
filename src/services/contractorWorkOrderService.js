@@ -189,8 +189,9 @@ export async function loadContractorPortalRows(context = {}) {
           propertyLabel: String(card.property_label || "").trim() || row.propertyLabel,
         };
       });
-    } catch {
-      // Keep the contractor portal usable after the shared RPC wrapper records the failure.
+    } catch (hydrationErr) {
+      // Keep the contractor portal usable; log so the failure is visible in dev/staging.
+      console.warn("[contractorWorkOrders] card hydration failed", hydrationErr?.message);
     }
   }
 
