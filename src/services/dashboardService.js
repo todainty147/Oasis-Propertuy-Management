@@ -1,0 +1,300 @@
+import { supabase } from "../lib/supabase";
+import {
+  logOperationalLatencySample,
+  logSecurityRelevantFailure,
+  logSlowOperationalTelemetry,
+  startOperationalTimer,
+} from "./securityFailureLogger";
+import {
+  EMPTY_DASHBOARD_SNAPSHOT,
+  firstRpcRow,
+  parseDashboardHubExtraRow,
+  parseDashboardSnapshotRow,
+  parseRpcRows,
+} from "./rpcContracts";
+import {
+  buildSnapshotCacheKey,
+  getSnapshotCacheValue,
+  setSnapshotCacheValue,
+} from "./snapshotCache";
+
+let dashboardHubExtrasUnavailable = false;
+
+function friendly(err, fallback) {
+  return new Error(err?.message ?? fallback);
+}
+
+function isMissingBackendObject(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    error?.code === "PGRST404" ||
+    message.includes("could not find the function") ||
+    message.includes("relation") ||
+    message.includes("does not exist")
+  );
+}
+
+export async function getDashboardSnapshot(
+  accountId,
+  { tenantId = null, horizonDays = 1, forceRefresh = false } = {},
+) {
+  if (!accountId) throw new Error("Missing accountId");
+  const cacheKey = buildSnapshotCacheKey("dashboard_snapshot", {
+    accountId,
+    tenantId,
+    horizonDays,
+  });
+  if (!forceRefresh) {
+    const cached = getSnapshotCacheValue(cacheKey);
+    if (cached) return cached;
+  }
+
+  const startedAt = startOperationalTimer();
+  const thresholdMs = 1200;
+
+  const { data, error } = await supabase.rpc("dashboard_snapshot", {
+    p_account_id: accountId,
+    p_tenant_id: tenantId,
+    p_horizon_days: horizonDays,
+  });
+
+  if (error && isMissingBackendObject(error)) {
+    return { ...EMPTY_DASHBOARD_SNAPSHOT };
+  }
+  if (error) {
+    logSecurityRelevantFailure("dashboard_snapshot", {
+      error,
+      context: { accountId, tenantId, horizonDays },
+    });
+    throw friendly(error, "Failed to load dashboard snapshot");
+  }
+
+  const durationMs = startOperationalTimer() - startedAt;
+  logOperationalLatencySample("dashboard_snapshot", {
+    accountId,
+    surface: "dashboard",
+    durationMs,
+    targetMs: thresholdMs,
+    context: { horizonDays, hasTenantScope: Boolean(tenantId) },
+  });
+  logSlowOperationalTelemetry("dashboard_snapshot", {
+    accountId,
+    surface: "dashboard",
+    durationMs,
+    thresholdMs,
+    context: { horizonDays, hasTenantScope: Boolean(tenantId) },
+  });
+  return setSnapshotCacheValue(cacheKey, parseDashboardSnapshotRow(firstRpcRow(data)));
+}
+
+export async function getDashboardHubExtras(accountId, { tenantId = null, horizonDays = 1 } = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (dashboardHubExtrasUnavailable) return [];
+
+  const { data, error } = await supabase.rpc("dashboard_hub_extras", {
+    p_account_id: accountId,
+    p_tenant_id: tenantId,
+    p_horizon_days: horizonDays,
+  });
+
+  if (error && isMissingBackendObject(error)) {
+    dashboardHubExtrasUnavailable = true;
+    return [];
+  }
+  if (error) {
+    logSecurityRelevantFailure("dashboard_hub_extras", {
+      error,
+      context: { accountId, tenantId, horizonDays },
+    });
+    throw friendly(error, "Failed to load dashboard hub extras");
+  }
+  return parseRpcRows(data || [], parseDashboardHubExtraRow, "dashboard_hub_extras rows");
+}
+
+export function mapDashboardHubItems({
+  attentionRows = [],
+  dueSoonCount = 0,
+  extras = [],
+  leaseItems = [],
+  hubHorizon = "today",
+  t,
+}) {
+  const maxAgeHours = hubHorizon === "today" ? 24 : 7 * 24;
+
+  const maintenanceItems = (attentionRows || [])
+    .filter((row) => {
+      const ageHours = Number(row?.age_hours);
+      if (!Number.isFinite(ageHours)) return true;
+      return ageHours <= maxAgeHours;
+    })
+    .slice(0, 6)
+    .map((row) => ({
+      id: `${row.item_type}-${row.maintenance_request_id || row.work_order_id || "na"}`,
+      title: t(`maintenance.attention.${row.item_type}`),
+      subtitle: row.title || row.property_label || "—",
+      meta:
+        row.property_label && Number.isFinite(Number(row.age_hours))
+          ? `${row.property_label} • ${Math.floor(Number(row.age_hours) / 24)}d ago`
+          : row.property_label || "",
+      to: "/maintenance-inbox",
+      sortOrder: 100,
+    }));
+
+  const extraItems = (extras || []).map((item) => {
+    const type = String(item?.item_type || "").toLowerCase();
+    if (type === "vacant_long_summary") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.longVacant"),
+        subtitle: `${item.property_label || "—"} (${item.days_vacant || 0}d)`,
+        meta: item.city || "",
+        to: item.link_path || "/properties?status=vacant&aging=14d",
+        sortOrder: Number(item.sort_order || 10),
+      };
+    }
+
+    if (type === "preventive_overdue_summary") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.preventiveOverdue"),
+        subtitle: t("dashboard.hub.preventiveCount", {
+          count: Number(item.count_value || 0),
+        }),
+        meta: t("dashboard.hub.preventiveHint"),
+        to: item.link_path || "/maintenance-kpi",
+        sortOrder: Number(item.sort_order || 18),
+      };
+    }
+
+    if (type === "preventive_due_summary") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.preventiveDueSoon"),
+        subtitle: t("dashboard.hub.preventiveCount", {
+          count: Number(item.count_value || 0),
+        }),
+        meta: t("dashboard.hub.preventiveHint"),
+        to: item.link_path || "/maintenance-kpi",
+        sortOrder: Number(item.sort_order || 22),
+      };
+    }
+
+    if (type === "blocked_work_order_summary") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.blockedWorkOrders"),
+        subtitle: t("dashboard.hub.blockedWorkOrdersCount", {
+          count: Number(item.count_value || 0),
+        }),
+        meta: t("dashboard.hub.blockedWorkOrdersHint"),
+        to: item.link_path || "/maintenance-inbox?woStatus=blocked",
+        sortOrder: Number(item.sort_order || 24),
+      };
+    }
+
+    if (type === "contractor_ack_overdue_summary") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.contractorAckOverdue"),
+        subtitle: t("dashboard.hub.contractorAckOverdueCount", {
+          count: Number(item.count_value || 0),
+        }),
+        meta: t("dashboard.hub.contractorAckOverdueHint"),
+        to: item.link_path || "/attention-center",
+        sortOrder: Number(item.sort_order || 16),
+      };
+    }
+
+    if (type === "compliance_overdue_summary") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.complianceOverdue"),
+        subtitle: t("dashboard.hub.complianceCount", {
+          count: Number(item.count_value || 0),
+        }),
+        meta: t("dashboard.hub.complianceHint"),
+        to: item.link_path || "/attention-center",
+        sortOrder: Number(item.sort_order || 17),
+      };
+    }
+
+    if (type === "compliance_due_summary") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.complianceDueSoon"),
+        subtitle: t("dashboard.hub.complianceCount", {
+          count: Number(item.count_value || 0),
+        }),
+        meta: t("dashboard.hub.complianceHint"),
+        to: item.link_path || "/attention-center",
+        sortOrder: Number(item.sort_order || 19),
+      };
+    }
+
+    if (type === "compliance_missing_setup_summary") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.complianceMissing"),
+        subtitle: t("dashboard.hub.complianceCount", {
+          count: Number(item.count_value || 0),
+        }),
+        meta: t("dashboard.hub.complianceMissingHint"),
+        to: item.link_path || "/attention-center",
+        sortOrder: Number(item.sort_order || 21),
+      };
+    }
+
+    return {
+      id: item.item_key,
+      title: t("dashboard.hub.dueSoon"),
+      subtitle: t("dashboard.hub.dueSoonCount", {
+        count: Number(item.count_value || dueSoonCount || 0),
+      }),
+      meta: hubHorizon === "today" ? t("dashboard.hub.range.today") : t("dashboard.hub.range.week"),
+      to:
+        item.link_path ||
+        `/finance?status=due&range=${hubHorizon === "today" ? "1d" : "7d"}`,
+      sortOrder: Number(item.sort_order || 20),
+    };
+  });
+
+  const leaseHubItems = (leaseItems || []).map((item) => {
+    const type = String(item?.item_type || "").toLowerCase();
+    if (type === "lease_expired") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.leaseExpired"),
+        subtitle: `${item.tenant_label || "—"} • ${item.property_label || "—"}`,
+        meta: t("dashboard.hub.leaseExpiredMeta", {
+          count: Math.abs(Number(item.days_until_end || 0)),
+        }),
+        to: item.link_path || "/tenants",
+        sortOrder: Number(item.sort_order || 15),
+      };
+    }
+    if (type === "lease_renewal_in_progress") {
+      return {
+        id: item.item_key,
+        title: t("dashboard.hub.leaseRenewalInProgress"),
+        subtitle: `${item.tenant_label || "—"} • ${item.property_label || "—"}`,
+        meta: item.lease_end_date || "",
+        to: item.link_path || "/tenants",
+        sortOrder: Number(item.sort_order || 25),
+      };
+    }
+    return {
+      id: item.item_key,
+      title: t("dashboard.hub.leaseExpiringSoon"),
+      subtitle: `${item.tenant_label || "—"} • ${item.property_label || "—"}`,
+      meta: t("dashboard.hub.leaseExpiresIn", {
+        count: Number(item.days_until_end || 0),
+      }),
+      to: item.link_path || "/tenants",
+      sortOrder: Number(item.sort_order || 20),
+    };
+  });
+
+  return [...extraItems, ...leaseHubItems, ...maintenanceItems]
+    .sort((a, b) => Number(a.sortOrder || 100) - Number(b.sortOrder || 100))
+    .slice(0, 6);
+}

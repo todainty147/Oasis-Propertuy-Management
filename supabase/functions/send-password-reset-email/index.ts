@@ -1,0 +1,290 @@
+import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  buildRateLimitBody,
+  recordRateLimitAttempt,
+} from "../_shared/rateLimit.ts";
+import {
+  buildCorsHeaders,
+  buildJsonHeaders,
+  resolveTrustedAppOrigin,
+} from "../_shared/trustedOrigin.ts";
+import { safeErrorResponse } from "../_shared/safeErrorResponse.ts";
+
+type PasswordResetPayload = {
+  email: string;
+  inviteToken?: string;
+};
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const APP_URL = Deno.env.get("APP_URL") || "";
+const ALLOWED_APP_ORIGINS = Deno.env.get("ALLOWED_APP_ORIGINS") || "";
+
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || "";
+const OASIS_PASSWORD_RESETS_FROM =
+  Deno.env.get("OASIS_PASSWORD_RESETS_FROM") ||
+  Deno.env.get("OASIS_INVITES_FROM") ||
+  "no-reply@auth.oasisrental.app";
+
+const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+function normalizeEmail(value: unknown) {
+  return String(value || "").trim().toLowerCase();
+}
+
+async function logEmailEvent({
+  status,
+  recipientEmail,
+  recipientUserId = null,
+  subject = null,
+  providerMessageId = null,
+  metadata = {},
+}: {
+  status: "queued" | "sent" | "failed" | "skipped";
+  recipientEmail: string;
+  recipientUserId?: string | null;
+  subject?: string | null;
+  providerMessageId?: string | null;
+  metadata?: Record<string, unknown>;
+}) {
+  await admin.from("outbound_email_events").insert({
+    account_id: null,
+    template_key: "password_reset",
+    provider: "resend",
+    status,
+    recipient_email: recipientEmail,
+    recipient_user_id: recipientUserId,
+    entity_type: "auth_user",
+    entity_id: recipientUserId,
+    subject,
+    provider_message_id: providerMessageId,
+    metadata,
+  });
+}
+
+function json(req: Request, body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: buildJsonHeaders(req, ALLOWED_APP_ORIGINS),
+  });
+}
+
+function resolveAppUrl() {
+  return resolveTrustedAppOrigin({
+    appUrl: APP_URL,
+    allowedOrigins: ALLOWED_APP_ORIGINS,
+  }).origin;
+}
+
+function normalizeHeaderValue(value: string | null | undefined) {
+  return String(value || "").trim().slice(0, 128);
+}
+
+function getRequestIp(req: Request) {
+  const cfIp = normalizeHeaderValue(req.headers.get("cf-connecting-ip"));
+  if (cfIp) return cfIp;
+
+  const realIp = normalizeHeaderValue(req.headers.get("x-real-ip"));
+  if (realIp) return realIp;
+
+  const forwardedFor = normalizeHeaderValue(req.headers.get("x-forwarded-for")?.split(",")[0]);
+  return forwardedFor || "unknown";
+}
+
+Deno.serve(async (req) => {
+  const respond = (payload: unknown, status = 200) => json(req, payload, status);
+
+  try {
+    if (req.method === "OPTIONS") {
+      return new Response("ok", { headers: buildCorsHeaders(req, ALLOWED_APP_ORIGINS) });
+    }
+
+    if (req.method !== "POST") {
+      return respond({ error: "Method not allowed" }, 405);
+    }
+
+    const body = (await req.json().catch(() => ({}))) as PasswordResetPayload;
+    const email = normalizeEmail(body?.email);
+    const inviteToken = String(body?.inviteToken || "").trim();
+    if (!email) {
+      return respond({ error: "Email is required" }, 400);
+    }
+
+    const correlationId = crypto.randomUUID();
+    const requestIp = getRequestIp(req);
+    const ipRateLimit = await recordRateLimitAttempt(admin, {
+      surface: "send-password-reset-email:ip",
+      identifier: requestIp,
+      windowSeconds: 900,
+      maxAttempts: 30,
+      metadata: {
+        correlation_id: correlationId,
+        limit_scope: "request_ip",
+        function_name: "send-password-reset-email",
+        flow: "password_reset",
+        trusted_origin_required: true,
+      },
+    });
+    if (!ipRateLimit.allowed) {
+      return respond(buildRateLimitBody(ipRateLimit), 429);
+    }
+
+    const rateLimit = await recordRateLimitAttempt(admin, {
+      surface: "send-password-reset-email:email",
+      identifier: email,
+      windowSeconds: 3600,
+      maxAttempts: 5,
+      metadata: {
+        correlation_id: correlationId,
+        limit_scope: "target_email",
+        function_name: "send-password-reset-email",
+        flow: "password_reset",
+        trusted_origin_required: true,
+      },
+    });
+    if (!rateLimit.allowed) {
+      return respond(buildRateLimitBody(rateLimit), 429);
+    }
+
+    if (!RESEND_API_KEY) {
+      await logEmailEvent({
+        status: "failed",
+        recipientEmail: email,
+        metadata: { reason: "missing_resend_api_key", functionName: "send-password-reset-email" },
+      });
+      return respond({ error: "Password reset email is not configured" }, 500);
+    }
+
+    const appBaseUrl = resolveAppUrl();
+    if (!appBaseUrl) {
+      await logEmailEvent({
+        status: "failed",
+        recipientEmail: email,
+        metadata: {
+          reason: "trusted_app_origin_not_configured",
+          functionName: "send-password-reset-email",
+        },
+      });
+      return respond({
+        error: "Trusted app origin is not configured",
+        code: "trusted_app_origin_not_configured",
+      }, 500);
+    }
+    const redirectTo = appBaseUrl
+      ? `${appBaseUrl}/reset-password?flow=recovery${inviteToken ? `&invite_token=${encodeURIComponent(inviteToken)}` : ""}`
+      : "";
+
+    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+      type: "recovery",
+      email,
+      options: { redirectTo },
+    });
+
+    if (linkError) {
+      const message = String(linkError.message || "").toLowerCase();
+      if (message.includes("user not found") || message.includes("email not found") || message.includes("not found")) {
+        await logEmailEvent({
+          status: "skipped",
+          recipientEmail: email,
+          metadata: { reason: "user_not_found", functionName: "send-password-reset-email" },
+        });
+        return respond({ ok: true });
+      }
+
+      await logEmailEvent({
+        status: "failed",
+        recipientEmail: email,
+        metadata: {
+          reason: "generate_link_failed",
+          message: linkError.message,
+          functionName: "send-password-reset-email",
+        },
+      });
+      return respond({ error: "Failed to create password reset link" }, 500);
+    }
+
+    const actionLink = linkData?.properties?.action_link || redirectTo;
+    const recipientUserId = linkData?.user?.id || null;
+    const subject = "Reset your OASIS password";
+
+    await logEmailEvent({
+      status: "queued",
+      recipientEmail: email,
+      recipientUserId,
+      subject,
+      metadata: { functionName: "send-password-reset-email" },
+    });
+
+    const resendRes = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: OASIS_PASSWORD_RESETS_FROM,
+        to: [email],
+        subject,
+        html: `
+          <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a">
+            <h2 style="margin:0 0 16px">Reset your OASIS password</h2>
+            <p style="margin:0 0 16px">We received a request to reset your password.</p>
+            <p style="margin:0 0 24px">
+              <a href="${actionLink}" style="display:inline-block;padding:12px 18px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;font-weight:600">
+                Reset password
+              </a>
+            </p>
+            <p style="margin:0 0 8px">If you did not request this, you can ignore this email.</p>
+            <p style="margin:0;color:#475569;font-size:14px">${actionLink}</p>
+          </div>
+        `,
+      }),
+    });
+
+    const resendJson = await resendRes.json().catch(() => ({}));
+    if (!resendRes.ok) {
+      await logEmailEvent({
+        status: "failed",
+        recipientEmail: email,
+        recipientUserId,
+        subject,
+        metadata: {
+          reason: "resend_send_failed",
+          response: resendJson,
+          functionName: "send-password-reset-email",
+        },
+      });
+      return respond({ error: "Failed to send password reset email" }, 500);
+    }
+
+    await logEmailEvent({
+      status: "sent",
+      recipientEmail: email,
+      recipientUserId,
+      subject,
+      providerMessageId: resendJson?.id || null,
+      metadata: { functionName: "send-password-reset-email" },
+    });
+
+    return respond({ ok: true });
+  } catch (error) {
+    return safeError(req, error, 500, "Operation failed");
+  }
+});
+
+function safeError(
+  req: Request,
+  error: unknown,
+  status: number,
+  message: string,
+  context: Record<string, unknown> = {},
+) {
+  return safeErrorResponse(req, {
+    allowedOrigins: ALLOWED_APP_ORIGINS,
+    error,
+    functionName: "send-password-reset-email",
+    message,
+    status,
+    context,
+  });
+}

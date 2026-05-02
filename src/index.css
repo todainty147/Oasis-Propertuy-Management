@@ -1,0 +1,143 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* =========================
+   Global layout fixes
+   ========================= */
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* Prevent scroll bleed & rubber-band on mobile */
+body {
+  overscroll-behavior: none;
+  background: var(--app-bg);
+  color: var(--app-fg);
+}
+
+/* iOS safe-area helper (used by Sidebar) */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+:root {
+  --app-bg: #f8fafc; /* slate-50 */
+  --app-fg: #0f172a; /* slate-900 */
+}
+
+.dark {
+  --app-bg: #020617; /* slate-950 */
+  --app-fg: #e2e8f0; /* slate-200 */
+}
+
+/*
+  Dark-mode utility overrides for legacy light-theme Tailwind classes.
+  Using :where() keeps specificity low so explicit dark:* utilities still win.
+*/
+:where(.dark) :where(.bg-white) {
+  background-color: #0f172a;
+}
+
+:where(.dark) :where(.bg-slate-50) {
+  background-color: #020617;
+}
+
+:where(.dark) :where(.bg-slate-100) {
+  background-color: #111827;
+}
+
+:where(.dark) :where(.bg-gray-50) {
+  background-color: #020617;
+}
+
+:where(.dark) :where(.bg-gray-100) {
+  background-color: #111827;
+}
+
+:where(.dark) :where(.border),
+:where(.dark) :where(.border-slate-100),
+:where(.dark) :where(.border-slate-200),
+:where(.dark) :where(.border-slate-300),
+:where(.dark) :where(.border-gray-100),
+:where(.dark) :where(.border-gray-200),
+:where(.dark) :where(.border-gray-300) {
+  border-color: #334155;
+}
+
+:where(.dark) :where(.divide-slate-200 > :not([hidden]) ~ :not([hidden])),
+:where(.dark) :where(.divide-slate-300 > :not([hidden]) ~ :not([hidden])),
+:where(.dark) :where(.divide-gray-200 > :not([hidden]) ~ :not([hidden])),
+:where(.dark) :where(.divide-gray-300 > :not([hidden]) ~ :not([hidden])) {
+  border-color: #334155;
+}
+
+:where(.dark) :where(.text-black),
+:where(.dark) :where(.text-slate-900),
+:where(.dark) :where(.text-slate-800),
+:where(.dark) :where(.text-gray-900),
+:where(.dark) :where(.text-gray-800) {
+  color: #f8fafc;
+}
+
+:where(.dark) :where(.text-slate-700),
+:where(.dark) :where(.text-slate-600),
+:where(.dark) :where(.text-gray-700),
+:where(.dark) :where(.text-gray-600) {
+  color: #cbd5e1;
+}
+
+:where(.dark) :where(.text-slate-500),
+:where(.dark) :where(.text-slate-400),
+:where(.dark) :where(.text-gray-500),
+:where(.dark) :where(.text-gray-400) {
+  color: #94a3b8;
+}
+
+:where(.dark) :where(.placeholder\:text-slate-400::placeholder),
+:where(.dark) :where(.placeholder\:text-slate-500::placeholder),
+:where(.dark) :where(.placeholder\:text-gray-400::placeholder),
+:where(.dark) :where(.placeholder\:text-gray-500::placeholder) {
+  color: #64748b;
+}
+
+/*
+  Native form controls need an explicit dark surface. Without this, browser
+  dropdown popovers can render light option rows with light inherited text.
+*/
+:where(select) {
+  color-scheme: light;
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+:where(select option),
+:where(select optgroup) {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+.dark :where(select) {
+  color-scheme: dark;
+  background-color: #020617;
+  color: #f8fafc;
+  border-color: #475569;
+}
+
+.dark :where(select option),
+.dark :where(select optgroup) {
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+
+.dark :where(select option:checked) {
+  background-color: #1d4ed8;
+  color: #ffffff;
+}
+
+.dark :where(select:disabled) {
+  background-color: #1e293b;
+  color: #94a3b8;
+}

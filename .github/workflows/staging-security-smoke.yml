@@ -1,0 +1,30 @@
+name: Staging Security Smoke
+
+on:
+  workflow_dispatch:
+
+jobs:
+  staging-security-smoke:
+    name: Staging Security Smoke
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run staging smoke suite
+        env:
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+          STAGING_USER_PASSWORD: ${{ secrets.STAGING_USER_PASSWORD }}
+        run: npm run test:staging:run

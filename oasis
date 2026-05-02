@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LOCAL_NODE_BIN="${HOME}/.local/nodejs/bin"
+LOCAL_NPM="${LOCAL_NODE_BIN}/npm"
+
+if [ -d "${LOCAL_NODE_BIN}" ]; then
+  export PATH="${LOCAL_NODE_BIN}:${PATH}"
+fi
+
+if [ $# -eq 0 ]; then
+  echo "Usage: ./oasis <npm-script> [-- <extra-args>]"
+  echo "Example: ./oasis dev"
+  echo "Example: ./oasis test:e2e -- --list"
+  exit 1
+fi
+
+if [ -x "${LOCAL_NPM}" ]; then
+  exec "${LOCAL_NPM}" run "$@"
+fi
+
+exec npm run "$@"

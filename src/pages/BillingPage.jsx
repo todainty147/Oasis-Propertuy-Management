@@ -1,0 +1,348 @@
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Check, Minus, CheckCircle2, CreditCard, ExternalLink } from "lucide-react";
+
+import { useAccount } from "../context/AccountContext";
+import { useI18n } from "../context/I18nContext";
+import { useRealtimeTables } from "../hooks/useRealtimeTables";
+import {
+  canWriteForBilling,
+  getBillingSubscription,
+  openCustomerPortal,
+  startCheckout,
+} from "../services/billingService";
+import { isManageRole } from "../utils/permissions";
+import OnboardingHintCard from "../components/OnboardingHintCard";
+import AiUsageSummaryCard from "../components/AiUsageSummaryCard";
+
+const PLANS = [
+  { key: "starter",          nameKey: "billing.plan.starter",          limitKey: "billing.plan.starterLimit" },
+  { key: "growth",           nameKey: "billing.plan.growth",           limitKey: "billing.plan.growthLimit" },
+  { key: "pro",              nameKey: "billing.plan.pro",              limitKey: "billing.plan.proLimit" },
+  { key: "operator_agency",  nameKey: "billing.plan.operatorAgency",   limitKey: "billing.plan.operatorAgencyLimit" },
+];
+
+// Compliance feature rows: [labelKey, minPlanRank]
+// Ranks: starter=1, growth=2, pro=3, operator_agency=4
+const COMPLIANCE_FEATURES = [
+  { labelKey: "billing.feature.taxReadiness",        minRank: 2 },
+  { labelKey: "billing.feature.rentShield",          minRank: 2 },
+  { labelKey: "billing.feature.aiRentShield",        minRank: 2 },
+  { labelKey: "billing.feature.aiLeaseAuditor",      minRank: 3 },
+];
+
+const PLAN_RANKS = { starter: 1, growth: 2, pro: 3, operator_agency: 4 };
+
+function formatDate(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString();
+}
+
+export default function BillingPage() {
+  const { activeAccountId, activeRole, isRootOperator, activePlan } = useAccount();
+  const { t } = useI18n();
+  const [subscription, setSubscription] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+
+  const canManageBilling = useMemo(
+    () => isRootOperator || isManageRole(activeRole),
+    [activeRole, isRootOperator],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      if (!activeAccountId) return;
+
+      try {
+        setLoading(true);
+        setError("");
+        const data = await getBillingSubscription(activeAccountId);
+        if (!cancelled) {
+          setSubscription(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : t("billing.loadError"));
+          setSubscription(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeAccountId, t]);
+
+  useRealtimeTables({
+    enabled: !!activeAccountId && canManageBilling,
+    subscriptions: [
+      {
+        channel: `billing-subscription:${activeAccountId}`,
+        table: "billing_subscriptions",
+        filter: `account_id=eq.${activeAccountId}`,
+      },
+    ],
+    onChange: async () => {
+      if (!activeAccountId) return;
+      try {
+        setError("");
+        const data = await getBillingSubscription(activeAccountId);
+        setSubscription(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t("billing.loadError"));
+      }
+    },
+  });
+
+  async function handleCheckout(planKey) {
+    try {
+      setBusy(planKey);
+      const { url } = await startCheckout({ accountId: activeAccountId, planKey });
+      window.location.href = url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("billing.checkoutError"));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function handlePortal() {
+    try {
+      setBusy("portal");
+      const { url } = await openCustomerPortal({ accountId: activeAccountId });
+      window.location.href = url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("billing.portalError"));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  if (!canManageBilling) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+          {t("billing.title")}
+        </h1>
+        <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+          {t("billing.accessDenied")}
+        </p>
+      </div>
+    );
+  }
+
+  const currentStatus = subscription?.status || "inactive";
+  const currentPlan = subscription?.metadata?.plan_key || subscription?.stripe_price_id || "—";
+  const trialEnd = subscription?.trial_end || null;
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+              {t("billing.title")}
+            </h1>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              {t("billing.subtitle")}
+            </p>
+          </div>
+          <div className="inline-flex items-center gap-2 self-start rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            <CreditCard size={16} />
+            <span>{t("billing.accountScoped")}</span>
+          </div>
+        </div>
+
+        {error ? (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+            {error}
+          </div>
+        ) : null}
+
+        {currentStatus === "trialing" && trialEnd ? (
+          <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200">
+            {t("billing.trialActive")} <strong>{formatDate(trialEnd)}</strong>.
+          </div>
+        ) : null}
+
+        {loading ? (
+          <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+            {t("billing.loading")}
+          </p>
+        ) : subscription ? (
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/70">
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                {t("billing.currentStatus")}
+              </p>
+              <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {canWriteForBilling(currentStatus) ? (
+                  <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400" />
+                ) : (
+                  <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400" />
+                )}
+                <span>{currentStatus}</span>
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/70">
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                {t("billing.currentPlan")}
+              </p>
+              <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {currentPlan}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/70">
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                {t("billing.currentPeriodEnd")}
+              </p>
+              <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {formatDate(currentStatus === "trialing" && trialEnd ? trialEnd : subscription.current_period_end)}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+            {t("billing.noSubscription")}
+          </p>
+        )}
+
+        <div className="mt-5 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={handlePortal}
+            disabled={busy === "portal" || !subscription}
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+          >
+            <ExternalLink size={16} />
+            {busy === "portal" ? t("billing.portalOpening") : t("billing.manageBilling")}
+          </button>
+        </div>
+      </div>
+
+      <OnboardingHintCard
+        title={t("pageHints.billing.title")}
+        body={t("pageHints.billing.body")}
+      />
+
+      <AiUsageSummaryCard accountId={activeAccountId} />
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {PLANS.map((plan) => (
+          <div
+            key={plan.key}
+            className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900"
+          >
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              {t(plan.nameKey)}
+            </h2>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              {t(plan.limitKey)}
+            </p>
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              {t("billing.testTrialHint")}
+            </p>
+            <button
+              type="button"
+              onClick={() => handleCheckout(plan.key)}
+              disabled={busy === plan.key}
+              className="mt-4 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {busy === plan.key ? t("billing.redirecting") : t("billing.choosePlan")}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Compliance & Risk feature comparison */}
+      <div
+        className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+        data-testid="compliance-feature-matrix"
+      >
+        <div className="border-b border-slate-100 px-6 py-4 dark:border-slate-800">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+            {t("billing.complianceSuite.title")}
+          </h2>
+          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+            {t("billing.complianceSuite.subtitle")}
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 dark:border-slate-800">
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 w-1/2">
+                  {t("billing.complianceSuite.feature")}
+                </th>
+                {PLANS.map((plan) => {
+                  const isCurrent = activePlan === plan.key;
+                  return (
+                    <th
+                      key={plan.key}
+                      className={`px-3 py-3 text-center text-xs font-semibold uppercase tracking-wide ${
+                        isCurrent
+                          ? "text-blue-700 dark:text-blue-400"
+                          : "text-slate-500 dark:text-slate-400"
+                      }`}
+                      data-testid={isCurrent ? "current-plan-column" : undefined}
+                    >
+                      {t(plan.nameKey)}
+                      {isCurrent && (
+                        <span className="ml-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                          {t("billing.complianceSuite.currentPlan")}
+                        </span>
+                      )}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50 dark:divide-slate-800/60">
+              {COMPLIANCE_FEATURES.map((feat) => (
+                <tr key={feat.labelKey} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                  <td className="px-6 py-3 text-slate-700 dark:text-slate-200">
+                    {t(feat.labelKey)}
+                  </td>
+                  {PLANS.map((plan) => {
+                    const included = (PLAN_RANKS[plan.key] ?? 1) >= feat.minRank;
+                    const isCurrent = activePlan === plan.key;
+                    return (
+                      <td
+                        key={plan.key}
+                        className={`px-3 py-3 text-center ${isCurrent ? "bg-blue-50/60 dark:bg-blue-950/20" : ""}`}
+                      >
+                        {included ? (
+                          <Check size={16} className="mx-auto text-emerald-500 dark:text-emerald-400" aria-label="Included" />
+                        ) : (
+                          <Minus size={16} className="mx-auto text-slate-300 dark:text-slate-600" aria-label="Not included" />
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="border-t border-slate-100 px-6 py-3 dark:border-slate-800">
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            {t("billing.complianceSuite.disclaimer")}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

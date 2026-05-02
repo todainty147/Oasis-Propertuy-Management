@@ -1,0 +1,244 @@
+// src/services/workOrderFinancialsService.js
+import { supabase } from "../lib/supabase";
+import {
+  assertAmount,
+  assertMaxLength,
+  assertRequiredText,
+  normalizeText,
+} from "../utils/validation";
+import { getDefaultCurrency } from "../utils/currency";
+import { parseWorkOrderFinancialRow } from "./rpcContracts";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
+import { createNotifications } from "./notificationService";
+
+function friendly(err, fallback) {
+  return new Error(err?.message ?? fallback);
+}
+
+async function notifyContractorQuoteDecision({ financials, outcome, reason = null } = {}) {
+  const workOrderId = financials?.work_order_id || null;
+  const accountId = financials?.account_id || null;
+  if (!workOrderId || !accountId) return;
+
+  try {
+    const { data: workOrder, error } = await supabase
+      .from("work_orders")
+      .select("contractor_user_id")
+      .eq("account_id", accountId)
+      .eq("id", workOrderId)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    const contractorUserId = workOrder?.contractor_user_id || null;
+    const rejected = outcome === "rejected";
+
+    await createNotifications({
+      accountId,
+      recipientUserIds: contractorUserId ? [contractorUserId] : [],
+      type: "quote_decision",
+      title: rejected ? "Quote rejected" : "Quote approved",
+      body: rejected && reason ? `Reason: ${reason}` : `Quote ${outcome}`,
+      entityType: "work_order",
+      entityId: workOrderId,
+      linkPath: `/contractor/jobs/${workOrderId}`,
+      metadata: {
+        work_order_id: workOrderId,
+        quote_status: financials?.quote_status || outcome,
+        outcome,
+        rejection_reason: rejected ? reason || null : null,
+      },
+    });
+  } catch (notifyErr) {
+    console.warn("[notifications] quote_decision failed", notifyErr);
+  }
+}
+
+export async function getWorkOrderFinancials({ accountId, workOrderId } = {}) {
+  if (!accountId) throw new Error("Brak accountId");
+  if (!workOrderId) throw new Error("Brak workOrderId");
+
+  const { data, error } = await supabase
+    .from("work_order_financials")
+    .select(
+      "id,account_id,work_order_id,quote_amount,quote_currency,quote_notes,quote_submitted_at,quote_submitted_by,quote_status,invoice_amount,invoice_currency,invoice_issued_at,invoice_due_at,approved_at,approved_by,rejected_at,rejected_by,rejection_reason,created_at,updated_at"
+    )
+    .eq("account_id", accountId)
+    .eq("work_order_id", workOrderId)
+    .maybeSingle();
+
+  if (error) throw friendly(error, "Nie udało się pobrać finansów zlecenia");
+  return data ? parseWorkOrderFinancialRow(data) : null;
+}
+
+/* =========================
+   CONTRACTOR actions
+   ========================= */
+
+export async function upsertQuoteDraft({
+  workOrderId,
+  quoteAmount,
+  quoteCurrency,
+  quoteNotes,
+} = {}) {
+  assertRequiredText(workOrderId, "Missing workOrderId");
+  assertAmount(quoteAmount, { min: 0, message: "Invalid quote amount" });
+  assertMaxLength(quoteNotes, 5000, "Quote notes are too long");
+
+  const { data, error } = await supabase.rpc("wo_fin_upsert_quote_draft", {
+    p_work_order_id: workOrderId,
+    p_quote_amount: Number(quoteAmount),
+    p_quote_currency: normalizeText(quoteCurrency || getDefaultCurrency()),
+    p_quote_notes: normalizeText(quoteNotes) || null,
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("wo_fin_upsert_quote_draft", {
+      error,
+      context: { workOrderId },
+    });
+    throw friendly(error, "Nie udało się zapisać szkicu wyceny");
+  }
+  return parseWorkOrderFinancialRow(data);
+}
+
+export async function submitQuote({ workOrderId } = {}) {
+  assertRequiredText(workOrderId, "Missing workOrderId");
+
+  const { data, error } = await supabase.rpc("wo_fin_submit_quote", {
+    p_work_order_id: workOrderId,
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("wo_fin_submit_quote", {
+      error,
+      context: { workOrderId },
+    });
+    throw friendly(error, "Nie udało się wysłać wyceny");
+  }
+  return parseWorkOrderFinancialRow(data);
+}
+
+export async function upsertInvoice({
+  workOrderId,
+  invoiceAmount,
+  invoiceCurrency,
+  invoiceIssuedAt,
+  invoiceDueAt,
+} = {}) {
+  assertRequiredText(workOrderId, "Missing workOrderId");
+  const amount = assertAmount(invoiceAmount, {
+    allowNull: true,
+    min: 0,
+    message: "Invalid invoice amount",
+  });
+
+  const { data, error } = await supabase.rpc("wo_fin_upsert_invoice", {
+    p_work_order_id: workOrderId,
+    p_invoice_amount: amount,
+    p_invoice_currency: normalizeText(invoiceCurrency || getDefaultCurrency()),
+    p_invoice_issued_at: invoiceIssuedAt ?? null,
+    p_invoice_due_at: invoiceDueAt ?? null,
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("wo_fin_upsert_invoice", {
+      error,
+      context: { workOrderId },
+    });
+    throw friendly(error, "Nie udało się zapisać faktury");
+  }
+  return parseWorkOrderFinancialRow(data);
+}
+
+/* =========================
+   MANAGER actions
+   ========================= */
+
+export async function approveQuote({ workOrderId } = {}) {
+  assertRequiredText(workOrderId, "Missing workOrderId");
+
+  const { data, error } = await supabase.rpc("wo_fin_approve_quote", {
+    p_work_order_id: workOrderId,
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("wo_fin_approve_quote", {
+      error,
+      context: { workOrderId },
+    });
+    throw friendly(error, "Nie udało się zatwierdzić wyceny");
+  }
+  const parsed = parseWorkOrderFinancialRow(data);
+  await notifyContractorQuoteDecision({ financials: parsed, outcome: "approved" });
+  return parsed;
+}
+
+export async function rejectQuote({ workOrderId, reason } = {}) {
+  assertRequiredText(workOrderId, "Missing workOrderId");
+  assertMaxLength(reason, 1000, "Reject reason is too long");
+
+  const { data, error } = await supabase.rpc("wo_fin_reject_quote", {
+    p_work_order_id: workOrderId,
+    p_reason: normalizeText(reason) || null,
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("wo_fin_reject_quote", {
+      error,
+      context: { workOrderId },
+    });
+    throw friendly(error, "Nie udało się odrzucić wyceny");
+  }
+  const parsed = parseWorkOrderFinancialRow(data);
+  await notifyContractorQuoteDecision({
+    financials: parsed,
+    outcome: "rejected",
+    reason: normalizeText(reason) || null,
+  });
+  return parsed;
+}
+
+export async function approveInvoice({ workOrderId } = {}) {
+  assertRequiredText(workOrderId, "Missing workOrderId");
+
+  const { data, error } = await supabase.rpc("wo_fin_approve_invoice", {
+    p_work_order_id: workOrderId,
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("wo_fin_approve_invoice", {
+      error,
+      context: { workOrderId },
+    });
+    throw friendly(error, "Nie udało się zatwierdzić faktury");
+  }
+  return parseWorkOrderFinancialRow(data);
+}
+
+export async function rejectInvoice({ workOrderId, reason } = {}) {
+  assertRequiredText(workOrderId, "Missing workOrderId");
+  assertRequiredText(reason, "Reject reason is required");
+  assertMaxLength(reason, 1000, "Reject reason is too long");
+
+  const { data, error } = await supabase.rpc("wo_fin_reject_invoice", {
+    p_work_order_id: workOrderId,
+    p_reason: normalizeText(reason),
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("wo_fin_reject_invoice", {
+      error,
+      context: { workOrderId },
+    });
+    throw friendly(error, "Nie udało się odrzucić faktury");
+  }
+  return parseWorkOrderFinancialRow(data);
+}
+// Back-compat aliases (safe)
+export const setQuoteDraft = upsertQuoteDraft;
+export const setInvoiceAmount = ({ workOrderId, invoiceAmount } = {}) =>
+  upsertInvoice({ workOrderId, invoiceAmount });
+export const updateWorkOrderFinancials = async () => {
+  throw new Error("updateWorkOrderFinancials removed: use RPCs (upsertQuoteDraft/upsertInvoice/approve/reject/submit).");
+};
