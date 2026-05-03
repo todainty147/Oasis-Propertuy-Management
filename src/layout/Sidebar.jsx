@@ -26,6 +26,7 @@ import {
   Receipt,
   Umbrella,
   FileSearch,
+  ShieldCheck,
   Lock,
 } from "lucide-react";
 
@@ -364,6 +365,11 @@ function SidebarContent({ onNavigate }) {
                       <Item to="/compliance/leases" icon={FileSearch} label={t("sidebar.leaseAuditor")} onNavigate={onNavigate} />
                     ) : (
                       <LockedItem to="/compliance/leases" icon={FileSearch} label={t("sidebar.leaseAuditor")} onNavigate={onNavigate} />
+                    )}
+                    {hasEntitlement(ENTITLEMENT_FEATURES.RENTERS_RIGHTS_READINESS) ? (
+                      <Item to="/compliance/renters-rights" icon={ShieldCheck} label={t("sidebar.rentersRights")} onNavigate={onNavigate} />
+                    ) : (
+                      <LockedItem to="/compliance/renters-rights" icon={ShieldCheck} label={t("sidebar.rentersRights")} onNavigate={onNavigate} />
                     )}
                   </div>
                 )}

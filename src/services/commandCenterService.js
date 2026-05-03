@@ -3,6 +3,7 @@ import { getDashboardSnapshot } from "./dashboardService";
 import { listPropertyOperationalHealthScores } from "./propertyHealthScoreService";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 import { parseCommandCenterItemRow, parseRpcRows } from "./rpcContracts";
+import { listRrAttentionItems } from "./rentersRightsService";
 
 function isMissingBackendObject(error) {
   const message = String(error?.message || "").toLowerCase();
@@ -61,6 +62,35 @@ function sortItems(items = []) {
   });
 }
 
+// Maps a list_rr_attention_items row to the same shape as normalizeRpcItem.
+function normalizeRrAttentionItem(row) {
+  return {
+    id:              String(row.item_key || ""),
+    kind:            String(row.item_type || ""),
+    category:        "compliance",
+    severity:        row.bucket === "urgent" ? "urgent" : "action",
+    bucket:          String(row.bucket || "action"),
+    entityType:      null,
+    entityId:        null,
+    title:           null,
+    body:            null,
+    linkPath:        String(row.link_path || ""),
+    createdAt:       null,
+    resolvedState:   null,
+    source:          String(row.source_table || "renters_rights_tasks"),
+    propertyId:      null,
+    propertyLabel:   String(row.property_label || ""),
+    tenantId:        null,
+    tenantLabel:     String(row.tenant_label || ""),
+    entityLabel:     String(row.entity_label || ""),
+    contractorLabel: null,
+    amount:          Number(row.amount || 0),
+    ageHours:        Number(row.age_hours || 0),
+    dueDays:         Number.isFinite(Number(row.due_days)) ? Number(row.due_days) : null,
+    sourceLabel:     "renters_rights_tasks",
+  };
+}
+
 function countByCategory(items = []) {
   return items.reduce((acc, item) => {
     const key = item.category || "general";
@@ -91,13 +121,14 @@ export async function getCommandCenterData(accountId) {
     };
   }
 
-  const [snapshot, rpcRes, propertyHealthRows] = await Promise.all([
+  const [snapshot, rpcRes, propertyHealthRows, rrRows] = await Promise.all([
     getDashboardSnapshot(accountId, { horizonDays: 7 }),
     supabase.rpc("command_center_items", {
       p_account_id: accountId,
       p_limit: 80,
     }),
     listPropertyOperationalHealthScores(accountId, { limit: 200 }),
+    listRrAttentionItems({ accountId, limit: 20 }),
   ]);
 
   if (rpcRes.error) {
@@ -111,11 +142,16 @@ export async function getCommandCenterData(accountId) {
     throw rpcRes.error;
   }
 
-  const items = parseRpcRows(
-    rpcRes.data || [],
-    parseCommandCenterItemRow,
-    "command_center_items rows",
-  ).map(normalizeRpcItem);
+  const rrItems = (rrRows || []).map(normalizeRrAttentionItem);
+
+  const items = [
+    ...parseRpcRows(
+      rpcRes.data || [],
+      parseCommandCenterItemRow,
+      "command_center_items rows",
+    ).map(normalizeRpcItem),
+    ...rrItems,
+  ];
   const urgent = sortItems(items.filter((item) => item.bucket === "urgent")).slice(0, 12);
   const action = sortItems(items.filter((item) => item.bucket === "action")).slice(0, 12);
   const upcoming = sortItems(items.filter((item) => item.bucket === "upcoming")).slice(0, 12);
