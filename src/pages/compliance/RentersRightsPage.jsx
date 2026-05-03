@@ -496,7 +496,9 @@ export default function RentersRightsPage() {
     setError(null);
     try {
       const rows = await listRentersRightsTasks({ accountId: activeAccountId });
-      setTasks(rows);
+      // Only information-sheet tasks belong in this view; tenancy review prompts
+      // have their own tab and must not bleed in here with different due dates.
+      setTasks(rows.filter((r) => r.requirementType === "renters_rights_information_sheet"));
     } catch (err) {
       setError(err.message);
     } finally {

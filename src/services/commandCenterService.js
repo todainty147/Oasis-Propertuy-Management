@@ -3,7 +3,6 @@ import { getDashboardSnapshot } from "./dashboardService";
 import { listPropertyOperationalHealthScores } from "./propertyHealthScoreService";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 import { parseCommandCenterItemRow, parseRpcRows } from "./rpcContracts";
-import { listRrAttentionItems } from "./rentersRightsService";
 
 function isMissingBackendObject(error) {
   const message = String(error?.message || "").toLowerCase();
@@ -130,9 +129,12 @@ export async function getCommandCenterData(accountId) {
     listPropertyOperationalHealthScores(accountId, { limit: 200 }),
   ]);
 
-  // RR items fetched separately so any failure never rejects the main Promise.all
-  // and never causes the AI insight card to disappear.
-  const rrRows = await listRrAttentionItems({ accountId, limit: 20 }).catch(() => []);
+  // RR items: direct RPC call, no extra import, fully isolated from main Promise.all.
+  // Any failure (missing function, feature gate, network) must never suppress AI cards.
+  const rrRows = await supabase
+    .rpc("list_rr_attention_items", { p_account_id: accountId, p_limit: 20 })
+    .then((res) => res.data ?? [])
+    .catch(() => []);
 
   if (rpcRes.error) {
     if (isMissingBackendObject(rpcRes.error)) {

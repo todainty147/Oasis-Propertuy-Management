@@ -5,7 +5,6 @@ import { isolationFixtures } from "../fixtures/isolationFixtures.js";
 const rpcMock = vi.fn();
 const getDashboardSnapshotMock = vi.fn();
 const listPropertyOperationalHealthScoresMock = vi.fn();
-const listRrAttentionItemsMock = vi.fn();
 
 vi.mock("../../src/lib/supabase.js", () => ({
   supabase: {
@@ -21,20 +20,16 @@ vi.mock("../../src/services/propertyHealthScoreService.js", () => ({
   listPropertyOperationalHealthScores: (...args) => listPropertyOperationalHealthScoresMock(...args),
 }));
 
-vi.mock("../../src/services/rentersRightsService.js", () => ({
-  listRrAttentionItems: (...args) => listRrAttentionItemsMock(...args),
-}));
-
 describe("command center isolation contracts", () => {
   beforeEach(() => {
     rpcMock.mockReset();
     getDashboardSnapshotMock.mockReset();
     listPropertyOperationalHealthScoresMock.mockReset();
-    listRrAttentionItemsMock.mockReset();
 
     getDashboardSnapshotMock.mockResolvedValue({ overdue_amount: 0 });
     listPropertyOperationalHealthScoresMock.mockResolvedValue([]);
-    listRrAttentionItemsMock.mockResolvedValue([]);
+    // rpcMock handles all supabase.rpc calls including list_rr_attention_items
+    rpcMock.mockResolvedValue({ data: [], error: null });
   });
 
   it("requests command_center_items for the target account only", async () => {
