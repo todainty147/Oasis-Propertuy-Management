@@ -105,6 +105,8 @@ const OVERLAY_SEQUENCE = [
   "storage_maintenance_request_attachments_policies.sql",
   "storage_work_order_attachments_policies.sql",
   "performance_rpc_indexes.sql",
+  "renters_rights_readiness.sql",
+  "renters_rights_entitlement.sql",
 ];
 
 function resolvePsqlCommand() {

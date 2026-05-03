@@ -41,6 +41,7 @@ export const ENTITLEMENT_FEATURES = Object.freeze({
   TAX_READINESS_DASHBOARD: "tax_readiness_dashboard",
   RENT_SHIELD: "rent_shield",
   AI_RENT_SHIELD_EXPLAINER: "ai_rent_shield_explainer",
+  RENTERS_RIGHTS_READINESS: "renters_rights_readiness",
 
   // ── Compliance & Risk Suite: Pro tier ─────────────────────────────────────
   AI_LEASE_AUDITOR: "ai_lease_auditor",
@@ -72,6 +73,7 @@ const GROWTH_FEATURES = [
   ENTITLEMENT_FEATURES.TAX_READINESS_DASHBOARD,
   ENTITLEMENT_FEATURES.RENT_SHIELD,
   ENTITLEMENT_FEATURES.AI_RENT_SHIELD_EXPLAINER,
+  ENTITLEMENT_FEATURES.RENTERS_RIGHTS_READINESS,
 ];
 
 const PRO_FEATURES = [

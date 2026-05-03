@@ -444,6 +444,16 @@ const bootstrapSteps = [
     file: path.join(supabaseDir, "performance_rpc_indexes.sql"),
     onErrorStop: true,
   },
+  {
+    label: "Apply Renters' Rights Readiness Pack overlay",
+    file: path.join(supabaseDir, "renters_rights_readiness.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply Renters' Rights entitlement feature key overlay",
+    file: path.join(supabaseDir, "renters_rights_entitlement.sql"),
+    onErrorStop: true,
+  },
 ];
 
 function resolvePsqlCommand() {
