@@ -1,0 +1,205 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            marketing-site/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Audit root dependencies
+        run: npm audit --omit=dev --audit-level=low
+
+      - name: Install marketing-site dependencies
+        working-directory: marketing-site
+        run: npm ci
+
+      - name: Audit marketing-site dependencies
+        working-directory: marketing-site
+        run: npm audit --omit=dev --audit-level=low
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run fast Vitest suite
+        run: npm run test:unit:run
+
+  integration-tests:
+    name: Integration Isolation Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+
+      - name: Start local Supabase
+        run: npx supabase start
+
+      - name: Export local Supabase env for integration harness
+        run: |
+          npx supabase status -o env | sed -E 's/^([^=]+)="(.*)"$/\1=\2/' > /tmp/local-supabase.env
+          cat /tmp/local-supabase.env >> "$GITHUB_ENV"
+          set -a
+          . /tmp/local-supabase.env
+          set +a
+          echo "TEST_SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "TEST_SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "TEST_SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+          echo "TEST_USER_PASSWORD=OasisTest123!" >> "$GITHUB_ENV"
+
+      - name: Load baseline schema
+        run: |
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=0 \
+            --dbname "$DB_URL" \
+            --file "supabase/baseline_schema.sql"
+
+      - name: Apply invite and membership SQL overlay
+        run: |
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "$DB_URL" \
+            --file "supabase/custom_staff_roles.sql"
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "$DB_URL" \
+            --file "supabase/custom_staff_roles_membership.sql"
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "$DB_URL" \
+            --file "supabase/custom_staff_roles_seed.sql"
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "$DB_URL" \
+            --file "supabase/custom_staff_roles_helpers.sql"
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "$DB_URL" \
+            --file "supabase/account_invitations_saas.sql"
+
+      - name: Apply payment write authorization overlay
+        run: |
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "$DB_URL" \
+            --file "supabase/payment_write_authorization.sql"
+
+      - name: Apply storage security overlays
+        run: |
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "$DB_URL" \
+            --file "supabase/storage_buckets.sql"
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "$DB_URL" \
+            --file "supabase/storage_documents_policies.sql"
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "$DB_URL" \
+            --file "supabase/storage_maintenance_request_attachments_policies.sql"
+          PGPASSWORD=postgres psql \
+            --set ON_ERROR_STOP=1 \
+            --dbname "$DB_URL" \
+            --file "supabase/storage_work_order_attachments_policies.sql"
+
+      - name: Seed integration harness
+        run: npm run test:integration:seed
+
+      - name: Run integration isolation suite
+        run: npm run test:integration:run
+
+      - name: Stop local Supabase
+        if: always()
+        run: npx supabase stop
+
+  e2e-critical:
+    name: Critical E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run critical E2E lane
+        run: npm run test:e2e:local:critical
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-critical-report
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore

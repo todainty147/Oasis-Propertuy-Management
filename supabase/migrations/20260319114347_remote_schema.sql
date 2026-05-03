@@ -1,0 +1,3 @@
+-- Intentionally left blank.
+-- This placeholder snapshot migration exists for remote-schema bookkeeping only.
+-- Use supabase/baseline_schema.sql as the local bootstrap source of truth.
