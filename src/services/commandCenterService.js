@@ -63,6 +63,11 @@ function sortItems(items = []) {
 
 // Maps a list_rr_attention_items row to the same shape as normalizeRpcItem.
 function normalizeRrAttentionItem(row) {
+  const dueDays = Number.isFinite(Number(row.due_days)) ? Number(row.due_days) : 30;
+  // Derive a sort-stable createdAt: items due sooner appear more recent so they
+  // rank above far-future items within the same bucket after .slice(0, 12).
+  const createdAt = new Date(Date.now() - Math.max(0, dueDays - 1) * 86_400_000).toISOString();
+
   return {
     id:              String(row.item_key || ""),
     kind:            String(row.item_type || ""),
@@ -74,7 +79,7 @@ function normalizeRrAttentionItem(row) {
     title:           null,
     body:            null,
     linkPath:        String(row.link_path || ""),
-    createdAt:       null,
+    createdAt,
     resolvedState:   null,
     source:          String(row.source_table || "renters_rights_tasks"),
     propertyId:      null,
@@ -85,7 +90,7 @@ function normalizeRrAttentionItem(row) {
     contractorLabel: null,
     amount:          Number(row.amount || 0),
     ageHours:        Number(row.age_hours || 0),
-    dueDays:         Number.isFinite(Number(row.due_days)) ? Number(row.due_days) : null,
+    dueDays,
     sourceLabel:     "renters_rights_tasks",
   };
 }
@@ -134,7 +139,7 @@ export async function getCommandCenterData(accountId) {
   const rrRows = await supabase
     .rpc("list_rr_attention_items", { p_account_id: accountId, p_limit: 20 })
     .then((res) => res.data ?? [])
-    .catch(() => []);
+    .catch((err) => { console.warn("[CommandCenter] list_rr_attention_items:", err?.message ?? err); return []; });
 
   if (rpcRes.error) {
     if (isMissingBackendObject(rpcRes.error)) {
