@@ -59,7 +59,10 @@ $$;
 
 comment on function public.account_feature_required_plan(text) is
   'Canonical definition — single source of truth for all feature plan requirements. '
-  'renters_rights_readiness (Growth) added for Renters'' Rights Act 2025 compliance module.';
+  'renters_rights_readiness (Growth) added for Renters'' Rights Act 2025 compliance module. '
+  'WARNING: this overlay REPLACES account_entitlements.sql. Any feature key added to '
+  'account_entitlements.sql after this file was written must also be added here, or it will '
+  'be silently dropped at overlay apply time. Keep both files in sync.';
 
 revoke all  on function public.account_feature_required_plan(text) from public;
 grant execute on function public.account_feature_required_plan(text) to authenticated;

@@ -454,6 +454,11 @@ const bootstrapSteps = [
     file: path.join(supabaseDir, "renters_rights_entitlement.sql"),
     onErrorStop: true,
   },
+  {
+    label: "Apply Renters' Rights Phase 2 (rent_review_records, tenancy prompts)",
+    file: path.join(supabaseDir, "renters_rights_phase2.sql"),
+    onErrorStop: true,
+  },
 ];
 
 function resolvePsqlCommand() {

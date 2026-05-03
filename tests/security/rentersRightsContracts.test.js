@@ -280,6 +280,45 @@ describe("legal safety contract — no forbidden claims", () => {
   }
 });
 
+// ── PL/DE disclaimer negation verification ────────────────────────────────────
+
+describe("legal safety contract — PL/DE disclaimers contain negation", () => {
+  it("pl disclaimer contains negation of legal advice", () => {
+    const d = messages.pl["rentersRights.disclaimer"];
+    expect(typeof d).toBe("string");
+    expect(d.length).toBeGreaterThan(20);
+    // Polish negation: "Nie stanowią porady prawnej" or "nie" + "prawne/prawnej"
+    const hasNegation = /nie\s+stanowi|nie\s+jest|nie\s+udziel|nie\s+determinuj/i.test(d);
+    expect(hasNegation).toBe(true);
+  });
+
+  it("de disclaimer contains negation of legal advice", () => {
+    const d = messages.de["rentersRights.disclaimer"];
+    expect(typeof d).toBe("string");
+    expect(d.length).toBeGreaterThan(20);
+    // German negation: "keine Rechtsberatung" or "nicht" + "rechtlich"
+    const hasNegation = /keine\s+Rechtsberatung|handelt\s+sich\s+nicht|nicht\s+um\s+Rechts/i.test(d);
+    expect(hasNegation).toBe(true);
+  });
+});
+
+// ── Sync idempotency contract (structural) ────────────────────────────────────
+
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+describe("create_rr_tasks_for_active_tenants idempotency contract", () => {
+  it("SQL uses NOT EXISTS sub-query preventing duplicates (set-based INSERT)", () => {
+    const sql = readFileSync(join(process.cwd(), "supabase/renters_rights_readiness.sql"), "utf8");
+    expect(sql).toContain("not exists");
+    expect(sql).toContain("get diagnostics v_count = row_count");
+  });
+
+  it("createRrTasksForActiveTenants throws when accountId is missing", async () => {
+    await expect(createRrTasksForActiveTenants({ accountId: null })).rejects.toThrow("Missing accountId");
+  });
+});
+
 // ── Attention Center item_type contract ───────────────────────────────────────
 
 describe("attention center item_type contract", () => {

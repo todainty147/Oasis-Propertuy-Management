@@ -39,13 +39,13 @@ create table if not exists public.renters_rights_tasks (
 
 -- ── Constraints ──────────────────────────────────────────────────────────────
 
-do $$ begin
-  if not exists (select 1 from pg_constraint where conname = 'rr_tasks_status_check') then
-    alter table public.renters_rights_tasks
-      add constraint rr_tasks_status_check
-      check (status in ('not_required','required','sent','evidence_uploaded','reviewed','overdue'));
-  end if;
-end $$;
+-- 'overdue' is a computed read-only state derived in list_renters_rights_tasks
+-- (required + past due_date). It is never stored; removing it from the constraint
+-- prevents accidental direct writes of 'overdue' via service_role.
+alter table public.renters_rights_tasks drop constraint if exists rr_tasks_status_check;
+alter table public.renters_rights_tasks
+  add constraint rr_tasks_status_check
+  check (status in ('not_required','required','sent','evidence_uploaded','reviewed'));
 
 do $$ begin
   if not exists (select 1 from pg_constraint where conname = 'rr_tasks_delivery_method_check') then
@@ -298,8 +298,9 @@ begin
     raise exception 'Access denied';
   end if;
 
-  for v_t in (
-    select t.id, t.property_id
+  -- Set-based INSERT is atomic and avoids per-row round-trips for large portfolios.
+  with eligible as (
+    select t.id as tenant_id, t.property_id
     from public.tenants t
     where t.account_id  = p_account_id
       and t.archived_at is null
@@ -311,16 +312,17 @@ begin
           and rr.tenant_id        = t.id
           and rr.requirement_type = v_type
       )
-  ) loop
-    insert into public.renters_rights_tasks (
-      account_id, property_id, tenant_id,
-      requirement_type, jurisdiction, due_date, status
-    ) values (
-      p_account_id, v_t.property_id, v_t.id,
-      v_type, 'GB-ENG', coalesce(p_due_date, '2026-05-31'), 'required'
-    );
-    v_count := v_count + 1;
-  end loop;
+  )
+  insert into public.renters_rights_tasks (
+    account_id, property_id, tenant_id,
+    requirement_type, jurisdiction, due_date, status
+  )
+  select
+    p_account_id, e.property_id, e.tenant_id,
+    v_type, 'GB-ENG', coalesce(p_due_date, '2026-05-31'), 'required'
+  from eligible e;
+
+  get diagnostics v_count = row_count;
 
   if v_count > 0 then
     perform public.log_security_event(
@@ -432,6 +434,8 @@ begin
     raise exception 'Access denied';
   end if;
 
+  -- Guard: only allow dismissing tasks that have not yet been sent or evidenced.
+  -- 'overdue' is a computed state (stored as 'required' past due_date) so is included.
   update public.renters_rights_tasks
   set
     status     = 'not_required',
@@ -439,9 +443,14 @@ begin
     updated_at = now()
   where id         = p_task_id
     and account_id = p_account_id
+    and status in ('required')
   returning * into v_row;
 
   if v_row.id is null then
+    -- Distinguish "not found" from "wrong status"
+    if exists (select 1 from public.renters_rights_tasks where id = p_task_id and account_id = p_account_id) then
+      raise exception 'Task cannot be dismissed: it has already been sent or evidenced';
+    end if;
     raise exception 'Task not found';
   end if;
 
@@ -493,9 +502,10 @@ begin
   update public.renters_rights_tasks
   set
     document_id = p_document_id,
-    -- Upgrade status from required/overdue to evidence_uploaded
+    -- Upgrade 'required' to 'evidence_uploaded'; leave sent/reviewed unchanged.
+    -- 'overdue' is not a stored status — tasks past due_date are stored as 'required'.
     status      = case
-                    when status in ('required', 'overdue') then 'evidence_uploaded'
+                    when status = 'required' then 'evidence_uploaded'
                     else status
                   end,
     updated_at  = now()

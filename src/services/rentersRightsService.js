@@ -174,3 +174,154 @@ export async function linkRrTaskDocument({ taskId, accountId, documentId } = {})
   if (!data) throw new Error("link_rr_task_document returned no data");
   return parseRrTaskRow(data);
 }
+
+// ── Phase 2: Tenancy Review Prompts ──────────────────────────────────────────
+
+export async function generateTenancyReviewPrompts({ accountId } = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+
+  const { data, error } = await supabase.rpc("generate_tenancy_review_prompts", {
+    p_account_id: accountId,
+  });
+
+  if (error) throw friendly(error, "Failed to generate tenancy review prompts");
+  return Number(data ?? 0);
+}
+
+export async function dismissTenancyReviewPrompt({ taskId, accountId, notes = null } = {}) {
+  if (!taskId)    throw new Error("Missing taskId");
+  if (!accountId) throw new Error("Missing accountId");
+
+  const { data, error } = await supabase.rpc("dismiss_tenancy_review_prompt", {
+    p_task_id:    taskId,
+    p_account_id: accountId,
+    p_notes:      notes,
+  });
+
+  if (error) throw friendly(error, "Failed to dismiss review prompt");
+  if (!data) throw new Error("dismiss_tenancy_review_prompt returned no data");
+  return parseRrTaskRow(data);
+}
+
+export function parseReviewPromptRow(row) {
+  if (!row) return null;
+  const base = parseRrTaskRow(row);
+  if (!base) return null;
+  return {
+    ...base,
+    findingType:     String(row.metadata?.finding_type || ""),
+    severity:        String(row.metadata?.severity     || "info"),
+    explanation:     String(row.metadata?.explanation  || ""),
+    suggestedAction: String(row.metadata?.suggested_action || ""),
+  };
+}
+
+// ── Phase 2: Rent Review Records ─────────────────────────────────────────────
+
+export function parseRentReviewRow(row) {
+  if (!row) return null;
+  return {
+    id:                   String(row.id || ""),
+    accountId:            String(row.account_id || ""),
+    propertyId:           row.property_id || null,
+    tenantId:             row.tenant_id   || null,
+    leaseId:              row.lease_id    || null,
+    currentRent:          row.current_rent           != null ? Number(row.current_rent)           : null,
+    proposedRent:         row.proposed_rent          != null ? Number(row.proposed_rent)          : null,
+    proposedEffectiveDate:row.proposed_effective_date || null,
+    lastRentReviewDate:   row.last_rent_review_date  || null,
+    evidenceDocumentId:   row.evidence_document_id   || null,
+    noticeDocumentId:     row.notice_document_id     || null,
+    status:               String(row.status || "draft"),
+    notes:                row.notes      || null,
+    createdBy:            row.created_by || null,
+    createdAt:            row.created_at || null,
+    updatedAt:            row.updated_at || null,
+    tenantName:           String(row.tenant_name      || "—"),
+    propertyAddress:      String(row.property_address || "—"),
+  };
+}
+
+export async function listRentReviewRecords({ accountId, status = null, limit = 100, offset = 0 } = {}) {
+  if (!accountId) return [];
+
+  const { data, error } = await supabase.rpc("list_rent_review_records", {
+    p_account_id: accountId,
+    p_status:     status,
+    p_limit:      limit,
+    p_offset:     offset,
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("list_rent_review_records", { error, context: { accountId } });
+    throw friendly(error, "Failed to load rent review records");
+  }
+  return (data ?? []).map(parseRentReviewRow);
+}
+
+export async function createRentReviewRecord({
+  accountId,
+  propertyId             = null,
+  tenantId               = null,
+  leaseId                = null,
+  currentRent            = null,
+  proposedRent           = null,
+  proposedEffectiveDate  = null,
+  lastRentReviewDate     = null,
+  notes                  = null,
+} = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+
+  const { data, error } = await supabase.rpc("create_rent_review_record", {
+    p_account_id:              accountId,
+    p_property_id:             propertyId,
+    p_tenant_id:               tenantId,
+    p_lease_id:                leaseId,
+    p_current_rent:            currentRent,
+    p_proposed_rent:           proposedRent,
+    p_proposed_effective_date: proposedEffectiveDate,
+    p_last_rent_review_date:   lastRentReviewDate,
+    p_notes:                   notes,
+  });
+
+  if (error) throw friendly(error, "Failed to create rent review record");
+  if (!data) throw new Error("create_rent_review_record returned no data");
+  return parseRentReviewRow(data);
+}
+
+export async function updateRentReviewStatus({ recordId, accountId, status, notes = null } = {}) {
+  if (!recordId)  throw new Error("Missing recordId");
+  if (!accountId) throw new Error("Missing accountId");
+  if (!status)    throw new Error("Missing status");
+
+  const { data, error } = await supabase.rpc("update_rent_review_status", {
+    p_record_id:  recordId,
+    p_account_id: accountId,
+    p_status:     status,
+    p_notes:      notes,
+  });
+
+  if (error) throw friendly(error, "Failed to update rent review status");
+  if (!data) throw new Error("update_rent_review_status returned no data");
+  return parseRentReviewRow(data);
+}
+
+export async function linkRentReviewDocument({ recordId, accountId, documentId, docType } = {}) {
+  if (!recordId)   throw new Error("Missing recordId");
+  if (!accountId)  throw new Error("Missing accountId");
+  if (!documentId) throw new Error("Missing documentId");
+  if (!docType || !["evidence", "notice"].includes(docType)) {
+    throw new Error("docType must be 'evidence' or 'notice'");
+  }
+
+  const { data, error } = await supabase.rpc("link_rent_review_document", {
+    p_record_id:   recordId,
+    p_account_id:  accountId,
+    p_document_id: documentId,
+    p_doc_type:    docType,
+  });
+
+  if (error) throw friendly(error, "Failed to link document to rent review");
+  if (!data) throw new Error("link_rent_review_document returned no data");
+  return parseRentReviewRow(data);
+}

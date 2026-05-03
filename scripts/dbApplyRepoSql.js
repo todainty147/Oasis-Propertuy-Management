@@ -107,6 +107,7 @@ const OVERLAY_SEQUENCE = [
   "performance_rpc_indexes.sql",
   "renters_rights_readiness.sql",
   "renters_rights_entitlement.sql",
+  "renters_rights_phase2.sql",
 ];
 
 function resolvePsqlCommand() {

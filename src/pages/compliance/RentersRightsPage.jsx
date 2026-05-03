@@ -1,6 +1,6 @@
 // src/pages/compliance/RentersRightsPage.jsx
 //
-// Renters' Rights Readiness Pack — Phase 1: Information Sheet Tracker
+// Renters' Rights Readiness Pack — Phase 1 + 2
 //
 // LEGAL DISCLAIMER: This page helps landlords and property managers organise
 // records and track operational tasks. It does not provide legal advice and
@@ -8,7 +8,7 @@
 // possession action, or landlord action is legally valid. Seek advice from a
 // qualified professional where needed.
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -16,6 +16,7 @@ import {
   ExternalLink,
   FileText,
   Info,
+  Plus,
   RefreshCw,
   Send,
   XCircle,
@@ -28,6 +29,12 @@ import {
   markRrTaskSent,
   setRrTaskNotRequired,
   createRrTasksForActiveTenants,
+  generateTenancyReviewPrompts,
+  dismissTenancyReviewPrompt,
+  parseReviewPromptRow,
+  listRentReviewRecords,
+  createRentReviewRecord,
+  updateRentReviewStatus,
 } from "../../services/rentersRightsService";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -41,16 +48,17 @@ const DELIVERY_METHODS = [
 ];
 
 const STATUS_FILTERS = [
-  { value: null,             labelKey: "rentersRights.filter.all" },
-  { value: "required",       labelKey: "rentersRights.informationSheet.status.required" },
-  { value: "overdue",        labelKey: "rentersRights.informationSheet.status.overdue" },
-  { value: "sent",           labelKey: "rentersRights.informationSheet.status.sent" },
-  { value: "evidence_uploaded", labelKey: "rentersRights.informationSheet.status.evidence_uploaded" },
-  { value: "reviewed",       labelKey: "rentersRights.informationSheet.status.reviewed" },
-  { value: "not_required",   labelKey: "rentersRights.informationSheet.status.not_required" },
+  { value: null,               labelKey: "rentersRights.filter.all" },
+  { value: "required",         labelKey: "rentersRights.informationSheet.status.required" },
+  { value: "overdue",          labelKey: "rentersRights.informationSheet.status.overdue" },
+  { value: "sent",             labelKey: "rentersRights.informationSheet.status.sent" },
+  { value: "evidence_uploaded",labelKey: "rentersRights.informationSheet.status.evidence_uploaded" },
+  { value: "reviewed",         labelKey: "rentersRights.informationSheet.status.reviewed" },
+  { value: "not_required",     labelKey: "rentersRights.informationSheet.status.not_required" },
 ];
 
-const PHASE2_TABS = ["tenancyReview", "rentReviews", "petRequests", "possessionEvidence", "timeline"];
+// Phase 3+ tabs remain as coming-soon placeholders.
+const PHASE3_TABS = ["petRequests", "possessionEvidence", "timeline"];
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -89,8 +97,10 @@ function StatusBadge({ status, t }) {
     reviewed:         "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
     not_required:     "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400",
   };
+  // Unknown statuses get a neutral grey rather than a misleading amber "required" colour.
+  const cls = cfg[status] ?? "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400";
   return (
-    <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${cfg[status] || cfg.required}`}>
+    <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${cls}`}>
       {t(`rentersRights.informationSheet.status.${status}`, status)}
     </span>
   );
@@ -216,30 +226,25 @@ function MarkSentModal({ task, onClose, onSaved, accountId, t }) {
 
 // ── Information Sheets Tab ────────────────────────────────────────────────────
 
-function InformationSheetsTab({ tasks, loading, error, accountId, onRefresh, t }) {
+function InformationSheetsTab({ tasks, counts, loading, error, accountId, onRefresh, t }) {
   const [statusFilter, setStatusFilter] = useState(null);
-  const [markSentTask, setMarkSentTask] = useState(null);
-  const [actionError, setActionError] = useState(null);
-  const [syncing, setSyncing] = useState(false);
+  const [markSentTask, setMarkSentTask]   = useState(null);
+  const [actionError, setActionError]     = useState(null);
+  const [syncing, setSyncing]             = useState(false);
+  // Per-task processing state prevents double-submit on "Mark not required".
+  const [processingId, setProcessingId]   = useState(null);
 
-  const filtered = statusFilter
-    ? tasks.filter((task) => task.status === statusFilter)
-    : tasks;
-
-  const counts = {
-    required:         tasks.filter((t) => t.status === "required").length,
-    overdue:          tasks.filter((t) => t.status === "overdue").length,
-    sent:             tasks.filter((t) => ["sent", "evidence_uploaded", "reviewed"].includes(t.status)).length,
-    not_required:     tasks.filter((t) => t.status === "not_required").length,
-  };
+  const filtered = useMemo(
+    () => statusFilter ? tasks.filter((task) => task.status === statusFilter) : tasks,
+    [tasks, statusFilter],
+  );
 
   async function handleSyncTenants() {
     setSyncing(true);
     setActionError(null);
     try {
-      const created = await createRrTasksForActiveTenants({ accountId });
+      await createRrTasksForActiveTenants({ accountId });
       await onRefresh();
-      if (created === 0) setActionError(null);
     } catch (err) {
       setActionError(err.message);
     } finally {
@@ -248,12 +253,16 @@ function InformationSheetsTab({ tasks, loading, error, accountId, onRefresh, t }
   }
 
   async function handleNotRequired(task) {
+    if (processingId) return;
+    setProcessingId(task.id);
     setActionError(null);
     try {
       await setRrTaskNotRequired({ taskId: task.id, accountId });
       await onRefresh();
     } catch (err) {
       setActionError(err.message);
+    } finally {
+      setProcessingId(null);
     }
   }
 
@@ -286,28 +295,16 @@ function InformationSheetsTab({ tasks, loading, error, accountId, onRefresh, t }
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats — computed in parent, passed as prop */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard
-          label={t("rentersRights.stat.required")}
-          value={counts.required + counts.overdue}
-          accent="border-amber-200 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-900/10"
-        />
-        <StatCard
-          label={t("rentersRights.stat.overdue")}
-          value={counts.overdue}
-          accent="border-red-200 bg-red-50 dark:border-red-800/40 dark:bg-red-900/10"
-        />
-        <StatCard
-          label={t("rentersRights.stat.sent")}
-          value={counts.sent}
-          accent="border-green-200 bg-green-50 dark:border-green-800/40 dark:bg-green-900/10"
-        />
-        <StatCard
-          label={t("rentersRights.stat.notRequired")}
-          value={counts.not_required}
-          accent="border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50"
-        />
+        <StatCard label={t("rentersRights.stat.required")} value={counts.required + counts.overdue}
+          accent="border-amber-200 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-900/10" />
+        <StatCard label={t("rentersRights.stat.overdue")} value={counts.overdue}
+          accent="border-red-200 bg-red-50 dark:border-red-800/40 dark:bg-red-900/10" />
+        <StatCard label={t("rentersRights.stat.sent")} value={counts.sent}
+          accent="border-green-200 bg-green-50 dark:border-green-800/40 dark:bg-green-900/10" />
+        <StatCard label={t("rentersRights.stat.notRequired")} value={counts.not_required}
+          accent="border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50" />
       </div>
 
       {/* Toolbar */}
@@ -417,9 +414,12 @@ function InformationSheetsTab({ tasks, loading, error, accountId, onRefresh, t }
                           </button>
                           <button
                             onClick={() => handleNotRequired(task)}
-                            className="flex items-center gap-1 rounded-md border border-slate-300 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                            disabled={processingId === task.id}
+                            className="flex items-center gap-1 rounded-md border border-slate-300 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                           >
-                            <XCircle className="h-3 w-3" />
+                            {processingId === task.id
+                              ? <RefreshCw className="h-3 w-3 animate-spin" />
+                              : <XCircle className="h-3 w-3" />}
                             {t("rentersRights.informationSheet.markNotRequired")}
                           </button>
                         </>
@@ -504,14 +504,22 @@ export default function RentersRightsPage() {
     }
   }, [activeAccountId]);
 
-  useEffect(() => {
-    loadTasks();
-  }, [loadTasks]);
+  useEffect(() => { loadTasks(); }, [loadTasks]);
+
+  // Counts computed once here, passed to Overview and InformationSheets tabs.
+  const counts = useMemo(() => ({
+    required:    tasks.filter((tk) => tk.status === "required").length,
+    overdue:     tasks.filter((tk) => tk.status === "overdue").length,
+    sent:        tasks.filter((tk) => ["sent", "evidence_uploaded", "reviewed"].includes(tk.status)).length,
+    not_required:tasks.filter((tk) => tk.status === "not_required").length,
+  }), [tasks]);
 
   const allTabs = [
     "overview",
     "informationSheets",
-    ...PHASE2_TABS,
+    "tenancyReview",
+    "rentReviews",
+    ...PHASE3_TABS,
   ];
 
   return (
@@ -543,10 +551,10 @@ export default function RentersRightsPage() {
                 activeTab === tab
                   ? "border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100"
                   : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-              } ${PHASE2_TABS.includes(tab) ? "opacity-60" : ""}`}
+              } ${PHASE3_TABS.includes(tab) ? "opacity-60" : ""}`}
             >
               {t(`rentersRights.tab.${tab}`)}
-              {PHASE2_TABS.includes(tab) && (
+              {PHASE3_TABS.includes(tab) && (
                 <span className="ml-1.5 rounded-full bg-slate-200 px-1.5 py-0.5 text-xs dark:bg-slate-700">
                   {t("rentersRights.soon")}
                 </span>
@@ -564,24 +572,14 @@ export default function RentersRightsPage() {
               {t("rentersRights.overview.description")}
             </p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {(() => {
-                const req   = tasks.filter((t) => t.status === "required").length;
-                const ovd   = tasks.filter((t) => t.status === "overdue").length;
-                const sent  = tasks.filter((t) => ["sent","evidence_uploaded","reviewed"].includes(t.status)).length;
-                const notReq= tasks.filter((t) => t.status === "not_required").length;
-                return (
-                  <>
-                    <StatCard label={t("rentersRights.stat.required")} value={req + ovd}
-                      accent="border-amber-200 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-900/10" />
-                    <StatCard label={t("rentersRights.stat.overdue")} value={ovd}
-                      accent="border-red-200 bg-red-50 dark:border-red-800/40 dark:bg-red-900/10" />
-                    <StatCard label={t("rentersRights.stat.sent")} value={sent}
-                      accent="border-green-200 bg-green-50 dark:border-green-800/40 dark:bg-green-900/10" />
-                    <StatCard label={t("rentersRights.stat.notRequired")} value={notReq}
-                      accent="border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50" />
-                  </>
-                );
-              })()}
+              <StatCard label={t("rentersRights.stat.required")} value={counts.required + counts.overdue}
+                accent="border-amber-200 bg-amber-50 dark:border-amber-800/40 dark:bg-amber-900/10" />
+              <StatCard label={t("rentersRights.stat.overdue")} value={counts.overdue}
+                accent="border-red-200 bg-red-50 dark:border-red-800/40 dark:bg-red-900/10" />
+              <StatCard label={t("rentersRights.stat.sent")} value={counts.sent}
+                accent="border-green-200 bg-green-50 dark:border-green-800/40 dark:bg-green-900/10" />
+              <StatCard label={t("rentersRights.stat.notRequired")} value={counts.not_required}
+                accent="border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50" />
             </div>
             <button
               onClick={() => setActiveTab("informationSheets")}
@@ -595,6 +593,7 @@ export default function RentersRightsPage() {
         {activeTab === "informationSheets" && (
           <InformationSheetsTab
             tasks={tasks}
+            counts={counts}
             loading={loading}
             error={error}
             accountId={activeAccountId}
@@ -603,10 +602,336 @@ export default function RentersRightsPage() {
           />
         )}
 
-        {PHASE2_TABS.includes(activeTab) && (
+        {activeTab === "tenancyReview" && (
+          <TenancyReviewTab accountId={activeAccountId} t={t} />
+        )}
+
+        {activeTab === "rentReviews" && (
+          <RentReviewsTab accountId={activeAccountId} t={t} />
+        )}
+
+        {PHASE3_TABS.includes(activeTab) && (
           <ComingSoonTab tabKey={activeTab} t={t} />
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Tenancy Review Tab ────────────────────────────────────────────────────────
+
+function TenancyReviewTab({ accountId, t }) {
+  const [prompts, setPrompts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(null);
+  const [generating, setGenerating] = useState(false);
+  const [processingId, setProcessingId] = useState(null);
+
+  const load = useCallback(async () => {
+    if (!accountId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await listRentersRightsTasks({
+        accountId,
+        status: null,
+        limit: 200,
+      });
+      const reviewRows = rows
+        .filter((r) => r.requirementType === "tenancy_review_prompt")
+        .map(parseReviewPromptRow);
+      setPrompts(reviewRows);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [accountId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleGenerate() {
+    setGenerating(true);
+    setError(null);
+    try {
+      await generateTenancyReviewPrompts({ accountId });
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function handleDismiss(prompt) {
+    if (processingId) return;
+    setProcessingId(prompt.id);
+    try {
+      await dismissTenancyReviewPrompt({ taskId: prompt.id, accountId });
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
+  const open     = prompts.filter((p) => p.status === "required");
+  const reviewed = prompts.filter((p) => p.status === "reviewed");
+
+  const severityBadge = (sev) => {
+    const cfg = {
+      high:    "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+      warning: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+      info:    "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    };
+    return <span className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${cfg[sev] ?? cfg.info}`}>{sev}</span>;
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <p>{t("rentersRights.tenancyReview.disclaimer")}</p>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          {t("rentersRights.tenancyReview.description")}
+        </p>
+        <button
+          onClick={handleGenerate}
+          disabled={generating}
+          className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+        >
+          <RefreshCw className={`h-3 w-3 ${generating ? "animate-spin" : ""}`} />
+          {t("rentersRights.tenancyReview.runChecks")}
+        </button>
+      </div>
+
+      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-900/20 dark:text-red-300">{error}</p>}
+
+      {loading ? (
+        <div className="py-12 text-center text-sm text-slate-400">{t("common.loading")}</div>
+      ) : open.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 py-12 text-center dark:border-slate-700">
+          <CheckCircle2 className="mx-auto mb-3 h-8 w-8 text-slate-300 dark:text-slate-600" />
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t("rentersRights.tenancyReview.empty")}</p>
+          <button onClick={handleGenerate} disabled={generating}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900">
+            <RefreshCw className={`h-3.5 w-3.5 ${generating ? "animate-spin" : ""}`} />
+            {t("rentersRights.tenancyReview.runChecks")}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {open.map((prompt) => (
+            <div key={prompt.id} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center gap-2">
+                    {severityBadge(prompt.severity)}
+                    <span className="text-xs text-slate-400">{prompt.tenantName} · {prompt.propertyAddress}</span>
+                  </div>
+                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{prompt.explanation}</p>
+                  {prompt.suggestedAction && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{prompt.suggestedAction}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleDismiss(prompt)}
+                  disabled={processingId === prompt.id}
+                  className="flex items-center gap-1 rounded-md border border-slate-300 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300"
+                >
+                  {processingId === prompt.id
+                    ? <RefreshCw className="h-3 w-3 animate-spin" />
+                    : <CheckCircle2 className="h-3 w-3" />}
+                  {t("rentersRights.tenancyReview.markReviewed")}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {reviewed.length > 0 && (
+        <details className="rounded-xl border border-slate-200 dark:border-slate-700">
+          <summary className="cursor-pointer px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
+            {t("rentersRights.tenancyReview.reviewed")} ({reviewed.length})
+          </summary>
+          <div className="space-y-2 p-4 pt-0">
+            {reviewed.map((p) => (
+              <div key={p.id} className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                {p.explanation} · {p.tenantName}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
+// ── Rent Reviews Tab ──────────────────────────────────────────────────────────
+
+const RENT_REVIEW_STATUSES = ["draft","evidence_needed","ready_for_review","sent","challenged","completed","cancelled"];
+
+function RentReviewsTab({ accountId, t }) {
+  const [records, setRecords]     = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState(null);
+  const [showForm, setShowForm]   = useState(false);
+  const [saving, setSaving]       = useState(false);
+  const [form, setForm]           = useState({
+    currentRent: "", proposedRent: "", proposedEffectiveDate: "", notes: "",
+  });
+
+  const load = useCallback(async () => {
+    if (!accountId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      setRecords(await listRentReviewRecords({ accountId }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [accountId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await createRentReviewRecord({
+        accountId,
+        currentRent:           form.currentRent  ? Number(form.currentRent)  : null,
+        proposedRent:          form.proposedRent ? Number(form.proposedRent) : null,
+        proposedEffectiveDate: form.proposedEffectiveDate || null,
+        notes:                 form.notes || null,
+      });
+      setShowForm(false);
+      setForm({ currentRent: "", proposedRent: "", proposedEffectiveDate: "", notes: "" });
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const statusBadge = (status) => {
+    const cfg = {
+      draft:            "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400",
+      evidence_needed:  "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+      ready_for_review: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+      sent:             "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+      challenged:       "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+      completed:        "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+      cancelled:        "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500",
+    };
+    return <span className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${cfg[status] ?? cfg.draft}`}>{t(`rentersRights.rentReview.status.${status}`, status)}</span>;
+  };
+
+  const fmt = (v) => v ? new Date(`${String(v).slice(0,10)}T00:00:00`).toLocaleDateString() : "—";
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <p>{t("rentersRights.rentReview.disclaimer")}</p>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-500 dark:text-slate-400">{t("rentersRights.rentReview.description")}</p>
+        <button onClick={() => setShowForm(true)}
+          className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900">
+          <Plus className="h-3.5 w-3.5" />
+          {t("rentersRights.rentReview.create")}
+        </button>
+      </div>
+
+      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-900/20 dark:text-red-300">{error}</p>}
+
+      {showForm && (
+        <form onSubmit={handleCreate} className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("rentersRights.rentReview.create")}</h3>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">{t("rentersRights.rentReview.currentRent")}</label>
+              <input type="number" min="0" step="0.01" value={form.currentRent}
+                onChange={(e) => setForm((f) => ({ ...f, currentRent: e.target.value }))}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">{t("rentersRights.rentReview.proposedRent")}</label>
+              <input type="number" min="0" step="0.01" value={form.proposedRent}
+                onChange={(e) => setForm((f) => ({ ...f, proposedRent: e.target.value }))}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">{t("rentersRights.rentReview.effectiveDate")}</label>
+              <input type="date" value={form.proposedEffectiveDate}
+                onChange={(e) => setForm((f) => ({ ...f, proposedEffectiveDate: e.target.value }))}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">{t("rentersRights.rentReview.notes")}</label>
+              <input type="text" value={form.notes}
+                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setShowForm(false)}
+              className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700">
+              {t("common.cancel")}
+            </button>
+            <button type="submit" disabled={saving}
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900">
+              {saving ? t("common.saving") : t("common.save")}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {loading ? (
+        <div className="py-12 text-center text-sm text-slate-400">{t("common.loading")}</div>
+      ) : records.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 py-12 text-center dark:border-slate-700">
+          <FileText className="mx-auto mb-3 h-8 w-8 text-slate-300 dark:text-slate-600" />
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t("rentersRights.rentReview.empty")}</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+          <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+            <thead className="bg-slate-50 dark:bg-slate-800/50">
+              <tr>
+                {["tenant","property","currentRent","proposedRent","effectiveDate","status"].map((c) => (
+                  <th key={c} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    {t(`rentersRights.rentReview.col.${c}`, c)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
+              {records.map((r) => (
+                <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                  <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{r.tenantName}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{r.propertyAddress}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{r.currentRent != null ? `£${r.currentRent.toFixed(2)}` : "—"}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{r.proposedRent != null ? `£${r.proposedRent.toFixed(2)}` : "—"}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{fmt(r.proposedEffectiveDate)}</td>
+                  <td className="px-4 py-3">{statusBadge(r.status)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
