@@ -459,6 +459,11 @@ const bootstrapSteps = [
     file: path.join(supabaseDir, "renters_rights_phase2.sql"),
     onErrorStop: true,
   },
+  {
+    label: "Apply Renters' Rights tenant filter fix (include all non-archived tenants)",
+    file: path.join(supabaseDir, "renters_rights_tenant_filter_fix.sql"),
+    onErrorStop: true,
+  },
 ];
 
 function resolvePsqlCommand() {

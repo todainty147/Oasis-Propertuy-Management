@@ -121,15 +121,18 @@ export async function getCommandCenterData(accountId) {
     };
   }
 
-  const [snapshot, rpcRes, propertyHealthRows, rrRows] = await Promise.all([
+  const [snapshot, rpcRes, propertyHealthRows] = await Promise.all([
     getDashboardSnapshot(accountId, { horizonDays: 7 }),
     supabase.rpc("command_center_items", {
       p_account_id: accountId,
       p_limit: 80,
     }),
     listPropertyOperationalHealthScores(accountId, { limit: 200 }),
-    listRrAttentionItems({ accountId, limit: 20 }),
   ]);
+
+  // RR items fetched separately so any failure never rejects the main Promise.all
+  // and never causes the AI insight card to disappear.
+  const rrRows = await listRrAttentionItems({ accountId, limit: 20 }).catch(() => []);
 
   if (rpcRes.error) {
     if (isMissingBackendObject(rpcRes.error)) {

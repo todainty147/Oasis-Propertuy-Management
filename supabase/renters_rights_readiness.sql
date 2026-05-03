@@ -303,8 +303,7 @@ begin
     select t.id as tenant_id, t.property_id
     from public.tenants t
     where t.account_id  = p_account_id
-      and t.archived_at is null
-      and t.status      not in ('applicant')
+      and t.archived_at is null          -- status not filtered: default is 'applicant'
       and not exists (
         select 1
         from public.renters_rights_tasks rr

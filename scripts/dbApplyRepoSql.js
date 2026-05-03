@@ -108,6 +108,7 @@ const OVERLAY_SEQUENCE = [
   "renters_rights_readiness.sql",
   "renters_rights_entitlement.sql",
   "renters_rights_phase2.sql",
+  "renters_rights_tenant_filter_fix.sql",
 ];
 
 function resolvePsqlCommand() {
