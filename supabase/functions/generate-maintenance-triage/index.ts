@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
     }
 
     const result = await generateInsight(input);
-    result.insight = clampAiInsightPayload(result.insight);
+    try { result.insight = clampAiInsightPayload(result.insight); } catch { /* oversized payload — serve as-is */ }
     const expiresAt = buildExpiry(generatedAt);
 
     await Promise.all([
