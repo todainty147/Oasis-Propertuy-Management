@@ -77,6 +77,11 @@ Integration tests skip automatically when `TEST_SUPABASE_URL` / `TEST_SUPABASE_S
 | `finance_snapshot.test.js` | Finance snapshot aggregation |
 | `operationalSnapshotRpcSecurity.test.js` | All operational snapshot RPCs cross-account |
 
+#### Billing, Trial & Operator/Agency
+| File | What it covers |
+|------|----------------|
+| `accountSubscriptionPlanEnforcement.test.js` | **NEW** — Client-side sentinel plan handling (`normalizePlan`, `isLockedPlan`, `getPlanRank` for all 5 sentinels, `hasFeature` denying all paid features for locked plans); SQL structural checks for `account_subscription_plan_hardened.sql` (LATERAL subqueries, 12-case decision tree, grace periods, all sentinel returns) |
+
 #### Other
 | File | What it covers |
 |------|----------------|
@@ -119,6 +124,14 @@ Integration tests skip automatically when `TEST_SUPABASE_URL` / `TEST_SUPABASE_S
 | `aiFeatureGateContracts.test.js` | **NEW** — Rent Shield pure-function contracts (computeShieldMetrics, computeShieldScore, classifyShieldTier, periodKeyToDateRange, currentPeriodKey); AI insight service null guards; normalized output schema validation for attention/property-health/maintenance-triage insight services; safe defaults for missing fields; error propagation from Edge Function |
 | `aiSurfaceRobustnessContracts.test.js` | PII minimization, prompt injection resistance, payload size caps |
 | `aiCostControlsContracts.test.js` | AI quota helpers, `get_account_ai_usage_summary` |
+
+#### Billing, Trial & Operator/Agency (Contract)
+| File | What it covers |
+|------|----------------|
+| `trialEnforcementSecurity.test.js` | **NEW** — SQL: trial column schema, `trial_extended_by_user_id` references `auth.users` (not `accounts`), root-only guards, reason requirements, blocks on root/OA accounts, separate `remove_account_trial_cap` RPC; signup SQL sets 14-day trial in both signup paths; service input guards |
+| `operatorAgencyGrantSecurity.test.js` | **NEW** — Table constraints (`unit_count > 0`, date ordering), 8-status enum, user-level audit fields, RLS root-only policy, partial unique index, idempotency indexes; all RPC guards (missing id, zero units, blank reason, self-serve conflict block, trial clearing); `getMyOaGrantStatus` permission enforcement and URL expiry behaviour |
+| `operatorAgencyCheckoutSecurity.test.js` | **NEW** — Checkout URL only returned for `pending_payment` + not expired; expired checkout correctly flagged; null/empty account returns null; permission denied silently returns null; all service input guards for `activateOaPaymentLink`, `updateOaGrant`, `generateOaCheckoutLink` |
+| `stripeWebhookOperatorAgency.test.js` | **NEW** — Source-code analysis: `account_id` match guard, `stripe_checkout_session_id` match guard, `pending_payment` status guard before activation, idempotency skip for already-active grant, `activation_failed` on error, security event logged, OA subscription cancellation handler, no `trial_period_days` in OA checkout, `unit_count` passed as Stripe quantity |
 
 #### SQL / RPC Contracts
 | File | What it covers |
@@ -175,6 +188,10 @@ Integration tests skip automatically when `TEST_SUPABASE_URL` / `TEST_SUPABASE_S
 | Localization parity | — | ✓ | No runtime rendering test |
 | CORS hardening | — | ✓ (source audit) | No network-level test |
 | Rate limiting | ✓ | ✓ | Load test not present |
+| Trial enforcement (SQL + service) | — | ✓ | No live integration test (requires real accounts table) |
+| OA grant lifecycle (SQL + service) | — | ✓ | No live integration test (requires Stripe) |
+| Stripe webhook OA activation | — | ✓ (source audit) | No integration test (cloud Stripe webhook only) |
+| `account_subscription_plan` enforcement logic | — | ✓ | No live integration test (requires real billing tables) |
 
 ---
 
@@ -201,7 +218,8 @@ These gaps are tracked here, not as blocking issues, but as inputs for future QA
 | Mobile visual regression | P2 | No Playwright mobile viewport or Percy/Chromatic integration. |
 | Performance / load testing | P3 | No k6 or Gatling setup. |
 | Live staging smoke tests | P2 | Documented in `RELEASE_SMOKE_CHECKLIST.md` as manual steps. |
-| Pre-existing failures (8 security tests) | P1 | `commandCenterEpic3Contracts`, `customFieldsDisplay/Edit/Form`, `phase7RemainingLimitations`, `safeEdgeErrorResponse`, `tenantPortalBackendContracts`, `tenantSurfaceIsolation` — were failing before this QA pass; tracked separately. |
+| Pre-existing failures (4 security tests) | P1 | `usePropertiesContracts` (1), `databaseHardeningContracts` (2), `staging/securitySmoke` (1) — failing before the trial/OA implementation pass; tracked separately. All new tests pass. |
+| Live integration tests for trial/OA/Stripe | P2 | Require real `accounts` table with trial dates, real Stripe credentials, and real webhook events. Cannot run in local harness without full Stripe test-mode plumbing. |
 
 ---
 

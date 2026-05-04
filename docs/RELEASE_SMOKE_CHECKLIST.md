@@ -74,6 +74,19 @@
 - [ ] Maintenance KPI — Section nav has visible text in dark mode
 - [ ] Portfolio Health — AI insight strip has visible text in dark mode
 
+### Billing, Trial & Operator/Agency
+
+- [ ] New signup account has `trial_ends_at` set (confirm: `select trial_ends_at from accounts order by created_at desc limit 1`)
+- [ ] Billing page: operator_agency card shows "Contact Sales", not a checkout button
+- [ ] Billing page: self-serve plan cards show "Includes 14-day free trial"
+- [ ] Trial banner visible for account with ≤7 days remaining (test via root admin panel → Set trial end to 2 days from now)
+- [ ] Root admin panel accessible at `/root/accounts` for root operator; returns 403/redirects for non-root
+- [ ] Trial extension: root admin sets date + reason → DB updated → feature gate passes for extended account
+- [ ] Blank reason rejected on trial extension form
+- [ ] `select public.account_subscription_plan('<new_account_id>')` returns `starter` (trial active → normal plan)
+- [ ] After manual `trial_ends_at = now() - interval '1 day'`, same query returns `trial_expired`
+- [ ] Grandfathered account (`trial_ends_at IS NULL`) returns `starter` from `account_subscription_plan()` unchanged
+
 ---
 
 ## Secondary Checks (run on full releases)

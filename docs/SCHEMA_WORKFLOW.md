@@ -54,8 +54,21 @@ Example overlay order for the current repo:
 15. `supabase/storage_documents_policies.sql`
 16. `supabase/storage_maintenance_request_attachments_policies.sql`
 17. `supabase/storage_work_order_attachments_policies.sql`
+18. `supabase/renters_rights_readiness.sql`
+19. `supabase/renters_rights_entitlement.sql`
+20. `supabase/renters_rights_phase2.sql`
+21. `supabase/renters_rights_tenant_filter_fix.sql`
+22. `supabase/trial_period_enforcement.sql`
+23. `supabase/operator_agency_grants.sql`
+24. `supabase/account_subscription_plan_hardened.sql` ← **activation gate — apply last, after verifying `select count(*) from accounts where trial_ends_at is not null` returns 0**
 
 This is intentionally explicit. Do not assume `supabase db reset` alone reconstructs the full app schema in this repo.
+
+> **Trial enforcement note:** `account_subscription_plan_hardened.sql` (item 24) replaces the live `account_subscription_plan()` function. Run the pre-deploy check before applying it in any environment that has existing accounts:
+> ```sql
+> select count(*) from accounts where trial_ends_at is not null;
+> ```
+> Existing accounts with `NULL` hit the grandfathered `else` branch and are unaffected. Only accounts created after step 22 (`trial_period_enforcement.sql`) will have a trial date set.
 
 ## Local bootstrap helper
 

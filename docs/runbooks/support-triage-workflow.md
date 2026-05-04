@@ -87,7 +87,38 @@ Escalate one level when:
 | Tax Readiness Dashboard: missing deadlines, wrong status, export date range wrong | [compliance-tax-readiness-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/compliance-tax-readiness-operations.md) |
 | Rent Shield: score wrong, portfolio empty, Recalculate not updating | [compliance-rent-shield-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/compliance-rent-shield-operations.md) |
 | Lease Auditor: findings not saving, overall risk not updating, lease list empty | [compliance-lease-auditor-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/compliance-lease-auditor-operations.md) |
+| Account shows "trial expired" wall but customer says trial should still be active | See **Trial triage** below |
+| Account shows "payment pending" / OA checkout wall and customer has paid | See **Operator/Agency triage** below |
 | Release caused the issue or rollback may be required | [release-operations-checklist.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/release-operations-checklist.md) |
+
+### Trial expiry triage
+
+**Symptom:** Account user sees "Your 14-day trial has ended" wall or all paid features are denied.
+
+1. Confirm `account_id` from the ticket.
+2. Run: `select id, name, trial_ends_at, trial_source, subscription_plan, subscription_status from accounts where id = '<account_id>'`
+3. Check `trial_ends_at`:
+   - If `NULL` → account is grandfathered; paid feature denial has another cause (check Stripe subscription status).
+   - If in the past → trial genuinely expired. Advise customer to upgrade, or escalate to root operator to extend via the admin panel (`/root/accounts`).
+   - If in the future → trial is still active; feature denial has another cause.
+4. Check `subscription_status`: if `past_due` or `canceled`, a Stripe billing problem may be overriding the trial.
+5. If trial extension is needed: root operator uses `/root/accounts` → expands the account row → "Set trial end" with a reason. This is always recorded in the security audit log.
+6. Do not manually UPDATE `trial_ends_at` in the DB directly. Use the `set_account_trial_end` RPC or root admin panel, which enforce reason capture and security event logging.
+
+### Operator/Agency triage
+
+**Symptom:** Account shows "Payment pending" wall, or account says they have paid but still can't access Operator/Agency features.
+
+1. Confirm `account_id`.
+2. Run: `select id, account_id, payment_status, stripe_checkout_session_id, stripe_subscription_id, activated_at from operator_agency_grants where account_id = '<account_id>' order by created_at desc limit 3`
+3. Check `payment_status`:
+   - `pending_payment` → Stripe checkout was not completed. Verify in Stripe Dashboard whether the customer paid against the session ID shown. If paid but status is wrong, check `billing_events` for the `checkout.session.completed` event and whether it was processed.
+   - `active` → Grant is active; escalate to engineering if features are still denied (could be a plan cache or DB issue).
+   - `checkout_failed` / `activation_failed` → Stripe session or activation failed. Escalate to engineering with the `stripe_checkout_session_id`.
+   - `cancelled` → Grant was cancelled. If incorrectly cancelled, escalate to root operator to create a new grant.
+4. If the Stripe checkout was completed but the grant is still `pending_payment`: check `billing_events` for the event — the webhook may have failed to process. Escalate to engineering.
+5. If the checkout link has expired (`stripe_checkout_expires_at` in the past): root operator must regenerate the link via root admin panel → "Regenerate link" (this calls `record_regenerated_oa_checkout`).
+6. Do not activate grants manually by updating `payment_status` directly in the DB. Activation must flow through the verified Stripe webhook path to maintain integrity.
 | Restore, data loss, or backup question | [backup-restore-drill.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/backup-restore-drill.md) |
 
 ## Escalation Paths

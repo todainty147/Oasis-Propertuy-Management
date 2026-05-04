@@ -72,6 +72,16 @@ After apply:
 
 If `db:apply:repo` stops partway through, do not rerun blindly. Identify the failed file, verify whether earlier files were applied, then decide whether to forward-fix or resume from the failed point.
 
+### Trial enforcement activation gate
+
+`account_subscription_plan_hardened.sql` is the last overlay in the sequence and replaces the live `account_subscription_plan()` function. This function is the single enforcement point for all feature gates. Before applying it to any environment with existing accounts, run:
+
+```sql
+select count(*) from accounts where trial_ends_at is not null;
+```
+
+This must return **0** (or only accounts you explicitly seeded with a trial date). If it returns unexpected rows, investigate before proceeding — do not apply the overlay blindly. Accounts with `trial_ends_at IS NULL` are grandfathered and unaffected by the enforcement change.
+
 ## Edge Function Deploy
 
 Deploy only changed Edge Functions, then record the function names and deploy output.
@@ -83,8 +93,12 @@ Common production functions include:
 - `send-reminder-emails`
 - `send-sms-notifications`
 - `ingest-security-observability`
+- `create-checkout-session` — self-serve Stripe checkout (Starter / Growth / Pro)
+- `create-oa-checkout-session` — Operator/Agency checkout; requires `STRIPE_PRICE_OPERATOR_AGENCY` secret set in Supabase project
 - AI helper functions under [supabase/functions](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions)
 - document, signature, and marketplace functions under [supabase/functions](/mnt/c/Users/Home/oasisrentalmanagementapp/supabase/functions)
+
+When deploying `create-oa-checkout-session` for the first time, confirm `STRIPE_PRICE_OPERATOR_AGENCY` is set as a Supabase secret before deploying. The function will return a 500 with "STRIPE_PRICE_OPERATOR_AGENCY is not configured" if the secret is absent.
 
 Example:
 
