@@ -6955,6 +6955,7 @@ Object.assign(messages.en, {
   "entitlements.feature.rent_shield": "Rent Shield",
   "entitlements.feature.ai_rent_shield_explainer": "Rent Shield AI Explainer",
   "entitlements.feature.ai_lease_auditor": "AI Lease Auditor",
+  "entitlements.feature.renters_rights_readiness": "Renters' Rights Readiness",
 });
 
 Object.assign(messages.pl, {
@@ -6984,6 +6985,7 @@ Object.assign(messages.pl, {
   "entitlements.feature.rent_shield": "Rent Shield",
   "entitlements.feature.ai_rent_shield_explainer": "AI Explainer Rent Shield",
   "entitlements.feature.ai_lease_auditor": "AI Audytor umów",
+  "entitlements.feature.renters_rights_readiness": "Renters' Rights Readiness",
 });
 
 Object.assign(messages.de, {
@@ -7013,6 +7015,7 @@ Object.assign(messages.de, {
   "entitlements.feature.rent_shield": "Rent Shield",
   "entitlements.feature.ai_rent_shield_explainer": "KI-Erklärung Rent Shield",
   "entitlements.feature.ai_lease_auditor": "KI-Mietvertrags-Auditor",
+  "entitlements.feature.renters_rights_readiness": "Renters' Rights Readiness",
 });
 
 // ── Phase 1: Tax Readiness Dashboard ─────────────────────────────────────────
