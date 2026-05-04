@@ -265,13 +265,15 @@ async function generateInsight(input: MaintenanceTriageInput) {
 
   const prompt = buildMaintenanceTriagePrompt(input);
 
-  const response = await fetch(`${OPENAI_BASE_URL}/responses`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  let response: Response;
+  try {
+    response = await fetch(`${OPENAI_BASE_URL}/responses`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
       model: OPENAI_MODEL,
       max_output_tokens: 1_500,
       input: [
@@ -330,6 +332,18 @@ async function generateInsight(input: MaintenanceTriageInput) {
       },
     }),
   });
+  } catch (networkError) {
+    return {
+      insight: buildFallbackMaintenanceTriageInsight(input),
+      provider: "openai",
+      model: OPENAI_MODEL,
+      inputTokens: 0,
+      outputTokens: 0,
+      errorCode: "network_error",
+      errorMessage: describeError(networkError),
+      promptRunStatus: "fallback",
+    };
+  }
 
   if (!response.ok) {
     const message = await response.text().catch(() => "");
@@ -345,10 +359,10 @@ async function generateInsight(input: MaintenanceTriageInput) {
     };
   }
 
-  const payload = await response.json();
-  const content = extractOutputText(payload);
+  const payload = await response.json().catch(() => null);
 
   try {
+    const content = extractOutputText(payload || {});
     const parsed = parseMaintenanceTriageInsightPayload(JSON.parse(content));
     parsed.source = "openai";
     parsed.generated_at = input.generatedAt || new Date().toISOString();

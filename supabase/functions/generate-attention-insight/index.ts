@@ -286,7 +286,9 @@ async function generateInsight(input: Parameters<typeof buildFallbackAttentionIn
   }
 
   const prompt = buildAttentionPrompt(input);
-  const response = await fetch(`${OPENAI_BASE_URL}/responses`, {
+  let response: Response;
+  try {
+    response = await fetch(`${OPENAI_BASE_URL}/responses`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${OPENAI_API_KEY}`,
@@ -354,6 +356,18 @@ async function generateInsight(input: Parameters<typeof buildFallbackAttentionIn
       },
     }),
   });
+  } catch (networkError) {
+    return {
+      insight: buildFallbackAttentionInsight(input),
+      provider: "openai",
+      model: OPENAI_MODEL,
+      promptRunStatus: "fallback",
+      inputTokens: 0,
+      outputTokens: 0,
+      errorCode: "network_error",
+      errorMessage: String((networkError as Error)?.message || "Network error"),
+    };
+  }
 
   const payload = await response.json().catch(() => null);
 

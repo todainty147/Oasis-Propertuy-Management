@@ -246,7 +246,9 @@ async function generateInsight(input: { accountId: string; generatedAt: string; 
 
   const prompt = buildPropertyHealthPrompt(input);
 
-  const response = await fetch(`${OPENAI_BASE_URL}/responses`, {
+  let response: Response;
+  try {
+    response = await fetch(`${OPENAI_BASE_URL}/responses`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${OPENAI_API_KEY}`,
@@ -329,6 +331,18 @@ async function generateInsight(input: { accountId: string; generatedAt: string; 
       },
     }),
   });
+  } catch (networkError) {
+    return {
+      insight: buildFallbackPropertyHealthInsight(input),
+      provider: "openai",
+      model: OPENAI_MODEL,
+      inputTokens: 0,
+      outputTokens: 0,
+      errorCode: "network_error",
+      errorMessage: describeError(networkError),
+      promptRunStatus: "fallback",
+    };
+  }
 
   if (!response.ok) {
     const message = await response.text().catch(() => "");
@@ -344,10 +358,10 @@ async function generateInsight(input: { accountId: string; generatedAt: string; 
     };
   }
 
-  const payload = await response.json();
-  const content = extractOutputText(payload);
+  const payload = await response.json().catch(() => null);
 
   try {
+    const content = extractOutputText(payload || {});
     const parsed = parsePropertyHealthInsightPayload(JSON.parse(content));
     parsed.source = "openai";
     parsed.generated_at = input.generatedAt;
