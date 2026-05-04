@@ -22,7 +22,6 @@ import {
   Zap,
   Shield,
   Activity,
-  Users,
   Scale,
   Receipt,
   Umbrella,
@@ -400,8 +399,10 @@ function SidebarContent({ onNavigate }) {
                       <Item to="/settings/security-audit" icon={Shield} label={t("sidebar.securityAudit")} onNavigate={onNavigate} />
                     ) : null}
                     {canAccessTelemetry && hasEntitlement(ENTITLEMENT_FEATURES.ROOT_TELEMETRY) ? (
-                      <Item to="/settings/root-telemetry" icon={Activity} label={t("sidebar.rootTelemetry")} onNavigate={onNavigate} />
-                      <Item to="/root/accounts" icon={Users} label={t("sidebar.rootAccounts")} onNavigate={onNavigate} />
+                      <>
+                        <Item to="/settings/root-telemetry" icon={Activity} label={t("sidebar.rootTelemetry")} onNavigate={onNavigate} />
+                        <Item to="/root/accounts" icon={Users} label={t("sidebar.rootAccounts")} onNavigate={onNavigate} />
+                      </>
                     ) : null}
                     {role === "owner" && (
                       <Item to="/settings/branding" icon={Palette} label={t("sidebar.branding")} onNavigate={onNavigate} />
