@@ -284,21 +284,28 @@ export function recordAiTokens(
   },
 ): void {
   const dailyKey = getDailyAiPeriodKey();
-  client.rpc("increment_ai_usage_meter", {
-    p_account_id:    accountId,
-    p_feature_key:   featureKey,
-    p_period_key:    dailyKey,
-    p_prompt_runs:   0,
-    p_input_tokens:  inputTokens,
-    p_output_tokens: outputTokens,
-  }).catch((err) => {
-    console.error(JSON.stringify({
-      event:      "ai_token_meter_failed",
-      accountId,
-      featureKey,
-      error:      String((err as Error)?.message || err),
-    }));
-  });
+  // Use async IIFE so we can await the thenable returned by rpc().
+  // Calling .catch() directly on the Supabase query builder fails at runtime
+  // because it is a thenable but not a full Promise (no .catch() method).
+  void (async () => {
+    try {
+      await client.rpc("increment_ai_usage_meter", {
+        p_account_id:    accountId,
+        p_feature_key:   featureKey,
+        p_period_key:    dailyKey,
+        p_prompt_runs:   0,
+        p_input_tokens:  inputTokens,
+        p_output_tokens: outputTokens,
+      });
+    } catch (err) {
+      console.error(JSON.stringify({
+        event:      "ai_token_meter_failed",
+        accountId,
+        featureKey,
+        error:      String((err as Error)?.message || err),
+      }));
+    }
+  })();
 }
 
 // ─── Prompt / payload utilities ───────────────────────────────────────────────
