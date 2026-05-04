@@ -94,3 +94,11 @@ export async function getBillingSubscription(accountId) {
 export function canWriteForBilling(status) {
   return ["active", "trialing", "past_due"].includes(String(status || ""));
 }
+
+// Returns true when the account has confirmed billing access (active or trialing Stripe
+// subscription, OR an active OA grant). Does NOT gate OASIS trial-period access.
+export function hasConfirmedBillingAccess(subscriptionStatus, oaPaymentStatus) {
+  if (["active", "trialing"].includes(String(subscriptionStatus || ""))) return true;
+  if (oaPaymentStatus === "active") return true;
+  return false;
+}

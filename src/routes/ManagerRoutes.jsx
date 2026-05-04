@@ -45,6 +45,7 @@ const ProfilePage                 = lazy(() => import("../pages/ProfilePage"));
 const PlaybooksPage               = lazy(() => import("../pages/PlaybooksPage"));
 const SecurityAuditPage           = lazy(() => import("../pages/SecurityAuditPage"));
 const RootTelemetryPage           = lazy(() => import("../pages/RootTelemetryPage"));
+const RootAccountsPage            = lazy(() => import("../pages/admin/RootAccountsPage"));
 const TaxReadinessPage            = lazy(() => import("../pages/compliance/TaxReadinessPage"));
 const RentShieldPage              = lazy(() => import("../pages/compliance/RentShieldPage"));
 const LeaseAuditorPage            = lazy(() => import("../pages/compliance/LeaseAuditorPage"));
@@ -380,6 +381,14 @@ export default function ManagerRoutes() {
         element={
           <EntitledRoute feature={ENTITLEMENT_FEATURES.ROOT_TELEMETRY}>
             <RootTelemetryPage />
+          </EntitledRoute>
+        }
+      />
+      <Route
+        path="root/accounts"
+        element={
+          <EntitledRoute feature={ENTITLEMENT_FEATURES.ROOT_TELEMETRY}>
+            <RootAccountsPage />
           </EntitledRoute>
         }
       />

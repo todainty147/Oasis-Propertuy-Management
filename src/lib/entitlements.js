@@ -52,7 +52,23 @@ export const PLAN_RANKS = Object.freeze({
   growth: 2,
   pro: 3,
   operator_agency: 4,
+  // Sentinel values: rank 0 — deny all paid feature gates
+  trial_expired:           0,
+  operator_agency_pending: 0,
+  oa_contract_expired:     0,
+  billing_past_due_locked: 0,
+  billing_locked:          0,
 });
+
+// Sentinel plan values that indicate a locked/restricted account state.
+// These pass through normalizePlan() rather than falling back to 'starter'.
+export const LOCKED_PLAN_SENTINELS = Object.freeze(new Set([
+  "trial_expired",
+  "operator_agency_pending",
+  "oa_contract_expired",
+  "billing_past_due_locked",
+  "billing_locked",
+]));
 
 const STARTER_FEATURES = [
   ENTITLEMENT_FEATURES.TENANTS,
@@ -129,11 +145,18 @@ export const PLAN_USAGE_LIMITS = Object.freeze({
 
 export function normalizePlan(plan) {
   const normalized = String(plan || "").trim().toLowerCase();
+  // Pass through sentinel values unchanged so UI can display the correct wall
+  if (LOCKED_PLAN_SENTINELS.has(normalized)) return normalized;
   return normalized in PLAN_RANKS ? normalized : "starter";
 }
 
+export function isLockedPlan(plan) {
+  return LOCKED_PLAN_SENTINELS.has(normalizePlan(plan));
+}
+
 export function getPlanRank(plan) {
-  return PLAN_RANKS[normalizePlan(plan)] || 0;
+  const p = normalizePlan(plan);
+  return Object.prototype.hasOwnProperty.call(PLAN_RANKS, p) ? PLAN_RANKS[p] : 1;
 }
 
 export function getPlanFeatures(plan) {
@@ -148,13 +171,29 @@ export function getPlanUsageLimit(plan, resource) {
 
 export function getFeatureMinimumPlan(feature) {
   const target = String(feature || "").trim().toLowerCase();
-  // Walk plans in rank order so the lowest qualifying plan is returned
   for (const planKey of ["starter", "growth", "pro", "operator_agency"]) {
     if (PLAN_ENTITLEMENTS[planKey].includes(target)) {
       return planKey;
     }
   }
   return "starter";
+}
+
+// Returns human-readable label key for a plan (including sentinels).
+export function getPlanLabelKey(plan) {
+  const p = normalizePlan(plan);
+  const MAP = {
+    starter:                 "billing.plan.starter",
+    growth:                  "billing.plan.growth",
+    pro:                     "billing.plan.pro",
+    operator_agency:         "billing.plan.operatorAgency",
+    trial_expired:           "billing.planLabel.trial_expired",
+    operator_agency_pending: "billing.planLabel.operator_agency_pending",
+    oa_contract_expired:     "billing.planLabel.oa_contract_expired",
+    billing_past_due_locked: "billing.planLabel.billing_past_due_locked",
+    billing_locked:          "billing.planLabel.billing_locked",
+  };
+  return MAP[p] || "billing.plan.starter";
 }
 
 export function hasFeature(plan, feature) {

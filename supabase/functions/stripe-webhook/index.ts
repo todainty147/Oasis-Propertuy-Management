@@ -50,12 +50,114 @@ Deno.serve(async (req) => {
         case "checkout.session.completed": {
           const session = event.data.object as Stripe.Checkout.Session;
           const accountId = session.metadata?.account_id;
+          const planKey   = session.metadata?.plan_key;
+
           if (accountId && session.customer) {
             resolvedAccountId = accountId;
             await admin.from("billing_customers").upsert({
               account_id: accountId,
               stripe_customer_id: String(session.customer),
               email: session.customer_details?.email || null,
+            });
+          }
+
+          // ── Operator/Agency grant activation ──────────────────────────────
+          if (planKey === "operator_agency" && accountId) {
+            const grantId           = session.metadata?.grant_id;
+            const stripeSubId       = typeof session.subscription === "string"
+              ? session.subscription : null;
+
+            if (!grantId) {
+              console.error("OA checkout.session.completed missing grant_id in metadata", {
+                event_id: event.id,
+                account_id: accountId,
+              });
+              break;
+            }
+
+            // Load and validate the grant
+            const { data: grant } = await admin
+              .from("operator_agency_grants")
+              .select("id, account_id, payment_status, stripe_checkout_session_id")
+              .eq("id", grantId)
+              .maybeSingle();
+
+            if (!grant) {
+              console.error("OA activation: grant not found", { grant_id: grantId });
+              break;
+            }
+
+            // Security: verify session and account IDs match stored grant
+            if (grant.account_id !== accountId) {
+              console.error("OA activation: account_id mismatch", {
+                expected: grant.account_id,
+                received: accountId,
+                grant_id: grantId,
+              });
+              break;
+            }
+            if (grant.stripe_checkout_session_id !== session.id) {
+              console.error("OA activation: checkout session ID mismatch", {
+                expected: grant.stripe_checkout_session_id,
+                received: session.id,
+                grant_id: grantId,
+              });
+              break;
+            }
+
+            // Idempotency: skip if already activated
+            if (grant.payment_status === "active") {
+              break;
+            }
+
+            if (grant.payment_status !== "pending_payment") {
+              console.warn("OA activation: grant not in pending_payment state", {
+                grant_id: grantId,
+                payment_status: grant.payment_status,
+              });
+              break;
+            }
+
+            // Activate the grant
+            const { error: activateErr } = await admin
+              .from("operator_agency_grants")
+              .update({
+                payment_status:       "active",
+                stripe_subscription_id: stripeSubId,
+                activated_at:         new Date().toISOString(),
+                updated_at:           new Date().toISOString(),
+              })
+              .eq("id", grantId);
+
+            if (activateErr) {
+              await admin
+                .from("operator_agency_grants")
+                .update({ payment_status: "activation_failed", updated_at: new Date().toISOString() })
+                .eq("id", grantId);
+              throw activateErr;
+            }
+
+            // Update account to operator_agency plan
+            await admin
+              .from("accounts")
+              .update({
+                subscription_plan:   "operator_agency",
+                subscription_status: "active",
+              })
+              .eq("id", accountId);
+
+            // Security audit
+            await admin.rpc("log_security_event", {
+              p_account_id:  accountId,
+              p_action:      "oa_grant_activated",
+              p_entity_type: "operator_agency_grant",
+              p_entity_id:   grantId,
+              p_metadata: {
+                stripe_event_id:        event.id,
+                stripe_checkout_session: session.id,
+                stripe_subscription_id:  stripeSubId,
+                grant_id:               grantId,
+              },
             });
           }
           break;
@@ -113,6 +215,28 @@ Deno.serve(async (req) => {
                   : null,
               })
               .eq("id", accountId);
+
+            // If this is an OA subscription being cancelled, reflect on the grant
+            if (
+              nextStatus === "canceled" &&
+              sub.metadata?.plan_key === "operator_agency" &&
+              accountId
+            ) {
+              await admin
+                .from("operator_agency_grants")
+                .update({
+                  payment_status: "cancelled",
+                  cancelled_at:   new Date().toISOString(),
+                  cancellation_reason: "Stripe subscription cancelled",
+                  updated_at:     new Date().toISOString(),
+                })
+                .eq("stripe_subscription_id", sub.id);
+
+              await admin
+                .from("accounts")
+                .update({ subscription_plan: "starter", subscription_status: null })
+                .eq("id", accountId);
+            }
 
             if (
               existingAccount?.subscription_plan !== nextPlan ||

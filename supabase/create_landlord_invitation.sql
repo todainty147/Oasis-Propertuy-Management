@@ -124,8 +124,8 @@ begin
   -- invitation token) rolls back the account and membership rows atomically,
   -- even when this function is called inside a larger outer transaction.
   begin
-    insert into public.accounts(name)
-    values (v_name)
+    insert into public.accounts(name, trial_ends_at, trial_source)
+    values (v_name, now() + interval '14 days', 'root_invite')
     returning id into v_new_account_id;
 
     -- Root operator attached as support member for account-switching workflows.

@@ -6,7 +6,8 @@ import { rootListAccounts } from "../services/rootAccountService";
 import { finalizeSelfServeLandlordAccount } from "../services/selfServeSignupService";
 import { canAccessRootTelemetry, getRootTelemetryAccessMode } from "../utils/telemetryAccess";
 import { getPermissionKeysForRole } from "../utils/permissions";
-import { assertFeature, hasFeature, normalizePlan } from "../lib/entitlements";
+import { assertFeature, hasFeature, isLockedPlan, normalizePlan } from "../lib/entitlements";
+import { getMyOaGrantStatus } from "../services/operatorAgencyService";
 
 const AccountContext = createContext(null);
 
@@ -29,6 +30,7 @@ export function AccountProvider({ children }) {
   const [contractorContext, setContractorContext] = useState(null); // { account_id }
 
   const [authzError, setAuthzError] = useState(null);
+  const [oaGrantStatus, setOaGrantStatus] = useState(null); // { paymentStatus, checkoutUrl, ... }
 
   /* ======================
      LOAD ACCOUNTS / TENANT / CONTRACTOR CONTEXT
@@ -81,6 +83,7 @@ export function AccountProvider({ children }) {
       let membershipErr = null;
       let successFields = null;
       const fieldsPriority = [
+        "id,name,is_root,is_disabled,subscription_plan,subscription_status,billing_locked_at,trial_ends_at,trial_source",
         "id,name,is_root,is_disabled,subscription_plan,subscription_status,billing_locked_at",
         "id,name,is_root,is_disabled,subscription_plan,subscription_status",
         "id,name,is_root,is_disabled",
@@ -173,6 +176,8 @@ export function AccountProvider({ children }) {
             subscription_plan: m.accounts.subscription_plan || null,
             subscription_status: m.accounts.subscription_status || null,
             billing_locked_at: m.accounts.billing_locked_at || null,
+            trial_ends_at: m.accounts.trial_ends_at || null,
+            trial_source: m.accounts.trial_source || null,
             role: m.role, // 🔐 SINGLE SOURCE OF TRUTH
             role_id: m.role_id || null,
             permissionKeys: permissionKeysByAccountId.get(m.accounts.id) || getPermissionKeysForRole(m.role),
@@ -431,6 +436,23 @@ export function AccountProvider({ children }) {
   }, [user, authLoading]);
 
   /* ======================
+     OA GRANT STATUS
+     Fetch lazily when active account changes. Root operators skip this.
+     ====================== */
+
+  useEffect(() => {
+    if (!activeAccountId || isRootOperator) {
+      setOaGrantStatus(null);
+      return;
+    }
+    let cancelled = false;
+    getMyOaGrantStatus(activeAccountId)
+      .then((status) => { if (!cancelled) setOaGrantStatus(status); })
+      .catch(() => { if (!cancelled) setOaGrantStatus(null); });
+    return () => { cancelled = true; };
+  }, [activeAccountId, isRootOperator]);
+
+  /* ======================
      PERSIST ACTIVE ACCOUNT
      ====================== */
 
@@ -463,11 +485,64 @@ export function AccountProvider({ children }) {
     return null;
   }, [activeAccount, tenantContext, contractorContext, activeAccountId]);
 
+  // Trial derived values
+  const trialEndsAt = activeAccount?.trial_ends_at ?? null;
+  const isInTrial = useMemo(
+    () => Boolean(trialEndsAt && new Date(trialEndsAt) > new Date()),
+    [trialEndsAt],
+  );
+  const isTrialExpired = useMemo(
+    () => Boolean(trialEndsAt && new Date(trialEndsAt) <= new Date()),
+    [trialEndsAt],
+  );
+  const trialDaysLeft = useMemo(() => {
+    if (!isInTrial || !trialEndsAt) return 0;
+    return Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / 86_400_000);
+  }, [isInTrial, trialEndsAt]);
+
   const activePlan = useMemo(() => {
-    // Root operators get the highest plan tier so all features are accessible.
+    // Root operators are always operator_agency
     if (isRootOperator) return "operator_agency";
-    return normalizePlan(activeAccount?.subscription_plan);
-  }, [activeAccount?.subscription_plan, isRootOperator]);
+
+    // OA grant states take precedence over trial and Stripe
+    const oaStatus = oaGrantStatus?.paymentStatus;
+    if (oaStatus === "active") return "operator_agency";
+    if (["draft", "pending_checkout", "pending_payment"].includes(oaStatus || ""))
+      return "operator_agency_pending";
+    if (oaStatus === "expired") return "oa_contract_expired";
+
+    const stripeStatus = activeAccount?.subscription_status;
+    const rawPlan = normalizePlan(activeAccount?.subscription_plan);
+
+    // Active Stripe subscription
+    if (["active", "trialing"].includes(stripeStatus)) return rawPlan;
+
+    // Past due — let SQL decide grace vs lock; frontend shows plan with a warning
+    if (stripeStatus === "past_due") return rawPlan;
+
+    // OASIS trial
+    if (isInTrial) return rawPlan;
+    if (isTrialExpired) return "trial_expired";
+
+    // Grandfathered / no trial
+    return rawPlan;
+  }, [isRootOperator, oaGrantStatus, activeAccount, isInTrial, isTrialExpired]);
+
+  const isOaPending = activePlan === "operator_agency_pending";
+  const oaCheckoutUrl = isOaPending && !oaGrantStatus?.checkoutExpired
+    ? oaGrantStatus?.checkoutUrl ?? null
+    : null;
+
+  // Combined account access state used to show the correct wall or banner
+  const accountAccessState = useMemo(() => {
+    if (isRootOperator) return "active";
+    if (activePlan === "trial_expired") return "locked_trial";
+    if (activePlan === "oa_contract_expired") return "locked_oa_expired";
+    if (activePlan === "operator_agency_pending") return "oa_pending_payment";
+    if (activePlan === "billing_locked") return "billing_locked";
+    if (isInTrial && trialDaysLeft <= 7) return "trial_warning";
+    return "active";
+  }, [activePlan, isRootOperator, isInTrial, trialDaysLeft]);
 
   const activeSubscriptionStatus = activeAccount?.subscription_status || null;
   const isBillingLocked = Boolean(activeAccount?.billing_locked_at);
@@ -527,6 +602,7 @@ export function AccountProvider({ children }) {
         activePermissionKeys,
         activePermissionContext,
         activePlan,
+        accountAccessState,
         activeSubscriptionStatus,
         isBillingLocked,
         hasEntitlement,
@@ -534,6 +610,17 @@ export function AccountProvider({ children }) {
         canAccessTelemetry,
         rootTelemetryAccessMode,
         isRootTelemetryAdmin: rootTelemetryAccessMode === "root",
+
+        // Trial
+        trialEndsAt,
+        isInTrial,
+        isTrialExpired,
+        trialDaysLeft,
+
+        // OA grant
+        oaGrantStatus,
+        isOaPending,
+        oaCheckoutUrl,
 
         tenantContext,
         contractorContext,

@@ -102,8 +102,8 @@ begin
     v_name := split_part(v_email, '@', 1);
   end if;
 
-  insert into public.accounts(name, created_by)
-  values (v_name, v_uid)
+  insert into public.accounts(name, created_by, trial_ends_at, trial_source)
+  values (v_name, v_uid, now() + interval '14 days', 'self_serve_signup')
   returning id into v_new_account_id;
 
   insert into public.account_members(account_id, user_id, role)
