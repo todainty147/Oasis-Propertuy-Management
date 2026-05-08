@@ -72,8 +72,10 @@ Deno.serve(async (req) => {
       return respond({ error: "Lease AI auditor is not available on your current plan." }, 403);
     }
 
-    // Find the best document extraction for this lease
-    const extractionRes = await admin.rpc("get_lease_extraction", {
+    // Find the best document extraction for this lease.
+    // Must use userClient (not admin) so auth.uid() is set inside
+    // assert_manage_account_access within the RPC.
+    const extractionRes = await userClient.rpc("get_lease_extraction", {
       p_account_id: accountId,
       p_lease_id:   leaseId,
     });
