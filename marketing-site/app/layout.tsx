@@ -12,7 +12,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <SoftwareSchema />
         <SiteHeader />
-        {children}
+        <main id="main-content">{children}</main>
         <SiteFooter />
       </body>
     </html>
