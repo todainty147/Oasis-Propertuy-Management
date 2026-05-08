@@ -91,8 +91,10 @@ Deno.serve(async (req) => {
       }, 422);
     }
 
-    // Mark audit as processing
-    await admin.rpc("update_lease_audit_status", {
+    // All audit-management RPCs use userClient so auth.uid() is set inside
+    // assert_manage_account_access. admin (service_role) is reserved for quota
+    // and token-metering RPCs that are granted only to service_role.
+    await userClient.rpc("update_lease_audit_status", {
       p_id:         leaseAuditId,
       p_account_id: accountId,
       p_status:     "processing",
@@ -109,12 +111,13 @@ Deno.serve(async (req) => {
       characterCount: extraction.character_count ? Number(extraction.character_count) : null,
     };
 
-    // Quota check
+    // Quota check — must use admin (service_role): reserve_ai_call_checked is
+    // granted to service_role only and uses pg_advisory_xact_lock.
     if (OPENAI_API_KEY) {
       try {
         await checkAndReserveAiCall(admin, { accountId, featureKey: "lease_clause_audit" });
       } catch {
-        await admin.rpc("update_lease_audit_status", {
+        await userClient.rpc("update_lease_audit_status", {
           p_id: leaseAuditId, p_account_id: accountId, p_status: "failed",
           p_summary: "AI generation limit reached. Try again later.",
         });
@@ -130,7 +133,7 @@ Deno.serve(async (req) => {
 
     // Save findings in bulk
     if (findings.length > 0) {
-      await admin.rpc("bulk_create_lease_audit_findings", {
+      await userClient.rpc("bulk_create_lease_audit_findings", {
         p_account_id:     accountId,
         p_lease_audit_id: leaseAuditId,
         p_findings:       JSON.stringify(findings),
@@ -138,7 +141,7 @@ Deno.serve(async (req) => {
     }
 
     // Mark audit complete with summary
-    await admin.rpc("update_lease_audit_status", {
+    await userClient.rpc("update_lease_audit_status", {
       p_id:         leaseAuditId,
       p_account_id: accountId,
       p_status:     "complete",
