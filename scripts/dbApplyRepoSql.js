@@ -112,6 +112,7 @@ const OVERLAY_SEQUENCE = [
   "trial_period_enforcement.sql",
   "operator_agency_grants.sql",
   "account_subscription_plan_hardened.sql",
+  "lease_clause_audit_ai.sql",
 ];
 
 function resolvePsqlCommand() {

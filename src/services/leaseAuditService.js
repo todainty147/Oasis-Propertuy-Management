@@ -1,5 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { parseLeaseAuditRow, parseLeaseAuditFindingRow, parseRpcRows } from "./rpcContracts";
+import { buildEdgeFunctionFailure } from "./edgeFunctionFailure";
+import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 const AUDIT_SELECT = [
   "id", "account_id", "lease_id", "status", "overall_risk",
@@ -254,4 +256,56 @@ export async function deleteLeaseAuditFinding(id, accountId) {
     });
 
   if (error) throw error;
+}
+
+// ── AI lease clause audit ─────────────────────────────────────────────────────
+
+export async function getLeaseExtraction(accountId, leaseId) {
+  if (!accountId || !leaseId) return null;
+
+  const { data, error } = await supabase.rpc("get_lease_extraction", {
+    p_account_id: accountId,
+    p_lease_id:   leaseId,
+  });
+
+  if (error) return null;
+  const rows = Array.isArray(data) ? data : (data ? [data] : []);
+  if (rows.length === 0) return null;
+
+  return {
+    documentId:     rows[0].document_id,
+    documentName:   rows[0].document_name,
+    characterCount: rows[0].character_count,
+    extractor:      rows[0].extractor,
+    completedAt:    rows[0].completed_at,
+  };
+}
+
+export async function generateLeaseClauseAudit(accountId, leaseId, leaseAuditId) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!leaseId)   throw new Error("Missing leaseId");
+  if (!leaseAuditId) throw new Error("Missing leaseAuditId");
+
+  const { data, error } = await supabase.functions.invoke("generate-lease-clause-audit", {
+    body: { accountId, leaseId, leaseAuditId },
+  });
+
+  if (error) {
+    const wrapped = buildEdgeFunctionFailure({
+      payload: data,
+      status:  error?.context?.status || null,
+      surface: "generate_lease_clause_audit",
+      fallback: error.message || "Could not generate lease clause audit",
+      entityType: "lease",
+      entityId: leaseId,
+      accountId,
+    });
+    logSecurityRelevantFailure("generate_lease_clause_audit", {
+      error: wrapped,
+      context: { accountId, leaseId, leaseAuditId },
+    });
+    throw wrapped;
+  }
+
+  return data;
 }

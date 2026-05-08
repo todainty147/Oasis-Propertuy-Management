@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, Plus, X,
   CheckCircle2, RotateCcw, Trash2, ChevronDown,
+  Sparkles, Loader, FileText,
 } from "lucide-react";
 
 import { useAccount } from "../../context/AccountContext";
@@ -15,6 +16,8 @@ import {
   restoreLeaseAuditFinding,
   deleteLeaseAuditFinding,
   listLatestAuditsByLease,
+  getLeaseExtraction,
+  generateLeaseClauseAudit,
 } from "../../services/leaseAuditService";
 import { listLeases } from "../../services/leaseService";
 import LeaseClauseRiskBadge from "../../components/compliance/LeaseClauseRiskBadge";
@@ -90,6 +93,47 @@ function LeaseDetailView({ lease, accountId, onBack }) {
   const [findingFormError, setFindingFormError] = useState("");
 
   const [showDismissed, setShowDismissed] = useState(false);
+
+  const [extraction, setExtraction] = useState(undefined); // undefined = loading, null = none
+  const [aiRunning, setAiRunning] = useState(false);
+  const [aiError, setAiError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    getLeaseExtraction(accountId, lease.id).then((result) => {
+      if (!cancelled) setExtraction(result ?? null);
+    }).catch(() => {
+      if (!cancelled) setExtraction(null);
+    });
+    return () => { cancelled = true; };
+  }, [accountId, lease.id]);
+
+  async function handleRunAiAnalysis() {
+    setAiError("");
+    setAiRunning(true);
+    let currentAudit = audit;
+    try {
+      if (!currentAudit) {
+        currentAudit = await createLeaseAudit(accountId, lease.id);
+        refetchAudit();
+      }
+      await generateLeaseClauseAudit(accountId, lease.id, currentAudit.id);
+      await refetchAudit();
+      await refetchFindings();
+    } catch (err) {
+      const msg = err?.code === "NO_EXTRACTION"
+        ? t("compliance.leases.noExtractionForAi")
+        : (err instanceof Error ? err.message : t("compliance.leases.errors.aiFailed"));
+      setAiError(msg);
+      // Revert audit status to pending on failure so user can retry
+      if (currentAudit) {
+        await updateLeaseAuditStatus(currentAudit.id, accountId, "failed").catch(() => {});
+        refetchAudit();
+      }
+    } finally {
+      setAiRunning(false);
+    }
+  }
 
   const activeFindingCount = useMemo(
     () => findings.filter((f) => !f.dismissed).length,
@@ -233,13 +277,41 @@ function LeaseDetailView({ lease, accountId, onBack }) {
         )}
       </div>
 
-      {/* AI extraction notice */}
-      <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 dark:border-blue-900/40 dark:bg-blue-950/30">
-        <AlertTriangle size={14} className="mt-0.5 shrink-0 text-blue-600 dark:text-blue-400" />
-        <p className="text-xs text-blue-900 dark:text-blue-200">
-          {t("compliance.leases.aiExtractionDeferred")}
-        </p>
-      </div>
+      {/* AI clause analysis panel */}
+      {extraction === undefined ? null : extraction ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 dark:border-violet-800/50 dark:bg-violet-950/30">
+          <FileText size={14} className="shrink-0 text-violet-600 dark:text-violet-400" />
+          <p className="min-w-0 flex-1 text-xs text-violet-900 dark:text-violet-200">
+            {t("compliance.leases.extractionReady", {
+              name: extraction.documentName || t("compliance.leases.extractionReadyDoc"),
+              chars: (extraction.characterCount ?? 0).toLocaleString(),
+            })}
+          </p>
+          {audit?.status !== "complete" && (
+            <button
+              type="button"
+              onClick={handleRunAiAnalysis}
+              disabled={aiRunning || audit?.status === "processing"}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-violet-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-800 disabled:opacity-60 dark:bg-violet-600 dark:hover:bg-violet-700"
+              data-testid="run-ai-analysis-button"
+            >
+              {aiRunning || audit?.status === "processing"
+                ? <><Loader size={12} className="animate-spin" />{t("compliance.leases.aiAnalysisRunning")}</>
+                : <><Sparkles size={12} />{t("compliance.leases.analyzeWithAi")}</>}
+            </button>
+          )}
+          {aiError && (
+            <p className="w-full text-xs text-rose-600 dark:text-rose-400">{aiError}</p>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/40">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-slate-400" />
+          <p className="text-xs text-slate-600 dark:text-slate-400">
+            {t("compliance.leases.noExtractionForAi")}
+          </p>
+        </div>
+      )}
 
       {/* Audit section */}
       {auditLoading ? (
