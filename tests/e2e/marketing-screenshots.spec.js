@@ -132,6 +132,25 @@ test("captures marketing product screenshots", async ({ page }) => {
   await expect(page.getByText("Security Audit").first()).toBeVisible();
   await captureViewport(page, "security-audit.png");
 
+  // ── Compliance Suite ─────────────────────────────────────────────────────
+
+  await page.goto("/compliance/leases");
+  await expect(page.getByText("Lease Auditor").first()).toBeVisible();
+  await captureViewport(page, "lease-auditor.png");
+
+  await page.goto("/compliance/rent-shield");
+  await expect(page.getByText("Rent Shield").first()).toBeVisible();
+  await captureViewport(page, "rent-shield.png");
+
+  await page.goto("/compliance/tax");
+  await expect(page.getByText("Tax Readiness").first()).toBeVisible();
+  await captureViewport(page, "tax-readiness.png");
+
+  // Combined overview: scroll Lease Auditor to show the full suite context
+  await page.goto("/compliance/leases");
+  await expect(page.getByText("Lease Auditor").first()).toBeVisible();
+  await captureViewport(page, "compliance-suite.png");
+
   await page.goto(propertyDetailPath);
   await expect(page.getByRole("heading", { name: "11 Starlight Avenue" })).toBeVisible();
   await expect(page.getByText("Property performance")).toBeVisible();
