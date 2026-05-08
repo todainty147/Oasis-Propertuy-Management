@@ -39,7 +39,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
     seo: {
       title: "OASIS Features | Property operations by outcome",
       description:
-        "See how OASIS helps landlords stay in control of maintenance, tenant follow-up, documents, payments visibility, and property pressure.",
+        "See how OASIS helps landlords stay in control of maintenance, tenant follow-up, documents, payments visibility, property pressure, and compliance risk.",
       canonicalPath: "/features",
     },
     hero: {
@@ -121,6 +121,19 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
         cta: "See the document experience",
       },
       {
+        eyebrow: "Compliance suite",
+        title: "Surface lease risk, rent pressure, and tax obligations before they get expensive",
+        why:
+          "OASIS brings lease clause analysis, portfolio rent risk scoring, and tax deadline tracking into one operational layer — so the compliance picture is part of the working week, not a seasonal scramble.",
+        bullets: [
+          "Review AI-flagged lease clauses before they become legal or financial friction.",
+          "Score rent risk across the portfolio and see which properties deserve attention first.",
+          "Track tax obligations and stay export-ready throughout the year.",
+        ],
+        href: "/features/compliance",
+        cta: "Explore the compliance suite",
+      },
+      {
         eyebrow: "Security and audit trail",
         title: "Move fast without losing accountability",
         why:
@@ -146,7 +159,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
     seo: {
       title: "Funkcje OASIS | Operacyjna kontrola nad najmem",
       description:
-        "Zobacz, jak OASIS pomaga właścicielom mieszkań utrzymać kontrolę nad zgłoszeniami, dokumentami, płatnościami, wykonawcami i kondycją nieruchomości.",
+        "Zobacz, jak OASIS pomaga właścicielom mieszkań utrzymać kontrolę nad zgłoszeniami, dokumentami, płatnościami, wykonawcami, kondycją nieruchomości i ryzykiem compliance.",
       canonicalPath: "/pl/features",
     },
     hero: {
@@ -228,6 +241,19 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
         cta: "Zobacz doświadczenie dokumentowe",
       },
       {
+        eyebrow: "Pakiet compliance",
+        title: "Wykryj ryzyko umów, ekspozycję czynszową i terminy podatkowe, zanim staną się kosztowne",
+        why:
+          "OASIS łączy analizę klauzul umownych, scoring ryzyka czynszowego i śledzenie terminów podatkowych w jednej warstwie operacyjnej — tak żeby compliance było częścią tygodnia, a nie sezonowym panikowaniem.",
+        bullets: [
+          "Przeglądasz klauzule oznaczone przez AI zanim staną się prawnym lub finansowym problemem.",
+          "Oceniasz ryzyko czynszowe w całym portfelu i widzisz, które nieruchomości wymagają uwagi.",
+          "Śledzisz zobowiązania podatkowe i utrzymujesz gotowość eksportową przez cały rok.",
+        ],
+        href: "/features/compliance",
+        cta: "Poznaj pakiet compliance",
+      },
+      {
         eyebrow: "Bezpieczeństwo i audyt",
         title: "Działaj szybko bez utraty odpowiedzialności",
         why:
@@ -253,7 +279,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
     seo: {
       title: "OASIS Funktionen | Operative Kontrolle für Vermieter",
       description:
-        "Sehen Sie, wie OASIS Vermietern hilft, Instandhaltung, Dokumente, Zahlungsübersicht, Handwerkerabläufe und Immobilienzustand unter Kontrolle zu halten.",
+        "Sehen Sie, wie OASIS Vermietern hilft, Instandhaltung, Dokumente, Zahlungsübersicht, Handwerkerabläufe, Immobilienzustand und Compliance-Risiken unter Kontrolle zu halten.",
       canonicalPath: "/de/features",
     },
     hero: {
@@ -333,6 +359,19 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
         ],
         href: "/tenant-portal-software",
         cta: "Dokumentenablauf ansehen",
+      },
+      {
+        eyebrow: "Compliance-Suite",
+        title: "Vertragsrisiken, Mietexposition und Steuerfristen erkennen, bevor sie teuer werden",
+        why:
+          "OASIS bündelt Mietvertragsanalyse, portfolioweite Mietrisikobewertung und Steuerfristen-Tracking in einer operativen Schicht — damit Compliance zum Alltag gehört und nicht zur saisonalen Hektik wird.",
+        bullets: [
+          "Sie prüfen AI-markierte Vertragsklauseln, bevor sie zu rechtlichen oder finanziellen Problemen werden.",
+          "Sie bewerten das Mietrisiko portfolioweit und sehen, welche Objekte zuerst Aufmerksamkeit brauchen.",
+          "Sie behalten Steuerfristen im Blick und bleiben das ganze Jahr exportbereit.",
+        ],
+        href: "/features/compliance",
+        cta: "Compliance-Suite ansehen",
       },
       {
         eyebrow: "Sicherheit und Audit Trail",

@@ -98,14 +98,14 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
     seo: {
       title: "OASIS for Landlords | Run property operations, not just records",
       description:
-        "OASIS helps landlords run property operations with one clear view of maintenance, tenant follow-up, documents, payments visibility, property health, and AI-assisted action queues.",
+        "OASIS helps landlords run property operations with one clear view of maintenance, tenant follow-up, documents, payments visibility, property health, compliance risk, and AI-assisted action queues.",
       canonicalPath: "/",
     },
     hero: {
       eyebrow: "For landlords who run the operation",
       title: "Command your portfolio. Don’t just manage it.",
       body:
-        "OASIS brings tenants, contractors, maintenance, payments visibility, documents, property health, and AI-assisted action queues into one operational platform.",
+        "OASIS brings tenants, contractors, maintenance, payments visibility, documents, property health, compliance risk review, and AI-assisted action queues into one operational platform.",
       emphasis:
         "See what needs action, move the next step, and keep the full tenant to landlord to contractor workflow under control.",
       support:
@@ -114,6 +114,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
         { label: "AI Command Center", href: "/features/command-center" },
         { label: "Maintenance and work orders", href: "/features/maintenance-management" },
         { label: "Property health scoring", href: "/features/portfolio-health" },
+        { label: "Compliance suite", href: "/features/compliance" },
         { label: "Security and audit trail", href: "/features/security-audit" },
       ],
       microcopy: [
@@ -170,7 +171,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
         },
         {
           title: "Keep the trail intact",
-          body: "Documents, payments visibility, notifications, and security review stay tied to the same operational history.",
+          body: "Documents, payments visibility, compliance review, notifications, and security audit stay tied to the same operational history.",
         },
       ],
     },
@@ -218,6 +219,14 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
           points: ["risk scoring", "AI explainer", "earlier intervention"],
           imageSrc: "/screenshots/portfolio-health.png",
           imageAlt: "OASIS Portfolio Health page showing scoring, property risk, and an AI explanation card.",
+        },
+        {
+          label: "Compliance",
+          title: "Lease risk, rent exposure, and tax deadlines in one view",
+          body: "The Compliance suite flags risky lease clauses with AI analysis, scores portfolio-wide rent exposure with Rent Shield, and tracks tax obligations so nothing builds quietly in the background.",
+          points: ["lease clause audit", "rent shield scoring", "tax readiness"],
+          imageSrc: "/screenshots/compliance-suite.png",
+          imageAlt: "OASIS Compliance suite showing Lease Auditor findings, Rent Shield scores, and Tax Readiness dashboard.",
         },
         {
           label: "Security",
@@ -354,7 +363,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
     seo: {
       title: "OASIS dla właścicieli mieszkań | Pełna kontrola nad najmem",
       description:
-        "OASIS pomaga właścicielom mieszkań zarządzać najmem z pełną kontrolą: zgłoszenia, wykonawcy, dokumenty, widoczność płatności, kondycja nieruchomości i kolejki działań wspierane przez AI.",
+        "OASIS pomaga właścicielom mieszkań zarządzać najmem z pełną kontrolą: zgłoszenia, wykonawcy, dokumenty, widoczność płatności, kondycja nieruchomości, compliance i kolejki działań wspierane przez AI.",
       canonicalPath: "/pl",
     },
     hero: {
@@ -370,6 +379,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
         { label: "Command Center z AI", href: "/features/command-center" },
         { label: "Zgłoszenia i zlecenia", href: "/features/maintenance-management" },
         { label: "Kondycja nieruchomości", href: "/features/portfolio-health" },
+        { label: "Pakiet compliance", href: "/features/compliance" },
         { label: "Bezpieczeństwo i audyt", href: "/features/security-audit" },
       ],
       microcopy: [
@@ -426,7 +436,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
         },
         {
           title: "Historia pozostaje spójna",
-          body: "Dokumenty, płatności, powiadomienia i przegląd bezpieczeństwa pozostają częścią tego samego śladu operacyjnego.",
+          body: "Dokumenty, płatności, przegląd compliance, powiadomienia i audyt bezpieczeństwa pozostają częścią tego samego śladu operacyjnego.",
         },
       ],
     },
@@ -474,6 +484,14 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
           points: ["scoring ryzyka", "objaśnienie AI", "wcześniejsza reakcja"],
           imageSrc: "/screenshots/portfolio-health.png",
           imageAlt: "Widok Portfolio Health OASIS ze scoringiem, ryzykiem nieruchomości i kartą objaśnienia AI.",
+        },
+        {
+          label: "Compliance",
+          title: "Ryzyko umów, ekspozycja czynszowa i terminy podatkowe w jednym miejscu",
+          body: "Pakiet compliance wykrywa ryzykowne klauzule w umowach najmu dzięki AI, ocenia ekspozycję czynszową portfela za pomocą Rent Shield i śledzi zobowiązania podatkowe, zanim cokolwiek urośnie w cieniu codziennej pracy.",
+          points: ["audyt klauzul umownych", "scoring Rent Shield", "gotowość podatkowa"],
+          imageSrc: "/screenshots/compliance-suite.png",
+          imageAlt: "Pakiet compliance OASIS z Audytorem umów, wynikami Rent Shield i panelem gotowości podatkowej.",
         },
         {
           label: "Bezpieczeństwo",
@@ -610,7 +628,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
     seo: {
       title: "OASIS für Vermieter | Immobilienabläufe aktiv steuern",
       description:
-        "OASIS hilft Vermietern, Immobilienabläufe aktiv zu steuern: Mieteranfragen, Instandhaltung, Dokumente, Zahlungsübersicht, Immobilienzustand und AI-gestützte Aufgabenlisten in einer klaren Plattform.",
+        "OASIS hilft Vermietern, Immobilienabläufe aktiv zu steuern: Mieteranfragen, Instandhaltung, Dokumente, Zahlungsübersicht, Immobilienzustand, Compliance-Risiken und AI-gestützte Aufgabenlisten in einer klaren Plattform.",
       canonicalPath: "/de",
     },
     hero: {
@@ -626,6 +644,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
         { label: "Operatives Priorisierungs-Dashboard", href: "/features/command-center" },
         { label: "Instandhaltung und Arbeitsaufträge", href: "/features/maintenance-management" },
         { label: "Immobilienzustand", href: "/features/portfolio-health" },
+        { label: "Compliance-Suite", href: "/features/compliance" },
         { label: "Sicherheit und Audit Trail", href: "/features/security-audit" },
       ],
       microcopy: [
@@ -682,7 +701,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
         },
         {
           title: "Den Verlauf sauber halten",
-          body: "Dokumente, Zahlungsübersicht, Benachrichtigungen und Sicherheitsprüfung bleiben Teil derselben operativen Geschichte.",
+          body: "Dokumente, Zahlungsübersicht, Compliance-Prüfung, Benachrichtigungen und Sicherheitsaudit bleiben Teil derselben operativen Geschichte.",
         },
       ],
     },
@@ -730,6 +749,14 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
           points: ["Risikobewertung", "AI-Erklärung", "früheres Eingreifen"],
           imageSrc: "/screenshots/portfolio-health.png",
           imageAlt: "OASIS Portfolio Health mit Risikoscore, Immobilienlage und AI-Erklärung.",
+        },
+        {
+          label: "Compliance",
+          title: "Vertragsrisiken, Mietexposition und Steuerfristen auf einen Blick",
+          body: "Die Compliance-Suite erkennt riskante Mietvertragsklauseln per AI, bewertet das portfolioweite Mietrisiko mit Rent Shield und verfolgt steuerliche Fristen — damit nichts still im Hintergrund wächst.",
+          points: ["Mietvertrag-Klausel-Audit", "Rent Shield Bewertung", "Steuerbereitschaft"],
+          imageSrc: "/screenshots/compliance-suite.png",
+          imageAlt: "OASIS Compliance-Suite mit Mietvertrags-Auditor, Rent Shield Scores und Steuerbereitschafts-Dashboard.",
         },
         {
           label: "Sicherheit",
