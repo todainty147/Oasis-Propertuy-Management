@@ -151,10 +151,41 @@ The worker is a plain Node.js process. It is not auto-deployed by Supabase or Vi
 
 ```bash
 npm install -g pm2
-pm2 start worker.js --name oasis-extraction --cwd /path/to/scripts/documentExtraction
+
+# Smoke test first. This loads scripts/documentExtraction/.env into the shell.
+cd /path/to/scripts/documentExtraction
+set -a
+. .env
+set +a
+node worker.js --once
+
+# Continuous production process. Use the real absolute path on the VPS.
+pm2 start bash --name oasis-extraction -- -lc 'cd /path/to/scripts/documentExtraction && set -a && . .env && set +a && exec node worker.js'
 pm2 save
 pm2 startup  # follow the output to enable on reboot
 ```
+
+After `pm2 startup`, run `pm2 save` again so the corrected process list is resurrected after a reboot.
+
+Common PM2 operations:
+
+```bash
+pm2 list
+pm2 logs oasis-extraction --lines 50
+pm2 restart oasis-extraction
+pm2 flush oasis-extraction
+pm2 delete oasis-extraction
+pm2 save
+```
+
+Expected healthy PM2 log output:
+
+```
+[worker] OASIS document extraction worker starting.
+[worker] Poll interval: 5000ms | Max attempts: 3 | Run once: false
+```
+
+If logs still show old errors after a fix, clear them with `pm2 flush oasis-extraction`, restart, and inspect fresh lines with `pm2 logs oasis-extraction --lines 50`.
 
 **Docker:**
 
@@ -314,6 +345,64 @@ Check:
 3. `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` are correct and the service key has not been rotated.
 4. Network connectivity from the worker host to `your-project.supabase.co`.
 
+### PM2 process is `errored` after deployment
+
+Check the logs:
+
+```bash
+pm2 logs oasis-extraction --lines 50
+```
+
+If the log contains:
+
+```
+cd: /path/to/scripts/documentExtraction: No such file or directory
+```
+
+the PM2 command was created with the wrong worker path. Delete and recreate the process with the real absolute path:
+
+```bash
+pm2 delete oasis-extraction
+pm2 start bash --name oasis-extraction -- -lc 'cd /real/path/to/scripts/documentExtraction && set -a && . .env && set +a && exec node worker.js'
+pm2 save
+pm2 list
+```
+
+If the process is `online` but `pm2 logs` still shows the old missing-directory lines, those may be stale log entries. Clear and restart before re-checking:
+
+```bash
+pm2 flush oasis-extraction
+pm2 restart oasis-extraction
+pm2 logs oasis-extraction --lines 50
+```
+
+### Node 20 WebSocket startup error
+
+With newer `@supabase/supabase-js` versions on Node 20, startup may fail with:
+
+```
+Error: Node.js 20 detected without native WebSocket support.
+```
+
+The worker package should include `ws` and pass it as the Supabase realtime transport. If deploying an older checkout, update the worker code or install the dependency before restarting:
+
+```bash
+cd scripts/documentExtraction
+npm install ws
+pm2 restart oasis-extraction
+```
+
+The code path should initialize Supabase with:
+
+```js
+const WebSocket = require("ws");
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+  auth: { persistSession: false },
+  realtime: { transport: WebSocket },
+});
+```
+
 ### Run status is `failed` with a storage error
 
 ```
@@ -386,6 +475,31 @@ The `.env` file is missing or the environment variables are not being loaded. Co
 
 1. The `.env` file is in `scripts/documentExtraction/` (not the repo root).
 2. The worker is started from `scripts/documentExtraction/` so dotenv resolves the file correctly, or the variables are injected via your process manager / container environment.
+
+### Audit event warnings while extraction completes
+
+The worker treats audit writes as non-fatal. If logs show:
+
+```
+Audit event 'extraction_started' failed: null value in column "performed_by"
+Audit event 'extraction_completed' failed: null value in column "performed_by"
+```
+
+but the run still logs:
+
+```
+Run <run_id> completed | extractor=native_pdf
+```
+
+then text extraction succeeded and only the audit row failed. The worker should write `document_audit_log.performed_by` from `document_extraction_runs.created_by`; deploy the current worker code and restart PM2:
+
+```bash
+git pull
+cd scripts/documentExtraction
+npm install
+pm2 restart oasis-extraction
+pm2 logs oasis-extraction --lines 50
+```
 
 ## Re-queuing failed jobs
 

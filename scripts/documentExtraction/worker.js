@@ -26,6 +26,7 @@
 // =============================================================================
 
 const { createClient } = require("@supabase/supabase-js");
+const WebSocket = require("ws");
 const { computeSourceHash } = require("./sourceHash");
 const { routeExtraction } = require("./extractors/router");
 
@@ -48,6 +49,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 // Service-role client — bypasses RLS.  Never expose this key to the browser.
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { persistSession: false },
+  realtime: { transport: WebSocket },
 });
 
 // ── Main poll loop ─────────────────────────────────────────────────────────────
@@ -125,6 +127,8 @@ async function processJob(run) {
   await writeAuditEvent(accountId, documentId, "extraction_started", {
     run_id:    runId,
     extractor,
+  }, {
+    actorUserId: run.created_by,
   });
 
   let fileBuffer;
@@ -167,6 +171,10 @@ async function processJob(run) {
     await failRun(runId, setupErr.message);
     await writeAuditEvent(accountId, documentId, "extraction_failed", {
       run_id: runId, error: setupErr.message,
+    }, {
+      actorUserId: run.created_by,
+      propertyId: doc?.property_id,
+      tenantId: doc?.tenant_id,
     });
     return;
   }
@@ -183,6 +191,10 @@ async function processJob(run) {
     await failRun(runId, extractErr.message, { source_hash: sourceHash });
     await writeAuditEvent(accountId, documentId, "extraction_failed", {
       run_id: runId, error: extractErr.message,
+    }, {
+      actorUserId: run.created_by,
+      propertyId: doc.property_id,
+      tenantId: doc.tenant_id,
     });
     return;
   }
@@ -200,6 +212,10 @@ async function processJob(run) {
     await failRun(runId, routeResult.error, { source_hash: sourceHash });
     await writeAuditEvent(accountId, documentId, "extraction_failed", {
       run_id: runId, error: routeResult.error,
+    }, {
+      actorUserId: run.created_by,
+      propertyId: doc.property_id,
+      tenantId: doc.tenant_id,
     });
     return;
   }
@@ -250,6 +266,10 @@ async function processJob(run) {
     await failRun(runId, `Upsert failed: ${upsertError.message}`, { source_hash: sourceHash });
     await writeAuditEvent(accountId, documentId, "extraction_failed", {
       run_id: runId, error: upsertError.message,
+    }, {
+      actorUserId: run.created_by,
+      propertyId: doc.property_id,
+      tenantId: doc.tenant_id,
     });
     return;
   }
@@ -278,6 +298,10 @@ async function processJob(run) {
     extractor_used,
     quality_flag:  quality?.quality_flag,
     character_count: text ? text.length : 0,
+  }, {
+    actorUserId: run.created_by,
+    propertyId: doc.property_id,
+    tenantId: doc.tenant_id,
   });
 
   console.log(`[worker] ✓ Run ${runId} completed | extractor=${extractor_used} | quality=${quality?.quality_flag} | chars=${text?.length ?? 0}`);
@@ -311,7 +335,14 @@ async function skipRun(runId, reason, extraMeta = {}) {
     .eq("id", runId);
 }
 
-async function writeAuditEvent(accountId, documentId, action, metadata = {}) {
+async function writeAuditEvent(accountId, documentId, action, metadata = {}, options = {}) {
+  const actorUserId = options.actorUserId || null;
+
+  if (!actorUserId) {
+    console.warn(`[worker] Audit event '${action}' skipped: missing created_by actor for document_extraction_runs row.`);
+    return;
+  }
+
   // The service_role key bypasses RLS including the 'no_write' policy on
   // document_audit_log, so this insert goes through unconditionally.
   // This is the only safe path for server-side audit writes.
@@ -321,11 +352,11 @@ async function writeAuditEvent(accountId, documentId, action, metadata = {}) {
       document_id:  documentId,
       account_id:   accountId,
       action,
-      performed_by: null,  // worker is not an auth.uid() user
+      performed_by: actorUserId,
       performed_at: new Date().toISOString(),
+      property_id:   options.propertyId || null,
+      tenant_id:     options.tenantId || null,
       created_at:   new Date().toISOString(),
-      // property_id / tenant_id could be denormalized here for richer queries
-      // but requires an extra document lookup — omitted for perf in the worker.
     });
 
   if (error) {
