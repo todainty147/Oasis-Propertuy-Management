@@ -171,7 +171,7 @@ export default function RentShieldPage() {
       refetch();
       refetchPortfolio();
     } catch (err) {
-      setRecalcError(err instanceof Error ? err.message : t("compliance.rentShield.errors.recalcFailed"));
+      setRecalcError(err?.message || t("compliance.rentShield.errors.recalcFailed"));
     } finally {
       setRecalcBusy(false);
     }
