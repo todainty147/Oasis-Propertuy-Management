@@ -583,8 +583,8 @@ begin
   end if;
 
   if not exists (
-    select 1 from public.accounts
-    where id = p_root_account_id and coalesce(is_root, false) = true
+    select 1 from public.accounts ac
+    where ac.id = p_root_account_id and coalesce(ac.is_root, false) = true
   ) then
     raise exception 'Not a root account';
   end if;
@@ -595,7 +595,7 @@ begin
     a.name,
     coalesce(a.is_root, false),
     coalesce(a.is_disabled, false),
-    a.subscription_plan,
+    public.account_subscription_plan(a.id),
     a.subscription_status,
     a.trial_ends_at,
     a.trial_source,

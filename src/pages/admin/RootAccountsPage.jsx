@@ -35,10 +35,15 @@ function planBadge(plan, oaStatus) {
   if (oaStatus === "expired") return { label: "OA Expired", cls: "bg-rose-100 text-rose-700" };
   const p = String(plan || "starter").toLowerCase();
   const MAP = {
-    operator_agency: { label: "Operator/Agency", cls: "bg-fuchsia-100 text-fuchsia-700" },
-    pro:             { label: "Pro",             cls: "bg-violet-100 text-violet-700" },
-    growth:          { label: "Growth",          cls: "bg-blue-100 text-blue-700" },
-    starter:         { label: "Starter",         cls: "bg-slate-100 text-slate-600" },
+    operator_agency:         { label: "Operator/Agency",  cls: "bg-fuchsia-100 text-fuchsia-700" },
+    operator_agency_pending: { label: "OA Pending",       cls: "bg-amber-100 text-amber-700" },
+    oa_contract_expired:     { label: "OA Expired",       cls: "bg-rose-100 text-rose-700" },
+    pro:                     { label: "Pro",              cls: "bg-violet-100 text-violet-700" },
+    growth:                  { label: "Growth",           cls: "bg-blue-100 text-blue-700" },
+    starter:                 { label: "Starter",          cls: "bg-slate-100 text-slate-600" },
+    trial_expired:           { label: "Trial Expired",    cls: "bg-rose-100 text-rose-700" },
+    billing_past_due_locked: { label: "Past Due",         cls: "bg-orange-100 text-orange-700" },
+    billing_locked:          { label: "Billing Locked",   cls: "bg-rose-100 text-rose-700" },
   };
   return MAP[p] || MAP.starter;
 }
