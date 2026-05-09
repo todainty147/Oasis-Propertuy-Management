@@ -22,7 +22,7 @@ const MAX_NOISE_RATIO = 0.4;
  * The AI Lease Auditor should treat 'low_confidence' and 'too_short' as signals
  * to request a better extractor (e.g., OCR, olmOCR).
  */
-function evaluateExtractionQuality(text, { extractor = "native_pdf" } = {}) {
+function evaluateExtractionQuality(text, { extractor: _extractor = "native_pdf" } = {}) {
   if (!text || typeof text !== "string") {
     return {
       quality_flag: "too_short",

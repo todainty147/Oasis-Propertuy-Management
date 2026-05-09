@@ -4,7 +4,6 @@ import {
   CheckCircle2, AlertTriangle, Calendar, Building2, ExternalLink,
 } from "lucide-react";
 import { useAccount } from "../../context/AccountContext";
-import { useI18n } from "../../context/I18nContext";
 import DashboardBreadcrumbs from "../../components/DashboardBreadcrumbs";
 import {
   rootListAccountsWithBilling,
@@ -12,7 +11,6 @@ import {
   generateOaCheckoutLink,
   activateOaPaymentLink,
   cancelOaGrant,
-  updateOaGrant,
   setAccountTrialEnd,
   removeAccountTrialCap,
 } from "../../services/operatorAgencyService";
@@ -360,7 +358,6 @@ function AccountRow({ account, onRefresh }) {
 
 export default function RootAccountsPage() {
   const { isRootOperator, accounts, activeAccountId } = useAccount();
-  const { t } = useI18n();
   const [rows,    setRows]    = useState([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState("");

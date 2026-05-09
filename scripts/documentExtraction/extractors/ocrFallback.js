@@ -35,7 +35,7 @@ const OCR_ENABLED = process.env.OCR_FALLBACK_ENABLED === "true";
  * @param {string}  [language]   ISO 639-1 hint ('eng', 'pol', 'deu', etc.)
  * @returns {{ text: string, pageCount: number, markdown: null }}
  */
-async function extractOcr(fileBuffer, language = "eng") {
+async function extractOcr(fileBuffer, _language = "eng") {
   if (!OCR_ENABLED) {
     throw new OcrNotConfiguredError(
       "OCR fallback is not configured in this environment. " +

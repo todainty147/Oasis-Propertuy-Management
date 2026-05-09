@@ -136,7 +136,7 @@ async function _routePdf(fileBuffer, languageHint) {
           notes:               ocrQuality.notes,
         },
       };
-    } catch (ocrErr) {
+    } catch (_ocrErr) {
       // OCR failed — fall through to degrade gracefully.
     }
   }

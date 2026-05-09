@@ -1,4 +1,3 @@
-/* global process */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 

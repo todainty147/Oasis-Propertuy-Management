@@ -287,8 +287,8 @@ describe("LeaseAuditorPage", () => {
     expect(leaseAuditorPg).toContain('data-testid="toggle-dismissed-findings"');
   });
 
-  it("shows AI extraction deferred notice", () => {
-    expect(leaseAuditorPg).toContain("compliance.leases.aiExtractionDeferred");
+  it("shows no-extraction notice when no PDF has been extracted", () => {
+    expect(leaseAuditorPg).toContain("compliance.leases.noExtractionForAi");
   });
 
   it("shows disclaimer", () => {

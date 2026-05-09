@@ -335,7 +335,7 @@ async function skipRun(runId, reason, extraMeta = {}) {
     .eq("id", runId);
 }
 
-async function writeAuditEvent(accountId, documentId, action, metadata = {}, options = {}) {
+async function writeAuditEvent(accountId, documentId, action, _metadata = {}, options = {}) {
   const actorUserId = options.actorUserId || null;
 
   if (!actorUserId) {

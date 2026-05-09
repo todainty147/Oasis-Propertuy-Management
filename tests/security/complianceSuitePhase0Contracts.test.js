@@ -428,8 +428,8 @@ describe("LeaseAuditorPage: disclaimer", () => {
     expect(leaseAuditorPage).toContain("compliance.leases.disclaimer");
   });
 
-  it("notes text extraction is deferred", () => {
-    expect(leaseAuditorPage).toContain("compliance.leases.aiExtractionDeferred");
+  it("notes when no extraction is available for AI analysis", () => {
+    expect(leaseAuditorPage).toContain("compliance.leases.noExtractionForAi");
   });
 });
 
