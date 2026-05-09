@@ -135,6 +135,7 @@ export default function RentShieldPage() {
   const [recalcBusy, setRecalcBusy] = useState(false);
   const [recalcError, setRecalcError] = useState("");
   const [lastSampleSize, setLastSampleSize] = useState(null);
+  const [lastTotalPayments, setLastTotalPayments] = useState(null);
   const [recalcAllBusy, setRecalcAllBusy] = useState(false);
   const [recalcAllProgress, setRecalcAllProgress] = useState(null);
 
@@ -163,8 +164,10 @@ export default function RentShieldPage() {
       setRecalcBusy(true);
       setRecalcError("");
       setLastSampleSize(null);
+      setLastTotalPayments(null);
       const result = await computeAndSaveAssessment(activeAccountId, selectedPropertyId, currentPeriod);
       if (result?.sampleSize != null) setLastSampleSize(result.sampleSize);
+      if (result?.totalPayments != null) setLastTotalPayments(result.totalPayments);
       refetch();
       refetchPortfolio();
     } catch (err) {
@@ -253,7 +256,12 @@ export default function RentShieldPage() {
         </div>
       )}
 
-      {lastSampleSize != null && lastSampleSize < 5 && (
+      {lastTotalPayments === 0 && (
+        <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-2 text-xs text-orange-800 dark:border-orange-900/40 dark:bg-orange-950/30 dark:text-orange-200" data-testid="no-payment-records-warning">
+          {t("compliance.rentShield.noPaymentRecords")}
+        </div>
+      )}
+      {lastTotalPayments !== 0 && lastSampleSize != null && lastSampleSize < 5 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200" data-testid="low-confidence-warning">
           {t("compliance.rentShield.lowConfidence", { count: lastSampleSize })}
         </div>

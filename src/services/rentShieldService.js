@@ -30,7 +30,7 @@ function isMissingBackendObject(error) {
 
 export function computeShieldMetrics(payments, today = new Date()) {
   if (!payments.length) {
-    return { arrearsAmount: 0, daysOverdueP90: 0, paymentRate: 1, totalDue: 0, sampleSize: 0 };
+    return { arrearsAmount: 0, daysOverdueP90: 0, paymentRate: 1, totalDue: 0, sampleSize: 0, totalPayments: 0 };
   }
 
   let totalDue = 0;
@@ -60,11 +60,11 @@ export function computeShieldMetrics(payments, today = new Date()) {
     }
   }
 
-  const paymentRate = payments.length > 0 ? paidCount / payments.length : 1;
+  const paymentRate = paidCount / payments.length;
   const daysOverdueP90 = percentile90(overdueDaysList);
   const sampleSize = overdueDaysList.length;
 
-  return { arrearsAmount, daysOverdueP90, paymentRate, totalDue, sampleSize };
+  return { arrearsAmount, daysOverdueP90, paymentRate, totalDue, sampleSize, totalPayments: payments.length };
 }
 
 function percentile90(values) {
@@ -178,9 +178,11 @@ export async function computeAndSaveAssessment(accountId, propertyId, period) {
     arrearsAmount: metrics.arrearsAmount,
     daysOverdueP90: metrics.daysOverdueP90,
   });
-  // sampleSize is not persisted to DB; return alongside the saved row
-  // so the caller can show a low-confidence indicator when sampleSize < 5 (L-025)
-  return { ...saved, sampleSize: metrics.sampleSize };
+  // sampleSize (overdue count) and totalPayments are not persisted to DB.
+  // Return alongside the saved row so the caller can show:
+  //   totalPayments === 0  → "no payment records" warning (score is not meaningful)
+  //   sampleSize < 5       → "low confidence" P90 warning (L-025)
+  return { ...saved, sampleSize: metrics.sampleSize, totalPayments: metrics.totalPayments };
 }
 
 export async function listRentShieldAssessments(accountId, { propertyId = null } = {}) {
