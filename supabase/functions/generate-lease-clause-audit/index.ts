@@ -129,6 +129,19 @@ Deno.serve(async (req) => {
     try { result.output = clampAiInsightPayload(result.output); } catch { /* serve as-is */ }
 
     const output = result.output as LeaseClauseOutput;
+
+    // If AI was unavailable (network error, missing key, parse failure), fail the
+    // audit so the user can retry — do NOT mark it complete with a fallback message.
+    if (output.source === "fallback") {
+      await userClient.rpc("update_lease_audit_status", {
+        p_id:         leaseAuditId,
+        p_account_id: accountId,
+        p_status:     "failed",
+        p_summary:    null,
+      });
+      return respond({ error: "AI analysis was unable to complete. Please try again." }, 503);
+    }
+
     const findings = output.findings ?? [];
 
     // Save findings in bulk

@@ -287,19 +287,17 @@ function LeaseDetailView({ lease, accountId, onBack }) {
               chars: (extraction.characterCount ?? 0).toLocaleString(),
             })}
           </p>
-          {audit?.status !== "complete" && (
-            <button
-              type="button"
-              onClick={handleRunAiAnalysis}
-              disabled={aiRunning || audit?.status === "processing"}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-violet-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-800 disabled:opacity-60 dark:bg-violet-600 dark:hover:bg-violet-700"
-              data-testid="run-ai-analysis-button"
-            >
-              {aiRunning || audit?.status === "processing"
-                ? <><Loader size={12} className="animate-spin" />{t("compliance.leases.aiAnalysisRunning")}</>
-                : <><Sparkles size={12} />{t("compliance.leases.analyzeWithAi")}</>}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleRunAiAnalysis}
+            disabled={aiRunning || audit?.status === "processing"}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-violet-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-800 disabled:opacity-60 dark:bg-violet-600 dark:hover:bg-violet-700"
+            data-testid="run-ai-analysis-button"
+          >
+            {aiRunning || audit?.status === "processing"
+              ? <><Loader size={12} className="animate-spin" />{t("compliance.leases.aiAnalysisRunning")}</>
+              : <><Sparkles size={12} />{audit?.status === "complete" ? t("compliance.leases.reanalyzeWithAi") : t("compliance.leases.analyzeWithAi")}</>}
+          </button>
           {aiError && (
             <p className="w-full text-xs text-rose-600 dark:text-rose-400">{aiError}</p>
           )}
@@ -376,7 +374,7 @@ function LeaseDetailView({ lease, accountId, onBack }) {
             </div>
           )}
 
-          {audit.summary && (
+          {audit.summary && !audit.summary.includes("temporarily unavailable") && (
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
               {audit.summary}
             </div>
