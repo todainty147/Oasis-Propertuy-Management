@@ -22,6 +22,7 @@ export function AccountProvider({ children }) {
   const [activeAccountId, setActiveAccountId] = useState(null);
   const [accountLoading, setAccountLoading] = useState(true);
   const [isRootOperator, setIsRootOperator] = useState(false);
+  const [accountVersion, setAccountVersion] = useState(0);
 
   // ✅ Tenant portal path (no account_members required)
   const [tenantContext, setTenantContext] = useState(null); // { account_id, tenant_id, status }
@@ -212,6 +213,11 @@ export function AccountProvider({ children }) {
                 subscription_plan: existing?.subscription_plan || null,
                 subscription_status: existing?.subscription_status || null,
                 billing_locked_at: existing?.billing_locked_at || null,
+                trial_ends_at: existing?.trial_ends_at || null,
+                trial_source: existing?.trial_source || null,
+                country_code: existing?.country_code || "PL",
+                currency:     existing?.currency     || "PLN",
+                language:     existing?.language     || "pl",
                 // Keep root support switching distinct from normal landlord roles.
                 // Dedicated root/support surfaces still key off isRootOperator, while
                 // ordinary CRUD screens should reflect the target account's real role.
@@ -442,7 +448,7 @@ export function AccountProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [user, authLoading]);
+  }, [user, authLoading, accountVersion]);
 
   /* ======================
      OA GRANT STATUS
@@ -598,6 +604,10 @@ export function AccountProvider({ children }) {
     setActiveAccountId(accountId);
   }
 
+  function reloadAccounts() {
+    setAccountVersion((v) => v + 1);
+  }
+
   /* ======================
      CONTEXT
      ====================== */
@@ -610,6 +620,7 @@ export function AccountProvider({ children }) {
         activeAccount,
         activeAccountId,
         switchAccount,
+        reloadAccounts,
         accountLoading,
 
         activeRole,

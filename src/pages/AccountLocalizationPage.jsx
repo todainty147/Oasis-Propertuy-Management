@@ -20,7 +20,8 @@ export default function AccountLocalizationPage() {
   const { t } = useI18n();
   const { setTitle } = usePageTitle();
   const { activeAccountId, activeRole, isRootOperator,
-          activeCurrency, activeCountryCode, activeLanguage } = useAccount();
+          activeCurrency, activeCountryCode, activeLanguage,
+          reloadAccounts } = useAccount();
 
   const canEdit = isRootOperator || String(activeRole || "").toLowerCase() === "owner";
 
@@ -74,6 +75,7 @@ export default function AccountLocalizationPage() {
       });
       if (rpcErr) throw rpcErr;
       setMessage(t("localization.saved"));
+      reloadAccounts();
     } catch (err) {
       setError(err?.message || t("localization.saveError"));
     } finally {
