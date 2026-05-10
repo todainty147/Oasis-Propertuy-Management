@@ -147,6 +147,7 @@ CREATE TABLE IF NOT EXISTS public.rent_shield_assessments (
   ai_narrative     TEXT,
   generated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   prompt_version   TEXT,
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (account_id, property_id, period)
 );
 

@@ -46,7 +46,7 @@ export default function TenantPaymentCollectionSettingsCard({
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : t("finance.collection.loadError"));
+          setError(err?.message || t("finance.collection.loadError"));
           setSettings(emptySettings(accountId));
         }
       } finally {
@@ -110,7 +110,7 @@ export default function TenantPaymentCollectionSettingsCard({
       setSettings(next);
       setMessage(t("finance.collection.saveSuccess"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("finance.collection.saveError"));
+      setError(err?.message || t("finance.collection.saveError"));
     } finally {
       setSaving(false);
     }

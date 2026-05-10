@@ -40,6 +40,7 @@ export function useFinance({ enabled = true } = {}) {
           paid_at,
           tenant_id,
           property_id,
+          notes,
           tenants ( id, name ),
           properties ( id, address, city, rent )
         `)
@@ -83,6 +84,7 @@ export function useFinance({ enabled = true } = {}) {
         paidAt: p.paid_at,
         tenantId: p.tenant_id,
         propertyId: p.property_id,
+        notes: p.notes ?? null,
         propertyRent: Number(p.properties?.rent ?? 0),
         tenantName: p.tenants?.name ?? "—",
         propertyAddress: p.properties?.address ?? "—",
@@ -94,7 +96,7 @@ export function useFinance({ enabled = true } = {}) {
 
   useEffect(() => {
     if (!enabled || !activeAccountId) {
-      setLoading(false);
+      setLoading(false); // eslint-disable-line react-hooks/set-state-in-effect
       return;
     }
 
@@ -129,5 +131,6 @@ export function useFinance({ enabled = true } = {}) {
     propertyFinance,
     loading,
     error,
+    reload: loadFinance,
   };
 }

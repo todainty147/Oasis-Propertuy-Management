@@ -28,6 +28,7 @@ import {
   FileSearch,
   ShieldCheck,
   Lock,
+  Globe,
 } from "lucide-react";
 
 import { useMemo, useState } from "react";
@@ -406,6 +407,9 @@ function SidebarContent({ onNavigate }) {
                     ) : null}
                     {role === "owner" && (
                       <Item to="/settings/branding" icon={Palette} label={t("sidebar.branding")} onNavigate={onNavigate} />
+                    )}
+                    {(role === "owner" || role === "admin") && (
+                      <Item to="/settings/localization" icon={Globe} label={t("sidebar.localization")} onNavigate={onNavigate} />
                     )}
                   </div>
                 )}

@@ -38,6 +38,7 @@ const FinancePage                 = lazy(() => import("../pages/FinancePage"));
 const LandlordOnboardingPage      = lazy(() => import("../pages/LandlordOnboardingPage"));
 const InvitationsPage             = lazy(() => import("../pages/InvitationsPage"));
 const AccountBrandingPage         = lazy(() => import("../pages/AccountBrandingPage"));
+const AccountLocalizationPage     = lazy(() => import("../pages/AccountLocalizationPage"));
 const BillingPage                 = lazy(() => import("../pages/BillingPage"));
 const RolesManagementPage = lazy(() => import("../pages/RolesManagementPage"));
 const CustomFieldsManagementPage = lazy(() => import("../pages/CustomFieldsManagementPage"));
@@ -347,6 +348,10 @@ export default function ManagerRoutes() {
       <Route
         path="settings/branding"
         element={<ManagerOnlyRoute><AccountBrandingPage /></ManagerOnlyRoute>}
+      />
+      <Route
+        path="settings/localization"
+        element={<ManagerOnlyRoute><AccountLocalizationPage /></ManagerOnlyRoute>}
       />
       <Route
         path="settings/billing"

@@ -2,23 +2,30 @@ drop function if exists public.finance_snapshot(uuid, uuid);
 
 create or replace function public.finance_snapshot(
   p_account_id uuid,
-  p_tenant_id uuid default null
+  p_tenant_id  uuid default null
 )
 returns table (
-  total_income numeric,
-  overdue_income numeric,
-  due_soon_income numeric,
-  outstanding_income numeric,
-  property_finance jsonb
+  total_income       numeric,   -- cash received in the current calendar month (MTD)
+  overdue_income     numeric,   -- total unpaid balance on past-due cycles
+  due_soon_income    numeric,   -- total unpaid balance due within 7 days
+  outstanding_income numeric,   -- ALL unpaid balances (superset; includes the above two)
+  property_finance   jsonb,
+  account_currency   text       -- ISO 4217 code for the account (e.g. 'GBP', 'PLN', 'EUR')
 )
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-  v_tenant_id uuid;
+  v_tenant_id      uuid;
+  v_account_currency text;
 begin
   v_tenant_id := public.assert_tenant_scope_access(p_account_id, p_tenant_id);
+
+  -- Resolve the account's configured currency (falls back to 'PLN' for legacy rows)
+  select coalesce(a.currency, 'PLN') into v_account_currency
+  from public.accounts a
+  where a.id = p_account_id;
 
   return query
   with tenant_scope as (
@@ -97,10 +104,8 @@ begin
       prx.property_id,
       prx.tenant_id,
       prx.cycle_month,
-      greatest(
-        coalesce(max(pr.rent), 0),
-        coalesce(max(prx.amount), 0)
-      ) as billed_amount,
+      -- A-2: billed_amount = contractual rent only, never inflated by payment amounts
+      coalesce(max(pr.rent), 0) as billed_amount,
       coalesce(
         sum(
           case
@@ -132,7 +137,17 @@ begin
   ),
   finance_totals as (
     select
-      coalesce(sum(pc.paid_amount), 0) as total_income,
+      -- A-4: total_income = cash received in the current calendar month (MTD),
+      -- computed from paid_at dates rather than cycle_month so late payments
+      -- are attributed to when money was actually received.
+      coalesce((
+        select sum(pr2.amount)
+        from payment_rows pr2
+        where pr2.is_paid
+          and pr2.paid_at is not null
+          and pr2.paid_at >= date_trunc('month', current_date)::date
+          and pr2.paid_at <= current_date
+      ), 0) as total_income,
       coalesce(
         sum(
           case
@@ -256,7 +271,8 @@ begin
     finance_totals.overdue_income,
     finance_totals.due_soon_income,
     finance_totals.outstanding_income,
-    property_json.property_finance
+    property_json.property_finance,
+    v_account_currency
   from finance_totals, property_json;
 end;
 $$;

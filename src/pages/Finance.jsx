@@ -6,8 +6,7 @@ import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { can } from "../utils/permissions";
 import { useI18n } from "../context/I18nContext";
-import { formatCurrencyAmount } from "../utils/currency";
-import { sumDueSoon, sumExpected, sumOverdue, sumPaid } from "../utils/finance";
+import { formatCurrencyAmount, getLocaleForCountry } from "../utils/currency";
 import OnboardingHintCard from "../components/OnboardingHintCard";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 import TenantPaymentCollectionSettingsCard from "../components/finance/TenantPaymentCollectionSettingsCard";
@@ -58,11 +57,15 @@ export default function Finance({
   payments = [],
   propertyFinance = [],
   onAddPayment,
+  onEditPayment,
   onDeletePayment,
   onMarkPaid,
+  mutating = false,
+  mutationError = null,
 }) {
   const navigate = useNavigate();
-  const { accountLoading, activeAccountId, activePermissionContext, isRootOperator } = useAccount();
+  const { accountLoading, activeAccountId, activePermissionContext, isRootOperator,
+          activeCurrency, activeCountryCode } = useAccount();
   const { setTitle } = usePageTitle();
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -72,15 +75,19 @@ export default function Finance({
   const [paymentsPage, setPaymentsPage] = useState(1);
   const [paymentsPageSize, setPaymentsPageSize] = useState(10);
   const [paymentQuery, setPaymentQuery] = useState("");
+  // B-5: inline delete confirmation — stores the payment id pending confirmation
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
   useEffect(() => { setTitle(t("finance.title")); }, [setTitle, t]);
 
   const canCreate = can(activePermissionContext, "finance", "create");
+  // B-1: update permission governs mark-paid (it is an update, not a delete)
+  const canUpdate = isRootOperator || can(activePermissionContext, "finance", "update");
   const canDelete = can(activePermissionContext, "finance", "delete");
-  const canRead = isRootOperator || can(activePermissionContext, "finance", "read");
+  const canRead   = isRootOperator || can(activePermissionContext, "finance", "read");
   const canManageCollectionSettings = isRootOperator || can(activePermissionContext, "finance", "update");
 
-  // ── URL-based filter params (preserved from original) ───────────────────────
+  // ── URL-based filter params ──────────────────────────────────────────────────
 
   const statusFilterValues = useMemo(() => {
     const raw = String(searchParams.get("status") || "").toLowerCase().trim();
@@ -90,15 +97,14 @@ export default function Finance({
       .filter((s) => s !== "other");
   }, [searchParams]);
 
-  const rangeFilter = useMemo(() => String(searchParams.get("range") || "").toLowerCase(), [searchParams]);
+  const rangeFilter  = useMemo(() => String(searchParams.get("range")  || "").toLowerCase(), [searchParams]);
   const bucketFilter = useMemo(() => String(searchParams.get("bucket") || "").toLowerCase(), [searchParams]);
 
   const hasActiveFilters = statusFilterValues.length > 0 || !!rangeFilter || !!bucketFilter;
 
   // ── Tab state ────────────────────────────────────────────────────────────────
-  // When a filter is active with no explicit tab, land on payments.
 
-  const rawTab = searchParams.get("tab");
+  const rawTab    = searchParams.get("tab");
   const activeTab = VALID_TABS.includes(rawTab) ? rawTab : (hasActiveFilters ? "payments" : "overview");
 
   // ── URL helpers ──────────────────────────────────────────────────────────────
@@ -107,6 +113,7 @@ export default function Finance({
     const next = new URLSearchParams(searchParams);
     next.set("tab", tab);
     setSearchParams(next, { replace: true });
+    setPendingDeleteId(null);
   }
 
   function setStatusFilter(status) {
@@ -139,19 +146,23 @@ export default function Finance({
     const next = new URLSearchParams(searchParams);
     next.set("tab", "payments");
     if (status) { next.set("status", status); next.delete("range"); next.delete("bucket"); }
-    if (range)  { next.set("range", range);   next.delete("status"); next.delete("bucket"); }
+    if (range)  { next.set("range",  range);  next.delete("status"); next.delete("bucket"); }
     if (!status && !range) { next.delete("status"); next.delete("range"); next.delete("bucket"); }
     setSearchParams(next, { replace: true });
   }
 
-  // ── Filtered payments (URL filters only) ─────────────────────────────────────
+  // ── Filtered + searched payments ─────────────────────────────────────────────
+  // Plain computed values — the React Compiler auto-memoizes these.
+  // Date-based range filters are intentionally computed from the current time on
+  // each render; explicit useMemo would conflict with the React Compiler purity rules.
 
-  const filteredPayments = (payments || []).filter((p) => {
-    const now = new Date();
-    const soon = new Date(now.getTime() + 7 * 24 * 3600000);
-    const s = normalizePaymentStatus(p.status);
+  const now  = new Date();
+  const soon = new Date(now.getTime() + 7 * 24 * 3600000);
+
+  const searchedPayments = (payments || []).filter((p) => {
+    const s   = normalizePaymentStatus(p.status);
     if (statusFilterValues.length > 0 && !statusFilterValues.includes(s)) return false;
-    const due = p?.dueDate ? new Date(p.dueDate) : null;
+    const due    = p?.dueDate ? new Date(p.dueDate) : null;
     const hasDue = due && !Number.isNaN(due.getTime());
     if (rangeFilter === "7d") {
       if (!hasDue || s === "paid" || due < now || due > soon) return false;
@@ -168,24 +179,18 @@ export default function Finance({
       if (bucketFilter === "8_30"   && (days < 8  || days > 30)) return false;
       if (bucketFilter === "30_plus" && days < 31)                return false;
     }
+    const q = paymentQuery.trim().toLowerCase();
+    if (q && !(
+      String(p.tenantName || "").toLowerCase().includes(q) ||
+      String(p.propertyAddress || "").toLowerCase().includes(q)
+    )) return false;
     return true;
   });
 
-  // ── Local search on top of URL filter ────────────────────────────────────────
+  useEffect(() => { setPaymentsPage(1); }, [paymentQuery, statusFilterValues.join(","), rangeFilter, bucketFilter]); // eslint-disable-line react-hooks/exhaustive-deps,react-hooks/set-state-in-effect
+  useEffect(() => { setPropertyPage(1); }, [propertyPageSize]); // eslint-disable-line react-hooks/set-state-in-effect
 
-  const searchedPayments = useMemo(() => {
-    const q = paymentQuery.trim().toLowerCase();
-    if (!q) return filteredPayments;
-    return filteredPayments.filter((p) =>
-      String(p.tenantName || "").toLowerCase().includes(q) ||
-      String(p.propertyAddress || "").toLowerCase().includes(q)
-    );
-  }, [filteredPayments, paymentQuery]);
-
-  useEffect(() => { setPaymentsPage(1); }, [paymentQuery, statusFilterValues.join(","), rangeFilter, bucketFilter]);
-  useEffect(() => { setPropertyPage(1); }, [propertyPageSize]);
-
-  // ── Filter label (for active filter banner) ───────────────────────────────────
+  // ── Filter label ──────────────────────────────────────────────────────────────
 
   const filterSummaryLabel = useMemo(() => {
     if (bucketFilter === "0_7")    return t("finance.filtered.bucket0_7");
@@ -195,10 +200,10 @@ export default function Finance({
     if (rangeFilter === "7d")      return t("finance.filtered.dueSoon");
     if (statusFilterValues.length === 1) {
       const [s] = statusFilterValues;
-      if (s === "overdue")  return t("finance.filtered.overdue");
-      if (s === "pending")  return t("finance.filtered.pending");
-      if (s === "paid")     return t("finance.filtered.paid");
-      if (s === "partial")  return t("finance.filtered.partial");
+      if (s === "overdue") return t("finance.filtered.overdue");
+      if (s === "pending") return t("finance.filtered.pending");
+      if (s === "paid")    return t("finance.filtered.paid");
+      if (s === "partial") return t("finance.filtered.partial");
     }
     if (statusFilterValues.length > 1) return t("finance.filtered.custom");
     return "";
@@ -206,21 +211,33 @@ export default function Finance({
 
   // ── Pagination ────────────────────────────────────────────────────────────────
 
-  const propertyFinanceList = propertyFinance || [];
-  const propertyTotalPages = Math.max(1, Math.ceil(propertyFinanceList.length / propertyPageSize));
-  const paymentsTotalPages = Math.max(1, Math.ceil(searchedPayments.length / paymentsPageSize));
+  const propertyFinanceList  = useMemo(() => propertyFinance || [], [propertyFinance]);
+  const propertyTotalPages   = Math.max(1, Math.ceil(propertyFinanceList.length / propertyPageSize));
+  const paymentsTotalPages   = Math.max(1, Math.ceil(searchedPayments.length / paymentsPageSize));
 
   const visiblePropertyFinance = useMemo(() => {
     const safePage = Math.min(propertyPage, propertyTotalPages);
-    const start = (safePage - 1) * propertyPageSize;
+    const start    = (safePage - 1) * propertyPageSize;
     return propertyFinanceList.slice(start, start + propertyPageSize);
   }, [propertyFinanceList, propertyPage, propertyPageSize, propertyTotalPages]);
 
   const visiblePayments = useMemo(() => {
     const safePage = Math.min(paymentsPage, paymentsTotalPages);
-    const start = (safePage - 1) * paymentsPageSize;
+    const start    = (safePage - 1) * paymentsPageSize;
     return searchedPayments.slice(start, start + paymentsPageSize);
   }, [searchedPayments, paymentsPage, paymentsPageSize, paymentsTotalPages]);
+
+  // ── Delete confirmation (I-3: inline two-click, no window.confirm) ───────────
+
+  function handleDeleteClick(paymentId) {
+    setPendingDeleteId((prev) => {
+      if (prev === paymentId) {
+        onDeletePayment(paymentId);
+        return null;
+      }
+      return paymentId;
+    });
+  }
 
   // ── Status pills ──────────────────────────────────────────────────────────────
 
@@ -308,6 +325,13 @@ export default function Finance({
         body={t("onboarding.hints.finance.body")}
       />
 
+      {/* B-5: global mutation error banner */}
+      {mutationError && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          {mutationError}
+        </div>
+      )}
+
       {/* TAB NAV */}
       <div className="border-b border-slate-200">
         <nav className="-mb-px flex overflow-x-auto" aria-label="Finance sections">
@@ -331,7 +355,7 @@ export default function Finance({
       {/* ── OVERVIEW TAB ─────────────────────────────────────────────────────── */}
       {activeTab === "overview" && (
         <div className="space-y-6">
-          {/* Summary cards — clickable to jump to filtered Payments tab */}
+          {/* A-5: Restructured summary cards — MTD received + clear overlap note on Total Owed */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <SummaryCard
               label={t("finance.summary.received")}
@@ -339,6 +363,7 @@ export default function Finance({
               color="text-emerald-600"
               helper={t("finance.summary.receivedHelper")}
               onClick={() => goToPaymentsWithFilter({ status: "paid" })}
+              currency={activeCurrency} countryCode={activeCountryCode}
             />
             <SummaryCard
               label={t("finance.summary.overdue")}
@@ -347,6 +372,7 @@ export default function Finance({
               helper={t("finance.summary.overdueHelper")}
               onClick={() => goToPaymentsWithFilter({ status: "overdue" })}
               accent="rose"
+              currency={activeCurrency} countryCode={activeCountryCode}
             />
             <SummaryCard
               label={t("finance.summary.dueSoon")}
@@ -354,13 +380,15 @@ export default function Finance({
               color="text-blue-600"
               helper={t("finance.summary.dueSoonHelper")}
               onClick={() => goToPaymentsWithFilter({ range: "7d" })}
+              currency={activeCurrency} countryCode={activeCountryCode}
             />
             <SummaryCard
-              label={t("finance.summary.outstanding")}
+              label={t("finance.summary.totalOwed")}
               value={summary?.outstandingIncome ?? 0}
               color="text-violet-600"
-              helper={t("finance.summary.outstandingHelper")}
+              helper={t("finance.summary.totalOwedHelper")}
               onClick={() => goToPaymentsWithFilter()}
+              currency={activeCurrency} countryCode={activeCountryCode}
             />
           </div>
 
@@ -389,15 +417,15 @@ export default function Finance({
                       <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
                         <div>
                           <p className="text-[11px] uppercase tracking-wide text-slate-400">{t("finance.table.rent")}</p>
-                          <p className="mt-0.5 text-sm font-medium text-slate-900">{formatCurrency(p.rent)}</p>
+                          <p className="mt-0.5 text-sm font-medium text-slate-900">{formatCurrency(p.rent, activeCurrency, activeCountryCode)}</p>
                         </div>
                         <div>
                           <p className="text-[11px] uppercase tracking-wide text-slate-400">{t("finance.table.paid")}</p>
-                          <p className="mt-0.5 text-sm font-medium text-emerald-600">{formatCurrency(p.paid)}</p>
+                          <p className="mt-0.5 text-sm font-medium text-emerald-600">{formatCurrency(p.paid, activeCurrency, activeCountryCode)}</p>
                         </div>
                         <div>
                           <p className="text-[11px] uppercase tracking-wide text-slate-400">{t("finance.table.remaining")}</p>
-                          <p className="mt-0.5 text-sm font-medium text-rose-600">{formatCurrency(p.remaining)}</p>
+                          <p className="mt-0.5 text-sm font-medium text-rose-600">{formatCurrency(p.remaining, activeCurrency, activeCountryCode)}</p>
                         </div>
                         <div>
                           <p className="text-[11px] uppercase tracking-wide text-slate-400">{t("finance.table.status")}</p>
@@ -431,9 +459,9 @@ export default function Finance({
                             <div className="font-medium text-slate-900">{p.address}</div>
                             <div className="text-xs text-slate-500">{p.city}</div>
                           </td>
-                          <td className="px-6 py-3 text-right text-slate-900">{formatCurrency(p.rent)}</td>
-                          <td className="px-6 py-3 text-right text-emerald-600 font-medium">{formatCurrency(p.paid)}</td>
-                          <td className="px-6 py-3 text-right text-rose-600 font-medium">{formatCurrency(p.remaining)}</td>
+                          <td className="px-6 py-3 text-right text-slate-900">{formatCurrency(p.rent, activeCurrency, activeCountryCode)}</td>
+                          <td className="px-6 py-3 text-right text-emerald-600 font-medium">{formatCurrency(p.paid, activeCurrency, activeCountryCode)}</td>
+                          <td className="px-6 py-3 text-right text-rose-600 font-medium">{formatCurrency(p.remaining, activeCurrency, activeCountryCode)}</td>
                           <td className="px-6 py-3"><StatusBadge status={p.paymentStatus} t={t} /></td>
                         </tr>
                       ))}
@@ -523,7 +551,7 @@ export default function Finance({
                       </div>
                       <p className="text-xs text-slate-500 truncate">{p.propertyAddress ?? "—"}</p>
                       <p className="text-sm text-slate-700">
-                        <span className="font-medium">{formatCurrency(p.amount)}</span>
+                        <span className="font-medium">{formatCurrency(p.amount, activeCurrency, activeCountryCode)}</span>
                         <span className="mx-1.5 text-slate-300">·</span>
                         {p.paidAt ? (
                           <span className="text-slate-500">{t("payments.paidAt")}: {formatDate(p.paidAt)}</span>
@@ -531,25 +559,41 @@ export default function Finance({
                           <span className="text-slate-500">{t("payments.dueDate")}: {formatDate(p.dueDate)}</span>
                         )}
                       </p>
-                      {canDelete && (
-                        <div className="grid grid-cols-2 gap-2 pt-1">
-                          {!p.paidAt && normalizePaymentStatus(p.status) !== "paid" && onMarkPaid ? (
-                            <button
-                              data-testid={`mark-paid-${p.id}`}
-                              onClick={() => onMarkPaid(p.id)}
-                              className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
-                            >
-                              {t("payments.markPaid")}
-                            </button>
-                          ) : <div />}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        {/* B-1: canUpdate gates mark-paid (update op, not delete) */}
+                        {canUpdate && !p.paidAt && normalizePaymentStatus(p.status) !== "paid" && onMarkPaid && (
                           <button
-                            onClick={() => { if (confirm(t("finance.confirmDeletePayment"))) onDeletePayment(p.id); }}
-                            className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-100"
+                            data-testid={`mark-paid-${p.id}`}
+                            disabled={mutating}
+                            onClick={() => onMarkPaid(p.id)}
+                            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
                           >
-                            {t("attachments.delete")}
+                            {t("payments.markPaid")}
                           </button>
-                        </div>
-                      )}
+                        )}
+                        {canUpdate && onEditPayment && (
+                          <button
+                            onClick={() => onEditPayment(p)}
+                            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                          >
+                            {t("common.edit")}
+                          </button>
+                        )}
+                        {canDelete && (
+                          // I-3: inline two-click confirmation instead of window.confirm
+                          <button
+                            disabled={mutating}
+                            onClick={() => handleDeleteClick(p.id)}
+                            className={`rounded-lg border px-3 py-2 text-xs font-medium disabled:opacity-50 ${
+                              pendingDeleteId === p.id
+                                ? "border-rose-400 bg-rose-600 text-white"
+                                : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                            }`}
+                          >
+                            {pendingDeleteId === p.id ? t("finance.confirmDeletePayment") : t("attachments.delete")}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -572,7 +616,7 @@ export default function Finance({
                         <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-6 py-3 font-medium text-slate-900">{p.tenantName ?? "—"}</td>
                           <td className="px-6 py-3 text-slate-600">{p.propertyAddress ?? "—"}</td>
-                          <td className="px-6 py-3 text-right font-semibold text-slate-900">{formatCurrency(p.amount)}</td>
+                          <td className="px-6 py-3 text-right font-semibold text-slate-900">{formatCurrency(p.amount, activeCurrency, activeCountryCode)}</td>
                           <td className="px-6 py-3"><StatusBadge status={p.status} t={t} /></td>
                           <td className="px-6 py-3 text-slate-600">
                             <div>{formatDate(p.dueDate)}</div>
@@ -582,21 +626,37 @@ export default function Finance({
                           </td>
                           <td className="px-6 py-3">
                             <div className="flex items-center justify-end gap-2">
-                              {canDelete && !p.paidAt && normalizePaymentStatus(p.status) !== "paid" && onMarkPaid ? (
+                              {/* B-1: canUpdate governs mark-paid */}
+                              {canUpdate && !p.paidAt && normalizePaymentStatus(p.status) !== "paid" && onMarkPaid && (
                                 <button
                                   data-testid={`mark-paid-${p.id}`}
+                                  disabled={mutating}
                                   onClick={() => onMarkPaid(p.id)}
-                                  className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                                  className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
                                 >
                                   {t("payments.markPaid")}
                                 </button>
-                              ) : null}
-                              {canDelete ? (
+                              )}
+                              {canUpdate && onEditPayment && (
                                 <button
-                                  onClick={() => { if (confirm(t("finance.confirmDeletePayment"))) onDeletePayment(p.id); }}
-                                  className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
+                                  onClick={() => onEditPayment(p)}
+                                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                                 >
-                                  {t("attachments.delete")}
+                                  {t("common.edit")}
+                                </button>
+                              )}
+                              {canDelete ? (
+                                // I-3: inline two-click confirmation
+                                <button
+                                  disabled={mutating}
+                                  onClick={() => handleDeleteClick(p.id)}
+                                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium disabled:opacity-50 transition-colors ${
+                                    pendingDeleteId === p.id
+                                      ? "border-rose-400 bg-rose-600 text-white"
+                                      : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                                  }`}
+                                >
+                                  {pendingDeleteId === p.id ? t("finance.confirmDeletePayment") : t("attachments.delete")}
                                 </button>
                               ) : (
                                 <span className="text-xs text-slate-400">—</span>
@@ -641,7 +701,7 @@ export default function Finance({
    HELPER COMPONENTS
    ====================== */
 
-function SummaryCard({ label, value, color, helper = "", onClick, accent }) {
+function SummaryCard({ label, value, color, helper = "", onClick, accent, currency, countryCode }) {
   const accentBorder = accent === "rose" && value > 0 ? "border-rose-200" : "";
   return (
     <button
@@ -650,12 +710,9 @@ function SummaryCard({ label, value, color, helper = "", onClick, accent }) {
       className={`group w-full text-left bg-white border rounded-xl p-5 hover:shadow-md hover:-translate-y-0.5 transition-all ${accentBorder}`}
     >
       <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{label}</p>
-      <p className={`text-2xl font-bold mt-1 ${color}`}>{formatCurrency(value)}</p>
+      <p className={`text-2xl font-bold mt-1 ${color}`}>{formatCurrency(value, currency, countryCode)}</p>
       {helper && <p className="mt-2 text-xs text-slate-400 group-hover:text-slate-500">{helper}</p>}
-      <p className="mt-2 text-xs text-slate-400 group-hover:text-slate-600">
-        {/* subtle "click to filter" cue */}
-        ↗
-      </p>
+      <p className="mt-2 text-xs text-slate-400 group-hover:text-slate-600">↗</p>
     </button>
   );
 }
@@ -705,10 +762,10 @@ function StatusBadge({ status, t }) {
   const occupancy  = normalizeOccupancyStatus(status);
   const styles =
     normalized === "paid"    ? "bg-emerald-100 text-emerald-700" :
-    normalized === "partial" ? "bg-amber-100 text-amber-700" :
-    normalized === "pending" ? "bg-blue-100 text-blue-700" :
-    normalized === "overdue" ? "bg-rose-100 text-rose-700" :
-    occupancy  === "vacant"  ? "bg-slate-100 text-slate-600" :
+    normalized === "partial" ? "bg-amber-100 text-amber-700"     :
+    normalized === "pending" ? "bg-blue-100 text-blue-700"       :
+    normalized === "overdue" ? "bg-rose-100 text-rose-700"       :
+    occupancy  === "vacant"  ? "bg-slate-100 text-slate-600"     :
                                "bg-slate-100 text-slate-600";
   return (
     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${styles}`}>
@@ -717,7 +774,12 @@ function StatusBadge({ status, t }) {
   );
 }
 
-function formatCurrency(value = 0) { return formatCurrencyAmount(value); }
+function formatCurrency(value = 0, currency, countryCode) {
+  return formatCurrencyAmount(value, {
+    currency: currency || "PLN",
+    locale:   getLocaleForCountry(countryCode || "PL"),
+  });
+}
 
 function formatDate(value) {
   if (!value) return "—";

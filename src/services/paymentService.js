@@ -187,9 +187,9 @@ export async function updatePayment(paymentId, { accountId = null, amount = null
   const { data, error } = await supabase.rpc("update_payment", {
     p_account_id: accountId,
     p_payment_id: paymentId,
-    p_amount: amt,
-    p_due_date: dueDate,
-    p_notes: notes ?? null,
+    p_amount:    amt,
+    p_due_date:  dueDate,
+    p_notes:     notes ?? null,
   });
 
   if (error) throw error;
@@ -245,5 +245,37 @@ export async function markPaymentUnpaid(paymentId, accountId = null) {
 
   if (error) throw error;
   if (!data) throw new Error("mark_payment_unpaid returned no data");
+  return parsePaymentRow(data);
+}
+
+/* ======================
+   OWNER: VOID / REOPEN (A-9: explicit accountId)
+   ====================== */
+
+export async function voidPayment(paymentId, accountId = null) {
+  if (!paymentId) throw new Error("Missing paymentId");
+  if (!accountId) throw new Error("Missing accountId");
+
+  const { data, error } = await supabase.rpc("void_payment", {
+    p_payment_id: paymentId,
+    p_account_id: accountId,
+  });
+
+  if (error) throw error;
+  if (!data) throw new Error("void_payment returned no data");
+  return parsePaymentRow(data);
+}
+
+export async function reopenPayment(paymentId, accountId = null) {
+  if (!paymentId) throw new Error("Missing paymentId");
+  if (!accountId) throw new Error("Missing accountId");
+
+  const { data, error } = await supabase.rpc("reopen_payment", {
+    p_payment_id: paymentId,
+    p_account_id: accountId,
+  });
+
+  if (error) throw error;
+  if (!data) throw new Error("reopen_payment returned no data");
   return parsePaymentRow(data);
 }

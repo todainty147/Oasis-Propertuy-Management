@@ -83,7 +83,13 @@ export function AccountProvider({ children }) {
       let membershipErr = null;
       let successFields = null;
       const fieldsPriority = [
+        // Full schema (live DB with all migrations)
+        "id,name,is_root,is_disabled,subscription_plan,subscription_status,billing_locked_at,trial_ends_at,trial_source,country_code,currency,language",
+        // Without localisation cols (older live DB)
         "id,name,is_root,is_disabled,subscription_plan,subscription_status,billing_locked_at,trial_ends_at,trial_source",
+        // Without trial_source but with localisation (local dev DB post-currency migration)
+        "id,name,is_root,is_disabled,subscription_plan,subscription_status,billing_locked_at,country_code,currency,language",
+        // Without localisation cols (local dev DB pre-currency migration)
         "id,name,is_root,is_disabled,subscription_plan,subscription_status,billing_locked_at",
         "id,name,is_root,is_disabled,subscription_plan,subscription_status",
         "id,name,is_root,is_disabled",
@@ -178,6 +184,9 @@ export function AccountProvider({ children }) {
             billing_locked_at: m.accounts.billing_locked_at || null,
             trial_ends_at: m.accounts.trial_ends_at || null,
             trial_source: m.accounts.trial_source || null,
+            country_code: m.accounts.country_code || "PL",
+            currency:     m.accounts.currency     || "PLN",
+            language:     m.accounts.language     || "pl",
             role: m.role, // 🔐 SINGLE SOURCE OF TRUTH
             role_id: m.role_id || null,
             permissionKeys: permissionKeysByAccountId.get(m.accounts.id) || getPermissionKeysForRole(m.role),
@@ -546,6 +555,11 @@ export function AccountProvider({ children }) {
 
   const activeSubscriptionStatus = activeAccount?.subscription_status || null;
   const isBillingLocked = Boolean(activeAccount?.billing_locked_at);
+
+  // Currency / localisation — derived from account settings, fall back to safe defaults
+  const activeCurrency    = activeAccount?.currency     || "PLN";
+  const activeCountryCode = activeAccount?.country_code || "PL";
+  const activeLanguage    = activeAccount?.language     || "pl";
   const activePermissionKeys = useMemo(() => {
     if (Array.isArray(activeAccount?.permissionKeys)) return activeAccount.permissionKeys;
     return getPermissionKeysForRole(activeRole);
@@ -624,6 +638,11 @@ export function AccountProvider({ children }) {
 
         tenantContext,
         contractorContext,
+
+        // Localisation
+        activeCurrency,
+        activeCountryCode,
+        activeLanguage,
 
         authzError,
       }}

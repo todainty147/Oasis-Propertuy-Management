@@ -177,7 +177,7 @@ describe("rentShieldService: computeShieldMetrics payment categorisation", () =>
   });
 
   it("returns empty-safe defaults when no payments supplied", () => {
-    expect(rentShieldSvc).toContain("return { arrearsAmount: 0, daysOverdueP90: 0, paymentRate: 1, totalDue: 0, sampleSize: 0 }");
+    expect(rentShieldSvc).toContain("return { arrearsAmount: 0, daysOverdueP90: 0, paymentRate: 1, totalDue: 0, sampleSize: 0, totalPayments: 0 }");
   });
 });
 

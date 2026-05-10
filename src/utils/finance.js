@@ -85,7 +85,8 @@ export function buildPaymentCycles(payments = [], { rentByPropertyId = {}, horiz
       hasOverdue: false,
     };
 
-    existing.billedAmount = Math.max(existing.billedAmount, propertyRent, amount);
+    // A-2: billed = contractual rent; don't let payment amounts inflate the threshold
+    existing.billedAmount = propertyRent > 0 ? propertyRent : existing.billedAmount;
 
     if (isPaid(payment)) {
       existing.paidAmount += amount;

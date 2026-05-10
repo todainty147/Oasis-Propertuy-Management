@@ -193,7 +193,7 @@ describe("L-023: computeAndSaveAssessment scopes payments to period", () => {
 
 describe("L-025: computeShieldMetrics returns sampleSize", () => {
   it("empty-safe return includes sampleSize: 0", () => {
-    expect(rentShieldSvc).toContain("return { arrearsAmount: 0, daysOverdueP90: 0, paymentRate: 1, totalDue: 0, sampleSize: 0 }");
+    expect(rentShieldSvc).toContain("return { arrearsAmount: 0, daysOverdueP90: 0, paymentRate: 1, totalDue: 0, sampleSize: 0, totalPayments: 0 }");
   });
 
   it("non-empty path also returns sampleSize", () => {
