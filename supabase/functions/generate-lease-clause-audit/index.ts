@@ -139,7 +139,10 @@ Deno.serve(async (req) => {
         p_status:     "failed",
         p_summary:    null,
       });
-      return respond({ error: "AI analysis was unable to complete. Please try again." }, 503);
+      return respond({
+        error: "AI analysis was unable to complete. Please try again.",
+        debug: (result as { openAiError?: string }).openAiError || "fallback_triggered",
+      }, 503);
     }
 
     const findings = output.findings ?? [];
@@ -251,14 +254,23 @@ async function generateAnalysis(input: LeaseClauseInput) {
       }),
     });
   } catch (networkError) {
-    console.error("[lease-clause-audit] OpenAI network error:", networkError);
-    return { output: buildFallbackLeaseClauseOutput(input), inputTokens: 0, outputTokens: 0 };
+    const reason = String(networkError instanceof Error ? networkError.message : networkError).slice(0, 300);
+    console.error("[lease-clause-audit] OpenAI network error:", reason);
+    return { output: buildFallbackLeaseClauseOutput(input), inputTokens: 0, outputTokens: 0, openAiError: `network: ${reason}` };
   }
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    console.error("[lease-clause-audit] OpenAI non-2xx:", response.status, body.slice(0, 500));
-    return { output: buildFallbackLeaseClauseOutput(input), inputTokens: 0, outputTokens: 0 };
+    console.error("[lease-clause-audit] OpenAI non-2xx:", response.status, body.slice(0, 400));
+    // Detect billing/quota exhaustion explicitly so the UI can show a clear message.
+    let openAiError = `${response.status} ${body.slice(0, 400)}`;
+    try {
+      const parsed = JSON.parse(body);
+      if (parsed?.error?.code === "insufficient_quota") {
+        openAiError = "insufficient_quota";
+      }
+    } catch { /* ignore */ }
+    return { output: buildFallbackLeaseClauseOutput(input), inputTokens: 0, outputTokens: 0, openAiError };
   }
 
   const payload = await response.json().catch(() => null);
@@ -272,11 +284,13 @@ async function generateAnalysis(input: LeaseClauseInput) {
       outputTokens: Number(payload?.usage?.output_tokens || 0),
     };
   } catch (parseError) {
-    console.error("[lease-clause-audit] parse/extract error:", parseError, JSON.stringify(payload || {}).slice(0, 500));
+    const reason = `parse: ${parseError instanceof Error ? parseError.message : parseError} | payload: ${JSON.stringify(payload || {}).slice(0, 300)}`;
+    console.error("[lease-clause-audit] parse/extract error:", reason);
     return {
       output:      buildFallbackLeaseClauseOutput(input),
       inputTokens:  Number(payload?.usage?.input_tokens  || 0),
       outputTokens: Number(payload?.usage?.output_tokens || 0),
+      openAiError:  reason,
     };
   }
 }
