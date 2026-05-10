@@ -526,6 +526,7 @@ export default function RentersRightsPage() {
     "informationSheets",
     "tenancyReview",
     "rentReviews",
+    "petRequests",
     ...PHASE3_TABS,
   ];
 
