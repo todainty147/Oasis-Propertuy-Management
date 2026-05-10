@@ -251,11 +251,13 @@ async function generateAnalysis(input: LeaseClauseInput) {
       }),
     });
   } catch (networkError) {
+    console.error("[lease-clause-audit] OpenAI network error:", networkError);
     return { output: buildFallbackLeaseClauseOutput(input), inputTokens: 0, outputTokens: 0 };
   }
 
   if (!response.ok) {
-    await response.text().catch(() => "");
+    const body = await response.text().catch(() => "");
+    console.error("[lease-clause-audit] OpenAI non-2xx:", response.status, body.slice(0, 500));
     return { output: buildFallbackLeaseClauseOutput(input), inputTokens: 0, outputTokens: 0 };
   }
 
@@ -269,7 +271,8 @@ async function generateAnalysis(input: LeaseClauseInput) {
       inputTokens:  Number(payload?.usage?.input_tokens  || 0),
       outputTokens: Number(payload?.usage?.output_tokens || 0),
     };
-  } catch {
+  } catch (parseError) {
+    console.error("[lease-clause-audit] parse/extract error:", parseError, JSON.stringify(payload || {}).slice(0, 500));
     return {
       output:      buildFallbackLeaseClauseOutput(input),
       inputTokens:  Number(payload?.usage?.input_tokens  || 0),

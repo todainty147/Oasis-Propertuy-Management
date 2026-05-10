@@ -251,9 +251,18 @@ export function classifySecurityRelevantFailure(event, error, context = {}) {
   const guardDenied =
     surface === "assert_manage_account_access" ||
     surface === "assert_tenant_scope_access";
+  // Only treat as authorization_denied for genuine auth failures:
+  // - explicit guard RPCs (assert_manage_account_access etc.)
+  // - PostgreSQL/PostgREST auth error codes
+  // - message text matching known denial patterns
+  // - HTTP 401/403 from edge functions
+  // Intentionally excludes !!detailPayload?.reason because buildEdgeFunctionFailure
+  // always populates reason from the error message, causing every 503/5xx to be
+  // misclassified as authorization_denied.
+  const httpAuthDenied = ["401", "403"].includes(code);
   const denied =
     guardDenied ||
-    !!detailPayload?.reason ||
+    httpAuthDenied ||
     ["42501", "28000", "PGRST116", "P0002"].includes(code) ||
     authFailurePatterns.some((pattern) => message?.includes(pattern));
 
