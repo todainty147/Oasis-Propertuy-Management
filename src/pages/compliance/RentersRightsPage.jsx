@@ -35,6 +35,11 @@ import {
   listRentReviewRecords,
   createRentReviewRecord,
   updateRentReviewStatus,
+  listPetRequests,
+  createPetRequest,
+  updatePetRequestStatus,
+  listActiveTenantsForPetRequest,
+  listPropertiesForPetRequest,
 } from "../../services/rentersRightsService";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -57,8 +62,8 @@ const STATUS_FILTERS = [
   { value: "not_required",     labelKey: "rentersRights.informationSheet.status.not_required" },
 ];
 
-// Phase 3+ tabs remain as coming-soon placeholders.
-const PHASE3_TABS = ["petRequests", "possessionEvidence", "timeline"];
+// Phase 3+ tabs remain as coming-soon placeholders (petRequests is now live).
+const PHASE3_TABS = ["possessionEvidence", "timeline"];
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -612,6 +617,10 @@ export default function RentersRightsPage() {
           <RentReviewsTab accountId={activeAccountId} t={t} />
         )}
 
+        {activeTab === "petRequests" && (
+          <PetRequestsTab accountId={activeAccountId} t={t} />
+        )}
+
         {PHASE3_TABS.includes(activeTab) && (
           <ComingSoonTab tabKey={activeTab} t={t} />
         )}
@@ -928,6 +937,424 @@ function RentReviewsTab({ accountId, t }) {
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{r.proposedRent != null ? `£${r.proposedRent.toFixed(2)}` : "—"}</td>
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{fmt(r.proposedEffectiveDate)}</td>
                   <td className="px-4 py-3">{statusBadge(r.status)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Pet Requests Tab ──────────────────────────────────────────────────────────
+
+const PET_TYPES = ["dog", "cat", "bird", "reptile", "other"];
+
+function PetRequestsTab({ accountId, t }) {
+  const [requests, setRequests]         = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState(null);
+  const [logModal, setLogModal]         = useState(false);
+  const [decisionModal, setDecisionModal] = useState(null);
+  const [saving, setSaving]             = useState(false);
+  const [tenants, setTenants]           = useState([]);
+  const [properties, setProperties]     = useState([]);
+  const [form, setForm] = useState({
+    tenantId: "", propertyId: "", petType: "dog",
+    petDescription: "", requestDate: "", notes: "",
+  });
+  const [decision, setDecision] = useState({
+    status: "approved", decisionDate: "", refusalReason: "", insuranceRequired: false,
+  });
+
+  const load = useCallback(async () => {
+    if (!accountId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      setRequests(await listPetRequests({ accountId }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [accountId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function openLogModal() {
+    const today = new Date().toISOString().slice(0, 10);
+    const [tList, pList] = await Promise.all([
+      listActiveTenantsForPetRequest({ accountId }),
+      listPropertiesForPetRequest({ accountId }),
+    ]);
+    setTenants(tList);
+    setProperties(pList);
+    setForm({ tenantId: "", propertyId: "", petType: "dog", petDescription: "", requestDate: today, notes: "" });
+    setLogModal(true);
+  }
+
+  async function handleLogRequest(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await createPetRequest({
+        accountId,
+        tenantId:       form.tenantId       || null,
+        propertyId:     form.propertyId     || null,
+        petType:        form.petType,
+        petDescription: form.petDescription || null,
+        requestDate:    form.requestDate    || null,
+        notes:          form.notes          || null,
+      });
+      setLogModal(false);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRecordDecision(e) {
+    e.preventDefault();
+    if (!decisionModal) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await updatePetRequestStatus({
+        requestId:        decisionModal.id,
+        accountId,
+        status:           decision.status,
+        decisionDate:     decision.decisionDate || null,
+        refusalReason:    decision.status === "refused"   ? decision.refusalReason     : null,
+        insuranceRequired:decision.status === "approved"  ? decision.insuranceRequired : null,
+      });
+      setDecisionModal(null);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const statusBadge = (req) => {
+    const cfg = {
+      received:     "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+      under_review: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+      approved:     "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+      refused:      "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+      withdrawn:    "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500",
+    };
+    return (
+      <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${cfg[req.status] ?? cfg.received}`}>
+        {req.isOverdue && <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />}
+        {t(`rentersRights.petRequest.status.${req.status}`, req.status)}
+        {req.isOverdue && ` — ${t("rentersRights.petRequest.overdue")}`}
+      </span>
+    );
+  };
+
+  const fmt = (v) => v ? new Date(`${String(v).slice(0, 10)}T00:00:00`).toLocaleDateString() : "—";
+
+  const decisionButtons = [
+    { key: "approved",  label: t("rentersRights.petRequest.decisionApprove"),  active: "border-green-500 bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300" },
+    { key: "refused",   label: t("rentersRights.petRequest.decisionRefuse"),   active: "border-red-500 bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-300" },
+    { key: "withdrawn", label: t("rentersRights.petRequest.decisionWithdrawn"), active: "border-slate-500 bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <p>{t("rentersRights.petRequest.disclaimer")}</p>
+      </div>
+
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-sm text-slate-500 dark:text-slate-400">{t("rentersRights.petRequest.description")}</p>
+        <button
+          onClick={openLogModal}
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          {t("rentersRights.petRequest.logRequest")}
+        </button>
+      </div>
+
+      {error && (
+        <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {error}
+        </p>
+      )}
+
+      {/* Log Request Modal */}
+      {logModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900">
+            <h3 className="mb-4 text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {t("rentersRights.petRequest.logRequest")}
+            </h3>
+            <form onSubmit={handleLogRequest} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
+                    {t("rentersRights.petRequest.tenant")}
+                  </label>
+                  <select
+                    value={form.tenantId}
+                    onChange={(e) => setForm((f) => ({ ...f, tenantId: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  >
+                    <option value="">{t("rentersRights.petRequest.selectTenant")}</option>
+                    {tenants.map((tn) => (
+                      <option key={tn.id} value={tn.id}>{tn.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
+                    {t("rentersRights.petRequest.property")}
+                  </label>
+                  <select
+                    value={form.propertyId}
+                    onChange={(e) => setForm((f) => ({ ...f, propertyId: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  >
+                    <option value="">{t("rentersRights.petRequest.selectProperty")}</option>
+                    {properties.map((p) => (
+                      <option key={p.id} value={p.id}>{p.address}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
+                    {t("rentersRights.petRequest.petType")}
+                  </label>
+                  <select
+                    value={form.petType}
+                    onChange={(e) => setForm((f) => ({ ...f, petType: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  >
+                    {PET_TYPES.map((pt) => (
+                      <option key={pt} value={pt}>{t(`rentersRights.petRequest.petType.${pt}`)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
+                    {t("rentersRights.petRequest.requestDate")}
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={form.requestDate}
+                    onChange={(e) => setForm((f) => ({ ...f, requestDate: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
+                    {t("rentersRights.petRequest.petDescription")}
+                  </label>
+                  <input
+                    type="text"
+                    value={form.petDescription}
+                    onChange={(e) => setForm((f) => ({ ...f, petDescription: e.target.value }))}
+                    placeholder={t("rentersRights.petRequest.petDescriptionPlaceholder")}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
+                    {t("rentersRights.petRequest.notes")}
+                  </label>
+                  <input
+                    type="text"
+                    value={form.notes}
+                    onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                    placeholder={t("rentersRights.petRequest.notesPlaceholder")}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+              {error && (
+                <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-900/20 dark:text-red-300">
+                  {error}
+                </p>
+              )}
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setLogModal(false)}
+                  className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  {t("common.cancel")}
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"
+                >
+                  {saving ? t("common.saving") : t("common.save")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Record Decision Modal */}
+      {decisionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900">
+            <h3 className="mb-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {t("rentersRights.petRequest.recordDecision")}
+            </h3>
+            <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
+              {decisionModal.tenantName} — {decisionModal.propertyAddress}
+            </p>
+            <form onSubmit={handleRecordDecision} className="space-y-4">
+              <div className="flex gap-2">
+                {decisionButtons.map(({ key, label, active }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setDecision((d) => ({ ...d, status: key }))}
+                    className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                      decision.status === key
+                        ? active
+                        : "border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
+                  {t("rentersRights.petRequest.decisionDate")}
+                </label>
+                <input
+                  type="date"
+                  value={decision.decisionDate}
+                  onChange={(e) => setDecision((d) => ({ ...d, decisionDate: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </div>
+              {decision.status === "refused" && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
+                    {t("rentersRights.petRequest.refusalReason")} *
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={decision.refusalReason}
+                    onChange={(e) => setDecision((d) => ({ ...d, refusalReason: e.target.value }))}
+                    placeholder={t("rentersRights.petRequest.refusalReasonPlaceholder")}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  />
+                </div>
+              )}
+              {decision.status === "approved" && (
+                <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={decision.insuranceRequired}
+                    onChange={(e) => setDecision((d) => ({ ...d, insuranceRequired: e.target.checked }))}
+                    className="rounded"
+                  />
+                  {t("rentersRights.petRequest.insuranceRequired")}
+                </label>
+              )}
+              {error && (
+                <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-900/20 dark:text-red-300">
+                  {error}
+                </p>
+              )}
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDecisionModal(null)}
+                  className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  {t("common.cancel")}
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"
+                >
+                  {saving ? t("common.saving") : t("common.save")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="py-12 text-center text-sm text-slate-400">{t("common.loading")}</div>
+      ) : requests.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 py-12 text-center dark:border-slate-700">
+          <FileText className="mx-auto mb-3 h-8 w-8 text-slate-300 dark:text-slate-600" />
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t("rentersRights.petRequest.empty")}</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+          <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+            <thead className="bg-slate-50 dark:bg-slate-800/50">
+              <tr>
+                {["tenant", "property", "petType", "requestDate", "decisionDue", "status"].map((c) => (
+                  <th
+                    key={c}
+                    className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                  >
+                    {t(`rentersRights.petRequest.col.${c}`, c)}
+                  </th>
+                ))}
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
+              {requests.map((r) => (
+                <tr
+                  key={r.id}
+                  className={`hover:bg-slate-50 dark:hover:bg-slate-800/40 ${
+                    r.isOverdue ? "bg-amber-50/60 dark:bg-amber-900/10" : ""
+                  }`}
+                >
+                  <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{r.tenantName}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{r.propertyAddress}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+                    {t(`rentersRights.petRequest.petType.${r.petType}`, r.petType)}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{fmt(r.requestDate)}</td>
+                  <td className={`px-4 py-3 ${r.isOverdue ? "font-medium text-amber-700 dark:text-amber-400" : "text-slate-600 dark:text-slate-400"}`}>
+                    {fmt(r.decisionDueDate)}
+                  </td>
+                  <td className="px-4 py-3">{statusBadge(r)}</td>
+                  <td className="px-4 py-3 text-right">
+                    {["received", "under_review"].includes(r.status) && (
+                      <button
+                        onClick={() => {
+                          setDecision({
+                            status: "approved",
+                            decisionDate: new Date().toISOString().slice(0, 10),
+                            refusalReason: "",
+                            insuranceRequired: false,
+                          });
+                          setDecisionModal(r);
+                        }}
+                        className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                      >
+                        {t("rentersRights.petRequest.recordDecision")}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -325,3 +325,147 @@ export async function linkRentReviewDocument({ recordId, accountId, documentId, 
   if (!data) throw new Error("link_rent_review_document returned no data");
   return parseRentReviewRow(data);
 }
+
+// ── Phase 3: Pet Requests ─────────────────────────────────────────────────────
+
+export function parsePetRequestRow(row) {
+  if (!row) return null;
+  const today   = new Date().toISOString().slice(0, 10);
+  const dueDate = row.decision_due_date || null;
+  const openStatuses = ["received", "under_review"];
+  return {
+    id:                  String(row.id || ""),
+    accountId:           String(row.account_id || ""),
+    propertyId:          row.property_id || null,
+    tenantId:            row.tenant_id   || null,
+    leaseId:             row.lease_id    || null,
+    jurisdiction:        String(row.jurisdiction || "GB-ENG"),
+    petType:             String(row.pet_type || "other"),
+    petDescription:      row.pet_description || null,
+    requestDate:         row.request_date || null,
+    decisionDueDate:     dueDate,
+    isOverdue:           dueDate !== null && dueDate < today && openStatuses.includes(String(row.status)),
+    status:              String(row.status || "received"),
+    decisionDate:        row.decision_date || null,
+    refusalReason:       row.refusal_reason || null,
+    insuranceRequired:   Boolean(row.insurance_required),
+    insuranceDocumentId: row.insurance_document_id || null,
+    notes:               row.notes     || null,
+    createdBy:           row.created_by || null,
+    createdAt:           row.created_at || null,
+    updatedAt:           row.updated_at || null,
+    tenantName:          String(row.tenant_name      || "—"),
+    propertyAddress:     String(row.property_address || "—"),
+  };
+}
+
+export async function listPetRequests({ accountId, status = null, limit = 100, offset = 0 } = {}) {
+  if (!accountId) return [];
+
+  const { data, error } = await supabase.rpc("list_pet_requests", {
+    p_account_id: accountId,
+    p_status:     status,
+    p_limit:      limit,
+    p_offset:     offset,
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("list_pet_requests", { error, context: { accountId } });
+    throw friendly(error, "Failed to load pet requests");
+  }
+  return (data ?? []).map(parsePetRequestRow);
+}
+
+export async function createPetRequest({
+  accountId,
+  propertyId     = null,
+  tenantId       = null,
+  leaseId        = null,
+  petType        = "other",
+  petDescription = null,
+  requestDate    = null,
+  notes          = null,
+} = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!petType)   throw new Error("Missing petType");
+
+  const { data, error } = await supabase.rpc("create_pet_request", {
+    p_account_id:      accountId,
+    p_property_id:     propertyId,
+    p_tenant_id:       tenantId,
+    p_lease_id:        leaseId,
+    p_pet_type:        petType,
+    p_pet_description: petDescription,
+    p_request_date:    requestDate,
+    p_notes:           notes,
+  });
+
+  if (error) throw friendly(error, "Failed to log pet request");
+  if (!data) throw new Error("create_pet_request returned no data");
+  return parsePetRequestRow(data);
+}
+
+export async function updatePetRequestStatus({
+  requestId,
+  accountId,
+  status,
+  decisionDate      = null,
+  refusalReason     = null,
+  insuranceRequired = null,
+  notes             = null,
+} = {}) {
+  if (!requestId)  throw new Error("Missing requestId");
+  if (!accountId)  throw new Error("Missing accountId");
+  if (!status)     throw new Error("Missing status");
+
+  const { data, error } = await supabase.rpc("update_pet_request_status", {
+    p_request_id:         requestId,
+    p_account_id:         accountId,
+    p_status:             status,
+    p_decision_date:      decisionDate,
+    p_refusal_reason:     refusalReason,
+    p_insurance_required: insuranceRequired,
+    p_notes:              notes,
+  });
+
+  if (error) throw friendly(error, "Failed to update pet request status");
+  if (!data) throw new Error("update_pet_request_status returned no data");
+  return parsePetRequestRow(data);
+}
+
+export async function linkPetRequestDocument({ requestId, accountId, documentId } = {}) {
+  if (!requestId)  throw new Error("Missing requestId");
+  if (!accountId)  throw new Error("Missing accountId");
+  if (!documentId) throw new Error("Missing documentId");
+
+  const { data, error } = await supabase.rpc("link_pet_request_document", {
+    p_request_id:  requestId,
+    p_account_id:  accountId,
+    p_document_id: documentId,
+  });
+
+  if (error) throw friendly(error, "Failed to link document to pet request");
+  if (!data) throw new Error("link_pet_request_document returned no data");
+  return parsePetRequestRow(data);
+}
+
+export async function listActiveTenantsForPetRequest({ accountId } = {}) {
+  if (!accountId) return [];
+  const { data } = await supabase
+    .from("tenants")
+    .select("id, name, property_id")
+    .eq("account_id", accountId)
+    .eq("status", "active")
+    .order("name");
+  return data ?? [];
+}
+
+export async function listPropertiesForPetRequest({ accountId } = {}) {
+  if (!accountId) return [];
+  const { data } = await supabase
+    .from("properties")
+    .select("id, address")
+    .eq("account_id", accountId)
+    .order("address");
+  return data ?? [];
+}
