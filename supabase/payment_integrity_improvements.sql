@@ -226,6 +226,9 @@ $$;
 
 
 -- ── A-1 + A-9: void_payment — accept optional p_account_id, clear paid_at ────
+-- Drop 1-param overload if it exists (avoids PGRST203 ambiguity when called
+-- with only p_payment_id from clients that omit the optional parameter).
+drop function if exists public.void_payment(uuid);
 create or replace function public.void_payment(
   p_payment_id uuid,
   p_account_id uuid default null::uuid
@@ -265,6 +268,7 @@ $$;
 
 
 -- ── A-1 + A-9: reopen_payment — accept optional p_account_id, derive status ──
+drop function if exists public.reopen_payment(uuid);
 create or replace function public.reopen_payment(
   p_payment_id uuid,
   p_account_id uuid default null::uuid

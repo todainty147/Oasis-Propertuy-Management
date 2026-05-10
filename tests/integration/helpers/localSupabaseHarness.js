@@ -511,6 +511,20 @@ export async function ensureIsolationHarnessSeed() {
   }
 
   try {
+    // Delete any stale non-seeded payments before upserting the canonical seed rows.
+    // Tests may leave payments behind when they fail mid-run or when afterEach
+    // cleanup is skipped; stale overdue rows corrupt finance_snapshot assertions.
+    await admin
+      .from("payments")
+      .delete()
+      .eq("account_id", isolationFixtures.accounts.accountA.id)
+      .not("id", "in", `(${paymentIds.accountA})`);
+    await admin
+      .from("payments")
+      .delete()
+      .eq("account_id", isolationFixtures.accounts.accountB.id)
+      .not("id", "in", `(${paymentIds.accountB})`);
+
     await upsertWithContext(admin, "payments", [
       {
         id: paymentIds.accountA,
