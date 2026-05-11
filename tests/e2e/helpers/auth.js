@@ -2,6 +2,22 @@
 import { expect } from "@playwright/test";
 import { isolationFixtures } from "../../fixtures/isolationFixtures.js";
 
+// Always allow the auth rate-limit RPC so test fixture users are never blocked
+// by accumulated events from previous runs. Specific rate-limit tests override
+// this in their own page.route() call (last-registered route wins in Playwright).
+async function bypassRateLimit(page) {
+  await page.route("**/rpc/record_auth_rate_limit_attempt", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        allowed: true, attempt_count: 1, max_attempts: 5,
+        window_seconds: 900, retry_after_seconds: 0,
+      }),
+    });
+  });
+}
+
 const TEST_USER_PASSWORD = process.env.TEST_USER_PASSWORD || "OasisTest123!";
 
 export const seededUsers = {
@@ -18,12 +34,14 @@ export const seededEntityIds = {
 };
 
 export async function prepareEnglishLocale(page) {
+  await bypassRateLimit(page);
   await page.addInitScript(() => {
     window.localStorage.setItem("oasis_lang", "en");
   });
 }
 
 export async function signInAs(page, email) {
+  await bypassRateLimit(page);
   await prepareEnglishLocale(page);
   await page.goto("/login");
 

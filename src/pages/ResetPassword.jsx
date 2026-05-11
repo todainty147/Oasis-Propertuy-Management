@@ -103,10 +103,8 @@ export default function ResetPassword() {
 
       const rateCheck = await recordAuthRateLimitAttempt(clean, "auth_reset");
       if (!rateCheck.allowed) {
-        const time = formatRetryAfter(rateCheck.retryAfterSeconds);
-        throw new Error(
-          t("reset.rateLimited").replace("{{time}}", time || "a while"),
-        );
+        const time = formatRetryAfter(rateCheck.retryAfterSeconds) || "a while";
+        throw new Error(t("reset.rateLimited", { time }));
       }
 
       await requestPasswordResetEmail(clean, { inviteToken });

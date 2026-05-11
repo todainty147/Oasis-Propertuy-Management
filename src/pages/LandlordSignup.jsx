@@ -54,8 +54,8 @@ export default function LandlordSignup() {
 
       const rateCheck = await recordAuthRateLimitAttempt(cleanEmail, "auth_signup");
       if (!rateCheck.allowed) {
-        const time = formatRetryAfter(rateCheck.retryAfterSeconds);
-        throw new Error(t("signup.rateLimited").replace("{{time}}", time || "a while"));
+        const time = formatRetryAfter(rateCheck.retryAfterSeconds) || "a while";
+        throw new Error(t("signup.rateLimited", { time }));
       }
 
       const pwResult = validatePasswordStrength(password, { email: cleanEmail, accountName: cleanName });

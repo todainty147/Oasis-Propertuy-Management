@@ -25,11 +25,7 @@ export default function Login() {
     const rateCheck = await recordAuthRateLimitAttempt(email, "auth_login");
     if (!rateCheck.allowed) {
       const time = formatRetryAfter(rateCheck.retryAfterSeconds);
-      setError(
-        time
-          ? t("login.rateLimited").replace("{{time}}", time)
-          : t("login.rateLimitedGeneric"),
-      );
+      setError(time ? t("login.rateLimited", { time }) : t("login.rateLimitedGeneric"));
       setLoading(false);
       return;
     }

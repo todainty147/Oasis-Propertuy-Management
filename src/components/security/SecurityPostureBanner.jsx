@@ -29,7 +29,7 @@ export default function SecurityPostureBanner({ accountId }) {
 
   if (!weakCount) return null;
 
-  const body = t("securityPosture.bannerBody").replace("{{count}}", weakCount);
+  const body = t("securityPosture.bannerBody", { count: weakCount });
 
   return (
     <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800/40 dark:bg-amber-950/30">
