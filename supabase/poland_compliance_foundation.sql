@@ -418,18 +418,31 @@ AS $$
   pl_items AS (
 
     -- Missing notarial declaration
+    -- Column aliases on first UNION ALL branch so ORDER BY can reference by name.
     SELECT
-      'pl-notarial-' || ci.id::text,
-      'pl_missing_notarial_declaration',
-      'compliance', 'action', 'action',
-      'tenant', ci.tenant_id::text,
-      'Brak oświadczenia notarialnego',
-      '',
-      '/compliance/poland',
-      ci.property_id, coalesce(p.address, '—'),
-      ci.tenant_id,   coalesce(t.name, '—'),
-      ci.title, '', null::numeric, null::int, null::int,
-      ci.created_at, false, 'compliance_checklist_items', 19
+      'pl-notarial-' || ci.id::text         AS item_key,
+      'pl_missing_notarial_declaration'      AS item_type,
+      'compliance'                           AS category,
+      'action'                               AS severity,
+      'action'                               AS bucket,
+      'tenant'                               AS entity_type,
+      ci.tenant_id::text                     AS entity_id,
+      'Brak oświadczenia notarialnego'       AS title,
+      ''                                     AS body,
+      '/compliance/poland'                   AS link_path,
+      ci.property_id                         AS property_id,
+      coalesce(p.address, '—')               AS property_label,
+      ci.tenant_id                           AS tenant_id,
+      coalesce(t.name, '—')                  AS tenant_label,
+      ci.title                               AS entity_label,
+      ''                                     AS contractor_label,
+      null::numeric                          AS amount,
+      null::int                              AS age_hours,
+      null::int                              AS due_days,
+      ci.created_at                          AS created_at,
+      false                                  AS resolved_state,
+      'compliance_checklist_items'           AS source_table,
+      19                                     AS sort_order
     FROM compliance_checklist_items ci
     CROSS JOIN authz a
     LEFT JOIN properties p ON p.id = ci.property_id
