@@ -6,7 +6,7 @@
 //   TenantRoutes   — tenant-scoped hooks (tenant sessions only)
 //   Contractor pages fetch their own data independently
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { lazy, Suspense, useMemo } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
 import Login          from "./pages/Login";
 import Invite         from "./pages/Invite";
@@ -19,6 +19,7 @@ import TenantPortalLayout from "./layout/TenantPortalLayout";
 import { useSession }  from "./hooks/useSession";
 import { useAccount }  from "./context/AccountContext";
 import { useI18n }     from "./context/I18nContext";
+import { getOwnSecurityProfile } from "./services/passwordSecurityService";
 
 import ManagerRoutes  from "./routes/ManagerRoutes";
 import TenantRoutes   from "./routes/TenantRoutes";
@@ -36,6 +37,20 @@ export default function App() {
   const location                                                 = useLocation();
   const { session, loading: sessionLoading }                     = useSession();
   const { activeAccountId, activeAccount, accountLoading }       = useAccount();
+
+  // Stage 4: hard enforcement — if admin has flagged the user as reset_required,
+  // block all protected routes until they update their password.
+  const [passwordResetRequired, setPasswordResetRequired] = useState(false);
+  useEffect(() => {
+    if (!session?.user) { setPasswordResetRequired(false); return; }
+    let cancelled = false;
+    getOwnSecurityProfile().then((profile) => {
+      if (!cancelled) {
+        setPasswordResetRequired(profile?.password_strength_status === "reset_required");
+      }
+    });
+    return () => { cancelled = true; };
+  }, [session?.user?.id]);
 
   // owners: minimal account identity for Topbar / account switcher.
   // Full ownerEmail enhancement lives in usePortfolioShellData (manager sessions only).
@@ -72,6 +87,11 @@ export default function App() {
   }
 
   if (!session) return <Login />;
+
+  // Stage 4: block all protected routes if admin has flagged reset_required
+  if (passwordResetRequired && location.pathname !== "/reset-password") {
+    return <Navigate to="/reset-password" replace state={{ reason: "reset_required" }} />;
+  }
 
   if (!activeAccountId) {
     return (

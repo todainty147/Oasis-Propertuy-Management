@@ -7,6 +7,7 @@ import { finalizeSelfServeLandlordAccount } from "../services/selfServeSignupSer
 import { validatePasswordStrength } from "../utils/passwordPolicy";
 import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
 import { recordStrongPassword } from "../services/passwordSecurityService";
+import { recordAuthRateLimitAttempt, formatRetryAfter } from "../services/authRateLimitService";
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 
 export default function LandlordSignup() {
@@ -49,6 +50,12 @@ export default function LandlordSignup() {
       const cleanName = String(accountName || "").trim();
       if (!cleanEmail || !password || !cleanName) {
         throw new Error(t("signup.required"));
+      }
+
+      const rateCheck = await recordAuthRateLimitAttempt(cleanEmail, "auth_signup");
+      if (!rateCheck.allowed) {
+        const time = formatRetryAfter(rateCheck.retryAfterSeconds);
+        throw new Error(t("signup.rateLimited").replace("{{time}}", time || "a while"));
       }
 
       const pwResult = validatePasswordStrength(password, { email: cleanEmail, accountName: cleanName });

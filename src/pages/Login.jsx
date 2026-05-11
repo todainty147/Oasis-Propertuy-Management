@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
 import { APP_LANGUAGES, getLanguageFlag } from "../i18n/languages";
+import { recordAuthRateLimitAttempt, formatRetryAfter } from "../services/authRateLimitService";
 
 export default function Login() {
   const [params] = useSearchParams();
@@ -20,6 +21,18 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    const rateCheck = await recordAuthRateLimitAttempt(email, "auth_login");
+    if (!rateCheck.allowed) {
+      const time = formatRetryAfter(rateCheck.retryAfterSeconds);
+      setError(
+        time
+          ? t("login.rateLimited").replace("{{time}}", time)
+          : t("login.rateLimitedGeneric"),
+      );
+      setLoading(false);
+      return;
+    }
 
     const { error } = await supabase.auth.signInWithPassword({
       email,

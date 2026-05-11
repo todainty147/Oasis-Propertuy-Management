@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
 import { requestPasswordResetEmail } from "../services/passwordResetService";
@@ -7,12 +7,15 @@ import { acceptAccountInvite } from "../services/invitationService";
 import { validatePasswordStrength } from "../utils/passwordPolicy";
 import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
 import { recordStrongPassword } from "../services/passwordSecurityService";
+import { recordAuthRateLimitAttempt, formatRetryAfter } from "../services/authRateLimitService";
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 
 export default function ResetPassword() {
   const [params] = useSearchParams();
   const { t } = useI18n();
   const navigate = useNavigate();
+  const { state: locationState } = useLocation();
+  const forcedReset = locationState?.reason === "reset_required";
   const inviteToken = String(params.get("invite_token") || "").trim();
 
   const [email, setEmail] = useState("");
@@ -98,6 +101,14 @@ export default function ResetPassword() {
       const clean = String(email || "").trim().toLowerCase();
       if (!clean) throw new Error(t("reset.requiredEmail"));
 
+      const rateCheck = await recordAuthRateLimitAttempt(clean, "auth_reset");
+      if (!rateCheck.allowed) {
+        const time = formatRetryAfter(rateCheck.retryAfterSeconds);
+        throw new Error(
+          t("reset.rateLimited").replace("{{time}}", time || "a while"),
+        );
+      }
+
       await requestPasswordResetEmail(clean, { inviteToken });
       setMessage(t("reset.emailSent"));
     } catch (e2) {
@@ -162,6 +173,11 @@ export default function ResetPassword() {
           {isRecovery ? t("reset.setNewTitle") : t("reset.requestTitle")}
         </h1>
 
+        {forcedReset ? (
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            {t("auth.resetRequired")}
+          </p>
+        ) : null}
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
 
