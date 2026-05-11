@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
 import { requestPasswordResetEmail } from "../services/passwordResetService";
 import { acceptAccountInvite } from "../services/invitationService";
+import { validatePasswordStrength } from "../utils/passwordPolicy";
+import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
+import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 
 export default function ResetPassword() {
   const [params] = useSearchParams();
@@ -18,6 +21,11 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  const passwordValidation = useMemo(
+    () => validatePasswordStrength(newPassword),
+    [newPassword],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -107,6 +115,15 @@ export default function ResetPassword() {
       if (!newPassword || !confirmPassword) throw new Error(t("reset.requiredPassword"));
       if (newPassword !== confirmPassword) throw new Error(t("reset.passwordMismatch"));
 
+      const pwResult = validatePasswordStrength(newPassword);
+      if (!pwResult.valid) {
+        logSecurityRelevantFailure("auth_weak_password_rejected", {
+          error: { message: "Weak password rejected at reset", code: "AUTH_WEAK_PASSWORD" },
+          context: { flow: "reset_password", failedRequirements: pwResult.failedKeys },
+        });
+        throw new Error(t("passwordPolicy.tooWeak"));
+      }
+
       const { error: updErr } = await supabase.auth.updateUser({ password: newPassword });
       if (updErr) throw updErr;
 
@@ -152,13 +169,16 @@ export default function ResetPassword() {
           />
         ) : (
           <>
-            <input
-              type="password"
-              placeholder={t("reset.newPassword")}
-              className="w-full border rounded-lg px-3 py-2"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
+            <div>
+              <input
+                type="password"
+                placeholder={t("reset.newPassword")}
+                className="w-full border rounded-lg px-3 py-2"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+              <PasswordStrengthMeter password={newPassword} showChecklist />
+            </div>
             <input
               type="password"
               placeholder={t("reset.confirmPassword")}
@@ -171,7 +191,7 @@ export default function ResetPassword() {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || (isRecovery && newPassword.length > 0 && !passwordValidation.valid)}
           className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:bg-slate-400"
         >
           {loading

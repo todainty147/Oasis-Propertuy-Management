@@ -100,7 +100,9 @@ const ROLE_MATRIX = [
 ];
 
 function navLinks(page, name) {
-  return page.getByRole("link", { name, exact: true });
+  // Exclude breadcrumb navs — DashboardBreadcrumbs injects a "Dashboard" link
+  // into every page's breadcrumb, which would falsely match hidden-nav checks.
+  return page.locator('nav:not([aria-label="Breadcrumb"])').getByRole("link", { name, exact: true });
 }
 
 async function expectVisibleNav(page, labels = []) {

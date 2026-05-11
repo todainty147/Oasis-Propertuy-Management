@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
 import { APP_LANGUAGES, getLanguageFlag } from "../i18n/languages";
 import { finalizeSelfServeLandlordAccount } from "../services/selfServeSignupService";
+import { validatePasswordStrength } from "../utils/passwordPolicy";
+import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
+import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 
 export default function LandlordSignup() {
   const { t, lang, setLang } = useI18n();
@@ -16,6 +19,15 @@ export default function LandlordSignup() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  const passwordContext = useMemo(
+    () => ({ email: email.trim().toLowerCase(), accountName: accountName.trim() }),
+    [email, accountName],
+  );
+  const passwordValidation = useMemo(
+    () => validatePasswordStrength(password, passwordContext),
+    [password, passwordContext],
+  );
 
   async function clearLocalAuthState() {
     try {
@@ -36,6 +48,15 @@ export default function LandlordSignup() {
       const cleanName = String(accountName || "").trim();
       if (!cleanEmail || !password || !cleanName) {
         throw new Error(t("signup.required"));
+      }
+
+      const pwResult = validatePasswordStrength(password, { email: cleanEmail, accountName: cleanName });
+      if (!pwResult.valid) {
+        logSecurityRelevantFailure("auth_weak_password_rejected", {
+          error: { message: "Weak password rejected at signup", code: "AUTH_WEAK_PASSWORD" },
+          context: { flow: "signup", failedRequirements: pwResult.failedKeys },
+        });
+        throw new Error(t("passwordPolicy.tooWeak"));
       }
 
       const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
@@ -147,13 +168,16 @@ export default function LandlordSignup() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          <input
-            type="password"
-            placeholder={t("login.password")}
-            className="w-full border rounded-lg px-3 py-2"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <div>
+            <input
+              type="password"
+              placeholder={t("login.password")}
+              className="w-full border rounded-lg px-3 py-2"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <PasswordStrengthMeter password={password} context={passwordContext} showChecklist />
+          </div>
 
           <label className="flex items-start gap-3 rounded-xl border border-blue-400 bg-blue-950/70 px-3 py-3 text-sm text-blue-50 shadow-sm ring-1 ring-blue-300/20">
             <input
@@ -170,7 +194,7 @@ export default function LandlordSignup() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (password.length > 0 && !passwordValidation.valid)}
             className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:bg-slate-400"
           >
             {loading ? t("signup.creating") : t("signup.createLandlord")}

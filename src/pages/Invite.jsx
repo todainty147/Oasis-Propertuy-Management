@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/I18nContext";
 import { APP_LANGUAGES, getLanguageFlag } from "../i18n/languages";
 import { acceptAccountInvite } from "../services/invitationService";
+import { validatePasswordStrength } from "../utils/passwordPolicy";
+import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
+import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 
 const USE_BRANDED_INVITES =
   String(import.meta.env.VITE_USE_BRANDED_INVITES || "").toLowerCase() === "true";
@@ -23,6 +26,11 @@ export default function Invite() {
   const [sessionReady, setSessionReady] = useState(false);
   const sessionHydrated = useRef(false);
 
+  const passwordValidation = useMemo(
+    () => validatePasswordStrength(newPassword),
+    [newPassword],
+  );
+
   async function completeInviteSetup() {
     if (!token) {
       alert(t("invite.missingToken"));
@@ -36,6 +44,15 @@ export default function Invite() {
       }
       if (newPassword !== confirmPassword) {
         throw new Error(t("reset.passwordMismatch"));
+      }
+
+      const pwResult = validatePasswordStrength(newPassword);
+      if (!pwResult.valid) {
+        logSecurityRelevantFailure("auth_weak_password_rejected", {
+          error: { message: "Weak password rejected at invite acceptance", code: "AUTH_WEAK_PASSWORD" },
+          context: { flow: "invite_acceptance", failedRequirements: pwResult.failedKeys },
+        });
+        throw new Error(t("passwordPolicy.tooWeak"));
       }
 
       const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
@@ -214,13 +231,16 @@ export default function Invite() {
               <p className="text-sm text-slate-600 dark:text-slate-300">
                 {t("invite.setPasswordHelp")}
               </p>
-              <input
-                type="password"
-                placeholder={t("reset.newPassword")}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              />
+              <div>
+                <input
+                  type="password"
+                  placeholder={t("reset.newPassword")}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                />
+                <PasswordStrengthMeter password={newPassword} showChecklist />
+              </div>
               <input
                 type="password"
                 placeholder={t("reset.confirmPassword")}
@@ -231,9 +251,9 @@ export default function Invite() {
               <button
                 type="button"
                 onClick={completeInviteSetup}
-                disabled={busy || !token || !sessionReady || !sessionHydrated.current}
+                disabled={busy || !token || !sessionReady || !sessionHydrated.current || (newPassword.length > 0 && !passwordValidation.valid)}
                 className={`w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow ${
-                  busy || !token || !sessionReady || !sessionHydrated.current
+                  busy || !token || !sessionReady || !sessionHydrated.current || (newPassword.length > 0 && !passwordValidation.valid)
                     ? "bg-slate-400 cursor-not-allowed"
                     : "bg-emerald-600 hover:bg-emerald-700"
                 }`}

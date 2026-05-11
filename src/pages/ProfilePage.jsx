@@ -6,6 +6,9 @@ import { useI18n } from "../context/I18nContext";
 import { supabase } from "../lib/supabase";
 import { assertPhone, normalizeText } from "../utils/validation";
 import { usePageTitle } from "../layout/PageTitleContext";
+import { validatePasswordStrength } from "../utils/passwordPolicy";
+import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
+import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 
 function Field({ label, icon: Icon, children }) {
   return (
@@ -63,6 +66,15 @@ export default function ProfilePage() {
 
   const email = useMemo(() => user?.email || "", [user?.email]);
 
+  const passwordPolicyContext = useMemo(
+    () => ({ email, name: normalizeText(profileForm.full_name) }),
+    [email, profileForm.full_name],
+  );
+  const passwordValidation = useMemo(
+    () => validatePasswordStrength(passwordForm.newPassword, passwordPolicyContext),
+    [passwordForm.newPassword, passwordPolicyContext],
+  );
+
   function updateProfileField(key, value) {
     setProfileForm((current) => ({ ...current, [key]: value }));
   }
@@ -113,8 +125,14 @@ export default function ProfilePage() {
       if (newPassword !== confirmPassword) {
         throw new Error(t("profile.passwordMismatch"));
       }
-      if (newPassword.length < 8) {
-        throw new Error(t("profile.passwordMinLength"));
+
+      const pwResult = validatePasswordStrength(newPassword, passwordPolicyContext);
+      if (!pwResult.valid) {
+        logSecurityRelevantFailure("auth_weak_password_rejected", {
+          error: { message: "Weak password rejected at profile update", code: "AUTH_WEAK_PASSWORD" },
+          context: { flow: "update_password", failedRequirements: pwResult.failedKeys },
+        });
+        throw new Error(t("passwordPolicy.tooWeak"));
       }
 
       const { error } = await supabase.auth.updateUser({ password: newPassword });
@@ -225,14 +243,21 @@ export default function ProfilePage() {
           </div>
 
           <div className="space-y-4">
-            <Field label={t("profile.newPassword")}>
-              <TextInput
-                type="password"
-                value={passwordForm.newPassword}
-                onChange={(e) => updatePasswordField("newPassword", e.target.value)}
-                placeholder={t("profile.newPassword")}
+            <div>
+              <Field label={t("profile.newPassword")}>
+                <TextInput
+                  type="password"
+                  value={passwordForm.newPassword}
+                  onChange={(e) => updatePasswordField("newPassword", e.target.value)}
+                  placeholder={t("profile.newPassword")}
+                />
+              </Field>
+              <PasswordStrengthMeter
+                password={passwordForm.newPassword}
+                context={passwordPolicyContext}
+                showChecklist
               />
-            </Field>
+            </div>
 
             <Field label={t("profile.confirmPassword")}>
               <TextInput
@@ -253,7 +278,7 @@ export default function ProfilePage() {
 
           <button
             type="submit"
-            disabled={passwordBusy}
+            disabled={passwordBusy || (passwordForm.newPassword.length > 0 && !passwordValidation.valid)}
             className="mt-5 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
           >
             <KeyRound size={16} />
