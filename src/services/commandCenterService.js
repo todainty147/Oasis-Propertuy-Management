@@ -3,6 +3,7 @@ import { getDashboardSnapshot } from "./dashboardService";
 import { listPropertyOperationalHealthScores } from "./propertyHealthScoreService";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 import { parseCommandCenterItemRow, parseRpcRows } from "./rpcContracts";
+import { getPlComplianceCommandItems } from "./complianceChecklistService";
 
 function isMissingBackendObject(error) {
   const message = String(error?.message || "").toLowerCase();
@@ -134,12 +135,15 @@ export async function getCommandCenterData(accountId) {
     listPropertyOperationalHealthScores(accountId, { limit: 200 }),
   ]);
 
-  // RR items: direct RPC call, no extra import, fully isolated from main Promise.all.
-  // Any failure (missing function, feature gate, network) must never suppress AI cards.
+  // RR items: direct RPC call — failures must never suppress other items.
   const rrRows = await supabase
     .rpc("list_rr_attention_items", { p_account_id: accountId, p_limit: 20 })
     .then((res) => res.data ?? [])
     .catch((err) => { console.warn("[CommandCenter] list_rr_attention_items:", err?.message ?? err); return []; });
+
+  // PL compliance checklist items — merged client-side, isolated from other sources.
+  const plRows = await getPlComplianceCommandItems(accountId, 40)
+    .catch((err) => { console.warn("[CommandCenter] pl_compliance_checklist_command_items:", err?.message ?? err); return []; });
 
   if (rpcRes.error) {
     if (isMissingBackendObject(rpcRes.error)) {
@@ -153,6 +157,7 @@ export async function getCommandCenterData(accountId) {
   }
 
   const rrItems = (rrRows || []).map(normalizeRrAttentionItem);
+  const plItems = (plRows || []).map(normalizeRpcItem);
 
   const items = [
     ...parseRpcRows(
@@ -161,6 +166,7 @@ export async function getCommandCenterData(accountId) {
       "command_center_items rows",
     ).map(normalizeRpcItem),
     ...rrItems,
+    ...plItems,
   ];
   const urgent = sortItems(items.filter((item) => item.bucket === "urgent")).slice(0, 12);
   const action = sortItems(items.filter((item) => item.bucket === "action")).slice(0, 12);

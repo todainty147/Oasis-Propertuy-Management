@@ -77,6 +77,7 @@ const OVERLAY_SEQUENCE = [
   "security_denied_event_stream.sql",
   "security_observability_events.sql",
   "api_rate_limits.sql",
+  "auth_rate_limits.sql",
   "support_telemetry_access.sql",
   "security_failure_observability.sql",
   "work_order_audit_security_fixes.sql",
@@ -90,6 +91,7 @@ const OVERLAY_SEQUENCE = [
   "self_serve_landlord_signup.sql",
   "create_landlord_invitation.sql",
   "auth_user_profile_bootstrap_hardening.sql",
+  "auth_password_security_profile.sql",
   "compliance_document_links.sql",
   "document_audit_scope.sql",
   "document_templates.sql",
@@ -111,7 +113,12 @@ const OVERLAY_SEQUENCE = [
   "trial_period_enforcement.sql",
   "operator_agency_grants.sql",
   "account_subscription_plan_hardened.sql",
+  "reserve_ai_call_checked.sql",
+  "founder_launch_offer.sql",
+  "account_subscription_plan_founder.sql",
+  "reserve_ai_call_checked_founder.sql",
   "lease_clause_audit_ai.sql",
+  "poland_compliance_foundation.sql",
 ];
 
 function resolvePsqlCommand() {

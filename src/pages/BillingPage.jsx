@@ -16,6 +16,7 @@ import {
 import { isManageRole } from "../utils/permissions";
 import OnboardingHintCard from "../components/OnboardingHintCard";
 import AiUsageSummaryCard from "../components/AiUsageSummaryCard";
+import FounderEntitlementCard from "../components/billing/FounderEntitlementCard";
 
 // Self-serve plans — operator_agency is intentionally excluded (sales-only)
 const SELF_SERVE_PLANS = [
@@ -217,6 +218,8 @@ export default function BillingPage() {
     activeAccountId, activeRole, isRootOperator, activePlan,
     trialEndsAt, isInTrial, trialDaysLeft,
     isOaPending, oaCheckoutUrl, oaGrantStatus,
+    isFounder, founderEffectivePlan, founderBilledPlan,
+    founderEndsAt, founderAiMonthlyLimit, founderPosition,
   } = useAccount();
   const { t } = useI18n();
   const [subscription, setSubscription] = useState(null);
@@ -418,6 +421,16 @@ export default function BillingPage() {
       />
 
       <AiUsageSummaryCard accountId={activeAccountId} />
+
+      {isFounder ? (
+        <FounderEntitlementCard
+          effectivePlan={founderEffectivePlan}
+          billedPlan={founderBilledPlan}
+          endsAt={founderEndsAt}
+          aiMonthlyLimit={founderAiMonthlyLimit}
+          position={founderPosition}
+        />
+      ) : null}
 
       {/* ── Self-serve plan cards ── */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

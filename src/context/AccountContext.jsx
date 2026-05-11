@@ -8,6 +8,7 @@ import { canAccessRootTelemetry, getRootTelemetryAccessMode } from "../utils/tel
 import { getPermissionKeysForRole } from "../utils/permissions";
 import { assertFeature, hasFeature, isLockedPlan, normalizePlan } from "../lib/entitlements";
 import { getMyOaGrantStatus } from "../services/operatorAgencyService";
+import { getAccountActiveEntitlement } from "../services/founderOfferService";
 
 const AccountContext = createContext(null);
 
@@ -32,6 +33,7 @@ export function AccountProvider({ children }) {
 
   const [authzError, setAuthzError] = useState(null);
   const [oaGrantStatus, setOaGrantStatus] = useState(null); // { paymentStatus, checkoutUrl, ... }
+  const [founderEntitlement, setFounderEntitlement] = useState(null);
 
   /* ======================
      LOAD ACCOUNTS / TENANT / CONTRACTOR CONTEXT
@@ -467,6 +469,19 @@ export function AccountProvider({ children }) {
     return () => { cancelled = true; };
   }, [activeAccountId, isRootOperator]);
 
+  /* Founder entitlement — load alongside OA grant status */
+  useEffect(() => {
+    if (!activeAccountId) {
+      setFounderEntitlement(null);
+      return;
+    }
+    let cancelled = false;
+    getAccountActiveEntitlement(activeAccountId)
+      .then((ent) => { if (!cancelled) setFounderEntitlement(ent); })
+      .catch(() => { if (!cancelled) setFounderEntitlement(null); });
+    return () => { cancelled = true; };
+  }, [activeAccountId]);
+
   /* ======================
      PERSIST ACTIVE ACCOUNT
      ====================== */
@@ -578,6 +593,14 @@ export function AccountProvider({ children }) {
     [activePermissionKeys, activeRole],
   );
 
+  // Founder entitlement derived values
+  const isFounder              = founderEntitlement !== null;
+  const founderEffectivePlan   = founderEntitlement?.effective_plan ?? null;
+  const founderBilledPlan      = founderEntitlement?.billed_plan ?? null;
+  const founderEndsAt          = founderEntitlement?.ends_at ?? null;
+  const founderAiMonthlyLimit  = founderEntitlement?.monthly_ai_credit_limit ?? null;
+  const founderPosition        = founderEntitlement?.metadata?.founder_position ?? null;
+
   const hasEntitlement = useMemo(
     () => (feature) => hasFeature(activePlan, feature),
     [activePlan],
@@ -646,6 +669,14 @@ export function AccountProvider({ children }) {
         oaGrantStatus,
         isOaPending,
         oaCheckoutUrl,
+
+        // Founder entitlement
+        isFounder,
+        founderEffectivePlan,
+        founderBilledPlan,
+        founderEndsAt,
+        founderAiMonthlyLimit,
+        founderPosition,
 
         tenantContext,
         contractorContext,

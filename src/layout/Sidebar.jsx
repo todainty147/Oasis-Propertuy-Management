@@ -29,10 +29,12 @@ import {
   ShieldCheck,
   Lock,
   Globe,
+  Flag,
 } from "lucide-react";
 
 import { useMemo, useState } from "react";
 import { useAccount } from "../context/AccountContext";
+import { isPolishMarket } from "../utils/complianceMarket";
 import { useI18n } from "../context/I18nContext";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -116,6 +118,7 @@ function SidebarContent({ onNavigate }) {
   const {
     activeRole,
     activeAccountId,
+    activeAccount,
     activePermissionContext,
     isRootOperator,
     canAccessTelemetry,
@@ -130,6 +133,7 @@ function SidebarContent({ onNavigate }) {
   const isTenant = role === "tenant";
   const canManage = isManageRole(role, { isRootOperator });
   const isOwner = role === "owner";
+  const showPolandCompliance = isPolishMarket({ account: activeAccount || {} });
   const canReadProperties = isTenant || isRootOperator || can(activePermissionContext, "properties", "read");
   const canReadTenants = isRootOperator || can(activePermissionContext, "tenants", "read");
   const canReadFinance = isTenant || isRootOperator || can(activePermissionContext, "finance", "read");
@@ -371,6 +375,13 @@ function SidebarContent({ onNavigate }) {
                       <Item to="/compliance/renters-rights" icon={ShieldCheck} label={t("sidebar.rentersRights")} onNavigate={onNavigate} />
                     ) : (
                       <LockedItem to="/compliance/renters-rights" icon={ShieldCheck} label={t("sidebar.rentersRights")} onNavigate={onNavigate} />
+                    )}
+                    {showPolandCompliance && (
+                      hasEntitlement(ENTITLEMENT_FEATURES.POLAND_COMPLIANCE) ? (
+                        <Item to="/compliance/poland" icon={Flag} label={t("sidebar.polandCompliance")} onNavigate={onNavigate} />
+                      ) : (
+                        <LockedItem to="/compliance/poland" icon={Flag} label={t("sidebar.polandCompliance")} onNavigate={onNavigate} />
+                      )
                     )}
                   </div>
                 )}

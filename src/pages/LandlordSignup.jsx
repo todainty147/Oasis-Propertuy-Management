@@ -8,6 +8,7 @@ import { validatePasswordStrength } from "../utils/passwordPolicy";
 import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
 import { recordStrongPassword } from "../services/passwordSecurityService";
 import { recordAuthRateLimitAttempt, formatRetryAfter } from "../services/authRateLimitService";
+import { applyFounderOffer } from "../services/founderOfferService";
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 
 export default function LandlordSignup() {
@@ -21,6 +22,7 @@ export default function LandlordSignup() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [founderNotice, setFounderNotice] = useState("");
 
   const passwordContext = useMemo(
     () => ({ email: email.trim().toLowerCase(), accountName: accountName.trim() }),
@@ -109,6 +111,20 @@ export default function LandlordSignup() {
           localStorage.setItem("activeAccountId", accountId);
           await recordStrongPassword(accountId);
         }
+        // Apply founder offer on first account creation — non-blocking
+        if (row?.created && accountId && session.user) {
+          const signupSource = new URLSearchParams(window.location.search).get("source") || "app_landlord_signup";
+          const offerResult = await applyFounderOffer({
+            accountId,
+            userId: session.user.id,
+            email: cleanEmail,
+            signupSource,
+          });
+          if (offerResult.qualified) {
+            setFounderNotice(t("founderOffer.applied"));
+            await new Promise((r) => setTimeout(r, 1500));
+          }
+        }
         navigate("/dashboard", { replace: true });
         return;
       }
@@ -164,6 +180,11 @@ export default function LandlordSignup() {
 
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
           {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
+          {founderNotice ? (
+            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              {founderNotice}
+            </p>
+          ) : null}
 
           <input
             type="text"

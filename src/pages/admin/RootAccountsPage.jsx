@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { useAccount } from "../../context/AccountContext";
 import DashboardBreadcrumbs from "../../components/DashboardBreadcrumbs";
+import { getFounderOfferStatus } from "../../services/founderOfferService";
 import {
   rootListAccountsWithBilling,
   createOaGrant,
@@ -356,6 +357,50 @@ function AccountRow({ account, onRefresh }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+function FounderOfferStatusCard() {
+  const [status, setStatus] = useState(null);
+
+  useEffect(() => {
+    getFounderOfferStatus().then(setStatus).catch(() => setStatus(null));
+  }, []);
+
+  if (!status) return null;
+
+  const pct = status.maxRedemptions
+    ? Math.round((status.redeemedCount / status.maxRedemptions) * 100)
+    : 0;
+  const lastDate = status.lastRedeemedAt
+    ? new Date(status.lastRedeemedAt).toLocaleString()
+    : "—";
+
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800/40 dark:bg-amber-950/20">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="font-semibold text-amber-900 dark:text-amber-200">
+          Founder Offer: {status.offerName}
+        </span>
+        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+          {status.isActive ? "Active" : "Inactive"}
+        </span>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-xs text-amber-800 dark:text-amber-300">
+        <span>Redeemed: <strong>{status.redeemedCount} / {status.maxRedemptions}</strong></span>
+        <span>Remaining: <strong>{status.remainingSlots}</strong></span>
+        <span>Cancelled: {status.cancelledCount}</span>
+        <span>Last redeemed: {lastDate}</span>
+        {status.endsAt ? <span>Offer ends: {new Date(status.endsAt).toLocaleDateString()}</span> : null}
+      </div>
+      {/* progress bar */}
+      <div className="mt-2 h-1.5 w-full rounded-full bg-amber-200 dark:bg-amber-800/40">
+        <div
+          className="h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 transition-all"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function RootAccountsPage() {
   const { isRootOperator, accounts, activeAccountId } = useAccount();
   const [rows,    setRows]    = useState([]);
@@ -425,6 +470,8 @@ export default function RootAccountsPage() {
   return (
     <div className="space-y-4">
       <DashboardBreadcrumbs items={[{ label: "Root" }, { label: "Account Management" }]} />
+
+      <FounderOfferStatusCard />
 
       <div className="flex items-center justify-between gap-3">
         <div>

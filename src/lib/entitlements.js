@@ -45,6 +45,9 @@ export const ENTITLEMENT_FEATURES = Object.freeze({
 
   // ── Compliance & Risk Suite: Pro tier ─────────────────────────────────────
   AI_LEASE_AUDITOR: "ai_lease_auditor",
+
+  // ── Poland Compliance: Growth tier ────────────────────────────────────────
+  POLAND_COMPLIANCE: "poland_compliance",
 });
 
 export const PLAN_RANKS = Object.freeze({
@@ -90,6 +93,7 @@ const GROWTH_FEATURES = [
   ENTITLEMENT_FEATURES.RENT_SHIELD,
   ENTITLEMENT_FEATURES.AI_RENT_SHIELD_EXPLAINER,
   ENTITLEMENT_FEATURES.RENTERS_RIGHTS_READINESS,
+  ENTITLEMENT_FEATURES.POLAND_COMPLIANCE,
 ];
 
 const PRO_FEATURES = [

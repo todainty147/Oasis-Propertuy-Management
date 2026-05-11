@@ -51,6 +51,7 @@ const TaxReadinessPage            = lazy(() => import("../pages/compliance/TaxRe
 const RentShieldPage              = lazy(() => import("../pages/compliance/RentShieldPage"));
 const LeaseAuditorPage            = lazy(() => import("../pages/compliance/LeaseAuditorPage"));
 const RentersRightsPage           = lazy(() => import("../pages/compliance/RentersRightsPage"));
+const PolandCompliancePage        = lazy(() => import("../pages/compliance/PolandCompliancePage"));
 const AddPropertyModal            = lazy(() => import("../components/AddPropertyModal"));
 const ContractorPortal            = lazy(() => import("../pages/ContractorPortal"));
 const ContractorJobDetails        = lazy(() => import("../pages/ContractorJobDetails"));
@@ -436,6 +437,14 @@ export default function ManagerRoutes() {
         element={
           <EntitledRoute feature={ENTITLEMENT_FEATURES.RENTERS_RIGHTS_READINESS}>
             <RentersRightsPage />
+          </EntitledRoute>
+        }
+      />
+      <Route
+        path="compliance/poland"
+        element={
+          <EntitledRoute feature={ENTITLEMENT_FEATURES.POLAND_COMPLIANCE}>
+            <PolandCompliancePage />
           </EntitledRoute>
         }
       />
