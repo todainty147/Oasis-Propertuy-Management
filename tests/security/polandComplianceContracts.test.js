@@ -451,23 +451,16 @@ describe("Poland Compliance i18n keys are present in all locales", () => {
 describe("Sidebar Poland Compliance nav item contract", () => {
   const sidebarJs = readJs("src/layout/Sidebar.jsx");
 
-  it("imports isPolishMarket from complianceMarket", () => {
-    expect(sidebarJs).toContain("import { isPolishMarket }");
-    expect(sidebarJs).toContain("complianceMarket");
-  });
-
   it("imports Flag icon from lucide-react", () => {
     expect(sidebarJs).toContain("Flag,");
   });
 
-  it("renders Poland Compliance nav item conditionally on showPolandCompliance", () => {
-    expect(sidebarJs).toContain("showPolandCompliance");
+  it("renders Poland Compliance nav item gated on POLAND_COMPLIANCE entitlement", () => {
     expect(sidebarJs).toContain("/compliance/poland");
     expect(sidebarJs).toContain("ENTITLEMENT_FEATURES.POLAND_COMPLIANCE");
   });
 
-  it("shows LockedItem when entitlement is missing (not hidden)", () => {
-    // Users without entitlement still see it but with a lock icon
+  it("shows LockedItem when entitlement is missing (not hidden entirely)", () => {
     expect(sidebarJs).toContain("LockedItem");
   });
 });
