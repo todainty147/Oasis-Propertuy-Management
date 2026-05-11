@@ -6,6 +6,7 @@ import { requestPasswordResetEmail } from "../services/passwordResetService";
 import { acceptAccountInvite } from "../services/invitationService";
 import { validatePasswordStrength } from "../utils/passwordPolicy";
 import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
+import { recordStrongPassword } from "../services/passwordSecurityService";
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 
 export default function ResetPassword() {
@@ -131,11 +132,16 @@ export default function ResetPassword() {
         const result = await acceptAccountInvite(inviteToken);
         if (result?.account_id) {
           localStorage.setItem("activeAccountId", result.account_id);
+          await recordStrongPassword(result.account_id);
         }
         setMessage(t("reset.success"));
         setTimeout(() => navigate("/dashboard", { replace: true }), 800);
         return;
       }
+
+      // For standalone resets, record against the user's current active account
+      const activeAccountId = localStorage.getItem("activeAccountId");
+      await recordStrongPassword(activeAccountId);
 
       setMessage(t("reset.success"));
       setTimeout(() => navigate("/login", { replace: true }), 800);

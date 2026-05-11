@@ -6,6 +6,7 @@ import { APP_LANGUAGES, getLanguageFlag } from "../i18n/languages";
 import { finalizeSelfServeLandlordAccount } from "../services/selfServeSignupService";
 import { validatePasswordStrength } from "../utils/passwordPolicy";
 import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
+import { recordStrongPassword } from "../services/passwordSecurityService";
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 
 export default function LandlordSignup() {
@@ -97,7 +98,10 @@ export default function LandlordSignup() {
       if (session?.user) {
         const row = await finalizeSelfServeLandlordAccount(cleanName, { sandboxMode });
         const accountId = row?.account_id;
-        if (accountId) localStorage.setItem("activeAccountId", accountId);
+        if (accountId) {
+          localStorage.setItem("activeAccountId", accountId);
+          await recordStrongPassword(accountId);
+        }
         navigate("/dashboard", { replace: true });
         return;
       }

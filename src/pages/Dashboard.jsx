@@ -28,6 +28,7 @@ import {
 import { countActiveContractors } from "../services/contractorDirectoryService";
 import { isManageRole } from "../utils/permissions";
 import OnboardingHintCard from "../components/OnboardingHintCard";
+import SecurityPostureBanner from "../components/security/SecurityPostureBanner";
 
 // ✅ Tenant dashboard widget
 import TenantMaintenanceDashboard from "../components/TenantMaintenanceDashboard";
@@ -459,6 +460,9 @@ export default function Dashboard({
 
   return (
     <div className="space-y-6 pt-3 lg:pt-4">
+      {canManage && !isTenant ? (
+        <SecurityPostureBanner accountId={activeAccountId} />
+      ) : null}
       {isOwner && !checklistDismissed ? (
         <Card className="relative overflow-hidden border border-slate-800 bg-gradient-to-r from-slate-900 via-slate-900 to-blue-950 p-5 shadow-lg">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.14),transparent_34%)]" />

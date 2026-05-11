@@ -8,6 +8,7 @@ import { assertPhone, normalizeText } from "../utils/validation";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { validatePasswordStrength } from "../utils/passwordPolicy";
 import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
+import { recordStrongPassword } from "../services/passwordSecurityService";
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 
 function Field({ label, icon: Icon, children }) {
@@ -137,6 +138,9 @@ export default function ProfilePage() {
 
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
+
+      const activeAccountId = localStorage.getItem("activeAccountId");
+      await recordStrongPassword(activeAccountId);
 
       setPasswordForm({ newPassword: "", confirmPassword: "" });
       setPasswordMessage(t("profile.passwordSaveSuccess"));

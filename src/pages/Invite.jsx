@@ -7,6 +7,7 @@ import { APP_LANGUAGES, getLanguageFlag } from "../i18n/languages";
 import { acceptAccountInvite } from "../services/invitationService";
 import { validatePasswordStrength } from "../utils/passwordPolicy";
 import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
+import { recordStrongPassword } from "../services/passwordSecurityService";
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 
 const USE_BRANDED_INVITES =
@@ -61,6 +62,7 @@ export default function Invite() {
       const result = await acceptAccountInvite(token);
       if (result?.account_id) {
         localStorage.setItem("activeAccountId", result.account_id);
+        await recordStrongPassword(result.account_id);
       }
       await supabase.auth.signOut().catch(() => {});
       navigate("/login", { replace: true });

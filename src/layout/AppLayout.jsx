@@ -4,6 +4,8 @@ import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import { PageTitleContext } from "./PageTitleContext";
 import TenantSwitcher from "../components/TenantSwitcher";
+import PasswordUpgradeNotice from "../components/security/PasswordUpgradeNotice";
+import { useAuth } from "../context/AuthContext";
 
 function useMediaQuery(query) {
   const [matches, setMatches] = useState(() =>
@@ -27,6 +29,7 @@ export default function AppLayout({
 }) {
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const location = useLocation();
+  const { user } = useAuth();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [title, setTitle] = useState("");
@@ -68,7 +71,8 @@ export default function AppLayout({
           />
 
           <main className="flex-1 overflow-y-auto pt-14 lg:pt-16 px-4 lg:px-8">
-            <div className="max-w-7xl mx-auto w-full">
+            <div className="max-w-7xl mx-auto w-full space-y-4 pb-4">
+              <PasswordUpgradeNotice userId={user?.id} />
               <Outlet />
             </div>
           </main>

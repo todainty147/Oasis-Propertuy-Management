@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
+import PasswordUpgradeNotice from "../components/security/PasswordUpgradeNotice";
 import {
   FileText,
   Home,
@@ -188,7 +189,8 @@ export default function TenantPortalLayout() {
             </header>
 
             <main className="px-4 py-5 lg:px-8 lg:py-8">
-              <div className="mx-auto w-full max-w-6xl">
+              <div className="mx-auto w-full max-w-6xl space-y-4">
+                <PasswordUpgradeNotice userId={user?.id} />
                 <Outlet />
               </div>
             </main>
