@@ -21,16 +21,15 @@
         "name": "next"
       }
     ],
-    "baseUrl": ".",
     "paths": {
       "@/components/*": [
-        "components/*"
+        "./components/*"
       ],
       "@/content/*": [
-        "content/*"
+        "./content/*"
       ],
       "@/lib/*": [
-        "lib/*"
+        "./lib/*"
       ]
     },
     "esModuleInterop": true
