@@ -421,7 +421,7 @@ export default function Finance({
                         </div>
                         <div>
                           <p className="text-[11px] uppercase tracking-wide text-slate-400">{t("finance.table.paid")}</p>
-                          <p className="mt-0.5 text-sm font-medium text-emerald-600">{formatCurrency(p.paid, activeCurrency, activeCountryCode)}</p>
+                          <p className="mt-0.5 text-sm font-medium text-emerald-700">{formatCurrency(p.paid, activeCurrency, activeCountryCode)}</p>
                         </div>
                         <div>
                           <p className="text-[11px] uppercase tracking-wide text-slate-400">{t("finance.table.remaining")}</p>
@@ -460,7 +460,7 @@ export default function Finance({
                             <div className="text-xs text-slate-500">{p.city}</div>
                           </td>
                           <td className="px-6 py-3 text-right text-slate-900">{formatCurrency(p.rent, activeCurrency, activeCountryCode)}</td>
-                          <td className="px-6 py-3 text-right text-emerald-600 font-medium">{formatCurrency(p.paid, activeCurrency, activeCountryCode)}</td>
+                          <td className="px-6 py-3 text-right text-emerald-700 font-medium">{formatCurrency(p.paid, activeCurrency, activeCountryCode)}</td>
                           <td className="px-6 py-3 text-right text-rose-600 font-medium">{formatCurrency(p.remaining, activeCurrency, activeCountryCode)}</td>
                           <td className="px-6 py-3"><StatusBadge status={p.paymentStatus} t={t} /></td>
                         </tr>
@@ -711,8 +711,8 @@ function SummaryCard({ label, value, color, helper = "", onClick, accent, curren
     >
       <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{label}</p>
       <p className={`text-2xl font-bold mt-1 ${color}`}>{formatCurrency(value, currency, countryCode)}</p>
-      {helper && <p className="mt-2 text-xs text-slate-400 group-hover:text-slate-500">{helper}</p>}
-      <p className="mt-2 text-xs text-slate-400 group-hover:text-slate-600">↗</p>
+      {helper && <p className="mt-2 text-xs text-slate-600 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-300">{helper}</p>}
+      <p className="mt-2 text-xs text-slate-600 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-300" aria-hidden="true">↗</p>
     </button>
   );
 }

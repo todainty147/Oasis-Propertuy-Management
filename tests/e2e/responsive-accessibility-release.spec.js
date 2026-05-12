@@ -27,7 +27,9 @@ const ownerSurfaces = [
     path: "/documents",
     ready: async (page) => {
       await expect(page.getByText("Add document").first()).toBeVisible();
-      await expect(page.getByText("Document requests").first()).toBeVisible();
+      // "Document requests" lives inside a collapsed Workflows accordion; check the
+      // accordion button itself, which is always visible on page load.
+      await expect(page.getByText("Workflows").first()).toBeVisible();
     },
   },
 ];
