@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, MinusCircle, Plus, RefreshCw, Sparkles, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, MinusCircle, Plus, RefreshCw, Sparkles, X } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useI18n } from "../../context/I18nContext";
 import { listRentMatchCandidates, createRentMatchCandidate, updateRentMatchStatus, listRentMatchAudit } from "../../services/plRentMatchService";
-import { calcRentMatchConfidence, confidenceLabel, isValidMatchTransition, allowedMatchTransitions } from "../../utils/plAdvancedUtils";
+import { calcRentMatchConfidence, confidenceLabel, allowedMatchTransitions } from "../../utils/plAdvancedUtils";
 
 // ── Confidence badge ──────────────────────────────────────────────────────────
 
@@ -39,22 +40,106 @@ function StatusBadge({ status, t }) {
   );
 }
 
+// ── Confirmed Finance CTA — shown after a match is confirmed ──────────────────
+
+function ConfirmedCta({ candidate, t, onDone }) {
+  const diff = candidate.candidate_amount != null
+    ? (Number(candidate.candidate_amount) - Number(candidate.expected_amount)).toFixed(2)
+    : null;
+
+  // Build Finance link with prefill params in URL state (Finance reads useSearchParams).
+  // We pass via search params since Finance already uses useSearchParams.
+  const financeParams = new URLSearchParams();
+  if (candidate.expected_amount)    financeParams.set("amount",       String(candidate.expected_amount));
+  if (candidate.expected_currency)  financeParams.set("currency",     candidate.expected_currency);
+  if (candidate.expected_period_start) financeParams.set("from",      candidate.expected_period_start);
+  if (candidate.expected_period_end)   financeParams.set("to",        candidate.expected_period_end);
+  if (candidate.candidate_reference)   financeParams.set("reference", candidate.candidate_reference);
+  const financeLink = `/finance?${financeParams.toString()}`;
+
+  return (
+    <div className="rounded-xl border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/10 p-4 space-y-3">
+      <div className="flex items-start gap-2">
+        <CheckCircle2 size={15} className="text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+        <p className="text-sm font-medium text-green-700 dark:text-green-300">
+          {t("plAdvanced.rentMatch.confirmedNotice")}
+        </p>
+      </div>
+
+      {/* Match summary */}
+      <div className="rounded-lg bg-white dark:bg-slate-900 border border-green-100 dark:border-green-900/30 px-3 py-2 space-y-1">
+        <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400 gap-2">
+          <span>{t("plAdvanced.rentMatch.expected")}:</span>
+          <span className="font-mono font-medium text-slate-800 dark:text-slate-200">
+            {candidate.expected_currency} {Number(candidate.expected_amount).toFixed(2)}
+          </span>
+        </div>
+        {candidate.candidate_amount && (
+          <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400 gap-2">
+            <span>{t("plAdvanced.rentMatch.received")}:</span>
+            <span className="font-mono font-medium text-slate-800 dark:text-slate-200">
+              {candidate.expected_currency} {Number(candidate.candidate_amount).toFixed(2)}
+            </span>
+          </div>
+        )}
+        {diff !== null && Number(diff) !== 0 && (
+          <div className="flex justify-between text-xs gap-2">
+            <span className="text-slate-500">{t("plAdvanced.rentMatch.difference")}:</span>
+            <span className={`font-mono font-medium ${Number(diff) < 0 ? "text-red-600" : "text-green-600"}`}>
+              {Number(diff) > 0 ? "+" : ""}{diff}
+            </span>
+          </div>
+        )}
+        {candidate.expected_period_start && (
+          <div className="flex justify-between text-xs text-slate-500 gap-2">
+            <span>{t("plAdvanced.rentMatch.period")}:</span>
+            <span>{candidate.expected_period_start} → {candidate.expected_period_end}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        <Link
+          to={financeLink}
+          className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+        >
+          {t("plAdvanced.rentMatch.goToFinance")} <ArrowRight size={11} />
+        </Link>
+        <button
+          type="button"
+          onClick={onDone}
+          className="text-xs px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400"
+        >
+          {t("plAdvanced.rentMatch.done")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Candidate card ────────────────────────────────────────────────────────────
 
 function CandidateCard({ candidate, accountId, onRefresh, t }) {
-  const [actioning, setActioning] = useState(false);
-  const [auditOpen, setAuditOpen] = useState(false);
-  const [audit, setAudit]         = useState([]);
+  const [actioning, setActioning]   = useState(false);
+  const [showCta, setShowCta]       = useState(false);
+  const [auditOpen, setAuditOpen]   = useState(false);
+  const [audit, setAudit]           = useState([]);
   const [auditLoading, setAuditLoading] = useState(false);
-  const [error, setError]         = useState(null);
+  const [error, setError]           = useState(null);
 
-  const allowed = allowedMatchTransitions(candidate.match_status);
+  const allowed    = allowedMatchTransitions(candidate.match_status);
+  const isConfirmed = candidate.match_status === "confirmed";
+
+  const amountMatch = candidate.candidate_amount
+    ? Math.abs(candidate.expected_amount - candidate.candidate_amount) / candidate.expected_amount <= 0.01
+    : null;
 
   async function performAction(newStatus) {
     setActioning(true);
     setError(null);
     try {
       await updateRentMatchStatus({ accountId, matchId: candidate.id, newStatus });
+      if (newStatus === "confirmed") setShowCta(true);
       onRefresh();
     } catch {
       setError(t("plAdvanced.rentMatch.actionError"));
@@ -80,10 +165,6 @@ function CandidateCard({ candidate, accountId, onRefresh, t }) {
     setAuditOpen((v) => !v);
   }
 
-  const amountMatch = candidate.candidate_amount
-    ? Math.abs(candidate.expected_amount - candidate.candidate_amount) / candidate.expected_amount <= 0.01
-    : null;
-
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3">
       {/* Header */}
@@ -99,7 +180,7 @@ function CandidateCard({ candidate, accountId, onRefresh, t }) {
         <StatusBadge status={candidate.match_status} t={t} />
       </div>
 
-      {/* Candidate side */}
+      {/* Candidate amounts */}
       {candidate.candidate_amount && (
         <div className="rounded-lg bg-blue-50/50 dark:bg-blue-950/10 border border-blue-100 dark:border-blue-900/30 p-3 space-y-1">
           <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -124,7 +205,21 @@ function CandidateCard({ candidate, accountId, onRefresh, t }) {
         </div>
       )}
 
-      {/* Legal disclaimer */}
+      {/* Confirmed Finance CTA */}
+      {isConfirmed && showCta && (
+        <ConfirmedCta candidate={candidate} t={t} onDone={() => setShowCta(false)} />
+      )}
+      {isConfirmed && !showCta && (
+        <button
+          type="button"
+          onClick={() => setShowCta(true)}
+          className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+        >
+          {t("plAdvanced.rentMatch.goToFinance")} <ArrowRight size={11} />
+        </button>
+      )}
+
+      {/* Legal disclaimer — per-card only */}
       <div className="flex items-start gap-1.5">
         <AlertTriangle size={11} className="text-amber-500 shrink-0 mt-0.5" />
         <p className="text-[11px] text-amber-700 dark:text-amber-400">
@@ -213,21 +308,21 @@ function CandidateCard({ candidate, accountId, onRefresh, t }) {
 // ── Add match form ────────────────────────────────────────────────────────────
 
 function AddMatchForm({ accountId, propertyId, tenantId, leaseId, onSaved, onCancel, t }) {
-  const [expectedAmount, setExpectedAmount]   = useState("");
-  const [periodStart,    setPeriodStart]       = useState("");
-  const [periodEnd,      setPeriodEnd]         = useState("");
-  const [candidateAmount, setCandidateAmount]  = useState("");
-  const [reference,      setReference]         = useState("");
-  const [receivedAt,     setReceivedAt]        = useState("");
-  const [saving,         setSaving]            = useState(false);
-  const [error,          setError]             = useState(null);
+  const [expectedAmount,  setExpectedAmount]  = useState("");
+  const [periodStart,     setPeriodStart]     = useState("");
+  const [periodEnd,       setPeriodEnd]       = useState("");
+  const [candidateAmount, setCandidateAmount] = useState("");
+  const [reference,       setReference]       = useState("");
+  const [receivedAt,      setReceivedAt]      = useState("");
+  const [saving,          setSaving]          = useState(false);
+  const [error,           setError]           = useState(null);
 
   const liveScore = calcRentMatchConfidence({
-    expectedAmount:       Number(expectedAmount) || 0,
-    candidateAmount:      Number(candidateAmount) || 0,
-    expectedPeriodStart:  periodStart,
-    expectedPeriodEnd:    periodEnd,
-    candidateReceivedAt:  receivedAt || null,
+    expectedAmount:      Number(expectedAmount) || 0,
+    candidateAmount:     Number(candidateAmount) || 0,
+    expectedPeriodStart: periodStart,
+    expectedPeriodEnd:   periodEnd,
+    candidateReceivedAt: receivedAt || null,
   });
 
   async function handleSave() {
@@ -243,14 +338,14 @@ function AddMatchForm({ accountId, propertyId, tenantId, leaseId, onSaved, onCan
         propertyId,
         tenantId,
         leaseId,
-        expectedAmount:       Number(expectedAmount),
-        expectedPeriodStart:  periodStart,
-        expectedPeriodEnd:    periodEnd,
-        candidateAmount:      candidateAmount ? Number(candidateAmount) : null,
-        candidateReference:   reference || null,
-        candidateReceivedAt:  receivedAt ? new Date(receivedAt).toISOString() : null,
-        confidenceScore:      candidateAmount ? liveScore : null,
-        confidenceReason:     candidateAmount
+        expectedAmount:      Number(expectedAmount),
+        expectedPeriodStart: periodStart,
+        expectedPeriodEnd:   periodEnd,
+        candidateAmount:     candidateAmount ? Number(candidateAmount) : null,
+        candidateReference:  reference || null,
+        candidateReceivedAt: receivedAt ? new Date(receivedAt).toISOString() : null,
+        confidenceScore:     candidateAmount ? liveScore : null,
+        confidenceReason:    candidateAmount
           ? `${t("plAdvanced.rentMatch.autoScore")} ${Math.round(liveScore * 100)}%`
           : null,
       });
@@ -339,7 +434,7 @@ function AddMatchForm({ accountId, propertyId, tenantId, leaseId, onSaved, onCan
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 export default function PlRentMatchPanel({ accountId, propertyId, tenantId, leaseId }) {
-  const { t }                   = useI18n();
+  const { t }                       = useI18n();
   const [candidates, setCandidates] = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [showForm,   setShowForm]   = useState(false);
@@ -380,14 +475,22 @@ export default function PlRentMatchPanel({ accountId, propertyId, tenantId, leas
             {t("plAdvanced.rentMatch.subtitle")}
           </p>
         </div>
-        <div className="flex gap-2">
-          <button type="button" onClick={load} disabled={loading}
-            className="text-xs text-slate-400 hover:text-slate-600 disabled:opacity-50">
+        <div className="flex gap-2 items-center">
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            className="text-slate-400 hover:text-slate-600 disabled:opacity-40"
+            aria-label={t("common.refresh")}
+          >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </button>
           {!showForm && (
-            <button type="button" onClick={() => setShowForm(true)}
-              className="text-xs px-2.5 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setShowForm(true)}
+              className="text-xs px-2.5 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1.5"
+            >
               <Plus size={12} /> {t("plAdvanced.rentMatch.addCandidate")}
             </button>
           )}
@@ -396,8 +499,10 @@ export default function PlRentMatchPanel({ accountId, propertyId, tenantId, leas
 
       {showForm && (
         <AddMatchForm
-          accountId={accountId} propertyId={propertyId}
-          tenantId={tenantId} leaseId={leaseId}
+          accountId={accountId}
+          propertyId={propertyId}
+          tenantId={tenantId}
+          leaseId={leaseId}
           onSaved={() => { setShowForm(false); load(); }}
           onCancel={() => setShowForm(false)}
           t={t}
@@ -405,11 +510,19 @@ export default function PlRentMatchPanel({ accountId, propertyId, tenantId, leas
       )}
 
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+
       {loading && <p className="text-sm text-slate-400">{t("common.loading")}</p>}
+
       {!loading && !error && candidates.length === 0 && (
-        <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-6">
-          {t("plAdvanced.rentMatch.empty")}
-        </p>
+        <div className="text-center py-8 space-y-2">
+          <Sparkles size={20} className="text-slate-300 mx-auto" />
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {t("plAdvanced.rentMatch.empty")}
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            {t("plAdvanced.rentMatch.emptyBody")}
+          </p>
+        </div>
       )}
 
       {candidates.map((c) => (

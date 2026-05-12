@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Building2, CheckCircle2, Circle, RefreshCw, Save } from "lucide-react";
+import { Building2, CheckCircle2, Circle, RefreshCw, Save, Search, Sparkles } from "lucide-react";
 import { useI18n } from "../../context/I18nContext";
 import { getStrProperty, upsertStrProperty } from "../../services/plStrService";
 import { listPropertiesForAccount } from "../../services/complianceChecklistService";
@@ -7,6 +7,8 @@ import { calcStrReadinessScore, getStrMissingItems, STR_SAFETY_KEYS, STR_PLATFOR
 
 const REGISTRATION_STATUSES = ["not_started", "pending", "registered", "expired"];
 const REPORTING_STATUSES    = ["not_ready", "partial", "ready"];
+
+// ── Readiness bar ─────────────────────────────────────────────────────────────
 
 function ReadinessBar({ score }) {
   const color = score >= 80 ? "bg-green-500" : score >= 50 ? "bg-amber-500" : "bg-red-500";
@@ -19,6 +21,8 @@ function ReadinessBar({ score }) {
     </div>
   );
 }
+
+// ── Safety check item ─────────────────────────────────────────────────────────
 
 function SafetyCheckItem({ itemKey, status, onChange, t }) {
   const statuses = ["pending", "confirmed", "not_applicable"];
@@ -60,6 +64,7 @@ function PropertySelector({ accountId, onSelect, t }) {
   const [properties, setProperties] = useState([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState(null);
+  const [query, setQuery]           = useState("");
 
   useEffect(() => {
     if (!accountId) return;
@@ -82,28 +87,93 @@ function PropertySelector({ accountId, onSelect, t }) {
     );
   }
 
+  const needle   = query.trim().toLowerCase();
+  const filtered = needle
+    ? properties.filter((p) =>
+        (p.address || "").toLowerCase().includes(needle) ||
+        (p.city    || "").toLowerCase().includes(needle)
+      )
+    : properties;
+
   return (
     <div className="space-y-3">
       <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
         {t("plAdvanced.str.selectProperty")}
       </p>
+
+      {/* Search */}
+      {properties.length > 4 && (
+        <div className="relative">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("plAdvanced.str.searchProperties")}
+            className="w-full text-sm pl-8 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      )}
+
       <div className="space-y-2">
-        {properties.map((p) => (
+        {filtered.map((p) => (
           <button
             key={p.id}
             type="button"
             onClick={() => onSelect(p)}
             className="w-full text-left rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-50/30 dark:hover:bg-blue-950/10 transition-colors"
           >
-            <div className="flex items-center gap-2">
-              <Building2 size={14} className="text-slate-400 shrink-0" />
-              <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                {p.address}
-                {p.city && <span className="text-slate-400 font-normal ml-1">· {p.city}</span>}
-              </p>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Building2 size={14} className="text-slate-400 shrink-0" />
+                <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                  {p.address}
+                  {p.city && <span className="text-slate-400 font-normal ml-1">· {p.city}</span>}
+                </p>
+              </div>
+              {p.market && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 uppercase shrink-0">
+                  {p.market}
+                </span>
+              )}
             </div>
           </button>
         ))}
+        {filtered.length === 0 && needle && (
+          <p className="text-sm text-slate-400 text-center py-4">{t("common.noData")}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Next recommended action ───────────────────────────────────────────────────
+
+function NextAction({ missing, t }) {
+  if (!missing || missing.length === 0) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 px-3 py-2">
+        <CheckCircle2 size={13} className="text-green-600 dark:text-green-400 shrink-0" />
+        <p className="text-xs text-green-700 dark:text-green-300 font-medium">
+          {t("plAdvanced.str.nextAction.allDone")}
+        </p>
+      </div>
+    );
+  }
+
+  const actionMap = {
+    registration:    "addReg",
+    safety_checklist:"completeChecklist",
+    platform_ref:    "addPlatform",
+  };
+  const key = actionMap[missing[0]] || "addReg";
+
+  return (
+    <div className="flex items-center gap-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 px-3 py-2">
+      <Sparkles size={13} className="text-blue-500 shrink-0" />
+      <div>
+        <p className="text-[11px] font-medium text-blue-700 dark:text-blue-400">{t("plAdvanced.str.nextAction")}</p>
+        <p className="text-xs text-slate-700 dark:text-slate-300">{t(`plAdvanced.str.nextAction.${key}`)}</p>
       </div>
     </div>
   );
@@ -112,21 +182,19 @@ function PropertySelector({ accountId, onSelect, t }) {
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 export default function PlStrCompliancePanel({ accountId, propertyId: propPropertyId }) {
-  const { t }           = useI18n();
+  const { t } = useI18n();
 
-  // The panel works both when a propertyId is passed as a prop (embedded in
-  // property detail pages) and when it is null (standalone advanced page —
-  // show a property selector first).
   const [selectedProperty, setSelectedProperty] = useState(
     propPropertyId ? { id: propPropertyId } : null,
   );
   const propertyId = selectedProperty?.id || null;
 
-  const [record, setRecord]   = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [saving,  setSaving]  = useState(false);
-  const [error,   setError]   = useState(null);
-  const [dirty,   setDirty]   = useState(false);
+  const [record, setRecord]     = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [saving, setSaving]     = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [error, setError]       = useState(null);
+  const [dirty, setDirty]       = useState(false);
 
   // Form state
   const [regNumber, setRegNumber]       = useState("");
@@ -146,12 +214,12 @@ export default function PlStrCompliancePanel({ accountId, propertyId: propProper
       const data = await getStrProperty({ accountId, propertyId });
       if (data) {
         setRecord(data);
-        setRegNumber(data.registration_number   || "");
-        setRegStatus(data.registration_status   || "not_started");
-        setRegExpiry(data.registration_expiry_date || "");
-        setRegNotes(data.registration_notes     || "");
-        setChecklist(data.safety_checklist      || {});
-        setPlatforms(data.platform_refs         || []);
+        setRegNumber(data.registration_number        || "");
+        setRegStatus(data.registration_status        || "not_started");
+        setRegExpiry(data.registration_expiry_date   || "");
+        setRegNotes(data.registration_notes          || "");
+        setChecklist(data.safety_checklist           || {});
+        setPlatforms(data.platform_refs              || []);
         setReportStatus(data.reporting_readiness_status || "not_ready");
         setReportNotes(data.reporting_readiness_notes   || "");
       } else {
@@ -191,6 +259,7 @@ export default function PlStrCompliancePanel({ accountId, propertyId: propProper
     if (!propertyId) return;
     setSaving(true);
     setError(null);
+    setSaveSuccess(false);
     try {
       await upsertStrProperty({
         accountId,
@@ -206,6 +275,8 @@ export default function PlStrCompliancePanel({ accountId, propertyId: propProper
       });
       await load();
       setDirty(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2500);
     } catch {
       setError(t("plAdvanced.str.saveError"));
     } finally {
@@ -213,27 +284,22 @@ export default function PlStrCompliancePanel({ accountId, propertyId: propProper
     }
   }
 
-  // ── No property selected yet — show selector ────────────────────────────────
+  // ── No property selected — show selector ────────────────────────────────────
 
   if (!propertyId) {
     return (
       <div className="space-y-4">
-        <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
-          <AlertTriangle size={13} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-700 dark:text-amber-300">{t("plAdvanced.str.disclaimer")}</p>
-        </div>
-        <PropertySelector
-          accountId={accountId}
-          onSelect={setSelectedProperty}
-          t={t}
-        />
+        <PropertySelector accountId={accountId} onSelect={setSelectedProperty} t={t} />
       </div>
     );
   }
 
-  const currentData = record
-    ? { ...record, registration_status: regStatus, safety_checklist: checklist, platform_refs: platforms }
-    : { registration_status: regStatus, safety_checklist: checklist, platform_refs: platforms };
+  const currentData = {
+    ...(record || {}),
+    registration_status: regStatus,
+    safety_checklist:    checklist,
+    platform_refs:       platforms,
+  };
   const readinessScore = calcStrReadinessScore(currentData);
   const missing        = getStrMissingItems(currentData);
 
@@ -248,16 +314,15 @@ export default function PlStrCompliancePanel({ accountId, propertyId: propProper
         >
           ← {t("plAdvanced.str.changeProperty")}
           {selectedProperty?.address && (
-            <span className="text-slate-500 font-normal">· {selectedProperty.address}</span>
+            <span className="text-slate-500 font-normal ml-1 truncate max-w-[200px]">
+              · {selectedProperty.address}
+            </span>
           )}
         </button>
       )}
 
-      {/* Disclaimer */}
-      <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
-        <AlertTriangle size={13} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-        <p className="text-xs text-amber-700 dark:text-amber-300">{t("plAdvanced.str.disclaimer")}</p>
-      </div>
+      {/* Next recommended action */}
+      <NextAction missing={missing} t={t} />
 
       {/* Readiness summary */}
       <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3">
@@ -265,29 +330,24 @@ export default function PlStrCompliancePanel({ accountId, propertyId: propProper
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
             {t("plAdvanced.str.readinessTitle")}
           </p>
-          <button type="button" onClick={load} disabled={loading}
-            className="text-slate-400 hover:text-slate-600">
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            className="text-slate-400 hover:text-slate-600 disabled:opacity-40"
+            aria-label={t("common.refresh")}
+          >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </button>
         </div>
         <ReadinessBar score={readinessScore} />
-        {missing.length > 0 && (
-          <div className="space-y-1">
-            {missing.map((m) => (
-              <div key={m} className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300">
-                <AlertTriangle size={10} />
-                {t(`plAdvanced.str.missing.${m}`)}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {loading && <p className="text-sm text-slate-400">{t("common.loading")}</p>}
 
       {!loading && (
         <>
-          {/* Registration */}
+          {/* 1 — Registration */}
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3">
             <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
               {t("plAdvanced.str.registrationTitle")}
@@ -297,33 +357,57 @@ export default function PlStrCompliancePanel({ accountId, propertyId: propProper
                 <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                   {t("plAdvanced.str.registrationNumber")}
                 </label>
-                <input type="text" value={regNumber} onChange={(e) => { setRegNumber(e.target.value); setDirty(true); }}
+                <input
+                  type="text"
+                  value={regNumber}
+                  onChange={(e) => { setRegNumber(e.target.value); setDirty(true); }}
                   placeholder="PL-STR-XXXXX"
-                  className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                   {t("plAdvanced.str.registrationStatus")}
                 </label>
-                <select value={regStatus} onChange={(e) => { setRegStatus(e.target.value); setDirty(true); }}
-                  className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select
+                  value={regStatus}
+                  onChange={(e) => { setRegStatus(e.target.value); setDirty(true); }}
+                  className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
                   {REGISTRATION_STATUSES.map((s) => (
                     <option key={s} value={s}>{t(`plAdvanced.str.regStatus.${s}`)}</option>
                   ))}
                 </select>
               </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                {t("plAdvanced.str.registrationNotes")}
-              </label>
-              <input type="text" value={regNotes} onChange={(e) => { setRegNotes(e.target.value); setDirty(true); }}
-                placeholder={t("plAdvanced.str.registrationNotesPlaceholder")}
-                className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  {t("plAdvanced.str.registrationExpiry")}
+                </label>
+                <input
+                  type="date"
+                  value={regExpiry}
+                  onChange={(e) => { setRegExpiry(e.target.value); setDirty(true); }}
+                  className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                  {t("plAdvanced.str.registrationNotes")}
+                </label>
+                <input
+                  type="text"
+                  value={regNotes}
+                  onChange={(e) => { setRegNotes(e.target.value); setDirty(true); }}
+                  placeholder={t("plAdvanced.str.registrationNotesPlaceholder")}
+                  className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Safety checklist */}
+          {/* 2 — Safety readiness */}
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-2">
             <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
               {t("plAdvanced.str.safetyTitle")}
@@ -339,14 +423,17 @@ export default function PlStrCompliancePanel({ accountId, propertyId: propProper
             ))}
           </div>
 
-          {/* Platform references */}
+          {/* 3 — Platform listings */}
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                 {t("plAdvanced.str.platformRefs")}
               </p>
-              <button type="button" onClick={addPlatformRef}
-                className="text-xs px-2 py-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400">
+              <button
+                type="button"
+                onClick={addPlatformRef}
+                className="text-xs px-2 py-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400"
+              >
                 + {t("plAdvanced.str.addPlatform")}
               </button>
             </div>
@@ -356,23 +443,36 @@ export default function PlStrCompliancePanel({ accountId, propertyId: propProper
             {platforms.map((p, idx) => (
               <div key={idx} className="rounded-lg border border-slate-100 dark:border-slate-800 p-3 space-y-2">
                 <div className="flex items-center gap-2">
-                  <select value={p.platform} onChange={(e) => updatePlatformRef(idx, { platform: e.target.value })}
-                    className="text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1.5 text-slate-800 dark:text-slate-200 focus:outline-none">
+                  <select
+                    value={p.platform}
+                    onChange={(e) => updatePlatformRef(idx, { platform: e.target.value })}
+                    className="text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1.5 text-slate-800 dark:text-slate-200 focus:outline-none"
+                  >
                     {STR_PLATFORMS.map((pl) => (
                       <option key={pl} value={pl}>{t(`plAdvanced.str.platform.${pl}`)}</option>
                     ))}
                   </select>
-                  <input type="text" value={p.listing_id || ""} placeholder={t("plAdvanced.str.listingId")}
+                  <input
+                    type="text"
+                    value={p.listing_id || ""}
+                    placeholder={t("plAdvanced.str.listingId")}
                     onChange={(e) => updatePlatformRef(idx, { listing_id: e.target.value })}
-                    className="flex-1 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1.5 text-slate-800 dark:text-slate-200 focus:outline-none" />
-                  <button type="button" onClick={() => removePlatformRef(idx)}
-                    className="text-slate-400 hover:text-red-500 text-lg leading-none">×</button>
+                    className="flex-1 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1.5 text-slate-800 dark:text-slate-200 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removePlatformRef(idx)}
+                    className="text-slate-400 hover:text-red-500 text-lg leading-none"
+                    aria-label="Remove"
+                  >
+                    ×
+                  </button>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Reporting readiness */}
+          {/* 4 — Reporting readiness */}
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3">
             <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
               {t("plAdvanced.str.reportingTitle")}
@@ -380,28 +480,45 @@ export default function PlStrCompliancePanel({ accountId, propertyId: propProper
             <p className="text-[11px] text-slate-400 dark:text-slate-500 italic">
               {t("plAdvanced.str.reportingDisclaimer")}
             </p>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {REPORTING_STATUSES.map((s) => (
-                <button key={s} type="button" onClick={() => { setReportStatus(s); setDirty(true); }}
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => { setReportStatus(s); setDirty(true); }}
                   className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${
                     reportStatus === s
                       ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-600 dark:bg-blue-950/30 dark:text-blue-300"
                       : "border-slate-200 text-slate-500 dark:border-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
-                  }`}>
+                  }`}
+                >
                   {t(`plAdvanced.str.reportStatus.${s}`)}
                 </button>
               ))}
             </div>
-            <input type="text" value={reportNotes} onChange={(e) => { setReportNotes(e.target.value); setDirty(true); }}
+            <input
+              type="text"
+              value={reportNotes}
+              onChange={(e) => { setReportNotes(e.target.value); setDirty(true); }}
               placeholder={t("plAdvanced.str.reportingNotesPlaceholder")}
-              className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
 
           {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+          {saveSuccess && (
+            <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+              <CheckCircle2 size={12} /> {t("plAdvanced.str.saveSuccess")}
+            </p>
+          )}
 
           {dirty && (
-            <button type="button" disabled={saving} onClick={handleSave}
-              className="w-full text-sm px-4 py-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={handleSave}
+              className="w-full text-sm px-4 py-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
               <Save size={14} />
               {saving ? t("common.loading") : t("common.save")}
             </button>

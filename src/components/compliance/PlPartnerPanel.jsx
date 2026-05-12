@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Mail, Phone, Globe, RefreshCw } from "lucide-react";
+import { Globe, Mail, Phone, RefreshCw, Users } from "lucide-react";
 import { useI18n } from "../../context/I18nContext";
 import { listPartners } from "../../services/plPartnerService";
 import { PARTNER_TYPES, filterPartners } from "../../utils/plAdvancedUtils";
@@ -51,24 +51,38 @@ function PartnerCard({ partner, t }) {
         }
       </div>
 
-      {/* Disclaimer — always shown */}
-      <div className="flex items-start gap-1.5">
-        <AlertTriangle size={11} className="text-amber-500 shrink-0 mt-0.5" />
-        <p className="text-[11px] text-amber-700 dark:text-amber-400">
-          {t("plAdvanced.partners.contactDisclaimer")}
-        </p>
-      </div>
+      <p className="text-[11px] text-slate-400 dark:text-slate-500 italic">
+        {t("plAdvanced.partners.contactDisclaimer")}
+      </p>
     </div>
   );
 }
 
+// ── Improved empty state ──────────────────────────────────────────────────────
+
+function EmptyState({ t }) {
+  return (
+    <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 p-6 text-center space-y-3">
+      <Users size={28} className="text-slate-300 mx-auto" />
+      <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+        {t("plAdvanced.partners.emptyNoPartners")}
+      </p>
+      <p className="text-xs text-slate-400 dark:text-slate-500 max-w-sm mx-auto leading-relaxed">
+        {t("plAdvanced.partners.emptyBody")}
+      </p>
+    </div>
+  );
+}
+
+// ── Main panel ────────────────────────────────────────────────────────────────
+
 export default function PlPartnerPanel({ market = "pl" }) {
-  const { t }               = useI18n();
-  const [partners, setPartners]   = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState(null);
-  const [typeFilter, setTypeFilter]     = useState(null);
-  const [areaFilter, setAreaFilter]     = useState("");
+  const { t }                   = useI18n();
+  const [partners, setPartners] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState(null);
+  const [typeFilter, setTypeFilter] = useState(null);
+  const [areaFilter, setAreaFilter] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -90,19 +104,15 @@ export default function PlPartnerPanel({ market = "pl" }) {
     serviceArea: areaFilter || undefined,
   });
 
+  // Show improved empty state when no partners at all (before filtering)
+  const noPartnersAtAll = !loading && !error && partners.length === 0;
+  const noFilteredMatch = !loading && !error && partners.length > 0 && filtered.length === 0;
+
   return (
     <div className="space-y-4">
-      {/* Global disclaimer */}
-      <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2 space-y-1">
-        <div className="flex items-center gap-2">
-          <AlertTriangle size={13} className="text-amber-600 dark:text-amber-400 shrink-0" />
-          <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
-            {t("plAdvanced.partners.notEndorsement")}
-          </p>
-        </div>
-        <p className="text-[11px] text-amber-700 dark:text-amber-400 pl-5">
-          {t("plAdvanced.partners.globalDisclaimer")}
-        </p>
+      {/* Not endorsed note — compact, no duplicate amber banner */}
+      <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 italic">
+        <span>{t("plAdvanced.partners.notEndorsement")}</span>
       </div>
 
       {/* Header */}
@@ -115,44 +125,57 @@ export default function PlPartnerPanel({ market = "pl" }) {
             {t("plAdvanced.partners.subtitle")}
           </p>
         </div>
-        <button type="button" onClick={load} disabled={loading}
-          className="text-slate-400 hover:text-slate-600">
+        <button
+          type="button"
+          onClick={load}
+          disabled={loading}
+          className="text-slate-400 hover:text-slate-600 disabled:opacity-40"
+          aria-label={t("common.refresh")}
+        >
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="space-y-2">
-        <div className="flex gap-1.5 flex-wrap">
-          <button type="button" onClick={() => setTypeFilter(null)}
-            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-              !typeFilter
-                ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-600 dark:bg-blue-950/30 dark:text-blue-300"
-                : "border-slate-200 text-slate-500 dark:border-slate-700 dark:text-slate-400"
-            }`}>
-            {t("common.all")}
-          </button>
-          {PARTNER_TYPES.map((pt) => (
-            <button key={pt} type="button" onClick={() => setTypeFilter(pt)}
+      {/* Filters — only show if there are partners */}
+      {partners.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex gap-1.5 flex-wrap">
+            <button type="button" onClick={() => setTypeFilter(null)}
               className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                typeFilter === pt
+                !typeFilter
                   ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-600 dark:bg-blue-950/30 dark:text-blue-300"
                   : "border-slate-200 text-slate-500 dark:border-slate-700 dark:text-slate-400"
               }`}>
-              {t(`plAdvanced.partners.type.${pt}`)}
+              {t("common.all")}
             </button>
-          ))}
-        </div>
+            {PARTNER_TYPES.map((pt) => (
+              <button key={pt} type="button" onClick={() => setTypeFilter(pt)}
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                  typeFilter === pt
+                    ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-600 dark:bg-blue-950/30 dark:text-blue-300"
+                    : "border-slate-200 text-slate-500 dark:border-slate-700 dark:text-slate-400"
+                }`}>
+                {t(`plAdvanced.partners.type.${pt}`)}
+              </button>
+            ))}
+          </div>
 
-        <input type="text" value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)}
-          placeholder={t("plAdvanced.partners.searchArea")}
-          className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-      </div>
+          <input
+            type="text"
+            value={areaFilter}
+            onChange={(e) => setAreaFilter(e.target.value)}
+            placeholder={t("plAdvanced.partners.searchArea")}
+            className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      )}
 
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       {loading && <p className="text-sm text-slate-400">{t("common.loading")}</p>}
 
-      {!loading && !error && filtered.length === 0 && (
+      {noPartnersAtAll && <EmptyState t={t} />}
+
+      {noFilteredMatch && (
         <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-8">
           {t("plAdvanced.partners.empty")}
         </p>
@@ -162,7 +185,6 @@ export default function PlPartnerPanel({ market = "pl" }) {
         <PartnerCard key={p.id} partner={p} t={t} />
       ))}
 
-      {/* Footer disclaimer */}
       {filtered.length > 0 && (
         <p className="text-[11px] text-slate-400 dark:text-slate-500 text-center">
           {t("plAdvanced.partners.footerDisclaimer")}
