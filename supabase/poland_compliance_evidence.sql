@@ -629,3 +629,76 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.list_meter_readings(UUID, UUID, UUID, UUID)
   TO authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 9. Table privilege grants
+--    compliance_checklist_items was created in the foundation SQL without an
+--    explicit GRANT, so the authenticated role has SELECT via RLS but lacks
+--    UPDATE/INSERT/DELETE. Grant all here so direct patches and the status
+--    update RPC below can both succeed.
+-- ---------------------------------------------------------------------------
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+  ON TABLE public.compliance_checklist_items TO authenticated;
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+  ON TABLE public.handover_protocols TO authenticated;
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+  ON TABLE public.meter_readings TO authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 10. update_checklist_item_status RPC
+--     SECURITY DEFINER so it bypasses any remaining RLS edge-cases and is
+--     consistent with the OASIS pattern for all other write operations.
+-- ---------------------------------------------------------------------------
+
+DROP FUNCTION IF EXISTS public.update_checklist_item_status(UUID, UUID, TEXT, UUID);
+
+CREATE FUNCTION public.update_checklist_item_status(
+  p_account_id   UUID,
+  p_item_id      UUID,
+  p_status       TEXT,
+  p_completed_by UUID DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_update JSONB;
+  v_row    compliance_checklist_items%ROWTYPE;
+BEGIN
+  PERFORM public.assert_manage_account_access(p_account_id);
+
+  IF p_status NOT IN ('pending', 'complete', 'not_applicable') THEN
+    RAISE EXCEPTION 'invalid_status: %', p_status;
+  END IF;
+
+  UPDATE compliance_checklist_items
+  SET
+    status       = p_status,
+    completed_at = CASE
+                     WHEN p_status = 'complete' THEN now()
+                     ELSE NULL
+                   END,
+    completed_by = CASE
+                     WHEN p_status = 'complete' THEN p_completed_by
+                     ELSE NULL
+                   END,
+    updated_at   = now()
+  WHERE id         = p_item_id
+    AND account_id = p_account_id
+  RETURNING * INTO v_row;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'checklist_item_not_found';
+  END IF;
+
+  RETURN to_jsonb(v_row);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.update_checklist_item_status(UUID, UUID, TEXT, UUID)
+  TO authenticated;

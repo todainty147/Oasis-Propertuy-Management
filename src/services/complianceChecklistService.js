@@ -25,28 +25,12 @@ export async function updateChecklistItemStatus({
   status,
   completedBy = null,
 }) {
-  const update = {
-    status,
-    updated_at: new Date().toISOString(),
-  };
-
-  if (status === "complete") {
-    update.completed_at = new Date().toISOString();
-    if (completedBy) update.completed_by = completedBy;
-  }
-
-  if (status === "pending" || status === "not_applicable") {
-    update.completed_at = null;
-    update.completed_by = null;
-  }
-
-  const { data, error } = await supabase
-    .from("compliance_checklist_items")
-    .update(update)
-    .eq("id", itemId)
-    .eq("account_id", accountId)
-    .select()
-    .single();
+  const { data, error } = await supabase.rpc("update_checklist_item_status", {
+    p_account_id:   accountId,
+    p_item_id:      itemId,
+    p_status:       status,
+    p_completed_by: completedBy || null,
+  });
 
   if (error) throw error;
   return data;
