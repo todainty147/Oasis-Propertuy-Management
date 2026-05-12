@@ -41,6 +41,7 @@ import { APP_LANGUAGES } from "../i18n/languages";
 import { can, isManageRole } from "../utils/permissions";
 import TenantSwitcher from "../components/TenantSwitcher";
 import { ENTITLEMENT_FEATURES } from "../lib/entitlements";
+import { isPolishMarket } from "../utils/complianceMarket";
 
 /* ======================
    NAV ITEM
@@ -116,6 +117,7 @@ function AccountSwitcher() {
 function SidebarContent({ onNavigate }) {
   const {
     activeRole,
+    activeAccount,
     activeAccountId,
     activePermissionContext,
     isRootOperator,
@@ -373,12 +375,14 @@ function SidebarContent({ onNavigate }) {
                     ) : (
                       <LockedItem to="/compliance/renters-rights" icon={ShieldCheck} label={t("sidebar.rentersRights")} onNavigate={onNavigate} />
                     )}
-                    {hasEntitlement(ENTITLEMENT_FEATURES.POLAND_COMPLIANCE) ? (
-                      <Item to="/compliance/poland" icon={Flag} label={t("sidebar.polandCompliance")} onNavigate={onNavigate} />
-                    ) : (
-                      <LockedItem to="/compliance/poland" icon={Flag} label={t("sidebar.polandCompliance")} onNavigate={onNavigate} />
+                    {isPolishMarket({ account: activeAccount || {} }) && (
+                      hasEntitlement(ENTITLEMENT_FEATURES.POLAND_COMPLIANCE) ? (
+                        <Item to="/compliance/poland" icon={Flag} label={t("sidebar.polandCompliance")} onNavigate={onNavigate} />
+                      ) : (
+                        <LockedItem to="/compliance/poland" icon={Flag} label={t("sidebar.polandCompliance")} onNavigate={onNavigate} />
+                      )
                     )}
-                    {(
+                    {isPolishMarket({ account: activeAccount || {} }) && (
                       hasEntitlement(ENTITLEMENT_FEATURES.PL_STR_COMPLIANCE) ||
                       hasEntitlement(ENTITLEMENT_FEATURES.PL_OPEN_BANKING_READINESS) ||
                       hasEntitlement(ENTITLEMENT_FEATURES.PL_TEMPLATE_LIBRARY) ||
