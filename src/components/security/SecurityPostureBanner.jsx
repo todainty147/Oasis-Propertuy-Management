@@ -38,7 +38,7 @@ export default function SecurityPostureBanner({ accountId }) {
         <span className="font-semibold">{t("securityPosture.bannerTitle")}: </span>
         {body}{" "}
         <Link
-          to="/roles"
+          to="/settings/roles?highlight=security"
           className="font-medium underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-200"
         >
           {t("securityPosture.bannerCta")}

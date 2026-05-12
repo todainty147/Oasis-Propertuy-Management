@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
+import { ShieldAlert } from "lucide-react";
 
 import Card from "../components/Card";
 import { useAccount } from "../context/AccountContext";
@@ -14,6 +15,14 @@ import {
   ROLE_PERMISSION_OPTIONS,
   updateAccountRolePermissions,
 } from "../services/roleManagementService";
+import { listAccountPasswordSecurity } from "../services/passwordSecurityService";
+
+const STATUS_I18N = {
+  strong:         "securityPosture.statusStrong",
+  legacy_weak:    "securityPosture.statusLegacy",
+  unknown:        "securityPosture.statusUnknown",
+  reset_required: "securityPosture.statusRequired",
+};
 
 function formatPermissionLabel(permissionKey) {
   return String(permissionKey || "")
@@ -56,11 +65,15 @@ export default function RolesManagementPage() {
   const { activeAccountId, activeRole, isRootOperator } = useAccount();
   const canManageRoles = isRootOperator || isManageRole(activeRole);
 
+  const [searchParams] = useSearchParams();
+  const highlightSecurity = searchParams.get("highlight") === "security";
+
   const [loading, setLoading] = useState(false);
   const [savingRoleId, setSavingRoleId] = useState("");
   const [assigningUserId, setAssigningUserId] = useState("");
   const [roles, setRoles] = useState([]);
   const [members, setMembers] = useState([]);
+  const [securityMap, setSecurityMap] = useState({});
 
   const [newRoleName, setNewRoleName] = useState("");
   const [newRolePermissions, setNewRolePermissions] = useState([]);
@@ -74,15 +87,26 @@ export default function RolesManagementPage() {
     if (!activeAccountId || !canManageRoles) return;
     setLoading(true);
     try {
-      const [roleRows, memberRows] = await Promise.all([
+      const requests = [
         listAccountRoles(activeAccountId),
         listAccountMembersForRoleAssignment(activeAccountId),
-      ]);
+      ];
+      if (highlightSecurity) {
+        requests.push(listAccountPasswordSecurity(activeAccountId));
+      }
+      const [roleRows, memberRows, securityRows] = await Promise.all(requests);
       setRoles(roleRows);
       setMembers(memberRows);
       setEditingPermissionsByRoleId(
         Object.fromEntries(roleRows.map((role) => [role.id, role.permissionKeys])),
       );
+      if (securityRows) {
+        const map = {};
+        for (const row of securityRows) {
+          map[row.user_id] = row.password_strength_status;
+        }
+        setSecurityMap(map);
+      }
     } catch (error) {
       window.alert(error?.message || t("roles.loadError"));
     } finally {
@@ -93,7 +117,7 @@ export default function RolesManagementPage() {
   useEffect(() => {
     loadPage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeAccountId, canManageRoles]);
+  }, [activeAccountId, canManageRoles, highlightSecurity]);
 
   const customRoles = useMemo(
     () => roles.filter((role) => !role.isSystem),
@@ -276,48 +300,71 @@ export default function RolesManagementPage() {
             {t("roles.assignSubtitle")}
           </p>
 
+          {highlightSecurity && (
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800/40 dark:bg-amber-950/30">
+              <ShieldAlert size={14} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <p className="text-xs text-amber-800 dark:text-amber-300">{t("securityPosture.highlightNote")}</p>
+            </div>
+          )}
+
           <div className="mt-4 space-y-3">
             {loading ? <p className="text-sm text-slate-500">{t("roles.loadingMembers")}</p> : null}
             {!loading && members.length === 0 ? (
               <p className="text-sm text-slate-500">{t("roles.noMembers")}</p>
             ) : null}
-            {members.map((member) => (
-              <div
-                key={member.userId}
-                className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4 dark:border-slate-800 md:flex-row md:items-center md:justify-between"
-              >
-                <div>
-                  <p className="font-medium text-slate-900 dark:text-slate-100">
-                    {member.email || member.userId}
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {t("roles.legacyRole", { role: member.legacyRole })}
-                    {member.roleName
-                      ? ` • ${t("roles.customRole", { role: member.roleName })}`
-                      : ` • ${t("roles.customRoleNone")}`}
-                  </p>
-                </div>
+            {members.map((member) => {
+              const pwStatus = securityMap[member.userId];
+              const isWeak = pwStatus && pwStatus !== "strong";
+              return (
+                <div
+                  key={member.userId}
+                  className={`flex flex-col gap-3 rounded-xl border p-4 md:flex-row md:items-center md:justify-between ${
+                    isWeak && highlightSecurity
+                      ? "border-amber-300 bg-amber-50/50 dark:border-amber-700/50 dark:bg-amber-950/10"
+                      : "border-slate-200 dark:border-slate-800"
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium text-slate-900 dark:text-slate-100">
+                        {member.email || member.userId}
+                      </p>
+                      {isWeak && highlightSecurity && (
+                        <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+                          <ShieldAlert size={9} />
+                          {t(STATUS_I18N[pwStatus] ?? "securityPosture.statusUnknown")}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {t("roles.legacyRole", { role: member.legacyRole })}
+                      {member.roleName
+                        ? ` • ${t("roles.customRole", { role: member.roleName })}`
+                        : ` • ${t("roles.customRoleNone")}`}
+                    </p>
+                  </div>
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <select
-                    value={member.roleId || ""}
-                    disabled={assigningUserId === member.userId}
-                    onChange={(event) => handleAssignRole(member.userId, event.target.value)}
-                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-                  >
-                    <option value="">{t("roles.systemRoleOnly")}</option>
-                    {customRoles.map((role) => (
-                      <option key={role.id} value={role.id}>
-                        {role.name}
-                      </option>
-                    ))}
-                  </select>
-                  {assigningUserId === member.userId ? (
-                    <span className="text-xs text-slate-500">{t("common.saving")}</span>
-                  ) : null}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <select
+                      value={member.roleId || ""}
+                      disabled={assigningUserId === member.userId}
+                      onChange={(event) => handleAssignRole(member.userId, event.target.value)}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                    >
+                      <option value="">{t("roles.systemRoleOnly")}</option>
+                      {customRoles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name}
+                        </option>
+                      ))}
+                    </select>
+                    {assigningUserId === member.userId ? (
+                      <span className="text-xs text-slate-500">{t("common.saving")}</span>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       </div>
