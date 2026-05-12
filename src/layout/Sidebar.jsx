@@ -30,6 +30,7 @@ import {
   Lock,
   Globe,
   Flag,
+  CalendarClock,
 } from "lucide-react";
 
 import { useMemo, useState } from "react";
@@ -300,6 +301,14 @@ function SidebarContent({ onNavigate }) {
                   to={isTenant ? "/tenant/payments" : "/finance"}
                   icon={Wallet}
                   label={t("sidebar.finance")}
+                  onNavigate={onNavigate}
+                />
+              )}
+              {canReadFinance && !isTenant && hasEntitlement(ENTITLEMENT_FEATURES.RENT_RULES_CORE) && (
+                <Item
+                  to="/finance/rent-plans"
+                  icon={CalendarClock}
+                  label={t("sidebar.rentPlans")}
                   onNavigate={onNavigate}
                 />
               )}

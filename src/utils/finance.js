@@ -188,30 +188,64 @@ export function calculateMonthlyBalance({
 export function calculatePropertyFinance({
   property,
   payments = [],
+  date = new Date(),
 }) {
   const rent = Number(property?.rent) || 0;
 
-  // All-time totals: sum every paid record and every unpaid record independently.
-  // A current-month-only cycle lookup was the previous approach but caused
-  // historical paid amounts to vanish (e.g. a Dec payment was invisible in May).
-  const paid = sumPaid(payments);
-  const unpaidPayments = payments.filter((p) => !isPaid(p));
-  const remaining = unpaidPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-  const hasOverdue = unpaidPayments.some((p) => isOverdue(p));
+  // Collect every reference date from payment records (prefer due date, fall back to paid_at).
+  const refDates = payments
+    .map((p) => toDate(p.dueDate) ?? toDate(p.paidAt))
+    .filter(Boolean);
 
-  let status = PAYMENT_STATUS.PENDING;
-  if (remaining <= 0 && paid > 0) status = PAYMENT_STATUS.PAID;
-  else if (hasOverdue)            status = PAYMENT_STATUS.OVERDUE;
-  else if (paid > 0)              status = PAYMENT_STATUS.PARTIAL;
+  const collected = sumPaid(payments);
+
+  // No rent configured or no payment history — fall back to per-record totals.
+  if (!rent || !refDates.length) {
+    const remaining = payments
+      .filter((p) => !isPaid(p))
+      .reduce((s, p) => s + Number(p.amount || 0), 0);
+    const hasExplicitOverdue = payments.some((p) => !isPaid(p) && isOverdue(p));
+    let paymentStatus = PAYMENT_STATUS.PENDING;
+    if (remaining <= 0 && collected > 0) paymentStatus = PAYMENT_STATUS.PAID;
+    else if (hasExplicitOverdue)         paymentStatus = PAYMENT_STATUS.OVERDUE;
+    else if (collected > 0)              paymentStatus = PAYMENT_STATUS.PARTIAL;
+    return {
+      propertyId: property.id, address: property.address, city: property.city,
+      rent, paid: collected, remaining, paymentStatus,
+    };
+  }
+
+  // Rent is due on the 1st of every month. Every calendar month from the earliest
+  // recorded payment through today is a billing obligation — even months with no
+  // payment record. Overpayment reduces future obligations automatically because we
+  // compare total collected against total expected across all months.
+  const earliest = new Date(Math.min(...refDates.map((d) => d.getTime())));
+  const startY = earliest.getFullYear();
+  const startM = earliest.getMonth(); // 0-based
+  const nowY   = date.getFullYear();
+  const nowM   = date.getMonth();   // 0-based
+
+  // Total months billed = from earliest month to current month, inclusive.
+  const totalMonths  = Math.max(1, (nowY - startY) * 12 + (nowM - startM) + 1);
+  const totalExpected = totalMonths * rent;
+
+  // Outstanding = what hasn't been collected yet. Overpayment (collected > expected)
+  // floors at 0 so it carries forward without showing a negative balance.
+  const outstanding = Math.max(totalExpected - collected, 0);
+
+  // Since rent is due on the 1st and we are always on or after the 1st,
+  // every outstanding month-slot is overdue — not just pending.
+  let paymentStatus = PAYMENT_STATUS.PENDING;
+  if (outstanding <= 0) paymentStatus = PAYMENT_STATUS.PAID;
+  else                  paymentStatus = PAYMENT_STATUS.OVERDUE;
 
   return {
     propertyId: property.id,
-    address: property.address,
-    city: property.city,
-
+    address:    property.address,
+    city:       property.city,
     rent,
-    paid,
-    remaining,
-    paymentStatus: status,
+    paid:       collected,
+    remaining:  outstanding,
+    paymentStatus,
   };
 }

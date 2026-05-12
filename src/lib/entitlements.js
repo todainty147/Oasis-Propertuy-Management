@@ -54,6 +54,16 @@ export const ENTITLEMENT_FEATURES = Object.freeze({
   PL_STR_COMPLIANCE:         "pl_str_compliance",          // Growth — short-term rental mode
   PL_TEMPLATE_LIBRARY:       "pl_template_library",        // Pro — legal template readiness
   PL_PARTNER_DIRECTORY:      "pl_partner_directory",       // Pro — notary/legal partner directory
+
+  // ── Rent Rules Engine: Core (all active plans) ────────────────────────────
+  RENT_RULES_CORE:        "rent_rules_core",
+  EXPECTED_CHARGES_CORE:  "expected_charges_core",
+
+  // ── Rent Rules Engine: Premium automation (future) ────────────────────────
+  RENT_RULES_BULK_AUTOMATION:    "rent_rules_bulk_automation",
+  RENT_AI_FINANCE_INSIGHTS:      "rent_ai_finance_insights",
+  OPEN_BANKING_RENT_MATCHING:    "open_banking_rent_matching",
+  PORTFOLIO_FINANCE_FORECASTING: "portfolio_finance_forecasting",
 });
 
 export const PLAN_RANKS = Object.freeze({
@@ -85,6 +95,9 @@ const STARTER_FEATURES = [
   ENTITLEMENT_FEATURES.MAINTENANCE,
   ENTITLEMENT_FEATURES.FINANCE,
   ENTITLEMENT_FEATURES.DOCUMENTS,
+  // Rent Rules Engine is core infrastructure — available to all active plans
+  ENTITLEMENT_FEATURES.RENT_RULES_CORE,
+  ENTITLEMENT_FEATURES.EXPECTED_CHARGES_CORE,
 ];
 
 const GROWTH_FEATURES = [
@@ -125,6 +138,11 @@ const OPERATOR_AGENCY_FEATURES = [
   ENTITLEMENT_FEATURES.AI_SECURITY_COPILOT,
   ENTITLEMENT_FEATURES.AI_NATURAL_LANGUAGE_QUERY,
   ENTITLEMENT_FEATURES.AI_ADVANCED_AUDIT_SUMMARIES,
+  // Premium rent automation (bulk, AI finance, open banking, forecasting)
+  ENTITLEMENT_FEATURES.RENT_RULES_BULK_AUTOMATION,
+  ENTITLEMENT_FEATURES.RENT_AI_FINANCE_INSIGHTS,
+  ENTITLEMENT_FEATURES.OPEN_BANKING_RENT_MATCHING,
+  ENTITLEMENT_FEATURES.PORTFOLIO_FINANCE_FORECASTING,
 ];
 
 export const PLAN_ENTITLEMENTS = Object.freeze({

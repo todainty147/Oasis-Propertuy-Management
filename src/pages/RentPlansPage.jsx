@@ -1,0 +1,310 @@
+import { useCallback, useEffect, useState } from "react";
+import { Calculator, ChevronRight, FilePlus, Plus, RefreshCw } from "lucide-react";
+import { useAccount } from "../context/AccountContext";
+import { useI18n } from "../context/I18nContext";
+import { usePageTitle } from "../layout/PageTitleContext";
+import { listRentPlans, activateRentPlan, endRentPlan } from "../services/rentPlanService";
+import { listExpectedCharges, postExpectedCharge, cancelExpectedCharge } from "../services/expectedChargeService";
+import RentPlanForm from "../components/rent/RentPlanForm";
+import RentCalculationPreview from "../components/rent/RentCalculationPreview";
+import ExpectedChargesList from "../components/rent/ExpectedChargesList";
+
+const STATUS_COLORS = {
+  draft:      "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+  active:     "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400",
+  superseded: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
+  ended:      "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400",
+};
+
+function PlanCard({ plan, onActivate, onEnd, onPreview, onViewCharges, t }) {
+  const [busy, setBusy] = useState(false);
+
+  async function handleActivate() {
+    if (!window.confirm(t("rentPlans.confirmActivate"))) return;
+    setBusy(true);
+    try { await onActivate(plan.id); } finally { setBusy(false); }
+  }
+
+  async function handleEnd() {
+    if (!window.confirm(t("rentPlans.confirmEnd"))) return;
+    setBusy(true);
+    try { await onEnd(plan.id); } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase ${STATUS_COLORS[plan.status] ?? STATUS_COLORS.draft}`}>
+              {plan.status}
+            </span>
+            <span className="text-xs text-slate-400">v{plan.version_number}</span>
+            <span className="text-xs text-slate-400">{plan.market.toUpperCase()} · {plan.currency}</span>
+          </div>
+          <p className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+            {plan.currency} {Number(plan.base_rent_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })} / {plan.billing_frequency}
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            {t("rentPlans.startDate")}: {plan.start_date}
+            {plan.end_date ? ` → ${plan.end_date}` : ""}
+          </p>
+          {plan.notes && (
+            <p className="text-xs text-slate-400 mt-0.5 italic">{plan.notes}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+        <div><span className="font-medium text-slate-700 dark:text-slate-300">{t("rentPlans.dueDay")}</span><br />{plan.due_day}</div>
+        <div><span className="font-medium text-slate-700 dark:text-slate-300">{t("rentPlans.proration")}</span><br />{plan.proration_policy}</div>
+        <div><span className="font-medium text-slate-700 dark:text-slate-300">{t("rentPlans.utilities")}</span><br />{plan.utilities_policy}</div>
+        <div><span className="font-medium text-slate-700 dark:text-slate-300">{t("rentPlans.deposit")}</span><br />
+          {plan.deposit_amount ? `${plan.currency} ${Number(plan.deposit_amount).toLocaleString()}` : "—"}
+        </div>
+      </div>
+
+      {plan.rent_charge_rules?.length > 0 && (
+        <div className="text-xs text-slate-500 dark:text-slate-400">
+          +{plan.rent_charge_rules.length} {t("rentPlans.chargeRules")}
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2 pt-1">
+        <button
+          type="button"
+          onClick={() => onPreview(plan)}
+          className="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1"
+        >
+          <Calculator size={12} />
+          {t("rentPlans.preview")}
+        </button>
+        <button
+          type="button"
+          onClick={() => onViewCharges(plan)}
+          className="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1"
+        >
+          <ChevronRight size={12} />
+          {t("rentPlans.expectedCharges")}
+        </button>
+        {plan.status === "draft" && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={handleActivate}
+            className="text-xs px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {busy ? t("common.saving") : t("rentPlans.activate")}
+          </button>
+        )}
+        {plan.status === "active" && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={handleEnd}
+            className="text-xs px-2.5 py-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 disabled:opacity-50"
+          >
+            {t("rentPlans.endPlan")}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function RentPlansPage() {
+  const { t } = useI18n();
+  const { activeAccountId } = useAccount();
+  const { setTitle } = usePageTitle();
+
+  const [plans, setPlans]           = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState(null);
+  const [showForm, setShowForm]     = useState(false);
+  const [previewPlan, setPreviewPlan] = useState(null);
+  const [chargesPlan, setChargesPlan] = useState(null);
+  const [charges, setCharges]       = useState([]);
+  const [chargesLoading, setChargesLoading] = useState(false);
+
+  useEffect(() => { setTitle(t("rentPlans.pageTitle")); }, [setTitle, t]);
+
+  const loadPlans = useCallback(async () => {
+    if (!activeAccountId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      setPlans(await listRentPlans({ accountId: activeAccountId }));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeAccountId]);
+
+  useEffect(() => { loadPlans(); }, [loadPlans]);
+
+  async function handleActivate(planId) {
+    await activateRentPlan({ accountId: activeAccountId, rentPlanId: planId });
+    await loadPlans();
+  }
+
+  async function handleEnd(planId) {
+    await endRentPlan({ accountId: activeAccountId, rentPlanId: planId });
+    await loadPlans();
+  }
+
+  async function handleViewCharges(plan) {
+    setChargesPlan(plan);
+    setChargesLoading(true);
+    try {
+      setCharges(await listExpectedCharges({ accountId: activeAccountId, rentPlanId: plan.id }));
+    } finally {
+      setChargesLoading(false);
+    }
+  }
+
+  async function handlePostCharge(chargeId) {
+    await postExpectedCharge({ accountId: activeAccountId, expectedChargeId: chargeId });
+    await handleViewCharges(chargesPlan);
+  }
+
+  async function handleCancelCharge(chargeId) {
+    await cancelExpectedCharge({ accountId: activeAccountId, expectedChargeId: chargeId });
+    await handleViewCharges(chargesPlan);
+  }
+
+  // ── Sub-panel: expected charges ───────────────────────────────────────────
+  if (chargesPlan) {
+    return (
+      <div className="space-y-4 max-w-3xl mx-auto px-4 py-6">
+        <button
+          type="button"
+          onClick={() => setChargesPlan(null)}
+          className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+        >
+          ← {t("rentPlans.backToPlans")}
+        </button>
+        <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+          {t("rentPlans.expectedChargesFor")} — {Number(chargesPlan.base_rent_amount).toLocaleString()} {chargesPlan.currency}/{chargesPlan.billing_frequency}
+        </h2>
+        {chargesLoading
+          ? <p className="text-sm text-slate-400">{t("common.loading")}</p>
+          : <ExpectedChargesList
+              charges={charges}
+              onPost={handlePostCharge}
+              onCancel={handleCancelCharge}
+              t={t}
+            />
+        }
+      </div>
+    );
+  }
+
+  // ── Sub-panel: calculation preview ────────────────────────────────────────
+  if (previewPlan) {
+    return (
+      <div className="space-y-4 max-w-3xl mx-auto px-4 py-6">
+        <button
+          type="button"
+          onClick={() => setPreviewPlan(null)}
+          className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+        >
+          ← {t("rentPlans.backToPlans")}
+        </button>
+        <RentCalculationPreview
+          plan={previewPlan}
+          accountId={activeAccountId}
+          onClose={() => setPreviewPlan(null)}
+          t={t}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5 max-w-3xl mx-auto px-4 py-6">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+            {t("rentPlans.pageTitle")}
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+            {t("rentPlans.pageSubtitle")}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={loadPlans}
+            disabled={loading}
+            className="text-slate-400 hover:text-slate-600 disabled:opacity-40"
+            aria-label={t("common.refresh")}
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          </button>
+          {!showForm && (
+            <button
+              type="button"
+              onClick={() => setShowForm(true)}
+              className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1.5"
+            >
+              <Plus size={12} />
+              {t("rentPlans.addPlan")}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Create form */}
+      {showForm && (
+        <RentPlanForm
+          accountId={activeAccountId}
+          onSaved={() => { setShowForm(false); loadPlans(); }}
+          onCancel={() => setShowForm(false)}
+          t={t}
+        />
+      )}
+
+      {/* Error */}
+      {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
+
+      {/* Loading */}
+      {loading && <p className="text-sm text-slate-400">{t("common.loading")}</p>}
+
+      {/* Empty state */}
+      {!loading && !error && plans.length === 0 && !showForm && (
+        <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 p-8 text-center space-y-3">
+          <FilePlus size={28} className="text-slate-300 mx-auto" />
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+            {t("rentPlans.emptyTitle")}
+          </p>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
+            {t("rentPlans.emptyBody")}
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+          >
+            <Plus size={12} />
+            {t("rentPlans.addPlan")}
+          </button>
+        </div>
+      )}
+
+      {/* Plan cards */}
+      {!loading && plans.map((plan) => (
+        <PlanCard
+          key={plan.id}
+          plan={plan}
+          onActivate={handleActivate}
+          onEnd={handleEnd}
+          onPreview={setPreviewPlan}
+          onViewCharges={handleViewCharges}
+          t={t}
+        />
+      ))}
+    </div>
+  );
+}

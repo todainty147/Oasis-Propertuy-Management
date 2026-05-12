@@ -740,6 +740,99 @@ as $$
       item_key
     limit (select max_items from cfg)
   ),
+  -- ── Rent plan attention items (Phase G) ─────────────────────────────────────
+  rent_plan_items as (
+    -- Occupied properties with no active rent plan
+    select
+      'rent-plan-missing-' || pr.id::text as item_key,
+      'rent_plan_missing'::text as item_type,
+      'action'::text as bucket,
+      coalesce(pr.address, '—') as property_label,
+      coalesce(t.name, '—') as tenant_label,
+      ''::text as entity_label,
+      coalesce(pr.rent, 0)::numeric as amount,
+      null::int as age_hours,
+      null::int as due_days,
+      '/finance/rent-plans'::text as link_path,
+      'properties'::text as source_table,
+      35 as sort_order
+    from public.properties pr
+    cross join authz a
+    left join public.tenants t
+      on t.property_id = pr.id and t.account_id = a.account_id and t.archived_at is null
+    where pr.account_id = a.account_id
+      and t.id is not null   -- occupied
+      and not exists (
+        select 1
+        from public.rent_plans rp
+        where rp.account_id = a.account_id
+          and rp.property_id = pr.id
+          and rp.status = 'active'
+      )
+
+    union all
+
+    -- Rent plans in draft that have not been activated
+    select
+      'rent-plan-draft-' || rp.id::text,
+      'rent_plan_draft'::text,
+      'action'::text,
+      coalesce(pr.address, '—'),
+      coalesce(t.name, '—'),
+      'Draft rent plan'::text,
+      rp.base_rent_amount,
+      floor(extract(epoch from (now() - rp.created_at)) / 3600)::int,
+      null::int,
+      '/finance/rent-plans'::text,
+      'rent_plans'::text,
+      36 as sort_order
+    from public.rent_plans rp
+    cross join authz a
+    left join public.properties pr on pr.id = rp.property_id
+    left join public.tenants t on t.id = rp.tenant_id
+    where rp.account_id = a.account_id
+      and rp.status = 'draft'
+
+    union all
+
+    -- Expected charges that are scheduled (past due date, not yet posted)
+    select
+      'expected-charge-overdue-' || ec.id::text,
+      'expected_charge_overdue'::text,
+      'urgent'::text,
+      coalesce(pr.address, '—'),
+      coalesce(t.name, '—'),
+      'Expected charge overdue'::text,
+      ec.amount,
+      floor(extract(epoch from (now() - ec.due_date::timestamptz)) / 3600)::int,
+      (ec.due_date - current_date)::int,
+      '/finance/rent-plans'::text,
+      'expected_charges'::text,
+      12 as sort_order
+    from public.expected_charges ec
+    cross join authz a
+    left join public.properties pr on pr.id = ec.property_id
+    left join public.tenants t on t.id = ec.tenant_id
+    where ec.account_id = a.account_id
+      and ec.status = 'scheduled'
+      and ec.due_date < current_date
+  ),
+  limited_rent_plan_items as (
+    select *
+    from rent_plan_items
+    order by
+      case bucket
+        when 'urgent' then 1
+        when 'action' then 2
+        when 'upcoming' then 3
+        else 4
+      end,
+      sort_order,
+      coalesce(age_hours, 999999),
+      coalesce(due_days, 999999),
+      item_key
+    limit (select max_items from cfg)
+  ),
   unioned as (
     select * from limited_payment_items
     union all select * from limited_request_items
@@ -748,6 +841,7 @@ as $$
     union all select * from limited_preventive_items
     union all select * from limited_compliance_items
     union all select * from limited_notification_items
+    union all select * from limited_rent_plan_items
   ),
   ordered as (
     select
