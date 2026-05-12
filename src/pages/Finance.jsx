@@ -1,6 +1,6 @@
 // src/pages/Finance.jsx
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
@@ -485,6 +485,20 @@ export default function Finance({
                 />
               </>
             )}
+          </div>
+
+          {/* Rent Plans entry point */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 flex items-center justify-between gap-4">
+            <div>
+              <p className="font-semibold text-slate-900">{t("rentPlans.pageTitle")}</p>
+              <p className="text-sm text-slate-500 mt-0.5">{t("rentPlans.pageSubtitle")}</p>
+            </div>
+            <Link
+              to="/finance/rent-plans"
+              className="shrink-0 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 transition-colors"
+            >
+              {t("rentPlans.pageTitle")} →
+            </Link>
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Badge from "../components/Badge";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
@@ -290,6 +290,19 @@ export default function PropertyDetails({
               propertyId={property.id}
             />
           )}
+
+          <div className="rounded-xl border border-slate-200 bg-white p-4 flex items-center justify-between gap-4">
+            <div>
+              <p className="font-semibold text-slate-900">{t("rentPlans.pageTitle")}</p>
+              <p className="text-sm text-slate-500 mt-0.5">{t("rentPlans.pageSubtitle")}</p>
+            </div>
+            <Link
+              to={`/finance/rent-plans?property=${property.id}`}
+              className="shrink-0 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              {t("rentPlans.pageTitle")} →
+            </Link>
+          </div>
         </div>
       )}
 
