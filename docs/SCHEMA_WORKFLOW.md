@@ -62,6 +62,13 @@ Example overlay order for the current repo:
 23. `supabase/operator_agency_grants.sql`
 24. `supabase/account_subscription_plan_hardened.sql` ← **activation gate — apply last, after verifying `select count(*) from accounts where trial_ends_at is not null` returns 0**
 
+> The items above are the original documented bootstrap order. The full apply sequence (including all additions since then) is the authoritative source in `scripts/dbApplyRepoSql.js` → `OVERLAY_SEQUENCE`.
+
+Recent additions (apply after `command_center_items.sql`, before `attention_center_items.sql`):
+
+25. `supabase/rent_engine_tables.sql` — core Rent Rules Engine (rent_plans, rent_charge_rules, rent_calculation_runs, expected_charges, RPCs: activate_rent_plan, save_calculation_run, generate_expected_charge, post_expected_charge, cancel_expected_charge)
+26. `supabase/advanced_rent_models.sql` — advanced rent model tables (rent_splits, property_rooms, room_rent_assignments, utility_charges, rent_adjustments, str_booking_charges) and rent_plans column extensions (change_reason, notice_required, notice_served_at, notice_method, effective_date, extended status values)
+
 This is intentionally explicit. Do not assume `supabase db reset` alone reconstructs the full app schema in this repo.
 
 > **Trial enforcement note:** `account_subscription_plan_hardened.sql` (item 24) replaces the live `account_subscription_plan()` function. Run the pre-deploy check before applying it in any environment that has existing accounts:

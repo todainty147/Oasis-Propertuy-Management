@@ -59,6 +59,8 @@ const OVERLAY_SEQUENCE = [
   "dashboard_hub_extras.sql",
   "tenant_activity_feed.sql",
   "command_center_items.sql",
+  "rent_engine_tables.sql",
+  "advanced_rent_models.sql",
   "attention_center_items.sql",
   "portfolio_attention_items.sql",
   "portfolio_weekly_summary.sql",
