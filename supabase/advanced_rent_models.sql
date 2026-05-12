@@ -51,6 +51,10 @@ create unique index if not exists rent_splits_one_active_per_tenant
 alter table public.rent_splits enable row level security;
 alter table public.rent_splits force row level security;
 
+drop policy if exists "rent_splits_select_managers" on public.rent_splits;
+drop policy if exists "rent_splits_insert_managers" on public.rent_splits;
+drop policy if exists "rent_splits_update_managers" on public.rent_splits;
+
 create policy "rent_splits_select_managers" on public.rent_splits
   for select to authenticated using (public.user_can_manage_account(account_id));
 create policy "rent_splits_insert_managers" on public.rent_splits
@@ -89,6 +93,11 @@ create table if not exists public.property_rooms (
 
 alter table public.property_rooms enable row level security;
 alter table public.property_rooms force row level security;
+
+drop policy if exists "property_rooms_select_managers" on public.property_rooms;
+drop policy if exists "property_rooms_insert_managers" on public.property_rooms;
+drop policy if exists "property_rooms_update_managers" on public.property_rooms;
+drop policy if exists "property_rooms_delete_managers" on public.property_rooms;
 
 create policy "property_rooms_select_managers" on public.property_rooms
   for select to authenticated using (public.user_can_manage_account(account_id));
@@ -145,6 +154,10 @@ create unique index if not exists room_rent_one_active_per_room_tenant
 
 alter table public.room_rent_assignments enable row level security;
 alter table public.room_rent_assignments force row level security;
+
+drop policy if exists "room_rent_select_managers" on public.room_rent_assignments;
+drop policy if exists "room_rent_insert_managers" on public.room_rent_assignments;
+drop policy if exists "room_rent_update_managers" on public.room_rent_assignments;
 
 create policy "room_rent_select_managers" on public.room_rent_assignments
   for select to authenticated using (public.user_can_manage_account(account_id));
@@ -210,6 +223,10 @@ create table if not exists public.utility_charges (
 alter table public.utility_charges enable row level security;
 alter table public.utility_charges force row level security;
 
+drop policy if exists "utility_charges_select_managers" on public.utility_charges;
+drop policy if exists "utility_charges_insert_managers" on public.utility_charges;
+drop policy if exists "utility_charges_update_managers" on public.utility_charges;
+
 create policy "utility_charges_select_managers" on public.utility_charges
   for select to authenticated using (public.user_can_manage_account(account_id));
 create policy "utility_charges_insert_managers" on public.utility_charges
@@ -264,6 +281,10 @@ create table if not exists public.rent_adjustments (
 
 alter table public.rent_adjustments enable row level security;
 alter table public.rent_adjustments force row level security;
+
+drop policy if exists "rent_adjustments_select_managers" on public.rent_adjustments;
+drop policy if exists "rent_adjustments_insert_managers" on public.rent_adjustments;
+drop policy if exists "rent_adjustments_update_managers" on public.rent_adjustments;
 
 create policy "rent_adjustments_select_managers" on public.rent_adjustments
   for select to authenticated using (public.user_can_manage_account(account_id));
@@ -327,6 +348,10 @@ create table if not exists public.str_booking_charges (
 
 alter table public.str_booking_charges enable row level security;
 alter table public.str_booking_charges force row level security;
+
+drop policy if exists "str_bookings_select_managers" on public.str_booking_charges;
+drop policy if exists "str_bookings_insert_managers" on public.str_booking_charges;
+drop policy if exists "str_bookings_update_managers" on public.str_booking_charges;
 
 create policy "str_bookings_select_managers" on public.str_booking_charges
   for select to authenticated using (public.user_can_manage_account(account_id));

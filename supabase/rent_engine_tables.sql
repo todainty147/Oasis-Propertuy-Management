@@ -77,6 +77,10 @@ create unique index if not exists rent_plans_one_active_per_property_tenant
 alter table public.rent_plans enable row level security;
 alter table public.rent_plans force row level security;
 
+drop policy if exists "rent_plans_select_managers" on public.rent_plans;
+drop policy if exists "rent_plans_insert_managers" on public.rent_plans;
+drop policy if exists "rent_plans_update_managers" on public.rent_plans;
+
 create policy "rent_plans_select_managers" on public.rent_plans
   for select to authenticated
   using (public.user_can_manage_account(account_id));
@@ -130,6 +134,11 @@ create table if not exists public.rent_charge_rules (
 alter table public.rent_charge_rules enable row level security;
 alter table public.rent_charge_rules force row level security;
 
+drop policy if exists "rent_charge_rules_select_managers" on public.rent_charge_rules;
+drop policy if exists "rent_charge_rules_insert_managers" on public.rent_charge_rules;
+drop policy if exists "rent_charge_rules_update_managers" on public.rent_charge_rules;
+drop policy if exists "rent_charge_rules_delete_managers" on public.rent_charge_rules;
+
 create policy "rent_charge_rules_select_managers" on public.rent_charge_rules
   for select to authenticated
   using (public.user_can_manage_account(account_id));
@@ -176,6 +185,9 @@ create table if not exists public.rent_calculation_runs (
 
 alter table public.rent_calculation_runs enable row level security;
 alter table public.rent_calculation_runs force row level security;
+
+drop policy if exists "rent_calc_runs_select_managers" on public.rent_calculation_runs;
+drop policy if exists "rent_calc_runs_insert_managers" on public.rent_calculation_runs;
 
 create policy "rent_calc_runs_select_managers" on public.rent_calculation_runs
   for select to authenticated
@@ -229,6 +241,10 @@ create unique index if not exists expected_charges_no_dup
 
 alter table public.expected_charges enable row level security;
 alter table public.expected_charges force row level security;
+
+drop policy if exists "expected_charges_select_managers" on public.expected_charges;
+drop policy if exists "expected_charges_insert_managers" on public.expected_charges;
+drop policy if exists "expected_charges_update_managers" on public.expected_charges;
 
 create policy "expected_charges_select_managers" on public.expected_charges
   for select to authenticated
