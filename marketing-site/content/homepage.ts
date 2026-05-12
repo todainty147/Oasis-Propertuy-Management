@@ -2,6 +2,11 @@ import type { Locale } from "../lib/i18n";
 
 import { siteConfig } from "./site";
 
+type TrustBadge = { label: string };
+type TestimonialItem = { quote: string; name: string; context: string };
+type FeatureItem = { title: string; body: string };
+type ComparisonRow = { feature: string; oasis: string; agent: string };
+
 type HomePageContent = {
   seo: {
     title: string;
@@ -20,6 +25,40 @@ type HomePageContent = {
     imageAlt: string;
     primaryCta: { label: string; href: string };
     secondaryCta: { label: string; href: string };
+  };
+  // Conversion sections — optional so PL/DE can omit until translated
+  trustBar?: {
+    title: string;
+    body: string;
+    badges: TrustBadge[];
+    disclaimer: string;
+  };
+  testimonials?: {
+    title: string;
+    disclaimer: string;
+    items: TestimonialItem[];
+  };
+  seoFeatureSection?: {
+    title: string;
+    body: string;
+    features: FeatureItem[];
+  };
+  rentalYieldSection?: {
+    title: string;
+    body: string;
+    bullets: string[];
+  };
+  passiveLandlordSection?: {
+    title: string;
+    body: string;
+    cta: { label: string; href: string };
+  };
+  agentComparison?: {
+    title: string;
+    body: string;
+    rows: ComparisonRow[];
+    disclaimer: string;
+    cta: { label: string; href: string };
   };
   problemSection: {
     eyebrow: string;
@@ -96,20 +135,19 @@ type HomePageContent = {
 export const homepageContentByLocale: Record<Locale, HomePageContent> = {
   en: {
     seo: {
-      title: "OASIS Rental Management | Property operations platform for landlords",
+      title: "OASIS Rental Management | Automated Property Management Software for Landlords",
       description:
-        "Run rent, maintenance, documents, compliance, contractors, AI-assisted action queues, and audit-ready rental operations in one platform. Rent Plans Engine included on every plan.",
+        "Reduce landlord admin with OASIS. Track rent, maintenance, tenants, documents, compliance readiness, and AI-assisted action queues from one rental management dashboard.",
       canonicalPath: "/",
     },
     hero: {
-      eyebrow: "For landlords who run the operation",
-      title: "Run the rental operation, not just the records.",
+      eyebrow: "For landlords who want more passive income and less daily stress",
+      title: "Turn Your Rental Portfolio Into Passive Income — Without the Daily Stress",
       body:
-        "OASIS brings rent rules, expected charges, tenant records, maintenance workflows, documents, compliance readiness, AI-assisted action queues, and audit trails into one platform built for active landlords.",
-      emphasis:
-        "Stop running your portfolio from spreadsheets, WhatsApp, email, folders, and memory. OASIS shows what needs action, keeps every workflow moving, and protects the operational trail.",
+        "From rent tracking and expected charges to maintenance, documents, contractors, and compliance reminders, OASIS helps organise the daily rental admin so you can stay in control without living in your inbox.",
+      emphasis: "",
       support:
-        "Built for landlords who need ownership, follow-through, and a clearer operational picture than a record system can give them.",
+        "Built for landlords who want fewer surprises, better visibility, and a more passive rental workflow — without losing control of approvals, finance, and decisions.",
       highlights: [
         { label: "Rent and expected charges", href: "/features/rental-accounting" },
         { label: "Command Center", href: "/features/command-center" },
@@ -118,15 +156,137 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
         { label: "Security and audit trail", href: "/features/security-audit" },
       ],
       microcopy: [
-        "Know what needs action before it becomes expensive.",
-        "Keep rent, maintenance, documents, and contractors in one workflow.",
-        "Use AI to triage, explain, and prioritise — without taking control away from you.",
+        "See rent, arrears, maintenance, and documents in one dashboard.",
+        "Let tenants report issues without endless WhatsApp threads.",
+        "Know what needs action before small problems become expensive.",
       ],
       imageSrc: "/screenshots/command-center.png",
       imageAlt:
-        "OASIS Command Center showing AI operator briefing, urgent queues, and action items across the portfolio.",
-      primaryCta: { label: "See how OASIS works", href: siteConfig.appUrl },
-      secondaryCta: { label: "See the tenant portal", href: "/features/tenant-portal" },
+        "OASIS Rental Management landlord dashboard showing rent, maintenance, documents, and portfolio actions",
+      primaryCta: { label: "See OASIS in Action", href: siteConfig.appUrl },
+      secondaryCta: { label: "Compare with Traditional Agents", href: "#agent-comparison" },
+    },
+    trustBar: {
+      title: "Built for landlords who want clarity, control, and fewer surprises",
+      body: "OASIS gives landlords the operating layer usually missing between spreadsheets, inboxes, tenants, contractors, and finance records.",
+      badges: [
+        { label: "Professional Standards" },
+        { label: "Compliance-Ready Workflows" },
+        { label: "Secure Landlord Records" },
+        { label: "Tenant & Contractor Portals" },
+        { label: "Audit-Ready Operations" },
+      ],
+      disclaimer: "Verified partner and industry badges can be added here once approved.",
+    },
+    testimonials: {
+      title: "Less chasing. More control.",
+      disclaimer: "These are illustrative examples of how landlords describe their experience with OASIS. They are not verified published reviews.",
+      items: [
+        {
+          quote: "OASIS gave me one place to see rent, repairs, documents, and what needed action next. It feels like the admin finally has a system.",
+          name: "Private landlord",
+          context: "8-property portfolio",
+        },
+        {
+          quote: "The biggest win is visibility. I no longer have to search through messages, folders, and spreadsheets to understand what is happening.",
+          name: "Portfolio landlord",
+          context: "Multi-property operator",
+        },
+        {
+          quote: "Seeing maintenance pressure, overdue rent, and document gaps in one dashboard helps me protect income and make better decisions faster.",
+          name: "Growth landlord",
+          context: "Scaling portfolio",
+        },
+      ],
+    },
+    seoFeatureSection: {
+      title: "Automated Property Management Software for Landlords",
+      body: "OASIS helps landlords reduce manual admin, track rental income, manage maintenance, organise documents, and keep portfolio actions visible from one dashboard.",
+      features: [
+        {
+          title: "Automated rent and expected charge tracking",
+          body: "Create rent plans, preview expected charges, track balances, review overdue rent, and keep finance actions under landlord control. Approval required before the ledger is touched.",
+        },
+        {
+          title: "Maintenance workflows without message chaos",
+          body: "Tenants report issues through the portal, landlords assign contractors, and every job moves from request to resolution with status, photos, costs, and notifications — without WhatsApp threads.",
+        },
+        {
+          title: "Document and compliance readiness",
+          body: "Store tenancy documents, request missing files, link evidence to compliance tasks, and track Renters' Rights readiness, Tax deadlines, and Lease risks from the same operating layer.",
+        },
+        {
+          title: "AI-assisted action queues",
+          body: "OASIS surfaces what needs attention, explains portfolio pressure, helps draft messages, and supports maintenance triage — with landlord review before any action is taken.",
+        },
+        {
+          title: "Tenant and contractor self-service",
+          body: "Give tenants a clear portal to view lease details, submit issues, and see payment status. Give contractors a defined lane for jobs, photos, and completion — while you keep oversight.",
+        },
+        {
+          title: "Portfolio health and pressure signals",
+          body: "Property health scoring turns maintenance strain, arrears, compliance gaps, and vacancy pressure into an action-ready view so you can intervene earlier across the portfolio.",
+        },
+      ],
+    },
+    rentalYieldSection: {
+      title: "Rental Yield Optimization Starts With Better Visibility",
+      body: "Higher yield is not only about charging more rent. It is about reducing missed charges, preventing avoidable maintenance drag, spotting overdue balances, understanding property pressure, and keeping documents and renewals under control. OASIS brings rent status, expected charges, maintenance costs, occupancy, documents, and compliance readiness into one operating view so landlords can spot income leaks earlier.",
+      bullets: [
+        "Spot overdue and due-soon rent before it becomes a follow-up problem",
+        "Track maintenance costs against each property to protect margins",
+        "See income pressure before it becomes a portfolio-wide problem",
+        "Use rent rules and expected charges to reduce manual calculation errors",
+        "Keep compliance and document readiness visible throughout the year",
+      ],
+    },
+    passiveLandlordSection: {
+      title: "Passive Landlord Services Without Losing Control",
+      body: "OASIS supports a more passive landlord workflow by automating reminders, surfacing action queues, and giving tenants and contractors structured portals. You still control approvals, finance posting, documents, and every decision. OASIS is rental management software — it does not replace regulated advice or letting agency services where those are required.",
+      cta: { label: "Start Building a More Passive Portfolio", href: siteConfig.appUrl },
+    },
+    agentComparison: {
+      title: "OASIS vs. Traditional Agents",
+      body: "Traditional agents can be useful, but many landlords still want more visibility, faster updates, and lower admin friction. OASIS gives landlords an operating layer they can control.",
+      rows: [
+        {
+          feature: "Visibility",
+          oasis: "24/7 dashboard for rent, maintenance, documents, and actions",
+          agent: "Updates often depend on emails, calls, or monthly statements",
+        },
+        {
+          feature: "Speed",
+          oasis: "Tenants submit issues instantly and workflows move through the app",
+          agent: "Requests may wait for office hours or manual follow-up",
+        },
+        {
+          feature: "Cost control",
+          oasis: "Software-led operations with transparent workflows",
+          agent: "Management fees can reduce monthly yield",
+        },
+        {
+          feature: "Maintenance tracking",
+          oasis: "Work orders, contractors, photos, status, and costs in one place",
+          agent: "Progress may be spread across calls, emails, and third parties",
+        },
+        {
+          feature: "Rent visibility",
+          oasis: "Expected charges, balances, overdue views, and rent rules in one dashboard",
+          agent: "Statements may show outcomes, not the operating detail",
+        },
+        {
+          feature: "Control",
+          oasis: "Landlord keeps approvals, records, and audit trail",
+          agent: "More work may be delegated, with less direct visibility",
+        },
+        {
+          feature: "Best for",
+          oasis: "Landlords who want control, automation, and lower admin",
+          agent: "Landlords who want to fully outsource management",
+        },
+      ],
+      disclaimer: "OASIS is rental management software. It does not replace regulated advice or services where those are required.",
+      cta: { label: "See OASIS in Action", href: siteConfig.appUrl },
     },
     problemSection: {
       eyebrow: "Why operators switch",
