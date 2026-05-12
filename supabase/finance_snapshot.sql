@@ -104,8 +104,13 @@ begin
       prx.property_id,
       prx.tenant_id,
       prx.cycle_month,
-      -- A-2: billed_amount = contractual rent only, never inflated by payment amounts
-      coalesce(max(pr.rent), 0) as billed_amount,
+      -- billed_amount = greater of contractual rent or the largest payment amount
+      -- entered for this cycle. Matches dashboard_snapshot and
+      -- portfolio_health_snapshot so all surfaces show consistent figures.
+      greatest(
+        coalesce(max(pr.rent), 0),
+        coalesce(max(prx.amount), 0)
+      ) as billed_amount,
       coalesce(
         sum(
           case
