@@ -157,7 +157,11 @@ export default function Finance({
   // each render; explicit useMemo would conflict with the React Compiler purity rules.
 
   const now  = new Date();
-  const soon = new Date(now.getTime() + 7 * 24 * 3600000);
+  // Use start-of-today (local midnight) as the lower bound for date-range filters
+  // so that payments due *today* are included regardless of their stored time
+  // component. This matches the SQL snapshots which use current_date (midnight).
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const soon = new Date(todayStart.getTime() + 8 * 24 * 3600000); // exclusive: midnight day 8
 
   const searchedPayments = (payments || []).filter((p) => {
     const s   = normalizePaymentStatus(p.status);
@@ -165,12 +169,12 @@ export default function Finance({
     const due    = p?.dueDate ? new Date(p.dueDate) : null;
     const hasDue = due && !Number.isNaN(due.getTime());
     if (rangeFilter === "7d") {
-      if (!hasDue || s === "paid" || due < now || due > soon) return false;
+      if (!hasDue || s === "paid" || due < todayStart || due >= soon) return false;
     }
     if (rangeFilter === "1d") {
       if (!hasDue || s === "paid") return false;
-      const tomorrow = new Date(now.getTime() + 24 * 3600000);
-      if (due < now || due > tomorrow) return false;
+      const tomorrowStart = new Date(todayStart.getTime() + 24 * 3600000);
+      if (due < todayStart || due >= tomorrowStart) return false;
     }
     if (bucketFilter) {
       if (!hasDue || s !== "overdue") return false;
