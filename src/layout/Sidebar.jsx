@@ -48,12 +48,13 @@ import { isPolishMarket } from "../utils/complianceMarket";
    NAV ITEM
    ====================== */
 
-function Item({ to, icon, label, onNavigate }) {
+function Item({ to, icon, label, onNavigate, end = false }) {
   const NavIcon = icon;
 
   return (
     <NavLink
       to={to}
+      end={end}
       onClick={onNavigate}
       className={({ isActive }) =>
         `w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
@@ -302,6 +303,7 @@ function SidebarContent({ onNavigate }) {
                   icon={Wallet}
                   label={t("sidebar.finance")}
                   onNavigate={onNavigate}
+                  end
                 />
               )}
               {canReadFinance && !isTenant && hasEntitlement(ENTITLEMENT_FEATURES.RENT_RULES_CORE) && (
