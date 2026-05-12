@@ -119,6 +119,7 @@ const OVERLAY_SEQUENCE = [
   "reserve_ai_call_checked_founder.sql",
   "lease_clause_audit_ai.sql",
   "poland_compliance_foundation.sql",
+  "poland_compliance_evidence.sql",
 ];
 
 function resolvePsqlCommand() {
