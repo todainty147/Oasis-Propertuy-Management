@@ -8914,6 +8914,10 @@ Object.assign(messages.en, {
   "plAdvanced.str.missing.platform_ref":   "No platform listing added",
   "plAdvanced.str.loadError":          "Could not load STR record.",
   "plAdvanced.str.saveError":          "Could not save STR record.",
+  "plAdvanced.str.loadPropertiesError":"Could not load properties.",
+  "plAdvanced.str.selectProperty":     "Select a property to configure STR compliance:",
+  "plAdvanced.str.noProperties":       "No properties found for this account.",
+  "plAdvanced.str.changeProperty":     "Change property",
   // Legal Templates
   "plAdvanced.templates.featurePreview":    "Feature Preview · Legal templates readiness",
   "plAdvanced.templates.globalDisclaimer":  "Templates are provided for reference only. Only reviewed and active templates appear here. Review with a qualified legal professional before use.",
@@ -9043,6 +9047,10 @@ Object.assign(messages.pl, {
   "plAdvanced.str.missing.platform_ref":   "Brak ogłoszenia na platformie",
   "plAdvanced.str.loadError":          "Nie udało się załadować danych STR.",
   "plAdvanced.str.saveError":          "Nie udało się zapisać danych STR.",
+  "plAdvanced.str.loadPropertiesError":"Nie udało się załadować nieruchomości.",
+  "plAdvanced.str.selectProperty":     "Wybierz nieruchomość, aby skonfigurować STR:",
+  "plAdvanced.str.noProperties":       "Brak nieruchomości dla tego konta.",
+  "plAdvanced.str.changeProperty":     "Zmień nieruchomość",
   // Templates
   "plAdvanced.templates.featurePreview":    "Podgląd funkcji · Gotowość biblioteki szablonów prawnych",
   "plAdvanced.templates.globalDisclaimer":  "Szablony służą wyłącznie jako materiał referencyjny. Wyświetlane są tylko zweryfikowane i aktywne szablony. Przed użyciem skonsultuj się z prawnikiem.",
@@ -9172,6 +9180,10 @@ Object.assign(messages.de, {
   "plAdvanced.str.missing.platform_ref":   "Kein Plattform-Inserat hinzugefügt",
   "plAdvanced.str.loadError":          "STR-Daten konnten nicht geladen werden.",
   "plAdvanced.str.saveError":          "STR-Daten konnten nicht gespeichert werden.",
+  "plAdvanced.str.loadPropertiesError":"Immobilien konnten nicht geladen werden.",
+  "plAdvanced.str.selectProperty":     "Immobilie für die STR-Compliance auswählen:",
+  "plAdvanced.str.noProperties":       "Keine Immobilien für dieses Konto gefunden.",
+  "plAdvanced.str.changeProperty":     "Immobilie wechseln",
   // Templates
   "plAdvanced.templates.featurePreview":    "Funktionsvorschau · Bereitschaft für Rechtsvorlagenbibliothek",
   "plAdvanced.templates.globalDisclaimer":  "Vorlagen dienen nur als Referenz. Nur geprüfte und aktive Vorlagen werden hier angezeigt. Vor der Verwendung mit einem Rechtsanwalt prüfen.",

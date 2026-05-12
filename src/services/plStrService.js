@@ -9,6 +9,7 @@ export async function listStrProperties({ accountId }) {
 }
 
 export async function getStrProperty({ accountId, propertyId }) {
+  if (!propertyId) return null;
   const { data, error } = await supabase
     .from("pl_str_properties")
     .select("*")
