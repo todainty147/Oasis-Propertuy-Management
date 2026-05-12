@@ -6,10 +6,10 @@ import { useI18n } from "../../context/I18nContext";
 
 function ProtectionCard({ icon: Icon, title, desc, linkTo, linkLabel, color = "blue" }) {
   const colorMap = {
-    blue:   { icon: "text-blue-500",   border: "border-blue-100  dark:border-blue-900/30",  bg: "bg-blue-50/50  dark:bg-blue-950/10"  },
-    green:  { icon: "text-green-500",  border: "border-green-100 dark:border-green-900/30", bg: "bg-green-50/50 dark:bg-green-950/10" },
+    blue:   { icon: "text-blue-500",   border: "border-blue-100  dark:border-blue-900/30",   bg: "bg-blue-50/50  dark:bg-blue-950/10"  },
+    green:  { icon: "text-green-500",  border: "border-green-100 dark:border-green-900/30",  bg: "bg-green-50/50 dark:bg-green-950/10" },
     purple: { icon: "text-purple-500", border: "border-purple-100 dark:border-purple-900/30", bg: "bg-purple-50/50 dark:bg-purple-950/10" },
-    amber:  { icon: "text-amber-500",  border: "border-amber-100 dark:border-amber-900/30", bg: "bg-amber-50/50 dark:bg-amber-950/10"  },
+    amber:  { icon: "text-amber-500",  border: "border-amber-100 dark:border-amber-900/30",  bg: "bg-amber-50/50 dark:bg-amber-950/10"  },
   };
   const styles = colorMap[color] || colorMap.blue;
 
@@ -38,23 +38,8 @@ function ProtectionCard({ icon: Icon, title, desc, linkTo, linkLabel, color = "b
 export default function PlRentalProtectionPanel() {
   const { t } = useI18n();
 
+  // Order: Documents (1), Lease Auditor (1), Evidence Pack (3), Najem Okazjonalny (4)
   const cards = [
-    {
-      icon:      Shield,
-      title:     t("plAdvanced.rentalProtection.najem.title"),
-      desc:      t("plAdvanced.rentalProtection.najem.desc"),
-      linkTo:    "/compliance/poland",
-      linkLabel: t("plAdvanced.rentalProtection.najem.go"),
-      color:     "blue",
-    },
-    {
-      icon:      BookOpen,
-      title:     t("plAdvanced.rentalProtection.evidence.title"),
-      desc:      t("plAdvanced.rentalProtection.evidence.desc"),
-      linkTo:    "/compliance/poland",
-      linkLabel: t("plAdvanced.rentalProtection.evidence.go"),
-      color:     "green",
-    },
     {
       icon:      FolderOpen,
       title:     t("plAdvanced.rentalProtection.docs.title"),
@@ -67,9 +52,25 @@ export default function PlRentalProtectionPanel() {
       icon:      FileText,
       title:     t("plAdvanced.rentalProtection.lease.title"),
       desc:      t("plAdvanced.rentalProtection.lease.desc"),
-      linkTo:    "/compliance/lease-auditor",
+      linkTo:    "/compliance/leases",
       linkLabel: t("plAdvanced.rentalProtection.lease.go"),
       color:     "amber",
+    },
+    {
+      icon:      BookOpen,
+      title:     t("plAdvanced.rentalProtection.evidence.title"),
+      desc:      t("plAdvanced.rentalProtection.evidence.desc"),
+      linkTo:    "/compliance/poland",
+      linkLabel: t("plAdvanced.rentalProtection.evidence.go"),
+      color:     "green",
+    },
+    {
+      icon:      Shield,
+      title:     t("plAdvanced.rentalProtection.najem.title"),
+      desc:      t("plAdvanced.rentalProtection.najem.desc"),
+      linkTo:    "/compliance/poland",
+      linkLabel: t("plAdvanced.rentalProtection.najem.go"),
+      color:     "blue",
     },
   ];
 

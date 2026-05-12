@@ -1,11 +1,10 @@
 import { useState } from "react";
 import {
-  AlertTriangle, Building2, FileText, Landmark, LayoutDashboard, Shield, Users,
+  AlertTriangle, ArrowLeft, Building2, FileText, Landmark, Lock, Shield, Users,
 } from "lucide-react";
 import { useAccount }    from "../../context/AccountContext";
 import { useI18n }       from "../../context/I18nContext";
 import { ENTITLEMENT_FEATURES } from "../../lib/entitlements";
-import PlOverviewPanel         from "../../components/compliance/PlOverviewPanel";
 import PlRentalProtectionPanel from "../../components/compliance/PlRentalProtectionPanel";
 import PlRentMatchPanel        from "../../components/compliance/PlRentMatchPanel";
 import PlStrCompliancePanel    from "../../components/compliance/PlStrCompliancePanel";
@@ -31,30 +30,56 @@ function UpgradeGate({ t }) {
   );
 }
 
-// ── Tab button ────────────────────────────────────────────────────────────────
+// ── Overview feature card ─────────────────────────────────────────────────────
 
-function TabBtn({ id, active, label, icon: Icon, locked, onClick }) {
+function FeatureCard({ icon: Icon, title, desc, locked, lockedLabel, onClick }) {
   return (
     <button
       type="button"
-      onClick={() => !locked && onClick(id)}
-      aria-selected={active}
-      role="tab"
-      className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg transition-colors whitespace-nowrap ${
-        active
-          ? "bg-blue-50 text-blue-700 font-medium dark:bg-blue-950/30 dark:text-blue-300"
-          : locked
-            ? "text-slate-300 dark:text-slate-600 cursor-default"
-            : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+      onClick={locked ? undefined : onClick}
+      disabled={locked}
+      className={`w-full text-left rounded-xl border p-4 space-y-2 transition-colors ${
+        locked
+          ? "border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 cursor-default"
+          : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-sm"
       }`}
     >
-      <Icon size={14} />
-      {label}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Icon size={15} className={locked ? "text-slate-300 dark:text-slate-600" : "text-blue-500"} />
+          <p className={`text-sm font-medium ${locked ? "text-slate-400 dark:text-slate-500" : "text-slate-800 dark:text-slate-200"}`}>
+            {title}
+          </p>
+        </div>
+        {locked
+          ? <Lock size={12} className="text-slate-300 dark:text-slate-600 shrink-0 mt-0.5" />
+          : <ArrowLeft size={12} className="text-slate-400 shrink-0 mt-0.5 rotate-180" />
+        }
+      </div>
+      <p className={`text-xs leading-relaxed ${locked ? "text-slate-400 dark:text-slate-600" : "text-slate-500 dark:text-slate-400"}`}>
+        {desc}
+      </p>
       {locked && (
-        <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 px-1 rounded ml-0.5">
-          Pro
+        <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500">
+          {lockedLabel}
         </span>
       )}
+    </button>
+  );
+}
+
+// ── Section breadcrumb ────────────────────────────────────────────────────────
+
+function SectionBreadcrumb({ label, onBack, t }) {
+  return (
+    <button
+      type="button"
+      onClick={onBack}
+      className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:underline mb-1"
+    >
+      <ArrowLeft size={12} />
+      {t("plAdvanced.backToOverview")}
+      {label && <span className="text-slate-400 font-normal">/ {label}</span>}
     </button>
   );
 }
@@ -72,16 +97,53 @@ export default function PlAdvancedPage() {
   const hasPartners         = hasEntitlement(ENTITLEMENT_FEATURES.PL_PARTNER_DIRECTORY);
   const hasAny              = hasPolandCompliance || hasStr || hasRentMatch || hasTemplates || hasPartners;
 
-  const [activeTab, setActiveTab] = useState("overview");
+  // null = overview, string = section id
+  const [section, setSection] = useState(null);
 
-  const tabs = [
-    { id: "overview",          label: t("plAdvanced.tab.overview"),          icon: LayoutDashboard, locked: false },
-    { id: "rentalProtection",  label: t("plAdvanced.tab.rentalProtection"),  icon: Shield,          locked: !hasPolandCompliance },
-    { id: "str",               label: t("plAdvanced.tab.str"),               icon: Building2,       locked: !hasStr },
-    { id: "rent",              label: t("plAdvanced.tab.rentMatch"),         icon: Landmark,        locked: !hasRentMatch },
-    { id: "templates",         label: t("plAdvanced.tab.templates"),         icon: FileText,        locked: !hasTemplates },
-    { id: "partners",          label: t("plAdvanced.tab.partners"),          icon: Users,           locked: !hasPartners },
+  const cards = [
+    {
+      id:          "rentalProtection",
+      icon:        Shield,
+      title:       t("plAdvanced.overview.rentalProtCard.title"),
+      desc:        t("plAdvanced.overview.rentalProtCard.desc"),
+      locked:      !hasPolandCompliance,
+      lockedLabel: t("plAdvanced.upgradeGate.badge"),
+    },
+    {
+      id:          "str",
+      icon:        Building2,
+      title:       t("plAdvanced.overview.strCard.title"),
+      desc:        t("plAdvanced.overview.strCard.desc"),
+      locked:      !hasStr,
+      lockedLabel: t("plAdvanced.overview.strCard.locked"),
+    },
+    {
+      id:          "rent",
+      icon:        Landmark,
+      title:       t("plAdvanced.overview.rentCard.title"),
+      desc:        t("plAdvanced.overview.rentCard.desc"),
+      locked:      !hasRentMatch,
+      lockedLabel: t("plAdvanced.overview.rentCard.locked"),
+    },
+    {
+      id:          "templates",
+      icon:        FileText,
+      title:       t("plAdvanced.overview.templatesCard.title"),
+      desc:        t("plAdvanced.overview.templatesCard.desc"),
+      locked:      !hasTemplates,
+      lockedLabel: t("plAdvanced.overview.templatesCard.locked"),
+    },
+    {
+      id:          "partners",
+      icon:        Users,
+      title:       t("plAdvanced.overview.partnersCard.title"),
+      desc:        t("plAdvanced.overview.partnersCard.desc"),
+      locked:      !hasPartners,
+      lockedLabel: t("plAdvanced.overview.partnersCard.locked"),
+    },
   ];
+
+  const activeCard = cards.find((c) => c.id === section);
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
@@ -111,75 +173,75 @@ export default function PlAdvancedPage() {
 
       {!hasAny ? (
         <UpgradeGate t={t} />
-      ) : (
-        <>
-          {/* Tab navigation */}
-          <div
-            role="tablist"
-            className="flex gap-1 flex-wrap border-b border-slate-100 dark:border-slate-800 pb-2 -mx-1 px-1 overflow-x-auto"
-          >
-            {tabs.map((tab) => (
-              <TabBtn
-                key={tab.id}
-                id={tab.id}
-                active={activeTab === tab.id}
-                label={tab.label}
-                icon={tab.icon}
-                locked={tab.locked}
-                onClick={setActiveTab}
+      ) : section === null ? (
+        /* ── Overview — card grid ── */
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              {t("plAdvanced.overview.title")}
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              {t("plAdvanced.overview.subtitle")}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {cards.map((card) => (
+              <FeatureCard
+                key={card.id}
+                icon={card.icon}
+                title={card.title}
+                desc={card.desc}
+                locked={card.locked}
+                lockedLabel={card.lockedLabel}
+                onClick={() => setSection(card.id)}
               />
             ))}
           </div>
+        </div>
+      ) : (
+        /* ── Section view with breadcrumb ── */
+        <div className="space-y-4">
+          <SectionBreadcrumb
+            label={activeCard?.title}
+            onBack={() => setSection(null)}
+            t={t}
+          />
 
-          {/* Tab content */}
-          <div role="tabpanel">
-            {activeTab === "overview" && (
-              <PlOverviewPanel
-                hasStr={hasStr}
-                hasRentMatch={hasRentMatch}
-                hasTemplates={hasTemplates}
-                hasPartners={hasPartners}
-                hasPolandCompliance={hasPolandCompliance}
-                onTabChange={setActiveTab}
-              />
-            )}
+          {section === "rentalProtection" && (
+            hasPolandCompliance
+              ? <PlRentalProtectionPanel />
+              : <UpgradeGate t={t} />
+          )}
 
-            {activeTab === "rentalProtection" && (
-              hasPolandCompliance
-                ? <PlRentalProtectionPanel />
-                : <UpgradeGate t={t} />
-            )}
+          {section === "str" && (
+            hasStr
+              ? <PlStrCompliancePanel accountId={activeAccount?.id} propertyId={null} />
+              : <UpgradeGate t={t} />
+          )}
 
-            {activeTab === "str" && (
-              hasStr
-                ? <PlStrCompliancePanel accountId={activeAccount?.id} propertyId={null} />
-                : <UpgradeGate t={t} />
-            )}
+          {section === "rent" && (
+            hasRentMatch
+              ? <PlRentMatchPanel
+                  accountId={activeAccount?.id}
+                  propertyId={null}
+                  tenantId={null}
+                  leaseId={null}
+                />
+              : <UpgradeGate t={t} />
+          )}
 
-            {activeTab === "rent" && (
-              hasRentMatch
-                ? <PlRentMatchPanel
-                    accountId={activeAccount?.id}
-                    propertyId={null}
-                    tenantId={null}
-                    leaseId={null}
-                  />
-                : <UpgradeGate t={t} />
-            )}
+          {section === "templates" && (
+            hasTemplates
+              ? <PlTemplatePanel market="pl" />
+              : <UpgradeGate t={t} />
+          )}
 
-            {activeTab === "templates" && (
-              hasTemplates
-                ? <PlTemplatePanel market="pl" />
-                : <UpgradeGate t={t} />
-            )}
-
-            {activeTab === "partners" && (
-              hasPartners
-                ? <PlPartnerPanel market="pl" />
-                : <UpgradeGate t={t} />
-            )}
-          </div>
-        </>
+          {section === "partners" && (
+            hasPartners
+              ? <PlPartnerPanel market="pl" accountId={activeAccount?.id} />
+              : <UpgradeGate t={t} />
+          )}
+        </div>
       )}
     </div>
   );

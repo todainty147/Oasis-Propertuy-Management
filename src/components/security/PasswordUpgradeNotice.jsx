@@ -61,7 +61,7 @@ export default function PasswordUpgradeNotice({ userId }) {
         <span className="font-semibold">{t("securityPosture.ownWarningTitle")}: </span>
         {t("securityPosture.ownWarningBody")}{" "}
         <Link
-          to="/profile"
+          to="/settings/profile"
           className="font-medium underline underline-offset-2 hover:text-blue-900 dark:hover:text-blue-200"
         >
           {t("securityPosture.ownWarningCta")}
