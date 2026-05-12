@@ -37,24 +37,40 @@ type FeaturesPageContent = {
 export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = {
   en: {
     seo: {
-      title: "OASIS Features | Property operations by outcome",
+      title: "OASIS Features | Rent, maintenance, documents, compliance and AI for landlords",
       description:
-        "See how OASIS helps landlords stay in control of maintenance, tenant follow-up, documents, payments visibility, property pressure, and compliance risk.",
+        "Every workflow landlords check, chase, and worry about — connected. Rent Plans Engine, maintenance, documents, compliance, AI-assisted action queues, and audit trails in one platform.",
       canonicalPath: "/features",
     },
     hero: {
       eyebrow: "Features",
-      title: "Proof that OASIS runs the work landlords actually do",
+      title: "Every workflow landlords check, chase, and worry about — connected.",
       body:
-        "This is not a checklist of generic property software modules. OASIS is built around the outcomes that keep a rental portfolio calm: rent understood, repairs moving, records ready, and the next action clear.",
+        "OASIS connects rent, tenants, properties, maintenance, documents, compliance, AI, security, and finance into one operating system for rental portfolios. Not a generic module list — a platform built around the outcomes that keep operations running.",
       cta: { label: "See how OASIS works", href: siteConfig.appUrl },
       imageSrc: "/screenshots/command-center.png",
       imageAlt: "OASIS Command Center showing urgent queues, overdue balances, and action items.",
     },
     sectionTitle: "Features grouped by the work they improve",
     sectionBody:
-      "Each outcome below maps to real OASIS surfaces: Command Center, maintenance workflows, tenant and contractor handoffs, documents, property health, and review trails.",
+      "Each outcome below maps to real OASIS surfaces: Rent Plans Engine, Command Center, maintenance workflows, tenant and contractor handoffs, documents, property health, compliance, and review trails.",
     outcomeSections: [
+      {
+        eyebrow: "Rent and finance",
+        title: "Rent that calculates properly and posts safely",
+        why:
+          "Rent is rarely just one number. OASIS handles base rent, utilities, deposits, proration, split rent, room rent, rent holidays, rent increases, expected charges, and short-term nightly charges — with calculation previews before anything is posted to Finance. Included on every plan.",
+        bullets: [
+          "Create rent plans with rules: base rent, utilities, service charges, deposits, adjustments.",
+          "Choose from six proration methods — actual days, 30-day month, annual daily, no proration, manual override.",
+          "Handle shared tenancies, HMOs, STR nightly, and rent increases with Advanced Rent Models.",
+          "Preview every charge before posting. Approval required before the ledger is touched.",
+          "See the next 3 billing periods projected and full plan history inline.",
+          "Deposit warnings for UK Tenant Fees Act cap and Poland market guidelines — not legal advice.",
+        ],
+        href: "/features/rental-accounting",
+        cta: "Explore rent and finance",
+      },
       {
         eyebrow: "Command Center",
         title: "Start with the work that needs action now",

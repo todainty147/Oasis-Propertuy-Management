@@ -31,22 +31,22 @@ export const blogIndexContentByLocale: Record<Locale, BlogIndexContent> = {
     seo: {
       title: "OASIS Rental Blog | Landlord operating guides",
       description:
-        "Practical landlord guides on rent follow-up, maintenance workflow, property pressure, tenant communication, and operating rentals with more control.",
+        "Practical landlord guides on rent calculation, expected charges, maintenance workflow, compliance readiness, AI tools for landlords, property health, and operating rentals with more control.",
       canonicalPath: "/blog",
     },
     hero: {
       eyebrow: "Blog",
       title: "Practical reading for landlords who want more control and less drag",
       body:
-        "No fluff. Just useful guidance on rent follow-up, repairs, records, portfolio pressure, and the operating rhythm behind calmer rental work.",
+        "No fluff. Practical guidance on rent rules and expected charges, repairs, documents, compliance readiness, AI for landlords, portfolio health, and the operating rhythm behind calmer rental work.",
     },
     launchListTitle: "Launch reading list",
     launchListBody:
-      "These first guides set the editorial direction for OASIS: practical, landlord-focused, and close to the weekly work of rent, repairs, records, and follow-up.",
+      "These first guides set the editorial direction for OASIS: practical, landlord-focused, and close to the weekly work of rent calculation, repairs, records, compliance, and follow-up. Topics include: why rent calculation should be a rules engine, expected charges vs payments, how to reduce maintenance drag, Najem Okazjonalny for Polish landlords, property health vs dashboards, and how AI should support landlords without making decisions for them.",
     readMoreLabel: "Read more",
     publishingTitle: "What OASIS publishes",
     publishingBody:
-      "We write for small and growing landlords who are trying to replace reactive admin with a better operating rhythm. That means fewer generic tips and more practical guidance on what to chase, what to document, what to review, and when a portfolio needs more structure.",
+      "We write for small and growing landlords who are trying to replace reactive admin with a better operating rhythm. Fewer generic tips and more practical guidance on rent rules, expected charges, maintenance movement, compliance readiness (Renters' Rights Act, tax deadlines, Lease Auditor, Poland), AI assistance that keeps the landlord in control, property health scoring, and when a portfolio needs more structure. Categories: Rent & Finance, Maintenance Operations, Compliance Readiness, AI for Landlords, Poland Market, Property Health, Security & Audit.",
     finalCta: {
       title: "Try OASIS before we launch publicly",
       body:

@@ -46,23 +46,23 @@ type PricingPageContent = {
 export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
   en: {
     seo: {
-      title: "OASIS pricing | Plans for landlords who run the operation",
+      title: "OASIS Pricing | Plans for landlords, portfolios and property operators",
       description:
-        "Choose the OASIS plan that matches your portfolio pressure, operating complexity, and need for clearer follow-through.",
+        "Start simple and add control as your portfolio grows. Starter, Growth, Pro, and Operator / Agency plans for landlords, compliance-heavy operators, and property management companies.",
       canonicalPath: "/pricing",
     },
     hero: {
       eyebrow: "Pricing",
-      title: "Choose the plan that matches how your portfolio actually runs",
+      title: "Start simple. Add control as your portfolio grows.",
       body:
-        "Start by getting the work out of spreadsheets. Upgrade when maintenance drag, missed follow-up, and property pressure cost more than the software ever will.",
+        "Start with the core rental workflow. Upgrade when you need stronger attention queues, compliance readiness, audit control, automation, or agency-level finance intelligence.",
       imageSrc: "/screenshots/command-center.png",
       imageAlt: "OASIS Command Center showing urgent queues, overdue balance, and action items across the portfolio.",
     },
     intro: {
       title: "Pricing is aligned to operational maturity",
       body:
-        "Starter helps landlords bring the basics into one place. Growth is for busier portfolios that need stronger action control. Pro is for operators who want deeper review, audit confidence, and a more disciplined operating rhythm.",
+        "Starter helps solo landlords bring the basics into one place. Growth adds Command Center, portfolio health, compliance readiness, and AI assistance. Pro adds security audit, playbooks, Lease Auditor, and deeper governance. Operator / Agency adds bulk rent automation, Open Banking readiness, portfolio forecasting, and advanced AI for multi-client operations. Founder offer: the first 20 landlords get Pro at Starter price for 12 months.",
       imageSrc: "/screenshots/portfolio-health.png",
       imageAlt: "OASIS Portfolio Health dashboard showing occupancy, arrears aging, and maintenance pressure.",
     },
@@ -71,53 +71,79 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
         name: "Starter",
         price: "Move off spreadsheets",
         description:
-          "For landlords who want the essential rental workflow in one place before admin, arrears follow-up, and repair tracking spread across folders and message threads.",
+          "For solo landlords with 1–10 properties who need rent, tenants, documents, and maintenance in one place before admin, arrears, and repairs spread across folders and message threads.",
         bullets: [
-          "bring tenants, properties, and core records into one place",
-          "see paid, due, and overdue rent",
-          "capture maintenance requests and work orders",
-          "reduce the weekly spreadsheet rebuild and missed follow-up",
+          "up to 10 properties",
+          "rent plans engine and expected charges",
+          "advanced rent models — split rent, room rent, STR nightly, discounts, utilities, rent increases",
+          "tenants, properties, and core records in one place",
+          "paid, due, and overdue rent visibility",
+          "maintenance requests and work orders",
+          "documents, tenant portal, contractor management",
+          "multi-currency and multi-language",
         ],
       },
       {
         name: "Growth",
         price: "Control a busier portfolio",
         description:
-          "For landlords whose work has moved from basic record-keeping to active follow-up across rent, repairs, and property pressure.",
+          "For landlords with 10–50 properties where deciding what to do next is becoming the harder problem.",
         bullets: [
+          "up to 50 properties",
           "everything in Starter",
-          "command-centre queues for urgent work",
-          "AI operator briefing and maintenance triage support",
-          "portfolio health, arrears, and maintenance pressure views",
-          "faster prioritization when multiple issues compete",
-          "better protection against missed follow-up",
+          "Command Center — urgent, action, and upcoming queues",
+          "portfolio health and maintenance KPI dashboards",
+          "Renters' Rights readiness, Tax Readiness, Rent Shield",
+          "Poland compliance toolkit (Najem Okazjonalny)",
+          "AI maintenance triage, attention insights, property health explainer, message drafts",
+          "500 AI calls / month",
         ],
         highlight: true,
-        tag: "Best fit for busy landlords",
+        tag: "Best fit for active landlords",
       },
       {
         name: "Pro",
-        price: "Operate with deeper follow-through",
+        price: "Operate with audit, compliance, and review depth",
         description:
-          "For serious operators who want stronger oversight, review routines, and operating discipline as the portfolio becomes harder to manage casually.",
+          "For large or compliance-heavy landlords who need stronger governance, lease review, audit trails, and automation.",
         bullets: [
-          "full OASIS operating access",
-          "security audit and operational trust surfaces",
-          "AI contractor recommendations and weekly portfolio summaries",
-          "playbook and root telemetry views",
-          "deeper review for demanding landlord workflows",
+          "unlimited properties",
+          "everything in Growth",
+          "security audit — event ledger, anomaly detection, investigation panel",
+          "playbooks — if-then automation for routine operations",
+          "Lease Auditor — AI clause risk review",
+          "AI contractor recommendation and weekly portfolio summary",
+          "advanced audit summaries and Poland advanced features",
+          "3,000 AI calls / month",
+        ],
+      },
+      {
+        name: "Operator / Agency",
+        price: "Run multi-client portfolios with automation and intelligence",
+        description:
+          "For property management companies and agency operators managing large portfolios or multiple landlord accounts.",
+        bullets: [
+          "unlimited properties",
+          "everything in Pro",
+          "bulk rent automation across tenants and periods",
+          "AI finance insights and portfolio finance forecasting",
+          "Open Banking rent matching readiness",
+          "security copilot and natural language portfolio query",
+          "cross-account anomaly detection",
+          "unlimited AI usage",
         ],
       },
     ],
     planCtaLabel: "See how OASIS works",
     included: {
-      title: "Every plan helps landlords reduce avoidable admin",
+      title: "Every plan includes the core rental workflow",
       bullets: [
-        "A clearer place to stay on top of tenants, properties, and rental context",
-        "Rent status views for paid, due, and overdue balances",
+        "Rent Plans Engine — rules-based expected charges, proration, deposit warnings, calculation previews, and finance posting with approval before the ledger is touched",
+        "Advanced Rent Models — split rent, room rent, variable utilities, rent adjustments, rent increase workflow, and STR nightly charges",
         "Maintenance request and work order workflows",
-        "Document storage tied to the rental work it supports",
-        "Landlord dashboards that make arrears and follow-up easier to prioritize",
+        "Document storage, tenant portal, and contractor management",
+        "Multi-currency (GBP, PLN, EUR, USD) and multi-language (EN, PL, DE)",
+        "Append-only finance patterns with full rent plan history and audit trail",
       ],
     },
     faqTitle: "Frequently asked questions",
@@ -125,32 +151,42 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       {
         question: "Which plan should I start with?",
         answer:
-          "Start with Starter if the main goal is getting off spreadsheets and disconnected trackers. Choose Growth if you already have enough rent, repair, and property activity that deciding what to do first is the harder problem. Choose Pro when you want deeper review, operational trust, and more disciplined follow-through.",
+          "Start with Starter if the main goal is getting off spreadsheets and disconnected trackers. Choose Growth if you already have enough rent, repair, and property activity that deciding what to do first is the harder problem. Choose Pro when you want deeper review, security audit, playbooks, and Lease Auditor. Choose Operator / Agency for multi-client portfolios, bulk rent automation, Open Banking readiness, and advanced AI.",
       },
       {
-        question: "Why would I move from Starter to Growth?",
+        question: "Why is the Rent Plans Engine included in every plan?",
         answer:
-          "Growth is for the moment when basic organization is not enough. It adds stronger portfolio attention through command-centre queues, portfolio health, arrears pressure, and maintenance pressure views so missed follow-up is easier to catch.",
+          "Rent calculation is part of the financial backbone of a rental operation. Every landlord needs accurate expected charges, proration, utilities, deposits, and safe Finance posting before advanced automation becomes useful. The Rent Plans Engine — including all six advanced rent models — is included on every plan.",
       },
       {
-        question: "What makes Pro different?",
+        question: "What is the difference between Growth and Pro?",
         answer:
-          "Pro is for landlords who want more than day-to-day tracking. It is aimed at deeper oversight through security audit, operational trust, playbook, and telemetry surfaces where stronger review matters.",
+          "Growth adds operational attention: Command Center, portfolio health, compliance readiness (Renters' Rights, Tax Readiness, Rent Shield, Poland), maintenance KPIs, preventive maintenance, and AI assistance. Pro adds deeper control: security audit, playbooks, Lease Auditor, advanced audit summaries, and compliance-heavy workflows.",
       },
       {
-        question: "Does every plan still cover the core rental workflow?",
+        question: "What is Operator / Agency for?",
         answer:
-          "Yes. OASIS keeps the core workflow focused on tenants, properties, rent status, maintenance, and records. The higher tiers add more control and review depth as operating complexity grows.",
+          "Operator / Agency is for property managers and multi-client operators who need bulk rent automation across tenants and periods, portfolio finance forecasting, Open Banking rent matching readiness, cross-account anomaly detection, and advanced AI including the security copilot and natural language portfolio query.",
       },
       {
-        question: "Does OASIS process tenant rent payments online today?",
+        question: "Does OASIS collect rent payments directly?",
         answer:
-          "Not as a native OASIS tenant payment rail. Today OASIS supports landlord-configured payment setup in the tenant portal, including accepted methods, external payment portal links, support details, and autopay guidance. The finance workflow is still centered on rent visibility, arrears pressure, and follow-up rather than an in-app pay-now checkout flow.",
+          "Today OASIS is focused on rent visibility, expected charges, reconciliation, balances, arrears pressure, and landlord-configured payment instructions. Native tenant payment collection and Open Banking automation are handled separately from the core ledger flow and should only be described where implemented. No direct payment rail is active today.",
+      },
+      {
+        question: "Does every plan cover the core rental workflow?",
+        answer:
+          "Yes. The Rent Plans Engine, Advanced Rent Models, maintenance workflows, documents, and tenant portal are all included on every plan. Higher tiers add attention queues, compliance tools, audit depth, playbooks, and agency-level automation as the portfolio grows.",
+      },
+      {
+        question: "Is there a Founder Launch Offer?",
+        answer:
+          "Yes. The first 20 landlords can access Pro at Starter pricing for 12 months. Reach out via the early-access link to claim your place.",
       },
       {
         question: "Is OASIS priced for landlords rather than agencies?",
         answer:
-          "Yes. The plans are framed around small to growing landlords who need practical control without adopting a bloated agency platform.",
+          "Plans are designed for the full range: solo landlords on Starter through to property management companies on Operator / Agency. Every tier is built around practical control without unnecessary complexity for the landlords who do not need it.",
       },
     ],
     finalCta: {
@@ -178,7 +214,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
     intro: {
       title: "Cennik jest oparty na dojrzałości operacyjnej",
       body:
-        "Starter pomaga uporządkować podstawy. Growth jest dla bardziej zajętych portfeli, które potrzebują mocniejszej kontroli działań. Pro jest dla operatorów oczekujących głębszego przeglądu, większego zaufania audytowego i bardziej zdyscyplinowanego rytmu pracy.",
+        "Starter pomaga uporządkować podstawy. Growth jest dla bardziej zajętych portfeli, które potrzebują mocniejszej kontroli działań. Pro jest dla operatorów oczekujących głębszego przeglądu, większego zaufania audytowego i bardziej zdyscyplinowanego rytmu pracy. Operator / Agency jest dla zarządców nieruchomości obsługujących wiele kont lub dużych portfeli. Oferta dla pierwszych 20 właścicieli: Pro w cenie Starter przez 12 miesięcy.",
       imageSrc: "/screenshots/portfolio-health.png",
       imageAlt: "Panel Portfolio Health OASIS z obłożeniem, zaległościami i presją zgłoszeń.",
     },
@@ -217,27 +253,50 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
         description:
           "Dla poważnych operatorów, którzy chcą mocniejszego nadzoru, cykli przeglądu i większej dyscypliny wraz ze wzrostem portfela.",
         bullets: [
-          "pełny dostęp do operacyjnego rdzenia OASIS",
+          "nieograniczona liczba nieruchomości",
+          "wszystko z Growth",
           "security audit i powierzchnie zaufania operacyjnego",
           "rekomendacje wykonawców AI i tygodniowe podsumowania portfela",
-          "playbooki i widoki telemetryczne root",
-          "głębszy przegląd dla wymagających workflow właściciela",
+          "Lease Auditor — analiza ryzyka klauzul umownych przez AI",
+          "playbooki — automatyzacja rutynowych operacji",
+          "3 000 wywołań AI / miesiąc",
+        ],
+      },
+      {
+        name: "Operator / Agency",
+        price: "Zarządzaj portfelami wielu klientów z automatyzacją i inteligencją",
+        description:
+          "Dla firm zarządzających nieruchomościami obsługujących duże portfele lub wiele kont właścicielskich.",
+        bullets: [
+          "nieograniczona liczba nieruchomości",
+          "wszystko z Pro",
+          "masowa automatyzacja czynszów dla wielu najemców i okresów",
+          "prognozowanie finansów portfela i wglądy AI",
+          "gotowość do Open Banking i dopasowywanie płatności",
+          "bezpieczeństwo AI i zapytania w języku naturalnym",
+          "nieograniczone użycie AI",
         ],
       },
     ],
     planCtaLabel: "Zobacz, jak działa OASIS",
     included: {
-      title: "Każdy plan pomaga ograniczyć zbędną administrację",
+      title: "Każdy plan obejmuje podstawowy workflow najmu",
       bullets: [
-        "Czytelniejsze miejsce do pracy z najemcami, nieruchomościami i kontekstem najmu",
-        "Widoki płatności opłaconych, należnych i zaległych",
+        "Silnik planów czynszu — reguły naliczania, oczekiwane opłaty, naliczanie proporcjonalne, ostrzeżenia kaucyjne, podgląd obliczeń i bezpieczne księgowanie z zatwierdzeniem",
+        "Zaawansowane modele czynszu — split rent, czynsz pokojowy, media, korekty, podwyżki czynszów, STR nightly",
         "Workflow zgłoszeń i zleceń",
-        "Przechowywanie dokumentów powiązane z realną pracą najmu",
-        "Dashboardy właściciela ułatwiające priorytetyzację zaległości i follow-upu",
+        "Dokumenty, portal najemcy i zarządzanie wykonawcami",
+        "Wielowalutowość (GBP, PLN, EUR, USD) i wielojęzyczność (EN, PL, DE)",
+        "Niezmienialny rejestr finansów z historią planów czynszu i śladem audytowym",
       ],
     },
     faqTitle: "Najczęstsze pytania",
     faqs: [
+      {
+        question: "Dlaczego Silnik planów czynszu jest dostępny w każdym planie?",
+        answer:
+          "Obliczanie czynszu to rdzeń finansowy każdego najmu. Każdy właściciel potrzebuje dokładnych oczekiwanych opłat, naliczania proporcjonalnego, mediów, kaucji i bezpiecznego księgowania zanim automatyzacja zaawansowana stanie się potrzebna. Silnik planów czynszu — z wszystkimi sześcioma zaawansowanymi modelami — jest dostępny w każdym planie.",
+      },
       {
         question: "Od którego planu najlepiej zacząć?",
         answer:
@@ -333,23 +392,41 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
         description:
           "Für ernsthafte Betreiber, die mit wachsender Portfoliokomplexität stärkere Übersicht, Review-Routinen und operative Disziplin wollen.",
         bullets: [
-          "voller Zugriff auf den operativen OASIS-Kern",
+          "unbegrenzte Objekte",
+          "alles aus Growth",
           "Security Audit und operative Trust-Oberflächen",
           "AI-Handwerkerempfehlungen und wöchentliche Portfolio-Zusammenfassungen",
-          "Playbooks und Root-Telemetrieansichten",
-          "tiefere Review-Ebene für anspruchsvolle Vermieterabläufe",
+          "Lease Auditor — AI-Klauselrisikoanalyse",
+          "Playbooks — Automatisierung routinemäßiger Abläufe",
+          "3.000 AI-Aufrufe / Monat",
+        ],
+      },
+      {
+        name: "Operator / Agency",
+        price: "Mehrere Kundoportfolios mit Automatisierung und Intelligenz steuern",
+        description:
+          "Für Immobilienverwaltungen und Agenturen, die große Portfolios oder mehrere Vermieterkonten betreuen.",
+        bullets: [
+          "unbegrenzte Objekte",
+          "alles aus Pro",
+          "Massenautomatisierung von Mieten über Mieter und Abrechnungszeiträume hinweg",
+          "Portfolio-Finanzprognose und AI-Finanzeinblicke",
+          "Open Banking Mietabgleich (Readiness)",
+          "Sicherheits-Copilot und natürlichsprachliche Portfolio-Abfragen",
+          "unbegrenzte AI-Nutzung",
         ],
       },
     ],
     planCtaLabel: "OASIS im Einsatz sehen",
     included: {
-      title: "Jeder Plan reduziert vermeidbaren Verwaltungsaufwand",
+      title: "Jeder Plan enthält den Kern-Mietworkflow",
       bullets: [
-        "Ein klarerer Ort für Mieter, Objekte und den gesamten Mietkontext",
-        "Zahlungsansichten für bezahlt, fällig und überfällig",
+        "Mietplan-Engine — regelbasierte Sollmieten, Proration, Kautionswarnungen, Berechnungsvorschauen und Finanzbuchung mit Freigabe",
+        "Erweiterte Mietmodelle — Split-Miete, Zimmermiete, Nebenkosten, Anpassungen, Mieterhöhungen, STR-Nächte",
         "Workflows für Anfragen und Arbeitsaufträge",
-        "Dokumentenablage direkt am unterstützten Vorgang",
-        "Vermieter-Dashboards zur besseren Priorisierung von Rückständen und Follow-up",
+        "Dokumente, Mieterportal und Handwerkerverwaltung",
+        "Mehrwährung (GBP, PLN, EUR, USD) und Mehrsprachigkeit (EN, PL, DE)",
+        "Unveränderliches Finanzmuster mit Mietplanhistorie und Audit Trail",
       ],
     },
     faqTitle: "Häufige Fragen",

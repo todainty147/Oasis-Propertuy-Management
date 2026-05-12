@@ -96,31 +96,31 @@ type HomePageContent = {
 export const homepageContentByLocale: Record<Locale, HomePageContent> = {
   en: {
     seo: {
-      title: "OASIS for Landlords | Run property operations, not just records",
+      title: "OASIS Rental Management | Property operations platform for landlords",
       description:
-        "OASIS helps landlords run property operations with one clear view of maintenance, tenant follow-up, documents, payments visibility, property health, compliance risk, and AI-assisted action queues.",
+        "Run rent, maintenance, documents, compliance, contractors, AI-assisted action queues, and audit-ready rental operations in one platform. Rent Plans Engine included on every plan.",
       canonicalPath: "/",
     },
     hero: {
       eyebrow: "For landlords who run the operation",
-      title: "Command your portfolio. Don’t just manage it.",
+      title: "Run the rental operation, not just the records.",
       body:
-        "OASIS brings tenants, contractors, maintenance, payments visibility, documents, property health, compliance risk review, and AI-assisted action queues into one operational platform.",
+        "OASIS brings rent rules, expected charges, tenant records, maintenance workflows, documents, compliance readiness, AI-assisted action queues, and audit trails into one platform built for active landlords.",
       emphasis:
-        "See what needs action, move the next step, and keep the full tenant to landlord to contractor workflow under control.",
+        "Stop running your portfolio from spreadsheets, WhatsApp, email, folders, and memory. OASIS shows what needs action, keeps every workflow moving, and protects the operational trail.",
       support:
         "Built for landlords who need ownership, follow-through, and a clearer operational picture than a record system can give them.",
       highlights: [
+        { label: "Rent Plans Engine — all plans", href: "/features/rental-accounting" },
         { label: "AI Command Center", href: "/features/command-center" },
         { label: "Maintenance and work orders", href: "/features/maintenance-management" },
-        { label: "Property health scoring", href: "/features/portfolio-health" },
         { label: "Compliance suite", href: "/features/compliance" },
         { label: "Security and audit trail", href: "/features/security-audit" },
       ],
       microcopy: [
-        "Built for active landlords, not passive record keeping.",
-        "See the workflow, controls, and tenant experience in minutes.",
-        "Built to keep tenants, landlords, and contractors moving in one lane.",
+        "Know what needs action before it becomes expensive.",
+        "Keep rent, maintenance, documents, and contractors in one workflow.",
+        "Use AI to triage, explain, and prioritise — without taking control away from you.",
       ],
       imageSrc: "/screenshots/command-center.png",
       imageAlt:
@@ -180,6 +180,14 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       body:
         "Each surface is designed to answer a practical question quickly: what needs action, who owns it, what is getting riskier, and what should move next.",
       items: [
+        {
+          label: "Rent Plans",
+          title: "Rent rules that protect the ledger",
+          body: "Create rent plans, expected charges, proration rules, deposits, utilities, split rent, room rent, and rent increases before anything touches the Finance ledger. Preview every charge. Approve before posting.",
+          points: ["expected charges", "calculation previews", "append-only Finance posting"],
+          imageSrc: "/screenshots/command-center.png",
+          imageAlt: "OASIS Rent Plans page showing draft plan, calculation preview panel, and upcoming billing periods.",
+        },
         {
           label: "Command Center",
           title: "AI-assisted action queues",

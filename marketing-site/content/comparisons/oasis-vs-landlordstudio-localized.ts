@@ -67,7 +67,7 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
       eyebrow: "Comparison",
       title: "OASIS vs Landlord Studio",
       body:
-        "Landlord Studio is strongest when accounting, bank feeds, online rent collection, and financial reporting lead the decision. OASIS is stronger when the daily challenge is operational control: rent follow-up, maintenance movement, documents, signatures, and deciding what needs action first.",
+        "Landlord Studio is strongest when accounting, bank feeds, online rent collection, and financial reporting lead the decision. OASIS is stronger when the daily challenge is operational control: rent rules, expected charges, maintenance movement, document evidence, compliance readiness, contractors, audit, and what needs action next.",
       imageSrc: "/screenshots/command-center.png",
       imageAlt: "OASIS Command Center showing urgent items and connected portfolio actions.",
     },
@@ -90,63 +90,124 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
         {
           category: "Primary emphasis",
           oasis:
-            "Property operations and coordination: what needs action, what is stuck, and what should move next",
+            "Rental operations platform: rent rules, expected charges, maintenance movement, compliance readiness, contractors, audit, and what needs action next",
           competitor:
             "Landlord accounting, reporting, rent collection, and mobile-friendly portfolio tracking",
         },
         {
+          category: "Rent calculation logic",
+          oasis:
+            "Rules-based Rent Plans Engine: base rent, proration (6 methods), utilities, deposits, charge rules, calculation previews, and safe Finance posting with approval before ledger write",
+          competitor:
+            "Rent tracking and accounting with strong financial reporting; less emphasis on rules-based expected charge generation",
+        },
+        {
+          category: "Expected charges",
+          oasis:
+            "Generate scheduled expected charges from approved calculations; post to Finance via approved RPC only; append-only ledger preserved",
+          competitor:
+            "Rent recording through accounting flow; expected charge generation not prominently featured",
+        },
+        {
+          category: "Advanced rent models",
+          oasis:
+            "Split rent, room-based rent, variable utilities, rent adjustments, rent increase workflow, and STR nightly charges — included on every plan",
+          competitor:
+            "Accounting-led rent tracking; advanced rent model depth not prominently featured",
+        },
+        {
           category: "Finance and rent collection",
           oasis:
-            "Clear rent visibility, arrears pressure, and landlord-configured tenant payment setup inside a wider operating workflow",
+            "Rent visibility, arrears pressure, expected charges, reconciliation, and landlord-configured tenant payment setup. No native payment rail today.",
           competitor:
             "Stronger publicly advertised accounting stack with bank feeds, reporting, and online rent collection",
         },
         {
           category: "Maintenance workflow",
           oasis:
-            "Request intake, work orders, status, ownership, contractor coordination, and action queues",
+            "Request intake, work orders, status tracking, ownership, contractor coordination, action queues, and AI triage",
           competitor:
-            "Maintenance request tracking, but with less emphasis on command-centre style operational follow-through",
+            "Maintenance request tracking with less emphasis on command-centre style operational follow-through",
+        },
+        {
+          category: "Compliance readiness",
+          oasis:
+            "Renters' Rights readiness, Tax Readiness, Rent Shield, Lease Auditor (AI clause risk review), Poland Najem Okazjonalny — integrated into the weekly workflow",
+          competitor:
+            "Compliance tracking useful for accounting; less emphasis on integrated workflow-level compliance readiness",
+        },
+        {
+          category: "AI action queues",
+          oasis:
+            "Command Center with AI briefing, maintenance triage, property health explainer, attention insights, and message drafts across Growth, Pro, and Operator tiers",
+          competitor:
+            "Useful landlord task tracking with less emphasis on AI-assisted action prioritization",
+        },
+        {
+          category: "Audit and security",
+          oasis:
+            "Security audit event ledger, anomaly detection, investigation panel, role-based access, and export jobs on Pro and Operator tiers",
+          competitor:
+            "Account security and permission management; dedicated security audit ledger not prominently featured",
+        },
+        {
+          category: "Contractor workflow",
+          oasis:
+            "Contractor directory, ratings, contractor portal (view jobs, upload photos, mark completion), marketplace integrations (Checkatrade live), acknowledgement workflow",
+          competitor:
+            "Contractor management tools for work orders; dedicated contractor portal depth varies",
+        },
+        {
+          category: "Agency / operator depth",
+          oasis:
+            "Operator / Agency plan: bulk rent automation, portfolio forecasting, Open Banking readiness, cross-account anomaly detection, security copilot, natural language query",
+          competitor:
+            "Portfolio management for growing landlords; multi-client agency operator tooling not the primary emphasis",
         },
         {
           category: "Daily visibility",
           oasis:
-            "Command Center, AI operator briefing, portfolio health, and pressure signals make prioritization easier",
+            "Command Center, AI operator briefing, portfolio health scoring, and pressure signals make prioritization easier",
           competitor:
-            "Useful tracking across key landlord tasks, with less emphasis on action queues and operational triage",
+            "Useful tracking across key landlord tasks with less emphasis on action queues and operational triage",
         },
         {
           category: "Documents and agreements",
           oasis:
             "Template library, document requests, agreement packets, and signature readiness in one account-scoped lane",
           competitor:
-            "Useful tenant and document support, but less emphasis on document handoff and pre-signature workflow depth",
+            "Tenant and document support with less emphasis on document handoff and pre-signature workflow depth",
         },
       ],
     },
     differences: {
       eyebrow: "Where OASIS stands out",
-      title: "Why landlords may move to OASIS after outgrowing an accounting-first tool",
+      title: "Most rental tools store what happened. OASIS helps move what happens next.",
       body:
-        "This is not a claim that Landlord Studio lacks useful landlord tooling. OASIS stands out when the harder problem is operational speed: seeing what needs attention, pushing work forward, and reducing dropped follow-up across the portfolio.",
+        "This is not a claim that Landlord Studio lacks useful landlord tooling. OASIS stands out when the harder problem is operational control: rent rules and expected charges, maintenance movement, compliance readiness inside the workflow, and reducing dropped follow-up across the portfolio.",
       imageSrc: "/screenshots/maintenance-inbox.png",
       imageAlt: "OASIS Maintenance Inbox showing structured request workflow and linked work orders.",
       imageAlign: "left",
       items: [
+        {
+          title: "Rent Plans Engine handles the calculation layer",
+          body:
+            "OASIS builds rent as a rules engine: expected charges, proration, utilities, deposits, advanced models, and safe Finance posting with approval before the ledger is touched. Preview before you post.",
+        },
         {
           title: "Maintenance has a clearer path",
           body:
             "OASIS gives repair work a path from request to work order to progress review, helping landlords catch stalled items, blocked jobs, and missed ownership sooner.",
         },
         {
+          title: "Compliance sits inside the working week",
+          body:
+            "Renters' Rights readiness, Rent Shield, Lease Auditor, Tax Readiness, and Poland compliance are part of the operational workflow — not a separate seasonal scramble.",
+        },
+        {
           title: "Action is easier to prioritize",
           body:
             "Command Center queues, AI briefings, and portfolio health signals make it easier to decide what deserves attention first instead of manually reconstructing the week.",
-        },
-        {
-          title: "Control goes beyond record-keeping",
-          body:
-            "OASIS keeps tenant context, documents, rent pressure, maintenance status, and auditability close to the operational decision instead of splitting them across separate views and routines.",
         },
       ],
     },
@@ -156,17 +217,17 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
         {
           title: "Choose OASIS if",
           body:
-            "You spend more time chasing rent, checking repair progress, finding documents, or deciding what needs attention first than you do recording transactions.",
+            "You need rent rules and expected charges, maintenance workflows, compliance readiness, contractor coordination, document evidence, audit trails, and a clear view of what needs action — all connected.",
         },
         {
           title: "Choose Landlord Studio if",
           body:
-            "You mainly want mobile-friendly accounting, reporting, rent collection, tenant portal access, and a lighter landlord toolkit built around financial admin.",
+            "You mainly want mobile-friendly accounting, bank feeds, online rent collection, financial reporting, and a lighter landlord toolkit built around financial admin.",
         },
         {
           title: "You may be outgrowing simpler tools when",
           body:
-            "The question is no longer where to store information, but how to keep rent, repairs, documents, and follow-up moving together without dropped handoffs.",
+            "The question is no longer where to store information, but how to keep rent, repairs, documents, compliance, and follow-up moving together without dropped handoffs.",
         },
       ],
     },
