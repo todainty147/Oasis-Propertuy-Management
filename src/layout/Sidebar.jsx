@@ -378,6 +378,14 @@ function SidebarContent({ onNavigate }) {
                     ) : (
                       <LockedItem to="/compliance/poland" icon={Flag} label={t("sidebar.polandCompliance")} onNavigate={onNavigate} />
                     )}
+                    {(
+                      hasEntitlement(ENTITLEMENT_FEATURES.PL_STR_COMPLIANCE) ||
+                      hasEntitlement(ENTITLEMENT_FEATURES.PL_OPEN_BANKING_READINESS) ||
+                      hasEntitlement(ENTITLEMENT_FEATURES.PL_TEMPLATE_LIBRARY) ||
+                      hasEntitlement(ENTITLEMENT_FEATURES.PL_PARTNER_DIRECTORY)
+                    ) && (
+                      <Item to="/compliance/poland-advanced" icon={Flag} label={t("sidebar.plAdvanced")} onNavigate={onNavigate} />
+                    )}
                   </div>
                 )}
               </div>

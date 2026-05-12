@@ -48,6 +48,12 @@ export const ENTITLEMENT_FEATURES = Object.freeze({
 
   // ── Poland Compliance: Growth tier ────────────────────────────────────────
   POLAND_COMPLIANCE: "poland_compliance",
+
+  // ── Poland Advanced Market Features ───────────────────────────────────────
+  PL_OPEN_BANKING_READINESS: "pl_open_banking_readiness",  // Pro — rent match suggestions
+  PL_STR_COMPLIANCE:         "pl_str_compliance",          // Growth — short-term rental mode
+  PL_TEMPLATE_LIBRARY:       "pl_template_library",        // Pro — legal template readiness
+  PL_PARTNER_DIRECTORY:      "pl_partner_directory",       // Pro — notary/legal partner directory
 });
 
 export const PLAN_RANKS = Object.freeze({
@@ -94,6 +100,7 @@ const GROWTH_FEATURES = [
   ENTITLEMENT_FEATURES.AI_RENT_SHIELD_EXPLAINER,
   ENTITLEMENT_FEATURES.RENTERS_RIGHTS_READINESS,
   ENTITLEMENT_FEATURES.POLAND_COMPLIANCE,
+  ENTITLEMENT_FEATURES.PL_STR_COMPLIANCE,
 ];
 
 const PRO_FEATURES = [
@@ -108,6 +115,9 @@ const PRO_FEATURES = [
   ENTITLEMENT_FEATURES.AI_MESSAGE_DRAFTS,
   ENTITLEMENT_FEATURES.AI_DOCUMENT_SUMMARIES,
   ENTITLEMENT_FEATURES.AI_LEASE_AUDITOR,
+  ENTITLEMENT_FEATURES.PL_OPEN_BANKING_READINESS,
+  ENTITLEMENT_FEATURES.PL_TEMPLATE_LIBRARY,
+  ENTITLEMENT_FEATURES.PL_PARTNER_DIRECTORY,
 ];
 
 const OPERATOR_AGENCY_FEATURES = [
