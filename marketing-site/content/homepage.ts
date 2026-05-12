@@ -111,10 +111,10 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       support:
         "Built for landlords who need ownership, follow-through, and a clearer operational picture than a record system can give them.",
       highlights: [
-        { label: "Rent Plans Engine — all plans", href: "/features/rental-accounting" },
-        { label: "AI Command Center", href: "/features/command-center" },
+        { label: "Rent and expected charges", href: "/features/rental-accounting" },
+        { label: "Command Center", href: "/features/command-center" },
         { label: "Maintenance and work orders", href: "/features/maintenance-management" },
-        { label: "Compliance suite", href: "/features/compliance" },
+        { label: "Compliance readiness", href: "/features/compliance" },
         { label: "Security and audit trail", href: "/features/security-audit" },
       ],
       microcopy: [
@@ -181,12 +181,12 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
         "Each surface is designed to answer a practical question quickly: what needs action, who owns it, what is getting riskier, and what should move next.",
       items: [
         {
-          label: "Rent Plans",
-          title: "Rent rules that protect the ledger",
-          body: "Create rent plans, expected charges, proration rules, deposits, utilities, split rent, room rent, and rent increases before anything touches the Finance ledger. Preview every charge. Approve before posting.",
-          points: ["expected charges", "calculation previews", "append-only Finance posting"],
+          label: "Rent & Finance",
+          title: "Know what the charge is before Finance sees it",
+          body: "Rent is rarely one number. OASIS lets you see the calculation, review the result, and post only when you are ready — keeping the Finance ledger clean.",
+          points: ["preview before posting", "rent plan history", "arrears visibility"],
           imageSrc: "/screenshots/command-center.png",
-          imageAlt: "OASIS Rent Plans page showing draft plan, calculation preview panel, and upcoming billing periods.",
+          imageAlt: "OASIS Rent Plans page showing draft plan and calculation preview panel.",
         },
         {
           label: "Command Center",
