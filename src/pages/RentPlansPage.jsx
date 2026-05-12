@@ -21,8 +21,21 @@ const STATUS_COLORS = {
   cancelled:      "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-500",
 };
 
-function PlanCard({ plan, onActivate, onEnd, onPreview, onViewCharges, t }) {
-  const [busy, setBusy] = useState(false);
+function PlanCard({ plan, onActivate, onEnd, onPreview, onViewCharges, t, planMap }) {
+  const [busy, setBusy]           = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Build the superseded chain for this plan (follow supersedes_id links backward)
+  function buildHistory(currentPlan) {
+    const chain = [];
+    let cursor = currentPlan;
+    while (cursor?.supersedes_id && planMap?.has(cursor.supersedes_id)) {
+      cursor = planMap.get(cursor.supersedes_id);
+      chain.push(cursor);
+    }
+    return chain;
+  }
+  const history = buildHistory(plan);
 
   async function handleActivate() {
     if (!window.confirm(t("rentPlans.confirmActivate"))) return;
@@ -112,7 +125,30 @@ function PlanCard({ plan, onActivate, onEnd, onPreview, onViewCharges, t }) {
             {t("rentPlans.endPlan")}
           </button>
         )}
+        {history.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowHistory((v) => !v)}
+            className="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+          >
+            {showHistory ? t("rentPlans.hideHistory") : t("rentPlans.viewHistory")} ({history.length})
+          </button>
+        )}
       </div>
+
+      {showHistory && history.length > 0 && (
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{t("rentPlans.previousVersions")}</p>
+          {history.map((h) => (
+            <div key={h.id} className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+              <span>
+                v{h.version_number} · {h.currency} {Number(h.base_rent_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}/{h.billing_frequency}
+              </span>
+              <span className="text-[10px] text-slate-400">{h.start_date}{h.end_date ? ` → ${h.end_date}` : ""}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -304,17 +340,21 @@ export default function RentPlansPage() {
       )}
 
       {/* Plan cards */}
-      {!loading && plans.map((plan) => (
-        <PlanCard
-          key={plan.id}
-          plan={plan}
-          onActivate={handleActivate}
-          onEnd={handleEnd}
-          onPreview={setPreviewPlan}
-          onViewCharges={handleViewCharges}
-          t={t}
-        />
-      ))}
+      {!loading && (() => {
+        const planMap = new Map(plans.map((p) => [p.id, p]));
+        return plans.map((plan) => (
+          <PlanCard
+            key={plan.id}
+            plan={plan}
+            onActivate={handleActivate}
+            onEnd={handleEnd}
+            onPreview={setPreviewPlan}
+            onViewCharges={handleViewCharges}
+            t={t}
+            planMap={planMap}
+          />
+        ));
+      })()}
     </div>
   );
 }

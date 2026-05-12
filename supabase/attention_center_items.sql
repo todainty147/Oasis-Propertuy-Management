@@ -909,6 +909,128 @@ as $$
     left join public.tenants t on t.id = uc.tenant_id
     where uc.account_id = a.account_id
       and uc.status = 'draft'
+
+    union all
+
+    -- UK deposit cap breach (Tenant Fees Act 2019): 5-week cap below £50k/yr, 6-week cap above
+    select
+      'deposit-breach-' || rp.id::text,
+      'deposit_cap_breach'::text,
+      'action'::text,
+      coalesce(pr.address, '—'),
+      coalesce(t.name, '—'),
+      'Deposit may exceed UK TFA cap — review required'::text,
+      rp.deposit_amount,
+      null::int,
+      null::int,
+      '/finance/rent-plans'::text,
+      'rent_plans'::text,
+      33 as sort_order
+    from public.rent_plans rp
+    cross join authz a
+    left join public.properties pr on pr.id = rp.property_id
+    left join public.tenants t on t.id = rp.tenant_id
+    where rp.account_id = a.account_id
+      and rp.status = 'active'
+      and rp.market = 'uk'
+      and rp.deposit_amount is not null
+      and rp.deposit_amount > 0
+      and (
+        (rp.base_rent_amount * 12 < 50000 and rp.deposit_amount > rp.base_rent_amount * 12.0 / 52 * 5)
+        or
+        (rp.base_rent_amount * 12 >= 50000 and rp.deposit_amount > rp.base_rent_amount * 12.0 / 52 * 6)
+      )
+
+    union all
+
+    -- New tenant move-in within 14 days — no expected charge posted yet (proration needs review)
+    select
+      'proration-review-' || t2.id::text,
+      'move_in_proration_needs_review'::text,
+      'action'::text,
+      coalesce(pr2.address, '—'),
+      coalesce(t2.name, '—'),
+      'New move-in — proration charge not yet posted'::text,
+      rp2.base_rent_amount,
+      null::int,
+      null::int,
+      '/finance/rent-plans'::text,
+      'tenants'::text,
+      34 as sort_order
+    from public.tenants t2
+    cross join authz a
+    left join public.properties pr2 on pr2.id = t2.property_id
+    inner join public.rent_plans rp2
+      on rp2.account_id = a.account_id
+      and rp2.property_id = t2.property_id
+      and rp2.status = 'active'
+    where t2.account_id = a.account_id
+      and t2.archived_at is null
+      and t2.created_at >= now() - interval '14 days'
+      and not exists (
+        select 1
+        from public.expected_charges ec2
+        where ec2.account_id = a.account_id
+          and ec2.tenant_id = t2.id
+          and ec2.status in ('posted', 'scheduled')
+      )
+
+    union all
+
+    -- Active rent plan with no posted expected charges (rent collection not started)
+    select
+      'first-charge-pending-' || rp3.id::text,
+      'first_rent_charge_not_posted'::text,
+      'action'::text,
+      coalesce(pr3.address, '—'),
+      coalesce(t3.name, '—'),
+      'Active rent plan — first charge not yet posted to Finance'::text,
+      rp3.base_rent_amount,
+      floor(extract(epoch from (now() - rp3.created_at)) / 3600)::int,
+      null::int,
+      '/finance/rent-plans'::text,
+      'rent_plans'::text,
+      41 as sort_order
+    from public.rent_plans rp3
+    cross join authz a
+    left join public.properties pr3 on pr3.id = rp3.property_id
+    left join public.tenants t3 on t3.id = rp3.tenant_id
+    where rp3.account_id = a.account_id
+      and rp3.status = 'active'
+      and not exists (
+        select 1
+        from public.expected_charges ec3
+        where ec3.account_id = a.account_id
+          and ec3.rent_plan_id = rp3.id
+          and ec3.status = 'posted'
+      )
+
+    union all
+
+    -- Posted expected charge where linked payment is still unpaid after 14 days
+    select
+      'unmatched-charge-' || ec4.id::text,
+      'expected_rent_not_matched'::text,
+      'action'::text,
+      coalesce(pr4.address, '—'),
+      coalesce(t4.name, '—'),
+      'Posted charge — payment not yet received'::text,
+      ec4.amount,
+      floor(extract(epoch from (now() - ec4.created_at)) / 3600)::int,
+      (ec4.due_date - current_date)::int,
+      '/finance/rent-plans'::text,
+      'expected_charges'::text,
+      42 as sort_order
+    from public.expected_charges ec4
+    cross join authz a
+    left join public.properties pr4 on pr4.id = ec4.property_id
+    left join public.tenants t4 on t4.id = ec4.tenant_id
+    left join public.payments p4 on p4.id = ec4.posted_payment_id
+    where ec4.account_id = a.account_id
+      and ec4.status = 'posted'
+      and ec4.posted_payment_id is not null
+      and (p4.paid_at is null or lower(coalesce(p4.status, '')) not in ('paid', 'opłacone', 'oplacone'))
+      and ec4.created_at <= now() - interval '14 days'
   ),
   limited_rent_plan_items as (
     select *

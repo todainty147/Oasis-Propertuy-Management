@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { AlertTriangle, CheckCircle, Calculator } from "lucide-react";
-import { runRentCalculation, generateBillingPeriods } from "../../utils/rentCalculationEngine";
+import { AlertTriangle, CheckCircle, Calculator, CalendarDays } from "lucide-react";
+import { runRentCalculation, generateBillingPeriods, generateUpcomingPeriods } from "../../utils/rentCalculationEngine";
 import { saveCalculationRun, listCalculationRuns } from "../../services/rentPlanService";
 import { generateExpectedCharge } from "../../services/expectedChargeService";
 
@@ -209,6 +209,56 @@ export default function RentCalculationPreview({ plan, accountId, onClose, t }) 
               <CheckCircle size={12} /> {t("rentPlans.chargeGenerated")}
             </p>
           )}
+        </div>
+      )}
+
+      {/* Upcoming billing periods projection */}
+      <UpcomingPeriodsPanel plan={plan} result={result} t={t} />
+    </div>
+  );
+}
+
+function UpcomingPeriodsPanel({ plan, result, t }) {
+  const [open, setOpen] = useState(false);
+
+  const periods = generateUpcomingPeriods(plan, 3);
+  if (periods.length === 0) return null;
+
+  const monthlyAmount = result
+    ? result.total
+    : Number(plan.base_rent_amount ?? 0);
+  const currency = plan.currency ?? "GBP";
+
+  return (
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 w-full text-left"
+      >
+        <CalendarDays size={14} className="text-blue-500 shrink-0" />
+        <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex-1">
+          {t("rentPlans.upcomingPeriods")}
+        </span>
+        <span className="text-xs text-slate-400">{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+          {periods.map((p) => (
+            <div key={p.periodStart} className="flex items-center justify-between py-2 text-sm">
+              <div className="text-slate-600 dark:text-slate-400 text-xs">
+                <span className="font-medium text-slate-800 dark:text-slate-200">{p.periodStart}</span>
+                {" → "}{p.periodEnd}
+              </div>
+              <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
+                {currency} {monthlyAmount.toFixed(2)}
+              </span>
+            </div>
+          ))}
+          <p className="text-[10px] text-slate-400 italic pt-2">
+            {t("rentPlans.upcomingPeriodsNote")}
+          </p>
         </div>
       )}
     </div>

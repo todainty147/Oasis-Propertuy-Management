@@ -389,3 +389,16 @@ alter table public.rent_plans drop constraint if exists rent_plans_status_check;
 alter table public.rent_plans
   add constraint rent_plans_status_check
   check (status in ('draft', 'proposed', 'notice_pending', 'approved', 'active', 'superseded', 'ended', 'cancelled'));
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 8. Schema patches: data completeness fields
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- rent_adjustments: persist the before/after snapshot so reports can show change history
+alter table public.rent_adjustments
+  add column if not exists before_amount  numeric(12,2),  -- base charge amount before adjustment
+  add column if not exists after_amount   numeric(12,2);  -- net charge amount after adjustment applied
+
+-- rent_splits: joint liability description (e.g. AST joint tenancy wording)
+alter table public.rent_splits
+  add column if not exists joint_liability_note text;     -- joint liability arrangement description

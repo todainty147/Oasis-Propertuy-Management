@@ -123,6 +123,7 @@ const OVERLAY_SEQUENCE = [
   "poland_compliance_foundation.sql",
   "poland_compliance_evidence.sql",
   "poland_advanced_features.sql",
+  "rent_reminders_rpc.sql",
 ];
 
 function resolvePsqlCommand() {

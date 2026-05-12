@@ -10,6 +10,7 @@ import { formatCurrencyAmount, getLocaleForCountry } from "../utils/currency";
 import OnboardingHintCard from "../components/OnboardingHintCard";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 import TenantPaymentCollectionSettingsCard from "../components/finance/TenantPaymentCollectionSettingsCard";
+import { getOverdueExpectedChargesSummary } from "../services/expectedChargeService";
 import {
   normalizeOccupancyStatus,
   normalizePaymentStatus,
@@ -77,8 +78,16 @@ export default function Finance({
   const [paymentQuery, setPaymentQuery] = useState("");
   // B-5: inline delete confirmation — stores the payment id pending confirmation
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [overdueCharges, setOverdueCharges] = useState(null);
 
   useEffect(() => { setTitle(t("finance.title")); }, [setTitle, t]);
+
+  useEffect(() => {
+    if (!activeAccountId) return;
+    getOverdueExpectedChargesSummary({ accountId: activeAccountId })
+      .then(setOverdueCharges)
+      .catch(() => {}); // non-critical — silently ignore
+  }, [activeAccountId]);
 
   const canCreate = can(activePermissionContext, "finance", "create");
   // B-1: update permission governs mark-paid (it is an update, not a delete)
@@ -486,6 +495,26 @@ export default function Finance({
               </>
             )}
           </div>
+
+          {/* Rent engine arrears summary — only shown when overdue expected charges exist */}
+          {overdueCharges?.count > 0 && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 flex items-center justify-between gap-4">
+              <div>
+                <p className="font-semibold text-amber-900 dark:text-amber-200 text-sm">
+                  {t("finance.arrears.title", { count: overdueCharges.count })}
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                  {overdueCharges.currency} {overdueCharges.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} {t("finance.arrears.subtitle")}
+                </p>
+              </div>
+              <Link
+                to="/finance/rent-plans"
+                className="shrink-0 rounded-lg bg-amber-700 px-3 py-2 text-xs font-medium text-white hover:bg-amber-800 transition-colors"
+              >
+                {t("finance.arrears.cta")}
+              </Link>
+            </div>
+          )}
 
           {/* Rent Plans entry point */}
           <div className="rounded-xl border border-slate-200 bg-white p-5 flex items-center justify-between gap-4">

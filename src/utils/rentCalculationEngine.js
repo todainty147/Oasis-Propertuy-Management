@@ -344,6 +344,7 @@ export function runRentCalculation({
   periodEnd,
   tenants = [],
   isPartMonth = false,
+  taxRate = 0,         // fractional rate applied to taxable line items (e.g. 0.20 for 20% VAT)
 }) {
   const warnings = [];
   const lineItems = [];
@@ -413,6 +414,25 @@ export function runRentCalculation({
     warnings.push(...depositWarnings);
   }
 
+  // ── Tax ────────────────────────────────────────────────────────────────────
+  let taxAmountPence = 0;
+  let taxableTotalPence = 0;
+  if (taxRate > 0) {
+    taxableTotalPence = lineItems
+      .filter((li) => li.taxable)
+      .reduce((s, li) => s + li.amountPence, 0);
+    taxAmountPence = applyRounding(taxableTotalPence * taxRate, rounding);
+    if (taxAmountPence > 0) {
+      lineItems.push({
+        chargeType:     "tax",
+        label:          `Tax (${(taxRate * 100).toFixed(0)}%)`,
+        amountPence:    taxAmountPence,
+        includedInRent: false,
+        taxable:        false,
+      });
+    }
+  }
+
   // ── Subtotal / Total ───────────────────────────────────────────────────────
   const subtotalPence = lineItems
     .filter((li) => !li.includedInRent || li.chargeType === "rent")
@@ -462,6 +482,13 @@ export function runRentCalculation({
     total:           fromPence(simpleTotalPence),
     totalPence:      simpleTotalPence,
     splits:          splits.map((s) => ({ ...s, amount: fromPence(s.amountPence) })),
+    tax: {
+      rate:               taxRate,
+      taxableAmountPence: taxableTotalPence,
+      taxAmountPence,
+      taxableAmount:      fromPence(taxableTotalPence),
+      taxAmount:          fromPence(taxAmountPence),
+    },
     warnings,
     explanation:     explanationParts.join("\n"),
     calculatedAt:    new Date().toISOString(),
@@ -518,6 +545,50 @@ export function generateBillingPeriods(plan, upToDate = new Date()) {
     if (month > 12) { year += 1; month = 1; }
 
     if (freq !== "monthly") break; // placeholder: only monthly generates multiple periods
+  }
+
+  return periods;
+}
+
+/**
+ * Generate the next N upcoming billing periods from a given date (defaults to today).
+ * Useful for projecting future expected charges without running a full calculation.
+ *
+ * @param {object} plan     - rent_plan row (billing_frequency, due_day required)
+ * @param {number} [count]  - number of periods to return (default 3)
+ * @param {Date}   [from]   - start projecting from this date (default today)
+ * @returns {Array<{ periodStart, periodEnd, dueDate, year, month }>}
+ */
+export function generateUpcomingPeriods(plan, count = 3, from = new Date()) {
+  const periods = [];
+  const dueDay  = plan.due_day ?? 1;
+
+  let year  = from.getFullYear();
+  let month = from.getMonth() + 1; // 1-based
+
+  // Advance to the next due date if we're already past this month's due day
+  if (from.getDate() >= dueDay) {
+    month += 1;
+    if (month > 12) { year += 1; month = 1; }
+  }
+
+  for (let i = 0; i < count; i++) {
+    if (month > 12) { year += 1; month -= 12; }
+
+    const maxDay = daysInMonth(year, month);
+    const day    = Math.min(dueDay, maxDay);
+    const start  = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+    let ny = year, nm = month + 1;
+    if (nm > 12) { ny += 1; nm = 1; }
+    const nextMaxDay = daysInMonth(ny, nm);
+    const nextDay    = Math.min(dueDay, nextMaxDay);
+    const nextStart  = new Date(`${ny}-${String(nm).padStart(2, "0")}-${String(nextDay).padStart(2, "0")}`);
+    const endDate    = new Date(nextStart.getTime() - 86_400_000);
+    const end        = endDate.toISOString().slice(0, 10);
+
+    periods.push({ periodStart: start, periodEnd: end, dueDate: start, year, month });
+    month += 1;
   }
 
   return periods;

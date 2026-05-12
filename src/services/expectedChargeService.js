@@ -66,6 +66,32 @@ export async function postExpectedCharge({ accountId, expectedChargeId }) {
 }
 
 /**
+ * Return a summary of overdue expected charges (scheduled, past due date).
+ * Used by Finance page to surface arrears from the rent engine.
+ */
+export async function getOverdueExpectedChargesSummary({ accountId }) {
+  const { data, error } = await supabase
+    .from("expected_charges")
+    .select("id, amount, currency, due_date, tenant_id, property_id")
+    .eq("account_id", accountId)
+    .eq("status", "scheduled")
+    .lt("due_date", new Date().toISOString().slice(0, 10))
+    .order("due_date", { ascending: true });
+
+  if (error) throw new Error(`getOverdueExpectedChargesSummary: ${error.message}`);
+
+  const rows = data ?? [];
+  const totalAmount = rows.reduce((s, r) => s + Number(r.amount ?? 0), 0);
+
+  return {
+    count:       rows.length,
+    totalAmount,
+    currency:    rows[0]?.currency ?? "GBP",
+    charges:     rows,
+  };
+}
+
+/**
  * Cancel a scheduled expected charge (cannot cancel posted/superseded charges).
  */
 export async function cancelExpectedCharge({ accountId, expectedChargeId, notes }) {
