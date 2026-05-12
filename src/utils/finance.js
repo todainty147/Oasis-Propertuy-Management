@@ -188,16 +188,21 @@ export function calculateMonthlyBalance({
 export function calculatePropertyFinance({
   property,
   payments = [],
-  date = new Date(),
 }) {
   const rent = Number(property?.rent) || 0;
 
-  const { paid, remaining, status } = calculateMonthlyBalance({
-    rent,
-    payments,
-    year: date.getFullYear(),
-    month: date.getMonth(),
-  });
+  // All-time totals: sum every paid record and every unpaid record independently.
+  // A current-month-only cycle lookup was the previous approach but caused
+  // historical paid amounts to vanish (e.g. a Dec payment was invisible in May).
+  const paid = sumPaid(payments);
+  const unpaidPayments = payments.filter((p) => !isPaid(p));
+  const remaining = unpaidPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const hasOverdue = unpaidPayments.some((p) => isOverdue(p));
+
+  let status = PAYMENT_STATUS.PENDING;
+  if (remaining <= 0 && paid > 0) status = PAYMENT_STATUS.PAID;
+  else if (hasOverdue)            status = PAYMENT_STATUS.OVERDUE;
+  else if (paid > 0)              status = PAYMENT_STATUS.PARTIAL;
 
   return {
     propertyId: property.id,
