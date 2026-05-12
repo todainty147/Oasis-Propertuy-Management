@@ -89,6 +89,7 @@ export function toMonthlyPence(amount, frequency) {
     case "fortnightly":  return Math.round(p * 26 / 12);
     case "four_weekly":  return Math.round(p * 13 / 12);
     case "annual":       return Math.round(p / 12);
+    case "nightly":      return Math.round(p * 365 / 12); // approximate; STR engine uses per-night
     case "monthly":
     default:             return p;
   }
@@ -101,6 +102,7 @@ export function fromMonthlyPence(monthlyPence, targetFrequency) {
     case "fortnightly":  return Math.round(monthlyPence * 12 / 26);
     case "four_weekly":  return Math.round(monthlyPence * 12 / 13);
     case "annual":       return Math.round(monthlyPence * 12);
+    case "nightly":      return Math.round(monthlyPence * 12 / 365);
     case "monthly":
     default:             return monthlyPence;
   }
@@ -519,4 +521,439 @@ export function generateBillingPeriods(plan, upToDate = new Date()) {
   }
 
   return periods;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ADVANCED RENT MODELS — Epic 2
+// All functions return preview-only results. No DB calls, no side effects.
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Model 1: Split Rent
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Calculate per-tenant rent shares for a shared tenancy.
+ *
+ * @param {number} totalPence    Full rent amount in pence
+ * @param {object[]} splits      Array of split configs: { tenantId, type, percentage, fixedAmount, overrideReason }
+ * @param {string} splitType     'equal_split' | 'percentage_split' | 'fixed_amount_split' | 'custom_manual_split'
+ * @returns {{ shares, totalPence, method, roundingAdjustmentPence, warnings }}
+ */
+export function runSplitRentCalculation(totalPence, splits, splitType = "equal_split") {
+  const warnings = [];
+  const n = splits.length;
+
+  if (n === 0) {
+    return { shares: [], totalPence, method: splitType, roundingAdjustmentPence: 0, warnings: [{ code: "no_tenants", message: "No tenants provided for split calculation." }] };
+  }
+
+  let shares = [];
+
+  switch (splitType) {
+    case "equal_split": {
+      const base      = Math.floor(totalPence / n);
+      const remainder = totalPence - base * n;
+      shares = splits.map((s, i) => ({
+        tenantId:    s.tenantId,
+        amountPence: base + (i === 0 ? remainder : 0),
+        method:      "equal_split",
+      }));
+      if (remainder > 0) {
+        warnings.push({ code: "rounding_penny", message: `Rounding remainder of ${remainder}p assigned to first tenant.` });
+      }
+      break;
+    }
+
+    case "percentage_split": {
+      const totalPct = splits.reduce((s, sp) => s + (Number(sp.percentage) || 0), 0);
+      if (Math.abs(totalPct - 100) > 0.01) {
+        warnings.push({ code: "percentage_not_100", message: `Percentages total ${totalPct.toFixed(2)}% — must equal 100%.` });
+      }
+      let allocated = 0;
+      shares = splits.map((sp, i) => {
+        const pct    = Number(sp.percentage) || 0;
+        const amount = i === splits.length - 1
+          ? totalPence - allocated
+          : Math.round(totalPence * pct / 100);
+        allocated += amount;
+        return { tenantId: sp.tenantId, amountPence: amount, method: "percentage_split", percentage: pct };
+      });
+      break;
+    }
+
+    case "fixed_amount_split": {
+      const fixedTotal = splits.reduce((s, sp) => s + toPence(sp.fixedAmount ?? 0), 0);
+      if (fixedTotal !== totalPence) {
+        warnings.push({ code: "fixed_mismatch", message: `Fixed amounts total ${fromPence(fixedTotal)} but expected ${fromPence(totalPence)}. Manual override required.` });
+      }
+      shares = splits.map((sp) => ({
+        tenantId:    sp.tenantId,
+        amountPence: toPence(sp.fixedAmount ?? 0),
+        method:      "fixed_amount_split",
+      }));
+      break;
+    }
+
+    case "custom_manual_split": {
+      const hasReasons = splits.every((sp) => sp.overrideReason && String(sp.overrideReason).trim());
+      if (!hasReasons) {
+        warnings.push({ code: "reason_required", message: "Custom manual split requires a reason for each tenant share." });
+      }
+      shares = splits.map((sp) => ({
+        tenantId:    sp.tenantId,
+        amountPence: toPence(sp.fixedAmount ?? 0),
+        method:      "custom_manual_split",
+        reason:      sp.overrideReason,
+      }));
+      break;
+    }
+
+    default:
+      warnings.push({ code: "unknown_split_type", message: `Unknown split type: ${splitType}` });
+  }
+
+  const allocatedTotal       = shares.reduce((s, sh) => s + sh.amountPence, 0);
+  const roundingAdjustmentPence = totalPence - allocatedTotal;
+
+  return {
+    shares: shares.map((sh) => ({ ...sh, amount: fromPence(sh.amountPence) })),
+    totalPence,
+    total:               fromPence(totalPence),
+    method:              splitType,
+    roundingAdjustmentPence,
+    warnings,
+    explanation:         `Split method: ${splitType}. Total: ${fromPence(totalPence)}. Tenants: ${n}.`,
+    calculatedAt:        new Date().toISOString(),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Model 2: Room-Based Rent
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Calculate rent for a single room assignment.
+ *
+ * @param {object} assignment  room_rent_assignment row (amount, billing_frequency, proration_policy)
+ * @param {object} room        property_room row (room_label, status)
+ * @param {string} periodStart ISO date
+ * @param {string} periodEnd   ISO date
+ * @param {boolean} isPartMonth
+ * @returns {{ roomLabel, tenantId, amount, prorated, lineItems, warnings }}
+ */
+export function runRoomRentCalculation({ assignment, room, periodStart, periodEnd, isPartMonth = false }) {
+  const warnings = [];
+
+  if (!assignment.tenant_id) {
+    return {
+      roomLabel:   room?.room_label ?? "Unknown room",
+      tenantId:    null,
+      amountPence: 0,
+      amount:      0,
+      prorated:    false,
+      lineItems:   [{ chargeType: "room_rent", label: "Vacant room — no charge", amountPence: 0, amount: 0 }],
+      warnings:    [{ code: "vacant_room", message: "Room has no active tenant. No charge generated." }],
+      explanation: "Vacant room — no expected charge.",
+      calculatedAt: new Date().toISOString(),
+    };
+  }
+
+  const monthlyP   = toMonthlyPence(assignment.amount, assignment.billing_frequency);
+  let   amountP    = isPartMonth
+    ? prorateMonthlyPence(monthlyP, periodStart, periodEnd, assignment.proration_policy)
+    : fromMonthlyPence(monthlyP, assignment.billing_frequency ?? "monthly");
+  amountP = applyRounding(amountP, "nearest_penny");
+
+  const lineItems = [{
+    chargeType:  "room_rent",
+    label:       room?.room_label ?? "Room rent",
+    amountPence: amountP,
+    amount:      fromPence(amountP),
+  }];
+
+  return {
+    roomLabel:    room?.room_label ?? "Room",
+    tenantId:     assignment.tenant_id,
+    amountPence:  amountP,
+    amount:       fromPence(amountP),
+    prorated:     isPartMonth,
+    currency:     assignment.currency ?? "GBP",
+    lineItems,
+    warnings,
+    explanation:  `${room?.room_label ?? "Room"}: ${fromPence(monthlyP)}/month${isPartMonth ? ` prorated (${assignment.proration_policy})` : ""}. Period: ${periodStart}–${periodEnd}.`,
+    calculatedAt: new Date().toISOString(),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Model 3: Variable Utilities
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Calculate a utility charge based on its method.
+ *
+ * @param {object} charge  utility_charge row
+ * @returns {{ utilityType, usage, amountPence, amount, warnings, explanation }}
+ */
+export function runUtilityCalculation(charge) {
+  const warnings = [];
+  let amountPence = 0;
+  let usage       = null;
+  let explanation = "";
+
+  switch (charge.calculation_method) {
+    case "fixed": {
+      amountPence = toPence(charge.invoice_amount ?? 0);
+      explanation = `Fixed utility charge: ${fromPence(amountPence)}.`;
+      break;
+    }
+
+    case "manual": {
+      amountPence = toPence(charge.invoice_amount ?? 0);
+      if (!charge.evidence_note) {
+        warnings.push({ code: "no_evidence_note", message: "Manual utility charge should include a source or evidence note." });
+      }
+      explanation = `Manual utility charge: ${fromPence(amountPence)}${charge.evidence_note ? ` — ${charge.evidence_note}` : ""}.`;
+      break;
+    }
+
+    case "meter_usage": {
+      const prev = Number(charge.previous_reading ?? 0);
+      const curr = Number(charge.current_reading ?? 0);
+      if (curr < prev && !charge.override_reason) {
+        warnings.push({ code: "invalid_reading", message: "Current reading is less than previous reading. Override reason required." });
+        amountPence = 0;
+      } else {
+        usage           = Math.max(0, curr - prev);
+        const unitRateP = toPence(charge.unit_rate ?? 0);
+        const standingP = toPence(charge.standing_charge ?? 0);
+        amountPence     = Math.round(usage * unitRateP) + standingP;
+        if (usage === 0 && curr === prev) {
+          warnings.push({ code: "zero_usage", message: "Meter readings are identical — usage is zero." });
+        }
+      }
+      explanation = `Meter usage: ${usage ?? "?"} units × ${fromPence(toPence(charge.unit_rate ?? 0))} + standing charge ${fromPence(toPence(charge.standing_charge ?? 0))}.`;
+      break;
+    }
+
+    case "invoice_split": {
+      const invoiceP   = toPence(charge.invoice_amount ?? 0);
+      const splitRatio = Number(charge.split_ratio ?? 1);
+      if (splitRatio <= 0 || splitRatio > 1) {
+        warnings.push({ code: "invalid_split_ratio", message: "Split ratio must be between 0 and 1." });
+      }
+      amountPence = Math.round(invoiceP * splitRatio);
+      explanation = `Invoice ${fromPence(invoiceP)} × split ratio ${splitRatio} = ${fromPence(amountPence)}.`;
+      break;
+    }
+
+    default:
+      warnings.push({ code: "unknown_method", message: `Unknown calculation method: ${charge.calculation_method}` });
+  }
+
+  return {
+    utilityType:  charge.utility_type,
+    method:       charge.calculation_method,
+    usage,
+    amountPence,
+    amount:       fromPence(amountPence),
+    currency:     charge.currency ?? "GBP",
+    warnings,
+    explanation,
+    calculatedAt: new Date().toISOString(),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Model 4: Rent Increase — workflow helpers only
+// Calculation uses the existing runRentCalculation() on the proposed plan.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Calculate the increase summary between an old and new monthly rent.
+ * Does NOT activate or supersede plans — that goes through activate_rent_plan() RPC.
+ *
+ * @param {number} oldMonthlyPence
+ * @param {number} newMonthlyPence
+ * @param {string} effectiveDate  ISO date
+ */
+export function calculateRentIncreaseSummary(oldMonthlyPence, newMonthlyPence, effectiveDate) {
+  const warnings = [];
+  const diffPence  = newMonthlyPence - oldMonthlyPence;
+  const pctChange  = oldMonthlyPence > 0 ? (diffPence / oldMonthlyPence) * 100 : 0;
+
+  if (diffPence < 0) {
+    warnings.push({ code: "rent_decrease", message: "New rent is lower than current rent. Use a discount/adjustment for rent reductions." });
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  if (effectiveDate < today) {
+    warnings.push({ code: "backdated_effective", message: "Effective date is in the past. A manual override reason is required." });
+  }
+
+  return {
+    oldMonthlyPence,
+    newMonthlyPence,
+    diffPence,
+    oldMonthly:    fromPence(oldMonthlyPence),
+    newMonthly:    fromPence(newMonthlyPence),
+    diff:          fromPence(diffPence),
+    percentChange: Math.round(pctChange * 100) / 100,
+    effectiveDate,
+    warnings,
+    explanation:   `Rent change: ${fromPence(oldMonthlyPence)} → ${fromPence(newMonthlyPence)} (${pctChange >= 0 ? "+" : ""}${pctChange.toFixed(2)}%). Effective: ${effectiveDate}.`,
+    calculatedAt:  new Date().toISOString(),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Model 5: Discounts and Promotions
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Apply a rent adjustment (discount, promotion, holiday) to a base charge.
+ *
+ * @param {number} baseAmountPence  Gross charge in pence
+ * @param {object} adjustment       rent_adjustment row
+ * @returns {{ originalPence, adjustmentPence, finalPence, lineItem, warnings }}
+ */
+export function applyRentAdjustment(baseAmountPence, adjustment) {
+  const warnings = [];
+
+  if (!adjustment.reason || !String(adjustment.reason).trim()) {
+    warnings.push({ code: "reason_required", message: "Adjustment reason is required." });
+  }
+
+  let adjustmentPence = 0;
+
+  switch (adjustment.adjustment_type) {
+    case "percentage_discount":
+    case "introductory_offer": {
+      const pct   = Number(adjustment.percentage ?? 0);
+      adjustmentPence = Math.round(baseAmountPence * pct / 100);
+      break;
+    }
+    case "fixed_discount":
+    case "goodwill_credit":
+    case "manual_adjustment": {
+      adjustmentPence = toPence(adjustment.amount ?? 0);
+      break;
+    }
+    case "rent_holiday": {
+      adjustmentPence = baseAmountPence; // full reduction
+      break;
+    }
+    default:
+      warnings.push({ code: "unknown_type", message: `Unknown adjustment type: ${adjustment.adjustment_type}` });
+  }
+
+  let finalPence = baseAmountPence - adjustmentPence;
+
+  // Floor at 0 unless rent_holiday (which explicitly sets to 0)
+  if (finalPence < 0 && adjustment.adjustment_type !== "rent_holiday") {
+    warnings.push({ code: "below_zero", message: "Adjustment would reduce charge below zero. Clamped to 0." });
+    finalPence = 0;
+  }
+
+  const isLargeDiscount = adjustmentPence > 0 && (adjustmentPence / baseAmountPence) > 0.20;
+  if (isLargeDiscount) {
+    warnings.push({ code: "large_discount", message: `Discount exceeds 20% of base charge. Review recommended.` });
+  }
+
+  return {
+    originalPence:    baseAmountPence,
+    adjustmentPence,
+    finalPence,
+    original:         fromPence(baseAmountPence),
+    adjustment:       fromPence(adjustmentPence),
+    final:            fromPence(finalPence),
+    adjustmentType:   adjustment.adjustment_type,
+    reason:           adjustment.reason,
+    lineItem: {
+      chargeType:    "discount",
+      label:         adjustment.adjustment_type === "rent_holiday" ? "Rent holiday" : `Discount (${adjustment.reason})`,
+      amountPence:   -adjustmentPence,
+      amount:        -fromPence(adjustmentPence),
+      includedInRent: false,
+    },
+    warnings,
+    explanation:   `${adjustment.adjustment_type}: −${fromPence(adjustmentPence)} from ${fromPence(baseAmountPence)} = ${fromPence(finalPence)}.`,
+    calculatedAt:  new Date().toISOString(),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Model 6: STR Nightly
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Calculate a short-term rental booking charge.
+ * Nights = exclusive (check-out day not charged — industry standard).
+ *
+ * @param {object} booking  str_booking_charge row (or equivalent shape)
+ * @returns {{ nights, nightlySubtotal, fees, discount, total, warnings }}
+ */
+export function runStrCalculation(booking) {
+  const warnings = [];
+
+  const checkIn  = booking.check_in_date;
+  const checkOut = booking.check_out_date;
+
+  if (!checkIn || !checkOut) {
+    return { nights: 0, total: 0, warnings: [{ code: "missing_dates", message: "Check-in and check-out dates are required." }] };
+  }
+
+  if (checkOut <= checkIn) {
+    return { nights: 0, total: 0, warnings: [{ code: "invalid_dates", message: "Check-out must be after check-in." }] };
+  }
+
+  // Nights = exclusive end (check-out day not charged)
+  const nights = daysBetween(checkIn, checkOut) - 1;
+  if (nights <= 0) {
+    warnings.push({ code: "zero_nights", message: "Booking results in zero chargeable nights." });
+  }
+
+  const nightlyRateP   = toPence(booking.nightly_rate ?? 0);
+  const nightlySubP    = nightlyRateP * nights;
+  const cleaningP      = toPence(booking.cleaning_fee ?? 0);
+  const platformFeeP   = toPence(booking.platform_fee ?? 0);
+  const serviceFeeP    = toPence(booking.service_fee ?? 0);
+  const discountP      = toPence(booking.discount_amount ?? 0);
+  const taxP           = toPence(booking.tax_amount ?? 0);
+
+  const grossP   = nightlySubP + cleaningP + platformFeeP + serviceFeeP + taxP;
+  const totalP   = Math.max(0, grossP - discountP);
+
+  if (discountP > grossP) {
+    warnings.push({ code: "discount_exceeds_gross", message: "Discount exceeds gross amount. Total clamped to 0." });
+  }
+
+  const lineItems = [
+    { chargeType: "str_nightly", label: `${nights} night${nights !== 1 ? "s" : ""} × ${fromPence(nightlyRateP)}`, amountPence: nightlySubP, amount: fromPence(nightlySubP) },
+    ...(cleaningP    > 0 ? [{ chargeType: "cleaning_fee",   label: "Cleaning fee",     amountPence: cleaningP,    amount: fromPence(cleaningP)    }] : []),
+    ...(platformFeeP > 0 ? [{ chargeType: "platform_fee",   label: "Platform fee",     amountPence: platformFeeP, amount: fromPence(platformFeeP)  }] : []),
+    ...(serviceFeeP  > 0 ? [{ chargeType: "service_fee",    label: "Service fee",      amountPence: serviceFeeP,  amount: fromPence(serviceFeeP)   }] : []),
+    ...(taxP         > 0 ? [{ chargeType: "tax_placeholder", label: "Tax (placeholder)", amountPence: taxP,        amount: fromPence(taxP)          }] : []),
+    ...(discountP    > 0 ? [{ chargeType: "discount",       label: "Discount",         amountPence: -discountP,   amount: -fromPence(discountP)    }] : []),
+  ];
+
+  return {
+    nights,
+    nightlyRate:      fromPence(nightlyRateP),
+    nightlySubtotal:  fromPence(nightlySubP),
+    cleaningFee:      fromPence(cleaningP),
+    fees:             fromPence(platformFeeP + serviceFeeP),
+    discount:         fromPence(discountP),
+    tax:              fromPence(taxP),
+    totalPence:       totalP,
+    total:            fromPence(totalP),
+    currency:         booking.currency ?? "GBP",
+    bookingReference: booking.booking_reference ?? null,
+    platform:         booking.platform ?? null,
+    lineItems,
+    warnings,
+    explanation:      `STR: ${nights} night${nights !== 1 ? "s" : ""} @ ${fromPence(nightlyRateP)}/night = ${fromPence(nightlySubP)}. Fees: ${fromPence(cleaningP + platformFeeP + serviceFeeP)}. Tax: ${fromPence(taxP)}. Discount: −${fromPence(discountP)}. Total: ${fromPence(totalP)}.`,
+    calculatedAt:     new Date().toISOString(),
+  };
 }

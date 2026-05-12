@@ -816,6 +816,99 @@ as $$
     where ec.account_id = a.account_id
       and ec.status = 'scheduled'
       and ec.due_date < current_date
+
+    union all
+
+    -- Proposed rent increase awaiting approval
+    select
+      'rent-increase-pending-' || rp.id::text,
+      'rent_increase_pending'::text,
+      'action'::text,
+      coalesce(pr.address, '—'),
+      coalesce(t.name, '—'),
+      'Proposed rent increase awaiting approval'::text,
+      rp.base_rent_amount,
+      floor(extract(epoch from (now() - rp.created_at)) / 3600)::int,
+      null::int,
+      '/finance/rent-plans'::text,
+      'rent_plans'::text,
+      37 as sort_order
+    from public.rent_plans rp
+    cross join authz a
+    left join public.properties pr on pr.id = rp.property_id
+    left join public.tenants t on t.id = rp.tenant_id
+    where rp.account_id = a.account_id
+      and rp.status in ('proposed', 'notice_pending', 'approved')
+
+    union all
+
+    -- Active discount expiring within 7 days
+    select
+      'discount-expiring-' || ra.id::text,
+      'discount_expiring'::text,
+      'upcoming'::text,
+      coalesce(pr.address, '—'),
+      coalesce(t.name, '—'),
+      coalesce(ra.reason, 'Discount expiring soon'),
+      ra.amount,
+      null::int,
+      (ra.end_date - current_date)::int,
+      '/finance/rent-plans'::text,
+      'rent_adjustments'::text,
+      38 as sort_order
+    from public.rent_adjustments ra
+    cross join authz a
+    left join public.properties pr on pr.id = ra.property_id
+    left join public.tenants t on t.id = ra.tenant_id
+    where ra.account_id = a.account_id
+      and ra.status = 'active'
+      and ra.end_date is not null
+      and ra.end_date between current_date and current_date + interval '7 days'
+
+    union all
+
+    -- STR booking charges in draft (not yet confirmed or posted)
+    select
+      'str-draft-' || sb.id::text,
+      'str_draft_not_posted'::text,
+      'action'::text,
+      coalesce(pr.address, '—'),
+      '—'::text,
+      coalesce('STR booking: ' || coalesce(sb.booking_reference, 'no ref'), 'STR booking draft'),
+      sb.total_amount,
+      floor(extract(epoch from (now() - sb.created_at)) / 3600)::int,
+      null::int,
+      '/finance/rent-plans'::text,
+      'str_booking_charges'::text,
+      39 as sort_order
+    from public.str_booking_charges sb
+    cross join authz a
+    left join public.properties pr on pr.id = sb.property_id
+    where sb.account_id = a.account_id
+      and sb.status = 'draft'
+
+    union all
+
+    -- Utility charges in draft awaiting review
+    select
+      'utility-draft-' || uc.id::text,
+      'utility_awaiting_review'::text,
+      'action'::text,
+      coalesce(pr.address, '—'),
+      coalesce(t.name, '—'),
+      coalesce(uc.utility_type, 'Utility') || ' charge awaiting review',
+      coalesce(uc.amount_calculated, 0),
+      floor(extract(epoch from (now() - uc.created_at)) / 3600)::int,
+      null::int,
+      '/finance/rent-plans'::text,
+      'utility_charges'::text,
+      40 as sort_order
+    from public.utility_charges uc
+    cross join authz a
+    left join public.properties pr on pr.id = uc.property_id
+    left join public.tenants t on t.id = uc.tenant_id
+    where uc.account_id = a.account_id
+      and uc.status = 'draft'
   ),
   limited_rent_plan_items as (
     select *

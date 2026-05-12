@@ -8,12 +8,17 @@ import { listExpectedCharges, postExpectedCharge, cancelExpectedCharge } from ".
 import RentPlanForm from "../components/rent/RentPlanForm";
 import RentCalculationPreview from "../components/rent/RentCalculationPreview";
 import ExpectedChargesList from "../components/rent/ExpectedChargesList";
+import AdvancedModelSelector from "../components/rent/AdvancedModelSelector";
 
 const STATUS_COLORS = {
-  draft:      "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-  active:     "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400",
-  superseded: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
-  ended:      "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400",
+  draft:          "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+  proposed:       "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400",
+  notice_pending: "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400",
+  approved:       "bg-teal-100 text-teal-700 dark:bg-teal-950/40 dark:text-teal-400",
+  active:         "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400",
+  superseded:     "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
+  ended:          "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400",
+  cancelled:      "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-500",
 };
 
 function PlanCard({ plan, onActivate, onEnd, onPreview, onViewCharges, t }) {
@@ -217,6 +222,11 @@ export default function RentPlansPage() {
           onClose={() => setPreviewPlan(null)}
           t={t}
         />
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3">
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Advanced rent models</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Select a model below to preview split rent, room rent, utilities, rent increases, discounts, or STR nightly charges.</p>
+          <AdvancedModelSelector plan={previewPlan} t={t} />
+        </div>
       </div>
     );
   }

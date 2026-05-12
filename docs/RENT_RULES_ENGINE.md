@@ -1,5 +1,7 @@
 # Rent Rules Engine — Technical Reference
 
+> **Epic 2 advanced models** (split rent, room-based rent, variable utilities, rent increase, discounts, STR nightly) are documented in [ADVANCED_RENT_MODELS.md](./ADVANCED_RENT_MODELS.md).
+
 ## Feature availability
 
 The core Rent Rules Engine is available to **all active OASIS plans** (Starter, Growth, Pro, Operator/Agency).

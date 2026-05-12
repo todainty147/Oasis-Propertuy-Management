@@ -2,11 +2,17 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { createRentPlan } from "../../services/rentPlanService";
 
-const FREQUENCIES = ["monthly", "weekly", "fortnightly", "four_weekly", "annual"];
+const FREQUENCIES = ["monthly", "weekly", "fortnightly", "four_weekly", "annual", "nightly"];
 const PRORATION   = ["actual_days_in_month", "thirty_day_month", "annual_daily_365", "annual_daily_actual_year", "no_proration", "manual_override"];
 const UTILITIES   = ["rent_only", "bills_inclusive", "fixed_utility_charge", "variable_utility_charge"];
 const MARKETS     = ["generic", "uk", "pl"];
 const CURRENCIES  = ["GBP", "PLN", "EUR", "USD"];
+
+const MARKET_DEFAULTS = {
+  uk:      { currency: "GBP", depositPolicy: "market_default" },
+  pl:      { currency: "PLN", depositPolicy: "market_default" },
+  generic: { currency: "GBP", depositPolicy: "custom"         },
+};
 
 export default function RentPlanForm({ accountId, onSaved, onCancel, t }) {
   const [form, setForm] = useState({
@@ -30,6 +36,16 @@ export default function RentPlanForm({ accountId, onSaved, onCancel, t }) {
   const [error, setError]   = useState(null);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  function onMarketChange(market) {
+    const defaults = MARKET_DEFAULTS[market] ?? MARKET_DEFAULTS.generic;
+    setForm((f) => ({
+      ...f,
+      market,
+      currency:      defaults.currency,
+      depositPolicy: defaults.depositPolicy,
+    }));
+  }
 
   async function handleSave() {
     if (!form.baseRentAmount || !form.startDate) {
@@ -62,7 +78,7 @@ export default function RentPlanForm({ accountId, onSaved, onCancel, t }) {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={lbl}>{t("rentPlans.form.market")}</label>
-          <select value={form.market} onChange={(e) => set("market", e.target.value)} className={cls}>
+          <select value={form.market} onChange={(e) => onMarketChange(e.target.value)} className={cls}>
             {MARKETS.map((m) => <option key={m} value={m}>{t(`rentPlans.market.${m}`)}</option>)}
           </select>
         </div>

@@ -30,7 +30,7 @@ create table if not exists public.rent_plans (
   billing_frequency    text        not null default 'monthly'
                                    check (billing_frequency in (
                                      'monthly', 'weekly', 'fortnightly',
-                                     'four_weekly', 'annual', 'custom'
+                                     'four_weekly', 'annual', 'nightly', 'custom'
                                    )),
   base_rent_amount     numeric(12,2) not null check (base_rent_amount >= 0),
   due_day              smallint    not null default 1 check (due_day between 1 and 28),
