@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 type PreviewItem = {
   title: string;
@@ -13,11 +14,15 @@ export function ProductPreview({
   title,
   body,
   items,
+  featuresHref,
 }: {
   title: string;
   body: string;
   items: PreviewItem[];
+  featuresHref?: string;
 }) {
+  const gridClass = items.length <= 4 ? "grid grid-2 preview-grid" : "grid grid-3 preview-grid";
+
   return (
     <section className="section">
       <div className="container">
@@ -25,7 +30,7 @@ export function ProductPreview({
           <h2>{title}</h2>
           <p className="muted">{body}</p>
         </div>
-        <div className="grid grid-3">
+        <div className={gridClass}>
           {items.map((item) => (
             <article key={item.title} className="card preview-card">
               <div className="preview-shot">
@@ -50,6 +55,11 @@ export function ProductPreview({
             </article>
           ))}
         </div>
+        {featuresHref && (
+          <p className="preview-features-link">
+            <Link href={featuresHref}>See all platform features →</Link>
+          </p>
+        )}
       </div>
     </section>
   );

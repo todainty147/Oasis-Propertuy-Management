@@ -22,6 +22,7 @@ export type WeeklyPortfolioInsightInput = {
     label?: string | null;
     score?: number | null;
     category?: string | null;
+    overdueRentAmount?: number | null;
   }> | null;
 };
 
@@ -78,7 +79,11 @@ export function buildFallbackWeeklyPortfolioInsight(
 
   const propertiesToWatch = (input.lowHealthProperties || [])
     .slice(0, 3)
-    .map((row) => `${String(row.label || "Property")} (${healthLabel(row.category)}${row.score != null ? `, score ${Math.round(Number(row.score))}` : ""})`);
+    .map((row) => {
+      const base = `${String(row.label || "Property")} (${healthLabel(row.category)}${row.score != null ? `, score ${Math.round(Number(row.score))}` : ""})`;
+      const overdue = Number(row.overdueRentAmount || 0);
+      return overdue > 0 ? `${base} — ${Math.round(overdue)} overdue` : base;
+    });
 
   const cashflowNotes = [];
   if (overdueBalance > 0) cashflowNotes.push(`Overdue balance: ${Math.round(overdueBalance)}.`);
@@ -119,6 +124,7 @@ export function buildWeeklyPortfolioPrompt(input: WeeklyPortfolioInsightInput) {
         propertyAlias: aliasForId("property", item?.propertyId || item?.label),
         score: item?.score == null ? null : Number(item.score),
         category: item?.category || null,
+        overdueRentAmount: item?.overdueRentAmount == null ? null : Math.round(Number(item.overdueRentAmount)),
       })),
   });
 }
@@ -161,7 +167,7 @@ export function buildWeeklyPortfolioSourceHash(input: WeeklyPortfolioInsightInpu
     .map((item) => [item.title || "", item.subtitle || "", item.linkPath || ""].join(":"))
     .join("|");
   const properties = (input.lowHealthProperties || [])
-    .map((item) => [item.propertyId || "", item.label || "", item.score || "", item.category || ""].join(":"))
+    .map((item) => [item.propertyId || "", item.label || "", item.score || "", item.category || "", item.overdueRentAmount || 0].join(":"))
     .join("|");
 
   return [

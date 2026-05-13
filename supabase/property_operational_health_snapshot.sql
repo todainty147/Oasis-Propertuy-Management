@@ -59,26 +59,73 @@ as $$
     order by p.address asc
     limit greatest(coalesce(p_limit, 200), 1)
   ),
-  payment_signals as (
+  -- ── Accumulated arrears — lease-aware, mirrors finance/dashboard/portfolio snapshots ──
+  payment_rows_acc as (
+    select
+      pay.property_id,
+      coalesce(pay.amount, 0) as amount,
+      (
+        pay.paid_at is not null
+        or lower(coalesce(pay.status, '')) in ('paid', 'oplacone', 'opłacone')
+      ) as is_paid,
+      pay.due_date
+    from public.payments pay
+    where pay.account_id = p_account_id
+  ),
+  property_tenure_acc as (
     select
       sp.id as property_id,
-      coalesce(sum(
-        case
-          when pay.paid_at is null
-           and (
-             lower(coalesce(pay.status, '')) in ('overdue', 'zaległe', 'zalegle')
-             or (pay.due_date is not null and pay.due_date < current_date)
-           )
-          then coalesce(pay.amount, 0)
-          else 0
-        end
-      ), 0)::numeric as overdue_rent_amount
+      sp.monthly_rent as rent,
+      date_trunc('month', coalesce(
+        (select min(l.lease_start_date)
+         from public.leases l
+         where l.account_id = p_account_id
+           and l.property_id = sp.id
+           and lower(coalesce(l.renewal_status, 'active')) not in ('ended')),
+        (select min(px.due_date)
+         from payment_rows_acc px
+         where px.property_id = sp.id and px.due_date is not null)
+      ))::date as rent_start_month
     from scoped_properties sp
-    left join public.payments pay
-      on pay.account_id = p_account_id
-     and pay.property_id = sp.id
-    group by sp.id
   ),
+  property_accumulated_acc as (
+    select
+      pt.property_id,
+      pt.rent,
+      coalesce((
+        select sum(px.amount)
+        from payment_rows_acc px
+        where px.property_id = pt.property_id and px.is_paid
+      ), 0) as total_paid_alltime,
+      case
+        when pt.rent_start_month is not null and pt.rent > 0 then
+          greatest((
+            extract(year  from age(date_trunc('month', current_date)::date, pt.rent_start_month)) * 12
+            + extract(month from age(date_trunc('month', current_date)::date, pt.rent_start_month))
+            + 1
+          )::integer, 1)
+        else 1
+      end as months_elapsed
+    from property_tenure_acc pt
+  ),
+  property_has_tenant as (
+    select sp.id as property_id, exists (
+      select 1 from public.tenants t where t.property_id = sp.id
+    ) as occupied
+    from scoped_properties sp
+  ),
+  payment_signals as (
+    select
+      pa.property_id,
+      case
+        when ht.occupied and pa.rent > 0 then
+          greatest(pa.months_elapsed * pa.rent - pa.total_paid_alltime, 0)
+        else 0
+      end::numeric as overdue_rent_amount
+    from property_accumulated_acc pa
+    join property_has_tenant ht on ht.property_id = pa.property_id
+  ),
+  -- ── End accumulated arrears ──────────────────────────────────────────────────
   request_signals as (
     select
       sp.id as property_id,

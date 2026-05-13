@@ -24,7 +24,7 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
 const OPENAI_BASE_URL = (Deno.env.get("OPENAI_BASE_URL") || "https://api.openai.com/v1").replace(/\/+$/, "");
 const OPENAI_MODEL = Deno.env.get("OASIS_AI_MODEL") || Deno.env.get("OPENAI_MODEL") || "gpt-4.1-mini";
 const AI_CACHE_TTL_HOURS = Math.max(1, Math.min(Number(Deno.env.get("OASIS_AI_CACHE_TTL_HOURS") || "6"), 24));
-const PROMPT_VERSION = "weekly_portfolio_summary_v1";
+const PROMPT_VERSION = "weekly_portfolio_summary_v2";
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -191,6 +191,7 @@ async function loadInput(accountId: string): Promise<WeeklyPortfolioInsightInput
       label: String(row.property_label || "Property"),
       score: row.score == null ? null : Number(row.score),
       category: row.category ? String(row.category) : null,
+      overdueRentAmount: row.overdue_rent_amount == null ? null : Number(row.overdue_rent_amount),
     })),
   };
 }

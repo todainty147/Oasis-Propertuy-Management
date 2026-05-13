@@ -775,11 +775,29 @@ a {
   color: var(--brand);
 }
 
+/* ── Product preview features link ───────────────────────────────────────── */
+
+.preview-features-link {
+  margin: 2rem 0 0;
+  text-align: center;
+  font: 600 0.95rem/1 var(--font-sans);
+  color: var(--brand);
+}
+
+.preview-features-link a {
+  color: var(--brand);
+  transition: color 130ms ease;
+}
+
+.preview-features-link a:hover {
+  color: var(--accent);
+}
+
 /* ── 900 px breakpoint ───────────────────────────────────────────────────── */
 
 @media (max-width: 900px) {
   .section {
-    padding: 4rem 0;
+    padding: 3.5rem 0;
   }
 
   /* Header: keep logo + hamburger on one row */
@@ -851,14 +869,37 @@ a {
     gap: 1.5rem;
   }
 
-  /* Hero */
+  /* Hero: slightly tighter on tablet */
   .hero h1,
   .page-hero h1 {
-    font-size: 2.55rem;
+    font-size: 2.35rem;
+    line-height: 1.06;
   }
 
+  /* Section headings — 10-15% smaller, tighter line-height for long titles */
   .section-title h2 {
-    font-size: 1.9rem;
+    font-size: 1.72rem;
+    line-height: 1.15;
+  }
+
+  .yield-section h2 {
+    font-size: clamp(1.35rem, 4.5vw, 1.75rem);
+    line-height: 1.2;
+  }
+
+  .passive-section h2 {
+    font-size: clamp(1.3rem, 4.5vw, 1.65rem);
+    line-height: 1.2;
+  }
+
+  .agent-comparison h2 {
+    font-size: clamp(1.3rem, 4.5vw, 1.65rem);
+    line-height: 1.2;
+  }
+
+  .app-tease-copy h2 {
+    font-size: clamp(1.3rem, 4vw, 1.65rem);
+    line-height: 1.2;
   }
 
   .blog-article__header h1 {
@@ -874,6 +915,11 @@ a {
     grid-template-columns: 1fr;
   }
 
+  /* preview-grid: keep 2-col on tablet (≤900px) for 4-card layout */
+  .preview-grid.grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   /* Content section: restore natural order when reversed */
   .content-section__layout--reverse > :first-child,
   .content-section__layout--reverse > :last-child {
@@ -882,7 +928,7 @@ a {
 
   /* Hero adjustments */
   .hero {
-    padding-top: 3.5rem;
+    padding-top: 3rem;
   }
 
   .mock-grid,
@@ -900,16 +946,44 @@ a {
 
 @media (max-width: 600px) {
   .section {
-    padding: 3rem 0;
+    padding: 2.75rem 0;
   }
 
   .hero h1,
   .page-hero h1 {
-    font-size: 2.1rem;
+    font-size: 1.95rem;
+    line-height: 1.08;
   }
 
+  /* Section headings: further reduction for narrow screens */
   .section-title h2 {
-    font-size: 1.65rem;
+    font-size: 1.45rem;
+    line-height: 1.18;
+  }
+
+  .yield-section h2 {
+    font-size: 1.35rem;
+    line-height: 1.22;
+  }
+
+  .passive-section h2 {
+    font-size: 1.3rem;
+    line-height: 1.22;
+  }
+
+  .agent-comparison h2 {
+    font-size: 1.3rem;
+    line-height: 1.22;
+  }
+
+  .app-tease-copy h2 {
+    font-size: 1.3rem;
+    line-height: 1.22;
+  }
+
+  /* preview-grid: single col on phones */
+  .preview-grid.grid-2 {
+    grid-template-columns: 1fr;
   }
 
   .content-section {

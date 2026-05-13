@@ -11,7 +11,6 @@ import { ProductPreview } from "./product-preview";
 import { SeoFeatureSection } from "./seo-feature-section";
 import { TestimonialCards } from "./testimonial-cards";
 import { TrustBar } from "./trust-bar";
-import { WorkflowShowcase } from "./workflow-showcase";
 
 export function MarketingHomePage({ locale }: { locale: Locale }) {
   const c = homepageContentByLocale[locale];
@@ -36,7 +35,10 @@ export function MarketingHomePage({ locale }: { locale: Locale }) {
       {/* 6 — App Tease: animated mini-dashboard */}
       {c.appTease && <AppTease {...c.appTease} />}
 
-      {/* 7 — SEO feature section + yield + passive sections */}
+      {/* 7 — Product surface cards (compressed to 4 strongest) */}
+      <ProductPreview {...c.productPreview} />
+
+      {/* 8 — SEO feature section + yield + passive workflow sections */}
       {c.seoFeatureSection && (
         <SeoFeatureSection
           {...c.seoFeatureSection}
@@ -45,25 +47,10 @@ export function MarketingHomePage({ locale }: { locale: Locale }) {
         />
       )}
 
-      {/* 8 — Product preview tabs */}
-      <ProductPreview {...c.productPreview} />
-
-      {/* 9 — Property health */}
-      <ContentSection {...c.healthSection} locale={locale} />
-
-      {/* 10 — Tenant/contractor section */}
-      <ContentSection {...c.tenantPortalSection} locale={locale} />
-
-      {/* 11 — Workflow steps */}
-      <WorkflowShowcase {...c.workflowSection} locale={locale} />
-
-      {/* 12 — Security section */}
-      <ContentSection {...c.securitySection} locale={locale} />
-
-      {/* 13 — OASIS vs High-Street Agents */}
+      {/* 9 — OASIS vs High-Street Agents */}
       {c.agentComparison && <AgentComparison {...c.agentComparison} />}
 
-      {/* 14 — Final CTA */}
+      {/* 10 — Final CTA */}
       <FinalCta {...c.finalCta} locale={locale} />
     </main>
   );

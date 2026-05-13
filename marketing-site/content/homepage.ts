@@ -87,6 +87,7 @@ type HomePageContent = {
       imageSrc: string;
       imageAlt: string;
     }>;
+    featuresHref?: string;
   };
   healthSection: {
     eyebrow: string;
@@ -210,46 +211,45 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       body: "OASIS helps landlords reduce manual admin, track rental income, manage maintenance, organise documents, and keep portfolio actions visible from one dashboard.",
       features: [
         {
-          title: "Automated rent and expected charge tracking",
-          body: "Create rent plans, preview expected charges, track balances, review overdue rent, and keep finance actions under landlord control. Approval required before the ledger is touched.",
+          title: "Rent and expected charge tracking",
+          body: "Preview expected charges, track balances, and review arrears — with approval required before the ledger is touched.",
         },
         {
-          title: "Maintenance workflows without message chaos",
-          body: "Tenants report issues through the portal, landlords assign contractors, and every job moves from request to resolution with status, photos, costs, and notifications — without WhatsApp threads.",
+          title: "Maintenance without message chaos",
+          body: "Tenants report issues, landlords assign contractors, and every job moves from request to resolution inside one operational flow.",
         },
         {
           title: "Document and compliance readiness",
-          body: "Store tenancy documents, request missing files, link evidence to compliance tasks, and track Renters' Rights readiness, Tax deadlines, and Lease risks from the same operating layer.",
+          body: "Store tenancy documents, request missing files, and track Renters' Rights readiness, tax deadlines, and lease risks in one place.",
         },
         {
           title: "AI-assisted action queues",
-          body: "OASIS surfaces what needs attention, explains portfolio pressure, helps draft messages, and supports maintenance triage — with landlord review before any action is taken.",
+          body: "OASIS surfaces what needs attention and supports maintenance triage — with landlord review before any action is taken.",
         },
         {
-          title: "Tenant and contractor self-service",
-          body: "Give tenants a clear portal to view lease details, submit issues, and see payment status. Give contractors a defined lane for jobs, photos, and completion — while you keep oversight.",
+          title: "Tenant and contractor portals",
+          body: "Tenants see their portal. Contractors work through a defined lane. Landlords keep oversight of both without chasing either.",
         },
         {
-          title: "Portfolio health and pressure signals",
-          body: "Property health scoring turns maintenance strain, arrears, compliance gaps, and vacancy pressure into an action-ready view so you can intervene earlier across the portfolio.",
+          title: "Portfolio health scoring",
+          body: "Maintenance strain, arrears, compliance gaps, and vacancy pressure become an action-ready view before they get expensive.",
         },
       ],
     },
     rentalYieldSection: {
       title: "Rental Yield Optimization Starts With Better Visibility",
-      body: "Higher yield is not only about charging more rent. It is about reducing missed charges, preventing avoidable maintenance drag, spotting overdue balances, understanding property pressure, and keeping documents and renewals under control. OASIS brings rent status, expected charges, maintenance costs, occupancy, documents, and compliance readiness into one operating view so landlords can spot income leaks earlier.",
+      body: "Higher yield is not only about charging more rent. It is about reducing missed charges, preventing avoidable maintenance drag, and spotting overdue balances before they compound. OASIS brings rent status, expected charges, maintenance costs, and compliance readiness into one operating view.",
       bullets: [
         "Spot overdue and due-soon rent before it becomes a follow-up problem",
         "Track maintenance costs against each property to protect margins",
-        "See income pressure before it becomes a portfolio-wide problem",
         "Use rent rules and expected charges to reduce manual calculation errors",
         "Keep compliance and document readiness visible throughout the year",
       ],
     },
     passiveLandlordSection: {
-      title: "Passive Landlord Services Without Losing Control",
+      title: "A More Passive Landlord Workflow — Without Losing Control",
       body: "OASIS supports a more passive landlord workflow by automating reminders, surfacing action queues, and giving tenants and contractors structured portals. You still control approvals, finance posting, documents, and every decision. OASIS is rental management software — it does not replace regulated advice or letting agency services where those are required.",
-      cta: { label: "Start Building a More Passive Portfolio", href: siteConfig.appUrl },
+      cta: { label: "See how OASIS works", href: siteConfig.appUrl },
     },
     appTease: {
       eyebrow: "What OASIS looks like in practice",
@@ -301,8 +301,8 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
           agent: "Landlords who want to fully delegate day-to-day management",
         },
       ],
-      disclaimer: "OASIS is rental management software. It does not replace regulated letting, legal, or professional advice where those are required.",
-      cta: { label: "See OASIS in Action", href: siteConfig.appUrl },
+      disclaimer: "OASIS is rental management software. It does not replace regulated letting, legal, tax, or property management services where those are required.",
+      cta: { label: "See how OASIS works", href: siteConfig.appUrl },
     },
     problemSection: {
       eyebrow: "Why operators switch",
@@ -354,71 +354,40 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
     productPreview: {
       title: "Built for the operational surfaces landlords check every day",
       body:
-        "Each surface is designed to answer a practical question quickly: what needs action, who owns it, what is getting riskier, and what should move next.",
+        "Each surface answers a practical question quickly: what needs action, who owns it, what is getting riskier, and what should move next.",
+      featuresHref: "/features",
       items: [
         {
           label: "Rent & Finance",
-          title: "Know what the charge is before Finance sees it",
-          body: "Rent is rarely one number. OASIS lets you see the calculation, review the result, and post only when you are ready — keeping the Finance ledger clean.",
+          title: "Know the charge before Finance sees it",
+          body: "Preview rent rules, expected charges, arrears, and balances before anything touches the ledger.",
           points: ["preview before posting", "rent plan history", "arrears visibility"],
           imageSrc: "/screenshots/command-center.png",
           imageAlt: "OASIS Rent Plans page showing draft plan and calculation preview panel.",
         },
         {
           label: "Command Center",
-          title: "AI-assisted action queues",
-          body: "The Command Center brings together urgent signals, follow-up pressure, and an operator briefing so the next move is obvious.",
+          title: "Urgent signals, briefed and ready",
+          body: "The Command Center brings together overdue items, follow-up pressure, and an AI operator briefing so the next move is obvious.",
           points: ["portfolio-wide briefing", "attention queues", "next review targets"],
           imageSrc: "/screenshots/command-center.png",
           imageAlt: "OASIS Command Center with AI operator briefing and account-wide action queues.",
         },
         {
           label: "Maintenance",
-          title: "Maintenance and work orders in one lane",
-          body: "Requests, triage, work orders, contractor recommendations, and status movement all stay inside one operational flow.",
+          title: "From report to resolved — in one lane",
+          body: "Requests, triage, work orders, contractor coordination, and status updates all stay inside one operational flow.",
           points: ["AI triage", "work-order control", "contractor coordination"],
           imageSrc: "/screenshots/maintenance-inbox.png",
           imageAlt: "OASIS Maintenance Inbox showing AI triage, request columns, and linked work orders.",
         },
         {
-          label: "Tenant Portal",
-          title: "A tenant-safe portal that reduces chasing",
-          body: "Tenants can track documents, payments visibility, maintenance updates, and agreement steps without falling back to scattered reminders.",
-          points: ["maintenance visibility", "documents", "agreement review"],
-          imageSrc: "/screenshots/tenant-home.png",
-          imageAlt: "OASIS tenant portal dashboard showing actions, payments visibility, and maintenance progress.",
-        },
-        {
-          label: "Documents",
-          title: "Agreements and evidence tied to the workflow",
-          body: "Template libraries, document requests, agreement packets, and signature readiness stay connected to the account and the work they support.",
-          points: ["document requests", "agreement packets", "signature workflow"],
-          imageSrc: "/screenshots/documents-workflow.png",
-          imageAlt: "OASIS Documents view showing document requests, agreement packets, and signature readiness controls.",
-        },
-        {
           label: "Property Health",
           title: "See property pressure before it spreads",
-          body: "Property health scoring turns arrears, maintenance strain, vacancy pressure, and compliance gaps into an action-ready view with AI explanation.",
+          body: "Health scoring turns arrears, maintenance strain, vacancy pressure, and compliance gaps into an action-ready view — with AI explanation.",
           points: ["risk scoring", "AI explainer", "earlier intervention"],
           imageSrc: "/screenshots/portfolio-health.png",
           imageAlt: "OASIS Portfolio Health page showing scoring, property risk, and an AI explanation card.",
-        },
-        {
-          label: "Compliance",
-          title: "Lease risk, rent exposure, and tax deadlines in one view",
-          body: "The Compliance suite flags risky lease clauses with AI analysis, scores portfolio-wide rent exposure with Rent Shield, and tracks tax obligations so nothing builds quietly in the background.",
-          points: ["lease clause audit", "rent shield scoring", "tax readiness"],
-          imageSrc: "/screenshots/compliance-suite.png",
-          imageAlt: "OASIS Compliance suite showing Lease Auditor findings, Rent Shield scores, and Tax Readiness dashboard.",
-        },
-        {
-          label: "Security",
-          title: "Audit-ready by design",
-          body: "Role-based access, operational review, and security audit trails help teams move fast without losing accountability.",
-          points: ["audit trail", "permissions", "review surfaces"],
-          imageSrc: "/screenshots/security-audit.png",
-          imageAlt: "OASIS Security Audit page showing security events and policy review.",
         },
       ],
     },
@@ -539,8 +508,8 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       title: "See OASIS before public launch",
       body:
         "If your real problem is keeping maintenance, documents, payments visibility, and follow-up moving together, OASIS is built for that stage.",
-      primaryCta: { label: "See how OASIS works", href: siteConfig.appUrl },
-      secondaryCta: { label: "See the tenant portal", href: "/features/tenant-portal" },
+      primaryCta: { label: "Claim Founder Access", href: siteConfig.appUrl },
+      secondaryCta: { label: "See how OASIS works", href: "/features" },
     },
   },
   pl: {
