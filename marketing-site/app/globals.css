@@ -264,11 +264,23 @@ a {
 /* ── Logo ────────────────────────────────────────────────────────────────── */
 
 .logo {
-  font: 800 1rem/1 var(--font-sans);
-  letter-spacing: 0;
-  text-transform: uppercase;
-  color: var(--brand-strong);
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
+  text-decoration: none;
+}
+
+.logo__img {
+  display: block;
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+}
+
+@media (max-width: 600px) {
+  .logo__img {
+    height: 30px;
+  }
 }
 
 /* ── Hero entrance animation ─────────────────────────────────────────────── */

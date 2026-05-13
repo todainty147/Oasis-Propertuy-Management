@@ -29,8 +29,9 @@ export function SiteHeader() {
         {locale === "pl" ? "Przejdź do treści" : locale === "de" ? "Zum Inhalt springen" : "Skip to main content"}
       </a>
       <div className="container site-header__inner">
-        <Link href={homeHref} className="logo" onClick={closeNav}>
-          {siteConfig.name}
+        <Link href={homeHref} className="logo" onClick={closeNav} aria-label="OASIS Rental — home">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="OASIS Rental" className="logo__img" />
         </Link>
 
         <button

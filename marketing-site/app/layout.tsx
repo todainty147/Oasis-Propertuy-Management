@@ -1,6 +1,14 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import "./globals.css";
+
+export const metadata: Metadata = {
+  icons: {
+    icon: "/icon.png",
+    apple: "/icon.png",
+  },
+};
 
 import { SiteFooter } from "../components/marketing/site-footer";
 import { SiteHeader } from "../components/marketing/site-header";
