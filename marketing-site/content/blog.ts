@@ -1,12 +1,14 @@
 import { siteConfig } from "./site";
 
 export type BlogSection = {
-  heading?: string;      // optional — h2 not rendered if absent/empty
-  paragraphs?: string[]; // rendered before items / boldPairs / note
-  items?: string[];      // renders as ul > li bullet list
+  heading?: string;           // optional — heading not rendered if absent/empty
+  headingLevel?: "h2" | "h3"; // default "h2"
+  paragraphs?: string[];      // rendered before items / boldPairs / note
+  items?: string[];           // renders as ul > li bullet list
   boldPairs?: Array<{ term: string; definition: string }>; // **Term:** definition
   note?: { lines: string[] }; // styled example/flow block (code-like callout)
-  paragraphs2?: string[]; // rendered after items / boldPairs / note
+  paragraphs2?: string[];     // rendered after items / boldPairs / note
+  sectionLinks?: Array<{ label: string; href: string }>; // inline nav links after content
 };
 
 export type BlogArticle = {
@@ -18,6 +20,7 @@ export type BlogArticle = {
   pageTitle?: string;   // overrides <title> when set; default: "${title} | OASIS Rental Blog"
   summary: string;
   metaDescription: string;
+  disclaimer?: string;  // legal/compliance disclaimer shown prominently above article body
   cta: string;          // soft CTA heading when ctaOverride is absent
   ctaOverride?: {       // article-specific in-body CTA
     heading: string;
@@ -446,6 +449,271 @@ export const blogArticles: BlogArticle[] = [
         ],
         paragraphs2: [
           "That is the difference between rent tracking and rent control.",
+        ],
+      },
+    ],
+  },
+
+  // ── Compliance article ────────────────────────────────────────────────────
+  {
+    slug: "the-2026-uk-landlord-survival-guide-5-rules-that-changed-on-may-1st",
+    category: "Compliance Readiness",
+    date: "2026-05-13",
+    readingTime: "7 min read",
+    pageTitle: "The 2026 UK Landlord Survival Guide | Renters' Rights Act Changes",
+    title: "The 2026 UK Landlord Survival Guide: 5 Rules That Changed on May 1st",
+    summary:
+      "Section 21, bidding wars, rent increases, pets, discrimination rules, and the new Information Sheet have changed the operating rhythm for landlords. Here are five rules every UK landlord should understand in 2026.",
+    metaDescription:
+      "Understand five major Renters' Rights Act changes for UK landlords in 2026, including Section 21, rent increases, bidding wars, pets, discrimination rules, and the Information Sheet deadline.",
+    disclaimer:
+      "This article is for general information only and is not legal advice. Landlords should check the latest GOV.UK guidance or speak to a qualified adviser before taking action.",
+    cta: "Ready for the new landlord operating reality?",
+    ctaOverride: {
+      heading: "Ready for the new landlord operating reality?",
+      body: "OASIS helps landlords track rent, documents, notices, maintenance, compliance readiness, and audit trails from one operating dashboard.",
+      primaryCta: { label: "See how OASIS works", href: siteConfig.appUrl },
+      secondaryCta: { label: "Explore Renters' Rights readiness", href: "/features/compliance" },
+    },
+    sections: [
+      {
+        // No heading — intro section
+        paragraphs: [
+          "The \"standard\" way of renting in England has changed.",
+          "As of 1 May 2026, the Renters' Rights Act moved from future reform to day-to-day operating reality for private landlords. For many landlords, this is not just a policy update. It changes how tenancies are structured, how rent increases are handled, how tenants are selected, and how compliance evidence needs to be tracked.",
+          "The key lesson is simple: compliance is no longer something landlords can check once and forget. It is now an ongoing workflow.",
+        ],
+      },
+      {
+        heading: "1. The £7,000 paperwork trap",
+        paragraphs: [
+          "One of the most immediate requirements is the new Renters' Rights Act Information Sheet.",
+          "By 31 May 2026, landlords or their managing agents are expected to provide the official government Information Sheet to all named tenants, including tenants on existing qualifying private tenancies.",
+          "This matters because the Information Sheet is not just another PDF. It is part of the landlord's compliance trail.",
+        ],
+      },
+      {
+        heading: "The risk",
+        headingLevel: "h3",
+        paragraphs: [
+          "Failing to provide the required Information Sheet may expose landlords to enforcement action and civil penalties, based on current guidance.",
+          "That is why landlords should not treat this as a casual email attachment with no follow-up.",
+          "The operational question is not only: \"Did I send it?\" It is: \"Can I prove when it was sent, who it was sent to, and which tenancy it relates to?\"",
+        ],
+      },
+      {
+        heading: "The OASIS angle",
+        headingLevel: "h3",
+        paragraphs: [
+          "OASIS is built around evidence and workflow.",
+          "Instead of manually emailing PDFs and hoping the record is easy to find later, landlords can use OASIS-style workflows to track:",
+        ],
+        items: [
+          "which tenants need the Information Sheet",
+          "which tenants have received it",
+          "the delivery method and date sent",
+          "linked evidence or document records",
+          "follow-up actions",
+        ],
+        paragraphs2: [
+          "OASIS does not replace legal advice, but it helps landlords keep the operational trail organised.",
+        ],
+        sectionLinks: [
+          { label: "Track compliance with OASIS →", href: "/features/compliance" },
+        ],
+      },
+      {
+        heading: "2. Section 21 is gone",
+        paragraphs: [
+          "The biggest headline change is the abolition of Section 21 \"no-fault\" evictions for affected private tenancies.",
+          "Landlords can no longer rely on the old route of ending an assured shorthold tenancy simply because a fixed term has ended.",
+          "The tenancy structure has also changed. Assured shorthold tenancies are replaced by assured periodic tenancies for affected private rented sector tenancies.",
+          "In plain English, landlords need to think less in terms of \"fixed term ending\" and more in terms of ongoing tenancy management.",
+        ],
+      },
+      {
+        heading: "The new reality",
+        headingLevel: "h3",
+        paragraphs: [
+          "If a landlord needs possession, they must use the relevant possession grounds — such as selling the property, moving back in, or other permitted grounds under current legislation.",
+          "Some grounds may have restrictions, notice requirements, or time limits. Landlords should verify the current rules before acting.",
+        ],
+      },
+      {
+        heading: "Why this changes operations",
+        headingLevel: "h3",
+        paragraphs: [
+          "This change makes record-keeping more important than ever.",
+          "If possession depends on a specific ground, the landlord needs clear records that support the action being taken. That could include:",
+        ],
+        items: [
+          "tenancy dates and agreement history",
+          "notices served and delivery evidence",
+          "tenant communication records",
+          "rent records and arrears history",
+          "maintenance records",
+          "document history",
+          "property status and reason for possession",
+        ],
+        paragraphs2: [
+          "OASIS helps by keeping tenancy, document, finance, maintenance, and communication evidence closer to the workflow.",
+        ],
+      },
+      {
+        heading: "3. The bidding war ban",
+        paragraphs: [
+          "Rental bidding has also changed.",
+          "Landlords and agents must not invite, encourage, or accept offers above the advertised rent where the new rules apply.",
+          "That means the advertised rent matters more than ever.",
+        ],
+      },
+      {
+        heading: "The risk",
+        headingLevel: "h3",
+        paragraphs: [
+          "If a property is advertised at £1,500 per month, the landlord should not treat higher offers as a way to test demand or push the price upward.",
+          "The practical lesson: your initial rent valuation needs to be more accurate. Underpricing and then relying on competitive bidding is no longer a safe strategy.",
+        ],
+      },
+      {
+        heading: "The OASIS angle",
+        headingLevel: "h3",
+        paragraphs: [
+          "This is where better rent visibility matters.",
+          "OASIS helps landlords think more clearly about the financial picture before they advertise:",
+        ],
+        items: [
+          "current rent levels",
+          "expected charges",
+          "property costs and maintenance pressure",
+          "arrears history",
+          "occupancy status and yield pressure",
+        ],
+        paragraphs2: [
+          "That does not replace a professional valuation, but it gives landlords a better operating picture before they set a rent figure.",
+        ],
+      },
+      {
+        heading: "4. Rent increases: one shot only",
+        paragraphs: [
+          "Rent increases are now more tightly controlled.",
+          "Under the new approach, landlords generally need to use the formal Section 13 process for rent increases, and rent can only be increased once per year.",
+          "The notice period is also important. Current guidance points to at least two months' notice for a Section 13 rent increase, but landlords should verify the latest requirements before acting.",
+        ],
+      },
+      {
+        heading: "What changed",
+        headingLevel: "h3",
+        paragraphs: [
+          "Old-style rent review clauses may no longer work in the way landlords expected.",
+          "Landlords need to treat rent increases as a controlled process, not just a line in a tenancy agreement. That process should include:",
+        ],
+        items: [
+          "proposed new rent and current rent",
+          "effective date and notice date",
+          "method of service",
+          "tenant response and any Tribunal reference",
+          "supporting market reasoning",
+          "updated expected charge records",
+        ],
+      },
+      {
+        heading: "The OASIS angle",
+        headingLevel: "h3",
+        paragraphs: [
+          "OASIS is designed around rent rules and expected charges. A safer rent increase workflow looks like this:",
+        ],
+        note: {
+          lines: [
+            "Rent increase proposed",
+            "→ notice tracked",
+            "→ effective date recorded",
+            "→ expected charges updated",
+            "→ Finance posting remains controlled",
+            "→ audit trail preserved",
+          ],
+        },
+        paragraphs2: [
+          "That matters because rent increases are no longer just a spreadsheet edit. They are part of the compliance record.",
+        ],
+        sectionLinks: [
+          { label: "Explore rent rules and expected charges →", href: "/features/rental-accounting" },
+        ],
+      },
+      {
+        heading: "5. Pets, benefits, and families: blanket refusals are risky",
+        paragraphs: [
+          "The Renters' Rights Act also strengthens tenant protections around pets and discrimination.",
+          "Landlords should be careful with blanket policies such as:",
+        ],
+        items: [
+          "\"No pets\"",
+          "\"No DSS\" or \"No benefits\"",
+          "\"No children\"",
+        ],
+        paragraphs2: [
+          "The new rules move landlords toward individual assessment rather than broad category-based refusal.",
+        ],
+      },
+      {
+        heading: "Pets",
+        headingLevel: "h3",
+        paragraphs: [
+          "Tenants have stronger rights to request a pet.",
+          "Landlords may still have reasons to decline in some circumstances, but a blanket refusal without individual assessment is unlikely to be the right approach. In some cases, landlords may be able to require appropriate insurance or protection against pet-related damage. Landlords should check current guidance or take advice before setting pet policies.",
+        ],
+      },
+      {
+        heading: "Benefits and families",
+        headingLevel: "h3",
+        paragraphs: [
+          "Landlords and agents should not reject applicants simply because they receive benefits or have children.",
+          "Referencing should focus on individual affordability, suitability, and lawful criteria rather than broad exclusions.",
+        ],
+      },
+      {
+        heading: "The OASIS angle",
+        headingLevel: "h3",
+        paragraphs: [
+          "This is another reason why audit trails matter.",
+          "Landlords should be able to show that tenancy decisions were based on individual assessment rather than blanket exclusion.",
+          "OASIS helps landlords keep structured records around:",
+        ],
+        items: [
+          "tenant applications and affordability review notes",
+          "communication records",
+          "document requests and responses",
+          "decision history",
+          "compliance evidence",
+        ],
+        paragraphs2: [
+          "OASIS does not make decisions for the landlord. It helps keep the process visible and accountable.",
+        ],
+      },
+      {
+        heading: "The bottom line: compliance is now a workflow",
+        paragraphs: [
+          "In 2026, being a passive landlord without systems carries real operational risk.",
+          "The new rules increase the importance of:",
+        ],
+        items: [
+          "notices and deadlines",
+          "tenant communication records",
+          "document delivery and evidence",
+          "rent increase records",
+          "application and decision history",
+          "maintenance evidence",
+          "audit trails",
+        ],
+        paragraphs2: [
+          "With the Private Rented Sector Database and the Landlord Ombudsman expected to shape the next phase of landlord accountability, record-keeping will matter even more.",
+          "The landlords who adapt best will not be the ones who memorise every rule. They will be the ones who build a reliable operating rhythm.",
+          "That is the shift OASIS was built for.",
+          "From Information Sheet tracking to rent increase workflows, document evidence, tenant records, and audit trails, OASIS helps landlords keep compliance close to the work — not buried in inboxes and folders.",
+        ],
+        sectionLinks: [
+          { label: "Explore Renters' Rights readiness →", href: "/features/compliance" },
+          { label: "See how OASIS works →", href: "/features" },
         ],
       },
     ],

@@ -24,7 +24,6 @@ export async function generateMetadata({
 
   if (!article) return {};
 
-  // Use pageTitle override when present, otherwise default template
   const title = article.pageTitle ?? `${article.title} | OASIS Rental Blog`;
 
   return buildMetadata({
@@ -35,17 +34,16 @@ export async function generateMetadata({
 }
 
 function RenderSection({ section }: { section: BlogSection }) {
+  const HeadingTag = section.headingLevel === "h3" ? "h3" : "h2";
+
   return (
     <section>
-      {/* h2 only rendered when heading is non-empty */}
-      {section.heading ? <h2>{section.heading}</h2> : null}
+      {section.heading ? <HeadingTag>{section.heading}</HeadingTag> : null}
 
-      {/* Leading paragraphs */}
       {section.paragraphs?.map((p) => (
         <p key={p} className="muted">{p}</p>
       ))}
 
-      {/* Bullet list */}
       {section.items && section.items.length > 0 && (
         <ul className="blog-article__list">
           {section.items.map((item) => (
@@ -54,14 +52,12 @@ function RenderSection({ section }: { section: BlogSection }) {
         </ul>
       )}
 
-      {/* Bold key: value pairs */}
       {section.boldPairs?.map((pair) => (
         <p key={pair.term} className="blog-article__bold-pair muted">
           <strong>{pair.term}</strong>{" "}{pair.definition}
         </p>
       ))}
 
-      {/* Styled example / flow block */}
       {section.note && (
         <div className="blog-article__note">
           {section.note.lines.map((line) => (
@@ -70,10 +66,19 @@ function RenderSection({ section }: { section: BlogSection }) {
         </div>
       )}
 
-      {/* Trailing paragraphs (after list / pairs / note) */}
       {section.paragraphs2?.map((p) => (
         <p key={p} className="muted">{p}</p>
       ))}
+
+      {section.sectionLinks && section.sectionLinks.length > 0 && (
+        <div className="blog-article__section-links">
+          {section.sectionLinks.map((link) => (
+            <Link key={link.href} href={link.href} className="blog-article__section-link">
+              {link.label}
+            </Link>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -85,9 +90,31 @@ export default async function BlogArticlePage({ params }: BlogArticlePageProps) 
   if (!article) notFound();
 
   const cta = article.ctaOverride;
+  const publishedDate = article.date ?? null;
+
+  // Article structured data (JSON-LD) for SEO
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: article.title,
+    description: article.metaDescription,
+    datePublished: publishedDate,
+    dateModified: publishedDate,
+    author: { "@type": "Organization", name: "OASIS Rental", url: siteConfig.url },
+    publisher: { "@type": "Organization", name: "OASIS Rental", url: siteConfig.url },
+    url: `${siteConfig.url}/blog/${article.slug}`,
+    isPartOf: { "@type": "Blog", name: "OASIS Rental Blog", url: `${siteConfig.url}/blog` },
+  };
 
   return (
     <>
+      {/* Article structured data */}
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
       <article className="section blog-article">
         <div className="container">
           <div className="blog-article__header">
@@ -114,6 +141,13 @@ export default async function BlogArticlePage({ params }: BlogArticlePageProps) 
           </div>
 
           <div className="card content-block blog-article__body">
+            {/* Legal / compliance disclaimer */}
+            {article.disclaimer && (
+              <div className="blog-article__disclaimer" role="note" aria-label="Disclaimer">
+                <p>{article.disclaimer}</p>
+              </div>
+            )}
+
             {article.sections.map((section, i) => (
               <RenderSection key={section.heading ?? `section-${i}`} section={section} />
             ))}
