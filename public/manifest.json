@@ -12,27 +12,15 @@
   "categories": ["business", "productivity"],
   "icons": [
     {
-      "src": "/icons/icon-192.svg",
-      "sizes": "192x192",
-      "type": "image/svg+xml",
+      "src": "/icons/app-icon.png",
+      "sizes": "any",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512.svg",
-      "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "/icons/icon-maskable-192.svg",
-      "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "maskable"
-    },
-    {
-      "src": "/icons/icon-maskable-512.svg",
-      "sizes": "512x512",
-      "type": "image/svg+xml",
+      "src": "/icons/app-icon.png",
+      "sizes": "any",
+      "type": "image/png",
       "purpose": "maskable"
     }
   ],
@@ -43,14 +31,14 @@
       "short_name": "Command",
       "description": "View portfolio action queue",
       "url": "/command-center",
-      "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/app-icon.png", "sizes": "any" }]
     },
     {
       "name": "Maintenance",
       "short_name": "Maintenance",
       "description": "View maintenance requests",
       "url": "/maintenance-inbox",
-      "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/app-icon.png", "sizes": "any" }]
     }
   ]
 }

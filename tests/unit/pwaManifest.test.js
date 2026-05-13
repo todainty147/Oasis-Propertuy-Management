@@ -59,16 +59,16 @@ describe("PWA manifest.json", () => {
     expect(manifest.icons.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("includes a 192x192 icon", () => {
-    const icon = manifest.icons.find((i) => i.sizes === "192x192" && i.purpose?.includes("any"));
+  it("includes at least one icon with purpose 'any'", () => {
+    const icon = manifest.icons.find((i) => i.purpose?.includes("any"));
     expect(icon).toBeDefined();
     expect(icon.src).toBeTruthy();
   });
 
-  it("includes a 512x512 icon", () => {
-    const icon = manifest.icons.find((i) => i.sizes === "512x512");
-    expect(icon).toBeDefined();
-    expect(icon.src).toBeTruthy();
+  it("includes a PNG icon", () => {
+    const png = manifest.icons.find((i) => i.type === "image/png");
+    expect(png).toBeDefined();
+    expect(png.src).toMatch(/\.png$/);
   });
 
   it("includes a maskable icon", () => {

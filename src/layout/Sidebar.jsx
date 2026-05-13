@@ -171,16 +171,21 @@ function SidebarContent({ onNavigate }) {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="p-6 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-            ORM
-          </div>
-          <span className="font-bold text-slate-900 dark:text-slate-100">{t("app.brand")}</span>
+      <div className="px-4 pt-5 pb-4 flex items-center justify-between">
+        <div className="rounded-lg px-2 py-1 bg-white dark:bg-slate-100">
+          <img
+            src="/logo.png"
+            alt="OASIS Rental"
+            className="h-8 w-auto object-contain"
+            style={{ maxWidth: "152px" }}
+          />
         </div>
-
         {onNavigate && (
-          <button onClick={onNavigate} aria-label={t("common.close")}>
+          <button
+            onClick={onNavigate}
+            aria-label={t("common.close")}
+            className="ml-2 flex-shrink-0 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
+          >
             <X size={20} />
           </button>
         )}

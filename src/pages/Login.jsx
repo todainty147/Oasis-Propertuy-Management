@@ -68,7 +68,18 @@ export default function Login() {
         onSubmit={submit}
         className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-xl shadow"
       >
-        <h1 className="text-2xl font-bold mb-4 text-center text-slate-900 dark:text-slate-100">
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
+          <div className="rounded-xl bg-white px-4 py-3 shadow-sm border border-slate-100">
+            <img
+              src="/logo.png"
+              alt="OASIS Rental"
+              className="h-12 w-auto object-contain"
+            />
+          </div>
+        </div>
+
+        <h1 className="text-xl font-bold mb-4 text-center text-slate-900 dark:text-slate-100">
           {t("login.title")}
         </h1>
 
