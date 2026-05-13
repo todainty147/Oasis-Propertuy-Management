@@ -19,6 +19,7 @@ import {
   ChevronDown,
   ChevronRight,
   AlertCircle,
+  CalendarDays,
   Zap,
   Shield,
   Activity,
@@ -341,6 +342,7 @@ function SidebarContent({ onNavigate }) {
                 {operationsOpen && (
                   <div className="space-y-1">
                     <Item to="/maintenance-inbox" icon={Wrench} label={t("sidebar.maintenanceInbox")} onNavigate={onNavigate} />
+                    <Item to="/operating-calendar" icon={CalendarDays} label="Operating Calendar" onNavigate={onNavigate} />
                     {hasEntitlement(ENTITLEMENT_FEATURES.COMMAND_CENTER) ? (
                       <Item to="/command-center" icon={AlertCircle} label={t("sidebar.commandCenter")} onNavigate={onNavigate} />
                     ) : null}

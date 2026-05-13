@@ -55,6 +55,7 @@ const PolandCompliancePage        = lazy(() => import("../pages/compliance/Polan
 const PlAdvancedPage              = lazy(() => import("../pages/compliance/PlAdvancedPage"));
 const RentPlansPage               = lazy(() => import("../pages/RentPlansPage"));
 const AddPropertyModal            = lazy(() => import("../components/AddPropertyModal"));
+const OperatingCalendarPage       = lazy(() => import("../pages/OperatingCalendarPage"));
 const ContractorPortal            = lazy(() => import("../pages/ContractorPortal"));
 const ContractorJobDetails        = lazy(() => import("../pages/ContractorJobDetails"));
 const WorkOrderDetails            = lazy(() => import("../pages/WorkOrderDetails"));
@@ -465,6 +466,11 @@ export default function ManagerRoutes() {
             <RentPlansPage />
           </EntitledRoute>
         }
+      />
+
+      <Route
+        path="operating-calendar"
+        element={<ManagerOnlyRoute><OperatingCalendarPage /></ManagerOnlyRoute>}
       />
 
       {/* Contractor routes — each page fetches its own scoped data */}
