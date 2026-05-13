@@ -57,8 +57,8 @@ function PlanCard({ plan, onActivate, onEnd, onPreview, onViewCharges, t, planMa
             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase ${STATUS_COLORS[plan.status] ?? STATUS_COLORS.draft}`}>
               {plan.status}
             </span>
-            <span className="text-xs text-slate-400">v{plan.version_number}</span>
-            <span className="text-xs text-slate-400">{plan.market.toUpperCase()} · {plan.currency}</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">v{plan.version_number}</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">{plan.market.toUpperCase()} · {plan.currency}</span>
           </div>
           <p className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
             {plan.currency} {Number(plan.base_rent_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })} / {plan.billing_frequency}
@@ -68,7 +68,7 @@ function PlanCard({ plan, onActivate, onEnd, onPreview, onViewCharges, t, planMa
             {plan.end_date ? ` → ${plan.end_date}` : ""}
           </p>
           {plan.notes && (
-            <p className="text-xs text-slate-400 mt-0.5 italic">{plan.notes}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 italic">{plan.notes}</p>
           )}
         </div>
       </div>
@@ -110,7 +110,7 @@ function PlanCard({ plan, onActivate, onEnd, onPreview, onViewCharges, t, planMa
             type="button"
             disabled={busy}
             onClick={handleActivate}
-            className="text-xs px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+            className="text-xs px-2.5 py-1.5 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50"
           >
             {busy ? t("common.saving") : t("rentPlans.activate")}
           </button>
@@ -325,7 +325,7 @@ export default function RentPlansPage() {
           <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
             {t("rentPlans.emptyTitle")}
           </p>
-          <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
             {t("rentPlans.emptyBody")}
           </p>
           <button
