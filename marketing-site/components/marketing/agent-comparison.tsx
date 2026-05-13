@@ -25,8 +25,8 @@ export function AgentComparison({
           <p className="muted" style={{ marginTop: "0.75rem" }}>{body}</p>
         </div>
 
-        {/* Desktop table */}
-        <div className="agent-comparison__table-wrap">
+        {/* Desktop table — visually hidden on mobile via CSS display:none (removes from a11y tree) */}
+        <div className="agent-comparison__table-wrap" aria-label="OASIS vs Traditional Agents comparison">
           <table className="agent-comparison__table">
             <thead>
               <tr>
@@ -50,7 +50,8 @@ export function AgentComparison({
           </table>
         </div>
 
-        {/* Mobile stacked cards */}
+        {/* Mobile stacked cards — display:none on desktop removes this from a11y tree correctly.
+            No aria-hidden needed: whichever version is display:block is the one screen readers see. */}
         <div className="agent-comparison__mobile">
           {rows.map((row) => (
             <div key={row.feature} className="card agent-comparison__mobile-card">

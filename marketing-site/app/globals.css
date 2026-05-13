@@ -266,21 +266,56 @@ a {
 .logo {
   display: flex;
   align-items: center;
+  gap: 0.5rem;
   flex-shrink: 0;
   text-decoration: none;
 }
 
-.logo__img {
+/* Full horizontal logo — desktop only */
+.logo__full {
   display: block;
   height: 36px;
   width: auto;
   object-fit: contain;
 }
 
-@media (max-width: 600px) {
-  .logo__img {
-    height: 30px;
-  }
+/* Icon mark + wordmark — mobile only, hidden on desktop */
+.logo__icon {
+  display: none;
+  height: 30px;
+  width: auto;
+  object-fit: contain;
+}
+
+.logo__wordmark {
+  display: none;
+  font: 800 1.05rem/1 var(--font-sans);
+  color: var(--brand-strong);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Footer logo */
+.footer-logo {
+  display: block;
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* ── Responsive logo ─────────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  /* Switch to icon + wordmark on mobile — full logo is too wide for small headers */
+  .logo__full     { display: none; }
+  .logo__icon     { display: block; height: 32px; }
+  .logo__wordmark { display: block; }
+}
+
+@media (max-width: 380px) {
+  /* Very narrow phones — icon only, wordmark hidden, parent aria-label covers text */
+  .logo__wordmark { display: none; }
+  .logo__icon     { height: 28px; }
 }
 
 /* ── Hero entrance animation ─────────────────────────────────────────────── */

@@ -15,7 +15,8 @@ export function SiteFooter() {
     <footer className="site-footer">
       <div className="container site-footer__inner">
         <div>
-          <div className="logo">OASIS Rental</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="OASIS Rental Management" className="footer-logo" />
           <p className="muted" style={{ marginTop: "0.75rem", maxWidth: 420 }}>
             {copy.footerBlurb}
           </p>
