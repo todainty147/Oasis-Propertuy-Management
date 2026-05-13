@@ -170,6 +170,60 @@ as $$
         or w.property_id = (select property_id from tenant_scope)
       )
   ),
+  -- ── Accumulated arrears — lease-aware, all months since move-in ────────────
+  property_tenure_acc as (
+    select
+      sp.id as property_id,
+      (select coalesce(p.rent, 0) from properties p where p.id = sp.id) as rent,
+      date_trunc('month', coalesce(
+        (select min(l.lease_start_date)
+         from public.leases l
+         where l.account_id = p_account_id
+           and l.property_id = sp.id
+           and lower(coalesce(l.renewal_status, 'active')) not in ('ended')),
+        (select min(pr2.due_date)
+         from payment_rows pr2
+         where pr2.property_id = sp.id and pr2.due_date is not null)
+      ))::date as rent_start_month
+    from scoped_properties sp
+  ),
+  property_accumulated_acc as (
+    select
+      pt.property_id,
+      pt.rent,
+      coalesce((
+        select sum(pr2.amount)
+        from payment_rows pr2
+        where pr2.property_id = pt.property_id and pr2.is_paid
+      ), 0) as total_paid_alltime,
+      case
+        when pt.rent_start_month is not null and pt.rent > 0 then
+          greatest((
+            extract(year  from age(date_trunc('month', current_date)::date, pt.rent_start_month)) * 12
+            + extract(month from age(date_trunc('month', current_date)::date, pt.rent_start_month))
+            + 1
+          )::integer, 1)
+        else 1
+      end as months_elapsed
+    from property_tenure_acc pt
+  ),
+  accumulated_totals as (
+    select
+      coalesce(sum(pa.total_paid_alltime), 0) as acc_paid_total,
+      coalesce(sum(
+        case when oc.id is not null and pa.rent > 0 and pa.months_elapsed > 1 then
+          greatest((pa.months_elapsed - 1) * pa.rent - pa.total_paid_alltime, 0)
+        else 0 end
+      ), 0) as acc_overdue_total,
+      coalesce(sum(
+        case when oc.id is not null and pa.rent > 0 then
+          greatest(pa.months_elapsed * pa.rent - pa.total_paid_alltime, 0)
+        else 0 end
+      ), 0) as acc_outstanding_total
+    from property_accumulated_acc pa
+    left join occupied_properties oc on oc.id = pa.property_id
+  ),
+  -- ── End accumulated arrears ─────────────────────────────────────────────────
   repeat_repair_properties as (
     select sr.property_id
     from scoped_requests sr
@@ -358,14 +412,18 @@ as $$
         ((select count(*) from occupied_properties)::numeric / (select count(*) from scoped_properties)::numeric) * 100
       )::int
     end as occupancy_rate,
-    finance.paid_amount,
+    accumulated_totals.acc_paid_total          as paid_amount,
     finance.due_amount,
-    finance.overdue_amount,
+    -- Overdue = accumulated historical arrears (months before current)
+    accumulated_totals.acc_overdue_total       as overdue_amount,
     finance.due_soon_amount,
-    finance.outstanding_amount,
+    -- Outstanding = full accumulated gap including current month
+    accumulated_totals.acc_outstanding_total   as outstanding_amount,
+    -- Aging buckets: monthly rent arrears are always 30+ days old; 0-7 and 8-30 kept for manually-entered records
     finance.overdue_0_7_amount,
     finance.overdue_8_30_amount,
-    finance.overdue_30_plus_amount,
+    -- 30+ days: accumulated historical arrears (the dominant bucket for monthly rent)
+    greatest(accumulated_totals.acc_overdue_total, finance.overdue_30_plus_amount) as overdue_30_plus_amount,
     maintenance.open_requests,
     maintenance.high_priority_open_requests,
     maintenance.waiting_over_48h,
@@ -379,7 +437,7 @@ as $$
     maintenance.prev_open_created,
     finance.outstanding_current_month,
     finance.outstanding_previous_month
-  from finance, maintenance;
+  from finance, maintenance, accumulated_totals;
 $$;
 
 grant execute on function public.portfolio_health_snapshot(uuid, uuid) to authenticated;
