@@ -68,9 +68,9 @@ export default function Login() {
         onSubmit={submit}
         className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-xl shadow"
       >
-        {/* Logo */}
+        {/* Logo — always on white so dark-navy logo colours remain legible in dark mode */}
         <div className="flex justify-center mb-6">
-          <div className="rounded-xl bg-white px-4 py-3 shadow-sm border border-slate-100">
+          <div className="rounded-xl bg-white px-5 py-3 shadow border border-slate-200">
             <img
               src="/logo.png"
               alt="OASIS Rental"

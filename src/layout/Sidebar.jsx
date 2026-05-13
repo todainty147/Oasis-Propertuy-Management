@@ -172,7 +172,7 @@ function SidebarContent({ onNavigate }) {
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="px-4 pt-5 pb-4 flex items-center justify-between">
-        <div className="rounded-lg px-2 py-1 bg-white dark:bg-slate-100">
+        <div className="rounded-lg px-3 py-2 bg-white border border-slate-200 dark:border-slate-600 shadow-sm">
           <img
             src="/logo.png"
             alt="OASIS Rental"
