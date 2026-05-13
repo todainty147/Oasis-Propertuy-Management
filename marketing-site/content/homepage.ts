@@ -60,6 +60,11 @@ type HomePageContent = {
     disclaimer: string;
     cta: { label: string; href: string };
   };
+  appTease?: {
+    eyebrow: string;
+    title: string;
+    body: string;
+  };
   problemSection: {
     eyebrow: string;
     title: string;
@@ -141,13 +146,14 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       canonicalPath: "/",
     },
     hero: {
-      eyebrow: "For landlords who want more passive income and less daily stress",
-      title: "Turn Your Rental Portfolio Into Passive Income — Without the Daily Stress",
+      eyebrow: "Automated Property Management Software for Landlords",
+      title: "Escape the Admin Chaos. Your Portfolio Deserves an Oasis.",
       body:
-        "From rent tracking and expected charges to maintenance, documents, contractors, and compliance reminders, OASIS helps organise the daily rental admin so you can stay in control without living in your inbox.",
-      emphasis: "",
+        "Most landlords run their portfolio from three spreadsheets, a shared inbox, and memory. Something always gets missed — and the 2 a.m. call proves it. OASIS gives rent, maintenance, documents, and what needs action next one home. So you stop chasing and start collecting.",
+      emphasis:
+        "From expected charges to maintenance workflows, contractor coordination, compliance readiness, and AI-assisted action queues — OASIS brings order to the chaos without taking control away from you.",
       support:
-        "Built for landlords who want fewer surprises, better visibility, and a more passive rental workflow — without losing control of approvals, finance, and decisions.",
+        "No guaranteed income claims. No payment collection rail today. Just visibility, workflows, and the operational clarity that keeps a rental portfolio running without constant intervention.",
       highlights: [
         { label: "Rent and expected charges", href: "/features/rental-accounting" },
         { label: "Command Center", href: "/features/command-center" },
@@ -162,8 +168,8 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       ],
       imageSrc: "/screenshots/command-center.png",
       imageAlt:
-        "OASIS Rental Management landlord dashboard showing rent, maintenance, documents, and portfolio actions",
-      primaryCta: { label: "See OASIS in Action", href: siteConfig.appUrl },
+        "OASIS Rental Management landlord dashboard showing rent status, maintenance workflows, and portfolio action queue",
+      primaryCta: { label: "Claim Founder Access", href: siteConfig.appUrl },
       secondaryCta: { label: "Compare with Traditional Agents", href: "#agent-comparison" },
     },
     trustBar: {
@@ -245,47 +251,57 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       body: "OASIS supports a more passive landlord workflow by automating reminders, surfacing action queues, and giving tenants and contractors structured portals. You still control approvals, finance posting, documents, and every decision. OASIS is rental management software — it does not replace regulated advice or letting agency services where those are required.",
       cta: { label: "Start Building a More Passive Portfolio", href: siteConfig.appUrl },
     },
+    appTease: {
+      eyebrow: "What OASIS looks like in practice",
+      title: "The dashboard you check instead of chasing messages",
+      body: "Every morning you open OASIS and see exactly what happened overnight, what needs a decision today, and what is already resolved. No spreadsheet rebuild. No message archaeology. Just the operating picture.",
+    },
     agentComparison: {
-      title: "OASIS vs. Traditional Agents",
-      body: "Traditional agents can be useful, but many landlords still want more visibility, faster updates, and lower admin friction. OASIS gives landlords an operating layer they can control.",
+      title: "OASIS vs. High-Street Agents",
+      body: "High-street agents suit landlords who want to fully hand off management. OASIS suits landlords who want the visibility, speed, and record-keeping without the fee structure — while staying in control.",
       rows: [
         {
-          feature: "Visibility",
-          oasis: "24/7 dashboard for rent, maintenance, documents, and actions",
-          agent: "Updates often depend on emails, calls, or monthly statements",
+          feature: "Management fees",
+          oasis: "Software subscription — no percentage cut of your rent",
+          agent: "Typically 8–15% of monthly rent, reducing your yield directly",
         },
         {
-          feature: "Speed",
-          oasis: "Tenants submit issues instantly and workflows move through the app",
-          agent: "Requests may wait for office hours or manual follow-up",
+          feature: "Maintenance speed",
+          oasis: "Tenant reports in the portal, landlord assigns contractor, status visible in real time",
+          agent: "Reports go to the agent, who contacts contractors — each handoff adds time",
         },
         {
-          feature: "Cost control",
-          oasis: "Software-led operations with transparent workflows",
-          agent: "Management fees can reduce monthly yield",
+          feature: "Transparency",
+          oasis: "24/7 dashboard — rent status, maintenance progress, documents, and action queue always visible",
+          agent: "Updates typically by email, call, or monthly statement — on the agent's schedule",
         },
         {
-          feature: "Maintenance tracking",
-          oasis: "Work orders, contractors, photos, status, and costs in one place",
-          agent: "Progress may be spread across calls, emails, and third parties",
+          feature: "Tenant vetting",
+          oasis: "Structured records for vetting documents, ID, references, and evidence in one place",
+          agent: "Agent-managed vetting process — visibility depends on the agent's reporting",
         },
         {
           feature: "Rent visibility",
-          oasis: "Expected charges, balances, overdue views, and rent rules in one dashboard",
-          agent: "Statements may show outcomes, not the operating detail",
+          oasis: "Expected charges, overdue balances, arrears flags, and rent rules in the landlord dashboard",
+          agent: "Monthly statement after the fact — operational detail may not be visible",
         },
         {
-          feature: "Control",
-          oasis: "Landlord keeps approvals, records, and audit trail",
-          agent: "More work may be delegated, with less direct visibility",
+          feature: "Document control",
+          oasis: "Store, request, tag, and audit documents yourself — all under your account",
+          agent: "Documents held by the agent — retrieval may require requests and time",
+        },
+        {
+          feature: "Compliance readiness",
+          oasis: "Renters' Rights, Tax deadlines, Lease Auditor, and compliance evidence tracked in the workflow",
+          agent: "Some agents cover compliance, others charge extra or leave it to the landlord",
         },
         {
           feature: "Best for",
-          oasis: "Landlords who want control, automation, and lower admin",
-          agent: "Landlords who want to fully outsource management",
+          oasis: "Landlords who want control, visibility, and lower running costs",
+          agent: "Landlords who want to fully delegate day-to-day management",
         },
       ],
-      disclaimer: "OASIS is rental management software. It does not replace regulated advice or services where those are required.",
+      disclaimer: "OASIS is rental management software. It does not replace regulated letting, legal, or professional advice where those are required.",
       cta: { label: "See OASIS in Action", href: siteConfig.appUrl },
     },
     problemSection: {

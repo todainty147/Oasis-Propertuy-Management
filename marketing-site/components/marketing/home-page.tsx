@@ -2,6 +2,7 @@ import type { Locale } from "../../lib/i18n";
 
 import { homepageContentByLocale } from "../../content/homepage";
 import { AgentComparison } from "./agent-comparison";
+import { AppTease } from "./app-tease";
 import { ContentSection } from "./content-section";
 import { FeatureGrid } from "./feature-grid";
 import { FinalCta } from "./final-cta";
@@ -17,13 +18,13 @@ export function MarketingHomePage({ locale }: { locale: Locale }) {
 
   return (
     <main lang={locale}>
-      {/* 1 — Conversion hero */}
+      {/* 1 — Psychological hero (PAS framework) */}
       <HeroSection {...c.hero} locale={locale} />
 
-      {/* 2 — Trust bar */}
+      {/* 2 — Trust bar (placeholder badges, no unverified logos) */}
       {c.trustBar && <TrustBar {...c.trustBar} />}
 
-      {/* 3 — Testimonial cards */}
+      {/* 3 — Testimonial cards (illustrative, disclaimer visible) */}
       {c.testimonials && <TestimonialCards {...c.testimonials} />}
 
       {/* 4 — Problem / why they switch */}
@@ -32,7 +33,10 @@ export function MarketingHomePage({ locale }: { locale: Locale }) {
       {/* 5 — Solution grid */}
       <FeatureGrid {...c.solutionSection} />
 
-      {/* 6 — SEO features + yield + passive sections */}
+      {/* 6 — App Tease: animated mini-dashboard */}
+      {c.appTease && <AppTease {...c.appTease} />}
+
+      {/* 7 — SEO feature section + yield + passive sections */}
       {c.seoFeatureSection && (
         <SeoFeatureSection
           {...c.seoFeatureSection}
@@ -41,25 +45,25 @@ export function MarketingHomePage({ locale }: { locale: Locale }) {
         />
       )}
 
-      {/* 7 — Product preview tabs */}
+      {/* 8 — Product preview tabs */}
       <ProductPreview {...c.productPreview} />
 
-      {/* 8 — Property health */}
+      {/* 9 — Property health */}
       <ContentSection {...c.healthSection} locale={locale} />
 
-      {/* 9 — Tenant/contractor section */}
+      {/* 10 — Tenant/contractor section */}
       <ContentSection {...c.tenantPortalSection} locale={locale} />
 
-      {/* 10 — Workflow steps */}
+      {/* 11 — Workflow steps */}
       <WorkflowShowcase {...c.workflowSection} locale={locale} />
 
-      {/* 11 — Security section */}
+      {/* 12 — Security section */}
       <ContentSection {...c.securitySection} locale={locale} />
 
-      {/* 12 — OASIS vs Traditional Agents */}
+      {/* 13 — OASIS vs High-Street Agents */}
       {c.agentComparison && <AgentComparison {...c.agentComparison} />}
 
-      {/* 13 — Final CTA */}
+      {/* 14 — Final CTA */}
       <FinalCta {...c.finalCta} locale={locale} />
     </main>
   );
