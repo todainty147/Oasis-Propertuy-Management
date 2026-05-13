@@ -417,7 +417,7 @@ export default function Finance({
             ) : (
               <>
                 {/* Mobile cards */}
-                <div className="md:hidden divide-y">
+                <div className="md:hidden divide-y" data-testid="property-finance-cards">
                   {visiblePropertyFinance.map((p) => (
                     <button
                       key={p.propertyId}
@@ -450,7 +450,7 @@ export default function Finance({
                 </div>
 
                 {/* Desktop table */}
-                <div className="hidden md:block overflow-x-auto">
+                <div className="hidden md:block overflow-x-auto" data-testid="property-finance-table">
                   <table className="w-full text-sm">
                     <thead className="bg-slate-50 text-left">
                       <tr>
@@ -589,7 +589,7 @@ export default function Finance({
             ) : (
               <>
                 {/* Mobile cards */}
-                <div className="md:hidden divide-y">
+                <div className="md:hidden divide-y" data-testid="payments-cards">
                   {visiblePayments.map((p) => (
                     <div key={p.id} className="px-4 py-4 space-y-2">
                       <div className="flex items-start justify-between gap-2">

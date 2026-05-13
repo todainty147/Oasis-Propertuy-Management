@@ -229,12 +229,13 @@ test("paid payment shows read-only amount field (A-3)", async ({ page }) => {
   await page.goto("/finance?tab=payments");
   await expect(page.getByTestId("payments-table")).toBeVisible();
 
-  // Locate the specific row for our seeded payment (distinguished by amount £8,800)
+  // Locate the specific row for our seeded payment (distinguished by amount 8800)
+  // Use regex to handle locale-specific thousand separators (comma, space, period)
   const paymentsTable = page.getByTestId("payments-table");
-  await expect(paymentsTable).toContainText("8,800");
+  await expect(paymentsTable).toContainText(/8.?800/);
 
   // Click the Edit button in that specific row
-  const paidRow = paymentsTable.locator("tr").filter({ hasText: "8,800" });
+  const paidRow = paymentsTable.locator("tr").filter({ hasText: /8.?800/ });
   const editBtn = paidRow.getByRole("button", { name: /edit/i });
   await expect(editBtn).toBeVisible();
   await editBtn.click();

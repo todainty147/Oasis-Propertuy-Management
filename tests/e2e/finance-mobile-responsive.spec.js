@@ -22,7 +22,7 @@ test.describe("Finance page – mobile responsive tables", () => {
     await signInAs(page, seededUsers.ownerA);
     await page.goto("/finance");
 
-    await expect(page.getByText(/Finance/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible({ timeout: 20_000 });
 
     // Card lists must be in the DOM and visible
     await expect(page.getByTestId("property-finance-cards")).toBeVisible({ timeout: 15_000 });
@@ -38,7 +38,7 @@ test.describe("Finance page – mobile responsive tables", () => {
     await signInAs(page, seededUsers.ownerA);
     await page.goto("/finance");
 
-    await expect(page.getByText(/Finance/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible({ timeout: 20_000 });
 
     // Desktop tables must be visible
     await expect(page.getByTestId("property-finance-table")).toBeVisible({ timeout: 15_000 });
@@ -123,7 +123,7 @@ test.describe("Finance page – mobile responsive tables", () => {
     const cards = page.getByTestId("property-finance-cards");
 
     // Page must load without horizontal overflow (scrollWidth === clientWidth)
-    await expect(page.getByText(/Finance/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible({ timeout: 20_000 });
 
     // If there is at least one property card, verify the key column labels are present
     const cardCount = await cards.locator("> div").count();
@@ -142,7 +142,7 @@ test.describe("Finance page – mobile responsive tables", () => {
     await signInAs(page, seededUsers.ownerA);
     await page.goto("/finance");
 
-    await expect(page.getByText(/Finance/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible({ timeout: 20_000 });
     // Wait for content to settle
     await page.waitForTimeout(500);
 
