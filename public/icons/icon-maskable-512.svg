@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Maskable: safe zone is the inner 75% — keep content within ~384x384 centred -->
+  <rect width="512" height="512" fill="#0b4f6c"/>
+  <text x="256" y="204" font-family="system-ui, -apple-system, sans-serif" font-size="128" font-weight="800" fill="#14b8a6" text-anchor="middle" dominant-baseline="middle">O</text>
+  <text x="256" y="340" font-family="system-ui, -apple-system, sans-serif" font-size="54" font-weight="700" fill="rgba(255,255,255,0.88)" text-anchor="middle" letter-spacing="10">ASIS</text>
+</svg>

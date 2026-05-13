@@ -5,6 +5,7 @@ import Topbar from "./Topbar";
 import { PageTitleContext } from "./PageTitleContext";
 import TenantSwitcher from "../components/TenantSwitcher";
 import PasswordUpgradeNotice from "../components/security/PasswordUpgradeNotice";
+import MobileBottomNav from "../components/mobile/MobileBottomNav";
 import { useAuth } from "../context/AuthContext";
 
 function useMediaQuery(query) {
@@ -70,7 +71,8 @@ export default function AppLayout({
             rightSlot={<TenantSwitcher />}
           />
 
-          <main className="flex-1 overflow-y-auto pt-14 lg:pt-16 px-4 lg:px-8">
+          {/* Extra bottom padding on mobile to clear the bottom nav bar */}
+          <main className="flex-1 overflow-y-auto pt-14 lg:pt-16 px-4 lg:px-8 pb-[72px] lg:pb-0">
             <div className="max-w-7xl mx-auto w-full space-y-4 pb-4">
               <PasswordUpgradeNotice userId={user?.id} />
               <Outlet />
@@ -78,6 +80,9 @@ export default function AppLayout({
           </main>
         </div>
       </div>
+
+      {/* Role-aware mobile bottom navigation — hidden on desktop */}
+      <MobileBottomNav />
     </PageTitleContext.Provider>
   );
 }
