@@ -1,16 +1,31 @@
 import { siteConfig } from "./site";
 
+export type BlogSection = {
+  heading?: string;      // optional — h2 not rendered if absent/empty
+  paragraphs?: string[]; // rendered before items / boldPairs / note
+  items?: string[];      // renders as ul > li bullet list
+  boldPairs?: Array<{ term: string; definition: string }>; // **Term:** definition
+  note?: { lines: string[] }; // styled example/flow block (code-like callout)
+  paragraphs2?: string[]; // rendered after items / boldPairs / note
+};
+
 export type BlogArticle = {
   slug: string;
   category: string;
+  date?: string;        // ISO date e.g. "2026-05-13"
+  readingTime?: string; // e.g. "5 min read"
   title: string;
+  pageTitle?: string;   // overrides <title> when set; default: "${title} | OASIS Rental Blog"
   summary: string;
   metaDescription: string;
-  cta: string;
-  sections: Array<{
+  cta: string;          // soft CTA heading when ctaOverride is absent
+  ctaOverride?: {       // article-specific in-body CTA
     heading: string;
-    paragraphs: string[];
-  }>;
+    body: string;
+    primaryCta: { label: string; href: string };
+    secondaryCta?: { label: string; href: string };
+  };
+  sections: BlogSection[];
 };
 
 export const blogArticles: BlogArticle[] = [
@@ -294,6 +309,143 @@ export const blogArticles: BlogArticle[] = [
         paragraphs: [
           "Scaling landlords bring the operating work into one place earlier. They build routines around rent status, maintenance progress, tenant context, records, and portfolio review.",
           "OASIS helps landlords prepare for that shift, so growth does not turn every week into catch-up.",
+        ],
+      },
+    ],
+  },
+
+  // ── New article ────────────────────────────────────────────────────────────
+  {
+    slug: "why-rent-should-be-a-workflow-not-just-a-number",
+    category: "Rent & Finance",
+    date: "2026-05-13",
+    readingTime: "5 min read",
+    pageTitle: "Why Rent Should Be a Workflow, Not Just a Number | OASIS Rental",
+    title: "Why Rent Should Be a Workflow, Not Just a Number",
+    summary:
+      "Rent is rarely just one monthly amount. Expected charges, proration, deposits, utilities, arrears, and safe posting all need a workflow.",
+    metaDescription:
+      "Rent is rarely just one number. Learn why landlords need expected charges, proration, utilities, arrears visibility, and safe finance posting in one rent workflow.",
+    cta: "Want rent to stop living in spreadsheets?",
+    ctaOverride: {
+      heading: "Want rent to stop living in spreadsheets?",
+      body: "OASIS helps landlords create rent plans, preview expected charges, track balances, and keep finance actions under landlord control.",
+      primaryCta: { label: "Claim Founder Access", href: siteConfig.appUrl },
+      secondaryCta: { label: "See how OASIS works", href: "/features/rental-accounting" },
+    },
+    sections: [
+      {
+        // Intro — no heading
+        paragraphs: [
+          "Most landlords start with rent as a simple number.",
+          "A tenant pays £1,200 per month. The amount goes into a spreadsheet. The landlord checks the bank. If the money arrives, everything is fine.",
+          "That works until the real world gets involved.",
+          "A tenant moves in halfway through the month. A rent increase starts from a future date. Utilities are included for one property but separate for another. A shared tenancy needs rent split between two people. A deposit needs checking against the relevant market rules. A payment arrives, but the amount does not match what was expected.",
+          "At that point, rent is no longer just a number. It becomes a workflow.",
+        ],
+      },
+      {
+        heading: "The problem with treating rent as one field",
+        paragraphs: [
+          "Many landlords track rent in one of three ways:",
+        ],
+        items: ["a spreadsheet", "bank statements", "memory"],
+        paragraphs2: [
+          "That creates a problem: none of those tools explain what should have happened.",
+          "A bank statement can show that £900 arrived. It does not always show whether £900 was the full rent, a partial payment, a utility payment, a deposit, an adjustment, or a payment for a different period.",
+          "A spreadsheet can track rent manually, but it relies on the landlord remembering every rule, date, exception, and change.",
+          "That is where mistakes creep in.",
+        ],
+      },
+      {
+        heading: "Expected charges come before payments",
+        paragraphs: [
+          "A better rent workflow starts with this distinction:",
+        ],
+        boldPairs: [
+          { term: "Expected charge:", definition: "what should be due." },
+          { term: "Payment:", definition: "what was actually received." },
+        ],
+        paragraphs2: [
+          "Those are not the same thing.",
+          "A landlord needs to know both.",
+          "If June rent is expected at £1,200 and the tenant pays £1,000, the issue is not just \"a payment came in.\" The issue is that £200 still needs attention.",
+          "If a tenant moves in on the 10th, the first rent may need prorating. That expected charge should be calculated before the landlord starts chasing money.",
+          "If a landlord applies a discount or rent holiday, the original charge should not disappear. The adjustment should be visible, explained, and auditable.",
+        ],
+      },
+      {
+        heading: "Why calculation previews matter",
+        paragraphs: [
+          "A rent workflow should show the calculation before anything touches the finance record.",
+          "Example:",
+        ],
+        note: {
+          lines: [
+            "Monthly rent: £1,200",
+            "Proration method: actual days in month",
+            "Move-in date: 10 April",
+            "Days occupied: 21",
+            "Expected charge: £840",
+          ],
+        },
+        paragraphs2: [
+          "That preview gives the landlord confidence.",
+          "It also helps avoid the common problem of posting incorrect finance records and then trying to reverse or explain them later.",
+        ],
+      },
+      {
+        heading: "Rent rules protect the ledger",
+        paragraphs: [
+          "A clean finance system should not let calculations silently mutate the ledger.",
+          "The safer flow is:",
+        ],
+        note: {
+          lines: [
+            "Rent rules",
+            "→ calculation preview",
+            "→ expected charge",
+            "→ landlord review",
+            "→ approved finance posting",
+          ],
+        },
+        paragraphs2: [
+          "That gives the landlord control and preserves a better audit trail.",
+        ],
+      },
+      {
+        heading: "What this means in OASIS",
+        paragraphs: [
+          "OASIS treats rent as part of the operating workflow, not just a static amount.",
+          "That means landlords can work with:",
+        ],
+        items: [
+          "rent plans",
+          "expected charges",
+          "proration",
+          "utilities",
+          "deposits",
+          "arrears visibility",
+          "rent plan history",
+          "safe posting into Finance",
+        ],
+        paragraphs2: [
+          "The aim is simple: make the expected rent clear before the landlord has to chase it.",
+        ],
+      },
+      {
+        heading: "Final thought",
+        paragraphs: [
+          "Rent problems do not usually start with the payment. They start earlier, when the expected charge was unclear.",
+          "A better rent system helps landlords answer three questions quickly:",
+        ],
+        items: [
+          "What should have been paid?",
+          "What actually happened?",
+          "What needs action next?",
+        ],
+        paragraphs2: [
+          "That is the difference between rent tracking and rent control.",
         ],
       },
     ],

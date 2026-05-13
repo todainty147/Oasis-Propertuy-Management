@@ -793,6 +793,58 @@ a {
   background: linear-gradient(180deg, #ffffff, #eef7f9);
 }
 
+/* ── Blog article rich content ───────────────────────────────────────────── */
+
+.blog-article__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0 1rem;
+  font: 500 0.82rem/1 var(--font-sans);
+  color: var(--muted);
+}
+
+.blog-article__meta-sep {
+  opacity: 0.5;
+}
+
+/* Bullet list inside article sections */
+.blog-article__list {
+  margin: 0.75rem 0 1rem 1.2rem;
+  padding: 0;
+  font: 400 1rem/1.7 var(--font-sans);
+  color: var(--muted);
+}
+
+.blog-article__list li + li {
+  margin-top: 0.2rem;
+}
+
+/* Bold key: value pairs */
+.blog-article__bold-pair {
+  margin: 0.5rem 0;
+  font: 400 1rem/1.7 var(--font-sans);
+}
+
+/* Example / flow callout block */
+.blog-article__note {
+  margin: 1.25rem 0;
+  padding: 1.1rem 1.4rem;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--bg);
+}
+
+.blog-article__note p {
+  margin: 0;
+  font: 500 0.95rem/1.75 var(--font-sans);
+  color: var(--ink);
+}
+
+.blog-article__note p + p {
+  margin-top: 0.15rem;
+}
+
 /* ── Footer ──────────────────────────────────────────────────────────────── */
 
 .site-footer {
