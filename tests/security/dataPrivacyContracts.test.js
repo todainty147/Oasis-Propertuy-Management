@@ -154,6 +154,13 @@ describe("data privacy source contracts", () => {
   it("listRootDataDeletionRequests uses range-based pagination instead of a hard limit", () => {
     expect(service).toContain(".range(from, from + pageSize - 1)");
     expect(service).not.toContain(".limit(200)");
+    expect(service).toContain("return { data: data || [], count: count ?? 0 }");
+  });
+
+  it("RootDataRequestsPage destructures { data } from listRootDataDeletionRequests result", () => {
+    const rootPage = read("src/pages/admin/RootDataRequestsPage.jsx");
+    expect(rootPage).toContain("const { data } = await listRootDataDeletionRequests()");
+    expect(rootPage).not.toMatch(/const data = await listRootDataDeletionRequests/);
   });
 
   it("DataPrivacyPage uses useSearchParams instead of window.location.search", () => {

@@ -41,7 +41,7 @@ export default function RootDataRequestsPage() {
 
   const refresh = useCallback(async () => {
     setError("");
-    const data = await listRootDataDeletionRequests();
+    const { data } = await listRootDataDeletionRequests();
     setRows(data);
     if (selected?.id) {
       const nextSelected = data.find((row) => row.id === selected.id) || null;
