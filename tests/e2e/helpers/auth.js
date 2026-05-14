@@ -40,6 +40,22 @@ export async function prepareEnglishLocale(page) {
   });
 }
 
+export async function openUserMenu(page) {
+  await page.getByRole("button", { name: "Open user menu" }).click();
+}
+
+export async function logout(page) {
+  // TenantPortalLayout exposes a direct Logout button; AppLayout hides it in UserMenu
+  const directLogout = page.getByRole("button", { name: "Logout" }).first();
+  if (await directLogout.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await directLogout.click();
+  } else {
+    await openUserMenu(page);
+    await page.getByRole("button", { name: "Logout" }).click();
+  }
+  await page.waitForURL(/\/login/, { timeout: 10_000 });
+}
+
 export async function signInAs(page, email) {
   await bypassRateLimit(page);
   await prepareEnglishLocale(page);
@@ -49,10 +65,21 @@ export async function signInAs(page, email) {
   const passwordInput = page.locator('input[type="password"]');
 
   if (!(await emailInput.isVisible().catch(() => false))) {
-    const logoutButton = page.getByRole("button", { name: "Logout" });
-    if (await logoutButton.isVisible().catch(() => false)) {
-      await logoutButton.click();
+    // Try direct logout (TenantPortalLayout) then UserMenu logout (AppLayout)
+    const directLogout = page.getByRole("button", { name: "Logout" }).first();
+    if (await directLogout.isVisible().catch(() => false)) {
+      await directLogout.click();
       await page.goto("/login");
+    } else {
+      const userMenuBtn = page.getByRole("button", { name: "Open user menu" });
+      if (await userMenuBtn.isVisible().catch(() => false)) {
+        await userMenuBtn.click();
+        const logoutBtn = page.getByRole("button", { name: "Logout" });
+        if (await logoutBtn.isVisible().catch(() => false)) {
+          await logoutBtn.click();
+          await page.goto("/login");
+        }
+      }
     }
   }
 

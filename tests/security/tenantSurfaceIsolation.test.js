@@ -20,7 +20,9 @@ describe("tenant surface isolation contracts", () => {
     expect(can("tenant", "finance", "read")).toBe(false);
     expect(financePageSource).toContain('Navigate to="/tenant/payments"');
     expect(sidebarSource).toContain('to={isTenant ? "/tenant/payments" : "/finance"}');
-    expect(topbarSource).toContain("!isTenant && !tenantsLoading && tenants.length > 0");
+    // Topbar is now role-agnostic (no inline tenant routing); logout navigates to /login
+    expect(topbarSource).toContain('navigate("/login", { replace: true })');
+    expect(topbarSource).not.toContain('/tenant/payments');
   });
 
   it("self-heals stale tenant filters so landlord property and tenant lists do not get trapped empty", () => {

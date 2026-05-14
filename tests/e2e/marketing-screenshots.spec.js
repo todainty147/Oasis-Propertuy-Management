@@ -3,7 +3,7 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { isolationFixtures } from "../fixtures/isolationFixtures.js";
 import { getIntegrationAdminClient } from "../integration/helpers/localSupabaseHarness.js";
-import { seededEntityIds, seededUsers, signInAs } from "./helpers/auth.js";
+import { logout, seededEntityIds, seededUsers, signInAs } from "./helpers/auth.js";
 
 const screenshotDir = path.resolve(process.cwd(), "marketing-site/public/screenshots");
 const propertyDetailPath = `/properties/${seededEntityIds.propertyA}`;
@@ -161,7 +161,7 @@ test("captures marketing product screenshots", async ({ page }) => {
   await expect(page.getByText("Issues / Requests")).toBeVisible();
   await captureViewport(page, "property-requests.png");
 
-  await page.getByRole("button", { name: "Logout" }).click();
+  await logout(page);
   await signInAs(page, seededUsers.tenantA1);
 
   await page.goto("/tenant/home");

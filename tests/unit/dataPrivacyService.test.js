@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const rpc = vi.fn();
 const from = vi.fn();
+const getUser = vi.fn();
 
 vi.mock("../../src/lib/supabase", () => ({
-  supabase: { rpc, from },
+  supabase: { rpc, from, auth: { getUser } },
 }));
 
 const {
@@ -31,6 +32,8 @@ describe("dataPrivacyService", () => {
   beforeEach(() => {
     rpc.mockReset();
     from.mockReset();
+    getUser.mockReset();
+    getUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
   });
 
   it("submits deletion requests through the controlled RPC", async () => {

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { Buffer } from "node:buffer";
 import { isolationFixtures } from "../fixtures/isolationFixtures.js";
-import { seededUsers, signInAs } from "./helpers/auth.js";
+import { logout, seededUsers, signInAs } from "./helpers/auth.js";
 
 test.setTimeout(90000);
 
@@ -99,17 +99,17 @@ test("document requests move from manager to tenant and contractor upload review
   await createTenantRequest(page, tenantTitle);
   await createContractorRequest(page, contractorTitle);
 
-  await page.getByRole("button", { name: "Logout" }).click();
+  await logout(page);
   await signInAs(page, seededUsers.tenantA1);
   await page.goto("/tenant/documents");
   await uploadForVisibleRequest(page, tenantTitle, pdfFile(`tenant-id-${stamp}.pdf`, tenantTitle));
 
-  await page.getByRole("button", { name: "Logout" }).click();
+  await logout(page);
   await signInAs(page, seededUsers.contractorA1);
   await page.goto("/contractor");
   await uploadForVisibleRequest(page, contractorTitle, pdfFile(`contractor-insurance-${stamp}.pdf`, contractorTitle));
 
-  await page.getByRole("button", { name: "Logout" }).click();
+  await logout(page);
   await signInAs(page, seededUsers.ownerA);
   await acceptVisibleRequest(page, tenantTitle, `tenant-id-${stamp}.pdf`);
   await acceptVisibleRequest(page, contractorTitle, `contractor-insurance-${stamp}.pdf`);

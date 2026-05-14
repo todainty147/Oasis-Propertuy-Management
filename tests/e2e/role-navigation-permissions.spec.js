@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { isolationFixtures } from "../fixtures/isolationFixtures.js";
-import { seededUsers, signInAs } from "./helpers/auth.js";
+import { logout, seededUsers, signInAs } from "./helpers/auth.js";
 
 const MANAGER_ROLES = [
   { role: "owner", email: seededUsers.ownerA },
@@ -218,7 +218,7 @@ test.describe("role navigation and permission matrix", () => {
     for (const row of ROLE_MATRIX) {
       await signInAs(page, row.email);
       await expect(page.getByLabel("Account")).toHaveCount(0);
-      await page.getByRole("button", { name: "Logout" }).click();
+      await logout(page);
     }
   });
 });

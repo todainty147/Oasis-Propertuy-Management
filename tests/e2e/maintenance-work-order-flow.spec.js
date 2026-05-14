@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 
 import { isolationFixtures } from "../fixtures/isolationFixtures.js";
 import { getIntegrationAdminClient } from "../integration/helpers/localSupabaseHarness.js";
-import { seededUsers, signInAs } from "./helpers/auth.js";
+import { logout, seededUsers, signInAs } from "./helpers/auth.js";
 
 test("maintenance request becomes a contractor-completed linked work order", async ({ page }) => {
   const admin = getIntegrationAdminClient();
@@ -50,7 +50,7 @@ test("maintenance request becomes a contractor-completed linked work order", asy
     await page.goto("/maintenance-inbox?woStatus=assigned");
     await expect(page.getByTestId(`maintenance-request-card-${requestId}`)).toBeVisible({ timeout: 20_000 });
 
-    await page.getByRole("button", { name: "Logout" }).click();
+    await logout(page);
     await signInAs(page, seededUsers.contractorA1);
     await page.goto("/contractor");
 
@@ -64,7 +64,7 @@ test("maintenance request becomes a contractor-completed linked work order", asy
     await contractorJob.getByRole("button", { name: "Complete work" }).click();
     await expect(contractorJob).toContainText("Completed", { timeout: 20_000 });
 
-    await page.getByRole("button", { name: "Logout" }).click();
+    await logout(page);
     await signInAs(page, seededUsers.ownerA);
     await page.goto("/maintenance-inbox?woStatus=completed");
     const completedRequestCard = page.getByTestId(`maintenance-request-card-${requestId}`);

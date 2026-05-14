@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { seededUsers, signInAs } from "./helpers/auth.js";
+import { logout, seededUsers, signInAs } from "./helpers/auth.js";
 
 test("owner-configured payment setup appears in the standalone tenant portal", async ({ page }) => {
   await signInAs(page, seededUsers.ownerA);
@@ -28,7 +28,7 @@ test("owner-configured payment setup appears in the standalone tenant portal", a
   await expect(previewCard).toContainText("Use the external payment portal");
   await expect(previewCard).toContainText("billing@example.test");
 
-  await page.getByRole("button", { name: "Logout" }).click();
+  await logout(page);
   await signInAs(page, seededUsers.tenantA1);
 
   await page.goto("/tenant/payments");

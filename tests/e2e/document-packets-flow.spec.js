@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { isolationFixtures } from "../fixtures/isolationFixtures.js";
 import { getIntegrationAdminClient } from "../integration/helpers/localSupabaseHarness.js";
-import { seededUsers, signInAs } from "./helpers/auth.js";
+import { logout, seededUsers, signInAs } from "./helpers/auth.js";
 
 const cleanup = {
   packetIds: new Set(),
@@ -101,7 +101,7 @@ test("agreement packets move from active template to tenant signature task visib
   await configureSignatureReadiness(stamp);
   await createAndSendTenantPacket(page, templateName, packetTitle);
 
-  await page.getByRole("button", { name: "Logout" }).click();
+  await logout(page);
   await signInAs(page, seededUsers.tenantA1);
   await completeTenantPacket(page, packetTitle);
 });
