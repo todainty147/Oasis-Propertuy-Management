@@ -159,7 +159,9 @@ describe("data privacy source contracts", () => {
 
   it("RootDataRequestsPage destructures { data } from listRootDataDeletionRequests result", () => {
     const rootPage = read("src/pages/admin/RootDataRequestsPage.jsx");
-    expect(rootPage).toContain("const { data } = await listRootDataDeletionRequests()");
+    // Page uses Promise.all to fetch both deletion and export requests together
+    expect(rootPage).toContain("listRootDataDeletionRequests()");
+    expect(rootPage).toContain("listRootDataExportRequests()");
     expect(rootPage).not.toMatch(/const data = await listRootDataDeletionRequests/);
   });
 

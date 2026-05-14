@@ -52,6 +52,41 @@ export async function listMyDataDeletionRequests() {
   return data || [];
 }
 
+export async function listMyDataExportRequests() {
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from("data_export_requests")
+    .select("*")
+    .eq("requester_user_id", user?.id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error) throw friendly(error, "Could not load export requests");
+  return data || [];
+}
+
+export async function listRootDataExportRequests({ page = 0, pageSize = 50 } = {}) {
+  const from = page * pageSize;
+  const { data, error, count } = await supabase
+    .from("data_export_requests")
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(from, from + pageSize - 1);
+
+  if (error) throw friendly(error, "Could not load export requests");
+  return { data: data || [], count: count ?? 0 };
+}
+
+export async function completeDataExportRequest(requestId, storagePath = null) {
+  const { data, error } = await supabase.rpc("complete_data_export_request", {
+    p_request_id: requestId,
+    p_storage_path: storagePath,
+  });
+
+  if (error) throw friendly(error, "Could not complete export request");
+  return data;
+}
+
 export async function listRootDataDeletionRequests({ page = 0, pageSize = 50 } = {}) {
   const from = page * pageSize;
   const { data, error, count } = await supabase

@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import { usePageTitle } from "../layout/PageTitleContext";
 import {
   listMyDataDeletionRequests,
+  listMyDataExportRequests,
   requestStatusLabel,
   submitDataDeletionRequest,
   submitDataExportRequest,
@@ -61,6 +62,7 @@ export default function DataPrivacyPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [requests, setRequests] = useState([]);
+  const [exportRequests, setExportRequests] = useState([]);
 
   useEffect(() => {
     setTitle("Data & Privacy");
@@ -69,8 +71,14 @@ export default function DataPrivacyPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    listMyDataDeletionRequests()
-      .then((rows) => { if (!cancelled) { setRequests(rows); setLoading(false); } })
+    Promise.all([listMyDataDeletionRequests(), listMyDataExportRequests()])
+      .then(([deletionRows, exportRows]) => {
+        if (!cancelled) {
+          setRequests(deletionRows);
+          setExportRequests(exportRows);
+          setLoading(false);
+        }
+      })
       .catch((err) => { if (!cancelled) { setError(err.message); setLoading(false); } });
     return () => { cancelled = true; };
   }, [message]);
@@ -278,6 +286,7 @@ export default function DataPrivacyPage() {
             <thead className="text-xs uppercase text-slate-500">
               <tr>
                 <th className="py-2 pr-4">Reference</th>
+                <th className="py-2 pr-4">Kind</th>
                 <th className="py-2 pr-4">Type</th>
                 <th className="py-2 pr-4">Status</th>
                 <th className="py-2 pr-4">Created</th>
@@ -286,20 +295,34 @@ export default function DataPrivacyPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="py-6 text-sm text-slate-400">Loading…</td>
+                  <td colSpan={5} className="py-6 text-sm text-slate-400">Loading…</td>
                 </tr>
-              ) : requests.length === 0 ? (
+              ) : (requests.length === 0 && exportRequests.length === 0) ? (
                 <tr>
-                  <td colSpan={4} className="py-6 text-sm text-slate-500">No requests yet.</td>
+                  <td colSpan={5} className="py-6 text-sm text-slate-500">No requests yet.</td>
                 </tr>
-              ) : requests.map((row) => (
-                <tr key={row.id} className="border-t border-slate-100 dark:border-slate-800">
-                  <td className="py-3 pr-4 font-mono text-xs">{row.id}</td>
-                  <td className="py-3 pr-4">{row.request_type}</td>
-                  <td className="py-3 pr-4"><Badge>{requestStatusLabel(row.status)}</Badge></td>
-                  <td className="py-3 pr-4">{new Date(row.created_at).toLocaleString()}</td>
-                </tr>
-              ))}
+              ) : (
+                <>
+                  {requests.map((row) => (
+                    <tr key={row.id} className="border-t border-slate-100 dark:border-slate-800">
+                      <td className="py-3 pr-4 font-mono text-xs">{row.id}</td>
+                      <td className="py-3 pr-4 text-xs text-slate-500">Deletion</td>
+                      <td className="py-3 pr-4">{row.request_type}</td>
+                      <td className="py-3 pr-4"><Badge>{requestStatusLabel(row.status)}</Badge></td>
+                      <td className="py-3 pr-4">{new Date(row.created_at).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                  {exportRequests.map((row) => (
+                    <tr key={row.id} className="border-t border-slate-100 dark:border-slate-800">
+                      <td className="py-3 pr-4 font-mono text-xs">{row.id}</td>
+                      <td className="py-3 pr-4 text-xs text-blue-600 dark:text-blue-400">Export</td>
+                      <td className="py-3 pr-4">{row.export_type}</td>
+                      <td className="py-3 pr-4"><Badge>{requestStatusLabel(row.status)}</Badge></td>
+                      <td className="py-3 pr-4">{new Date(row.created_at).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </>
+              )}
             </tbody>
           </table>
         </div>
