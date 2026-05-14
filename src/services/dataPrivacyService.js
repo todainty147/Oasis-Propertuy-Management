@@ -40,9 +40,11 @@ export async function submitDataExportRequest({ accountId = null, exportType = "
 }
 
 export async function listMyDataDeletionRequests() {
+  const { data: { user } } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from("data_deletion_requests")
     .select("*")
+    .eq("requester_user_id", user?.id)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -50,15 +52,16 @@ export async function listMyDataDeletionRequests() {
   return data || [];
 }
 
-export async function listRootDataDeletionRequests() {
-  const { data, error } = await supabase
+export async function listRootDataDeletionRequests({ page = 0, pageSize = 50 } = {}) {
+  const from = page * pageSize;
+  const { data, error, count } = await supabase
     .from("data_deletion_requests")
-    .select("*")
+    .select("*", { count: "exact" })
     .order("created_at", { ascending: false })
-    .limit(200);
+    .range(from, from + pageSize - 1);
 
   if (error) throw friendly(error, "Could not load data requests");
-  return data || [];
+  return { data: data || [], count: count ?? 0 };
 }
 
 export async function listProcessingLog(requestId) {

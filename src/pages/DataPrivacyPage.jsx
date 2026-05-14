@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Download, ExternalLink, FileText, ShieldCheck, Trash2 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 
 import { useAccount } from "../context/AccountContext";
 import { useAuth } from "../context/AuthContext";
@@ -38,24 +39,25 @@ export default function DataPrivacyPage() {
   } = useAccount();
   const { setTitle } = usePageTitle();
 
+  const [searchParams] = useSearchParams();
   const role = String(activeRole || "").toLowerCase();
   const canRequestWorkspaceClosure = isRootOperator || role === "owner" || role === "admin";
   const defaultRequestType = useMemo(() => {
-    const params = new URLSearchParams(window.location.search);
-    const requested = params.get("request");
-    return REQUEST_OPTIONS.some((option) => option.value === requested)
-      ? requested
-      : "user_account_deletion";
-  }, []);
+    const requested = searchParams.get("request");
+    if (!REQUEST_OPTIONS.some((o) => o.value === requested)) return "user_account_deletion";
+    if (requested === "workspace_closure" && !canRequestWorkspaceClosure) return "user_account_deletion";
+    return requested;
+  }, [searchParams, canRequestWorkspaceClosure]);
 
   const [requestType, setRequestType] = useState(defaultRequestType);
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
   const [targetTenantId, setTargetTenantId] = useState(tenantContext?.tenant_id || "");
-  const [targetContractorId, setTargetContractorId] = useState("");
+  const [targetContractorId, setTargetContractorId] = useState(contractorContext?.contractor_id || "");
   const [confirmed, setConfirmed] = useState(false);
   const [deleteText, setDeleteText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [requests, setRequests] = useState([]);
@@ -66,9 +68,10 @@ export default function DataPrivacyPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     listMyDataDeletionRequests()
-      .then((rows) => { if (!cancelled) setRequests(rows); })
-      .catch((err) => { if (!cancelled) setError(err.message); });
+      .then((rows) => { if (!cancelled) { setRequests(rows); setLoading(false); } })
+      .catch((err) => { if (!cancelled) { setError(err.message); setLoading(false); } });
     return () => { cancelled = true; };
   }, [message]);
 
@@ -281,7 +284,15 @@ export default function DataPrivacyPage() {
               </tr>
             </thead>
             <tbody>
-              {requests.map((row) => (
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="py-6 text-sm text-slate-400">Loading…</td>
+                </tr>
+              ) : requests.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-6 text-sm text-slate-500">No requests yet.</td>
+                </tr>
+              ) : requests.map((row) => (
                 <tr key={row.id} className="border-t border-slate-100 dark:border-slate-800">
                   <td className="py-3 pr-4 font-mono text-xs">{row.id}</td>
                   <td className="py-3 pr-4">{row.request_type}</td>
@@ -289,11 +300,6 @@ export default function DataPrivacyPage() {
                   <td className="py-3 pr-4">{new Date(row.created_at).toLocaleString()}</td>
                 </tr>
               ))}
-              {requests.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="py-6 text-sm text-slate-500">No requests yet.</td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>

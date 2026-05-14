@@ -32,8 +32,15 @@ describe("data retention SQL foundation", () => {
   it("protects request access with RLS and denies normal processing access", () => {
     expect(sql).toContain("alter table public.data_deletion_requests enable row level security");
     expect(sql).toContain("alter table public.data_deletion_processing_log enable row level security");
+    // process_data_deletion_request is root/service_role only — no account_admin path.
     expect(sql).toContain("or auth.role() = 'service_role'");
+    // admin_update_data_deletion_request retains the account-admin path for status updates.
     expect(sql).toContain("or (v_request.account_id is not null and public.user_can_admin_account(v_request.account_id))");
     expect(sql).toContain("request_type = 'workspace_closure' and account_id is not null and public.user_can_admin_account(account_id)");
+    // process function must NOT include user_can_admin_account in its own access check.
+    const processStart = sql.indexOf("create or replace function public.process_data_deletion_request");
+    const processEnd   = sql.indexOf("$$;", processStart) + 3;
+    const processFn    = sql.slice(processStart, processEnd);
+    expect(processFn).not.toContain("user_can_admin_account");
   });
 });

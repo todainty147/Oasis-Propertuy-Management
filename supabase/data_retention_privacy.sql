@@ -554,6 +554,20 @@ begin
     p_account_id := v_contractor_account;
   end if;
 
+  -- Reject a second active request of the same type for the same account/target.
+  -- A request is considered active while it has not reached a terminal state.
+  if exists (
+    select 1 from public.data_deletion_requests
+    where requester_user_id = v_uid
+      and request_type      = p_request_type
+      and coalesce(account_id::text, '')          = coalesce(p_account_id::text, '')
+      and coalesce(target_tenant_id::text, '')     = coalesce(p_target_tenant_id::text, '')
+      and coalesce(target_contractor_id::text, '') = coalesce(p_target_contractor_id::text, '')
+      and status not in ('completed', 'partially_completed', 'rejected', 'cancelled')
+  ) then
+    raise exception 'An active % request already exists for this account and target', p_request_type;
+  end if;
+
   insert into public.data_deletion_requests (
     account_id,
     requester_user_id,
@@ -700,6 +714,20 @@ begin
     'cancelled'
   ) then
     raise exception 'Invalid status';
+  end if;
+
+  -- Enforce the state machine defined in dataRetentionPolicy.canTransitionDeletionRequest.
+  -- Terminal states (completed, rejected, cancelled) cannot be re-entered.
+  if not (
+    (v_request.status = 'submitted'                   and p_status in ('identity_verification_required', 'pending_admin_review', 'pending_retention_review', 'approved', 'cancelled', 'rejected'))
+    or (v_request.status = 'identity_verification_required' and p_status in ('pending_admin_review', 'cancelled', 'rejected'))
+    or (v_request.status = 'pending_admin_review'     and p_status in ('pending_retention_review', 'approved', 'cancelled', 'rejected'))
+    or (v_request.status = 'pending_retention_review' and p_status in ('approved', 'scheduled', 'partially_completed', 'completed', 'rejected'))
+    or (v_request.status = 'approved'                 and p_status in ('scheduled', 'pending_retention_review', 'completed', 'partially_completed'))
+    or (v_request.status = 'scheduled'                and p_status in ('pending_retention_review', 'completed', 'partially_completed', 'cancelled'))
+    or (v_request.status = 'partially_completed'      and p_status = 'completed')
+  ) then
+    raise exception 'Invalid status transition from % to %', v_request.status, p_status;
   end if;
 
   update public.data_deletion_requests
@@ -858,10 +886,12 @@ begin
     raise exception 'Request not found';
   end if;
 
+  -- Processing executes irreversible actions (anonymise, delete, revoke).
+  -- Account admins may approve and schedule via admin_update_data_deletion_request
+  -- but cannot execute processing themselves — root operator or service_role only.
   if not (
     public.user_is_root_operator()
     or auth.role() = 'service_role'
-    or (v_request.account_id is not null and public.user_can_admin_account(v_request.account_id))
   ) then
     raise exception 'Access denied';
   end if;
@@ -980,16 +1010,6 @@ begin
       jsonb_build_object('rows_affected', v_count)
     );
 
-    if v_request.account_id is not null then
-      perform public.log_security_event(
-        v_request.account_id,
-        'records_anonymised',
-        'profiles',
-        v_target_user,
-        jsonb_build_object('data_deletion_request_id', v_request.id, 'rows_affected', v_count)
-      );
-    end if;
-
     v_count := public.anonymise_user_profile(v_target_user);
     perform public.insert_data_privacy_log(
       v_request.id,
@@ -1002,6 +1022,17 @@ begin
       null,
       jsonb_build_object('rows_affected', v_count)
     );
+
+    -- Fire records_anonymised AFTER anonymisation completes, with the profile row count.
+    if v_request.account_id is not null then
+      perform public.log_security_event(
+        v_request.account_id,
+        'records_anonymised',
+        'profiles',
+        v_target_user,
+        jsonb_build_object('data_deletion_request_id', v_request.id, 'rows_affected', v_count)
+      );
+    end if;
 
     perform public.insert_data_privacy_log(
       v_request.id,
@@ -1227,7 +1258,7 @@ grant execute on function public.submit_data_deletion_request(uuid, text, text, 
 grant execute on function public.submit_data_export_request(uuid, text) to authenticated;
 grant execute on function public.admin_update_data_deletion_request(uuid, text, text, text, timestamptz) to authenticated;
 grant execute on function public.complete_data_export_request(uuid, text, timestamptz) to authenticated, service_role;
-grant execute on function public.mark_data_deletion_auth_user_deleted(uuid, uuid) to authenticated, service_role;
+grant execute on function public.mark_data_deletion_auth_user_deleted(uuid, uuid) to service_role;
 grant execute on function public.process_data_deletion_request(uuid) to authenticated, service_role;
 grant execute on function public.anonymise_user_profile(uuid) to service_role;
 grant execute on function public.anonymise_tenant_profile(uuid) to service_role;

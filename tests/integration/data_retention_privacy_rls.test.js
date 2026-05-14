@@ -129,6 +129,105 @@ describe.skipIf(!isIntegrationHarnessConfigured())("data retention privacy RLS a
     expect(String(contractorForeign.error?.message || "").toLowerCase()).toContain("access denied");
   });
 
+  it("admin_update_data_deletion_request enforces state machine — rejects invalid transitions", async () => {
+    if (skipWhenPrivacyMigrationMissing()) return;
+    const { user } = await signInAsFixtureUser("ownerA");
+    const request = await submitAs("ownerA", {
+      accountId: isolationFixtures.accounts.accountA.id,
+      requestType: "user_account_deletion",
+      scope: "user",
+      targetUserId: user.id,
+    });
+    expect(request.error).toBeNull();
+
+    // submitted → completed is not a valid transition; must go through review steps.
+    const { client: adminClient } = await signInAsFixtureUser("adminA");
+    const badTransition = await adminClient.rpc("admin_update_data_deletion_request", {
+      p_request_id: request.data.id,
+      p_status: "completed",
+    });
+    expect(badTransition.data).toBeNull();
+    expect(String(badTransition.error?.message || "").toLowerCase()).toContain(
+      "invalid status transition",
+    );
+
+    // submitted → pending_admin_review IS valid.
+    const goodTransition = await adminClient.rpc("admin_update_data_deletion_request", {
+      p_request_id: request.data.id,
+      p_status: "pending_admin_review",
+    });
+    expect(goodTransition.error).toBeNull();
+    expect(goodTransition.data.status).toBe("pending_admin_review");
+
+    // Terminal: rejected → approved must also be blocked.
+    await adminClient.rpc("admin_update_data_deletion_request", {
+      p_request_id: request.data.id,
+      p_status: "rejected",
+    });
+    const terminalTransition = await adminClient.rpc("admin_update_data_deletion_request", {
+      p_request_id: request.data.id,
+      p_status: "approved",
+    });
+    expect(terminalTransition.data).toBeNull();
+    expect(String(terminalTransition.error?.message || "").toLowerCase()).toContain(
+      "invalid status transition",
+    );
+  });
+
+  it("submit_data_deletion_request rejects a duplicate active request of the same type", async () => {
+    if (skipWhenPrivacyMigrationMissing()) return;
+    const { user } = await signInAsFixtureUser("ownerA");
+
+    const first = await submitAs("ownerA", {
+      accountId: isolationFixtures.accounts.accountA.id,
+      requestType: "membership_removal",
+      scope: "user",
+      targetUserId: user.id,
+    });
+    expect(first.error).toBeNull();
+
+    const duplicate = await submitAs("ownerA", {
+      accountId: isolationFixtures.accounts.accountA.id,
+      requestType: "membership_removal",
+      scope: "user",
+      targetUserId: user.id,
+    });
+    expect(duplicate.data).toBeNull();
+    expect(String(duplicate.error?.message || "").toLowerCase()).toContain("already exists");
+  });
+
+  it("process_data_deletion_request denies account admin — root operator only", async () => {
+    if (skipWhenPrivacyMigrationMissing()) return;
+    const { user } = await signInAsFixtureUser("ownerA");
+
+    // Submit then approve the request using ownerA's admin rights.
+    const request = await submitAs("ownerA", {
+      accountId: isolationFixtures.accounts.accountA.id,
+      requestType: "user_account_deletion",
+      scope: "user",
+      targetUserId: user.id,
+    });
+    expect(request.error).toBeNull();
+
+    const { client: adminClient } = await signInAsFixtureUser("adminA");
+    // Move to approved via the permitted admin_update path.
+    await adminClient.rpc("admin_update_data_deletion_request", {
+      p_request_id: request.data.id,
+      p_status: "pending_admin_review",
+    });
+    await adminClient.rpc("admin_update_data_deletion_request", {
+      p_request_id: request.data.id,
+      p_status: "approved",
+    });
+
+    // Account admin must NOT be able to trigger processing.
+    const adminProcess = await adminClient.rpc("process_data_deletion_request", {
+      p_request_id: request.data.id,
+    });
+    expect(adminProcess.data).toBeNull();
+    expect(String(adminProcess.error?.message || "").toLowerCase()).toContain("access denied");
+  });
+
   it("keeps processing logs hidden from staff while admin/root can review", async () => {
     if (skipWhenPrivacyMigrationMissing()) return;
     const request = await submitAs("ownerA", {
