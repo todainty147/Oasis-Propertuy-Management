@@ -46,14 +46,14 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
       eyebrow: "Features",
       title: "Every workflow landlords check, chase, and worry about — connected.",
       body:
-        "OASIS connects rent, tenants, properties, maintenance, documents, compliance, AI, security, and finance into one operating system for rental portfolios. Not a generic module list — a platform built around the outcomes that keep operations running.",
+        "OASIS connects rent, tenants, properties, maintenance, documents, compliance, AI, security, and finance into one landlord operating system for residential rentals. Not a generic module list — a platform built around the outcomes that keep a rental portfolio running.",
       cta: { label: "See how OASIS works", href: siteConfig.appUrl },
       imageSrc: "/screenshots/command-center.png",
       imageAlt: "OASIS Command Center showing urgent queues, overdue balances, and action items.",
     },
     sectionTitle: "Features grouped by the work they improve",
     sectionBody:
-      "Each outcome below maps to real OASIS surfaces: Rent Plans Engine, Command Center, maintenance workflows, tenant and contractor handoffs, documents, property health, compliance, and review trails.",
+      "Each outcome below maps to real OASIS surfaces: Rent Plans Engine, Command Center, maintenance workflows, contractor lanes, documents, property health, compliance evidence, and review trails.",
     outcomeSections: [
       {
         eyebrow: "Rent and finance",
@@ -138,13 +138,13 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
       },
       {
         eyebrow: "Compliance suite",
-        title: "Surface lease risk, rent pressure, and tax obligations before they get expensive",
+        title: "Surface Renters' Rights gaps, lease risk, rent pressure, and tax obligations before they get expensive",
         why:
-          "OASIS brings lease clause analysis, portfolio rent risk scoring, and tax deadline tracking into one operational layer — so the compliance picture is part of the working week, not a seasonal scramble.",
+          "OASIS brings Renters' Rights readiness, lease clause analysis, rent risk scoring, and tax deadline tracking into one landlord operating layer — so compliance evidence stays part of the working week, not a seasonal scramble.",
         bullets: [
           "Review AI-flagged lease clauses before they become legal or financial friction.",
           "Score rent risk across the portfolio and see which properties deserve attention first.",
-          "Track tax obligations and stay export-ready throughout the year.",
+          "Track tax obligations, Renters' Rights evidence, and stay export-ready throughout the year.",
         ],
         href: "/features/compliance",
         cta: "Explore the compliance suite",

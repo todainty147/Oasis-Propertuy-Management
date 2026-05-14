@@ -152,7 +152,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       body:
         "Most landlords run their portfolio from three spreadsheets, a shared inbox, and memory. Something always gets missed — and the 2 a.m. call proves it. OASIS gives rent, maintenance, documents, and what needs action next one home. So you stop chasing and start collecting.",
       emphasis:
-        "From expected charges to maintenance workflows, contractor coordination, compliance readiness, and AI-assisted action queues — OASIS brings order to the chaos without taking control away from you.",
+        "From expected charges to maintenance workflows, contractor coordination, compliance evidence, and AI-assisted next-action queues — OASIS brings order to the chaos without taking control away from you.",
       support:
         "No guaranteed income claims. No payment collection rail today. Just visibility, workflows, and the operational clarity that keeps a rental portfolio running without constant intervention.",
       highlights: [
@@ -219,8 +219,8 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
           body: "Tenants report issues, landlords assign contractors, and every job moves from request to resolution inside one operational flow.",
         },
         {
-          title: "Document and compliance readiness",
-          body: "Store tenancy documents, request missing files, and track Renters' Rights readiness, tax deadlines, and lease risks in one place.",
+          title: "Document readiness and compliance evidence",
+          body: "Store tenancy documents, request missing files, and track Renters' Rights obligations, tax deadlines, and lease risks in one place — with an evidence trail, not inbox memory.",
         },
         {
           title: "AI-assisted action queues",
@@ -238,7 +238,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
     },
     rentalYieldSection: {
       title: "Rental Yield Optimization Starts With Better Visibility",
-      body: "Higher yield is not only about charging more rent. It is about reducing missed charges, preventing avoidable maintenance drag, and spotting overdue balances before they compound. OASIS brings rent status, expected charges, maintenance costs, and compliance readiness into one operating view.",
+      body: "Higher yield is not only about charging more rent. It is about reducing missed charges, preventing avoidable maintenance drag, and spotting overdue balances before they compound. OASIS brings rent status, expected charges, maintenance costs, and compliance evidence into one operating view.",
       bullets: [
         "Spot overdue and due-soon rent before it becomes a follow-up problem",
         "Track maintenance costs against each property to protect margins",
@@ -291,8 +291,8 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
           agent: "Documents held by the agent — retrieval may require requests and time",
         },
         {
-          feature: "Compliance readiness",
-          oasis: "Renters' Rights, Tax deadlines, Lease Auditor, and compliance evidence tracked in the workflow",
+          feature: "Compliance evidence",
+          oasis: "Renters' Rights, tax deadlines, Lease Auditor, and an evidence trail tracked in the workflow",
           agent: "Some agents cover compliance, others charge extra or leave it to the landlord",
         },
         {
@@ -305,7 +305,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       cta: { label: "See how OASIS works", href: siteConfig.appUrl },
     },
     problemSection: {
-      eyebrow: "Why operators switch",
+      eyebrow: "Why landlords switch",
       title: "The records are not the hard part. The handoffs are.",
       body:
         "The work breaks when rent follow-up, maintenance decisions, documents, and contractor coordination all live in different places.",
@@ -331,7 +331,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
     solutionSection: {
       title: "One platform for the work after the message comes in",
       body:
-        "OASIS helps landlords run property operations, not just store records. It keeps attention queues, work execution, tenant updates, and audit history in one place.",
+        "OASIS helps landlords run residential rental operations, not just store records. It keeps attention queues, work execution, tenant updates, and audit history in one place.",
       items: [
         {
           title: "See what needs action",
@@ -352,9 +352,9 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       ],
     },
     productPreview: {
-      title: "Built for the operational surfaces landlords check every day",
+      title: "The daily landlord checks, finally in one place",
       body:
-        "Each surface answers a practical question quickly: what needs action, who owns it, what is getting riskier, and what should move next.",
+        "Rent, repairs, documents, and follow-up — each view answers a practical question quickly: what needs action, who owns it, what is getting riskier, and what should move next.",
       featuresHref: "/features",
       items: [
         {

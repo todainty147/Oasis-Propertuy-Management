@@ -55,14 +55,14 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       eyebrow: "Pricing",
       title: "Start simple. Add control as your portfolio grows.",
       body:
-        "Start with the core rental workflow. Upgrade when you need stronger attention queues, compliance readiness, audit control, automation, or agency-level finance intelligence.",
+        "Start with the core rental workflow. Upgrade when you need stronger attention queues, compliance evidence, audit control, automation, or agency-level finance intelligence.",
       imageSrc: "/screenshots/command-center.png",
       imageAlt: "OASIS Command Center showing urgent queues, overdue balance, and action items across the portfolio.",
     },
     intro: {
       title: "Pricing is aligned to operational maturity",
       body:
-        "Starter helps solo landlords bring the basics into one place. Growth adds Command Center, portfolio health, compliance readiness, and AI assistance. Pro adds security audit, playbooks, Lease Auditor, and deeper governance. Operator / Agency adds bulk rent automation, Open Banking readiness, portfolio forecasting, and advanced AI for multi-client operations. Founder offer: the first 20 landlords get Pro at Starter price for 12 months.",
+        "Starter helps solo landlords bring the basics into one place. Growth adds Command Center, portfolio health, compliance evidence tools, and AI assistance. Pro adds security audit, playbooks, Lease Auditor, and deeper landlord-controlled governance. Operator / Agency adds bulk rent automation, Open Banking readiness, portfolio pressure forecasting, and advanced AI for multi-client operations. Founder offer: the first 20 landlords get Pro at Starter price for 12 months.",
       imageSrc: "/screenshots/portfolio-health.png",
       imageAlt: "OASIS Portfolio Health dashboard showing occupancy, arrears aging, and maintenance pressure.",
     },
@@ -161,7 +161,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       {
         question: "What is the difference between Growth and Pro?",
         answer:
-          "Growth adds operational attention: Command Center, portfolio health, compliance readiness (Renters' Rights, Tax Readiness, Rent Shield, Poland), maintenance KPIs, preventive maintenance, and AI assistance. Pro adds deeper control: security audit, playbooks, Lease Auditor, advanced audit summaries, and compliance-heavy workflows.",
+          "Growth adds operational attention: Command Center, portfolio health, compliance evidence tools (Renters' Rights, Tax Readiness, Rent Shield, Poland), maintenance KPIs, preventive maintenance, and AI assistance. Pro adds deeper control: security audit, playbooks, Lease Auditor, advanced audit summaries, and evidence-heavy compliance workflows.",
       },
       {
         question: "What is Operator / Agency for?",

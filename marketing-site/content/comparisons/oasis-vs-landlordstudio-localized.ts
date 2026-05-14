@@ -67,7 +67,7 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
       eyebrow: "Comparison",
       title: "OASIS vs Landlord Studio",
       body:
-        "Landlord Studio is strongest when accounting, bank feeds, online rent collection, and financial reporting lead the decision. OASIS is stronger when the daily challenge is operational control: rent rules, expected charges, maintenance movement, document evidence, compliance readiness, contractors, audit, and what needs action next.",
+        "Landlord Studio is strongest when accounting, bank feeds, online rent collection, and financial reporting lead the decision. OASIS is stronger when the daily challenge is operational control: rent rules, expected charges, maintenance movement, document evidence, compliance evidence, contractors, audit, and what needs action next.",
       imageSrc: "/screenshots/command-center.png",
       imageAlt: "OASIS Command Center showing urgent items and connected portfolio actions.",
     },
@@ -90,7 +90,7 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
         {
           category: "Primary emphasis",
           oasis:
-            "Rental operations platform: rent rules, expected charges, maintenance movement, compliance readiness, contractors, audit, and what needs action next",
+            "Landlord operating layer: rent rules, expected charges, maintenance movement, compliance evidence, contractors, audit, and what needs action next",
           competitor:
             "Landlord accounting, reporting, rent collection, and mobile-friendly portfolio tracking",
         },
@@ -130,11 +130,11 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
             "Maintenance request tracking with less emphasis on command-centre style operational follow-through",
         },
         {
-          category: "Compliance readiness",
+          category: "Compliance evidence",
           oasis:
             "Renters' Rights readiness, Tax Readiness, Rent Shield, Lease Auditor (AI clause risk review), Poland Najem Okazjonalny — integrated into the weekly workflow",
           competitor:
-            "Compliance tracking useful for accounting; less emphasis on integrated workflow-level compliance readiness",
+            "Compliance tracking useful for accounting; less emphasis on integrated workflow-level compliance evidence and evidence trails",
         },
         {
           category: "AI action queues",
@@ -184,7 +184,7 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
       eyebrow: "Where OASIS stands out",
       title: "Most rental tools store what happened. OASIS helps move what happens next.",
       body:
-        "This is not a claim that Landlord Studio lacks useful landlord tooling. OASIS stands out when the harder problem is operational control: rent rules and expected charges, maintenance movement, compliance readiness inside the workflow, and reducing dropped follow-up across the portfolio.",
+        "This is not a claim that Landlord Studio lacks useful landlord tooling. OASIS stands out when the harder problem is operational control: rent rules and expected charges, maintenance movement, compliance evidence inside the workflow, and reducing dropped follow-up across the portfolio.",
       imageSrc: "/screenshots/maintenance-inbox.png",
       imageAlt: "OASIS Maintenance Inbox showing structured request workflow and linked work orders.",
       imageAlign: "left",
@@ -217,7 +217,7 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
         {
           title: "Choose OASIS if",
           body:
-            "You need rent rules and expected charges, maintenance workflows, compliance readiness, contractor coordination, document evidence, audit trails, and a clear view of what needs action — all connected.",
+            "You need rent rules and expected charges, maintenance workflows, compliance evidence, contractor coordination, document evidence, audit trails, and a clear view of what needs action — all connected.",
         },
         {
           title: "Choose Landlord Studio if",
