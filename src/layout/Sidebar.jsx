@@ -23,6 +23,7 @@ import {
   Zap,
   Shield,
   Activity,
+  DatabaseZap,
   Scale,
   Receipt,
   Umbrella,
@@ -439,8 +440,10 @@ function SidebarContent({ onNavigate }) {
                       <>
                         <Item to="/settings/root-telemetry" icon={Activity} label={t("sidebar.rootTelemetry")} onNavigate={onNavigate} />
                         <Item to="/root/accounts" icon={Users} label={t("sidebar.rootAccounts")} onNavigate={onNavigate} />
+                        <Item to="/root/data-requests" icon={DatabaseZap} label="Data Requests" onNavigate={onNavigate} />
                       </>
                     ) : null}
+                    <Item to="/settings/data-privacy" icon={ShieldCheck} label="Data & Privacy" onNavigate={onNavigate} />
                     {role === "owner" && (
                       <Item to="/settings/branding" icon={Palette} label={t("sidebar.branding")} onNavigate={onNavigate} />
                     )}

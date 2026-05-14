@@ -43,10 +43,12 @@ const BillingPage                 = lazy(() => import("../pages/BillingPage"));
 const RolesManagementPage = lazy(() => import("../pages/RolesManagementPage"));
 const CustomFieldsManagementPage = lazy(() => import("../pages/CustomFieldsManagementPage"));
 const ProfilePage                 = lazy(() => import("../pages/ProfilePage"));
+const DataPrivacyPage             = lazy(() => import("../pages/DataPrivacyPage"));
 const PlaybooksPage               = lazy(() => import("../pages/PlaybooksPage"));
 const SecurityAuditPage           = lazy(() => import("../pages/SecurityAuditPage"));
 const RootTelemetryPage           = lazy(() => import("../pages/RootTelemetryPage"));
 const RootAccountsPage            = lazy(() => import("../pages/admin/RootAccountsPage"));
+const RootDataRequestsPage        = lazy(() => import("../pages/admin/RootDataRequestsPage"));
 const TaxReadinessPage            = lazy(() => import("../pages/compliance/TaxReadinessPage"));
 const RentShieldPage              = lazy(() => import("../pages/compliance/RentShieldPage"));
 const LeaseAuditorPage            = lazy(() => import("../pages/compliance/LeaseAuditorPage"));
@@ -350,6 +352,10 @@ export default function ManagerRoutes() {
         element={tenantRole ? <Navigate to="/tenant/profile" replace /> : <ProfilePage />}
       />
       <Route
+        path="settings/data-privacy"
+        element={<DataPrivacyPage />}
+      />
+      <Route
         path="settings/branding"
         element={<ManagerOnlyRoute><AccountBrandingPage /></ManagerOnlyRoute>}
       />
@@ -398,6 +404,14 @@ export default function ManagerRoutes() {
         element={
           <EntitledRoute feature={ENTITLEMENT_FEATURES.ROOT_TELEMETRY}>
             <RootAccountsPage />
+          </EntitledRoute>
+        }
+      />
+      <Route
+        path="root/data-requests"
+        element={
+          <EntitledRoute feature={ENTITLEMENT_FEATURES.ROOT_TELEMETRY}>
+            <RootDataRequestsPage />
           </EntitledRoute>
         }
       />

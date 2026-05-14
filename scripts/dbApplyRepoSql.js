@@ -142,6 +142,7 @@ const OVERLAY_SEQUENCE = [
   "poland_advanced_features.sql",
   "rent_reminders_rpc.sql",
   "operating_calendar.sql",
+  "data_retention_privacy.sql",
 ];
 
 function resolvePsqlCommand() {

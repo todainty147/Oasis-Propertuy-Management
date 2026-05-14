@@ -20,11 +20,13 @@ import {
   Briefcase,
   Home,
   Camera,
+  ShieldCheck,
 } from "lucide-react";
 import { useAccount } from "../../context/AccountContext";
 import { useNotifications } from "../../hooks/useNotifications";
 
-function NavItem({ to, icon: Icon, label, badge }) {
+function NavItem({ to, icon, label, badge }) {
+  const NavIcon = icon;
   return (
     <NavLink
       to={to}
@@ -41,7 +43,7 @@ function NavItem({ to, icon: Icon, label, badge }) {
       aria-label={label}
     >
       <span className="relative">
-        <Icon size={22} strokeWidth={1.8} />
+        <NavIcon size={22} strokeWidth={1.8} />
         {badge > 0 && (
           <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
             {badge > 99 ? "99+" : badge}
@@ -71,6 +73,7 @@ export default function MobileBottomNav() {
           <NavItem to="/tenant/maintenance"  icon={Wrench}    label="Issues" />
           <NavItem to="/tenant/documents"    icon={FileText}  label="Docs" />
           <NavItem to="/tenant/payments"     icon={CreditCard} label="Payments" />
+          <NavItem to="/settings/data-privacy" icon={ShieldCheck} label="Privacy" />
         </>
       )}
 
@@ -78,6 +81,7 @@ export default function MobileBottomNav() {
         <>
           <NavItem to="/contractor-portal"  icon={Briefcase} label="My Jobs" />
           <NavItem to="/contractor-portal"  icon={Camera}    label="Photos" />
+          <NavItem to="/settings/data-privacy" icon={ShieldCheck} label="Privacy" />
         </>
       )}
 
@@ -88,10 +92,9 @@ export default function MobileBottomNav() {
           <NavItem to="/properties"        icon={Building2}       label="Portfolio" />
           <NavItem to="/finance"           icon={CreditCard}      label="Finance" />
           <NavItem
-            to="/notifications"
-            icon={Bell}
-            label="Alerts"
-            badge={unreadCount}
+            to="/settings/data-privacy"
+            icon={ShieldCheck}
+            label="Privacy"
           />
         </>
       )}
