@@ -117,6 +117,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("Poland Compliance Evidence P
         upload_status:  "uploaded",
         size_bytes:     1024,
         storage_path:   `${accountId}/test.pdf`,
+        scope:          "account", // required NOT NULL; account-scoped when no property/tenant
       })
       .select("id")
       .single();

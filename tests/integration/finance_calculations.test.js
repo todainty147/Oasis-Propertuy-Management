@@ -16,6 +16,10 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { execSync } from "node:child_process";
+import { writeFileSync, unlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { isolationFixtures } from "../fixtures/isolationFixtures.js";
@@ -137,8 +141,53 @@ async function createIsolatedProperty(admin, ownerUserId, { rent = 1000 } = {}) 
 async function destroyIsolatedProperty(admin, propId, tenantId) {
   await admin.from("leases").delete().eq("property_id", propId);
   await admin.from("payments").delete().eq("property_id", propId);
+  // tenant/property deletes trigger ledger_entries FK SET NULL, which hits
+  // trg_prevent_ledger_update. Errors are silently ignored here; the outer
+  // describe's afterAll does a guaranteed batch cleanup via CLI.
   await admin.from("tenants").delete().eq("id", tenantId);
   await admin.from("properties").delete().eq("id", propId);
+}
+
+/**
+ * Batch cleanup for any Calc Prop/Tenant records that survived individual
+ * afterAll cleanup (due to ledger_entries trigger blocking FK SET NULL cascade).
+ *
+ * Uses a DO block written to a temp file to avoid Windows shell quoting issues
+ * with single quotes and % characters. The DO block runs all DDL + DML in one
+ * transaction so the trigger disable/enable wraps the deletes correctly.
+ */
+function forceBatchCleanupCalcData(accountId) {
+  const sql = `
+DO $$
+BEGIN
+  ALTER TABLE public.ledger_entries DISABLE TRIGGER trg_prevent_ledger_update;
+  UPDATE public.properties
+    SET status = 'Wolne', tenant_id = NULL
+    WHERE account_id = '${accountId}' AND address ILIKE 'Calc Prop%';
+  UPDATE public.tenants
+    SET property_id = NULL
+    WHERE account_id = '${accountId}' AND name ILIKE 'Calc Tenant%' AND user_id IS NULL;
+  DELETE FROM public.tenants
+    WHERE account_id = '${accountId}' AND name ILIKE 'Calc Tenant%' AND user_id IS NULL;
+  DELETE FROM public.properties
+    WHERE account_id = '${accountId}' AND address ILIKE 'Calc Prop%';
+  ALTER TABLE public.ledger_entries ENABLE TRIGGER trg_prevent_ledger_update;
+END;
+$$
+`.trim();
+
+  const tmpFile = join(tmpdir(), `calc-cleanup-${Date.now()}.sql`);
+  try {
+    writeFileSync(tmpFile, sql);
+    execSync(`npx supabase db query --file "${tmpFile}"`, {
+      stdio: "ignore",
+      timeout: 60_000,
+    });
+  } catch {
+    // best-effort — failures are non-fatal for cleanup
+  } finally {
+    try { unlinkSync(tmpFile); } catch {}
+  }
 }
 
 async function insertPayments(admin, ownerUserId, rows) {
@@ -836,6 +885,12 @@ if (!isIntegrationHarnessConfigured()) {
           await destroyIsolatedProperty(admin, propId, tenantId);
         }
       });
+    });
+
+    // Guaranteed batch cleanup: handles any Calc Prop/Tenant records that
+    // survived per-describe afterAll cleanup (ledger trigger blocks FK cascade).
+    afterAll(() => {
+      forceBatchCleanupCalcData(ACCOUNT_ID);
     });
   });
 }

@@ -170,42 +170,39 @@ describe.skipIf(!isIntegrationHarnessConfigured())(
       });
 
       it("5. duplicate normalized email on different account returns email_already_redeemed", async () => {
-        // Create a scratch account for the same email as ownerA but different account
-        // We simulate by calling with the same email but a different account that ownerA doesn't own
-        // (will fail with not_owner first, which is correct — test the email path via admin)
         const { data: offer } = await admin
           .from("launch_offers")
           .select("id")
           .eq("code", OFFER_CODE)
           .single();
 
-        // Manually insert a redemption for ownerA's email with a fake account_id
-        // to test the email duplicate guard in isolation
-        const fakeAccountId = "ffffffff-ffff-ffff-ffff-ffffffffffff";
-        await admin.from("launch_offer_redemptions").insert({
-          offer_id:         offer.id,
-          account_id:       ACCOUNT_A, // reuse A's account to satisfy FK
-          user_id:          users.ownerA.id,
-          email:            "duplicate@example.com",
-          normalized_email: "duplicate@example.com",
-          signup_source:    "integration_test",
-          position:         3,
-          status:           "redeemed",
-        });
+        // Test 4 left ACCOUNT_B with a redemption and an entitlement. Both idempotency
+        // checks (step 8: redemption row, step 9: entitlement row) fire before the email
+        // guard (step 10), so we remove both so the email check is exercised with a fresh
+        // account call.
+        await admin
+          .from("launch_offer_redemptions")
+          .delete()
+          .eq("offer_id", offer.id)
+          .eq("account_id", ACCOUNT_B);
+        await admin
+          .from("account_entitlements")
+          .delete()
+          .eq("account_id", ACCOUNT_B)
+          .eq("source", "launch_offer");
 
-        // Now try to apply with the same email for ownerB's account
+        // ACCOUNT_A still holds a redeemed row for ownerA's email (from test 1).
+        // Calling with ownerA's email from ACCOUNT_B hits the email_already_redeemed guard.
         const { client } = await signInAsFixtureUser("ownerB");
         const { data } = await applyOffer(client, {
           accountId: ACCOUNT_B,
           userId:    users.ownerB.id,
-          email:     "duplicate@example.com",
+          email:     isolationFixtures.users.ownerA.email,
         });
 
         expect(data.qualified).toBe(false);
         expect(data.status).toBe("email_already_redeemed");
-
-        // Cleanup fake row
-        await admin.from("launch_offer_redemptions").delete().eq("position", 3).eq("offer_id", offer.id);
+        // afterAll cleanupRedemptions handles full teardown including ACCOUNT_B deletion.
       });
     });
 

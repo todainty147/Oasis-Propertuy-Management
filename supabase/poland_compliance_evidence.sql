@@ -284,46 +284,16 @@ CREATE FUNCTION public.get_evidence_pack(
   p_tenant_id   UUID
 )
 RETURNS JSONB
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  WITH authz AS MATERIALIZED (
-    SELECT public.assert_manage_account_access(p_account_id) AS account_id
-  ),
-  items AS (
-    SELECT
-      ci.id                    AS item_id,
-      ci.item_key,
-      ci.title,
-      ci.status,
-      ci.due_date,
-      ci.evidence_document_id,
-      ci.completed_at,
-      ci.updated_at,
-      -- bring document metadata if linked
-      d.name                   AS doc_name,
-      d.mime_type              AS doc_mime_type,
-      d.uploaded_at            AS doc_uploaded_at,
-      d.storage_path           AS doc_storage_path
-    FROM compliance_checklist_items ci
-    CROSS JOIN authz a
-    LEFT JOIN documents d ON d.id = ci.evidence_document_id
-    WHERE ci.account_id    = a.account_id
-      AND ci.property_id   = p_property_id
-      AND ci.tenant_id     = p_tenant_id
-      AND ci.checklist_type = 'najem_okazjonalny'
-      AND ci.market        = 'pl'
-  ),
-  counts AS (
-    SELECT
-      COUNT(*)                                                                 AS total,
-      COUNT(*) FILTER (WHERE status IN ('complete', 'not_applicable'))        AS done,
-      COUNT(*) FILTER (WHERE status = 'pending' AND evidence_document_id IS NOT NULL) AS has_evidence,
-      COUNT(*) FILTER (WHERE status = 'pending' AND evidence_document_id IS NULL)     AS missing,
-      MAX(updated_at)                                                          AS last_updated
-    FROM items
-  )
+DECLARE
+  v_result JSONB;
+BEGIN
+  -- Authz: raises 42501 for non-members; LANGUAGE plpgsql ensures the exception propagates.
+  PERFORM public.assert_manage_account_access(p_account_id);
+
   SELECT jsonb_build_object(
     'total',            c.total,
     'done',             c.done,
@@ -347,10 +317,48 @@ AS $$
                               'doc_mime_type',      i.doc_mime_type,
                               'doc_uploaded_at',    i.doc_uploaded_at
                             ) ORDER BY i.item_key
-                          ) FROM items i),
+                          ) FROM (
+                            SELECT
+                              ci.id                    AS item_id,
+                              ci.item_key,
+                              ci.title,
+                              ci.status,
+                              ci.due_date,
+                              ci.evidence_document_id,
+                              ci.completed_at,
+                              ci.updated_at,
+                              d.name                   AS doc_name,
+                              d.mime_type              AS doc_mime_type,
+                              d.uploaded_at            AS doc_uploaded_at
+                            FROM compliance_checklist_items ci
+                            LEFT JOIN documents d ON d.id = ci.evidence_document_id
+                            WHERE ci.account_id    = p_account_id
+                              AND ci.property_id   = p_property_id
+                              AND ci.tenant_id     = p_tenant_id
+                              AND ci.checklist_type = 'najem_okazjonalny'
+                              AND ci.market        = 'pl'
+                          ) i),
                           '[]'::jsonb
                         )
-  ) FROM counts c;
+  )
+  INTO v_result
+  FROM (
+    SELECT
+      COUNT(*)                                                                 AS total,
+      COUNT(*) FILTER (WHERE status IN ('complete', 'not_applicable'))        AS done,
+      COUNT(*) FILTER (WHERE status = 'pending' AND evidence_document_id IS NOT NULL) AS has_evidence,
+      COUNT(*) FILTER (WHERE status = 'pending' AND evidence_document_id IS NULL)     AS missing,
+      MAX(updated_at)                                                          AS last_updated
+    FROM compliance_checklist_items
+    WHERE account_id    = p_account_id
+      AND property_id   = p_property_id
+      AND tenant_id     = p_tenant_id
+      AND checklist_type = 'najem_okazjonalny'
+      AND market        = 'pl'
+  ) c;
+
+  RETURN v_result;
+END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.get_evidence_pack(UUID, UUID, UUID)

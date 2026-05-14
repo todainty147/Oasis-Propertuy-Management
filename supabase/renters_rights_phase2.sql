@@ -556,77 +556,79 @@ as $$
 begin
   perform public.assert_account_feature_access(p_account_id, 'renters_rights_readiness');
 
+  -- PostgreSQL 17 requires ORDER BY in UNION contexts to reference column names
+  -- from a subquery rather than directly on the UNION branches.
   return query
+  select * from (
+    -- Information sheet: overdue or due soon
+    select
+      'rr_info_sheet_' || t.id::text                                              as item_key,
+      case when t.due_date < current_date then 'renters_rights_information_sheet_overdue'
+           else                               'renters_rights_information_sheet_due' end as item_type,
+      case when t.due_date < current_date then 'urgent' else 'action' end         as bucket,
+      coalesce(pr.address, '—')                                                   as property_label,
+      coalesce(tn.name, '—')                                                      as tenant_label,
+      'Information Sheet'::text                                                   as entity_label,
+      0::numeric                                                                  as amount,
+      greatest(0, extract(epoch from (now() - t.due_date::timestamptz))::integer / 3600) as age_hours,
+      (t.due_date - current_date)::integer                                        as due_days,
+      '/compliance/renters-rights'::text                                          as link_path,
+      'renters_rights_tasks'::text                                                as source_table,
+      case when t.due_date < current_date then 5 else 50 end                      as sort_order
+    from public.renters_rights_tasks t
+    left join public.tenants    tn on tn.id = t.tenant_id
+    left join public.properties pr on pr.id = t.property_id
+    where t.account_id       = p_account_id
+      and t.requirement_type = 'renters_rights_information_sheet'
+      and t.status           = 'required'
+      and t.due_date         <= current_date + interval '60 days'
 
-  -- Information sheet: overdue or due soon
-  select
-    'rr_info_sheet_' || t.id::text,
-    case when t.due_date < current_date then 'renters_rights_information_sheet_overdue'
-         else                               'renters_rights_information_sheet_due'    end,
-    case when t.due_date < current_date then 'urgent' else 'action' end,
-    coalesce(pr.address, '—'),
-    coalesce(tn.name, '—'),
-    'Information Sheet'::text,
-    0::numeric,
-    greatest(0, extract(epoch from (now() - t.due_date::timestamptz))::integer / 3600),
-    (t.due_date - current_date)::integer,
-    '/compliance/renters-rights'::text,
-    'renters_rights_tasks'::text,
-    case when t.due_date < current_date then 5 else 50 end
-  from public.renters_rights_tasks t
-  left join public.tenants    tn on tn.id = t.tenant_id
-  left join public.properties pr on pr.id = t.property_id
-  where t.account_id       = p_account_id
-    and t.requirement_type = 'renters_rights_information_sheet'
-    and t.status           = 'required'
-    and t.due_date         <= current_date + interval '60 days'
+    union all
 
-  union all
+    -- Tenancy review prompts: open prompts needing manager attention
+    select
+      'rr_lease_review_' || t.id::text,
+      'renters_rights_lease_review_needed'::text,
+      'action'::text,
+      coalesce(pr.address, '—'),
+      coalesce(tn.name, '—'),
+      coalesce(t.metadata->>'finding_type', 'Review'),
+      0::numeric,
+      0::integer,
+      (t.due_date - current_date)::integer,
+      '/compliance/renters-rights'::text,
+      'renters_rights_tasks'::text,
+      60::integer
+    from public.renters_rights_tasks t
+    left join public.tenants    tn on tn.id = t.tenant_id
+    left join public.properties pr on pr.id = t.property_id
+    where t.account_id       = p_account_id
+      and t.requirement_type = 'tenancy_review_prompt'
+      and t.status           = 'required'
 
-  -- Tenancy review prompts: open prompts needing manager attention
-  select
-    'rr_lease_review_' || t.id::text,
-    'renters_rights_lease_review_needed'::text,
-    'action'::text,
-    coalesce(pr.address, '—'),
-    coalesce(tn.name, '—'),
-    coalesce(t.metadata->>'finding_type', 'Review'),
-    0::numeric,
-    0::integer,
-    (t.due_date - current_date)::integer,
-    '/compliance/renters-rights'::text,
-    'renters_rights_tasks'::text,
-    60::integer
-  from public.renters_rights_tasks t
-  left join public.tenants    tn on tn.id = t.tenant_id
-  left join public.properties pr on pr.id = t.property_id
-  where t.account_id       = p_account_id
-    and t.requirement_type = 'tenancy_review_prompt'
-    and t.status           = 'required'
+    union all
 
-  union all
-
-  -- Rent reviews: missing evidence or notice document
-  select
-    'rr_rent_review_' || r.id::text,
-    'renters_rights_rent_review_needs_evidence'::text,
-    'action'::text,
-    coalesce(pr.address, '—'),
-    coalesce(tn.name, '—'),
-    'Rent Review'::text,
-    coalesce(r.proposed_rent, 0),
-    0::integer,
-    (r.proposed_effective_date - current_date)::integer,
-    '/compliance/renters-rights'::text,
-    'rent_review_records'::text,
-    70::integer
-  from public.rent_review_records r
-  left join public.tenants    tn on tn.id = r.tenant_id
-  left join public.properties pr on pr.id = r.property_id
-  where r.account_id = p_account_id
-    and r.status in ('evidence_needed', 'draft')
-    and (r.evidence_document_id is null or r.notice_document_id is null)
-
+    -- Rent reviews: missing evidence or notice document
+    select
+      'rr_rent_review_' || r.id::text,
+      'renters_rights_rent_review_needs_evidence'::text,
+      'action'::text,
+      coalesce(pr.address, '—'),
+      coalesce(tn.name, '—'),
+      'Rent Review'::text,
+      coalesce(r.proposed_rent, 0),
+      0::integer,
+      (r.proposed_effective_date - current_date)::integer,
+      '/compliance/renters-rights'::text,
+      'rent_review_records'::text,
+      70::integer
+    from public.rent_review_records r
+    left join public.tenants    tn on tn.id = r.tenant_id
+    left join public.properties pr on pr.id = r.property_id
+    where r.account_id = p_account_id
+      and r.status in ('evidence_needed', 'draft')
+      and (r.evidence_document_id is null or r.notice_document_id is null)
+  ) combined
   order by sort_order, due_days asc nulls last
   limit greatest(1, least(coalesce(p_limit, 20), 100));
 end;
