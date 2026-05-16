@@ -14,6 +14,7 @@ import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
 import { isManageRole, can } from "../utils/permissions";
 import { formatCurrencyAmount } from "../utils/currency";
+import { buildTenantPaymentDisplayRows } from "../utils/tenantPortal";
 import {
   listEntityCustomFieldEditorState,
   listEntityCustomFieldValues,
@@ -33,6 +34,11 @@ function paymentIsOverdue(p) {
 function paymentIsPaid(p) {
   const s = String(p?.status || "").toLowerCase();
   return s.includes("opłac") || s === "paid" || s.includes("bezahl");
+}
+
+function safeAmount(value) {
+  const next = Number(value ?? 0);
+  return Number.isFinite(next) ? next : 0;
 }
 
 /* ======================
@@ -378,19 +384,25 @@ export default function TenantDetails({
   // ── Derived payment data ───────────────────────────────────────────────────────
 
   const tenantPayments = payments.filter((p) => String(p.tenantId) === String(tenant.id));
+  const tenantDisplayPayments = buildTenantPaymentDisplayRows(tenantPayments);
 
-  const paidAmount    = tenantPayments
+  const paidAmount    = tenantDisplayPayments
     .filter(paymentIsPaid)
-    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    .reduce((sum, p) => sum + safeAmount(p.amount), 0);
 
-  const overdueAmount = tenantPayments
+  const overdueAmount = tenantDisplayPayments
     .filter(paymentIsOverdue)
-    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    .reduce((sum, p) => sum + safeAmount(p.amount), 0);
 
-  let tenantStatus = t("payments.status.overdue");
-  if (overdueAmount === 0 && paidAmount > 0) tenantStatus = t("payments.status.paid");
-  else if (paidAmount > 0 && overdueAmount > 0) tenantStatus = t("payments.status.partial");
-  else if (overdueAmount === 0 && paidAmount === 0) tenantStatus = t("payments.status.paid");
+  const openAmount = tenantDisplayPayments
+    .filter((p) => !paymentIsPaid(p))
+    .reduce((sum, p) => sum + safeAmount(p.amount), 0);
+
+  let tenantStatus = t("tenants.paymentNone");
+  if (overdueAmount > 0 && paidAmount > 0) tenantStatus = "partial";
+  else if (overdueAmount > 0) tenantStatus = "overdue";
+  else if (openAmount > 0) tenantStatus = "pending";
+  else if (paidAmount > 0) tenantStatus = "paid";
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -532,13 +544,13 @@ export default function TenantDetails({
             <div className="px-6 py-4 border-b border-slate-100">
               <h3 className="font-semibold text-slate-900">{t("tenantDetails.tab.payments")}</h3>
             </div>
-            {tenantPayments.length === 0 ? (
+            {tenantDisplayPayments.length === 0 ? (
               <p className="px-6 py-8 text-sm text-slate-500 text-center">
                 {t("tenantDetails.noPayments")}
               </p>
             ) : (
               <div className="divide-y divide-slate-100">
-                {tenantPayments.map((pmt) => (
+                {tenantDisplayPayments.map((pmt) => (
                   <div key={pmt.id} className="flex items-center justify-between px-6 py-3 gap-4">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-slate-900 truncate">
@@ -548,10 +560,20 @@ export default function TenantDetails({
                         <p className="text-xs text-slate-500">{pmt.dueDate}</p>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className="text-sm font-semibold text-slate-900">
-                        {formatCurrencyAmount(pmt.amount)}
-                      </span>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <div className="text-right">
+                        <span className="text-sm font-semibold text-slate-900">
+                          {formatCurrencyAmount(pmt.amount)}
+                        </span>
+                        {pmt.originalAmount != null && safeAmount(pmt.originalAmount) !== safeAmount(pmt.amount) ? (
+                          <p className="text-xs text-slate-400">
+                            {t("tenantDetails.partialCredit", {
+                              original: formatCurrencyAmount(pmt.originalAmount),
+                              paid: formatCurrencyAmount(pmt.paidAgainstCycle),
+                            })}
+                          </p>
+                        ) : null}
+                      </div>
                       <Badge status={pmt.status} />
                     </div>
                   </div>
