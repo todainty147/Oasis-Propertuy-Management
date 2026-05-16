@@ -6,6 +6,7 @@ import { APP_LANGUAGES, getLanguageFlag } from "../i18n/languages";
 import { recordAuthRateLimitAttempt, formatRetryAfter } from "../services/authRateLimitService";
 import { BRAND } from "../config/brand";
 import BrandLogo from "../components/BrandLogo";
+import { ActionPill, TenaqoCard } from "../components/ui/TenaqoPrimitives";
 
 export default function Login() {
   const [params] = useSearchParams();
@@ -45,16 +46,16 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4">
+    <div className="tenaqo-app-surface flex min-h-screen flex-col p-4">
       <div className="mx-auto flex w-full max-w-5xl justify-end">
-        <div className="mb-4 flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 shadow-sm">
-          <span className="mr-2 text-sm leading-none text-slate-700 dark:text-slate-200" aria-hidden="true">
+        <div className="mb-4 flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--surface-1)] px-2.5 py-1.5 shadow-[var(--shadow-subtle)]">
+          <span className="mr-2 text-sm leading-none text-[var(--text-secondary)]" aria-hidden="true">
             {getLanguageFlag(lang, { short: true })}
           </span>
           <select
             value={lang}
             onChange={(e) => setLang(e.target.value)}
-            className="min-w-[4.5rem] bg-transparent text-sm text-slate-800 dark:text-slate-200 focus:outline-none"
+            className="min-w-[4.5rem] bg-transparent text-sm text-[var(--text-secondary)] focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--focus-border)]"
             aria-label={t("topbar.language")}
           >
             {APP_LANGUAGES.map((language) => (
@@ -65,24 +66,26 @@ export default function Login() {
           </select>
         </div>
       </div>
-      <div className="flex items-center justify-center">
-      <form
+      <div className="flex flex-1 items-center justify-center">
+      <TenaqoCard
+        as="form"
         onSubmit={submit}
-        className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-xl shadow"
+        variant="elevated"
+        className="w-full max-w-sm"
       >
         <div className="mb-6 flex justify-center">
           <BrandLogo variant="header" showSubtitle />
         </div>
 
-        <h1 className="text-xl font-bold mb-4 text-center text-slate-900 dark:text-slate-100">
+        <h1 className="mb-4 text-center text-xl font-bold text-[var(--text-primary)]">
           {t("login.title")}
         </h1>
-        <p className="mb-4 text-center text-xs text-slate-500 dark:text-slate-400">
+        <p className="mb-4 text-center text-xs text-[var(--text-muted)]">
           {BRAND.transitionLabel}
         </p>
 
         {error && (
-          <p className="mb-3 text-sm text-red-600">{error}</p>
+          <p className="mb-3 rounded-xl bg-[var(--status-danger-bg)] px-3 py-2 text-sm text-[var(--status-danger-text)]">{error}</p>
         )}
 
         <input
@@ -90,7 +93,7 @@ export default function Login() {
           name="email"
           autoComplete="email"
           placeholder={t("login.email")}
-          className="w-full mb-3 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2"
+          className="mb-3 w-full rounded-[var(--radius-control)] border border-[var(--border-soft)] bg-[var(--surface-2)] px-3 py-2 text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--focus-border)] focus:outline-none focus:ring-2 focus:ring-[rgba(20,139,166,0.18)]"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -100,7 +103,7 @@ export default function Login() {
           name="password"
           autoComplete="current-password"
           placeholder={t("login.password")}
-          className="w-full mb-4 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2"
+          className="mb-4 w-full rounded-[var(--radius-control)] border border-[var(--border-soft)] bg-[var(--surface-2)] px-3 py-2 text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--focus-border)] focus:outline-none focus:ring-2 focus:ring-[rgba(20,139,166,0.18)]"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
@@ -108,23 +111,23 @@ export default function Login() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+          className="w-full rounded-[var(--radius-control)] bg-[var(--focus-border)] py-2.5 text-sm font-semibold text-white transition-colors hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-border)] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
         >
           {loading ? t("login.loggingIn") : t("login.login")}
         </button>
 
         <div className="mt-4 text-sm text-center">
-          <Link to={forgotPasswordHref} className="text-slate-600 dark:text-slate-300 hover:underline">
+          <Link to={forgotPasswordHref} className="text-[var(--text-secondary)] hover:underline">
             {t("login.forgotPassword")}
           </Link>
         </div>
 
-        <div className="mt-2 text-sm text-center">
-          <Link to="/signup" className="text-blue-700 hover:underline">
+        <div className="mt-3 flex justify-center text-sm">
+          <ActionPill as={Link} to="/signup">
             {t("login.createLandlordAccount")}
-          </Link>
+          </ActionPill>
         </div>
-      </form>
+      </TenaqoCard>
       </div>
     </div>
   );

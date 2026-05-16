@@ -26,6 +26,38 @@ body {
 :root {
   --app-bg: #f8fafc; /* slate-50 */
   --app-fg: #0f172a; /* slate-900 */
+  --page-bg: #f7f9fb;
+  --surface-1: #ffffff;
+  --surface-2: #f9fbfc;
+  --surface-3: #eef5f7;
+  --border-soft: rgba(11, 29, 58, 0.08);
+  --border-strong: rgba(11, 29, 58, 0.14);
+  --focus-border: #148ba6;
+  --text-primary: #0b1d3a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-inverse: #ffffff;
+  --status-success-bg: rgba(34, 197, 94, 0.1);
+  --status-success-text: #047857;
+  --status-warning-bg: rgba(245, 158, 11, 0.12);
+  --status-warning-text: #b45309;
+  --status-danger-bg: rgba(244, 63, 94, 0.12);
+  --status-danger-text: #be123c;
+  --status-info-bg: rgba(37, 99, 235, 0.1);
+  --status-info-text: #2563eb;
+  --status-neutral-bg: rgba(100, 116, 139, 0.1);
+  --status-neutral-text: #475569;
+  --shadow-subtle: 0 1px 2px rgba(11, 29, 58, 0.05);
+  --shadow-elevated: 0 18px 45px rgba(11, 29, 58, 0.1);
+  --glass-blur: blur(18px);
+  --focus-ring: 0 0 0 3px rgba(20, 139, 166, 0.2);
+  --radius-card: 1.25rem;
+  --radius-control: 0.875rem;
+  --radius-pill: 999px;
+  --page-padding: clamp(1rem, 2.2vw, 1.75rem);
+  --card-padding: clamp(1rem, 2vw, 1.5rem);
+  --section-gap: clamp(1rem, 2vw, 1.5rem);
+  --grid-gap: clamp(0.875rem, 1.6vw, 1.25rem);
   --brand-logo-wordmark: #0b1d3a;
   --brand-logo-subtitle: #148ba6;
   --brand-logo-tile-bg: #ffffff;
@@ -36,6 +68,29 @@ body {
 .dark {
   --app-bg: #020617; /* slate-950 */
   --app-fg: #e2e8f0; /* slate-200 */
+  --page-bg: #0b1020;
+  --surface-1: rgba(255, 255, 255, 0.045);
+  --surface-2: rgba(255, 255, 255, 0.065);
+  --surface-3: rgba(255, 255, 255, 0.085);
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --focus-border: #7dd3fc;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #8fa3b8;
+  --text-inverse: #0b1020;
+  --status-success-bg: rgba(34, 197, 94, 0.1);
+  --status-success-text: #34d399;
+  --status-warning-bg: rgba(245, 158, 11, 0.12);
+  --status-warning-text: #fbbf24;
+  --status-danger-bg: rgba(244, 63, 94, 0.12);
+  --status-danger-text: #fb7185;
+  --status-info-bg: rgba(37, 99, 235, 0.12);
+  --status-info-text: #60a5fa;
+  --status-neutral-bg: rgba(148, 163, 184, 0.12);
+  --status-neutral-text: #cbd5e1;
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.22);
+  --shadow-elevated: 0 22px 60px rgba(0, 0, 0, 0.28);
   --brand-logo-wordmark: #ffffff;
   --brand-logo-subtitle: #b7dde2;
   --brand-logo-tile-bg: #fafcfb;
@@ -123,6 +178,257 @@ body {
 .brand-logo--icon-only .brand-logo__tile {
   width: 2rem;
   height: 2rem;
+}
+
+.tenaqo-app-surface {
+  background:
+    radial-gradient(circle at top right, rgba(20, 139, 166, 0.07), transparent 32rem),
+    var(--page-bg);
+  color: var(--text-primary);
+}
+
+.tenaqo-page-shell {
+  width: 100%;
+  margin-inline: auto;
+  padding-block: var(--page-padding);
+  color: var(--text-primary);
+}
+
+.tenaqo-page-shell--compact {
+  padding-block: 1rem;
+}
+
+.tenaqo-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.tenaqo-page-header__eyebrow,
+.tenaqo-section-header__eyebrow {
+  color: var(--brand-logo-subtitle);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tenaqo-page-header__title {
+  color: var(--text-primary);
+  font-size: clamp(1.5rem, 2.5vw, 2rem);
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.05;
+}
+
+.tenaqo-page-header__subtitle {
+  max-width: 44rem;
+  color: var(--text-secondary);
+  font-size: 0.96rem;
+  line-height: 1.55;
+}
+
+.tenaqo-card,
+.tenaqo-hero-panel {
+  border: 1px solid var(--border-soft);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-subtle);
+}
+
+.tenaqo-card {
+  border-radius: var(--radius-card);
+  padding: var(--card-padding);
+}
+
+.tenaqo-card--subtle {
+  background: var(--surface-2);
+}
+
+.tenaqo-card--elevated,
+.tenaqo-hero-panel {
+  box-shadow: var(--shadow-elevated);
+}
+
+.tenaqo-card--interactive {
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.tenaqo-card--interactive:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+
+.tenaqo-card--danger {
+  border-color: rgba(244, 63, 94, 0.22);
+}
+
+.tenaqo-card--success {
+  border-color: rgba(34, 197, 94, 0.22);
+}
+
+.tenaqo-card--warning {
+  border-color: rgba(245, 158, 11, 0.24);
+}
+
+.tenaqo-hero-panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: calc(var(--radius-card) + 0.25rem);
+  padding: clamp(1.1rem, 2.5vw, 1.75rem);
+  backdrop-filter: var(--glass-blur);
+}
+
+.tenaqo-metric-tile {
+  display: flex;
+  min-height: 8.5rem;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 1.1rem;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-2);
+  padding: 1rem;
+}
+
+.tenaqo-icon-tile {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.85rem;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-3);
+  color: var(--text-secondary);
+}
+
+.tenaqo-status-pill,
+.tenaqo-action-pill {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  padding: 0.38rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.tenaqo-action-pill {
+  border-color: var(--border-soft);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.tenaqo-action-pill:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.tenaqo-action-pill[aria-pressed="true"] {
+  border-color: rgba(20, 139, 166, 0.28);
+  background: rgba(20, 139, 166, 0.12);
+  color: var(--brand-logo-subtitle);
+}
+
+.tenaqo-status-pill--success,
+.tenaqo-status-pill--completed {
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
+}
+
+.tenaqo-status-pill--warning,
+.tenaqo-status-pill--pending {
+  background: var(--status-warning-bg);
+  color: var(--status-warning-text);
+}
+
+.tenaqo-status-pill--danger {
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
+}
+
+.tenaqo-status-pill--info {
+  background: var(--status-info-bg);
+  color: var(--status-info-text);
+}
+
+.tenaqo-status-pill--neutral {
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-text);
+}
+
+.tenaqo-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.tenaqo-section-header__title {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.tenaqo-section-header__subtitle {
+  margin-top: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.tenaqo-operational-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.tenaqo-operational-list__item {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-2);
+  padding: 0.85rem 0.95rem;
+  text-align: left;
+  color: var(--text-primary);
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.tenaqo-operational-list__item:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-3);
+}
+
+.tenaqo-empty-state {
+  border-radius: 1rem;
+  border: 1px dashed var(--border-strong);
+  background: var(--surface-2);
+  padding: 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 640px) {
+  .tenaqo-page-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tenaqo-card--interactive,
+  .tenaqo-action-pill,
+  .tenaqo-operational-list__item {
+    transition: none;
+  }
 }
 
 /*

@@ -32,9 +32,12 @@ import {
   Globe,
   Flag,
   CalendarClock,
+  Monitor,
+  Moon,
+  Sun,
 } from "lucide-react";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
 import { useAuth } from "../context/AuthContext";
@@ -59,7 +62,7 @@ function Item({ to, icon: Icon, label, onNavigate, end = false }) {
       end={end}
       onClick={onNavigate}
       className={({ isActive }) =>
-        `flex items-center gap-2.5 px-2.5 py-[5px] rounded-md text-[13px] leading-5 transition-colors duration-100 ${
+        `flex items-center gap-2.5 px-2.5 py-[5px] rounded-md text-[13px] leading-5 transition-colors duration-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-400/60 dark:focus-visible:ring-slate-500/70 ${
           isActive
             ? "bg-black/[0.07] dark:bg-white/[0.09] text-slate-900 dark:text-slate-100 font-[500]"
             : "text-slate-500 dark:text-slate-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] hover:text-slate-800 dark:hover:text-slate-200"
@@ -83,13 +86,124 @@ function LockedItem({ to, icon: Icon, label, onNavigate }) {
     <NavLink
       to={to}
       onClick={onNavigate}
-      className="flex items-center gap-2.5 px-2.5 py-[5px] rounded-md text-[13px] leading-5 text-slate-400/60 dark:text-slate-600 hover:bg-black/[0.04] dark:hover:bg-white/[0.05]"
+      className="flex items-center gap-2.5 px-2.5 py-[5px] rounded-md text-[13px] leading-5 text-slate-400/60 dark:text-slate-600 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-400/60 dark:focus-visible:ring-slate-500/70"
       data-testid={`locked-nav-${to.replace(/\//g, "-").replace(/^-/, "")}`}
     >
       <Icon size={14} strokeWidth={1.7} className="shrink-0" />
       <span className="flex-1">{label}</span>
       <Lock size={10} className="shrink-0 opacity-40" aria-label="Requires upgrade" />
     </NavLink>
+  );
+}
+
+function FooterLanguagePicker({ lang, setLang, t }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const activeLanguage = APP_LANGUAGES.find((language) => language.code === lang) || APP_LANGUAGES[1];
+
+  useEffect(() => {
+    function onDown(event) {
+      if (ref.current && !ref.current.contains(event.target)) setOpen(false);
+    }
+
+    function onEsc(event) {
+      if (event.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onEsc);
+    };
+  }, []);
+
+  return (
+    <div ref={ref} className="relative min-w-0 flex-1">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex h-7 w-full min-w-0 items-center gap-1.5 rounded-lg bg-black/[0.04] px-2 text-left text-[11px] text-slate-500 transition-colors hover:bg-black/[0.07] hover:text-slate-700 focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-400/60 dark:bg-white/[0.05] dark:text-slate-400 dark:hover:bg-white/[0.08] dark:hover:text-slate-200 dark:focus-visible:ring-slate-500/70"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={t("topbar.language")}
+      >
+        <Globe size={11} strokeWidth={1.8} className="shrink-0 text-slate-400" />
+        <span aria-hidden="true">{activeLanguage.flag}</span>
+        <span className="truncate font-medium">{activeLanguage.code.toUpperCase()}</span>
+        <ChevronDown size={11} strokeWidth={1.8} className={`ml-auto shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open ? (
+        <div
+          className="absolute bottom-full left-0 z-50 mb-2 w-44 overflow-hidden rounded-xl border border-black/[0.08] bg-white p-1.5 shadow-xl dark:border-white/[0.08] dark:bg-[#2C2C2E]"
+          role="menu"
+          aria-label={t("topbar.language")}
+        >
+          {APP_LANGUAGES.map((language) => {
+            const active = language.code === lang;
+            return (
+              <button
+                key={language.code}
+                type="button"
+                onClick={() => {
+                  setLang(language.code);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-400/60 dark:focus-visible:ring-slate-500/70 ${
+                  active
+                    ? "bg-black/[0.07] font-medium text-slate-900 dark:bg-white/[0.09] dark:text-white"
+                    : "text-slate-600 hover:bg-black/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.06]"
+                }`}
+                role="menuitemradio"
+                aria-checked={active}
+              >
+                <span aria-hidden="true">{language.flag}</span>
+                <span className="min-w-0 flex-1 truncate">{t(language.labelKey)}</span>
+                <span className="text-[10px] uppercase text-slate-400">{language.code}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function FooterThemeSegment({ theme, setTheme, t }) {
+  const items = [
+    { key: "light", label: t("theme.light"), icon: Sun },
+    { key: "system", label: t("theme.system"), icon: Monitor },
+    { key: "dark", label: t("theme.dark"), icon: Moon },
+  ];
+
+  return (
+    <div
+      className="flex h-7 rounded-lg bg-black/[0.04] p-[2px] dark:bg-white/[0.05]"
+      role="group"
+      aria-label={t("topbar.theme")}
+    >
+      {items.map(({ key, label, icon: Icon }) => {
+        const active = theme === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setTheme(key)}
+            className={`flex h-full w-7 items-center justify-center rounded-md transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-400/60 dark:focus-visible:ring-slate-500/70 ${
+              active
+                ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white"
+                : "text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200"
+            }`}
+            aria-label={label}
+            aria-pressed={active}
+            title={label}
+          >
+            <Icon size={12} strokeWidth={1.8} aria-hidden="true" />
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -459,30 +573,9 @@ function SidebarContent({ onNavigate }) {
           Controls that don't belong in navigation
           live here, quiet and out of the way.   */}
       <div className="shrink-0 px-3.5 py-3 border-t border-black/[0.06] dark:border-white/[0.06]">
-        <div className="flex items-center gap-3">
-          <Globe size={11} strokeWidth={1.8} className="text-slate-400 shrink-0" />
-          <select
-            value={lang}
-            onChange={(e) => setLang(e.target.value)}
-            className="flex-1 min-w-0 text-[11px] bg-transparent text-slate-500 dark:text-slate-400 focus:outline-none cursor-pointer"
-            aria-label={t("topbar.language")}
-          >
-            {APP_LANGUAGES.map((language) => (
-              <option key={language.code} value={language.code}>
-                {t(language.labelKey)}
-              </option>
-            ))}
-          </select>
-          <select
-            value={theme}
-            onChange={(e) => setTheme(e.target.value)}
-            className="text-[11px] bg-transparent text-slate-500 dark:text-slate-400 focus:outline-none cursor-pointer"
-            aria-label={t("topbar.theme")}
-          >
-            <option value="system">{t("theme.system")}</option>
-            <option value="light">{t("theme.light")}</option>
-            <option value="dark">{t("theme.dark")}</option>
-          </select>
+        <div className="flex items-center gap-2">
+          <FooterLanguagePicker lang={lang} setLang={setLang} t={t} />
+          <FooterThemeSegment theme={theme} setTheme={setTheme} t={t} />
         </div>
         {user?.email && (
           <p className="mt-1.5 text-[10px] text-slate-400/70 dark:text-slate-500 truncate leading-4">

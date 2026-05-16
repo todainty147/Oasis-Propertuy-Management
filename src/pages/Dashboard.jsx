@@ -1,9 +1,21 @@
 // src/pages/Dashboard.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import Card from "../components/Card";
 import Skeleton from "../components/ui/Skeleton";
 import { Wallet, AlertCircle, Home, BriefcaseBusiness, CheckCircle2, CircleDashed, UserPlus, Wrench, X } from "lucide-react";
+import {
+  ActionPill,
+  EmptyState,
+  MetricTile,
+  OperationalList,
+  OperationalListItem,
+  PageHeader,
+  PageHeroPanel,
+  PageShell,
+  SectionHeader,
+  StatusPill,
+  TenaqoCard,
+} from "../components/ui/TenaqoPrimitives";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
@@ -41,10 +53,11 @@ import TenantTimelineCard from "../components/TenantTimelineCard";
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+    <PageShell className="space-y-6">
+      <Skeleton className="h-28 rounded-[1.5rem]" />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-[120px]" />
+          <Skeleton key={i} className="h-[132px] rounded-[1.25rem]" />
         ))}
       </div>
 
@@ -54,7 +67,7 @@ function DashboardSkeleton() {
         <Skeleton className="h-14" />
         <Skeleton className="h-14" />
       </div>
-    </div>
+    </PageShell>
   );
 }
 
@@ -408,7 +421,7 @@ export default function Dashboard({
     }
 
     return (
-      <div className="space-y-6">
+      <PageShell className="space-y-6">
         <TenantPortalOverview
           accountId={activeAccountId}
           tenantId={activeTenantId}
@@ -436,15 +449,17 @@ export default function Dashboard({
             viewer="tenant"
           />
         ) : null}
-      </div>
+      </PageShell>
     );
   }
 
   if (!canManage) {
     return (
-      <Card className="p-6">
-        <p className="text-sm text-slate-600">{t("dashboard.accessDenied")}</p>
-      </Card>
+      <PageShell>
+        <TenaqoCard>
+          <p className="text-sm text-[var(--text-secondary)]">{t("dashboard.accessDenied")}</p>
+        </TenaqoCard>
+      </PageShell>
     );
   }
 
@@ -459,22 +474,37 @@ export default function Dashboard({
   }
 
   return (
-    <div className="space-y-6 pt-3 lg:pt-4">
+    <PageShell className="space-y-6">
+      <PageHeader
+        eyebrow="Tenaqo"
+        title={t("dashboard.hub.title")}
+        subtitle={t("dashboard.hub.subtitle")}
+        actions={
+          <div className="inline-flex rounded-full border border-[var(--border-soft)] bg-[var(--surface-2)] p-1">
+            <ActionPill onClick={() => setHubHorizon("today")} active={hubHorizon === "today"}>
+              {t("dashboard.hub.range.today")}
+            </ActionPill>
+            <ActionPill onClick={() => setHubHorizon("week")} active={hubHorizon === "week"}>
+              {t("dashboard.hub.range.week")}
+            </ActionPill>
+          </div>
+        }
+      />
+
       {canManage && !isTenant ? (
         <SecurityPostureBanner accountId={activeAccountId} />
       ) : null}
       {isOwner && !checklistDismissed ? (
-        <Card className="relative overflow-hidden border border-slate-800 bg-gradient-to-r from-slate-900 via-slate-900 to-blue-950 p-5 shadow-lg">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.12),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.14),transparent_34%)]" />
-          <div className="relative flex items-start justify-between gap-4">
+        <TenaqoCard className="relative overflow-hidden" variant="elevated">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-sky-300">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--brand-logo-subtitle)]">
                 {t("dashboard.onboarding.eyebrow")}
               </p>
-              <h2 className="mt-1 text-lg font-semibold text-white">
+              <h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
                 {t("dashboard.onboarding.title")}
               </h2>
-              <p className="mt-1 text-sm text-slate-300">
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">
                 {t("dashboard.onboarding.subtitle", {
                   done: onboardingCompleteCount,
                   total: onboardingItems.length,
@@ -485,14 +515,14 @@ export default function Dashboard({
               <button
                 type="button"
                 onClick={() => navigate("/landlord-onboarding")}
-                className="rounded-lg border border-slate-700 bg-slate-950/40 px-3 py-2 text-sm font-medium text-slate-100 hover:border-blue-400 hover:text-blue-200"
+                className="rounded-full border border-[var(--border-soft)] bg-[var(--surface-2)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
               >
                 {t("dashboard.onboarding.openGuide")}
               </button>
               <button
                 type="button"
                 onClick={dismissChecklist}
-                className="rounded-lg border border-slate-700 bg-slate-950/30 p-2 text-slate-300 hover:border-blue-400 hover:text-blue-200"
+                className="rounded-full border border-[var(--border-soft)] bg-[var(--surface-2)] p-2 text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
                 aria-label={t("dashboard.onboarding.dismiss")}
                 title={t("dashboard.onboarding.dismiss")}
               >
@@ -501,18 +531,20 @@ export default function Dashboard({
             </div>
           </div>
 
-          <div className="relative mt-4 grid grid-cols-1 gap-3 lg:grid-cols-5">
+          <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-5">
             {onboardingItems.map((item) => {
               const Icon = item.icon;
               return (
-                <button
+                <TenaqoCard
                   key={item.key}
+                  as="button"
                   type="button"
                   onClick={() => navigate(item.href)}
-                  className="rounded-xl border border-slate-700 bg-slate-900/85 p-4 text-left transition hover:border-blue-400 hover:shadow-sm"
+                  variant="interactive"
+                  className="text-left"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="rounded-lg bg-blue-500/12 p-2 text-blue-300">
+                    <div className="tenaqo-icon-tile">
                       <Icon size={16} />
                     </div>
                     {item.complete ? (
@@ -521,172 +553,130 @@ export default function Dashboard({
                       <CircleDashed size={18} className="text-slate-400" />
                     )}
                   </div>
-                  <p className="mt-3 text-sm font-semibold text-slate-100">{item.title}</p>
-                  <p className="mt-1 text-sm text-slate-300">{item.body}</p>
-                </button>
+                  <p className="mt-3 text-sm font-semibold text-[var(--text-primary)]">{item.title}</p>
+                  <p className="mt-1 text-sm text-[var(--text-secondary)]">{item.body}</p>
+                </TenaqoCard>
               );
             })}
           </div>
-        </Card>
+        </TenaqoCard>
       ) : null}
 
-      <Card className="p-6 border bg-gradient-to-br from-slate-900 via-blue-900 to-cyan-800 text-white shadow-lg">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <h2 className="text-lg font-semibold">{t("dashboard.hub.title")}</h2>
-            <p className="text-sm text-slate-200 mt-1">{t("dashboard.hub.subtitle")}</p>
-          </div>
-          <div className="inline-flex rounded-lg border border-white/20 overflow-hidden">
-            <button
+      <PageHeroPanel>
+        <div className="relative z-10">
+          <SectionHeader
+            eyebrow={hubHorizon === "today" ? t("dashboard.hub.range.today") : t("dashboard.hub.range.week")}
+            title={t("dashboard.hub.title")}
+            subtitle={t("dashboard.hub.subtitle")}
+          />
+          <div className="mt-5 flex flex-wrap gap-2">
+            <ActionPill
               type="button"
-              onClick={() => setHubHorizon("today")}
-              className={`px-3 py-1.5 text-sm ${hubHorizon === "today" ? "bg-white text-slate-900" : "bg-white/10 text-white hover:bg-white/20"}`}
+              onClick={() => navigate("/maintenance-inbox?status=waiting&aging=48h")}
             >
-              {t("dashboard.hub.range.today")}
-            </button>
-            <button
+              {t("dashboard.hub.quick.waiting")}
+            </ActionPill>
+            <ActionPill
               type="button"
-              onClick={() => setHubHorizon("week")}
-              className={`px-3 py-1.5 text-sm ${hubHorizon === "week" ? "bg-white text-slate-900" : "bg-white/10 text-white hover:bg-white/20"}`}
+              onClick={() => navigate("/attention-center")}
             >
-              {t("dashboard.hub.range.week")}
-            </button>
+              {t("dashboard.hub.quick.stalled")}
+            </ActionPill>
+            <ActionPill
+              type="button"
+              onClick={() => navigate("/finance?status=overdue")}
+            >
+              {t("dashboard.hub.quick.overdue")}
+            </ActionPill>
+            <ActionPill
+              type="button"
+              onClick={() => navigate("/properties?status=vacant")}
+            >
+              {t("dashboard.hub.quick.vacant")}
+            </ActionPill>
+            <ActionPill
+              type="button"
+              onClick={() => navigate("/portfolio-health")}
+            >
+              {t("dashboard.hub.quick.portfolio")}
+            </ActionPill>
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-          <button
-            type="button"
-            onClick={() => navigate("/maintenance-inbox?status=waiting&aging=48h")}
-            className="px-3 py-2 text-sm rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 text-left"
-          >
-            {t("dashboard.hub.quick.waiting")}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate("/attention-center")}
-            className="px-3 py-2 text-sm rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 text-left"
-          >
-            {t("dashboard.hub.quick.stalled")}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate("/finance?status=overdue")}
-            className="px-3 py-2 text-sm rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 text-left"
-          >
-            {t("dashboard.hub.quick.overdue")}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate("/properties?status=vacant")}
-            className="px-3 py-2 text-sm rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 text-left"
-          >
-            {t("dashboard.hub.quick.vacant")}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate("/portfolio-health")}
-            className="px-3 py-2 text-sm rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 text-left"
-          >
-            {t("dashboard.hub.quick.portfolio")}
-          </button>
-        </div>
-      </Card>
+      </PageHeroPanel>
 
       <OnboardingHintCard
         title={t("dashboard.onboarding.hintTitle")}
         body={t("dashboard.onboarding.hintBody")}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <Card className="p-5 border border-emerald-200 bg-emerald-50/40">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500">{t("dashboard.occupiedUnits")}</p>
-              <h3 className="text-2xl font-bold text-green-600 mt-1">{Number(snapshotView.occupied_count || occupiedCount)}</h3>
-            </div>
-            <div className="p-2 bg-green-100 rounded-lg text-green-600">
-              <Home size={20} />
-            </div>
-          </div>
-          <div className="mt-4 text-sm text-slate-500">{t("dashboard.ofUnits", { count: Number(snapshotView.property_count || properties.length) })}</div>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricTile
+          label={t("dashboard.occupiedUnits")}
+          value={Number(snapshotView.occupied_count || occupiedCount)}
+          context={t("dashboard.ofUnits", { count: Number(snapshotView.property_count || properties.length) })}
+          icon={Home}
+          status="success"
+        />
 
-        <Card className="p-5 border border-blue-200 bg-blue-50/40">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500">{t("dashboard.occupancyRate")}</p>
-              <h3 className="text-2xl font-bold text-blue-600 mt-1">{Number(snapshotView.occupancy_rate || occupancyRate)}%</h3>
-            </div>
-            <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-              <Home size={20} />
-            </div>
-          </div>
-          <div className="mt-4 text-sm text-slate-500">{Number(snapshotView.vacant_count || vacantCount)} {t("status.vacant").toLowerCase()}</div>
-        </Card>
+        <MetricTile
+          label={t("dashboard.occupancyRate")}
+          value={`${Number(snapshotView.occupancy_rate || occupancyRate)}%`}
+          context={`${Number(snapshotView.vacant_count || vacantCount)} ${t("status.vacant").toLowerCase()}`}
+          icon={Home}
+          status="info"
+        />
 
-        <Card className="p-5 border border-rose-200 bg-rose-50/40">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500">{t("dashboard.hub.overdueAmount")}</p>
-              <h3 className="text-2xl font-bold text-rose-600 mt-1">{formatCurrencyAmount(overdueAmountView)}</h3>
-            </div>
-            <div className="p-2 bg-rose-100 rounded-lg text-rose-600">
-              <Wallet size={20} />
-            </div>
-          </div>
-          <div className="mt-4 text-sm text-slate-500">{t("dashboard.hub.overdueHint")}</div>
-          <div
-            className={`mt-1 text-xs font-medium ${
-              overdueTrend.delta > 0 ? "text-rose-700" : overdueTrend.delta < 0 ? "text-emerald-700" : "text-slate-500"
-            }`}
-          >
-            {overdueTrendLabel}
-          </div>
-        </Card>
+        <MetricTile
+          label={t("dashboard.hub.overdueAmount")}
+          value={formatCurrencyAmount(overdueAmountView)}
+          context={t("dashboard.hub.overdueHint")}
+          trend={overdueTrendLabel}
+          icon={Wallet}
+          status={overdueAmountView > 0 ? "danger" : "neutral"}
+        />
 
-        <Card className="p-5 border border-amber-200 bg-amber-50/40">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500">{t("dashboard.hub.dueSoon")}</p>
-              <h3 className="text-2xl font-bold text-amber-600 mt-1">{formatCurrencyAmount(dueSoonAmount)}</h3>
-            </div>
-            <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
-              <AlertCircle size={20} />
-            </div>
-          </div>
-          <div className="mt-4 text-sm text-slate-500">
-            {t("dashboard.hub.dueSoonCount", { count: dueSoonCount })}
-          </div>
-          <div className="mt-1 text-xs text-slate-500">
-            {hubHorizon === "today" ? t("dashboard.hub.dueSoonHintToday") : t("dashboard.hub.dueSoonHint")}
-          </div>
-        </Card>
+        <MetricTile
+          label={t("dashboard.hub.dueSoon")}
+          value={formatCurrencyAmount(dueSoonAmount)}
+          context={t("dashboard.hub.dueSoonCount", { count: dueSoonCount })}
+          trend={hubHorizon === "today" ? t("dashboard.hub.dueSoonHintToday") : t("dashboard.hub.dueSoonHint")}
+          icon={AlertCircle}
+          status={dueSoonAmount > 0 ? "warning" : "neutral"}
+        />
       </div>
 
-      <Card className="p-5 border shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-slate-900">{t("dashboard.hub.maintenanceLoad")}</h3>
-          <span className="text-xs text-slate-500">{t("dashboard.hub.live")}</span>
+      <TenaqoCard>
+        <SectionHeader
+          title={t("dashboard.hub.maintenanceLoad")}
+          action={<StatusPill variant="neutral">{t("dashboard.hub.live")}</StatusPill>}
+        />
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+          <MetricTile
+            label={t("portfolio.labels.openRequests")}
+            value={Number(snapshotView.open_requests || 0)}
+            status="neutral"
+            className="min-h-0"
+          />
+          <MetricTile
+            label={t("portfolio.labels.highPriority")}
+            value={Number(snapshotView.open_high_priority || 0)}
+            status="danger"
+            className="min-h-0"
+          />
+          <MetricTile
+            label={t("portfolio.labels.waiting48h")}
+            value={waiting48hCount}
+            status="warning"
+            className="min-h-0"
+          />
+          <MetricTile
+            label={t("dashboard.hub.unassignedWo")}
+            value={unassignedWorkOrdersCount}
+            status="info"
+            className="min-h-0"
+          />
         </div>
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div className="rounded-lg border border-slate-200 p-3 bg-white">
-            <p className="text-xs text-slate-500">{t("portfolio.labels.openRequests")}</p>
-            <p className="text-xl font-semibold text-slate-900 mt-1">{Number(snapshotView.open_requests || 0)}</p>
-          </div>
-          <div className="rounded-lg border border-rose-200 p-3 bg-rose-50/40">
-            <p className="text-xs text-slate-500">{t("portfolio.labels.highPriority")}</p>
-            <p className="text-xl font-semibold text-rose-700 mt-1">{Number(snapshotView.open_high_priority || 0)}</p>
-          </div>
-          <div className="rounded-lg border border-amber-200 p-3 bg-amber-50/40">
-            <p className="text-xs text-slate-500">{t("portfolio.labels.waiting48h")}</p>
-            <p className="text-xl font-semibold text-amber-700 mt-1">{waiting48hCount}</p>
-          </div>
-          <div className="rounded-lg border border-violet-200 p-3 bg-violet-50/40">
-            <p className="text-xs text-slate-500">{t("dashboard.hub.unassignedWo")}</p>
-            <p className="text-xl font-semibold text-violet-700 mt-1">{unassignedWorkOrdersCount}</p>
-          </div>
-        </div>
-        <div className="mt-3 h-2 rounded-full bg-slate-100 overflow-hidden">
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--surface-3)]">
           {(() => {
             const open = Number(snapshotView.open_requests || 0);
             const high = Number(snapshotView.open_high_priority || 0);
@@ -704,122 +694,124 @@ export default function Dashboard({
             );
           })()}
         </div>
-      </Card>
+      </TenaqoCard>
 
-      <Card className="p-5 border shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-900">{t("dashboard.hub.leaseWatch")}</h3>
-            <p className="text-xs text-slate-500 mt-1">{t("dashboard.hub.leaseWatchHint")}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate("/tenants")}
-            className="text-xs text-blue-600 hover:text-blue-700"
-          >
-            {t("dashboard.hub.viewLeases")}
-          </button>
+      <TenaqoCard>
+        <SectionHeader
+          title={t("dashboard.hub.leaseWatch")}
+          subtitle={t("dashboard.hub.leaseWatchHint")}
+          action={
+            <ActionPill onClick={() => navigate("/tenants")}>
+              {t("dashboard.hub.viewLeases")}
+            </ActionPill>
+          }
+        />
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <MetricTile
+            label={t("dashboard.hub.leaseExpiringSoon")}
+            value={Number(leaseSummaryView.expiringSoonCount || 0)}
+            status="warning"
+            className="min-h-0"
+          />
+          <MetricTile
+            label={t("dashboard.hub.leaseExpired")}
+            value={Number(leaseSummaryView.expiredCount || 0)}
+            status="danger"
+            className="min-h-0"
+          />
+          <MetricTile
+            label={t("dashboard.hub.leaseRenewalInProgress")}
+            value={Number(leaseSummaryView.renewalInProgressCount || 0)}
+            status="info"
+            className="min-h-0"
+          />
         </div>
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="rounded-lg border border-amber-200 p-3 bg-amber-50/40">
-            <p className="text-xs text-slate-500">{t("dashboard.hub.leaseExpiringSoon")}</p>
-            <p className="text-xl font-semibold text-amber-700 mt-1">{Number(leaseSummaryView.expiringSoonCount || 0)}</p>
-          </div>
-          <div className="rounded-lg border border-rose-200 p-3 bg-rose-50/40">
-            <p className="text-xs text-slate-500">{t("dashboard.hub.leaseExpired")}</p>
-            <p className="text-xl font-semibold text-rose-700 mt-1">{Number(leaseSummaryView.expiredCount || 0)}</p>
-          </div>
-          <div className="rounded-lg border border-blue-200 p-3 bg-blue-50/40">
-            <p className="text-xs text-slate-500">{t("dashboard.hub.leaseRenewalInProgress")}</p>
-            <p className="text-xl font-semibold text-blue-700 mt-1">{Number(leaseSummaryView.renewalInProgressCount || 0)}</p>
-          </div>
-        </div>
-      </Card>
+      </TenaqoCard>
 
       {canManage && !isTenant ? (
-        <Card className="p-5 border shadow-sm">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">{t("dashboard.healthRadar.title")}</h3>
-              <p className="text-sm text-slate-500 mt-1">{t("dashboard.healthRadar.subtitle")}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => navigate("/portfolio-health")}
-              className="text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
-            >
-              {t("dashboard.healthRadar.cta")}
-            </button>
-          </div>
+        <TenaqoCard>
+          <SectionHeader
+            title={t("dashboard.healthRadar.title")}
+            subtitle={t("dashboard.healthRadar.subtitle")}
+            action={
+              <ActionPill onClick={() => navigate("/portfolio-health")}>
+                {t("dashboard.healthRadar.cta")}
+              </ActionPill>
+            }
+          />
           {propertyHealthRows.length === 0 ? (
-            <p className="text-sm text-slate-500 mt-3">{t("dashboard.healthRadar.empty")}</p>
+            <EmptyState className="mt-4" body={t("dashboard.healthRadar.empty")} />
           ) : (
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3">
-                <p className="text-xs text-slate-500">{t("dashboard.healthRadar.avgScore")}</p>
-                <p className="mt-1 text-2xl font-semibold text-emerald-700">{propertyHealthSummary.averageScore}</p>
-              </div>
-              <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-3">
-                <p className="text-xs text-slate-500">{t("dashboard.healthRadar.attentionNeeded")}</p>
-                <p className="mt-1 text-2xl font-semibold text-amber-700">{propertyHealthSummary.attentionCount}</p>
-              </div>
-              <div className="rounded-lg border border-rose-200 bg-rose-50/40 p-3">
-                <p className="text-xs text-slate-500">{t("dashboard.healthRadar.highRisk")}</p>
-                <p className="mt-1 text-2xl font-semibold text-rose-700">{propertyHealthSummary.highRiskCount}</p>
-              </div>
+              <MetricTile
+                label={t("dashboard.healthRadar.avgScore")}
+                value={propertyHealthSummary.averageScore}
+                status="success"
+                className="min-h-0"
+              />
+              <MetricTile
+                label={t("dashboard.healthRadar.attentionNeeded")}
+                value={propertyHealthSummary.attentionCount}
+                status="warning"
+                className="min-h-0"
+              />
+              <MetricTile
+                label={t("dashboard.healthRadar.highRisk")}
+                value={propertyHealthSummary.highRiskCount}
+                status="danger"
+                className="min-h-0"
+              />
             </div>
           )}
-        </Card>
+        </TenaqoCard>
       ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-slate-900">{t("dashboard.hub.priorityQueue")}</h3>
+        <TenaqoCard>
+          <SectionHeader title={t("dashboard.hub.priorityQueue")} />
           {hubItems.length === 0 ? (
-            <p className="text-sm text-slate-500 mt-3">{t("maintenance.kpi.noUrgent")}</p>
+            <EmptyState className="mt-4" body={t("maintenance.kpi.noUrgent")} />
           ) : (
-            <div className="mt-3 space-y-2">
+            <OperationalList className="mt-4">
               {hubItems.map((item) => (
-                <button
+                <OperationalListItem
                   key={item.id}
-                  type="button"
                   onClick={() => navigate(item.to)}
-                  className="w-full text-left rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50"
                 >
-                  <p className="text-sm font-medium text-slate-900">{item.title}</p>
-                  <p className="text-xs text-slate-500 mt-1">{item.subtitle}</p>
-                  {item.meta ? <p className="text-[11px] text-slate-400 mt-1">{item.meta}</p> : null}
-                </button>
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">{item.title}</p>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">{item.subtitle}</p>
+                  {item.meta ? <p className="mt-1 text-[11px] text-[var(--text-muted)]">{item.meta}</p> : null}
+                </OperationalListItem>
               ))}
-            </div>
+            </OperationalList>
           )}
-        </Card>
+        </TenaqoCard>
 
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-slate-900">{t("dashboard.hub.vacancyWatch")}</h3>
+        <TenaqoCard>
+          <SectionHeader title={t("dashboard.hub.vacancyWatch")} />
           {longVacantProperties.length === 0 ? (
-            <p className="text-sm text-slate-500 mt-3">{t("dashboard.hub.noLongVacancy")}</p>
+            <EmptyState className="mt-4" body={t("dashboard.hub.noLongVacancy")} />
           ) : (
-            <div className="mt-3 divide-y">
+            <OperationalList className="mt-4">
               {longVacantProperties.slice(0, 6).map((p) => (
-                <button
+                <OperationalListItem
                   key={p.id}
-                  type="button"
                   onClick={() => navigate(`/properties/${p.id}`)}
-                  className="w-full py-3 flex justify-between items-center text-left hover:bg-slate-50"
                 >
-                  <div>
-                    <p className="font-medium">{p.address}</p>
-                    <p className="text-sm text-slate-500">{p.city}</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-[var(--text-primary)]">{p.address}</p>
+                      <p className="text-sm text-[var(--text-muted)]">{p.city}</p>
+                    </div>
+                    <StatusPill variant="danger">{p.daysVacant}d</StatusPill>
                   </div>
-                  <span className="text-sm font-semibold text-red-600">{p.daysVacant}d</span>
-                </button>
+                </OperationalListItem>
               ))}
-            </div>
+            </OperationalList>
           )}
-        </Card>
+        </TenaqoCard>
       </div>
-    </div>
+    </PageShell>
   );
 }
 

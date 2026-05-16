@@ -15,7 +15,7 @@ const Card = forwardRef(function Card({ children, className = "", ...props }, re
     <div
       ref={ref}
       {...props}
-      className={`bg-white dark:bg-slate-900 rounded-xl border border-black/[0.07] dark:border-white/[0.07] ${className}`}
+      className={`tenaqo-card ${className}`}
     >
       {children}
     </div>
