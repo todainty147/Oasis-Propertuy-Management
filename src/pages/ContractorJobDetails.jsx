@@ -77,7 +77,7 @@ function StatusPill({ status, t }) {
   const base = "text-xs px-2 py-0.5 rounded-full border";
   if (normalized === "completed") return <span className={`${base} bg-green-50 border-green-200 text-green-700`}>{t("status.wo.completed")}</span>;
   if (normalized === "in_progress") return <span className={`${base} bg-blue-50 border-blue-200 text-blue-700`}>{t("status.wo.in_progress")}</span>;
-  if (normalized === "cancelled") return <span className={`${base} bg-slate-50 border-slate-200 text-slate-600`}>{t("status.wo.cancelled")}</span>;
+  if (normalized === "cancelled") return <span className={`${base} bg-[var(--surface-2)] border-slate-200 text-[var(--text-secondary)]`}>{t("status.wo.cancelled")}</span>;
   if (normalized === "blocked") return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>{t("workOrder.blocked")}</span>;
   return <span className={`${base} bg-amber-50 border-amber-200 text-amber-800`}>{t("status.wo.assigned")}</span>;
 }
@@ -186,16 +186,6 @@ export default function ContractorJobDetails() {
 
     setInvoiceAmount(f?.invoice_amount != null ? String(f.invoice_amount) : "");
     setInvoiceCurrency(f?.invoice_currency || getDefaultCurrency());
-
-    const toLocal = (ts) => {
-      if (!ts) return "";
-      const d = new Date(ts);
-      if (Number.isNaN(d.getTime())) return "";
-      const pad = (n) => String(n).padStart(2, "0");
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-        d.getHours()
-      )}:${pad(d.getMinutes())}`;
-    };
 
     setInvoiceIssuedAt(toLocal(f?.invoice_issued_at));
     setInvoiceDueAt(toLocal(f?.invoice_due_at));
@@ -532,8 +522,8 @@ export default function ContractorJobDetails() {
       <Card className="p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">{t("contractor.detailsTitle")}</h2>
-            <p className="text-xs text-slate-500 mt-1">{t("common.id")}: {id}</p>
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("contractor.detailsTitle")}</h2>
+            <p className="text-xs text-[var(--text-muted)] mt-1">{t("common.id")}: {id}</p>
             {row ? (
               <div className="mt-2 flex items-center gap-2">
                 <StatusPill status={row.status} t={t} />
@@ -544,14 +534,14 @@ export default function ContractorJobDetails() {
             <button
               type="button"
               onClick={loadAll}
-              className="min-h-[44px] text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
+              className="min-h-[44px] text-sm px-3 py-2 rounded-lg border hover:bg-[var(--surface-2)]"
               disabled={loading || saving}
             >
               {t("common.refresh")}
             </button>
             <Link
               to="/contractor"
-              className="min-h-[44px] text-center text-sm px-3 py-2 rounded-lg border hover:bg-slate-50"
+              className="min-h-[44px] text-center text-sm px-3 py-2 rounded-lg border hover:bg-[var(--surface-2)]"
             >
               {t("common.back")}
             </Link>
@@ -566,13 +556,13 @@ export default function ContractorJobDetails() {
         </div>
       ) : !row ? (
         <Card className="p-6">
-          <p className="text-sm text-slate-600">{t("workOrder.notFound")}</p>
+          <p className="text-sm text-[var(--text-secondary)]">{t("workOrder.notFound")}</p>
         </Card>
       ) : (
         <>
           <Card className="p-4 space-y-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h3 className="text-base font-semibold text-slate-900">{t("contractor.quickActions")}</h3>
+              <h3 className="text-base font-semibold text-[var(--text-primary)]">{t("contractor.quickActions")}</h3>
               {requestRow?.priority ? (
                 <span
                   className={`inline-flex w-fit text-xs px-2 py-0.5 rounded border ${
@@ -580,7 +570,7 @@ export default function ContractorJobDetails() {
                       ? "bg-rose-100 border-rose-300 text-rose-700"
                       : String(requestRow.priority).toLowerCase() === "high"
                         ? "bg-orange-100 border-orange-300 text-orange-700"
-                        : "bg-slate-100 border-slate-200 text-slate-700"
+                        : "bg-slate-100 border-slate-200 text-[var(--text-secondary)]"
                   }`}
                 >
                   {t("common.priority")}: {String(requestRow.priority).toLowerCase() === "critical"
@@ -619,14 +609,14 @@ export default function ContractorJobDetails() {
               <button
                 type="button"
                 onClick={() => attachmentsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                className="min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-slate-50"
+                className="min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-[var(--surface-2)]"
               >
                 {t("attachments.addPhoto")}
               </button>
               <button
                 type="button"
                 onClick={() => financialsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                className="min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-slate-50"
+                className="min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-[var(--surface-2)]"
               >
                 {t("workOrders.addQuote")}
               </button>
@@ -647,78 +637,78 @@ export default function ContractorJobDetails() {
 
           <Card className="p-4 space-y-2">
             {requestRow?.title ? (
-              <div className="text-base font-semibold text-slate-900">{requestRow.title}</div>
+              <div className="text-base font-semibold text-[var(--text-primary)]">{requestRow.title}</div>
             ) : null}
             {propertyLabel ? (
-              <div className="text-sm text-slate-700">
-                <span className="text-slate-500">{t("finance.table.property")}:</span> {propertyLabel}
+              <div className="text-sm text-[var(--text-secondary)]">
+                <span className="text-[var(--text-muted)]">{t("finance.table.property")}:</span> {propertyLabel}
               </div>
             ) : null}
 	            <div className="text-sm">
-	              <span className="text-slate-500">{t("maintenance.card.status")}:</span>{" "}
+	              <span className="text-[var(--text-muted)]">{t("maintenance.card.status")}:</span>{" "}
 	              <StatusPill status={row.status} t={t} />
 	            </div>
             <div className="text-sm">
-              <span className="text-slate-500">{t("common.dueDate")}:</span>{" "}
-              <span className="text-slate-900">{formatDateTime(row.scheduled_at)}</span>
+              <span className="text-[var(--text-muted)]">{t("common.dueDate")}:</span>{" "}
+              <span className="text-[var(--text-primary)]">{formatDateTime(row.scheduled_at)}</span>
             </div>
             <div className="text-sm">
-              <span className="text-slate-500">{t("common.contractor")}:</span>{" "}
-              <span className="text-slate-900">{row.contractor_name || "—"}</span>
+              <span className="text-[var(--text-muted)]">{t("common.contractor")}:</span>{" "}
+              <span className="text-[var(--text-primary)]">{row.contractor_name || "—"}</span>
             </div>
             <div className="text-sm">
-              <span className="text-slate-500">{t("common.phone")}:</span>{" "}
-              <span className="text-slate-900">{row.contractor_phone || "—"}</span>
+              <span className="text-[var(--text-muted)]">{t("common.phone")}:</span>{" "}
+              <span className="text-[var(--text-primary)]">{row.contractor_phone || "—"}</span>
             </div>
             <div className="text-sm">
-              <span className="text-slate-500">{t("contractor.ackStatus")}:</span>{" "}
-              <span className="text-slate-900">
+              <span className="text-[var(--text-muted)]">{t("contractor.ackStatus")}:</span>{" "}
+              <span className="text-[var(--text-primary)]">
                 {t(`contractor.ackState.${normalizeAckStatus(row.acknowledgement_status, row.acknowledged_at, row.acknowledgement_due_at)}`)}
               </span>
             </div>
             <div className="text-sm">
-              <span className="text-slate-500">{t("contractor.ackDue")}:</span>{" "}
-              <span className="text-slate-900">{formatDateOrDash(row.acknowledgement_due_at)}</span>
+              <span className="text-[var(--text-muted)]">{t("contractor.ackDue")}:</span>{" "}
+              <span className="text-[var(--text-primary)]">{formatDateOrDash(row.acknowledgement_due_at)}</span>
             </div>
             <div className="text-sm">
-              <span className="text-slate-500">{t("contractor.acknowledgedAt")}:</span>{" "}
-              <span className="text-slate-900">{formatDateOrDash(row.acknowledged_at)}</span>
+              <span className="text-[var(--text-muted)]">{t("contractor.acknowledgedAt")}:</span>{" "}
+              <span className="text-[var(--text-primary)]">{formatDateOrDash(row.acknowledged_at)}</span>
             </div>
             <div className="text-sm">
-              <span className="text-slate-500">{t("maintenance.drawer.notes")}:</span>{" "}
-              <span className="text-slate-900">{row.notes || "—"}</span>
+              <span className="text-[var(--text-muted)]">{t("maintenance.drawer.notes")}:</span>{" "}
+              <span className="text-[var(--text-primary)]">{row.notes || "—"}</span>
             </div>
             {requestRow?.description ? (
               <div className="text-sm">
-                <span className="text-slate-500">{t("common.description")}:</span>{" "}
-                <span className="text-slate-900">{requestRow.description}</span>
+                <span className="text-[var(--text-muted)]">{t("common.description")}:</span>{" "}
+                <span className="text-[var(--text-primary)]">{requestRow.description}</span>
               </div>
             ) : null}
           </Card>
 
           <Card className="p-4 space-y-4">
             <div>
-              <h3 className="text-base font-semibold text-slate-900">{t("contractor.progressTitle")}</h3>
-              <p className="text-xs text-slate-500 mt-1">{t("contractor.progressSubtitle")}</p>
+              <h3 className="text-base font-semibold text-[var(--text-primary)]">{t("contractor.progressTitle")}</h3>
+              <p className="text-xs text-[var(--text-muted)] mt-1">{t("contractor.progressSubtitle")}</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-slate-500">{t("contractor.nextVisit")}</label>
+                <label className="text-xs text-[var(--text-muted)]">{t("contractor.nextVisit")}</label>
                 <input
                   type="datetime-local"
                   value={scheduleInput}
                   onChange={(e) => setScheduleInput(e.target.value)}
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
+                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-[var(--surface-2)]"
                   disabled={saving}
                 />
               </div>
               <div>
-                <label className="text-xs text-slate-500">{t("maintenance.drawer.notes")}</label>
+                <label className="text-xs text-[var(--text-muted)]">{t("maintenance.drawer.notes")}</label>
                 <textarea
                   value={progressNote}
                   onChange={(e) => setProgressNote(e.target.value)}
-                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm min-h-[110px] disabled:bg-slate-50"
+                  className="mt-1 w-full border rounded-lg px-3 py-2 text-sm min-h-[110px] disabled:bg-[var(--surface-2)]"
                   placeholder={t("contractor.progressPlaceholder")}
                   disabled={saving}
                 />
@@ -742,8 +732,8 @@ export default function ContractorJobDetails() {
           <Card ref={financialsRef} className="p-4 space-y-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-base font-semibold text-slate-900">{t("finance.title")}</h3>
-                <p className="text-xs text-slate-500 mt-1">
+                <h3 className="text-base font-semibold text-[var(--text-primary)]">{t("finance.title")}</h3>
+                <p className="text-xs text-[var(--text-muted)] mt-1">
                   {t("workOrders.financeSubtitle")}
                 </p>
               </div>
@@ -751,7 +741,7 @@ export default function ContractorJobDetails() {
 
             {!fin ? (
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-slate-600">{t("workOrders.financeEmpty")}</p>
+                <p className="text-sm text-[var(--text-secondary)]">{t("workOrders.financeEmpty")}</p>
                 <button
                   type="button"
                   onClick={saveQuoteDraft}
@@ -765,8 +755,8 @@ export default function ContractorJobDetails() {
               <div className="space-y-4">
                 <div className="border rounded-lg p-3">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm font-semibold text-slate-900">{t("workOrders.quote")}</div>
-                    <div className="text-xs text-slate-500">
+                    <div className="text-sm font-semibold text-[var(--text-primary)]">{t("workOrders.quote")}</div>
+                    <div className="text-xs text-[var(--text-muted)]">
                       {t("common.status")}: <span className="font-medium">{translateQuoteStatus(fin.quote_status, t)}</span>
                       {fin.quote_submitted_at ? ` • ${t("workOrders.submittedAt")}: ${formatDateTime(fin.quote_submitted_at)}` : ""}
                       {fin.approved_at ? ` • ${t("workOrders.approvedAt")}: ${formatDateTime(fin.approved_at)}` : ""}
@@ -776,21 +766,21 @@ export default function ContractorJobDetails() {
 
                   <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                      <label className="text-xs text-slate-500">{t("payments.amount")}</label>
+                      <label className="text-xs text-[var(--text-muted)]">{t("payments.amount")}</label>
                       <input
                         value={quoteAmount}
                         onChange={(e) => setQuoteAmount(e.target.value)}
-                        className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
+                        className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-[var(--surface-2)]"
                         disabled={saving || ["submitted", "approved"].includes(normalizeQuoteStatus(fin.quote_status))}
                         placeholder={t("workOrders.amountExample250")}
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-slate-500">{t("common.currency")}</label>
+                      <label className="text-xs text-[var(--text-muted)]">{t("common.currency")}</label>
                       <select
                         value={quoteCurrency}
                         onChange={(e) => setQuoteCurrency(e.target.value)}
-                        className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
+                        className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-[var(--surface-2)]"
                         disabled={saving || ["submitted", "approved"].includes(normalizeQuoteStatus(fin.quote_status))}
                       >
                         {getCurrencyOptions().map((c) => (
@@ -801,19 +791,19 @@ export default function ContractorJobDetails() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs text-slate-500">{t("attachments.preview")}</label>
-                      <div className="mt-1 border rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-700">
+                      <label className="text-xs text-[var(--text-muted)]">{t("attachments.preview")}</label>
+                      <div className="mt-1 border rounded-lg px-3 py-2 text-sm bg-[var(--surface-2)] text-[var(--text-secondary)]">
                         {formatMoney(fin.quote_amount, fin.quote_currency)}
                       </div>
                     </div>
                   </div>
 
                   <div className="mt-3">
-                    <label className="text-xs text-slate-500">{t("workOrders.quoteNotes")}</label>
+                    <label className="text-xs text-[var(--text-muted)]">{t("workOrders.quoteNotes")}</label>
                     <textarea
                       value={quoteNotes}
                       onChange={(e) => setQuoteNotes(e.target.value)}
-                      className="mt-1 w-full border rounded-lg px-3 py-2 text-sm min-h-[90px] disabled:bg-slate-50"
+                      className="mt-1 w-full border rounded-lg px-3 py-2 text-sm min-h-[90px] disabled:bg-[var(--surface-2)]"
                       disabled={saving || ["submitted", "approved"].includes(normalizeQuoteStatus(fin.quote_status))}
                       placeholder={t("maintenance.drawer.optional")}
                     />
@@ -854,8 +844,8 @@ export default function ContractorJobDetails() {
 
                 <div className="border rounded-lg p-3">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm font-semibold text-slate-900">{t("workOrders.invoice")}</div>
-                    <div className="text-xs text-slate-500">
+                    <div className="text-sm font-semibold text-[var(--text-primary)]">{t("workOrders.invoice")}</div>
+                    <div className="text-xs text-[var(--text-muted)]">
                       {fin.invoice_amount != null
                         ? `${t("workOrders.amount")}: ${formatMoney(fin.invoice_amount, fin.invoice_currency)}`
                         : t("workOrders.noAmount")}
@@ -863,29 +853,29 @@ export default function ContractorJobDetails() {
                   </div>
 
                   {normalizeQuoteStatus(fin.quote_status) !== "approved" ? (
-                    <p className="text-sm text-slate-600 mt-3">
+                    <p className="text-sm text-[var(--text-secondary)] mt-3">
                       {t("workOrders.invoiceAfterApprovalOnly")}
                     </p>
                   ) : (
                     <>
                       <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                          <label className="text-xs text-slate-500">{t("workOrders.invoiceAmount")}</label>
+                          <label className="text-xs text-[var(--text-muted)]">{t("workOrders.invoiceAmount")}</label>
                           <input
                             value={invoiceAmount}
                             onChange={(e) => setInvoiceAmount(e.target.value)}
-                            className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
+                            className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-[var(--surface-2)]"
                             disabled={saving}
                             placeholder={t("workOrders.amountExample300")}
                           />
                         </div>
 
                         <div>
-                          <label className="text-xs text-slate-500">{t("common.currency")}</label>
+                          <label className="text-xs text-[var(--text-muted)]">{t("common.currency")}</label>
                           <select
                             value={invoiceCurrency}
                             onChange={(e) => setInvoiceCurrency(e.target.value)}
-                            className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
+                            className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-[var(--surface-2)]"
                             disabled={saving}
                           >
                             {getCurrencyOptions().map((c) => (
@@ -897,23 +887,23 @@ export default function ContractorJobDetails() {
                         </div>
 
                         <div>
-                          <label className="text-xs text-slate-500">{t("workOrders.invoiceIssuedAt")}</label>
+                          <label className="text-xs text-[var(--text-muted)]">{t("workOrders.invoiceIssuedAt")}</label>
                           <input
                             type="datetime-local"
                             value={invoiceIssuedAt}
                             onChange={(e) => setInvoiceIssuedAt(e.target.value)}
-                            className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
+                            className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-[var(--surface-2)]"
                             disabled={saving}
                           />
                         </div>
 
                         <div>
-                          <label className="text-xs text-slate-500">{t("workOrders.invoiceDueAt")}</label>
+                          <label className="text-xs text-[var(--text-muted)]">{t("workOrders.invoiceDueAt")}</label>
                           <input
                             type="datetime-local"
                             value={invoiceDueAt}
                             onChange={(e) => setInvoiceDueAt(e.target.value)}
-                            className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-slate-50"
+                            className="mt-1 w-full border rounded-lg px-3 py-2 text-sm disabled:bg-[var(--surface-2)]"
                             disabled={saving}
                           />
                         </div>
@@ -955,11 +945,11 @@ export default function ContractorJobDetails() {
 
           <Card ref={timelineRef} className="p-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-slate-900">{t("common.timeline")}</h3>
+              <h3 className="text-base font-semibold text-[var(--text-primary)]">{t("common.timeline")}</h3>
               <button
                 type="button"
                 onClick={() => setTimelineOpen((v) => !v)}
-                className="px-3 py-1.5 text-xs rounded-lg border hover:bg-slate-50"
+                className="px-3 py-1.5 text-xs rounded-lg border hover:bg-[var(--surface-2)]"
               >
                 {timelineOpen ? t("common.hide") : t("common.show")}
               </button>
@@ -971,26 +961,26 @@ export default function ContractorJobDetails() {
                   <Skeleton className="h-10" />
                 </div>
               ) : timelineRows.length === 0 ? (
-                <p className="mt-3 text-sm text-slate-500">{t("workOrder.noEntries")}</p>
+                <p className="mt-3 text-sm text-[var(--text-muted)]">{t("workOrder.noEntries")}</p>
               ) : (
                 <div className="mt-3 space-y-2">
-                  {timelineRows.map((t) => (
-                    <div key={t.id} className="rounded-lg border border-slate-200 px-3 py-2">
-                      <p className="text-sm text-slate-900">{t.action || "update"}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{formatDateTime(t.created_at)}</p>
+                  {timelineRows.map((entry) => (
+                    <div key={entry.id} className="rounded-lg border border-slate-200 px-3 py-2">
+                      <p className="text-sm text-[var(--text-primary)]">{entry.action || "update"}</p>
+                      <p className="text-xs text-[var(--text-muted)] mt-0.5">{formatDateTime(entry.created_at)}</p>
                     </div>
                   ))}
                 </div>
               )
             ) : (
-              <p className="mt-3 text-sm text-slate-500">{t("contractor.timelineCollapsed")}</p>
+              <p className="mt-3 text-sm text-[var(--text-muted)]">{t("contractor.timelineCollapsed")}</p>
             )}
           </Card>
         </>
       )}
 
       {!loading && row ? (
-        <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 md:hidden">
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border-soft)] bg-[var(--surface-1)]/95 backdrop-blur supports-[backdrop-filter]:bg-[var(--surface-1)]/80 md:hidden">
           <div className="max-w-5xl mx-auto px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex items-center gap-2 overflow-x-auto">
             {allowedActions.includes("in_progress") ? (
               <button
@@ -1007,14 +997,14 @@ export default function ContractorJobDetails() {
             <button
               type="button"
               onClick={() => attachmentsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-              className="whitespace-nowrap min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-slate-50"
+              className="whitespace-nowrap min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-[var(--surface-2)]"
             >
               {t("attachments.addPhoto")}
             </button>
             <button
               type="button"
               onClick={() => financialsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-              className="whitespace-nowrap min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-slate-50"
+              className="whitespace-nowrap min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-[var(--surface-2)]"
             >
               {t("workOrders.addQuote")}
             </button>
@@ -1033,7 +1023,7 @@ export default function ContractorJobDetails() {
             <button
               type="button"
               onClick={() => timelineRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-              className="whitespace-nowrap min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-slate-50"
+              className="whitespace-nowrap min-h-[44px] px-3 py-2 rounded-lg text-sm border hover:bg-[var(--surface-2)]"
             >
               {t("common.timeline")}
             </button>

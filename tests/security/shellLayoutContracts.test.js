@@ -11,6 +11,7 @@ function read(rel) {
 const topbar     = read("src/layout/Topbar.jsx");
 const appLayout  = read("src/layout/AppLayout.jsx");
 const card       = read("src/components/Card.jsx");
+const indexCss   = read("src/index.css");
 const bottomNav  = read("src/components/mobile/MobileBottomNav.jsx");
 
 // ─── Topbar ──────────────────────────────────────────────────────────────────
@@ -72,8 +73,8 @@ describe("AppLayout", () => {
     expect(appLayout).toMatch(/bg-\[#1C1C1E\]/);
   });
 
-  it("right column is bg-white / bg-slate-900 (content surface)", () => {
-    expect(appLayout).toMatch(/bg-white.*bg-slate-900|bg-slate-900.*bg-white/);
+  it("right column uses the Tenaqo app surface token", () => {
+    expect(appLayout).toMatch(/tenaqo-app-surface/);
   });
 
   it("main has padding-bottom clearing mobile nav (pb-[72px])", () => {
@@ -108,13 +109,14 @@ describe("Card", () => {
     expect(card).not.toMatch(/translate|hover:-translate|transition-transform/);
   });
 
-  it("uses border-black opacity token instead of hard border-slate", () => {
-    expect(card).toMatch(/border-black\/\[0\.07\]/);
+  it("uses the Tenaqo card surface instead of hard border-slate", () => {
+    expect(card).toMatch(/tenaqo-card/);
     expect(card).not.toMatch(/border-slate-200/);
+    expect(indexCss).toMatch(/\.tenaqo-card[\s\S]*border: 1px solid var\(--border-soft\)/);
   });
 
-  it("uses rounded-xl corner radius", () => {
-    expect(card).toMatch(/rounded-xl/);
+  it("uses the shared card radius token", () => {
+    expect(indexCss).toMatch(/\.tenaqo-card[\s\S]*border-radius: var\(--radius-card\)/);
   });
 
   it("is a forwardRef component for composition", () => {

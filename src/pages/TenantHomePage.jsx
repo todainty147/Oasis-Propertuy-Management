@@ -34,9 +34,9 @@ function LeaseSummaryCard({ lease, loading, t }) {
   if (!lease) {
     return (
       <Card className="p-5">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{t("tenantPortal.home.leaseCard.title")}</p>
-        <p className="mt-3 text-sm text-slate-600">{t("tenantPortal.home.leaseCard.empty")}</p>
-        <Link to="/tenant/lease" className="mt-3 inline-block text-sm font-medium text-blue-600 hover:underline">
+        <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">{t("tenantPortal.home.leaseCard.title")}</p>
+        <p className="mt-3 text-sm text-[var(--text-secondary)]">{t("tenantPortal.home.leaseCard.empty")}</p>
+        <Link to="/tenant/lease" className="mt-3 inline-block text-sm font-medium text-[var(--focus-border)] hover:underline">
           {t("tenantPortal.home.leaseCard.viewDetails")} →
         </Link>
       </Card>
@@ -50,32 +50,32 @@ function LeaseSummaryCard({ lease, loading, t }) {
     <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{t("tenantPortal.home.leaseCard.title")}</p>
-          <p className="mt-2 text-base font-semibold text-slate-900">{lease.propertyLabel || "—"}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">{t("tenantPortal.home.leaseCard.title")}</p>
+          <p className="mt-2 text-base font-semibold text-[var(--text-primary)]">{lease.propertyLabel || "—"}</p>
         </div>
         <LeaseStatusBadge status={status} />
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div>
-          <p className="text-xs text-slate-500">{t("tenantPortal.lease.startDate")}</p>
-          <p className="mt-1 text-sm font-medium text-slate-900">{formatDate(lease.lease_start_date)}</p>
+          <p className="text-xs text-[var(--text-muted)]">{t("tenantPortal.lease.startDate")}</p>
+          <p className="mt-1 text-sm font-medium text-[var(--text-primary)]">{formatDate(lease.lease_start_date)}</p>
         </div>
         <div>
-          <p className="text-xs text-slate-500">{t("tenantPortal.lease.endDate")}</p>
-          <p className="mt-1 text-sm font-medium text-slate-900">{formatDate(lease.lease_end_date)}</p>
+          <p className="text-xs text-[var(--text-muted)]">{t("tenantPortal.lease.endDate")}</p>
+          <p className="mt-1 text-sm font-medium text-[var(--text-primary)]">{formatDate(lease.lease_end_date)}</p>
         </div>
       </div>
 
       {Number.isFinite(daysUntilEnd) && daysUntilEnd >= 0 ? (
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="mt-3 text-xs text-[var(--text-muted)]">
           {daysUntilEnd === 0
             ? t("tenantPortal.lease.endsToday")
             : t("tenantPortal.lease.daysRemaining", { count: daysUntilEnd })}
         </p>
       ) : null}
 
-      <Link to="/tenant/lease" className="mt-4 inline-block text-sm font-medium text-blue-600 hover:underline">
+      <Link to="/tenant/lease" className="mt-4 inline-block text-sm font-medium text-[var(--focus-border)] hover:underline">
         {t("tenantPortal.home.leaseCard.viewDetails")} →
       </Link>
     </Card>
@@ -88,23 +88,23 @@ function PaymentSummaryCard({ summary, loading, t }) {
   const stateClasses = {
     overdue: "border-rose-200 bg-rose-50",
     due: "border-amber-200 bg-amber-50",
-    clear: "border-emerald-200 bg-emerald-50",
+    clear: "border-[var(--border-soft)] bg-[var(--surface-1)]",
   };
 
   return (
     <Card className={`p-5 border ${stateClasses[summary.state] || stateClasses.clear}`}>
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{t("tenantPortal.home.paymentCard.title")}</p>
-      <p className={`mt-2 text-2xl font-bold ${summary.state === "overdue" ? "text-rose-700" : summary.state === "due" ? "text-amber-800" : "text-slate-900"}`}>
+      <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">{t("tenantPortal.home.paymentCard.title")}</p>
+      <p className={`mt-2 text-2xl font-bold ${summary.state === "overdue" ? "text-rose-700 dark:text-rose-300" : summary.state === "due" ? "text-amber-800 dark:text-amber-300" : "text-[var(--text-primary)]"}`}>
         {formatCurrencyAmount(summary.outstanding)}
       </p>
-      <p className="mt-1 text-sm text-slate-600">
+      <p className="mt-1 text-sm text-[var(--text-secondary)]">
         {summary.state === "overdue"
           ? t("tenantPortal.payment.helper.overdue")
           : summary.state === "due"
             ? t("tenantPortal.payment.helper.due")
             : t("tenantPortal.payment.helper.clear")}
       </p>
-      <Link to="/tenant/payments" className="mt-4 inline-block text-sm font-medium text-blue-600 hover:underline">
+      <Link to="/tenant/payments" className="mt-4 inline-block text-sm font-medium text-[var(--focus-border)] hover:underline">
         {t("tenantPortal.home.paymentCard.viewAll")} →
       </Link>
     </Card>
@@ -121,13 +121,13 @@ function QuickLinksCard({ t }) {
 
   return (
     <Card className="p-5">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{t("tenantPortal.home.quickLinks")}</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">{t("tenantPortal.home.quickLinks")}</p>
       <div className="mt-3 grid grid-cols-2 gap-2">
         {links.map((link) => (
           <Link
             key={link.to}
             to={link.to}
-            className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-800 hover:bg-white hover:text-slate-900 transition"
+            className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-2)] px-4 py-3 text-sm font-medium text-[var(--text-primary)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-3)]"
           >
             {link.label}
           </Link>
@@ -192,8 +192,8 @@ export default function TenantHomePage() {
       <DashboardBreadcrumbs items={[{ label: t("tenantPortal.shell.nav.home") }]} />
 
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">{t("tenantPortal.home.title")}</h2>
-        <p className="text-sm text-slate-500">{t("tenantPortal.home.subtitle")}</p>
+        <h2 className="text-2xl font-bold text-[var(--text-primary)]">{t("tenantPortal.home.title")}</h2>
+        <p className="text-sm text-[var(--text-muted)]">{t("tenantPortal.home.subtitle")}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
