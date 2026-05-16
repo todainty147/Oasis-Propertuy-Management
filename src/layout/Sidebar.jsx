@@ -42,6 +42,7 @@ import { useTheme } from "../context/ThemeContext";
 import { APP_LANGUAGES } from "../i18n/languages";
 import { can, isManageRole } from "../utils/permissions";
 import TenantSwitcher from "../components/TenantSwitcher";
+import BrandLogo from "../components/BrandLogo";
 import { ENTITLEMENT_FEATURES } from "../lib/entitlements";
 import { isPolishMarket } from "../utils/complianceMarket";
 
@@ -221,11 +222,11 @@ function SidebarContent({ onNavigate }) {
 
       {/* ── Logo + mobile close ── */}
       <div className="px-3.5 pt-4 pb-3 flex items-center justify-between shrink-0">
-        <img
-          src="/logo.png"
-          alt="OASIS Rental"
-          className="h-[26px] w-auto object-contain"
-          style={{ maxWidth: "130px" }}
+        <BrandLogo
+          variant="sidebar"
+          compact={Boolean(onNavigate)}
+          showSubtitle={!onNavigate}
+          className="min-w-0"
         />
         {onNavigate && (
           <button

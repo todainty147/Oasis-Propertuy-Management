@@ -5,9 +5,9 @@ import { cityPages } from "../../content/locations";
 import { buildMetadata } from "../../lib/metadata";
 
 export const metadata: Metadata = buildMetadata({
-  title: "OASIS for Landlords Across the UK | Automated Property Management",
+  title: "Tenaqo for Landlords Across the UK | Automated Property Management",
   description:
-    "OASIS helps landlords in Bristol, Manchester, London, Birmingham, Leeds and across the UK track rent, manage maintenance, and stay on top of compliance from one dashboard.",
+    "Tenaqo helps landlords in Bristol, Manchester, London, Birmingham, Leeds and across the UK track rent, manage maintenance, and stay on top of compliance from one dashboard.",
   canonical: "/locations",
 });
 
@@ -21,7 +21,7 @@ export default function LocationsIndex() {
             Automated Property Management Software for UK Landlords
           </h1>
           <p className="muted" style={{ maxWidth: 640, lineHeight: 1.75 }}>
-            OASIS helps landlords reduce manual admin, track rental income, manage maintenance, organise documents, and keep portfolio actions visible — from one rental management dashboard. Available across England and Wales.
+            Tenaqo helps landlords reduce manual admin, track rental income, manage maintenance, organise documents, and keep portfolio actions visible — from one rental management dashboard. Available across England and Wales.
           </p>
           <div className="grid grid-3" style={{ marginTop: "3rem", gap: "1.25rem" }}>
             {cityPages.map((city) => (

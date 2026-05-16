@@ -2,18 +2,18 @@ import { siteConfig } from "../site";
 
 export const portfolioHealthContent = {
   seo: {
-    title: "Portfolio Health Scoring for Landlords | OASIS Rental",
+    title: "Portfolio Health Scoring for Landlords | Tenaqo",
     description:
-      "Spot arrears pressure, maintenance strain, and property risk earlier with portfolio health scoring in OASIS.",
+      "Spot arrears pressure, maintenance strain, and property risk earlier with portfolio health scoring in Tenaqo.",
     canonical: "https://marketing.oasisrentalmgt.app/features/portfolio-health",
   },
   hero: {
     eyebrow: "Portfolio health",
     title: "See which properties are building pressure before they become expensive",
     body:
-      "OASIS turns property health into a landlord decision tool, combining arrears pressure, maintenance strain, stalled work, risk signals, and an AI explainer into one operating view.",
+      "Tenaqo turns property health into a landlord decision tool, combining arrears pressure, maintenance strain, stalled work, risk signals, and an AI explainer into one operating view.",
     imageSrc: "/screenshots/portfolio-health.png",
-    imageAlt: "OASIS Portfolio Health dashboard showing finance pressure, maintenance risk, and an AI property explainer.",
+    imageAlt: "Tenaqo Portfolio Health dashboard showing finance pressure, maintenance risk, and an AI property explainer.",
   },
   problemSection: {
     eyebrow: "Why it matters",
@@ -36,10 +36,10 @@ export const portfolioHealthContent = {
     ],
   },
   solutionSection: {
-    eyebrow: "What OASIS does",
+    eyebrow: "What Tenaqo does",
     title: "Health scoring that points back to the work",
     body:
-      "Portfolio health in OASIS is not just reporting. It helps landlords see which properties are building pressure, explains why the weakest address is slipping, and then points back into the queues, requests, and records behind that score.",
+      "Portfolio health in Tenaqo is not just reporting. It helps landlords see which properties are building pressure, explains why the weakest address is slipping, and then points back into the queues, requests, and records behind that score.",
     items: [
       {
         title: "Finance and arrears pressure",
@@ -59,7 +59,7 @@ export const portfolioHealthContent = {
       },
     ],
     imageSrc: "/screenshots/portfolio-health.png",
-    imageAlt: "OASIS Portfolio Health dashboard showing pressure signals, risk visibility, and an AI explanation card.",
+    imageAlt: "Tenaqo Portfolio Health dashboard showing pressure signals, risk visibility, and an AI explanation card.",
     imageAlign: "left" as const,
   },
   benefits: {
@@ -86,7 +86,7 @@ export const portfolioHealthContent = {
   finalCta: {
     title: "Know which property needs attention before the next complaint lands",
     body:
-      "See how OASIS turns portfolio health scoring into earlier, calmer intervention across the portfolio.",
+      "See how Tenaqo turns portfolio health scoring into earlier, calmer intervention across the portfolio.",
     primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
     secondaryCta: { label: "Explore Features", href: "/features" },
   },

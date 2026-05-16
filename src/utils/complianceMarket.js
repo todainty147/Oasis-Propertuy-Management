@@ -1,7 +1,7 @@
-// Supported compliance markets understood by OASIS.
+// Supported compliance markets understood by Tenaqo.
 export const COMPLIANCE_MARKETS = Object.freeze(['pl', 'uk', 'generic']);
 
-// Maps ISO 3166-1 alpha-2 country codes to OASIS compliance markets.
+// Maps ISO 3166-1 alpha-2 country codes to Tenaqo compliance markets.
 const COUNTRY_TO_MARKET = Object.freeze({
   PL: 'pl',
   GB: 'uk',

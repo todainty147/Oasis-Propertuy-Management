@@ -387,7 +387,7 @@ function StrNightlyPanel({ currency }) {
         <div><label className={lbl}>Platform</label><input className={cls} value={form.platform} onChange={(e) => set("platform", e.target.value)} placeholder="e.g. Airbnb, direct" /></div>
       </div>
       <p className="text-[11px] text-amber-700 dark:text-amber-400 italic">
-        STR booking records are for internal use only. OASIS does not integrate with Airbnb, Booking.com, or any platform.
+        STR booking records are for internal use only. Tenaqo does not integrate with Airbnb, Booking.com, or any platform.
       </p>
       <button type="button" onClick={calculate} className="text-sm px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
         Preview booking charge

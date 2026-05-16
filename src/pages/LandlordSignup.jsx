@@ -10,6 +10,7 @@ import { recordStrongPassword } from "../services/passwordSecurityService";
 import { recordAuthRateLimitAttempt, formatRetryAfter } from "../services/authRateLimitService";
 import { applyFounderOffer } from "../services/founderOfferService";
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
+import BrandLogo from "../components/BrandLogo";
 
 export default function LandlordSignup() {
   const { t, lang, setLang } = useI18n();
@@ -173,6 +174,9 @@ export default function LandlordSignup() {
       </div>
       <div className="flex items-center justify-center">
         <form onSubmit={submit} className="w-full max-w-md bg-white p-6 rounded-xl shadow space-y-4">
+          <div className="flex justify-center">
+            <BrandLogo variant="header" showSubtitle />
+          </div>
           <div className="space-y-1">
             <h1 className="text-2xl font-bold text-center">{t("signup.title")}</h1>
             <p className="text-sm text-slate-600 text-center">{t("signup.subtitle")}</p>

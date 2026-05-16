@@ -2,7 +2,7 @@ import { siteConfig } from "../site";
 
 export const tenantPortalContent = {
   seo: {
-    title: "Tenant Portal Software for Landlords | OASIS Rental",
+    title: "Tenant Portal Software for Landlords | Tenaqo",
     description:
       "Give tenants a clearer way to follow payments, maintenance activity, documents, and agreement review through a modern portal experience.",
     canonical: "https://marketing.oasisrentalmgt.app/features/tenant-portal",
@@ -11,9 +11,9 @@ export const tenantPortalContent = {
     eyebrow: "Tenant portal",
     title: "Give tenants a clearer self-service lane without loosening control",
     body:
-      "OASIS gives landlords a tenant-safe portal for payments, maintenance visibility, documents, agreement review, and signature handoff so fewer updates fall back into email chains and memory.",
+      "Tenaqo gives landlords a tenant-safe portal for payments, maintenance visibility, documents, agreement review, and signature handoff so fewer updates fall back into email chains and memory.",
     imageSrc: "/screenshots/tenant-home.png",
-    imageAlt: "OASIS tenant portal dashboard showing payment visibility, maintenance activity, and action items.",
+    imageAlt: "Tenaqo tenant portal dashboard showing payment visibility, maintenance activity, and action items.",
   },
   visibilitySection: {
     eyebrow: "Better visibility",
@@ -35,13 +35,13 @@ export const tenantPortalContent = {
       },
     ],
     imageSrc: "/screenshots/tenant-home.png",
-    imageAlt: "OASIS tenant portal dashboard showing summary cards, attention items, and recent updates.",
+    imageAlt: "Tenaqo tenant portal dashboard showing summary cards, attention items, and recent updates.",
   },
   documentsSection: {
     eyebrow: "Documents and review",
     title: "Requests, uploads, and agreement packets stay in one lane",
     body:
-      "The tenant portal is not just a file cabinet. OASIS lets landlords request evidence, tenants upload what is needed, and both sides track agreement packets in the same workflow.",
+      "The tenant portal is not just a file cabinet. Tenaqo lets landlords request evidence, tenants upload what is needed, and both sides track agreement packets in the same workflow.",
     items: [
       {
         title: "Tenant document requests",
@@ -57,14 +57,14 @@ export const tenantPortalContent = {
       },
     ],
     imageSrc: "/screenshots/tenant-documents.png",
-    imageAlt: "OASIS tenant documents page showing document requests and agreement packet review.",
+    imageAlt: "Tenaqo tenant documents page showing document requests and agreement packet review.",
     imageAlign: "left" as const,
   },
   paymentsSection: {
     eyebrow: "Payment clarity",
-    title: "Payment setup is clearer even when OASIS is not the payment rail",
+    title: "Payment setup is clearer even when Tenaqo is not the payment rail",
     body:
-      "Today OASIS supports landlord-configured payment setup in the tenant portal: accepted methods, external payment portal links, support contacts, and autopay guidance. That keeps the experience honest while reducing payment confusion.",
+      "Today Tenaqo supports landlord-configured payment setup in the tenant portal: accepted methods, external payment portal links, support contacts, and autopay guidance. That keeps the experience honest while reducing payment confusion.",
     items: [
       {
         title: "Accepted methods in one view",
@@ -80,13 +80,13 @@ export const tenantPortalContent = {
       },
     ],
     imageSrc: "/screenshots/payment-setup.png",
-    imageAlt: "OASIS finance page showing tenant payment setup with accepted methods, support contact, and external portal guidance.",
+    imageAlt: "Tenaqo finance page showing tenant payment setup with accepted methods, support contact, and external portal guidance.",
   },
   trustLayer: {
     eyebrow: "Trust layer",
     title: "A better tenant experience should still stay tightly scoped",
     body:
-      "The tenant portal only works as a trust layer if it is coherent and correctly limited. OASIS keeps tenant views account-scoped, route-hardened, and aligned with the same permission and document controls used across the product.",
+      "The tenant portal only works as a trust layer if it is coherent and correctly limited. Tenaqo keeps tenant views account-scoped, route-hardened, and aligned with the same permission and document controls used across the product.",
     items: [
       {
         title: "Tenant-safe routes",
@@ -102,7 +102,7 @@ export const tenantPortalContent = {
       },
     ],
     imageSrc: "/screenshots/security-audit.png",
-    imageAlt: "OASIS Security Audit page showing account-scoped review and workflow accountability.",
+    imageAlt: "Tenaqo Security Audit page showing account-scoped review and workflow accountability.",
     imageAlign: "left" as const,
   },
   benefits: {
@@ -129,7 +129,7 @@ export const tenantPortalContent = {
   finalCta: {
     title: "Show tenants a more complete experience without adding communication chaos",
     body:
-      "See how OASIS helps landlords give tenants clearer payments, maintenance visibility, document review, and agreement follow-through inside a tenant-safe portal.",
+      "See how Tenaqo helps landlords give tenants clearer payments, maintenance visibility, document review, and agreement follow-through inside a tenant-safe portal.",
     primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
     secondaryCta: { label: "Explore Features", href: "/features" },
   },

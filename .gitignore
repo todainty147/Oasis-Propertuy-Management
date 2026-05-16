@@ -41,3 +41,9 @@ tmp/
 playwright-report/
 test-results/
 *.tsbuildinfo
+
+# Local brand exploration/source asset packs
+App logo option 3/
+oasis_logo_options_1/
+oasis_option3_full_brand_asset_pack/
+tenaqo_production_brand_asset_pack/

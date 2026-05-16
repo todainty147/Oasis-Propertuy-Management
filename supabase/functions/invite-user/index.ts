@@ -445,7 +445,7 @@ Deno.serve(async (req) => {
         recipientUserId: null,
         entityType: "account_invitation",
         entityId: inviteEntityId,
-        subject: `${createdAccountName || "OASIS Rental"} invitation`,
+        subject: `${createdAccountName || "Tenaqo"} invitation`,
         metadata: {
           role,
           mode,
@@ -490,12 +490,12 @@ Deno.serve(async (req) => {
         .eq("account_id", accountId)
         .maybeSingle();
 
-      const brandName = branding?.brand_name || account?.name || "OASIS Rental";
-      const fromName = branding?.email_from_name || `${brandName} via OASIS`;
+      const brandName = branding?.brand_name || account?.name || "Tenaqo";
+      const fromName = branding?.email_from_name || `${brandName} via Tenaqo`;
       const replyTo = branding?.reply_to_email || branding?.support_email || undefined;
       const subject =
         branding?.invite_subject_template?.replaceAll("{{brand_name}}", brandName) ||
-        `${brandName} invited you to OASIS`;
+        `${brandName} invited you to Tenaqo`;
 
       const resendResponse = await resend.emails.send({
         from: `${fromName} <${OASIS_INVITES_FROM}>`,
@@ -507,7 +507,7 @@ Deno.serve(async (req) => {
           logoUrl: branding?.logo_url || "",
           primaryColor: branding?.primary_color || "#2563eb",
           buttonLabel: branding?.invite_button_label || "Accept invitation",
-          footerText: branding?.invite_footer_text || "Sent securely via OASIS Rental",
+          footerText: branding?.invite_footer_text || "Sent securely via Tenaqo",
           inviteUrl: actionLink,
           role,
         }),
@@ -534,7 +534,7 @@ Deno.serve(async (req) => {
         recipientUserId: null,
         entityType: "account_invitation",
         entityId: inviteEntityId,
-        subject: `${createdAccountName || "OASIS Rental"} invitation`,
+        subject: `${createdAccountName || "Tenaqo"} invitation`,
         metadata: { role, mode, reason: "resend_not_configured", functionName: "invite-user" },
       });
     }
@@ -635,7 +635,7 @@ function buildInviteEmail({
         You’ve been invited to join ${safeBrand}
       </h1>
       <p style="margin:0 0 14px;color:#374151;font-size:16px;line-height:1.6;">
-        You have been invited to join <strong>${safeBrand}</strong> on OASIS as <strong>${safeRole}</strong>.
+        You have been invited to join <strong>${safeBrand}</strong> on Tenaqo as <strong>${safeRole}</strong>.
       </p>
       <div style="margin:28px 0;">
         <a

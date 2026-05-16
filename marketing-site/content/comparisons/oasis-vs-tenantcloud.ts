@@ -2,26 +2,26 @@ import { siteConfig } from "../site";
 
 export const oasisVsTenantCloudContent = {
   seo: {
-    title: "OASIS vs TenantCloud | Which Is Better for Landlords?",
+    title: "Tenaqo vs TenantCloud | Which Is Better for Landlords?",
     description:
-      "Compare OASIS Rental vs TenantCloud for landlords deciding between a general tool and a more operations-focused workflow.",
+      "Compare Tenaqo vs TenantCloud for landlords deciding between a general tool and a more operations-focused workflow.",
     canonical: "https://marketing.oasisrentalmgt.app/compare/oasis-vs-tenantcloud",
   },
   hero: {
     eyebrow: "Comparison",
-    title: "OASIS vs TenantCloud",
+    title: "Tenaqo vs TenantCloud",
     body:
-      "TenantCloud offers a familiar all-in-one landlord toolkit. OASIS is the better fit when the priority is operational control: action queues, repair follow-through, arrears pressure, records, and portfolio visibility.",
+      "TenantCloud offers a familiar all-in-one landlord toolkit. Tenaqo is the better fit when the priority is operational control: action queues, repair follow-through, arrears pressure, records, and portfolio visibility.",
     imageSrc: "/screenshots/command-center.png",
-    imageAlt: "OASIS Command Center showing operations queues, overdue balance, and urgent actions.",
+    imageAlt: "Tenaqo Command Center showing operations queues, overdue balance, and urgent actions.",
   },
   summary: {
     eyebrow: "High-level comparison",
     title: "The right choice depends on whether you need tools or sharper operational control",
     body:
-      "TenantCloud can suit landlords who want broad all-in-one coverage. OASIS is built for landlords who want the day to start with what needs action: unpaid rent, maintenance pressure, missing context, and follow-up that should not slip.",
+      "TenantCloud can suit landlords who want broad all-in-one coverage. Tenaqo is built for landlords who want the day to start with what needs action: unpaid rent, maintenance pressure, missing context, and follow-up that should not slip.",
     imageSrc: "/screenshots/portfolio-health.png",
-    imageAlt: "OASIS Portfolio Health dashboard showing finance mix and maintenance pressure.",
+    imageAlt: "Tenaqo Portfolio Health dashboard showing finance mix and maintenance pressure.",
   },
   comparisonTable: {
     title: "Side-by-side comparison",
@@ -57,17 +57,17 @@ export const oasisVsTenantCloudContent = {
     ],
   },
   differences: {
-    eyebrow: "Where OASIS stands out",
-    title: "Why growing operators may choose OASIS over a general landlord tool",
+    eyebrow: "Where Tenaqo stands out",
+    title: "Why growing operators may choose Tenaqo over a general landlord tool",
     body:
-      "OASIS is aimed at landlords who want the product to help decide what deserves attention next. It is less about having another place to enter data and more about making follow-up easier to manage.",
+      "Tenaqo is aimed at landlords who want the product to help decide what deserves attention next. It is less about having another place to enter data and more about making follow-up easier to manage.",
     imageSrc: "/screenshots/security-audit.png",
-    imageAlt: "OASIS Security Audit page reinforcing operational trust and control.",
+    imageAlt: "Tenaqo Security Audit page reinforcing operational trust and control.",
     imageAlign: "left" as const,
     items: [
       {
         title: "Action queues are central",
-        body: "OASIS emphasizes queues and signals for overdue rent, urgent work, and portfolio pressure so landlords start from what matters.",
+        body: "Tenaqo emphasizes queues and signals for overdue rent, urgent work, and portfolio pressure so landlords start from what matters.",
       },
       {
         title: "Maintenance is treated as follow-through",
@@ -83,7 +83,7 @@ export const oasisVsTenantCloudContent = {
     title: "Choose based on how professional the operation needs to feel",
     items: [
       {
-        title: "Choose OASIS if",
+        title: "Choose Tenaqo if",
         body: "You want stronger day-to-day control, visible action queues, deeper maintenance follow-through, and portfolio signals that help prioritize work.",
       },
       {
@@ -91,7 +91,7 @@ export const oasisVsTenantCloudContent = {
         body: "You want a familiar all-in-one landlord tool and your current workflow does not yet need as much operational structure.",
       },
       {
-        title: "You may be ready for OASIS when",
+        title: "You may be ready for Tenaqo when",
         body: "You are less worried about having a list of tools and more worried about missed rent follow-up, stalled repairs, and knowing what needs action today.",
       },
     ],
@@ -99,7 +99,7 @@ export const oasisVsTenantCloudContent = {
   finalCta: {
     title: "Need more professional control than a simple all-in-one tool gives you?",
     body:
-      "If action queues, repair follow-through, arrears pressure, and portfolio visibility matter most, OASIS is built for that way of working.",
+      "If action queues, repair follow-through, arrears pressure, and portfolio visibility matter most, Tenaqo is built for that way of working.",
     primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
     secondaryCta: { label: "Compare Plans", href: "/pricing" },
   },

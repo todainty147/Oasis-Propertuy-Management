@@ -2,26 +2,26 @@ import { siteConfig } from "../site";
 
 export const oasisVsBuildiumContent = {
   seo: {
-    title: "OASIS vs Buildium | Which Is Better for Landlords?",
+    title: "Tenaqo vs Buildium | Which Is Better for Landlords?",
     description:
-      "Compare OASIS Rental vs Buildium for landlords choosing between a heavier platform and faster property operations control.",
+      "Compare Tenaqo vs Buildium for landlords choosing between a heavier platform and faster property operations control.",
     canonical: "https://marketing.oasisrentalmgt.app/compare/oasis-vs-buildium",
   },
   hero: {
     eyebrow: "Comparison",
-    title: "OASIS vs Buildium",
+    title: "Tenaqo vs Buildium",
     body:
-      "Buildium makes sense when you want a broader, heavier platform. OASIS is the better choice when you want a faster operating layer for arrears, repairs, records, and action queues without agency-style overhead.",
+      "Buildium makes sense when you want a broader, heavier platform. Tenaqo is the better choice when you want a faster operating layer for arrears, repairs, records, and action queues without agency-style overhead.",
     imageSrc: "/screenshots/command-center.png",
-    imageAlt: "OASIS Command Center showing urgent operational queues and overdue balance.",
+    imageAlt: "Tenaqo Command Center showing urgent operational queues and overdue balance.",
   },
   summary: {
     eyebrow: "High-level comparison",
-    title: "Choose OASIS when speed and clarity matter more than platform sprawl",
+    title: "Choose Tenaqo when speed and clarity matter more than platform sprawl",
     body:
       "Most switchers are not asking which product has the most surface area. They are asking which one helps the team see the next action faster: overdue rent, repair bottlenecks, document context, and portfolio pressure.",
     imageSrc: "/screenshots/portfolio-health.png",
-    imageAlt: "OASIS Portfolio Health dashboard showing occupancy, arrears, and maintenance pressure.",
+    imageAlt: "Tenaqo Portfolio Health dashboard showing occupancy, arrears, and maintenance pressure.",
   },
   comparisonTable: {
     title: "Side-by-side comparison",
@@ -57,17 +57,17 @@ export const oasisVsBuildiumContent = {
     ],
   },
   differences: {
-    eyebrow: "Where OASIS stands out",
-    title: "Why operators moving off heavier platforms choose OASIS",
+    eyebrow: "Where Tenaqo stands out",
+    title: "Why operators moving off heavier platforms choose Tenaqo",
     body:
-      "OASIS is built for landlords who want less system drag and more operational clarity. The emphasis is on what needs attention, what is stuck, and what should be reviewed next.",
+      "Tenaqo is built for landlords who want less system drag and more operational clarity. The emphasis is on what needs attention, what is stuck, and what should be reviewed next.",
     imageSrc: "/screenshots/security-audit.png",
-    imageAlt: "OASIS Security Audit screen showing controls and operational trust tooling.",
+    imageAlt: "Tenaqo Security Audit screen showing controls and operational trust tooling.",
     imageAlign: "left" as const,
     items: [
       {
         title: "Action is easier to prioritize",
-        body: "OASIS keeps overdue balances, repair pressure, and urgent queues close to the operator's daily view.",
+        body: "Tenaqo keeps overdue balances, repair pressure, and urgent queues close to the operator's daily view.",
       },
       {
         title: "Maintenance has more follow-through shape",
@@ -75,7 +75,7 @@ export const oasisVsBuildiumContent = {
       },
       {
         title: "Better fit for focused operators",
-        body: "OASIS suits landlords who are outgrowing spreadsheets but do not want the extra weight of a more bloated platform.",
+        body: "Tenaqo suits landlords who are outgrowing spreadsheets but do not want the extra weight of a more bloated platform.",
       },
     ],
   },
@@ -83,7 +83,7 @@ export const oasisVsBuildiumContent = {
     title: "Choose based on the way you want to run the work",
     items: [
       {
-        title: "Choose OASIS if",
+        title: "Choose Tenaqo if",
         body: "You want a faster, leaner operating layer with clear action queues, stronger maintenance follow-through, and daily visibility into what needs attention.",
       },
       {
@@ -91,7 +91,7 @@ export const oasisVsBuildiumContent = {
         body: "You want a broader platform with more overall coverage and are comfortable with a heavier system around the daily work.",
       },
       {
-        title: "You may be ready for OASIS when",
+        title: "You may be ready for Tenaqo when",
         body: "Your biggest pain is no longer storing information. It is moving from issue to action fast enough to keep the portfolio under control.",
       },
     ],
@@ -99,7 +99,7 @@ export const oasisVsBuildiumContent = {
   finalCta: {
     title: "Need faster operations than a heavier platform gives you?",
     body:
-      "If you want clearer queues, stronger repair follow-through, and earlier visibility into portfolio pressure, OASIS is worth a closer look.",
+      "If you want clearer queues, stronger repair follow-through, and earlier visibility into portfolio pressure, Tenaqo is worth a closer look.",
     primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
     secondaryCta: { label: "Compare Plans", href: "/pricing" },
   },

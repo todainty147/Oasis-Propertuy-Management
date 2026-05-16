@@ -1,6 +1,6 @@
 // src/utils/passwordPolicy.js
 //
-// Shared password policy for all OASIS auth flows that create or change a
+// Shared password policy for all Tenaqo auth flows that create or change a
 // password. Applied client-side before any Supabase call; Supabase Auth
 // policy is a second layer, not the first.
 //

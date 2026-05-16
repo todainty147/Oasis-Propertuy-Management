@@ -92,7 +92,7 @@ describe("table-backed operational service contracts", () => {
             logo_url: "https://cdn.example.com/logo.png",
             primary_color: "#112233",
             accent_color: "#445566",
-            company_name: "OASIS Rental",
+            company_name: "Tenaqo",
             support_email: "support@oasis.test",
             support_phone: "+447700900102",
           },
@@ -131,7 +131,7 @@ describe("table-backed operational service contracts", () => {
     expect(branding).toEqual(
       expect.objectContaining({
         account_id: "account-1",
-        company_name: "OASIS Rental",
+        company_name: "Tenaqo",
         support_email: "support@oasis.test",
       }),
     );

@@ -2,18 +2,18 @@ import { siteConfig } from "../site";
 
 export const securityAuditContent = {
   seo: {
-    title: "Security Audit Trail for Landlords | OASIS Rental",
+    title: "Security Audit Trail for Landlords | Tenaqo",
     description:
-      "Review permissions, workflow-sensitive actions, and account-scoped audit trails in OASIS.",
+      "Review permissions, workflow-sensitive actions, and account-scoped audit trails in Tenaqo.",
     canonical: "https://marketing.oasisrentalmgt.app/features/security-audit",
   },
   hero: {
     eyebrow: "Security and audit",
     title: "Move fast without losing accountability",
     body:
-      "OASIS gives landlords an audit-aware operating model with role boundaries, workflow-sensitive review, and account-scoped visibility into what changed and why.",
+      "Tenaqo gives landlords an audit-aware operating model with role boundaries, workflow-sensitive review, and account-scoped visibility into what changed and why.",
     imageSrc: "/screenshots/security-audit.png",
-    imageAlt: "OASIS Security Audit page showing policy settings and hosted event review.",
+    imageAlt: "Tenaqo Security Audit page showing policy settings and hosted event review.",
   },
   problemSection: {
     eyebrow: "Why it matters",
@@ -36,10 +36,10 @@ export const securityAuditContent = {
     ],
   },
   solutionSection: {
-    eyebrow: "What OASIS does",
+    eyebrow: "What Tenaqo does",
     title: "Audit-ready operations without turning the app into a compliance maze",
     body:
-      "OASIS keeps permissions, security-sensitive actions, and workflow review inside the same product rhythm so operators can move quickly and still explain what happened.",
+      "Tenaqo keeps permissions, security-sensitive actions, and workflow review inside the same product rhythm so operators can move quickly and still explain what happened.",
     items: [
       {
         title: "Role-based access control",
@@ -55,7 +55,7 @@ export const securityAuditContent = {
       },
     ],
     imageSrc: "/screenshots/security-audit.png",
-    imageAlt: "OASIS Security Audit page reinforcing operational trust and review.",
+    imageAlt: "Tenaqo Security Audit page reinforcing operational trust and review.",
     imageAlign: "left" as const,
   },
   benefits: {
@@ -82,7 +82,7 @@ export const securityAuditContent = {
   finalCta: {
     title: "Run faster without losing the trail",
     body:
-      "See how OASIS gives landlords stronger accountability across permissions, document workflows, and daily operations.",
+      "See how Tenaqo gives landlords stronger accountability across permissions, document workflows, and daily operations.",
     primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
     secondaryCta: { label: "Explore Features", href: "/features" },
   },

@@ -40,7 +40,7 @@ export function LocationPage({ city }: { city: CityContent }) {
       <section className="location-features">
         <div className="container">
           <h2 style={{ margin: "0 0 0.5rem", color: "var(--brand-strong)", fontSize: "clamp(1.3rem, 2.8vw, 1.9rem)" }}>
-            What OASIS gives {city.city} landlords
+            What Tenaqo gives {city.city} landlords
           </h2>
           <p className="muted" style={{ maxWidth: 600 }}>
             Automated Property Management Software that connects rent, maintenance, documents, and compliance in one dashboard.
@@ -67,7 +67,7 @@ export function LocationPage({ city }: { city: CityContent }) {
             {city.cta.primaryCta.label}
           </Link>
           <p className="muted" style={{ marginTop: "1.25rem", fontSize: "0.82rem" }}>
-            OASIS is rental management software. It does not replace regulated letting, legal, or professional advice where those are required.
+            Tenaqo is rental management software. It does not replace regulated letting, legal, or professional advice where those are required.
           </p>
         </div>
       </section>

@@ -37,7 +37,7 @@ type FeaturesPageContent = {
 export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = {
   en: {
     seo: {
-      title: "OASIS Features | Rent, maintenance, documents, compliance and AI for landlords",
+      title: "Tenaqo Features | Rent, Maintenance, Documents, Compliance and AI",
       description:
         "Every workflow landlords check, chase, and worry about — connected. Rent Plans Engine, maintenance, documents, compliance, AI-assisted action queues, and audit trails in one platform.",
       canonicalPath: "/features",
@@ -46,20 +46,20 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
       eyebrow: "Features",
       title: "Every workflow landlords check, chase, and worry about — connected.",
       body:
-        "OASIS connects rent, tenants, properties, maintenance, documents, compliance, AI, security, and finance into one landlord operating system for residential rentals. Not a generic module list — a platform built around the outcomes that keep a rental portfolio running.",
-      cta: { label: "See how OASIS works", href: siteConfig.appUrl },
+        "Tenaqo connects rent, tenants, properties, maintenance, documents, compliance, AI, security, and finance into one landlord operating system for residential rentals. Not a generic module list — a platform built around the outcomes that keep a rental portfolio running.",
+      cta: { label: "See how Tenaqo works", href: siteConfig.appUrl },
       imageSrc: "/screenshots/command-center.png",
-      imageAlt: "OASIS Command Center showing urgent queues, overdue balances, and action items.",
+      imageAlt: "Tenaqo Command Center showing urgent queues, overdue balances, and action items.",
     },
     sectionTitle: "Features grouped by the work they improve",
     sectionBody:
-      "Each outcome below maps to real OASIS surfaces: Rent Plans Engine, Command Center, maintenance workflows, contractor lanes, documents, property health, compliance evidence, and review trails.",
+      "Each outcome below maps to real Tenaqo surfaces: Rent Plans Engine, Command Center, maintenance workflows, contractor lanes, documents, property health, compliance evidence, and review trails.",
     outcomeSections: [
       {
         eyebrow: "Rent and finance",
         title: "Rent that calculates properly and posts safely",
         why:
-          "Rent is rarely just one number. OASIS handles base rent, utilities, deposits, proration, split rent, room rent, rent holidays, rent increases, expected charges, and short-term nightly charges — with calculation previews before anything is posted to Finance. Included on every plan.",
+          "Rent is rarely just one number. Tenaqo handles base rent, utilities, deposits, proration, split rent, room rent, rent holidays, rent increases, expected charges, and short-term nightly charges — with calculation previews before anything is posted to Finance. Included on every plan.",
         bullets: [
           "Create rent plans with rules: base rent, utilities, service charges, deposits, adjustments.",
           "Choose from six proration methods — actual days, 30-day month, annual daily, no proration, manual override.",
@@ -88,7 +88,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
         eyebrow: "Maintenance and work orders",
         title: "Move repairs from first report to completed work",
         why:
-          "OASIS keeps request intake, triage, work-order execution, and contractor follow-up inside one operational lane.",
+          "Tenaqo keeps request intake, triage, work-order execution, and contractor follow-up inside one operational lane.",
         bullets: [
           "Capture maintenance requests in a structured workflow.",
           "Turn requests into work orders with visible ownership.",
@@ -114,7 +114,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
         eyebrow: "Tenant and contractor workflow",
         title: "Keep tenants informed and contractors aligned",
         why:
-          "Tenants need clarity, contractors need direction, and landlords need control. OASIS keeps all three connected without collapsing their roles together.",
+          "Tenants need clarity, contractors need direction, and landlords need control. Tenaqo keeps all three connected without collapsing their roles together.",
         bullets: [
           "Give tenants a clear portal for documents and maintenance visibility.",
           "Keep contractor updates and quotes tied to the right request.",
@@ -140,7 +140,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
         eyebrow: "Compliance suite",
         title: "Surface Renters' Rights gaps, lease risk, rent pressure, and tax obligations before they get expensive",
         why:
-          "OASIS brings Renters' Rights readiness, lease clause analysis, rent risk scoring, and tax deadline tracking into one landlord operating layer — so compliance evidence stays part of the working week, not a seasonal scramble.",
+          "Tenaqo brings Renters' Rights readiness, lease clause analysis, rent risk scoring, and tax deadline tracking into one landlord operating layer — so compliance evidence stays part of the working week, not a seasonal scramble.",
         bullets: [
           "Review AI-flagged lease clauses before they become legal or financial friction.",
           "Score rent risk across the portfolio and see which properties deserve attention first.",
@@ -166,30 +166,30 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
     finalCta: {
       title: "Choose the part of the operation that needs control first",
       body:
-        "Start with maintenance, property pressure, tenant workflow, or portfolio attention. OASIS keeps the work close enough to act before the week turns into catch-up.",
-      primaryCta: { label: "See how OASIS works", href: siteConfig.appUrl },
+        "Start with maintenance, property pressure, tenant workflow, or portfolio attention. Tenaqo keeps the work close enough to act before the week turns into catch-up.",
+      primaryCta: { label: "See how Tenaqo works", href: siteConfig.appUrl },
       secondaryCta: { label: "Compare plans", href: "/pricing" },
     },
   },
   pl: {
     seo: {
-      title: "Funkcje OASIS | Operacyjna kontrola nad najmem",
+      title: "Funkcje Tenaqo | Operacyjna kontrola nad najmem",
       description:
-        "Zobacz, jak OASIS pomaga właścicielom mieszkań utrzymać kontrolę nad zgłoszeniami, dokumentami, płatnościami, wykonawcami, kondycją nieruchomości i ryzykiem compliance.",
+        "Zobacz, jak Tenaqo pomaga właścicielom mieszkań utrzymać kontrolę nad zgłoszeniami, dokumentami, płatnościami, wykonawcami, kondycją nieruchomości i ryzykiem compliance.",
       canonicalPath: "/pl/features",
     },
     hero: {
       eyebrow: "Funkcje",
-      title: "Dowód, że OASIS wspiera realną pracę właściciela",
+      title: "Dowód, że Tenaqo wspiera realną pracę właściciela",
       body:
-        "To nie jest kolejna lista modułów. OASIS jest zbudowany wokół efektów, które naprawdę uspokajają najem: jasne płatności, sprawnie prowadzone zgłoszenia, gotowe dokumenty i czytelny następny krok.",
-      cta: { label: "Zobacz, jak działa OASIS", href: siteConfig.appUrl },
+        "To nie jest kolejna lista modułów. Tenaqo jest zbudowany wokół efektów, które naprawdę uspokajają najem: jasne płatności, sprawnie prowadzone zgłoszenia, gotowe dokumenty i czytelny następny krok.",
+      cta: { label: "Zobacz, jak działa Tenaqo", href: siteConfig.appUrl },
       imageSrc: "/screenshots/command-center.png",
-      imageAlt: "Command Center OASIS z pilnymi kolejkami, zaległościami i działaniami.",
+      imageAlt: "Command Center Tenaqo z pilnymi kolejkami, zaległościami i działaniami.",
     },
     sectionTitle: "Funkcje pogrupowane według pracy, którą usprawniają",
     sectionBody:
-      "Każdy obszar poniżej odpowiada konkretnym ekranom OASIS: Command Center, zgłoszenia i zlecenia, portal najemcy, dokumenty, kondycja nieruchomości i ślady audytowe.",
+      "Każdy obszar poniżej odpowiada konkretnym ekranom Tenaqo: Command Center, zgłoszenia i zlecenia, portal najemcy, dokumenty, kondycja nieruchomości i ślady audytowe.",
     outcomeSections: [
       {
         eyebrow: "Command Center",
@@ -208,7 +208,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
         eyebrow: "Zgłoszenia i zlecenia",
         title: "Prowadź naprawy od pierwszego zgłoszenia do zakończenia",
         why:
-          "OASIS utrzymuje intake zgłoszeń, triage, wykonanie zleceń i follow-up z wykonawcą w jednym obiegu operacyjnym.",
+          "Tenaqo utrzymuje intake zgłoszeń, triage, wykonanie zleceń i follow-up z wykonawcą w jednym obiegu operacyjnym.",
         bullets: [
           "Obsługujesz zgłoszenia w uporządkowanym workflow.",
           "Zamieniasz zgłoszenia na zlecenia z jasną odpowiedzialnością.",
@@ -234,7 +234,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
         eyebrow: "Najemca i wykonawca",
         title: "Utrzymuj jasność dla najemców i wykonawców",
         why:
-          "Najemca potrzebuje przejrzystości, wykonawca kierunku, a właściciel kontroli. OASIS spina te role bez mieszania ich uprawnień.",
+          "Najemca potrzebuje przejrzystości, wykonawca kierunku, a właściciel kontroli. Tenaqo spina te role bez mieszania ich uprawnień.",
         bullets: [
           "Dajesz najemcy czytelny portal dla dokumentów i zgłoszeń.",
           "Wiążesz wyceny i aktualizacje wykonawcy z właściwą sprawą.",
@@ -260,7 +260,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
         eyebrow: "Pakiet compliance",
         title: "Wykryj ryzyko umów, ekspozycję czynszową i terminy podatkowe, zanim staną się kosztowne",
         why:
-          "OASIS łączy analizę klauzul umownych, scoring ryzyka czynszowego i śledzenie terminów podatkowych w jednej warstwie operacyjnej — tak żeby compliance było częścią tygodnia, a nie sezonowym panikowaniem.",
+          "Tenaqo łączy analizę klauzul umownych, scoring ryzyka czynszowego i śledzenie terminów podatkowych w jednej warstwie operacyjnej — tak żeby compliance było częścią tygodnia, a nie sezonowym panikowaniem.",
         bullets: [
           "Przeglądasz klauzule oznaczone przez AI zanim staną się prawnym lub finansowym problemem.",
           "Oceniasz ryzyko czynszowe w całym portfelu i widzisz, które nieruchomości wymagają uwagi.",
@@ -286,30 +286,30 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
     finalCta: {
       title: "Wybierz obszar najmu, który najbardziej potrzebuje kontroli",
       body:
-        "Zacznij od zgłoszeń, kondycji nieruchomości, portalu najemcy albo kolejek działań. OASIS trzyma pracę wystarczająco blisko, by działać zanim tydzień zamieni się w nadrabianie zaległości.",
-      primaryCta: { label: "Zobacz OASIS", href: siteConfig.appUrl },
+        "Zacznij od zgłoszeń, kondycji nieruchomości, portalu najemcy albo kolejek działań. Tenaqo trzyma pracę wystarczająco blisko, by działać zanim tydzień zamieni się w nadrabianie zaległości.",
+      primaryCta: { label: "Zobacz Tenaqo", href: siteConfig.appUrl },
       secondaryCta: { label: "Porównaj plany", href: "/pricing" },
     },
   },
   de: {
     seo: {
-      title: "OASIS Funktionen | Operative Kontrolle für Vermieter",
+      title: "Tenaqo Funktionen | Operative Kontrolle für Vermieter",
       description:
-        "Sehen Sie, wie OASIS Vermietern hilft, Instandhaltung, Dokumente, Zahlungsübersicht, Handwerkerabläufe, Immobilienzustand und Compliance-Risiken unter Kontrolle zu halten.",
+        "Sehen Sie, wie Tenaqo Vermietern hilft, Instandhaltung, Dokumente, Zahlungsübersicht, Handwerkerabläufe, Immobilienzustand und Compliance-Risiken unter Kontrolle zu halten.",
       canonicalPath: "/de/features",
     },
     hero: {
       eyebrow: "Funktionen",
-      title: "Der Nachweis, dass OASIS die echte Vermieterarbeit unterstützt",
+      title: "Der Nachweis, dass Tenaqo die echte Vermieterarbeit unterstützt",
       body:
-        "Das ist keine weitere Liste generischer Software-Module. OASIS ist um die Ergebnisse gebaut, die ein Portfolio operativ ruhig halten: klare Zahlungsübersicht, laufende Instandhaltung, greifbare Dokumente und ein eindeutiger nächster Schritt.",
-      cta: { label: "OASIS im Einsatz sehen", href: siteConfig.appUrl },
+        "Das ist keine weitere Liste generischer Software-Module. Tenaqo ist um die Ergebnisse gebaut, die ein Portfolio operativ ruhig halten: klare Zahlungsübersicht, laufende Instandhaltung, greifbare Dokumente und ein eindeutiger nächster Schritt.",
+      cta: { label: "Tenaqo im Einsatz sehen", href: siteConfig.appUrl },
       imageSrc: "/screenshots/command-center.png",
-      imageAlt: "OASIS Command Center mit dringenden Warteschlangen, Rückständen und Aufgaben.",
+      imageAlt: "Tenaqo Command Center mit dringenden Warteschlangen, Rückständen und Aufgaben.",
     },
     sectionTitle: "Funktionen, geordnet nach der Arbeit, die sie verbessern",
     sectionBody:
-      "Jeder Bereich unten entspricht konkreten OASIS-Oberflächen: Command Center, Instandhaltung, Mieterportal, Dokumente, Immobilienzustand und Audit-Trails.",
+      "Jeder Bereich unten entspricht konkreten Tenaqo-Oberflächen: Command Center, Instandhaltung, Mieterportal, Dokumente, Immobilienzustand und Audit-Trails.",
     outcomeSections: [
       {
         eyebrow: "Command Center",
@@ -328,7 +328,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
         eyebrow: "Instandhaltung und Arbeitsaufträge",
         title: "Reparaturen vom ersten Hinweis bis zum Abschluss steuern",
         why:
-          "OASIS hält Anfrageerfassung, Triage, Arbeitsausführung und Handwerker-Nachverfolgung in einem operativen Ablauf zusammen.",
+          "Tenaqo hält Anfrageerfassung, Triage, Arbeitsausführung und Handwerker-Nachverfolgung in einem operativen Ablauf zusammen.",
         bullets: [
           "Sie erfassen Instandhaltungsanfragen strukturiert.",
           "Sie machen daraus Arbeitsaufträge mit klarer Zuständigkeit.",
@@ -354,7 +354,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
         eyebrow: "Mieter und Handwerker",
         title: "Mieter klar führen und Handwerker sauber ausrichten",
         why:
-          "Mieter brauchen Transparenz, Handwerker klare Richtung und Vermieter volle Kontrolle. OASIS hält diese Rollen verbunden, ohne sie zu vermischen.",
+          "Mieter brauchen Transparenz, Handwerker klare Richtung und Vermieter volle Kontrolle. Tenaqo hält diese Rollen verbunden, ohne sie zu vermischen.",
         bullets: [
           "Sie geben Mietern ein klares Portal für Dokumente und Wartungsstatus.",
           "Sie binden Angebote und Updates an den richtigen Vorgang.",
@@ -380,7 +380,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
         eyebrow: "Compliance-Suite",
         title: "Vertragsrisiken, Mietexposition und Steuerfristen erkennen, bevor sie teuer werden",
         why:
-          "OASIS bündelt Mietvertragsanalyse, portfolioweite Mietrisikobewertung und Steuerfristen-Tracking in einer operativen Schicht — damit Compliance zum Alltag gehört und nicht zur saisonalen Hektik wird.",
+          "Tenaqo bündelt Mietvertragsanalyse, portfolioweite Mietrisikobewertung und Steuerfristen-Tracking in einer operativen Schicht — damit Compliance zum Alltag gehört und nicht zur saisonalen Hektik wird.",
         bullets: [
           "Sie prüfen AI-markierte Vertragsklauseln, bevor sie zu rechtlichen oder finanziellen Problemen werden.",
           "Sie bewerten das Mietrisiko portfolioweit und sehen, welche Objekte zuerst Aufmerksamkeit brauchen.",
@@ -406,8 +406,8 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
     finalCta: {
       title: "Wählen Sie zuerst den Bereich, der mehr Kontrolle braucht",
       body:
-        "Starten Sie mit Instandhaltung, Immobilienzustand, Mieterportal oder Aufgabenpriorisierung. OASIS hält die Arbeit nah genug, damit die Woche nicht im Nacharbeiten endet.",
-      primaryCta: { label: "OASIS im Einsatz sehen", href: siteConfig.appUrl },
+        "Starten Sie mit Instandhaltung, Immobilienzustand, Mieterportal oder Aufgabenpriorisierung. Tenaqo hält die Arbeit nah genug, damit die Woche nicht im Nacharbeiten endet.",
+      primaryCta: { label: "Tenaqo im Einsatz sehen", href: siteConfig.appUrl },
       secondaryCta: { label: "Preise ansehen", href: "/pricing" },
     },
   },

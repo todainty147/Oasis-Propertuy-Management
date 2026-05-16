@@ -18,20 +18,20 @@ type LegalNoticeContent = {
 export const legalNoticeContentByLocale: Record<Locale, LegalNoticeContent> = {
   en: {
     seo: {
-      title: "OASIS Legal Notice | Preview marketing site information",
+      title: "Tenaqo Legal Notice | Preview marketing site information",
       description:
-        "Legal notice and operator information for the OASIS preview marketing site.",
+        "Legal notice and operator information for the Tenaqo preview marketing site.",
       canonicalPath: "/impressum",
     },
     eyebrow: "Legal notice",
     title: "Operator information for this preview site",
     intro:
-      "This marketing site is currently part of the OASIS pre-launch preview. Public-facing legal entity details for commercial rollout are being finalized before broader market promotion.",
+      "This marketing site is currently part of the Tenaqo pre-launch preview. Public-facing legal entity details for commercial rollout are being finalized before broader market promotion.",
     sections: [
       {
         title: "Current status",
         body: [
-          "The site is being used to present the current OASIS product surface, screenshots, and launch-direction messaging.",
+          "The site is being used to present the current Tenaqo product surface, screenshots, and launch-direction messaging.",
           "The product and security claims on this site are intended to stay aligned with the checked-in codebase and supporting documentation.",
         ],
       },
@@ -51,20 +51,20 @@ export const legalNoticeContentByLocale: Record<Locale, LegalNoticeContent> = {
   },
   pl: {
     seo: {
-      title: "OASIS | Informacje prawne dla strony preview",
+      title: "Tenaqo | Informacje prawne dla strony preview",
       description:
-        "Informacje prawne i status operatora dla preview marketingowego OASIS.",
+        "Informacje prawne i status operatora dla preview marketingowego Tenaqo.",
       canonicalPath: "/pl/impressum",
     },
     eyebrow: "Informacje prawne",
     title: "Informacje o operatorze tej strony preview",
     intro:
-      "Ta strona marketingowa działa obecnie jako preview przed publicznym startem OASIS. Publiczne dane podmiotu i pełne informacje formalne dla komercyjnego uruchomienia są finalizowane przed szerszą promocją.",
+      "Ta strona marketingowa działa obecnie jako preview przed publicznym startem Tenaqo. Publiczne dane podmiotu i pełne informacje formalne dla komercyjnego uruchomienia są finalizowane przed szerszą promocją.",
     sections: [
       {
         title: "Obecny status",
         body: [
-          "Strona służy do prezentacji aktualnych funkcji OASIS, screenshotów produktu i kierunku rozwoju przed pełnym wejściem na rynek.",
+          "Strona służy do prezentacji aktualnych funkcji Tenaqo, screenshotów produktu i kierunku rozwoju przed pełnym wejściem na rynek.",
           "Opisy produktu i bezpieczeństwa mają pozostawać zgodne z repozytorium, kodem i dokumentacją techniczną.",
         ],
       },
@@ -84,20 +84,20 @@ export const legalNoticeContentByLocale: Record<Locale, LegalNoticeContent> = {
   },
   de: {
     seo: {
-      title: "OASIS Impressum | Hinweise zur Vorschau-Website",
+      title: "Tenaqo Impressum | Hinweise zur Vorschau-Website",
       description:
-        "Impressumshinweise und Betreiberstatus für die OASIS Vorschau-Website.",
+        "Impressumshinweise und Betreiberstatus für die Tenaqo Vorschau-Website.",
       canonicalPath: "/de/impressum",
     },
     eyebrow: "Impressum",
     title: "Hinweise zum Betreiber dieser Vorschau-Website",
     intro:
-      "Diese Marketing-Website wird derzeit als OASIS Vorschau vor dem breiteren Marktstart betrieben. Die vollständigen Unternehmens- und Registrierungsangaben für die öffentliche Vermarktung werden vor einer breiteren kommerziellen Ansprache veröffentlicht.",
+      "Diese Marketing-Website wird derzeit als Tenaqo Vorschau vor dem breiteren Marktstart betrieben. Die vollständigen Unternehmens- und Registrierungsangaben für die öffentliche Vermarktung werden vor einer breiteren kommerziellen Ansprache veröffentlicht.",
     sections: [
       {
         title: "Aktueller Status",
         body: [
-          "Diese Website zeigt den aktuellen Produktstand, Screenshots und die Markteinführungsrichtung von OASIS.",
+          "Diese Website zeigt den aktuellen Produktstand, Screenshots und die Markteinführungsrichtung von Tenaqo.",
           "Produkt- und Sicherheitsdarstellungen sollen mit dem eingecheckten Codebestand und der technischen Dokumentation übereinstimmen.",
         ],
       },

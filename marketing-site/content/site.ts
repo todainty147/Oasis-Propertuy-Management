@@ -3,7 +3,7 @@ import type { Locale } from "../lib/i18n";
 const isProduction = process.env.NODE_ENV === "production";
 
 export const siteConfig = {
-  name: "OASIS Rental",
+  name: "Tenaqo",
   url: "https://marketing.oasisrentalmgt.app",
   appUrl:
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -48,9 +48,9 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       tenantPortal: "/tenant-portal-software",
     },
     signIn: "Sign in",
-    primaryCta: "See OASIS in action",
+    primaryCta: "Claim Founder Access",
     footerBlurb:
-      "OASIS helps landlords run property operations with clearer follow-up, stronger maintenance control, and a tighter audit trail.",
+      "Tenaqo helps landlords run rental operations with clearer follow-up, stronger maintenance control, and a tighter audit trail.",
     footerLinks: {
       features: "Features",
       pricing: "Pricing",
@@ -78,9 +78,9 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       tenantPortal: "/tenant-portal-software",
     },
     signIn: "Zaloguj się",
-    primaryCta: "Zobacz, jak działa OASIS",
+    primaryCta: "Zobacz, jak działa Tenaqo",
     footerBlurb:
-      "OASIS pomaga właścicielom mieszkań prowadzić najem z pełną kontrolą nad zgłoszeniami, płatnościami, dokumentami i historią działań.",
+      "Tenaqo pomaga właścicielom mieszkań prowadzić najem z pełną kontrolą nad zgłoszeniami, płatnościami, dokumentami i historią działań.",
     footerLinks: {
       features: "Funkcje",
       pricing: "Cennik",
@@ -108,9 +108,9 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       tenantPortal: "/tenant-portal-software",
     },
     signIn: "Anmelden",
-    primaryCta: "OASIS im Einsatz sehen",
+    primaryCta: "Tenaqo im Einsatz sehen",
     footerBlurb:
-      "OASIS unterstützt Vermieter mit nachvollziehbaren Abläufen, strukturierter Instandhaltungssteuerung und klarer operativer Nachverfolgung.",
+      "Tenaqo unterstützt Vermieter mit nachvollziehbaren Abläufen, strukturierter Instandhaltungssteuerung und klarer operativer Nachverfolgung.",
     footerLinks: {
       features: "Funktionen",
       pricing: "Preise",

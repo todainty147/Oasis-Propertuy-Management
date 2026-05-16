@@ -24,7 +24,7 @@ export async function generateMetadata({
 
   if (!article) return {};
 
-  const title = article.pageTitle ?? `${article.title} | OASIS Rental Blog`;
+  const title = article.pageTitle ?? `${article.title} | Tenaqo Blog`;
 
   return buildMetadata({
     title,
@@ -100,10 +100,10 @@ export default async function BlogArticlePage({ params }: BlogArticlePageProps) 
     description: article.metaDescription,
     datePublished: publishedDate,
     dateModified: publishedDate,
-    author: { "@type": "Organization", name: "OASIS Rental", url: siteConfig.url },
-    publisher: { "@type": "Organization", name: "OASIS Rental", url: siteConfig.url },
+    author: { "@type": "Organization", name: "Tenaqo", url: siteConfig.url },
+    publisher: { "@type": "Organization", name: "Tenaqo", url: siteConfig.url },
     url: `${siteConfig.url}/blog/${article.slug}`,
-    isPartOf: { "@type": "Blog", name: "OASIS Rental Blog", url: `${siteConfig.url}/blog` },
+    isPartOf: { "@type": "Blog", name: "Tenaqo Blog", url: `${siteConfig.url}/blog` },
   };
 
   return (
@@ -172,7 +172,7 @@ export default async function BlogArticlePage({ params }: BlogArticlePageProps) 
               <div className="blog-article__soft-cta">
                 <h2>{article.cta}</h2>
                 <p className="muted">
-                  OASIS is being built for landlords managing real portfolios. Get early
+                  Tenaqo is being built for landlords managing real portfolios. Get early
                   access, test the workflows, and help shape what comes next.
                 </p>
               </div>

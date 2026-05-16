@@ -4,6 +4,8 @@ import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
 import { APP_LANGUAGES, getLanguageFlag } from "../i18n/languages";
 import { recordAuthRateLimitAttempt, formatRetryAfter } from "../services/authRateLimitService";
+import { BRAND } from "../config/brand";
+import BrandLogo from "../components/BrandLogo";
 
 export default function Login() {
   const [params] = useSearchParams();
@@ -68,20 +70,16 @@ export default function Login() {
         onSubmit={submit}
         className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-xl shadow"
       >
-        {/* Logo — always on white so dark-navy logo colours remain legible in dark mode */}
-        <div className="flex justify-center mb-6">
-          <div className="rounded-xl bg-white px-5 py-3 shadow border border-slate-200">
-            <img
-              src="/logo.png"
-              alt="OASIS Rental"
-              className="h-12 w-auto object-contain"
-            />
-          </div>
+        <div className="mb-6 flex justify-center">
+          <BrandLogo variant="header" showSubtitle />
         </div>
 
         <h1 className="text-xl font-bold mb-4 text-center text-slate-900 dark:text-slate-100">
           {t("login.title")}
         </h1>
+        <p className="mb-4 text-center text-xs text-slate-500 dark:text-slate-400">
+          {BRAND.transitionLabel}
+        </p>
 
         {error && (
           <p className="mb-3 text-sm text-red-600">{error}</p>
@@ -89,6 +87,8 @@ export default function Login() {
 
         <input
           type="email"
+          name="email"
+          autoComplete="email"
           placeholder={t("login.email")}
           className="w-full mb-3 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2"
           value={email}
@@ -97,6 +97,8 @@ export default function Login() {
 
         <input
           type="password"
+          name="password"
+          autoComplete="current-password"
           placeholder={t("login.password")}
           className="w-full mb-4 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2"
           value={password}

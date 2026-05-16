@@ -26,12 +26,12 @@ export function AgentComparison({
         </div>
 
         {/* Desktop table — visually hidden on mobile via CSS display:none (removes from a11y tree) */}
-        <div className="agent-comparison__table-wrap" aria-label="OASIS vs Traditional Agents comparison">
+        <div className="agent-comparison__table-wrap" aria-label="Tenaqo vs Traditional Agents comparison">
           <table className="agent-comparison__table">
             <thead>
               <tr>
                 <th scope="col" className="agent-comparison__th agent-comparison__th--feature">Feature</th>
-                <th scope="col" className="agent-comparison__th agent-comparison__th--oasis">OASIS</th>
+                <th scope="col" className="agent-comparison__th agent-comparison__th--oasis">Tenaqo</th>
                 <th scope="col" className="agent-comparison__th agent-comparison__th--agent">Traditional Agents</th>
               </tr>
             </thead>
@@ -57,7 +57,7 @@ export function AgentComparison({
             <div key={row.feature} className="card agent-comparison__mobile-card">
               <p className="agent-comparison__mobile-feature">{row.feature}</p>
               <div className="agent-comparison__mobile-row">
-                <span className="agent-comparison__mobile-label agent-comparison__mobile-label--oasis">OASIS</span>
+                <span className="agent-comparison__mobile-label agent-comparison__mobile-label--oasis">Tenaqo</span>
                 <p className="agent-comparison__mobile-text">
                   <span className="agent-comparison__check" aria-hidden="true">✓</span>
                   {row.oasis}

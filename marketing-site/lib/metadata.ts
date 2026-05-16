@@ -26,7 +26,7 @@ export function buildMetadata({
       description,
       url: canonical,
       type: "website",
-      siteName: "OASIS Rental",
+      siteName: "Tenaqo",
     },
     twitter: {
       card: "summary_large_image",

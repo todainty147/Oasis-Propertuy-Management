@@ -1,5 +1,5 @@
 /**
- * OASIS Rental Management — Service Worker v1
+ * Tenaqo — Service Worker v1
  *
  * Strategy:
  *  - Cache-first for app shell static assets (JS/CSS bundles, fonts, icons, offline page)
@@ -13,7 +13,7 @@
  *  - Cache is version-keyed — old entries are purged on activation
  */
 
-const CACHE_VERSION = "oasis-shell-v1";
+const CACHE_VERSION = "tenaqo-shell-v1";
 
 // App shell assets to pre-cache on install.
 // These are static, non-sensitive assets that make up the application shell.
@@ -21,10 +21,9 @@ const SHELL_ASSETS = [
   "/",
   "/offline.html",
   "/manifest.json",
-  "/icons/icon-192.svg",
-  "/icons/icon-512.svg",
-  "/icons/icon-maskable-192.svg",
-  "/icons/icon-maskable-512.svg",
+  "/brand/tenaqo/app-icon-512.png",
+  "/brand/tenaqo/app-icon-maskable-512.png",
+  "/brand/tenaqo/favicon-32.png",
 ];
 
 // URL patterns that must NEVER be served from cache.
@@ -116,7 +115,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request).catch(() =>
         caches.match("/offline.html").then(
-          (fallback) => fallback || new Response("OASIS is offline.", { status: 503 }),
+          (fallback) => fallback || new Response("Tenaqo is offline.", { status: 503 }),
         ),
       ),
     );
@@ -136,20 +135,20 @@ self.addEventListener("push", (event) => {
   try {
     payload = event.data.json();
   } catch {
-    payload = { title: "OASIS", body: event.data.text() };
+    payload = { title: "Tenaqo", body: event.data.text() };
   }
 
   const options = {
     body: payload.body || "",
-    icon: "/icons/icon-192.svg",
-    badge: "/icons/icon-192.svg",
-    tag: payload.tag || "oasis-notification",
+    icon: "/brand/tenaqo/app-icon-512.png",
+    badge: "/brand/tenaqo/app-icon-512.png",
+    tag: payload.tag || "tenaqo-notification",
     data: { url: payload.url || "/dashboard" },
     requireInteraction: payload.requireInteraction === true,
   };
 
   event.waitUntil(
-    self.registration.showNotification(payload.title || "OASIS", options),
+    self.registration.showNotification(payload.title || "Tenaqo", options),
   );
 });
 

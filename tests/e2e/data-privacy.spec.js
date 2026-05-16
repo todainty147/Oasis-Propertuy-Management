@@ -8,7 +8,7 @@ test("public data deletion page is accessible without login", async ({ page }) =
   await prepareEnglishLocale(page);
   await page.goto("/privacy/delete-account");
 
-  await expect(page.getByRole("heading", { name: /delete your oasis account/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /delete your tenaqo account/i })).toBeVisible();
   await expect(page.getByText(/some records may need to be retained or minimised/i)).toBeVisible();
   await expect(page.getByText(/we do not promise immediate deletion of all operational records/i)).toBeVisible();
   await expect(page.getByRole("link", { name: /open in-app deletion path/i })).toHaveAttribute(
@@ -21,7 +21,7 @@ test("alternate public data-deletion URL serves the app-store review page", asyn
   await prepareEnglishLocale(page);
   await page.goto("/data-deletion");
 
-  await expect(page.getByRole("heading", { name: /delete your oasis account/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /delete your tenaqo account/i })).toBeVisible();
   await expect(page.getByText(/Privacy support: privacy@oasisrental\.app/i)).toBeVisible();
 });
 
@@ -37,6 +37,6 @@ test("signed-in owner can open Data & Privacy and sees guarded deletion form", a
   await requestType.selectOption("workspace_closure");
   await expect(requestType).toHaveValue("workspace_closure");
   await page.getByLabel(/type delete to confirm/i).fill("DELETE");
-  await page.getByLabel(/I understand OASIS may retain/i).check();
+  await page.getByLabel(/I understand Tenaqo may retain/i).check();
   await expect(page.getByRole("button", { name: /submit request/i })).toBeEnabled();
 });

@@ -2,7 +2,7 @@ import { siteConfig } from "../site";
 
 export const commandCenterContent = {
   seo: {
-    title: "Command Center for Landlords | OASIS Rental",
+    title: "Command Center for Landlords | Tenaqo",
     description:
       "See urgent queues, overdue balances, and operational priorities in one command center built for landlords.",
     canonical: "https://marketing.oasisrentalmgt.app/features/command-center",
@@ -11,9 +11,9 @@ export const commandCenterContent = {
     eyebrow: "Command center",
     title: "Start with the work that actually needs attention",
     body:
-      "OASIS gives landlords a command center for urgent queues, overdue balances, next actions, and an AI operator briefing so the week does not begin with reconstruction work.",
+      "Tenaqo gives landlords a command center for urgent queues, overdue balances, next actions, and an AI operator briefing so the week does not begin with reconstruction work.",
     imageSrc: "/screenshots/command-center.png",
-    imageAlt: "OASIS Command Center showing AI operator briefing, urgent items, overdue balance, and action queues.",
+    imageAlt: "Tenaqo Command Center showing AI operator briefing, urgent items, overdue balance, and action queues.",
   },
   problemSection: {
     eyebrow: "Why it matters",
@@ -36,7 +36,7 @@ export const commandCenterContent = {
     ],
   },
   solutionSection: {
-    eyebrow: "What OASIS does",
+    eyebrow: "What Tenaqo does",
     title: "One operating view for what should move next",
     body:
       "The Command Center keeps urgent actions, arrears pressure, maintenance drag, and broader portfolio priorities close enough to act on immediately, with an AI-generated briefing that still shows the underlying facts.",
@@ -59,7 +59,7 @@ export const commandCenterContent = {
       },
     ],
     imageSrc: "/screenshots/command-center.png",
-    imageAlt: "OASIS Command Center with AI briefing and needs-action queues.",
+    imageAlt: "Tenaqo Command Center with AI briefing and needs-action queues.",
     imageAlign: "left" as const,
   },
   benefits: {
@@ -86,7 +86,7 @@ export const commandCenterContent = {
   finalCta: {
     title: "Make the next action obvious",
     body:
-      "See how OASIS gives landlords a clearer command surface for urgent work, overdue balances, and follow-through.",
+      "See how Tenaqo gives landlords a clearer command surface for urgent work, overdue balances, and follow-through.",
     primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
     secondaryCta: { label: "Explore Features", href: "/features" },
   },

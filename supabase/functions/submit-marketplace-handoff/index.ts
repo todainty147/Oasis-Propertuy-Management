@@ -299,7 +299,7 @@ Deno.serve(async (req) => {
         externalJobId: toTrimmedString(job.external_job_id),
         externalReference: toTrimmedString(job.external_reference),
         externalUrl: toTrimmedString(job.external_url),
-        message: "This marketplace handoff was already submitted earlier. OASIS is returning the existing provider reference.",
+        message: "This marketplace handoff was already submitted earlier. Tenaqo is returning the existing provider reference.",
         preparedPayload,
         requestBody,
       });
@@ -545,8 +545,8 @@ Deno.serve(async (req) => {
         attemptCount,
         maxAttempts: maxApiAttempts,
         message: classification.retryable
-          ? "Provider submission failed, but OASIS kept the handoff in a retryable failed state."
-          : "Provider submission failed and OASIS moved the handoff to manual follow-up.",
+          ? "Provider submission failed, but Tenaqo kept the handoff in a retryable failed state."
+          : "Provider submission failed and Tenaqo moved the handoff to manual follow-up.",
         preparedPayload,
         requestBody,
       });
@@ -611,8 +611,8 @@ Deno.serve(async (req) => {
         attemptCount,
         maxAttempts: maxApiAttempts,
         message: classification.retryable
-          ? "Provider transport failed before Checkatrade accepted the handoff. OASIS kept it in a retryable failed state."
-          : "Provider transport failed and OASIS moved the handoff to manual follow-up.",
+          ? "Provider transport failed before Checkatrade accepted the handoff. Tenaqo kept it in a retryable failed state."
+          : "Provider transport failed and Tenaqo moved the handoff to manual follow-up.",
         preparedPayload,
         requestBody,
       });

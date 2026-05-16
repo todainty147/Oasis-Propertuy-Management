@@ -1,4 +1,4 @@
-# OASIS Support Ticket Template
+# Tenaqo Support Ticket Template
 
 Use this template for customer-facing support issues and internal escalations.
 

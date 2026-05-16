@@ -266,56 +266,59 @@ a {
 .logo {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   flex-shrink: 0;
   text-decoration: none;
 }
 
-/* Full horizontal logo — desktop only */
-.logo__full {
-  display: block;
-  height: 36px;
-  width: auto;
-  object-fit: contain;
+.logo__text {
+  display: grid;
+  gap: 0.1rem;
 }
 
-/* Icon mark + wordmark — mobile only, hidden on desktop */
-.logo__icon {
-  display: none;
-  height: 30px;
-  width: auto;
-  object-fit: contain;
-}
-
-.logo__wordmark {
-  display: none;
-  font: 800 1.05rem/1 var(--font-sans);
+.logo__name {
+  font: 800 1.35rem/1 var(--font-sans);
   color: var(--brand-strong);
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
+}
+
+.logo__tagline {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+  color: var(--muted);
 }
 
 /* Footer logo */
 .footer-logo {
-  display: block;
-  height: 40px;
-  width: auto;
-  object-fit: contain;
+  display: grid;
+  gap: 0.18rem;
+}
+
+.footer-logo__name {
+  color: var(--brand-strong);
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.footer-logo__tagline {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 /* ── Responsive logo ─────────────────────────────────────────────────────── */
 
 @media (max-width: 900px) {
-  /* Switch to icon + wordmark on mobile — full logo is too wide for small headers */
-  .logo__full     { display: none; }
-  .logo__icon     { display: block; height: 32px; }
-  .logo__wordmark { display: block; }
+  .logo__tagline { display: none; }
 }
 
 @media (max-width: 380px) {
-  /* Very narrow phones — icon only, wordmark hidden, parent aria-label covers text */
-  .logo__wordmark { display: none; }
-  .logo__icon     { height: 28px; }
+  .logo__name { font-size: 1.18rem; }
 }
 
 /* ── Hero entrance animation ─────────────────────────────────────────────── */

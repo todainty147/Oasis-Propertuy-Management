@@ -1,6 +1,6 @@
 // src/components/auth/PasswordStrengthMeter.jsx
 //
-// Reusable password-strength indicator for all OASIS password creation /
+// Reusable password-strength indicator for all Tenaqo password creation /
 // change flows. Accepts the raw password and an optional context object
 // (email, name, accountName) to enable personal-info checks.
 

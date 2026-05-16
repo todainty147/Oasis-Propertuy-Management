@@ -550,7 +550,7 @@ export function AccountProvider({ children }) {
     // Past due — let SQL decide grace vs lock; frontend shows plan with a warning
     if (stripeStatus === "past_due") return rawPlan;
 
-    // OASIS trial
+    // Tenaqo trial
     if (isInTrial) return rawPlan;
     if (isTrialExpired) return "trial_expired";
 

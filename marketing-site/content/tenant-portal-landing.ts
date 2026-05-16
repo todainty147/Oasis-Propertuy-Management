@@ -68,7 +68,7 @@ type TenantPortalLandingContent = {
 export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLandingContent> = {
   en: {
     seo: {
-      title: "Tenant portal software for landlords | Clearer self-service in OASIS",
+      title: "Tenant portal software for landlords | Clearer self-service in Tenaqo",
       description:
         "Reduce tenant confusion with a clearer portal for payments visibility, maintenance updates, document handoff, and agreement review.",
       canonicalPath: "/tenant-portal-software",
@@ -77,7 +77,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
       eyebrow: "Tenant portal software",
       title: "Stop answering the same tenant questions over and over",
       body:
-        "OASIS gives landlords a tenant-safe portal for payments visibility, maintenance updates, documents, and agreement review so tenants can self-serve the basics without losing trust in the process.",
+        "Tenaqo gives landlords a tenant-safe portal for payments visibility, maintenance updates, documents, and agreement review so tenants can self-serve the basics without losing trust in the process.",
       emphasis:
         "Tenants see what matters. Landlords keep control. Contractors stay in the right lane.",
       support:
@@ -89,13 +89,13 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
         "Agreement packet review",
       ],
       microcopy: [
-        "Grounded in the current OASIS product.",
+        "Grounded in the current Tenaqo product.",
         "No fake pay-now claims.",
         "Clearer communication without role leakage.",
       ],
       imageSrc: "/screenshots/tenant-home.png",
-      imageAlt: "OASIS tenant portal dashboard showing summary cards, maintenance items, and payment visibility.",
-      primaryCta: { label: "See how OASIS works", href: siteConfig.appUrl },
+      imageAlt: "Tenaqo tenant portal dashboard showing summary cards, maintenance items, and payment visibility.",
+      primaryCta: { label: "See how Tenaqo works", href: siteConfig.appUrl },
       secondaryCta: { label: "See the tenant portal", href: "/features/tenant-portal" },
     },
     problemSection: {
@@ -121,7 +121,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
       eyebrow: "What tenants can do today",
       title: "A cleaner tenant experience without handing over the landlord console",
       body:
-        "The current OASIS tenant portal already gives tenants a clear view of the things they care about most, while keeping the operational controls on the landlord side.",
+        "The current Tenaqo tenant portal already gives tenants a clear view of the things they care about most, while keeping the operational controls on the landlord side.",
       items: [
         {
           title: "Review payments visibility",
@@ -141,7 +141,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
         },
       ],
       imageSrc: "/screenshots/tenant-documents.png",
-      imageAlt: "OASIS tenant documents page showing document requests and agreement packet review.",
+      imageAlt: "Tenaqo tenant documents page showing document requests and agreement packet review.",
       imageAlign: "left",
     },
     workflowSection: {
@@ -157,7 +157,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
           href: "/features/tenant-portal",
           points: ["one tenant-safe home base", "fewer routine emails", "clearer next step"],
           imageSrc: "/screenshots/tenant-home.png",
-          imageAlt: "OASIS tenant portal dashboard with summary cards and action items.",
+          imageAlt: "Tenaqo tenant portal dashboard with summary cards and action items.",
         },
         {
           label: "Step 2",
@@ -166,7 +166,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
           href: "/features/tenant-portal",
           points: ["upload requested evidence", "review agreement packets", "keep the trail intact"],
           imageSrc: "/screenshots/tenant-documents.png",
-          imageAlt: "OASIS tenant documents page showing a requested upload and agreement packet review.",
+          imageAlt: "Tenaqo tenant documents page showing a requested upload and agreement packet review.",
         },
         {
           label: "Step 3",
@@ -175,7 +175,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
           href: "/features/tenant-management",
           points: ["account-scoped access", "role isolation", "same workflow spine as the main app"],
           imageSrc: "/screenshots/security-audit.png",
-          imageAlt: "OASIS Security Audit view supporting the controlled, account-scoped trust model behind the tenant portal.",
+          imageAlt: "Tenaqo Security Audit view supporting the controlled, account-scoped trust model behind the tenant portal.",
         },
       ],
     },
@@ -199,19 +199,19 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
         },
       ],
       imageSrc: "/screenshots/payment-setup.png",
-      imageAlt: "OASIS finance page showing tenant payment setup that feeds the tenant portal payment experience.",
+      imageAlt: "Tenaqo finance page showing tenant payment setup that feeds the tenant portal payment experience.",
     },
     finalCta: {
       title: "Turn tenant confusion into a clearer self-service experience",
       body:
-        "If the current pain is repeated payment questions, vague maintenance follow-up, or document chaos, OASIS gives you a stronger tenant-facing experience without losing control of the operation.",
-      primaryCta: { label: "See how OASIS works", href: siteConfig.appUrl },
+        "If the current pain is repeated payment questions, vague maintenance follow-up, or document chaos, Tenaqo gives you a stronger tenant-facing experience without losing control of the operation.",
+      primaryCta: { label: "See how Tenaqo works", href: siteConfig.appUrl },
       secondaryCta: { label: "Explore the tenant portal", href: "/features/tenant-portal" },
     },
   },
   pl: {
     seo: {
-      title: "Portal najemcy dla właścicieli | Jaśniejsza samoobsługa w OASIS",
+      title: "Portal najemcy dla właścicieli | Jaśniejsza samoobsługa w Tenaqo",
       description:
         "Ogranicz chaos po stronie najemcy dzięki portalowi dla płatności, zgłoszeń, dokumentów i przeglądu umów.",
       canonicalPath: "/pl/tenant-portal-software",
@@ -220,7 +220,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
       eyebrow: "Portal najemcy",
       title: "Przestań odpowiadać na te same pytania najemców w kółko",
       body:
-        "OASIS daje właścicielom bezpieczny portal najemcy dla płatności, zgłoszeń, dokumentów i przeglądu umów, dzięki czemu podstawowe sprawy można załatwić bez chaosu i bez utraty zaufania.",
+        "Tenaqo daje właścicielom bezpieczny portal najemcy dla płatności, zgłoszeń, dokumentów i przeglądu umów, dzięki czemu podstawowe sprawy można załatwić bez chaosu i bez utraty zaufania.",
       emphasis:
         "Najemca widzi to, co ważne. Właściciel zachowuje kontrolę. Wykonawca pozostaje w swojej roli.",
       support:
@@ -232,13 +232,13 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
         "Przegląd pakietów umów",
       ],
       microcopy: [
-        "Oparte na realnym zakresie dzisiejszego OASIS.",
+        "Oparte na realnym zakresie dzisiejszego Tenaqo.",
         "Bez fikcyjnych obietnic pay now.",
         "Jaśniejsza komunikacja bez mieszania ról.",
       ],
       imageSrc: "/screenshots/tenant-home.png",
-      imageAlt: "Dashboard portalu najemcy OASIS z kartami podsumowania, zgłoszeniami i płatnościami.",
-      primaryCta: { label: "Zobacz OASIS", href: siteConfig.appUrl },
+      imageAlt: "Dashboard portalu najemcy Tenaqo z kartami podsumowania, zgłoszeniami i płatnościami.",
+      primaryCta: { label: "Zobacz Tenaqo", href: siteConfig.appUrl },
       secondaryCta: { label: "Zobacz portal najemcy", href: "/features/tenant-portal" },
     },
     problemSection: {
@@ -264,7 +264,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
       eyebrow: "Co najemca może zrobić już dziś",
       title: "Czytelniejsze doświadczenie najemcy bez oddawania konsoli właściciela",
       body:
-        "Obecny portal najemcy w OASIS już dziś daje przejrzysty widok najważniejszych spraw, pozostawiając pełną kontrolę operacyjną po stronie właściciela.",
+        "Obecny portal najemcy w Tenaqo już dziś daje przejrzysty widok najważniejszych spraw, pozostawiając pełną kontrolę operacyjną po stronie właściciela.",
       items: [
         {
           title: "Przeglądać płatności",
@@ -284,7 +284,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
         },
       ],
       imageSrc: "/screenshots/tenant-documents.png",
-      imageAlt: "Widok dokumentów najemcy OASIS z prośbami o dokumenty i przeglądem pakietu umowy.",
+      imageAlt: "Widok dokumentów najemcy Tenaqo z prośbami o dokumenty i przeglądem pakietu umowy.",
       imageAlign: "left",
     },
     workflowSection: {
@@ -300,7 +300,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
           href: "/features/tenant-portal",
           points: ["jedno bezpieczne miejsce", "mniej rutynowych maili", "czytelny następny krok"],
           imageSrc: "/screenshots/tenant-home.png",
-          imageAlt: "Dashboard najemcy OASIS z kartami podsumowania i działaniami.",
+          imageAlt: "Dashboard najemcy Tenaqo z kartami podsumowania i działaniami.",
         },
         {
           label: "Krok 2",
@@ -309,7 +309,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
           href: "/features/tenant-portal",
           points: ["upload wymaganych plików", "przegląd pakietów umów", "spójny ślad działań"],
           imageSrc: "/screenshots/tenant-documents.png",
-          imageAlt: "Widok dokumentów najemcy OASIS z uploadem i przeglądem umowy.",
+          imageAlt: "Widok dokumentów najemcy Tenaqo z uploadem i przeglądem umowy.",
         },
         {
           label: "Krok 3",
@@ -318,7 +318,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
           href: "/features/tenant-management",
           points: ["dostęp ograniczony do konta", "izolacja ról", "ten sam rdzeń workflow co w aplikacji"],
           imageSrc: "/screenshots/security-audit.png",
-          imageAlt: "Widok Security Audit OASIS wspierający zaufany model portalu najemcy.",
+          imageAlt: "Widok Security Audit Tenaqo wspierający zaufany model portalu najemcy.",
         },
       ],
     },
@@ -342,19 +342,19 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
         },
       ],
       imageSrc: "/screenshots/payment-setup.png",
-      imageAlt: "Widok finansów OASIS pokazujący konfigurację płatności zasilającą doświadczenie najemcy.",
+      imageAlt: "Widok finansów Tenaqo pokazujący konfigurację płatności zasilającą doświadczenie najemcy.",
     },
     finalCta: {
       title: "Zamień chaos pytań najemcy w czytelniejszą samoobsługę",
       body:
-        "Jeśli realnym problemem są powtarzające się pytania o płatności, mgliste zgłoszenia albo chaos dokumentów, OASIS daje mocniejszy kanał dla najemcy bez utraty kontroli nad operacją.",
-      primaryCta: { label: "Zobacz OASIS", href: siteConfig.appUrl },
+        "Jeśli realnym problemem są powtarzające się pytania o płatności, mgliste zgłoszenia albo chaos dokumentów, Tenaqo daje mocniejszy kanał dla najemcy bez utraty kontroli nad operacją.",
+      primaryCta: { label: "Zobacz Tenaqo", href: siteConfig.appUrl },
       secondaryCta: { label: "Poznaj portal najemcy", href: "/features/tenant-portal" },
     },
   },
   de: {
     seo: {
-      title: "Mieterportal-Software für Vermieter | Klarerer Self-Service mit OASIS",
+      title: "Mieterportal-Software für Vermieter | Klarerer Self-Service mit Tenaqo",
       description:
         "Weniger Verwirrung für Mieter durch ein klares Portal für Zahlungsübersicht, Instandhaltungsstatus, Dokumente und Vertragsprüfung.",
       canonicalPath: "/de/tenant-portal-software",
@@ -363,7 +363,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
       eyebrow: "Mieterportal",
       title: "Hören Sie auf, dieselben Mieterfragen immer wieder zu beantworten",
       body:
-        "OASIS gibt Vermietern ein sicheres Mieterportal für Zahlungsübersicht, Wartungsstatus, Dokumente und Vertragsprüfung, damit Mieter die Grundlagen selbst erledigen können, ohne Vertrauen in den Ablauf zu verlieren.",
+        "Tenaqo gibt Vermietern ein sicheres Mieterportal für Zahlungsübersicht, Wartungsstatus, Dokumente und Vertragsprüfung, damit Mieter die Grundlagen selbst erledigen können, ohne Vertrauen in den Ablauf zu verlieren.",
       emphasis:
         "Mieter sehen, was wichtig ist. Vermieter behalten die Kontrolle. Handwerker bleiben in ihrer Spur.",
       support:
@@ -375,13 +375,13 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
         "Prüfung von Vertragspaketen",
       ],
       microcopy: [
-        "Auf dem heutigen OASIS-Produktstand aufgebaut.",
+        "Auf dem heutigen Tenaqo-Produktstand aufgebaut.",
         "Keine künstlichen Pay-now-Versprechen.",
         "Klarere Kommunikation ohne Rollenvermischung.",
       ],
       imageSrc: "/screenshots/tenant-home.png",
-      imageAlt: "OASIS Mieterportal mit Übersichtskarten, Wartungsthemen und Zahlungsübersicht.",
-      primaryCta: { label: "OASIS ansehen", href: siteConfig.appUrl },
+      imageAlt: "Tenaqo Mieterportal mit Übersichtskarten, Wartungsthemen und Zahlungsübersicht.",
+      primaryCta: { label: "Tenaqo ansehen", href: siteConfig.appUrl },
       secondaryCta: { label: "Mieterportal ansehen", href: "/features/tenant-portal" },
     },
     problemSection: {
@@ -407,7 +407,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
       eyebrow: "Was Mieter heute schon tun können",
       title: "Ein saubereres Mietererlebnis, ohne die Vermieterkonsole preiszugeben",
       body:
-        "Das aktuelle OASIS Mieterportal gibt Mietern bereits einen klaren Blick auf die wichtigsten Themen, während die operative Kontrolle auf Vermieterseite bleibt.",
+        "Das aktuelle Tenaqo Mieterportal gibt Mietern bereits einen klaren Blick auf die wichtigsten Themen, während die operative Kontrolle auf Vermieterseite bleibt.",
       items: [
         {
           title: "Zahlungsübersicht prüfen",
@@ -427,7 +427,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
         },
       ],
       imageSrc: "/screenshots/tenant-documents.png",
-      imageAlt: "OASIS Mieter-Dokumentenansicht mit Anfragen und Vertragsprüfung.",
+      imageAlt: "Tenaqo Mieter-Dokumentenansicht mit Anfragen und Vertragsprüfung.",
       imageAlign: "left",
     },
     workflowSection: {
@@ -443,7 +443,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
           href: "/features/tenant-portal",
           points: ["eine sichere Startfläche", "weniger Routine-Mails", "klarerer nächster Schritt"],
           imageSrc: "/screenshots/tenant-home.png",
-          imageAlt: "OASIS Mieterportal mit Übersichtskarten und Aufgaben.",
+          imageAlt: "Tenaqo Mieterportal mit Übersichtskarten und Aufgaben.",
         },
         {
           label: "Schritt 2",
@@ -452,7 +452,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
           href: "/features/tenant-portal",
           points: ["angeforderte Nachweise hochladen", "Vertragspakete prüfen", "sauberen Verlauf behalten"],
           imageSrc: "/screenshots/tenant-documents.png",
-          imageAlt: "OASIS Mieter-Dokumentenseite mit Upload-Anforderung und Vertragsprüfung.",
+          imageAlt: "Tenaqo Mieter-Dokumentenseite mit Upload-Anforderung und Vertragsprüfung.",
         },
         {
           label: "Schritt 3",
@@ -461,7 +461,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
           href: "/features/tenant-management",
           points: ["kontobezogener Zugriff", "Rollentrennung", "gleicher Workflow-Kern wie in der Hauptanwendung"],
           imageSrc: "/screenshots/security-audit.png",
-          imageAlt: "OASIS Security Audit Ansicht als Grundlage des kontrollierten Vertrauensmodells hinter dem Mieterportal.",
+          imageAlt: "Tenaqo Security Audit Ansicht als Grundlage des kontrollierten Vertrauensmodells hinter dem Mieterportal.",
         },
       ],
     },
@@ -485,13 +485,13 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
         },
       ],
       imageSrc: "/screenshots/payment-setup.png",
-      imageAlt: "OASIS Finanzansicht mit Zahlungseinrichtung, die das Mieterportal-Erlebnis speist.",
+      imageAlt: "Tenaqo Finanzansicht mit Zahlungseinrichtung, die das Mieterportal-Erlebnis speist.",
     },
     finalCta: {
       title: "Machen Sie aus Mieterverwirrung einen klareren Self-Service-Weg",
       body:
-        "Wenn sich die aktuelle Belastung aus wiederkehrenden Zahlungsfragen, unklaren Wartungsupdates oder Dokumentenchaos ergibt, bietet OASIS ein stärkeres Mietererlebnis ohne Kontrollverlust.",
-      primaryCta: { label: "OASIS ansehen", href: siteConfig.appUrl },
+        "Wenn sich die aktuelle Belastung aus wiederkehrenden Zahlungsfragen, unklaren Wartungsupdates oder Dokumentenchaos ergibt, bietet Tenaqo ein stärkeres Mietererlebnis ohne Kontrollverlust.",
+      primaryCta: { label: "Tenaqo ansehen", href: siteConfig.appUrl },
       secondaryCta: { label: "Mieterportal ansehen", href: "/features/tenant-portal" },
     },
   },

@@ -9,7 +9,7 @@ export function ComparisonTable({
   intro,
   competitorName,
   categoryLabel = "Category",
-  oasisLabel = "OASIS Rental",
+  oasisLabel = "Tenaqo",
   rows,
 }: {
   title: string;

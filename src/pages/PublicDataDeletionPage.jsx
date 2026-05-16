@@ -1,21 +1,22 @@
 import { ExternalLink, Mail, ShieldCheck, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import BrandLogo from "../components/BrandLogo";
 
 export default function PublicDataDeletionPage() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto max-w-4xl px-6 py-12">
         <div className="mb-8 flex items-center gap-3">
-          <img src="/logo.png" alt="OASIS Rental" className="h-10 w-auto" />
+          <BrandLogo variant="header" showSubtitle />
         </div>
 
         <section className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">Privacy request</p>
-              <h1 className="mt-2 text-3xl font-semibold">Delete your OASIS account or request data deletion</h1>
+              <h1 className="mt-2 text-3xl font-semibold">Delete your Tenaqo account or request data deletion</h1>
               <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-                OASIS supports account deletion, workspace closure, tenant data erasure, contractor data erasure, and membership removal requests. Because OASIS stores rental operations, finance, legal, tax, document, compliance, maintenance, billing, and audit records, some records may need to be retained or minimised instead of immediately deleted.
+                Tenaqo supports account deletion, workspace closure, tenant data erasure, contractor data erasure, and membership removal requests. Because Tenaqo stores rental operations, finance, legal, tax, document, compliance, maintenance, billing, and audit records, some records may need to be retained or minimised instead of immediately deleted.
               </p>
             </div>
             <ShieldCheck className="text-emerald-600" size={32} />
@@ -71,7 +72,7 @@ export default function PublicDataDeletionPage() {
         <section className="mt-6 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-lg font-semibold">Response expectations</h2>
           <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-            OASIS records a request reference, reviews identity and retention obligations, performs eligible deletion or anonymisation through privileged server-side processing, and explains anything retained. We do not promise immediate deletion of all operational records.
+            Tenaqo records a request reference, reviews identity and retention obligations, performs eligible deletion or anonymisation through privileged server-side processing, and explains anything retained. We do not promise immediate deletion of all operational records.
           </p>
           <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
             Privacy policy: <a href="/privacy" className="font-medium text-blue-700 dark:text-blue-300">/privacy</a>

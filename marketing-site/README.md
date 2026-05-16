@@ -1,6 +1,6 @@
-# OASIS Marketing Site
+# Tenaqo Marketing Site
 
-This is the starter Next.js marketing site for OASIS Rental.
+This is the starter Next.js marketing site for Tenaqo.
 
 It is intentionally separate from the main Vite app so public SEO pages can live at `/` while the SaaS product stays under `/app`.
 

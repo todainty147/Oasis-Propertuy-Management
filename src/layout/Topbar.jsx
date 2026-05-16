@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { usePageTitle } from "./PageTitleContext";
 import NotificationsBell from "../components/NotificationsBell";
+import BrandLogo from "../components/BrandLogo";
 import { useI18n } from "../context/I18nContext";
 import { useTheme } from "../context/ThemeContext";
 import { APP_LANGUAGES } from "../i18n/languages";
@@ -199,6 +200,13 @@ export default function Topbar({ onMenuClick }) {
       >
         <Menu size={17} strokeWidth={1.8} />
       </button>
+
+      <BrandLogo
+        variant="header"
+        compact
+        showSubtitle={false}
+        className="lg:hidden"
+      />
 
       {/* Page label
           · Mobile: full page title, 14px semibold (gives context without sidebar)

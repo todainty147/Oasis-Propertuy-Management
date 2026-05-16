@@ -15,7 +15,7 @@ const INITIAL = {
   support_email: "",
   invite_subject_template: "",
   invite_button_label: "Accept invitation",
-  invite_footer_text: "Sent securely via OASIS Rental",
+  invite_footer_text: "Sent securely via Tenaqo",
 };
 
 export default function AccountBrandingPage() {

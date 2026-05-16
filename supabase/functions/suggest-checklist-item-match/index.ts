@@ -158,7 +158,7 @@ function suggestByName(docName: string, tags: string[]): Suggestion[] {
 
 // ── AI-based suggestion (requires extracted text) ─────────────────────────
 
-const AI_SYSTEM_PROMPT = `You are a Polish property compliance assistant for OASIS Rental Management.
+const AI_SYSTEM_PROMPT = `You are a Polish property compliance assistant for Tenaqo.
 Your task is to analyze a document's extracted text and suggest which Najem Okazjonalny
 compliance checklist items the document appears to satisfy.
 

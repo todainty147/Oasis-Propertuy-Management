@@ -47,7 +47,7 @@ export function MarketingHomePage({ locale }: { locale: Locale }) {
         />
       )}
 
-      {/* 9 — OASIS vs High-Street Agents */}
+      {/* 9 — Tenaqo vs High-Street Agents */}
       {c.agentComparison && <AgentComparison {...c.agentComparison} />}
 
       {/* 10 — Final CTA */}

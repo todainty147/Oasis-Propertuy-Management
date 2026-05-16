@@ -96,7 +96,7 @@ export function canWriteForBilling(status) {
 }
 
 // Returns true when the account has confirmed billing access (active or trialing Stripe
-// subscription, OR an active OA grant). Does NOT gate OASIS trial-period access.
+// subscription, OR an active OA grant). Does NOT gate Tenaqo trial-period access.
 export function hasConfirmedBillingAccess(subscriptionStatus, oaPaymentStatus) {
   if (["active", "trialing"].includes(String(subscriptionStatus || ""))) return true;
   if (oaPaymentStatus === "active") return true;

@@ -2,18 +2,18 @@ import { siteConfig } from "../site";
 
 export const maintenanceManagementContent = {
   seo: {
-    title: "Maintenance Management Software for Landlords | OASIS Rental",
+    title: "Maintenance Management Software for Landlords | Tenaqo",
     description:
-      "Move repair requests into tracked work orders, clear ownership, and cleaner follow-through with OASIS.",
+      "Move repair requests into tracked work orders, clear ownership, and cleaner follow-through with Tenaqo.",
     canonical: "https://marketing.oasisrentalmgt.app/features/maintenance-management",
   },
   hero: {
     eyebrow: "Maintenance management",
     title: "Move every repair from report to quote to completion",
     body:
-      "OASIS helps landlords turn repair messages into tracked requests, work orders, contractor updates, quote decisions, AI triage guidance, and completion trails that are easier to run.",
+      "Tenaqo helps landlords turn repair messages into tracked requests, work orders, contractor updates, quote decisions, AI triage guidance, and completion trails that are easier to run.",
     imageSrc: "/screenshots/maintenance-inbox.png",
-    imageAlt: "OASIS Maintenance Inbox showing request status columns, AI triage guidance, SLA age, and linked work orders.",
+    imageAlt: "Tenaqo Maintenance Inbox showing request status columns, AI triage guidance, SLA age, and linked work orders.",
   },
   painPoints: {
     eyebrow: "Landlord pain points",
@@ -35,13 +35,13 @@ export const maintenanceManagementContent = {
       },
     ],
     imageSrc: "/screenshots/property-requests.png",
-    imageAlt: "OASIS property request view showing service requests and linked work-order actions.",
+    imageAlt: "Tenaqo property request view showing service requests and linked work-order actions.",
   },
   solution: {
-    eyebrow: "How OASIS helps",
+    eyebrow: "How Tenaqo helps",
     title: "A maintenance workflow built for ownership, handoff, and follow-through",
     body:
-      "OASIS keeps requests, work orders, contractor activity, quote decisions, AI triage recommendations, and status changes tied to the same repair story.",
+      "Tenaqo keeps requests, work orders, contractor activity, quote decisions, AI triage recommendations, and status changes tied to the same repair story.",
     items: [
       {
         title: "Track requests from intake to completion",
@@ -65,14 +65,14 @@ export const maintenanceManagementContent = {
       },
     ],
     imageSrc: "/screenshots/maintenance-inbox.png",
-    imageAlt: "OASIS maintenance workflow showing requests, AI triage, work orders, and contractor coordination in one place.",
+    imageAlt: "Tenaqo maintenance workflow showing requests, AI triage, work orders, and contractor coordination in one place.",
     imageAlign: "left" as const,
   },
   workflowLoop: {
     eyebrow: "The coordination loop",
     title: "The handoff is where maintenance usually breaks",
     body:
-      "Most tools can record a repair. The harder part is keeping the handoff clear between tenant, landlord, contractor, and completion. OASIS is built around that loop.",
+      "Most tools can record a repair. The harder part is keeping the handoff clear between tenant, landlord, contractor, and completion. Tenaqo is built around that loop.",
     items: [
       {
         title: "Tenant reports the issue",
@@ -92,7 +92,7 @@ export const maintenanceManagementContent = {
       },
     ],
     imageSrc: "/screenshots/property-requests.png",
-    imageAlt: "OASIS property request workflow showing tenant-reported issues and linked operational follow-up.",
+    imageAlt: "Tenaqo property request workflow showing tenant-reported issues and linked operational follow-up.",
   },
   benefits: {
     title: "What landlords gain when repairs have a real workflow",
@@ -118,7 +118,7 @@ export const maintenanceManagementContent = {
   finalCta: {
     title: "Put every repair into a clearer coordination loop",
     body:
-      "Explore how OASIS helps landlords move from request to work order to quote decision to completion with fewer blind spots.",
+      "Explore how Tenaqo helps landlords move from request to work order to quote decision to completion with fewer blind spots.",
     primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
     secondaryCta: { label: "View Pricing", href: "/pricing" },
   },

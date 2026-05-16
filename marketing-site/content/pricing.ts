@@ -46,7 +46,7 @@ type PricingPageContent = {
 export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
   en: {
     seo: {
-      title: "OASIS Pricing | Plans for landlords, portfolios and property operators",
+      title: "Tenaqo Pricing | Plans for Landlords, Portfolios and Property Operators",
       description:
         "Start simple and add control as your portfolio grows. Starter, Growth, Pro, and Operator / Agency plans for landlords, compliance-heavy operators, and property management companies.",
       canonicalPath: "/pricing",
@@ -57,14 +57,14 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       body:
         "Start with the core rental workflow. Upgrade when you need stronger attention queues, compliance evidence, audit control, automation, or agency-level finance intelligence.",
       imageSrc: "/screenshots/command-center.png",
-      imageAlt: "OASIS Command Center showing urgent queues, overdue balance, and action items across the portfolio.",
+      imageAlt: "Tenaqo Command Center showing urgent queues, overdue balance, and action items across the portfolio.",
     },
     intro: {
       title: "Pricing is aligned to operational maturity",
       body:
         "Starter helps solo landlords bring the basics into one place. Growth adds Command Center, portfolio health, compliance evidence tools, and AI assistance. Pro adds security audit, playbooks, Lease Auditor, and deeper landlord-controlled governance. Operator / Agency adds bulk rent automation, Open Banking readiness, portfolio pressure forecasting, and advanced AI for multi-client operations. Founder offer: the first 20 landlords get Pro at Starter price for 12 months.",
       imageSrc: "/screenshots/portfolio-health.png",
-      imageAlt: "OASIS Portfolio Health dashboard showing occupancy, arrears aging, and maintenance pressure.",
+      imageAlt: "Tenaqo Portfolio Health dashboard showing occupancy, arrears aging, and maintenance pressure.",
     },
     plans: [
       {
@@ -134,7 +134,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
         ],
       },
     ],
-    planCtaLabel: "See how OASIS works",
+    planCtaLabel: "See how Tenaqo works",
     included: {
       title: "Every plan includes the core rental workflow",
       bullets: [
@@ -169,9 +169,9 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
           "Operator / Agency is for property managers and multi-client operators who need bulk rent automation across tenants and periods, portfolio finance forecasting, Open Banking rent matching readiness, cross-account anomaly detection, and advanced AI including the security copilot and natural language portfolio query.",
       },
       {
-        question: "Does OASIS collect rent payments directly?",
+        question: "Does Tenaqo collect rent payments directly?",
         answer:
-          "Today OASIS is focused on rent visibility, expected charges, reconciliation, balances, arrears pressure, and landlord-configured payment instructions. Native tenant payment collection and Open Banking automation are handled separately from the core ledger flow and should only be described where implemented. No direct payment rail is active today.",
+          "Today Tenaqo is focused on rent visibility, expected charges, reconciliation, balances, arrears pressure, and landlord-configured payment instructions. Native tenant payment collection and Open Banking automation are handled separately from the core ledger flow and should only be described where implemented. No direct payment rail is active today.",
       },
       {
         question: "Does every plan cover the core rental workflow?",
@@ -184,23 +184,23 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
           "Yes. The first 20 landlords can access Pro at Starter pricing for 12 months. Reach out via the early-access link to claim your place.",
       },
       {
-        question: "Is OASIS priced for landlords rather than agencies?",
+        question: "Is Tenaqo priced for landlords rather than agencies?",
         answer:
           "Plans are designed for the full range: solo landlords on Starter through to property management companies on Operator / Agency. Every tier is built around practical control without unnecessary complexity for the landlords who do not need it.",
       },
     ],
     finalCta: {
-      title: "Try OASIS before we launch publicly",
+      title: "Try Tenaqo before we launch publicly",
       body:
-        "Get early access, test the workflows, and help shape how OASIS supports landlords as it evolves.",
-      primaryCta: { label: "See how OASIS works", href: siteConfig.appUrl },
+        "Get early access, test the workflows, and help shape how Tenaqo supports landlords as it evolves.",
+      primaryCta: { label: "See how Tenaqo works", href: siteConfig.appUrl },
     },
   },
   pl: {
     seo: {
-      title: "Cennik OASIS | Plany dla właścicieli z operacyjną kontrolą",
+      title: "Cennik Tenaqo | Plany dla właścicieli z operacyjną kontrolą",
       description:
-        "Wybierz plan OASIS dopasowany do skali portfela, presji operacyjnej i potrzeby lepszego follow-upu.",
+        "Wybierz plan Tenaqo dopasowany do skali portfela, presji operacyjnej i potrzeby lepszego follow-upu.",
       canonicalPath: "/pl/pricing",
     },
     hero: {
@@ -209,14 +209,14 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       body:
         "Zacznij od wyjścia ze spreadsheetów. Rozszerz plan wtedy, gdy zgłoszenia, zaległości i presja na nieruchomościach zaczynają kosztować więcej niż samo narzędzie.",
       imageSrc: "/screenshots/command-center.png",
-      imageAlt: "Command Center OASIS z pilnymi kolejkami, zaległościami i działaniami w całym portfelu.",
+      imageAlt: "Command Center Tenaqo z pilnymi kolejkami, zaległościami i działaniami w całym portfelu.",
     },
     intro: {
       title: "Cennik jest oparty na dojrzałości operacyjnej",
       body:
         "Starter pomaga uporządkować podstawy. Growth jest dla bardziej zajętych portfeli, które potrzebują mocniejszej kontroli działań. Pro jest dla operatorów oczekujących głębszego przeglądu, większego zaufania audytowego i bardziej zdyscyplinowanego rytmu pracy. Operator / Agency jest dla zarządców nieruchomości obsługujących wiele kont lub dużych portfeli. Oferta dla pierwszych 20 właścicieli: Pro w cenie Starter przez 12 miesięcy.",
       imageSrc: "/screenshots/portfolio-health.png",
-      imageAlt: "Panel Portfolio Health OASIS z obłożeniem, zaległościami i presją zgłoszeń.",
+      imageAlt: "Panel Portfolio Health Tenaqo z obłożeniem, zaległościami i presją zgłoszeń.",
     },
     plans: [
       {
@@ -278,7 +278,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
         ],
       },
     ],
-    planCtaLabel: "Zobacz, jak działa OASIS",
+    planCtaLabel: "Zobacz, jak działa Tenaqo",
     included: {
       title: "Każdy plan obejmuje podstawowy workflow najmu",
       bullets: [
@@ -315,31 +315,31 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       {
         question: "Czy każdy plan obejmuje podstawowy workflow najmu?",
         answer:
-          "Tak. OASIS pozostaje skupiony na najemcach, nieruchomościach, płatnościach, zgłoszeniach i dokumentach. Wyższe poziomy dodają więcej kontroli i głębi przeglądu wraz ze wzrostem złożoności pracy.",
+          "Tak. Tenaqo pozostaje skupiony na najemcach, nieruchomościach, płatnościach, zgłoszeniach i dokumentach. Wyższe poziomy dodają więcej kontroli i głębi przeglądu wraz ze wzrostem złożoności pracy.",
       },
       {
-        question: "Czy OASIS obsługuje dziś natywne płatności czynszu online?",
+        question: "Czy Tenaqo obsługuje dziś natywne płatności czynszu online?",
         answer:
-          "Nie jako natywną bramkę płatniczą OASIS. Dziś OASIS wspiera konfigurację płatności po stronie właściciela w portalu najemcy: akceptowane metody, linki do zewnętrznych portali płatności, dane kontaktowe i wskazówki dotyczące autopay. Rdzeń finansowy nadal skupia się bardziej na widoczności płatności, presji zaległości i follow-upie niż na wbudowanym przycisku pay now.",
+          "Nie jako natywną bramkę płatniczą Tenaqo. Dziś Tenaqo wspiera konfigurację płatności po stronie właściciela w portalu najemcy: akceptowane metody, linki do zewnętrznych portali płatności, dane kontaktowe i wskazówki dotyczące autopay. Rdzeń finansowy nadal skupia się bardziej na widoczności płatności, presji zaległości i follow-upie niż na wbudowanym przycisku pay now.",
       },
       {
-        question: "Czy OASIS jest wyceniony bardziej pod właścicieli niż pod agencje?",
+        question: "Czy Tenaqo jest wyceniony bardziej pod właścicieli niż pod agencje?",
         answer:
           "Tak. Plany są budowane dla małych i rosnących właścicieli, którzy potrzebują praktycznej kontroli bez wdrażania ciężkiej platformy agencyjnej.",
       },
     ],
     finalCta: {
-      title: "Wypróbuj OASIS przed publicznym startem",
+      title: "Wypróbuj Tenaqo przed publicznym startem",
       body:
-        "Uzyskaj wcześniejszy dostęp, przetestuj workflow i pomóż kształtować to, jak OASIS wspiera właścicieli mieszkań.",
-      primaryCta: { label: "Zobacz, jak działa OASIS", href: siteConfig.appUrl },
+        "Uzyskaj wcześniejszy dostęp, przetestuj workflow i pomóż kształtować to, jak Tenaqo wspiera właścicieli mieszkań.",
+      primaryCta: { label: "Zobacz, jak działa Tenaqo", href: siteConfig.appUrl },
     },
   },
   de: {
     seo: {
-      title: "OASIS Preise | Pläne für Vermieter mit operativer Kontrolle",
+      title: "Tenaqo Preise | Pläne für Vermieter mit operativer Kontrolle",
       description:
-        "Wählen Sie den OASIS Plan passend zu Portfoliodruck, Komplexität und Bedarf an klarerer Nachverfolgung.",
+        "Wählen Sie den Tenaqo Plan passend zu Portfoliodruck, Komplexität und Bedarf an klarerer Nachverfolgung.",
       canonicalPath: "/de/pricing",
     },
     hero: {
@@ -348,14 +348,14 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       body:
         "Starten Sie mit dem Schritt weg von Tabellen. Wechseln Sie auf mehr Kontrolle, wenn Instandhaltungsdruck, Rückstände und verpasste Nachverfolgung teurer werden als die Software.",
       imageSrc: "/screenshots/command-center.png",
-      imageAlt: "OASIS Command Center mit dringenden Listen, Rückständen und Aufgaben im Portfolio.",
+      imageAlt: "Tenaqo Command Center mit dringenden Listen, Rückständen und Aufgaben im Portfolio.",
     },
     intro: {
       title: "Die Preisstruktur folgt der operativen Reife",
       body:
         "Starter hilft, die Grundlagen in ein System zu bringen. Growth ist für aktivere Portfolios mit höherem Steuerungsbedarf. Pro ist für Betreiber, die tiefere Prüfflächen, mehr Audit-Sicherheit und einen disziplinierteren Betriebsrhythmus wollen.",
       imageSrc: "/screenshots/portfolio-health.png",
-      imageAlt: "OASIS Portfolio Health Dashboard mit Belegung, Rückständen und Instandhaltungsdruck.",
+      imageAlt: "Tenaqo Portfolio Health Dashboard mit Belegung, Rückständen und Instandhaltungsdruck.",
     },
     plans: [
       {
@@ -417,7 +417,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
         ],
       },
     ],
-    planCtaLabel: "OASIS im Einsatz sehen",
+    planCtaLabel: "Tenaqo im Einsatz sehen",
     included: {
       title: "Jeder Plan enthält den Kern-Mietworkflow",
       bullets: [
@@ -449,24 +449,24 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       {
         question: "Deckt jeder Plan den Kernworkflow ab?",
         answer:
-          "Ja. OASIS bleibt im Kern auf Mieter, Objekte, Zahlungsstatus, Instandhaltung und Dokumente fokussiert. Höhere Stufen ergänzen mehr Kontrolle und Review-Tiefe mit wachsender Komplexität.",
+          "Ja. Tenaqo bleibt im Kern auf Mieter, Objekte, Zahlungsstatus, Instandhaltung und Dokumente fokussiert. Höhere Stufen ergänzen mehr Kontrolle und Review-Tiefe mit wachsender Komplexität.",
       },
       {
-        question: "Verarbeitet OASIS heute Mietzahlungen nativ online?",
+        question: "Verarbeitet Tenaqo heute Mietzahlungen nativ online?",
         answer:
-          "Nicht als native OASIS-Zahlungsschiene. Heute unterstützt OASIS die vermieterseitige Zahlungseinrichtung im Mieterportal, einschließlich akzeptierter Methoden, externer Zahlungslinks, Supportkontakt und Autopay-Hinweisen. Der Finanzteil fokussiert weiterhin stärker auf Sichtbarkeit, Rückstandsdruck und Follow-up als auf einen eingebauten Pay-now-Checkout.",
+          "Nicht als native Tenaqo-Zahlungsschiene. Heute unterstützt Tenaqo die vermieterseitige Zahlungseinrichtung im Mieterportal, einschließlich akzeptierter Methoden, externer Zahlungslinks, Supportkontakt und Autopay-Hinweisen. Der Finanzteil fokussiert weiterhin stärker auf Sichtbarkeit, Rückstandsdruck und Follow-up als auf einen eingebauten Pay-now-Checkout.",
       },
       {
-        question: "Ist OASIS eher für Vermieter als für Agenturen bepreist?",
+        question: "Ist Tenaqo eher für Vermieter als für Agenturen bepreist?",
         answer:
           "Ja. Die Pläne sind auf kleine bis wachsende Vermieter ausgerichtet, die praktische Kontrolle wollen, ohne eine aufgeblähte Agenturplattform einzuführen.",
       },
     ],
     finalCta: {
-      title: "Testen Sie OASIS vor dem öffentlichen Start",
+      title: "Testen Sie Tenaqo vor dem öffentlichen Start",
       body:
-        "Sichern Sie sich Frühzugang, testen Sie die Workflows und helfen Sie mit, wie OASIS Vermieter weiter unterstützt.",
-      primaryCta: { label: "OASIS im Einsatz sehen", href: siteConfig.appUrl },
+        "Sichern Sie sich Frühzugang, testen Sie die Workflows und helfen Sie mit, wie Tenaqo Vermieter weiter unterstützt.",
+      primaryCta: { label: "Tenaqo im Einsatz sehen", href: siteConfig.appUrl },
     },
   },
 };

@@ -20,11 +20,11 @@ describe("PWA manifest.json", () => {
   });
 
   it("has correct app name", () => {
-    expect(manifest.name).toBe("OASIS Rental Management");
+    expect(manifest.name).toBe("Tenaqo");
   });
 
   it("has correct short name", () => {
-    expect(manifest.short_name).toBe("OASIS");
+    expect(manifest.short_name).toBe("Tenaqo");
   });
 
   it("has a description", () => {
@@ -45,7 +45,7 @@ describe("PWA manifest.json", () => {
     expect(manifest.scope).toBe("/");
   });
 
-  it("has OASIS brand theme colour", () => {
+  it("has Tenaqo brand theme colour", () => {
     expect(manifest.theme_color).toBe("#0b4f6c");
   });
 
@@ -69,6 +69,15 @@ describe("PWA manifest.json", () => {
     const png = manifest.icons.find((i) => i.type === "image/png");
     expect(png).toBeDefined();
     expect(png.src).toMatch(/\.png$/);
+  });
+
+  it("uses Tenaqo production app icons", () => {
+    expect(manifest.icons.map((icon) => icon.src)).toEqual(
+      expect.arrayContaining([
+        "/brand/tenaqo/app-icon-512.png",
+        "/brand/tenaqo/app-icon-maskable-512.png",
+      ]),
+    );
   });
 
   it("includes a maskable icon", () => {

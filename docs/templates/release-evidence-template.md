@@ -1,4 +1,4 @@
-# OASIS Release Evidence Template
+# Tenaqo Release Evidence Template
 
 Copy this template for every production-facing release or recovery drill.
 

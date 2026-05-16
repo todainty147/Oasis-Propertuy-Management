@@ -17,7 +17,7 @@ export function buildMarketplaceHandoffCopy(job, { locale = "en" } = {}) {
         contact: "Kontakt",
         access: "Uwagi dotyczące dostępu",
         attachments: "Załączniki",
-        reference: "Referencja OASIS",
+        reference: "Referencja Tenaqo",
         none: "Brak",
       }
     : isGerman
@@ -29,7 +29,7 @@ export function buildMarketplaceHandoffCopy(job, { locale = "en" } = {}) {
           contact: "Kontakt",
           access: "Hinweise zum Zugang",
           attachments: "Anhänge",
-          reference: "OASIS-Referenz",
+          reference: "Tenaqo-Referenz",
           none: "Keine",
         }
       : {
@@ -40,7 +40,7 @@ export function buildMarketplaceHandoffCopy(job, { locale = "en" } = {}) {
           contact: "Preferred contact",
           access: "Access notes",
           attachments: "Attachments",
-          reference: "OASIS internal reference",
+          reference: "Tenaqo internal reference",
           none: "None",
         };
 

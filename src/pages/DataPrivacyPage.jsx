@@ -141,7 +141,7 @@ export default function DataPrivacyPage() {
           <div>
             <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Data & Privacy</h1>
             <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-              OASIS stores rental operation records such as tenants, documents, finance records, maintenance history, and audit events. Some records may need to be retained for legal, tax, security, fraud prevention, accounting, dispute resolution, or audit reasons. We delete or anonymise personal data where appropriate and explain anything retained.
+              Tenaqo stores rental operation records such as tenants, documents, finance records, maintenance history, and audit events. Some records may need to be retained for legal, tax, security, fraud prevention, accounting, dispute resolution, or audit reasons. We delete or anonymise personal data where appropriate and explain anything retained.
             </p>
           </div>
           <ShieldCheck className="text-emerald-600" size={28} />
@@ -217,7 +217,7 @@ export default function DataPrivacyPage() {
 
             <label className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
               <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-1" />
-              <span>I understand OASIS may retain finance, legal, tax, compliance, security, dispute, billing, and audit records where required.</span>
+              <span>I understand Tenaqo may retain finance, legal, tax, compliance, security, dispute, billing, and audit records where required.</span>
             </label>
 
             <label className="block space-y-2">

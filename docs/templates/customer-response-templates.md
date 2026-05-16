@@ -1,6 +1,6 @@
 # Customer Response Templates
 
-Use these as starting points for OASIS support replies. Adjust the wording to the customer and do not expose internal IDs unless the customer already provided them.
+Use these as starting points for Tenaqo support replies. Adjust the wording to the customer and do not expose internal IDs unless the customer already provided them.
 
 ## Initial Acknowledgement
 
@@ -14,7 +14,7 @@ We will update you again by `<time>`. If you have a screenshot or the approximat
 
 Subject: Access check in progress
 
-We are reviewing the account and role linked to your profile. OASIS keeps account access deliberately scoped, so some screens and actions are only available to specific roles.
+We are reviewing the account and role linked to your profile. Tenaqo keeps account access deliberately scoped, so some screens and actions are only available to specific roles.
 
 We will confirm whether this is expected role behavior or a configuration issue, then let you know the safest next step.
 
@@ -30,9 +30,9 @@ If you received more than one email, use only the newest one unless we advise ot
 
 Subject: Provider delivery check in progress
 
-The OASIS handoff was received, and we are checking the external provider delivery status now.
+The Tenaqo handoff was received, and we are checking the external provider delivery status now.
 
-We will confirm whether the issue is with the OASIS request, provider delivery, or the recipient mailbox route before retrying.
+We will confirm whether the issue is with the Tenaqo request, provider delivery, or the recipient mailbox route before retrying.
 
 ## Degraded Feature With Workaround
 
@@ -62,7 +62,7 @@ Please try the action again and let us know if anything still looks wrong.
 
 Subject: Expected access behavior
 
-We checked this and confirmed OASIS is behaving as designed for the current role/account.
+We checked this and confirmed Tenaqo is behaving as designed for the current role/account.
 
 The reason is:
 `<plain-language reason>`

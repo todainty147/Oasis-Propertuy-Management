@@ -1,4 +1,4 @@
-# OASIS Monitoring Evidence Template
+# Tenaqo Monitoring Evidence Template
 
 Use this template for daily checks, weekly reviews, and launch-readiness monitoring evidence.
 

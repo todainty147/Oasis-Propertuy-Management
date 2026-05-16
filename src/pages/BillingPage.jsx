@@ -342,7 +342,7 @@ export default function BillingPage() {
           </div>
         ) : null}
 
-        {/* OASIS trial info */}
+        {/* Tenaqo trial info */}
         {trialEndsAt && !isRootOperator && (
           <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200">
             {isInTrial

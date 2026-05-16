@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
     if (!stripeCustomerId) {
       const customer = await stripe.customers.create({
         email: user.email,
-        name: account?.name || "OASIS Account",
+        name: account?.name || "Tenaqo Account",
         metadata: {
           account_id: String(accountId),
         },

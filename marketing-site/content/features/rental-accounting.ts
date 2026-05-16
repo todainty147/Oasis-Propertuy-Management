@@ -2,7 +2,7 @@ import { siteConfig } from "../site";
 
 export const rentalAccountingContent = {
   seo: {
-    title: "Rental Accounting Software for Landlords | OASIS Rental",
+    title: "Rental Accounting Software for Landlords | Tenaqo",
     description:
       "Track rent status, overdue balances, arrears pressure, and follow-up priority without rebuilding spreadsheets.",
     canonical: "https://marketing.oasisrentalmgt.app/features/rental-accounting",
@@ -11,9 +11,9 @@ export const rentalAccountingContent = {
     eyebrow: "Rental accounting",
     title: "See paid, due, and overdue rent before follow-up slips",
     body:
-      "OASIS gives landlords finance views built around follow-up: what is paid, what is due, what is overdue, and which properties are starting to show pressure.",
+      "Tenaqo gives landlords finance views built around follow-up: what is paid, what is due, what is overdue, and which properties are starting to show pressure.",
     imageSrc: "/screenshots/portfolio-health.png",
-    imageAlt: "OASIS Portfolio Health dashboard showing arrears aging, finance mix, and maintenance pressure.",
+    imageAlt: "Tenaqo Portfolio Health dashboard showing arrears aging, finance mix, and maintenance pressure.",
   },
   painPoints: {
     eyebrow: "Landlord pain points",
@@ -35,13 +35,13 @@ export const rentalAccountingContent = {
       },
     ],
     imageSrc: "/screenshots/property-performance.png",
-    imageAlt: "OASIS property performance view showing rent, remaining balance, and operational health.",
+    imageAlt: "Tenaqo property performance view showing rent, remaining balance, and operational health.",
   },
   solution: {
-    eyebrow: "How OASIS helps",
+    eyebrow: "How Tenaqo helps",
     title: "Rent tracking shaped around arrears visibility and earlier intervention",
     body:
-      "OASIS helps landlords see the rental numbers that matter day to day, with payment status tied to tenant context, property context, and the wider portfolio pressure building around them.",
+      "Tenaqo helps landlords see the rental numbers that matter day to day, with payment status tied to tenant context, property context, and the wider portfolio pressure building around them.",
     items: [
       {
         title: "See payment status clearly",
@@ -49,7 +49,7 @@ export const rentalAccountingContent = {
       },
       {
         title: "Publish payment setup to the tenant portal",
-        body: "Show accepted methods, external portal links, support contact details, and autopay guidance without pretending OASIS is already the processor.",
+        body: "Show accepted methods, external portal links, support contact details, and autopay guidance without pretending Tenaqo is already the processor.",
       },
       {
         title: "Prioritize follow-up faster",
@@ -65,7 +65,7 @@ export const rentalAccountingContent = {
       },
     ],
     imageSrc: "/screenshots/payment-setup.png",
-    imageAlt: "OASIS Finance page showing tenant payment setup readiness, accepted methods, and external portal guidance.",
+    imageAlt: "Tenaqo Finance page showing tenant payment setup readiness, accepted methods, and external portal guidance.",
     imageAlign: "left" as const,
   },
   benefits: {
@@ -96,7 +96,7 @@ export const rentalAccountingContent = {
   finalCta: {
     title: "Get a clearer rent picture across your portfolio",
     body:
-      "See how OASIS helps landlords track income, overdue balances, payment status, and arrears pressure from one operating view.",
+      "See how Tenaqo helps landlords track income, overdue balances, payment status, and arrears pressure from one operating view.",
     primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
     secondaryCta: { label: "View Pricing", href: "/pricing" },
   },

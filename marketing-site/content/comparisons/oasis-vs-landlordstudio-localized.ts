@@ -58,34 +58,34 @@ type ComparisonContent = {
 export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonContent> = {
   en: {
     seo: {
-      title: "OASIS vs Landlord Studio | Which is better for landlords?",
+      title: "Tenaqo vs Landlord Studio | Which is better for landlords?",
       description:
-        "Compare OASIS Rental and Landlord Studio when the choice is between accounting-led landlord software and deeper property operations control.",
+        "Compare Tenaqo and Landlord Studio when the choice is between accounting-led landlord software and deeper property operations control.",
       canonicalPath: "/compare/oasis-vs-landlordstudio",
     },
     hero: {
       eyebrow: "Comparison",
-      title: "OASIS vs Landlord Studio",
+      title: "Tenaqo vs Landlord Studio",
       body:
-        "Landlord Studio is strongest when accounting, bank feeds, online rent collection, and financial reporting lead the decision. OASIS is stronger when the daily challenge is operational control: rent rules, expected charges, maintenance movement, document evidence, compliance evidence, contractors, audit, and what needs action next.",
+        "Landlord Studio is strongest when accounting, bank feeds, online rent collection, and financial reporting lead the decision. Tenaqo is stronger when the daily challenge is operational control: rent rules, expected charges, maintenance movement, document evidence, compliance evidence, contractors, audit, and what needs action next.",
       imageSrc: "/screenshots/command-center.png",
-      imageAlt: "OASIS Command Center showing urgent items and connected portfolio actions.",
+      imageAlt: "Tenaqo Command Center showing urgent items and connected portfolio actions.",
     },
     summary: {
       eyebrow: "High-level comparison",
       title: "The real split appears when accounting stops being the whole job",
       body:
-        "Landlord Studio is appealing when the goal is accounting clarity and lighter landlord tracking. OASIS becomes more compelling when the week is shaped by overdue balances, maintenance progress, contractor coordination, tenant context, document handoffs, and the need to stay ahead of pressure across the portfolio.",
+        "Landlord Studio is appealing when the goal is accounting clarity and lighter landlord tracking. Tenaqo becomes more compelling when the week is shaped by overdue balances, maintenance progress, contractor coordination, tenant context, document handoffs, and the need to stay ahead of pressure across the portfolio.",
       imageSrc: "/screenshots/documents-workflow.png",
-      imageAlt: "OASIS Documents page showing document requests, agreement packets, and account-scoped workflow controls.",
+      imageAlt: "Tenaqo Documents page showing document requests, agreement packets, and account-scoped workflow controls.",
     },
     comparisonTable: {
       title: "Side-by-side comparison",
       intro:
-        "This is a fair comparison between two different strengths: Landlord Studio's accounting-oriented toolkit and OASIS' property operations workflow.",
+        "This is a fair comparison between two different strengths: Landlord Studio's accounting-oriented toolkit and Tenaqo' property operations workflow.",
       competitorName: "Landlord Studio",
       categoryLabel: "Category",
-      oasisLabel: "OASIS Rental",
+      oasisLabel: "Tenaqo",
       rows: [
         {
           category: "Primary emphasis",
@@ -181,23 +181,23 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
       ],
     },
     differences: {
-      eyebrow: "Where OASIS stands out",
-      title: "Most rental tools store what happened. OASIS helps move what happens next.",
+      eyebrow: "Where Tenaqo stands out",
+      title: "Most rental tools store what happened. Tenaqo helps move what happens next.",
       body:
-        "This is not a claim that Landlord Studio lacks useful landlord tooling. OASIS stands out when the harder problem is operational control: rent rules and expected charges, maintenance movement, compliance evidence inside the workflow, and reducing dropped follow-up across the portfolio.",
+        "This is not a claim that Landlord Studio lacks useful landlord tooling. Tenaqo stands out when the harder problem is operational control: rent rules and expected charges, maintenance movement, compliance evidence inside the workflow, and reducing dropped follow-up across the portfolio.",
       imageSrc: "/screenshots/maintenance-inbox.png",
-      imageAlt: "OASIS Maintenance Inbox showing structured request workflow and linked work orders.",
+      imageAlt: "Tenaqo Maintenance Inbox showing structured request workflow and linked work orders.",
       imageAlign: "left",
       items: [
         {
           title: "Rent Plans Engine handles the calculation layer",
           body:
-            "OASIS builds rent as a rules engine: expected charges, proration, utilities, deposits, advanced models, and safe Finance posting with approval before the ledger is touched. Preview before you post.",
+            "Tenaqo builds rent as a rules engine: expected charges, proration, utilities, deposits, advanced models, and safe Finance posting with approval before the ledger is touched. Preview before you post.",
         },
         {
           title: "Maintenance has a clearer path",
           body:
-            "OASIS gives repair work a path from request to work order to progress review, helping landlords catch stalled items, blocked jobs, and missed ownership sooner.",
+            "Tenaqo gives repair work a path from request to work order to progress review, helping landlords catch stalled items, blocked jobs, and missed ownership sooner.",
         },
         {
           title: "Compliance sits inside the working week",
@@ -215,7 +215,7 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
       title: "Which fit sounds more like your portfolio?",
       items: [
         {
-          title: "Choose OASIS if",
+          title: "Choose Tenaqo if",
           body:
             "You need rent rules and expected charges, maintenance workflows, compliance evidence, contractor coordination, document evidence, audit trails, and a clear view of what needs action — all connected.",
         },
@@ -234,41 +234,41 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
     finalCta: {
       title: "Need more operational control than an accounting-first landlord tool gives you?",
       body:
-        "If your portfolio has moved beyond accounting clarity into day-to-day coordination pressure, OASIS gives rent, repairs, records, and action queues a clearer operating rhythm.",
+        "If your portfolio has moved beyond accounting clarity into day-to-day coordination pressure, Tenaqo gives rent, repairs, records, and action queues a clearer operating rhythm.",
       primaryCta: { label: "Get early access", href: siteConfig.appUrl },
       secondaryCta: { label: "See the tenant portal", href: "/tenant-portal-software" },
     },
   },
   pl: {
     seo: {
-      title: "OASIS vs Landlord Studio | Co lepiej pasuje właścicielowi mieszkań?",
+      title: "Tenaqo vs Landlord Studio | Co lepiej pasuje właścicielowi mieszkań?",
       description:
-        "Porównanie OASIS Rental i Landlord Studio z perspektywy właściciela, który wybiera między narzędziem finansowym a większą kontrolą operacyjną nad najmem.",
+        "Porównanie Tenaqo i Landlord Studio z perspektywy właściciela, który wybiera między narzędziem finansowym a większą kontrolą operacyjną nad najmem.",
       canonicalPath: "/pl/compare/oasis-vs-landlordstudio",
     },
     hero: {
       eyebrow: "Porównanie",
-      title: "OASIS vs Landlord Studio",
+      title: "Tenaqo vs Landlord Studio",
       body:
-        "Landlord Studio wypada najmocniej tam, gdzie decyzję prowadzą księgowość najmu, bank feeds, pobór czynszu online i raportowanie. OASIS jest mocniejszy wtedy, gdy codziennym problemem staje się operacyjna kontrola: follow-up płatności, ruch zgłoszeń, dokumenty, podpisy i decyzja, co wymaga działania jako pierwsze.",
+        "Landlord Studio wypada najmocniej tam, gdzie decyzję prowadzą księgowość najmu, bank feeds, pobór czynszu online i raportowanie. Tenaqo jest mocniejszy wtedy, gdy codziennym problemem staje się operacyjna kontrola: follow-up płatności, ruch zgłoszeń, dokumenty, podpisy i decyzja, co wymaga działania jako pierwsze.",
       imageSrc: "/screenshots/command-center.png",
-      imageAlt: "Command Center OASIS z pilnymi zadaniami i połączonymi działaniami w portfelu.",
+      imageAlt: "Command Center Tenaqo z pilnymi zadaniami i połączonymi działaniami w portfelu.",
     },
     summary: {
       eyebrow: "Porównanie w skrócie",
       title: "Prawdziwa różnica zaczyna się wtedy, gdy księgowość przestaje być jedyną pracą",
       body:
-        "Landlord Studio jest atrakcyjny, gdy głównym celem pozostaje jasność finansowa i lżejsze śledzenie najmu. OASIS staje się bardziej przekonujący, gdy tydzień kształtują zaległości, postęp napraw, koordynacja wykonawców, kontekst najemców, obieg dokumentów i potrzeba wcześniejszego wychwytywania presji w portfelu.",
+        "Landlord Studio jest atrakcyjny, gdy głównym celem pozostaje jasność finansowa i lżejsze śledzenie najmu. Tenaqo staje się bardziej przekonujący, gdy tydzień kształtują zaległości, postęp napraw, koordynacja wykonawców, kontekst najemców, obieg dokumentów i potrzeba wcześniejszego wychwytywania presji w portfelu.",
       imageSrc: "/screenshots/documents-workflow.png",
-      imageAlt: "Widok Documents w OASIS z prośbami o dokumenty, pakietami umów i workflow na poziomie konta.",
+      imageAlt: "Widok Documents w Tenaqo z prośbami o dokumenty, pakietami umów i workflow na poziomie konta.",
     },
     comparisonTable: {
       title: "Porównanie obok siebie",
       intro:
-        "To uczciwe porównanie dwóch różnych mocnych stron: bardziej finansowego podejścia Landlord Studio i operacyjnego workflow OASIS.",
+        "To uczciwe porównanie dwóch różnych mocnych stron: bardziej finansowego podejścia Landlord Studio i operacyjnego workflow Tenaqo.",
       competitorName: "Landlord Studio",
       categoryLabel: "Obszar",
-      oasisLabel: "OASIS Rental",
+      oasisLabel: "Tenaqo",
       rows: [
         {
           category: "Główne nastawienie",
@@ -308,18 +308,18 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
       ],
     },
     differences: {
-      eyebrow: "Gdzie OASIS się wyróżnia",
-      title: "Dlaczego właściciel może przejść do OASIS po wyrośnięciu z narzędzia księgowo-first",
+      eyebrow: "Gdzie Tenaqo się wyróżnia",
+      title: "Dlaczego właściciel może przejść do Tenaqo po wyrośnięciu z narzędzia księgowo-first",
       body:
-        "To nie jest twierdzenie, że Landlord Studio nie oferuje wartościowych funkcji. OASIS wyróżnia się wtedy, gdy trudniejszym problemem staje się tempo operacyjne: zobaczyć co wymaga uwagi, popchnąć pracę do przodu i ograniczyć zgubiony follow-up w całym portfelu.",
+        "To nie jest twierdzenie, że Landlord Studio nie oferuje wartościowych funkcji. Tenaqo wyróżnia się wtedy, gdy trudniejszym problemem staje się tempo operacyjne: zobaczyć co wymaga uwagi, popchnąć pracę do przodu i ograniczyć zgubiony follow-up w całym portfelu.",
       imageSrc: "/screenshots/maintenance-inbox.png",
-      imageAlt: "Maintenance Inbox OASIS ze strukturalnym workflow zgłoszeń i powiązanymi zleceniami.",
+      imageAlt: "Maintenance Inbox Tenaqo ze strukturalnym workflow zgłoszeń i powiązanymi zleceniami.",
       imageAlign: "left",
       items: [
         {
           title: "Naprawy mają czytelniejszą ścieżkę",
           body:
-            "OASIS prowadzi pracę od zgłoszenia do zlecenia i przeglądu postępu, dzięki czemu łatwiej wychwycić zastój, blokady i brak właściciela kolejnego kroku.",
+            "Tenaqo prowadzi pracę od zgłoszenia do zlecenia i przeglądu postępu, dzięki czemu łatwiej wychwycić zastój, blokady i brak właściciela kolejnego kroku.",
         },
         {
           title: "Łatwiej ustalić priorytet",
@@ -329,7 +329,7 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
         {
           title: "Kontrola wykracza poza ewidencję",
           body:
-            "OASIS trzyma kontekst najemcy, dokumenty, presję płatności, status napraw i ślad audytowy bliżej samej decyzji operacyjnej.",
+            "Tenaqo trzyma kontekst najemcy, dokumenty, presję płatności, status napraw i ślad audytowy bliżej samej decyzji operacyjnej.",
         },
       ],
     },
@@ -337,7 +337,7 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
       title: "Które dopasowanie bardziej przypomina Twój portfel?",
       items: [
         {
-          title: "Wybierz OASIS, jeśli",
+          title: "Wybierz Tenaqo, jeśli",
           body:
             "spędzasz więcej czasu na pilnowaniu płatności, sprawdzaniu postępu napraw, szukaniu dokumentów i ustalaniu priorytetów niż na samej ewidencji.",
         },
@@ -356,41 +356,41 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
     finalCta: {
       title: "Potrzebujesz większej kontroli operacyjnej niż daje narzędzie księgowo-first?",
       body:
-        "Jeśli Twój portfel wyszedł poza samą jasność finansową i dziś wymaga codziennej koordynacji, OASIS daje płatnościom, naprawom, dokumentom i kolejkom działań wyraźniejszy rytm operacyjny.",
+        "Jeśli Twój portfel wyszedł poza samą jasność finansową i dziś wymaga codziennej koordynacji, Tenaqo daje płatnościom, naprawom, dokumentom i kolejkom działań wyraźniejszy rytm operacyjny.",
       primaryCta: { label: "Uzyskaj wcześniejszy dostęp", href: siteConfig.appUrl },
       secondaryCta: { label: "Zobacz portal najemcy", href: "/tenant-portal-software" },
     },
   },
   de: {
     seo: {
-      title: "OASIS vs Landlord Studio | Was passt besser zu Vermietern?",
+      title: "Tenaqo vs Landlord Studio | Was passt besser zu Vermietern?",
       description:
-        "Vergleich von OASIS Rental und Landlord Studio für Vermieter, die zwischen buchhaltungsorientierter Software und stärkerer operativer Kontrolle wählen.",
+        "Vergleich von Tenaqo und Landlord Studio für Vermieter, die zwischen buchhaltungsorientierter Software und stärkerer operativer Kontrolle wählen.",
       canonicalPath: "/de/compare/oasis-vs-landlordstudio",
     },
     hero: {
       eyebrow: "Vergleich",
-      title: "OASIS vs Landlord Studio",
+      title: "Tenaqo vs Landlord Studio",
       body:
-        "Landlord Studio ist besonders stark, wenn Buchhaltung, Bankanbindung, Online-Mieteinzug und Reporting im Vordergrund stehen. OASIS ist stärker, wenn der tägliche Engpass operative Kontrolle ist: Zahlungsverfolgung, Instandhaltung, Dokumente, Unterschriften und die Frage, was zuerst bewegt werden muss.",
+        "Landlord Studio ist besonders stark, wenn Buchhaltung, Bankanbindung, Online-Mieteinzug und Reporting im Vordergrund stehen. Tenaqo ist stärker, wenn der tägliche Engpass operative Kontrolle ist: Zahlungsverfolgung, Instandhaltung, Dokumente, Unterschriften und die Frage, was zuerst bewegt werden muss.",
       imageSrc: "/screenshots/command-center.png",
-      imageAlt: "OASIS Command Center mit dringenden Themen und verbundenen Portfolio-Aktionen.",
+      imageAlt: "Tenaqo Command Center mit dringenden Themen und verbundenen Portfolio-Aktionen.",
     },
     summary: {
       eyebrow: "Kurzvergleich",
       title: "Der eigentliche Unterschied beginnt, wenn Buchhaltung nicht mehr die ganze Arbeit ist",
       body:
-        "Landlord Studio wirkt überzeugend, wenn finanzielle Übersicht und leichtere Vermieterverwaltung im Mittelpunkt stehen. OASIS wird stärker, wenn die Woche von Rückständen, Reparaturfortschritt, Handwerkerkoordination, Mieterkontext, Dokumentenübergaben und wachsendem Handlungsdruck im Portfolio geprägt ist.",
+        "Landlord Studio wirkt überzeugend, wenn finanzielle Übersicht und leichtere Vermieterverwaltung im Mittelpunkt stehen. Tenaqo wird stärker, wenn die Woche von Rückständen, Reparaturfortschritt, Handwerkerkoordination, Mieterkontext, Dokumentenübergaben und wachsendem Handlungsdruck im Portfolio geprägt ist.",
       imageSrc: "/screenshots/documents-workflow.png",
-      imageAlt: "OASIS Documents Ansicht mit Dokumentenanfragen, Vertragspaketen und kontobezogenem Workflow.",
+      imageAlt: "Tenaqo Documents Ansicht mit Dokumentenanfragen, Vertragspaketen und kontobezogenem Workflow.",
     },
     comparisonTable: {
       title: "Direkter Vergleich",
       intro:
-        "Das ist ein fairer Vergleich zweier unterschiedlicher Stärken: Landlord Studios buchhaltungsorientiertes Vermieter-Toolkit und der operative Workflow von OASIS.",
+        "Das ist ein fairer Vergleich zweier unterschiedlicher Stärken: Landlord Studios buchhaltungsorientiertes Vermieter-Toolkit und der operative Workflow von Tenaqo.",
       competitorName: "Landlord Studio",
       categoryLabel: "Bereich",
-      oasisLabel: "OASIS Rental",
+      oasisLabel: "Tenaqo",
       rows: [
         {
           category: "Hauptfokus",
@@ -430,18 +430,18 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
       ],
     },
     differences: {
-      eyebrow: "Wo OASIS stärker ist",
-      title: "Warum Vermieter nach einem buchhaltungsorientierten Tool zu OASIS wechseln könnten",
+      eyebrow: "Wo Tenaqo stärker ist",
+      title: "Warum Vermieter nach einem buchhaltungsorientierten Tool zu Tenaqo wechseln könnten",
       body:
-        "Das ist keine Behauptung, dass Landlord Studio keine nützlichen Funktionen bietet. OASIS sticht hervor, wenn das schwierigere Problem operative Geschwindigkeit ist: sehen, was Aufmerksamkeit braucht, Arbeit voranbringen und verlorene Nachverfolgung über das Portfolio hinweg reduzieren.",
+        "Das ist keine Behauptung, dass Landlord Studio keine nützlichen Funktionen bietet. Tenaqo sticht hervor, wenn das schwierigere Problem operative Geschwindigkeit ist: sehen, was Aufmerksamkeit braucht, Arbeit voranbringen und verlorene Nachverfolgung über das Portfolio hinweg reduzieren.",
       imageSrc: "/screenshots/maintenance-inbox.png",
-      imageAlt: "OASIS Maintenance Inbox mit strukturiertem Anfrage-Workflow und verbundenen Arbeitsaufträgen.",
+      imageAlt: "Tenaqo Maintenance Inbox mit strukturiertem Anfrage-Workflow und verbundenen Arbeitsaufträgen.",
       imageAlign: "left",
       items: [
         {
           title: "Instandhaltung hat einen klareren Verlauf",
           body:
-            "OASIS führt Arbeit von der Anfrage über den Arbeitsauftrag bis zur Fortschrittsprüfung, sodass Stau, Blockaden und fehlende Zuständigkeit früher sichtbar werden.",
+            "Tenaqo führt Arbeit von der Anfrage über den Arbeitsauftrag bis zur Fortschrittsprüfung, sodass Stau, Blockaden und fehlende Zuständigkeit früher sichtbar werden.",
         },
         {
           title: "Prioritäten lassen sich leichter setzen",
@@ -451,7 +451,7 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
         {
           title: "Kontrolle geht über Datenspeicherung hinaus",
           body:
-            "OASIS hält Mieterkontext, Dokumente, Zahlungsdruck, Reparaturstatus und Auditierbarkeit näher an der operativen Entscheidung.",
+            "Tenaqo hält Mieterkontext, Dokumente, Zahlungsdruck, Reparaturstatus und Auditierbarkeit näher an der operativen Entscheidung.",
         },
       ],
     },
@@ -459,7 +459,7 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
       title: "Welche Beschreibung passt eher zu Ihrem Portfolio?",
       items: [
         {
-          title: "Wählen Sie OASIS, wenn",
+          title: "Wählen Sie Tenaqo, wenn",
           body:
             "Sie mehr Zeit mit Zahlungsverfolgung, Reparaturstatus, Dokumentensuche und Priorisierung verbringen als mit dem bloßen Erfassen von Vorgängen.",
         },
@@ -478,7 +478,7 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
     finalCta: {
       title: "Brauchen Sie mehr operative Kontrolle als ein buchhaltungsorientiertes Vermieter-Tool bietet?",
       body:
-        "Wenn Ihr Portfolio über reine Finanzübersicht hinausgewachsen ist und heute tägliche Koordination verlangt, gibt OASIS Zahlungen, Reparaturen, Dokumenten und Aktionswarteschlangen einen klareren operativen Rhythmus.",
+        "Wenn Ihr Portfolio über reine Finanzübersicht hinausgewachsen ist und heute tägliche Koordination verlangt, gibt Tenaqo Zahlungen, Reparaturen, Dokumenten und Aktionswarteschlangen einen klareren operativen Rhythmus.",
       primaryCta: { label: "Frühzugang sichern", href: siteConfig.appUrl },
       secondaryCta: { label: "Mieterportal ansehen", href: "/tenant-portal-software" },
     },

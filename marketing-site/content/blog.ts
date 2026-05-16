@@ -17,7 +17,7 @@ export type BlogArticle = {
   date?: string;        // ISO date e.g. "2026-05-13"
   readingTime?: string; // e.g. "5 min read"
   title: string;
-  pageTitle?: string;   // overrides <title> when set; default: "${title} | OASIS Rental Blog"
+  pageTitle?: string;   // overrides <title> when set; default: "${title} | Tenaqo Blog"
   summary: string;
   metaDescription: string;
   disclaimer?: string;  // legal/compliance disclaimer shown prominently above article body
@@ -40,7 +40,7 @@ export const blogArticles: BlogArticle[] = [
       "Most landlord software asks small landlords to work like agencies. The better answer is simpler: fewer places to check, clearer next actions, and less mental tracking.",
     metaDescription:
       "Why many landlord apps miss the needs of small landlords, and what a better rental operating system should do instead.",
-    cta: "Try OASIS before we launch publicly",
+    cta: "Try Tenaqo before we launch publicly",
     sections: [
       {
         heading: "The real problem is not you",
@@ -83,11 +83,11 @@ export const blogArticles: BlogArticle[] = [
         ],
       },
       {
-        heading: "Why OASIS exists",
+        heading: "Why Tenaqo exists",
         paragraphs: [
-          "OASIS exists for landlords managing real portfolios who want more control and less chaos.",
+          "Tenaqo exists for landlords managing real portfolios who want more control and less chaos.",
           "It is built with real landlord workflows in mind: rent follow-up, maintenance progress, tenant records, documents, and the operating signals that tell you what needs action next.",
-          "If you are tired of making five disconnected tools behave like one system, OASIS is being built for you.",
+          "If you are tired of making five disconnected tools behave like one system, Tenaqo is being built for you.",
         ],
       },
     ],
@@ -100,7 +100,7 @@ export const blogArticles: BlogArticle[] = [
       "Missing one payment can feel small until it creates follow-up delays, awkward conversations, and weaker confidence in your portfolio cash position.",
     metaDescription:
       "Missed rent tracking creates more than a finance issue. Learn how clearer rent visibility changes landlord behavior.",
-    cta: "See your payments clearly with OASIS",
+    cta: "See your payments clearly with Tenaqo",
     sections: [
       {
         heading: "Missing one payment does not feel big",
@@ -155,7 +155,7 @@ export const blogArticles: BlogArticle[] = [
       "Organised landlords are not relying on memory. They use simple systems that make rent, repairs, records, and follow-up easier to see.",
     metaDescription:
       "How organized landlords use simple systems to stay on top of rent, maintenance, records, and follow-up.",
-    cta: "Run your properties with clarity using OASIS",
+    cta: "Run your properties with clarity using Tenaqo",
     sections: [
       {
         heading: "It is not about working harder",
@@ -196,7 +196,7 @@ export const blogArticles: BlogArticle[] = [
         heading: "Simple systems that work",
         paragraphs: [
           "A useful system should answer basic questions quickly. Who owes what? Which repair is stuck? Where is the record? Which property needs attention?",
-          "OASIS is built around those practical questions, so landlords can spend less time searching and more time running the portfolio with clarity.",
+          "Tenaqo is built around those practical questions, so landlords can spend less time searching and more time running the portfolio with clarity.",
         ],
       },
     ],
@@ -250,7 +250,7 @@ export const blogArticles: BlogArticle[] = [
         heading: "A simple structure that works",
         paragraphs: [
           "A better maintenance process starts with a clear request, a work order, an owner, a status, and a way to review progress.",
-          "OASIS is built to help landlords move from repair messages to tracked work, so issues can be handled with less chaos and fewer blind spots.",
+          "Tenaqo is built to help landlords move from repair messages to tracked work, so issues can be handled with less chaos and fewer blind spots.",
         ],
       },
     ],
@@ -263,7 +263,7 @@ export const blogArticles: BlogArticle[] = [
       "Managing two properties can be easy. Scaling exposes the weak points: payments, communication, maintenance, records, and manual follow-up.",
     metaDescription:
       "What starts breaking as landlords scale from a few properties to a larger portfolio, and how to prepare operations earlier.",
-    cta: "Prepare your portfolio to scale with OASIS",
+    cta: "Prepare your portfolio to scale with Tenaqo",
     sections: [
       {
         heading: "Managing two properties is easy. Scaling is not.",
@@ -311,7 +311,7 @@ export const blogArticles: BlogArticle[] = [
         heading: "What scaling landlords do differently",
         paragraphs: [
           "Scaling landlords bring the operating work into one place earlier. They build routines around rent status, maintenance progress, tenant context, records, and portfolio review.",
-          "OASIS helps landlords prepare for that shift, so growth does not turn every week into catch-up.",
+          "Tenaqo helps landlords prepare for that shift, so growth does not turn every week into catch-up.",
         ],
       },
     ],
@@ -323,7 +323,7 @@ export const blogArticles: BlogArticle[] = [
     category: "Rent & Finance",
     date: "2026-05-13",
     readingTime: "5 min read",
-    pageTitle: "Why Rent Should Be a Workflow, Not Just a Number | OASIS Rental",
+    pageTitle: "Why Rent Should Be a Workflow, Not Just a Number | Tenaqo",
     title: "Why Rent Should Be a Workflow, Not Just a Number",
     summary:
       "Rent is rarely just one monthly amount. Expected charges, proration, deposits, utilities, arrears, and safe posting all need a workflow.",
@@ -332,9 +332,9 @@ export const blogArticles: BlogArticle[] = [
     cta: "Want rent to stop living in spreadsheets?",
     ctaOverride: {
       heading: "Want rent to stop living in spreadsheets?",
-      body: "OASIS helps landlords create rent plans, preview expected charges, track balances, and keep finance actions under landlord control.",
+      body: "Tenaqo helps landlords create rent plans, preview expected charges, track balances, and keep finance actions under landlord control.",
       primaryCta: { label: "Claim Founder Access", href: siteConfig.appUrl },
-      secondaryCta: { label: "See how OASIS works", href: "/features/rental-accounting" },
+      secondaryCta: { label: "See how Tenaqo works", href: "/features/rental-accounting" },
     },
     sections: [
       {
@@ -417,9 +417,9 @@ export const blogArticles: BlogArticle[] = [
         ],
       },
       {
-        heading: "What this means in OASIS",
+        heading: "What this means in Tenaqo",
         paragraphs: [
-          "OASIS treats rent as part of the operating workflow, not just a static amount.",
+          "Tenaqo treats rent as part of the operating workflow, not just a static amount.",
           "That means landlords can work with:",
         ],
         items: [
@@ -471,8 +471,8 @@ export const blogArticles: BlogArticle[] = [
     cta: "Ready for the new landlord operating reality?",
     ctaOverride: {
       heading: "Ready for the new landlord operating reality?",
-      body: "OASIS helps landlords track rent, documents, notices, maintenance, compliance readiness, and audit trails from one operating dashboard.",
-      primaryCta: { label: "See how OASIS works", href: siteConfig.appUrl },
+      body: "Tenaqo helps landlords track rent, documents, notices, maintenance, compliance readiness, and audit trails from one operating dashboard.",
+      primaryCta: { label: "See how Tenaqo works", href: siteConfig.appUrl },
       secondaryCta: { label: "Explore Renters' Rights readiness", href: "/features/compliance" },
     },
     sections: [
@@ -502,11 +502,11 @@ export const blogArticles: BlogArticle[] = [
         ],
       },
       {
-        heading: "The OASIS angle",
+        heading: "The Tenaqo angle",
         headingLevel: "h3",
         paragraphs: [
-          "OASIS is built around evidence and workflow.",
-          "Instead of manually emailing PDFs and hoping the record is easy to find later, landlords can use OASIS-style workflows to track:",
+          "Tenaqo is built around evidence and workflow.",
+          "Instead of manually emailing PDFs and hoping the record is easy to find later, landlords can use Tenaqo-style workflows to track:",
         ],
         items: [
           "which tenants need the Information Sheet",
@@ -516,10 +516,10 @@ export const blogArticles: BlogArticle[] = [
           "follow-up actions",
         ],
         paragraphs2: [
-          "OASIS does not replace legal advice, but it helps landlords keep the operational trail organised.",
+          "Tenaqo does not replace legal advice, but it helps landlords keep the operational trail organised.",
         ],
         sectionLinks: [
-          { label: "Track compliance with OASIS →", href: "/features/compliance" },
+          { label: "Track compliance with Tenaqo →", href: "/features/compliance" },
         ],
       },
       {
@@ -556,7 +556,7 @@ export const blogArticles: BlogArticle[] = [
           "property status and reason for possession",
         ],
         paragraphs2: [
-          "OASIS helps by keeping tenancy, document, finance, maintenance, and communication evidence closer to the workflow.",
+          "Tenaqo helps by keeping tenancy, document, finance, maintenance, and communication evidence closer to the workflow.",
         ],
       },
       {
@@ -576,11 +576,11 @@ export const blogArticles: BlogArticle[] = [
         ],
       },
       {
-        heading: "The OASIS angle",
+        heading: "The Tenaqo angle",
         headingLevel: "h3",
         paragraphs: [
           "This is where better rent visibility matters.",
-          "OASIS helps landlords think more clearly about the financial picture before they advertise:",
+          "Tenaqo helps landlords think more clearly about the financial picture before they advertise:",
         ],
         items: [
           "current rent levels",
@@ -618,10 +618,10 @@ export const blogArticles: BlogArticle[] = [
         ],
       },
       {
-        heading: "The OASIS angle",
+        heading: "The Tenaqo angle",
         headingLevel: "h3",
         paragraphs: [
-          "OASIS is designed around rent rules and expected charges. A safer rent increase workflow looks like this:",
+          "Tenaqo is designed around rent rules and expected charges. A safer rent increase workflow looks like this:",
         ],
         note: {
           lines: [
@@ -672,12 +672,12 @@ export const blogArticles: BlogArticle[] = [
         ],
       },
       {
-        heading: "The OASIS angle",
+        heading: "The Tenaqo angle",
         headingLevel: "h3",
         paragraphs: [
           "This is another reason why audit trails matter.",
           "Landlords should be able to show that tenancy decisions were based on individual assessment rather than blanket exclusion.",
-          "OASIS helps landlords keep structured records around:",
+          "Tenaqo helps landlords keep structured records around:",
         ],
         items: [
           "tenant applications and affordability review notes",
@@ -687,7 +687,7 @@ export const blogArticles: BlogArticle[] = [
           "compliance evidence",
         ],
         paragraphs2: [
-          "OASIS does not make decisions for the landlord. It helps keep the process visible and accountable.",
+          "Tenaqo does not make decisions for the landlord. It helps keep the process visible and accountable.",
         ],
       },
       {
@@ -708,12 +708,12 @@ export const blogArticles: BlogArticle[] = [
         paragraphs2: [
           "With the Private Rented Sector Database and the Landlord Ombudsman expected to shape the next phase of landlord accountability, record-keeping will matter even more.",
           "The landlords who adapt best will not be the ones who memorise every rule. They will be the ones who build a reliable operating rhythm.",
-          "That is the shift OASIS was built for.",
-          "From Information Sheet tracking to rent increase workflows, document evidence, tenant records, and audit trails, OASIS helps landlords keep compliance close to the work — not buried in inboxes and folders.",
+          "That is the shift Tenaqo was built for.",
+          "From Information Sheet tracking to rent increase workflows, document evidence, tenant records, and audit trails, Tenaqo helps landlords keep compliance close to the work — not buried in inboxes and folders.",
         ],
         sectionLinks: [
           { label: "Explore Renters' Rights readiness →", href: "/features/compliance" },
-          { label: "See how OASIS works →", href: "/features" },
+          { label: "See how Tenaqo works →", href: "/features" },
         ],
       },
     ],
@@ -724,8 +724,8 @@ export const getBlogArticle = (slug: string) =>
   blogArticles.find((article) => article.slug === slug);
 
 export const blogCta = {
-  title: "Try OASIS before we launch publicly",
-  body: "Get early access, test the product with real rental work, and help shape how OASIS evolves for landlords.",
+  title: "Try Tenaqo before we launch publicly",
+  body: "Get early access, test the product with real rental work, and help shape how Tenaqo evolves for landlords.",
   primaryCta: { label: "Get Early Access", href: siteConfig.appUrl },
   secondaryCta: { label: "Compare Plans", href: "/pricing" },
 };

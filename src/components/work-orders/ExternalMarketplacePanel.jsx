@@ -52,7 +52,7 @@ const COPY = {
     riskConfirm: "I understand the duplication risk and want to continue.",
     panelTitle: "External marketplace handoff",
     panelSubtitle:
-      "OASIS stays the source of truth. External marketplaces only receive a job handoff and whatever external reference you add back here.",
+      "Tenaqo stays the source of truth. External marketplaces only receive a job handoff and whatever external reference you add back here.",
     unknownCountry: "Choose the marketplace that matches the property location.",
     suggested: "Suggested provider",
     provider: "Marketplace provider",
@@ -111,7 +111,7 @@ const COPY = {
     riskConfirm: "Rozumiem ryzyko duplikacji i chcę kontynuować.",
     panelTitle: "Handoff do zewnętrznego marketplace",
     panelSubtitle:
-      "OASIS pozostaje źródłem prawdy. Marketplace dostaje tylko handoff zlecenia oraz zewnętrzne referencje, które wrócą tutaj.",
+      "Tenaqo pozostaje źródłem prawdy. Marketplace dostaje tylko handoff zlecenia oraz zewnętrzne referencje, które wrócą tutaj.",
     unknownCountry: "Wybierz marketplace zgodny z lokalizacją nieruchomości.",
     suggested: "Sugerowany provider",
     provider: "Marketplace",

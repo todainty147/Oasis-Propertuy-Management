@@ -1,6 +1,6 @@
-# OASIS Data Retention Policy
+# Tenaqo Data Retention Policy
 
-OASIS stores operational rental records for property management, tenant support, contractor coordination, finance, compliance, documents, billing, security, and audit. The right to erasure is handled through controlled deletion, minimisation, anonymisation, restriction, and retention with documented reasons. OASIS does not hard-delete operational records simply because a user asks for account deletion.
+Tenaqo stores operational rental records for property management, tenant support, contractor coordination, finance, compliance, documents, billing, security, and audit. The right to erasure is handled through controlled deletion, minimisation, anonymisation, restriction, and retention with documented reasons. Tenaqo does not hard-delete operational records simply because a user asks for account deletion.
 
 ## Core Principles
 

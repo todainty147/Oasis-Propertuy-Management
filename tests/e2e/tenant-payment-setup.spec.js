@@ -20,7 +20,7 @@ test("owner-configured payment setup appears in the standalone tenant portal", a
   await page.getByLabel("Tenant instructions").fill("Use your tenancy reference and follow the payment link for card payments.");
   await page.getByLabel("Billing / support email").fill("billing@example.test");
   await page.getByLabel("Autopay availability").selectOption("external");
-  await page.getByLabel("Autopay instructions").fill("Contact the landlord team to set up a standing order outside OASIS.");
+  await page.getByLabel("Autopay instructions").fill("Contact the landlord team to set up a standing order outside Tenaqo.");
   await page.getByRole("button", { name: "Save payment setup" }).click();
 
   await expect(page.getByText("Tenant payment settings saved.")).toBeVisible();
@@ -37,7 +37,7 @@ test("owner-configured payment setup appears in the standalone tenant portal", a
   await expect(page.getByText("Bank transfer")).toBeVisible();
   await expect(page.getByText("Card via external portal")).toBeVisible();
   await expect(page.getByRole("link", { name: "Open payment portal" })).toHaveAttribute("href", "https://payments.example.test/pay");
-  await expect(page.getByText("Autopay is available outside OASIS")).toBeVisible();
-  await expect(page.getByText("Contact the landlord team to set up a standing order outside OASIS.")).toBeVisible();
+  await expect(page.getByText("Autopay is available outside Tenaqo")).toBeVisible();
+  await expect(page.getByText("Contact the landlord team to set up a standing order outside Tenaqo.")).toBeVisible();
   await expect(page.getByText("Need help with payment? Contact billing@example.test.")).toBeVisible();
 });

@@ -2,9 +2,9 @@
 
 ## Legal Disclaimer
 
-**OASIS does not provide legal advice.**
+**Tenaqo does not provide legal advice.**
 
-OASIS Renters' Rights tools help landlords and property managers organise records, track tasks, and prepare evidence for review. They do not provide legal advice and do not determine whether any tenancy, notice, rent increase, pet decision, possession action, or landlord action is legally valid. Please seek advice from a qualified professional where needed.
+Tenaqo Renters' Rights tools help landlords and property managers organise records, track tasks, and prepare evidence for review. They do not provide legal advice and do not determine whether any tenancy, notice, rent increase, pet decision, possession action, or landlord action is legally valid. Please seek advice from a qualified professional where needed.
 
 ---
 
@@ -171,7 +171,7 @@ Future test files (Phase 2):
 
 ## Known Limitations (by design)
 
-1. **No legal validation** — status of "sent" means the manager recorded that they sent it. OASIS does not verify that the correct PDF was used or that delivery was legally effective.
+1. **No legal validation** — status of "sent" means the manager recorded that they sent it. Tenaqo does not verify that the correct PDF was used or that delivery was legally effective.
 2. **England only** — jurisdiction is hardcoded to `GB-ENG`. Polish and German i18n strings are app localisation only, not PL/DE legal applicability.
 3. **No tenant access in Phase 1** — tenants cannot view or interact with their information sheet status in Phase 1.
 4. **No export in Phase 1** — evidence pack export is deferred to Phase 4.

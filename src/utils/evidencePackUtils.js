@@ -67,7 +67,7 @@ export function sortChecklistItems(items = []) {
 
 /**
  * Returns true if a document MIME type is eligible to be linked to any checklist item.
- * OASIS allows PDF, images, and Office documents as evidence.
+ * Tenaqo allows PDF, images, and Office documents as evidence.
  */
 export function isDocumentEligible(mimeType) {
   const ALLOWED = new Set([

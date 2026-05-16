@@ -98,7 +98,7 @@ test("captures marketing product screenshots", async ({ page }) => {
   await page.getByLabel("Tenant instructions").fill("Use your tenancy reference for bank transfer or open the external portal for card payments.");
   await page.getByLabel("Billing / support email").fill("billing@example.test");
   await page.getByLabel("Autopay availability").selectOption("external");
-  await page.getByLabel("Autopay instructions").fill("Contact the property team to set up a standing order outside OASIS.");
+  await page.getByLabel("Autopay instructions").fill("Contact the property team to set up a standing order outside Tenaqo.");
   await page.getByRole("button", { name: "Save payment setup" }).click();
   await expect(page.getByText("Tenant payment settings saved.")).toBeVisible();
   await captureViewport(page, "payment-setup.png");

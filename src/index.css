@@ -26,11 +26,103 @@ body {
 :root {
   --app-bg: #f8fafc; /* slate-50 */
   --app-fg: #0f172a; /* slate-900 */
+  --brand-logo-wordmark: #0b1d3a;
+  --brand-logo-subtitle: #148ba6;
+  --brand-logo-tile-bg: #ffffff;
+  --brand-logo-tile-border: #d9e7ec;
+  --brand-logo-tile-shadow: 0 1px 2px rgba(11, 29, 58, 0.08);
 }
 
 .dark {
   --app-bg: #020617; /* slate-950 */
   --app-fg: #e2e8f0; /* slate-200 */
+  --brand-logo-wordmark: #ffffff;
+  --brand-logo-subtitle: #b7dde2;
+  --brand-logo-tile-bg: #fafcfb;
+  --brand-logo-tile-border: rgba(255, 255, 255, 0.18);
+  --brand-logo-tile-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+}
+
+.brand-logo {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.625rem;
+  color: var(--brand-logo-wordmark);
+}
+
+.brand-logo__tile {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.625rem;
+}
+
+.brand-logo__tile--framed {
+  border: 1px solid var(--brand-logo-tile-border);
+  background: var(--brand-logo-tile-bg);
+  box-shadow: var(--brand-logo-tile-shadow);
+  padding: 0.25rem;
+}
+
+.brand-logo__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.brand-logo__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.05;
+}
+
+.brand-logo__wordmark {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--brand-logo-wordmark);
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.brand-logo__subtitle {
+  margin-top: 0.1875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--brand-logo-subtitle);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.brand-logo--header .brand-logo__tile,
+.brand-logo--icon .brand-logo__tile {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+}
+
+.brand-logo--header .brand-logo__wordmark {
+  font-size: 1rem;
+}
+
+.brand-logo--footer .brand-logo__wordmark {
+  font-size: 1.25rem;
+}
+
+.brand-logo--compact .brand-logo__tile,
+.brand-logo--icon-only .brand-logo__tile {
+  width: 2rem;
+  height: 2rem;
 }
 
 /*

@@ -205,7 +205,7 @@ Deno.serve(async (req) => {
 
     const actionLink = linkData?.properties?.action_link || redirectTo;
     const recipientUserId = linkData?.user?.id || null;
-    const subject = "Reset your OASIS password";
+    const subject = "Reset your Tenaqo password";
 
     await logEmailEvent({
       status: "queued",
@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
         subject,
         html: `
           <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a">
-            <h2 style="margin:0 0 16px">Reset your OASIS password</h2>
+            <h2 style="margin:0 0 16px">Reset your Tenaqo password</h2>
             <p style="margin:0 0 16px">We received a request to reset your password.</p>
             <p style="margin:0 0 24px">
               <a href="${actionLink}" style="display:inline-block;padding:12px 18px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;font-weight:600">

@@ -29,14 +29,11 @@ export function SiteHeader() {
         {locale === "pl" ? "Przejdź do treści" : locale === "de" ? "Zum Inhalt springen" : "Skip to main content"}
       </a>
       <div className="container site-header__inner">
-        <Link href={homeHref} className="logo" onClick={closeNav} aria-label="OASIS Rental Management — home">
-          {/* Full horizontal logo — shown on desktop */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="OASIS Rental Management" className="logo__full" />
-          {/* Icon + wordmark — shown on mobile when full logo is too wide */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-icon.png" alt="" aria-hidden="true" className="logo__icon" />
-          <span className="logo__wordmark" aria-hidden="true">OASIS</span>
+        <Link href={homeHref} className="logo" onClick={closeNav} aria-label="Tenaqo rental operations software — home">
+          <span className="logo__text">
+            <span className="logo__name">Tenaqo</span>
+            <span className="logo__tagline">Rental operations software</span>
+          </span>
         </Link>
 
         <button

@@ -1,5 +1,5 @@
 // App Tease — a static mini-dashboard mockup that gives landlords the feel of
-// OASIS without logging in. Pure CSS animations, no external dependencies.
+// Tenaqo without logging in. Pure CSS animations, no external dependencies.
 
 type AppTeaseProps = {
   eyebrow?: string;
@@ -55,13 +55,13 @@ export function AppTease({ eyebrow, title, body }: AppTeaseProps) {
         </div>
 
         {/* Right: animated mini-dashboard */}
-        <div className="app-tease-shell card" role="img" aria-label="OASIS dashboard preview showing rent status and maintenance actions">
+        <div className="app-tease-shell card" role="img" aria-label="Tenaqo dashboard preview showing rent status and maintenance actions">
           {/* Window chrome */}
           <div className="app-tease-topbar">
             <span className="app-tease-dot app-tease-dot--red" />
             <span className="app-tease-dot app-tease-dot--amber" />
             <span className="app-tease-dot app-tease-dot--green" />
-            <span className="app-tease-title">OASIS — Command Center</span>
+            <span className="app-tease-title">Tenaqo — Command Center</span>
           </div>
 
           {/* Dashboard rows */}

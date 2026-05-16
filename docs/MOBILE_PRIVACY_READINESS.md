@@ -1,6 +1,6 @@
 # Mobile Privacy Readiness
 
-OASIS is prepared for future PWA/Capacitor iOS and Android submission by providing both an in-app deletion path and a public web deletion request path.
+Tenaqo is prepared for future PWA/Capacitor iOS and Android submission by providing both an in-app deletion path and a public web deletion request path.
 
 ## App Store Requirements
 
@@ -12,7 +12,7 @@ Mobile apps that allow account creation must provide:
 - A privacy policy link and data retention policy link.
 - A way to revoke push tokens and unsubscribe from push notifications.
 
-## OASIS Implementation
+## Tenaqo Implementation
 
 - In-app route: `Settings -> Data & Privacy` at `/settings/data-privacy`.
 - Public route: `/privacy/delete-account` and `/data-deletion`.
@@ -22,7 +22,7 @@ Mobile apps that allow account creation must provide:
 
 ## In-App Copy
 
-OASIS stores rental operation records such as tenants, documents, finance records, maintenance history, and audit events. Some records may need to be retained for legal, tax, security, fraud prevention, accounting, dispute resolution, or audit reasons. We delete or anonymise personal data where appropriate and explain anything retained.
+Tenaqo stores rental operation records such as tenants, documents, finance records, maintenance history, and audit events. Some records may need to be retained for legal, tax, security, fraud prevention, accounting, dispute resolution, or audit reasons. We delete or anonymise personal data where appropriate and explain anything retained.
 
 ## Public Web Deletion Page
 
@@ -32,7 +32,7 @@ The public page must be accessible without login and must not promise immediate 
 - What may be deleted.
 - What may be anonymised.
 - What may be retained and why.
-- How OASIS responds.
+- How Tenaqo responds.
 - How to contact privacy support.
 
 ## Mobile Metadata Checklist

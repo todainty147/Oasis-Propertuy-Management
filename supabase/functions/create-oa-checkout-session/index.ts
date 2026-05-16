@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       const customer = await stripe.customers.create({
-        name: acct?.name || "OASIS Account",
+        name: acct?.name || "Tenaqo Account",
         metadata: { account_id: String(grant.account_id) },
       });
       stripeCustomerId = customer.id;

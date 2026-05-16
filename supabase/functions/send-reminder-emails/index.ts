@@ -211,8 +211,8 @@ async function processAccount(accountId: string, { dryRun }: { dryRun: boolean }
 
   const account = accountResult.data;
   const branding = brandingResult.data;
-  const brandName = branding?.brand_name || account?.name || "OASIS Rental";
-  const fromName = branding?.email_from_name || `${brandName} via OASIS`;
+  const brandName = branding?.brand_name || account?.name || "Tenaqo";
+  const fromName = branding?.email_from_name || `${brandName} via Tenaqo`;
   const replyTo = branding?.reply_to_email || branding?.support_email || undefined;
   const subject = `${brandName} reminder summary`;
 
@@ -412,7 +412,7 @@ function buildReminderEmail({
       <div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:16px;padding:32px;border:1px solid #e2e8f0;">
         <h1 style="margin:0 0 12px;font-size:24px;color:#0f172a;">${escapeHtml(brandName)} reminder summary</h1>
         <p style="margin:0 0 20px;color:#475569;line-height:1.6;">
-          Here is a summary of active reminders that still need attention in OASIS.
+          Here is a summary of active reminders that still need attention in Tenaqo.
         </p>
         <ul style="padding-left:18px;margin:0;color:#0f172a;">
           ${items}
