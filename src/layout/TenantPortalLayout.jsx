@@ -53,7 +53,7 @@ function TenantNavItem({ to, icon, label }) {
         }`
       }
     >
-      <IconComponent size={18} />
+      <IconComponent size={18} aria-hidden="true" />
       <span>{label}</span>
     </NavLink>
   );
@@ -137,7 +137,11 @@ export default function TenantPortalLayout() {
                 className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-black/[0.08] bg-white text-slate-600 transition hover:text-slate-950 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400/60 dark:border-white/[0.12] dark:bg-white/[0.06] dark:text-slate-300 dark:hover:text-white"
                 aria-label={t("tenantPortal.shell.toggleTheme")}
               >
-                {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+                {theme === "dark" ? (
+                  <Sun size={16} aria-hidden="true" />
+                ) : (
+                  <Moon size={16} aria-hidden="true" />
+                )}
               </button>
             </div>
 
@@ -211,7 +215,11 @@ export default function TenantPortalLayout() {
 
             <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-5 lg:px-8 lg:py-8">
               <div className="mx-auto w-full max-w-6xl space-y-4">
-                <PasswordUpgradeNotice userId={user?.id} profilePath="/tenant/profile" />
+                <PasswordUpgradeNotice
+                  userId={user?.id}
+                  accountId={activeAccount?.id}
+                  profilePath="/tenant/profile"
+                />
                 <Outlet />
               </div>
             </main>

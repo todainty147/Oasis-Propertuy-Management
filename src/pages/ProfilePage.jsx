@@ -11,7 +11,6 @@ import { validatePasswordStrength } from "../utils/passwordPolicy";
 import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
 import {
   markLocalStrongPassword,
-  recordOwnStrongPassword,
   recordStrongPassword,
 } from "../services/passwordSecurityService";
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
@@ -40,7 +39,7 @@ function TextInput(props) {
 
 export default function ProfilePage() {
   const { user } = useAuth();
-  const { activeAccountId, activeRole } = useAccount();
+  const { activeAccountId } = useAccount();
   const { t } = useI18n();
   const { setTitle } = usePageTitle();
   const [profileForm, setProfileForm] = useState({
@@ -146,12 +145,7 @@ export default function ProfilePage() {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
 
-      const role = String(activeRole || "").toLowerCase();
-      if (role === "tenant" || role === "contractor") {
-        await recordOwnStrongPassword();
-      } else {
-        await recordStrongPassword(activeAccountId);
-      }
+      await recordStrongPassword(activeAccountId);
       markLocalStrongPassword(user?.id);
       window.dispatchEvent(new Event(PASSWORD_SECURITY_REFRESH_EVENT));
 

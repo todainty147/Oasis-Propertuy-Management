@@ -5,6 +5,7 @@ import { useI18n } from "../../context/I18nContext";
 import {
   getOwnSecurityProfile,
   hasRecentLocalStrongPassword,
+  syncRecentLocalStrongPassword,
 } from "../../services/passwordSecurityService";
 
 const DISMISS_KEY = "oasis_pw_upgrade_dismissed_until";
@@ -34,7 +35,7 @@ function dismiss() {
  * password_strength_status is not 'strong'. Dismissible for 24 hours.
  * Links to /profile where they can update their password.
  */
-export default function PasswordUpgradeNotice({ userId, profilePath = "/settings/profile" }) {
+export default function PasswordUpgradeNotice({ userId, accountId = null, profilePath = "/settings/profile" }) {
   const { t } = useI18n();
   const [visible, setVisible] = useState(false);
 
@@ -44,6 +45,7 @@ export default function PasswordUpgradeNotice({ userId, profilePath = "/settings
 
     async function refresh() {
       if (hasRecentLocalStrongPassword(userId)) {
+        await syncRecentLocalStrongPassword(userId, accountId);
         if (!cancelled) setVisible(false);
         return;
       }
@@ -70,7 +72,7 @@ export default function PasswordUpgradeNotice({ userId, profilePath = "/settings
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", refreshWhenFocused);
     };
-  }, [userId]);
+  }, [accountId, userId]);
 
   function handleDismiss() {
     dismiss();

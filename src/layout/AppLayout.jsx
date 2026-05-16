@@ -6,6 +6,7 @@ import { PageTitleContext } from "./PageTitleContext";
 import PasswordUpgradeNotice from "../components/security/PasswordUpgradeNotice";
 import MobileBottomNav from "../components/mobile/MobileBottomNav";
 import { useAuth } from "../context/AuthContext";
+import { useAccount } from "../context/AccountContext";
 
 function useMediaQuery(query) {
   const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
@@ -24,6 +25,7 @@ export default function AppLayout({ owners, activeOwnerId, setActiveOwnerId }) {
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const location  = useLocation();
   const { user }  = useAuth();
+  const { activeAccountId } = useAccount();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [title, setTitle] = useState("");
@@ -84,7 +86,7 @@ export default function AppLayout({ owners, activeOwnerId, setActiveOwnerId }) {
               No pt — topbar occupies its own row in the flex column. */}
           <main className="flex-1 overflow-y-auto px-4 pb-[72px] sm:px-6 lg:pb-0">
             <div className="max-w-7xl mx-auto w-full pb-8 space-y-6">
-              <PasswordUpgradeNotice userId={user?.id} />
+              <PasswordUpgradeNotice userId={user?.id} accountId={activeAccountId} />
               <Outlet />
             </div>
           </main>

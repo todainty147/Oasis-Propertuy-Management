@@ -1,7 +1,9 @@
 import { supabase } from "../lib/supabase";
 
 const LOCAL_STRONG_PASSWORD_PREFIX = "tenaqo_password_strong_at:";
+const LOCAL_STRONG_PASSWORD_SYNC_PREFIX = "tenaqo_password_strong_synced_at:";
 const LOCAL_STRONG_PASSWORD_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+const LOCAL_STRONG_PASSWORD_SYNC_MAX_AGE_MS = 60 * 60 * 1000;
 
 /**
  * Called after a v1-compliant password is set by an account member (owner/admin/staff).
@@ -18,8 +20,9 @@ export async function recordStrongPassword(accountId) {
   if (error) {
     // Fall back to the account-agnostic variant (e.g. user is not an account member)
     console.warn("[passwordSecurity] record_strong_password failed, trying fallback:", error.message);
-    await recordOwnStrongPassword();
+    return recordOwnStrongPassword();
   }
+  return true;
 }
 
 /**
@@ -31,7 +34,9 @@ export async function recordOwnStrongPassword() {
   const { error } = await supabase.rpc("record_own_strong_password");
   if (error) {
     console.warn("[passwordSecurity] record_own_strong_password failed:", error.message);
+    return false;
   }
+  return true;
 }
 
 export function markLocalStrongPassword(userId) {
@@ -51,6 +56,33 @@ export function hasRecentLocalStrongPassword(userId, now = Date.now()) {
   } catch {
     return false;
   }
+}
+
+export async function syncRecentLocalStrongPassword(userId, accountId) {
+  if (!hasRecentLocalStrongPassword(userId)) return false;
+  const syncKey = `${LOCAL_STRONG_PASSWORD_SYNC_PREFIX}${userId}:${accountId || "own"}`;
+  try {
+    const lastSyncedAt = Number(localStorage.getItem(syncKey) || 0);
+    if (
+      Number.isFinite(lastSyncedAt) &&
+      lastSyncedAt > 0 &&
+      Date.now() - lastSyncedAt < LOCAL_STRONG_PASSWORD_SYNC_MAX_AGE_MS
+    ) {
+      return true;
+    }
+  } catch {
+    // continue with server sync if storage is unavailable
+  }
+
+  const synced = await recordStrongPassword(accountId);
+  if (synced) {
+    try {
+      localStorage.setItem(syncKey, String(Date.now()));
+    } catch {
+      // ignore storage errors
+    }
+  }
+  return synced;
 }
 
 /**
