@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildTenantMaintenanceProgress,
+  buildTenantPaymentSummaryFromPayments,
   buildTenantPaymentSummary,
   getTenantRequestStatusMeta,
   getTenantWorkOrderStatusMeta,
@@ -35,17 +36,19 @@ describe("tenantPortal helpers", () => {
   });
 
   it("derives payment summary from tenant rows when snapshot is absent", () => {
-    const summary = buildTenantPaymentSummary({}, [
+    const rows = [
       { id: 1, amount: 1200, status: "paid", paid_at: "2026-04-02" },
       { id: 2, amount: 1200, status: "pending", due_date: "2026-04-20" },
       { id: 3, amount: 300, status: "overdue", due_date: "2026-04-10" },
-    ]);
+    ];
+    const summary = buildTenantPaymentSummaryFromPayments(rows);
 
     expect(summary.paid).toBe(1200);
     expect(summary.due).toBe(1200);
     expect(summary.overdue).toBe(300);
     expect(summary.outstanding).toBe(1500);
     expect(summary.state).toBe("overdue");
+    expect(summary).toEqual(buildTenantPaymentSummary({}, rows));
   });
 
   it("summarizes active and resolved maintenance items", () => {

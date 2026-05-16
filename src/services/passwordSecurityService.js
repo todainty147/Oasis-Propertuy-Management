@@ -1,5 +1,8 @@
 import { supabase } from "../lib/supabase";
 
+const LOCAL_STRONG_PASSWORD_PREFIX = "tenaqo_password_strong_at:";
+const LOCAL_STRONG_PASSWORD_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+
 /**
  * Called after a v1-compliant password is set by an account member (owner/admin/staff).
  * Marks the user's security profile as 'strong' and logs to the audit trail.
@@ -28,6 +31,25 @@ export async function recordOwnStrongPassword() {
   const { error } = await supabase.rpc("record_own_strong_password");
   if (error) {
     console.warn("[passwordSecurity] record_own_strong_password failed:", error.message);
+  }
+}
+
+export function markLocalStrongPassword(userId) {
+  if (!userId) return;
+  try {
+    localStorage.setItem(`${LOCAL_STRONG_PASSWORD_PREFIX}${userId}`, String(Date.now()));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function hasRecentLocalStrongPassword(userId, now = Date.now()) {
+  if (!userId) return false;
+  try {
+    const value = Number(localStorage.getItem(`${LOCAL_STRONG_PASSWORD_PREFIX}${userId}`) || 0);
+    return Number.isFinite(value) && value > 0 && now - value < LOCAL_STRONG_PASSWORD_MAX_AGE_MS;
+  } catch {
+    return false;
   }
 }
 

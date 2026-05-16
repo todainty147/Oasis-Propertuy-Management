@@ -6,7 +6,7 @@ import { fetchMyPayments } from "../services/paymentService";
 import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount } from "../utils/currency";
 import OnboardingHintCard from "../components/OnboardingHintCard";
-import { buildTenantPaymentSummary } from "../utils/tenantPortal";
+import { buildTenantPaymentSummaryFromPayments } from "../utils/tenantPortal";
 import { paymentStatusLabelKey, normalizePaymentStatus } from "../utils/statuses";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 import { usePageTitle } from "../layout/PageTitleContext";
@@ -167,7 +167,7 @@ function TenantPaymentCollectionCard({ settings, t }) {
 }
 
 export function TenantPaymentsContent({ rows = [], loading = false, err = null, onRefresh, settings = null, t }) {
-  const summary = buildTenantPaymentSummary({}, rows);
+  const summary = buildTenantPaymentSummaryFromPayments(rows);
 
   return (
     <div className="space-y-6">

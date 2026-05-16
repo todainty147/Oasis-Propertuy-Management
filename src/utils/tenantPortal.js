@@ -254,6 +254,10 @@ export function buildTenantPaymentSummary(snapshot = {}, payments = []) {
   };
 }
 
+export function buildTenantPaymentSummaryFromPayments(payments = []) {
+  return buildTenantPaymentSummary({}, payments);
+}
+
 export function summarizeTenantMaintenance(requests = [], workOrders = []) {
   const requestRows = Array.isArray(requests) ? requests : [];
   const workOrderRows = Array.isArray(workOrders) ? workOrders : [];

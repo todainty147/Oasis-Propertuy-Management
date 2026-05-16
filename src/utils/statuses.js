@@ -12,6 +12,14 @@ export const OCCUPANCY_STATUS = {
   OTHER: "other",
 };
 
+export const WORK_ORDER_STATUS = {
+  ASSIGNED: "assigned",
+  IN_PROGRESS: "in_progress",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
+  BLOCKED: "blocked",
+};
+
 function normalize(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -46,6 +54,16 @@ export function occupancyStatusLabelKey(status) {
   if (normalized === OCCUPANCY_STATUS.OCCUPIED) return "status.occupied";
   if (normalized === OCCUPANCY_STATUS.VACANT) return "status.vacant";
   return null;
+}
+
+export function normalizeWorkOrderStatus(status) {
+  const value = normalize(status);
+  if (["przypisane", "assigned"].includes(value)) return WORK_ORDER_STATUS.ASSIGNED;
+  if (["w trakcie", "in progress", "in_progress"].includes(value)) return WORK_ORDER_STATUS.IN_PROGRESS;
+  if (["zakończone", "zakonczone", "completed"].includes(value)) return WORK_ORDER_STATUS.COMPLETED;
+  if (["anulowane", "cancelled"].includes(value)) return WORK_ORDER_STATUS.CANCELLED;
+  if (["zablokowane", "blocked"].includes(value)) return WORK_ORDER_STATUS.BLOCKED;
+  return value;
 }
 
 export function isPaidStatus(status) {

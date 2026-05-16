@@ -23,6 +23,7 @@ import {
 } from "../services/workOrderFinancialsService";
 import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
 import { listWorkOrderAuditLog } from "../services/workOrderService";
+import { normalizeWorkOrderStatus } from "../utils/statuses";
 
 function formatDateTime(ts) {
   if (!ts) return "—";
@@ -66,14 +67,7 @@ function isMissingAckColumnError(error) {
 }
 
 function StatusPill({ status, t }) {
-  const s = String(status || "").trim().toLowerCase();
-  const normalized =
-    ["przypisane"].includes(s) ? "assigned" :
-    ["w trakcie", "in progress"].includes(s) ? "in_progress" :
-    ["zakończone", "zakonczone"].includes(s) ? "completed" :
-    ["anulowane"].includes(s) ? "cancelled" :
-    ["zablokowane"].includes(s) ? "blocked" :
-    s;
+  const normalized = normalizeWorkOrderStatus(status);
   const base = "text-xs px-2 py-0.5 rounded-full border";
   if (normalized === "completed") return <span className={`${base} bg-green-50 border-green-200 text-green-700`}>{t("status.wo.completed")}</span>;
   if (normalized === "in_progress") return <span className={`${base} bg-blue-50 border-blue-200 text-blue-700`}>{t("status.wo.in_progress")}</span>;
@@ -300,10 +294,10 @@ export default function ContractorJobDetails() {
       syncFinInputs(data ?? null);
       await notifyManagers({
         type: "quote_submitted",
-        title: "Quote submitted",
+        title: t("contractor.quoteSubmittedTitle"),
         body: row?.contractor_name
           ? `${t("common.contractor")}: ${row.contractor_name}`
-          : "A contractor submitted a quote for review.",
+          : t("contractor.quoteSubmittedBody"),
         metadata: {
           quote_amount: data?.quote_amount ?? null,
           quote_currency: data?.quote_currency ?? null,

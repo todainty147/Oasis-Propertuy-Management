@@ -2,13 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import { KeyRound, Mail, Save, UserRound } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
+import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
 import { supabase } from "../lib/supabase";
 import { assertPhone, normalizeText } from "../utils/validation";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { validatePasswordStrength } from "../utils/passwordPolicy";
 import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
-import { recordStrongPassword } from "../services/passwordSecurityService";
+import {
+  markLocalStrongPassword,
+  recordOwnStrongPassword,
+  recordStrongPassword,
+} from "../services/passwordSecurityService";
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 import { PASSWORD_SECURITY_REFRESH_EVENT } from "../components/security/PasswordUpgradeNotice";
 
@@ -35,6 +40,7 @@ function TextInput(props) {
 
 export default function ProfilePage() {
   const { user } = useAuth();
+  const { activeAccountId, activeRole } = useAccount();
   const { t } = useI18n();
   const { setTitle } = usePageTitle();
   const [profileForm, setProfileForm] = useState({
@@ -140,8 +146,13 @@ export default function ProfilePage() {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
 
-      const activeAccountId = localStorage.getItem("activeAccountId");
-      await recordStrongPassword(activeAccountId);
+      const role = String(activeRole || "").toLowerCase();
+      if (role === "tenant" || role === "contractor") {
+        await recordOwnStrongPassword();
+      } else {
+        await recordStrongPassword(activeAccountId);
+      }
+      markLocalStrongPassword(user?.id);
       window.dispatchEvent(new Event(PASSWORD_SECURITY_REFRESH_EVENT));
 
       setPasswordForm({ newPassword: "", confirmPassword: "" });

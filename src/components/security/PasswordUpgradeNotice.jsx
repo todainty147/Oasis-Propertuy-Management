@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { X, ShieldCheck } from "lucide-react";
 import { useI18n } from "../../context/I18nContext";
-import { getOwnSecurityProfile } from "../../services/passwordSecurityService";
+import {
+  getOwnSecurityProfile,
+  hasRecentLocalStrongPassword,
+} from "../../services/passwordSecurityService";
 
 const DISMISS_KEY = "oasis_pw_upgrade_dismissed_until";
 const DISMISS_HOURS = 24;
@@ -40,6 +43,11 @@ export default function PasswordUpgradeNotice({ userId, profilePath = "/settings
     let cancelled = false;
 
     async function refresh() {
+      if (hasRecentLocalStrongPassword(userId)) {
+        if (!cancelled) setVisible(false);
+        return;
+      }
+
       const profile = await getOwnSecurityProfile();
       if (cancelled) return;
       setVisible(Boolean(profile && profile.password_strength_status !== "strong"));

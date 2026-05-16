@@ -8,7 +8,7 @@ import { useI18n } from "../context/I18nContext";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { fetchMyLease, getDerivedLeaseStatus } from "../services/leaseService";
 import { fetchMyPayments } from "../services/paymentService";
-import { buildTenantPaymentSummary } from "../utils/tenantPortal";
+import { buildTenantPaymentSummaryFromPayments } from "../utils/tenantPortal";
 import { formatCurrencyAmount } from "../utils/currency";
 
 function formatDate(value) {
@@ -177,7 +177,7 @@ export default function TenantHomePage() {
     return () => { cancelled = true; };
   }, [accountLoading, activeAccountId]);
 
-  const summary = buildTenantPaymentSummary({}, payments);
+  const summary = buildTenantPaymentSummaryFromPayments(payments);
 
   if (accountLoading) {
     return (

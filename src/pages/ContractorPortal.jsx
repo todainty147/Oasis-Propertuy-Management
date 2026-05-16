@@ -15,6 +15,7 @@ import {
 import OnboardingHintCard from "../components/OnboardingHintCard";
 import DocumentRequestsPanel from "../components/DocumentRequestsPanel";
 import DocumentPacketsPanel from "../components/DocumentPacketsPanel";
+import { normalizeWorkOrderStatus } from "../utils/statuses";
 
 /* -----------------------------
    UI helpers
@@ -42,16 +43,6 @@ function statusAccentClass(status) {
   if (normalized === "cancelled") return "border-l-slate-400";
   if (normalized === "blocked") return "border-l-amber-500";
   return "border-l-indigo-500";
-}
-
-function normalizeWorkOrderStatus(status) {
-  const value = String(status ?? "").trim().toLowerCase();
-  if (["przypisane", "assigned"].includes(value)) return "assigned";
-  if (["w trakcie", "in progress", "in_progress"].includes(value)) return "in_progress";
-  if (["zakończone", "zakonczone", "completed"].includes(value)) return "completed";
-  if (["anulowane", "cancelled"].includes(value)) return "cancelled";
-  if (["zablokowane", "blocked"].includes(value)) return "blocked";
-  return value;
 }
 
 function matchesStatusFilter(row, filter) {
