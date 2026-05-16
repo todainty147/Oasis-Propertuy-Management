@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 
 import { siteConfig, siteCopyByLocale } from "../../content/site";
@@ -16,8 +17,19 @@ export function SiteFooter() {
       <div className="container site-footer__inner">
         <div>
           <div className="footer-logo" aria-label="Tenaqo rental operations software">
-            <span className="footer-logo__name">Tenaqo</span>
-            <span className="footer-logo__tagline">Rental operations software</span>
+            <span className="footer-logo__tile" aria-hidden="true">
+              <Image
+                src="/brand/tenaqo/logo-icon-transparent.png"
+                alt=""
+                width={29}
+                height={29}
+                className="footer-logo__mark"
+              />
+            </span>
+            <span className="footer-logo__text">
+              <span className="footer-logo__name">Tenaqo</span>
+              <span className="footer-logo__tagline">Rental operations software</span>
+            </span>
           </div>
           <p className="muted" style={{ marginTop: "0.75rem", maxWidth: 420 }}>
             {copy.footerBlurb}

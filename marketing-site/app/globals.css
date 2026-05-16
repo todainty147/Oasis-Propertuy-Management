@@ -266,8 +266,28 @@ a {
 .logo {
   display: flex;
   align-items: center;
+  gap: 0.65rem;
   flex-shrink: 0;
   text-decoration: none;
+}
+
+.logo__tile {
+  display: inline-flex;
+  width: 2.35rem;
+  height: 2.35rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(11, 79, 108, 0.12);
+  border-radius: 0.7rem;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(11, 29, 58, 0.08);
+}
+
+.logo__mark {
+  width: 1.7rem;
+  height: 1.7rem;
+  object-fit: contain;
 }
 
 .logo__text {
@@ -291,6 +311,31 @@ a {
 
 /* Footer logo */
 .footer-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.footer-logo__tile {
+  display: inline-flex;
+  width: 2.45rem;
+  height: 2.45rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(11, 79, 108, 0.12);
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+}
+
+.footer-logo__mark {
+  width: 1.8rem;
+  height: 1.8rem;
+  object-fit: contain;
+}
+
+.footer-logo__text {
   display: grid;
   gap: 0.18rem;
 }

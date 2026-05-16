@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
@@ -30,6 +31,16 @@ export function SiteHeader() {
       </a>
       <div className="container site-header__inner">
         <Link href={homeHref} className="logo" onClick={closeNav} aria-label="Tenaqo rental operations software — home">
+          <span className="logo__tile" aria-hidden="true">
+            <Image
+              src="/brand/tenaqo/logo-icon-transparent.png"
+              alt=""
+              width={28}
+              height={28}
+              className="logo__mark"
+              priority
+            />
+          </span>
           <span className="logo__text">
             <span className="logo__name">Tenaqo</span>
             <span className="logo__tagline">Rental operations software</span>

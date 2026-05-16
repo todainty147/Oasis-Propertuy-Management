@@ -11,18 +11,18 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#0b4f6c",
     icons: [
       {
-        src: "/favicon-32.png",
+        src: "/brand/tenaqo/favicon-32.png",
         sizes: "32x32",
         type: "image/png",
       },
       {
-        src: "/icon-512.png",
+        src: "/brand/tenaqo/app-icon-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icon-512.png",
+        src: "/brand/tenaqo/app-icon-maskable-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
