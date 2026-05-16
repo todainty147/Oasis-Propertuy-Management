@@ -60,6 +60,84 @@ function isOverdueStatus(status) {
   return ["overdue", "zaległe", "zalegle"].includes(normalize(status));
 }
 
+function isPastDue(value, today = new Date()) {
+  const due = parseDate(value);
+  if (!due) return false;
+  const todayDate = today instanceof Date ? today : new Date(today);
+  if (Number.isNaN(todayDate.getTime())) return false;
+  return due < new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
+}
+
+function paymentCycleKey(row) {
+  const propertyId = row?.property_id ?? row?.propertyId;
+  const rowId = row?.payment_id ?? row?.id ?? row?.paymentId ?? "unknown-row";
+  const dateKey = String(row?.due_date ?? row?.dueDate ?? row?.created_at ?? row?.createdAt ?? "")
+    .slice(0, 7);
+  return `${propertyId || `row-${rowId}`}:${dateKey || "unknown-cycle"}`;
+}
+
+function paymentRowKey(row, index) {
+  return row?.payment_id ?? row?.id ?? row?.paymentId ?? `row-${index}`;
+}
+
+function paymentSortValue(row) {
+  return parseDate(row?.due_date ?? row?.dueDate ?? row?.created_at ?? row?.createdAt)?.getTime() ?? 0;
+}
+
+export function buildTenantPaymentDisplayRows(payments = [], { today = new Date() } = {}) {
+  const rows = Array.isArray(payments) ? payments : [];
+  const paidByCycle = new Map();
+
+  for (const row of rows) {
+    if (!isPaidStatus(row?.status) && !row?.paid_at && !row?.paidAt) continue;
+    const key = paymentCycleKey(row);
+    paidByCycle.set(key, (paidByCycle.get(key) || 0) + safeNumber(row?.amount));
+  }
+
+  const adjustedRows = new Map();
+  const unpaidRows = rows
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => !isPaidStatus(row?.status) && !row?.paid_at && !row?.paidAt)
+    .sort((a, b) => {
+      const dateDelta = paymentSortValue(a.row) - paymentSortValue(b.row);
+      if (dateDelta !== 0) return dateDelta;
+      return String(paymentRowKey(a.row, a.index)).localeCompare(String(paymentRowKey(b.row, b.index)));
+    });
+
+  for (const { row, index } of unpaidRows) {
+    const key = paymentCycleKey(row);
+    const paidCredit = paidByCycle.get(key) || 0;
+    const originalAmount = safeNumber(row?.amount);
+    const amount = Math.max(originalAmount - paidCredit, 0);
+    paidByCycle.set(key, Math.max(paidCredit - originalAmount, 0));
+
+    if (amount <= 0) {
+      adjustedRows.set(index, null);
+      continue;
+    }
+
+    const status = isOverdueStatus(row?.status) || isPastDue(row?.due_date ?? row?.dueDate, today)
+      ? "overdue"
+      : row?.status;
+
+    adjustedRows.set(index, {
+      ...row,
+      amount,
+      status,
+      originalAmount,
+      paidAgainstCycle: Math.min(paidCredit, originalAmount),
+    });
+  }
+
+  return rows
+    .map((row, index) => {
+      const isPaid = isPaidStatus(row?.status) || row?.paid_at || row?.paidAt;
+      if (isPaid) return row;
+      return adjustedRows.has(index) ? adjustedRows.get(index) : row;
+    })
+    .filter(Boolean);
+}
+
 function isSettledMaintenanceStatus(status) {
   return ["resolved", "closed"].includes(normalize(status));
 }
@@ -198,7 +276,14 @@ export function getTenantWorkOrderStatusMeta(status) {
   };
 }
 
-export function buildTenantPaymentSummary(snapshot = {}, payments = []) {
+export function buildTenantPaymentSummary(snapshot = {}, payments = [], options = {}) {
+  return buildTenantPaymentSummaryFromDisplayRows(
+    buildTenantPaymentDisplayRows(payments, options),
+    snapshot,
+  );
+}
+
+export function buildTenantPaymentSummaryFromDisplayRows(displayPayments = [], snapshot = {}) {
   const paidFromSnapshot = safeNumber(snapshot?.tenant_paid_total);
   const dueFromSnapshot = safeNumber(snapshot?.tenant_due_total);
   const overdueFromSnapshot = safeNumber(snapshot?.tenant_overdue_total);
@@ -210,7 +295,7 @@ export function buildTenantPaymentSummary(snapshot = {}, payments = []) {
     overdueFromSnapshot > 0 ||
     countFromSnapshot > 0;
 
-  const sortedPayments = [...(Array.isArray(payments) ? payments : [])].sort((a, b) => {
+  const sortedPayments = [...(Array.isArray(displayPayments) ? displayPayments : [])].sort((a, b) => {
     const aDate = parseDate(a?.paid_at || a?.due_date || a?.created_at)?.getTime() || 0;
     const bDate = parseDate(b?.paid_at || b?.due_date || b?.created_at)?.getTime() || 0;
     return bDate - aDate;
@@ -254,8 +339,8 @@ export function buildTenantPaymentSummary(snapshot = {}, payments = []) {
   };
 }
 
-export function buildTenantPaymentSummaryFromPayments(payments = []) {
-  return buildTenantPaymentSummary({}, payments);
+export function buildTenantPaymentSummaryFromPayments(payments = [], options = {}) {
+  return buildTenantPaymentSummary({}, payments, options);
 }
 
 export function summarizeTenantMaintenance(requests = [], workOrders = []) {

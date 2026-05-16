@@ -217,7 +217,7 @@ begin
           and pr2.paid_at <= current_date
       ), 0) as total_income,
 
-      -- Overdue: sum of historical arrears (pre-current-month) across occupied properties
+      -- Overdue: historical arrears plus current-cycle balances whose due date has passed.
       coalesce((
         select sum(
           greatest(
@@ -231,6 +231,16 @@ begin
           and pa.rent > 0
           and pa.months_elapsed > 1
           and pa.total_paid_alltime < (pa.months_elapsed - 1) * pa.rent
+      ), 0)
+      +
+      coalesce((
+        select sum(greatest(pc.billed_amount - pc.paid_amount, 0))
+        from payment_cycles pc
+        join property_occupancy po on po.property_id = pc.property_id
+        where po.has_assigned_tenant
+          and greatest(pc.billed_amount - pc.paid_amount, 0) > 0
+          and pc.has_overdue
+          and pc.cycle_month >= date_trunc('month', current_date)
       ), 0) as overdue_income,
 
       -- Due within 7 days: explicit payment records with upcoming due dates

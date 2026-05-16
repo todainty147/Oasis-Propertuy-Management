@@ -6,7 +6,7 @@ import { fetchMyPayments } from "../services/paymentService";
 import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount } from "../utils/currency";
 import OnboardingHintCard from "../components/OnboardingHintCard";
-import { buildTenantPaymentSummaryFromPayments } from "../utils/tenantPortal";
+import { buildTenantPaymentDisplayRows, buildTenantPaymentSummaryFromDisplayRows } from "../utils/tenantPortal";
 import { paymentStatusLabelKey, normalizePaymentStatus } from "../utils/statuses";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 import { usePageTitle } from "../layout/PageTitleContext";
@@ -167,7 +167,8 @@ function TenantPaymentCollectionCard({ settings, t }) {
 }
 
 export function TenantPaymentsContent({ rows = [], loading = false, err = null, onRefresh, settings = null, t }) {
-  const summary = buildTenantPaymentSummaryFromPayments(rows);
+  const displayRows = buildTenantPaymentDisplayRows(rows);
+  const summary = buildTenantPaymentSummaryFromDisplayRows(displayRows);
 
   return (
     <div className="space-y-6">
@@ -234,21 +235,21 @@ export function TenantPaymentsContent({ rows = [], loading = false, err = null, 
         </div>
       )}
 
-      {!loading && rows.length === 0 && (
+      {!loading && displayRows.length === 0 && (
         <Card className="p-6">
           <h3 className="text-base font-semibold text-slate-900">{t("tenantPortal.payments.emptyTitle")}</h3>
           <p className="mt-2 text-sm text-slate-600">{t("tenantPortal.payments.emptyBody")}</p>
         </Card>
       )}
 
-      {!loading && rows.length > 0 && (
+      {!loading && displayRows.length > 0 && (
         <div className="overflow-hidden rounded-xl border bg-white">
           <div className="border-b bg-slate-50 px-6 py-4">
             <h3 className="text-base font-semibold text-slate-900">{t("tenantPortal.payments.historyTitle")}</h3>
             <p className="mt-1 text-sm text-slate-500">{t("tenantPortal.payments.historySubtitle")}</p>
           </div>
           <div className="divide-y">
-          {rows.map((p) => (
+          {displayRows.map((p) => (
             <div key={p.id} className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="flex items-center gap-2">

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildTenantMaintenanceProgress,
+  buildTenantPaymentDisplayRows,
   buildTenantPaymentSummaryFromPayments,
   buildTenantPaymentSummary,
   getTenantRequestStatusMeta,
@@ -41,14 +42,100 @@ describe("tenantPortal helpers", () => {
       { id: 2, amount: 1200, status: "pending", due_date: "2026-04-20" },
       { id: 3, amount: 300, status: "overdue", due_date: "2026-04-10" },
     ];
-    const summary = buildTenantPaymentSummaryFromPayments(rows);
+    const options = { today: new Date("2026-04-15T12:00:00Z") };
+    const summary = buildTenantPaymentSummaryFromPayments(rows, options);
 
     expect(summary.paid).toBe(1200);
     expect(summary.due).toBe(1200);
     expect(summary.overdue).toBe(300);
     expect(summary.outstanding).toBe(1500);
     expect(summary.state).toBe("overdue");
-    expect(summary).toEqual(buildTenantPaymentSummary({}, rows));
+    expect(summary).toEqual(buildTenantPaymentSummary({}, rows, options));
+  });
+
+  it("nets partial tenant payments into the open rent balance for the same cycle", () => {
+    const rows = [
+      {
+        payment_id: "due-1",
+        property_id: "property-1",
+        amount: 2000,
+        status: "pending",
+        due_date: "2026-05-12",
+      },
+      {
+        payment_id: "paid-1",
+        property_id: "property-1",
+        amount: 500,
+        status: "paid",
+        due_date: "2026-05-12",
+        paid_at: "2026-05-13",
+      },
+    ];
+
+    const options = { today: new Date("2026-05-16T12:00:00Z") };
+    const displayRows = buildTenantPaymentDisplayRows(rows, options);
+    const openRow = displayRows.find((row) => row.payment_id === "due-1");
+    const summary = buildTenantPaymentSummaryFromPayments(rows, options);
+
+    expect(openRow.amount).toBe(1500);
+    expect(openRow.status).toBe("overdue");
+    expect(summary.paid).toBe(500);
+    expect(summary.overdue).toBe(1500);
+    expect(summary.outstanding).toBe(1500);
+  });
+
+  it("matches late payments to the rent cycle due date instead of the payment date", () => {
+    const rows = [
+      {
+        payment_id: "january-due",
+        property_id: "property-1",
+        amount: 2000,
+        status: "pending",
+        due_date: "2026-01-31",
+      },
+      {
+        payment_id: "january-paid-late",
+        property_id: "property-1",
+        amount: 500,
+        status: "paid",
+        due_date: "2026-01-31",
+        paid_at: "2026-02-03",
+      },
+    ];
+
+    const displayRows = buildTenantPaymentDisplayRows(rows, {
+      today: new Date("2026-02-04T12:00:00Z"),
+    });
+    const openRow = displayRows.find((row) => row.payment_id === "january-due");
+
+    expect(openRow.amount).toBe(1500);
+    expect(openRow.status).toBe("overdue");
+  });
+
+  it("removes fully covered due rows from tenant payment display", () => {
+    const rows = [
+      {
+        payment_id: "due-1",
+        property_id: "property-1",
+        amount: 1000,
+        status: "pending",
+        due_date: "2026-05-12",
+      },
+      {
+        payment_id: "paid-1",
+        property_id: "property-1",
+        amount: 1000,
+        status: "paid",
+        due_date: "2026-05-12",
+        paid_at: "2026-05-12",
+      },
+    ];
+
+    const displayRows = buildTenantPaymentDisplayRows(rows, {
+      today: new Date("2026-05-16T12:00:00Z"),
+    });
+
+    expect(displayRows.map((row) => row.payment_id)).toEqual(["paid-1"]);
   });
 
   it("summarizes active and resolved maintenance items", () => {

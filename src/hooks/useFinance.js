@@ -6,6 +6,11 @@ import { useTenant } from "../context/TenantContext";
 import { getFinanceSnapshot } from "../services/financeService";
 import { useRealtimeTables } from "./useRealtimeTables";
 
+function safeNumber(value) {
+  const next = Number(value ?? 0);
+  return Number.isFinite(next) ? next : 0;
+}
+
 export function useFinance({ enabled = true } = {}) {
   const { activeAccountId } = useAccount();
   const { activeTenantId } = useTenant();
@@ -66,13 +71,22 @@ export function useFinance({ enabled = true } = {}) {
 
     if (!snapshotFailed) {
       const snapshot = snapshotResult.value;
+      const propertyFinanceRows = Array.isArray(snapshot?.property_finance) ? snapshot.property_finance : [];
+      const overdueFromProperties = propertyFinanceRows.reduce((sum, row) => {
+        const status = String(row?.paymentStatus || row?.payment_status || "").toLowerCase();
+        return status === "overdue" ? sum + safeNumber(row?.remaining) : sum;
+      }, 0);
+      const snapshotOverdue = safeNumber(snapshot?.overdue_income);
+
       setSummary({
-        totalIncome: Number(snapshot?.total_income ?? 0),
-        overdueIncome: Number(snapshot?.overdue_income ?? 0),
-        dueSoonIncome: Number(snapshot?.due_soon_income ?? 0),
-        outstandingIncome: Number(snapshot?.outstanding_income ?? 0),
+        totalIncome: safeNumber(snapshot?.total_income),
+        // Keep the property-level overdue fallback so current-cycle arrears do not disappear
+        // if an older snapshot aggregate under-reports them.
+        overdueIncome: Math.max(snapshotOverdue, overdueFromProperties),
+        dueSoonIncome: safeNumber(snapshot?.due_soon_income),
+        outstandingIncome: safeNumber(snapshot?.outstanding_income),
       });
-      setPropertyFinance(Array.isArray(snapshot?.property_finance) ? snapshot.property_finance : []);
+      setPropertyFinance(propertyFinanceRows);
     }
 
     if (!paymentsFailed) {

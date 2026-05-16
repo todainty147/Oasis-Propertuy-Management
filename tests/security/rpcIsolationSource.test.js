@@ -17,6 +17,14 @@ describe("RPC isolation SQL contracts", () => {
     expect(tenantActivityFeedSql).toContain("public.assert_tenant_scope_access(p_account_id, p_tenant_id)");
   });
 
+  it("counts current-cycle past-due rent as overdue in finance snapshots", () => {
+    const financeSnapshotSql = readSql("supabase/finance_snapshot.sql");
+
+    expect(financeSnapshotSql).toContain("current-cycle balances whose due date has passed");
+    expect(financeSnapshotSql).toContain("pc.has_overdue");
+    expect(financeSnapshotSql).toContain("pc.cycle_month >= date_trunc('month', current_date)");
+  });
+
   it("keeps command center items behind manager/root account guards", () => {
     const commandCenterSql = readSql("supabase/command_center_items.sql");
 
