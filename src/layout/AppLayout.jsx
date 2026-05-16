@@ -38,10 +38,20 @@ export default function AppLayout({ owners, activeOwnerId, setActiveOwnerId }) {
     if (!isDesktop) setSidebarOpen(false);
   }, [location.pathname, isDesktop]);
 
-  // Prevent background scroll when mobile sidebar is open
+  // The authenticated app shell owns scrolling via <main>. Keep the document
+  // locked so pages cannot create a second browser scrollbar with blank space.
   useEffect(() => {
-    document.body.style.overflow = !isDesktop && sidebarOpen ? "hidden" : "";
-  }, [isDesktop, sidebarOpen]);
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, []);
 
   return (
     <PageTitleContext.Provider value={{ setTitle }}>
