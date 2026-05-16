@@ -10,6 +10,7 @@ import { validatePasswordStrength } from "../utils/passwordPolicy";
 import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
 import { recordStrongPassword } from "../services/passwordSecurityService";
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
+import { PASSWORD_SECURITY_REFRESH_EVENT } from "../components/security/PasswordUpgradeNotice";
 
 function Field({ label, icon: Icon, children }) {
   return (
@@ -141,6 +142,7 @@ export default function ProfilePage() {
 
       const activeAccountId = localStorage.getItem("activeAccountId");
       await recordStrongPassword(activeAccountId);
+      window.dispatchEvent(new Event(PASSWORD_SECURITY_REFRESH_EVENT));
 
       setPasswordForm({ newPassword: "", confirmPassword: "" });
       setPasswordMessage(t("profile.passwordSaveSuccess"));

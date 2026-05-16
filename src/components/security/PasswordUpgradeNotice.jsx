@@ -6,6 +6,7 @@ import { getOwnSecurityProfile } from "../../services/passwordSecurityService";
 
 const DISMISS_KEY = "oasis_pw_upgrade_dismissed_until";
 const DISMISS_HOURS = 24;
+export const PASSWORD_SECURITY_REFRESH_EVENT = "tenaqo:password-security-refresh";
 
 function isDismissed() {
   try {
@@ -30,7 +31,7 @@ function dismiss() {
  * password_strength_status is not 'strong'. Dismissible for 24 hours.
  * Links to /profile where they can update their password.
  */
-export default function PasswordUpgradeNotice({ userId }) {
+export default function PasswordUpgradeNotice({ userId, profilePath = "/settings/profile" }) {
   const { t } = useI18n();
   const [visible, setVisible] = useState(false);
 
@@ -38,13 +39,29 @@ export default function PasswordUpgradeNotice({ userId }) {
     if (!userId || isDismissed()) return;
     let cancelled = false;
 
-    getOwnSecurityProfile().then((profile) => {
+    async function refresh() {
+      const profile = await getOwnSecurityProfile();
       if (cancelled) return;
-      if (!profile || profile.password_strength_status === "strong") return;
-      setVisible(true);
-    });
+      setVisible(Boolean(profile && profile.password_strength_status !== "strong"));
+    }
 
-    return () => { cancelled = true; };
+    function refreshWhenFocused() {
+      if (document.visibilityState === "visible") {
+        refresh();
+      }
+    }
+
+    refresh();
+    window.addEventListener(PASSWORD_SECURITY_REFRESH_EVENT, refresh);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refreshWhenFocused);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener(PASSWORD_SECURITY_REFRESH_EVENT, refresh);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refreshWhenFocused);
+    };
   }, [userId]);
 
   function handleDismiss() {
@@ -61,7 +78,7 @@ export default function PasswordUpgradeNotice({ userId }) {
         <span className="font-semibold">{t("securityPosture.ownWarningTitle")}: </span>
         {t("securityPosture.ownWarningBody")}{" "}
         <Link
-          to="/settings/profile"
+          to={profilePath}
           className="font-medium underline underline-offset-2 hover:text-blue-900 dark:hover:text-blue-200"
         >
           {t("securityPosture.ownWarningCta")}

@@ -114,6 +114,7 @@ function PaymentSummaryCard({ summary, loading, t }) {
 function QuickLinksCard({ t }) {
   const links = [
     { to: "/tenant/lease", label: t("tenantPortal.shell.nav.lease") },
+    { to: "/tenant/maintenance", label: t("tenantPortal.shell.nav.maintenance") },
     { to: "/tenant/payments", label: t("tenantPortal.shell.nav.payments") },
     { to: "/tenant/documents", label: t("tenantPortal.shell.nav.documents") },
     { to: "/tenant/profile", label: t("tenantPortal.shell.nav.profile") },

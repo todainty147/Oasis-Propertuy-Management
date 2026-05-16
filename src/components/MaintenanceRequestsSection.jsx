@@ -567,8 +567,10 @@ export default function MaintenanceRequestsSection({ propertyId }) {
 
           {/* ✅ Page size selector (header convenience) */}
           <div className="hidden md:flex items-center gap-2">
-            <span className="text-xs text-slate-500">{t("common.perPage")}</span>
+            <label htmlFor="maintenance-requests-page-size" className="text-xs text-slate-500">{t("common.perPage")}</label>
               <select
+                id="maintenance-requests-page-size"
+                name="maintenance-requests-page-size"
                 value={pageSize}
                 onChange={(e) => {
                   const n = Number(e.target.value);
@@ -608,8 +610,10 @@ export default function MaintenanceRequestsSection({ propertyId }) {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="md:col-span-2">
-              <label className="text-xs text-slate-500">{t("common.title")}</label>
+              <label htmlFor="maintenance-request-title" className="text-xs text-slate-500">{t("common.title")}</label>
               <input
+                id="maintenance-request-title"
+                name="maintenance-request-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
@@ -618,8 +622,10 @@ export default function MaintenanceRequestsSection({ propertyId }) {
             </div>
 
             <div>
-              <label className="text-xs text-slate-500">{t("common.priority")}</label>
+              <label htmlFor="maintenance-request-priority" className="text-xs text-slate-500">{t("common.priority")}</label>
               <select
+                id="maintenance-request-priority"
+                name="maintenance-request-priority"
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
                 className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
@@ -634,8 +640,10 @@ export default function MaintenanceRequestsSection({ propertyId }) {
           </div>
 
           <div>
-            <label className="text-xs text-slate-500">{t("common.description")}</label>
+            <label htmlFor="maintenance-request-description" className="text-xs text-slate-500">{t("common.description")}</label>
             <textarea
+              id="maintenance-request-description"
+              name="maintenance-request-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}

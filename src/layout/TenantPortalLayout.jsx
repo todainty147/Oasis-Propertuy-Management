@@ -12,6 +12,7 @@ import {
   Sun,
   UserRound,
   Wallet,
+  Wrench,
 } from "lucide-react";
 
 import { supabase } from "../lib/supabase";
@@ -66,6 +67,7 @@ function TenantPortalNav() {
       <TenantNavItem to="/tenant/home" icon={LayoutDashboard} label={t("tenantPortal.shell.nav.home")} />
       <TenantNavItem to="/tenant/lease" icon={ScrollText} label={t("tenantPortal.shell.nav.lease")} />
       <TenantNavItem to="/tenant/property" icon={Home} label={t("tenantPortal.shell.nav.homeDetails")} />
+      <TenantNavItem to="/tenant/maintenance" icon={Wrench} label={t("tenantPortal.shell.nav.maintenance")} />
       <TenantNavItem to="/tenant/documents" icon={FileText} label={t("tenantPortal.shell.nav.documents")} />
       <TenantNavItem to="/tenant/payments" icon={Wallet} label={t("tenantPortal.shell.nav.payments")} />
       <TenantNavItem to="/tenant/profile" icon={UserRound} label={t("tenantPortal.shell.nav.profile")} />
@@ -161,6 +163,7 @@ export default function TenantPortalLayout() {
               <label className="flex items-center gap-2 rounded-xl border border-black/[0.08] bg-white/75 px-3 py-2 text-sm dark:border-white/[0.08] dark:bg-white/[0.045]">
                 <span className="text-[var(--text-muted)]">{t("topbar.language")}</span>
                 <select
+                  name="tenant-portal-language"
                   value={lang}
                   onChange={(e) => setLang(e.target.value)}
                   className="min-w-0 flex-1 bg-transparent text-right text-[var(--text-primary)] outline-none"
@@ -208,7 +211,7 @@ export default function TenantPortalLayout() {
 
             <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-5 lg:px-8 lg:py-8">
               <div className="mx-auto w-full max-w-6xl space-y-4">
-                <PasswordUpgradeNotice userId={user?.id} />
+                <PasswordUpgradeNotice userId={user?.id} profilePath="/tenant/profile" />
                 <Outlet />
               </div>
             </main>

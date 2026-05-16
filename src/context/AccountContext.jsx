@@ -452,23 +452,6 @@ export function AccountProvider({ children }) {
     };
   }, [user, authLoading, accountVersion]);
 
-  /* ======================
-     OA GRANT STATUS
-     Fetch lazily when active account changes. Root operators skip this.
-     ====================== */
-
-  useEffect(() => {
-    if (!activeAccountId || isRootOperator) {
-      setOaGrantStatus(null);
-      return;
-    }
-    let cancelled = false;
-    getMyOaGrantStatus(activeAccountId)
-      .then((status) => { if (!cancelled) setOaGrantStatus(status); })
-      .catch(() => { if (!cancelled) setOaGrantStatus(null); });
-    return () => { cancelled = true; };
-  }, [activeAccountId, isRootOperator]);
-
   /* Founder entitlement — load alongside OA grant status */
   useEffect(() => {
     if (!activeAccountId) {
@@ -514,6 +497,25 @@ export function AccountProvider({ children }) {
 
     return null;
   }, [activeAccount, tenantContext, contractorContext, activeAccountId]);
+
+  /* ======================
+     OA GRANT STATUS
+     Fetch lazily when active account changes. Root, tenant, and contractor
+     sessions do not need operator-agency grant data, so skip the RPC there.
+     ====================== */
+
+  useEffect(() => {
+    const role = String(activeRole || "").toLowerCase();
+    if (!activeAccountId || isRootOperator || role === "tenant" || role === "contractor") {
+      setOaGrantStatus(null);
+      return;
+    }
+    let cancelled = false;
+    getMyOaGrantStatus(activeAccountId)
+      .then((status) => { if (!cancelled) setOaGrantStatus(status); })
+      .catch(() => { if (!cancelled) setOaGrantStatus(null); });
+    return () => { cancelled = true; };
+  }, [activeAccountId, activeRole, isRootOperator]);
 
   // Trial derived values
   const trialEndsAt = activeAccount?.trial_ends_at ?? null;
