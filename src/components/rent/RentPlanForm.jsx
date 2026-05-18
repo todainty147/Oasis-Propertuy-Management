@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { createRentPlan } from "../../services/rentPlanService";
 
@@ -14,8 +14,19 @@ const MARKET_DEFAULTS = {
   generic: { currency: "GBP", depositPolicy: "custom"         },
 };
 
-export default function RentPlanForm({ accountId, onSaved, onCancel, t }) {
+export default function RentPlanForm({
+  accountId,
+  initialPropertyId = "",
+  initialTenantId = "",
+  propertyOptions = [],
+  tenantOptions = [],
+  onSaved,
+  onCancel,
+  t,
+}) {
   const [form, setForm] = useState({
+    propertyId:        initialPropertyId || "",
+    tenantId:          initialTenantId || "",
     market:            "generic",
     currency:          "GBP",
     billingFrequency:  "monthly",
@@ -36,6 +47,33 @@ export default function RentPlanForm({ accountId, onSaved, onCancel, t }) {
   const [error, setError]   = useState(null);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  useEffect(() => {
+    const tenant = tenantOptions.find((tenant) => String(tenant.id) === String(initialTenantId));
+    setForm((f) => ({
+      ...f,
+      propertyId: initialPropertyId || f.propertyId || tenant?.propertyId || tenant?.property_id || "",
+      tenantId: initialTenantId || f.tenantId || "",
+    }));
+  }, [initialPropertyId, initialTenantId, tenantOptions]);
+
+  function onPropertyChange(propertyId) {
+    const property = propertyOptions.find((p) => String(p.id) === String(propertyId));
+    setForm((f) => ({
+      ...f,
+      propertyId,
+      tenantId: property?.tenant_id || property?.tenantId || "",
+    }));
+  }
+
+  function onTenantChange(tenantId) {
+    const tenant = tenantOptions.find((tenant) => String(tenant.id) === String(tenantId));
+    setForm((f) => ({
+      ...f,
+      tenantId,
+      propertyId: tenant?.propertyId || tenant?.property_id || f.propertyId || "",
+    }));
+  }
 
   function onMarketChange(market) {
     const defaults = MARKET_DEFAULTS[market] ?? MARKET_DEFAULTS.generic;
@@ -72,6 +110,32 @@ export default function RentPlanForm({ accountId, onSaved, onCancel, t }) {
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t("rentPlans.form.title")}</p>
         <button type="button" onClick={onCancel} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+      </div>
+
+      {/* Property + tenant */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={lbl}>Property</label>
+          <select value={form.propertyId} onChange={(e) => onPropertyChange(e.target.value)} className={cls}>
+            <option value="">No property selected</option>
+            {propertyOptions.map((property) => (
+              <option key={property.id} value={property.id}>
+                {property.address}{property.city ? `, ${property.city}` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className={lbl}>Tenant</label>
+          <select value={form.tenantId} onChange={(e) => onTenantChange(e.target.value)} className={cls}>
+            <option value="">No tenant selected</option>
+            {tenantOptions.map((tenant) => (
+              <option key={tenant.id} value={tenant.id}>
+                {tenant.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Market + Currency */}

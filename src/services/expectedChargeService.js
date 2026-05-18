@@ -8,13 +8,14 @@ import { supabase } from "../lib/supabase";
 /**
  * List expected charges for an account.
  */
-export async function listExpectedCharges({ accountId, propertyId, tenantId, status } = {}) {
+export async function listExpectedCharges({ accountId, rentPlanId, propertyId, tenantId, status } = {}) {
   let q = supabase
     .from("expected_charges")
     .select("*")
     .eq("account_id", accountId)
     .order("due_date", { ascending: true });
 
+  if (rentPlanId) q = q.eq("rent_plan_id", rentPlanId);
   if (propertyId) q = q.eq("property_id", propertyId);
   if (tenantId)   q = q.eq("tenant_id", tenantId);
   if (status)     q = q.eq("status", status);

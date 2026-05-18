@@ -7,7 +7,7 @@ const STATUS_COLORS = {
   superseded:"bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
 };
 
-export default function ExpectedChargesList({ charges, onPost, onCancel, t }) {
+export default function ExpectedChargesList({ charges, propertyById = new Map(), tenantById = new Map(), onPost, onCancel, t }) {
   if (!charges.length) {
     return (
       <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 p-6 text-center text-sm text-slate-400">
@@ -21,11 +21,17 @@ export default function ExpectedChargesList({ charges, onPost, onCancel, t }) {
       <p className="text-[11px] text-slate-400 dark:text-slate-500 italic">
         {t("rentPlans.chargesDisclaimer")}
       </p>
-      {charges.map((charge) => (
-        <div
-          key={charge.id}
-          className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 flex items-start justify-between gap-4 flex-wrap"
-        >
+      {charges.map((charge) => {
+        const property = propertyById.get(charge.property_id) || propertyById.get(charge.propertyId) || null;
+        const tenant = tenantById.get(charge.tenant_id) || tenantById.get(charge.tenantId) || null;
+        const propertyLabel = property ? `${property.address}${property.city ? `, ${property.city}` : ""}` : (charge.property_id ? `Property ${String(charge.property_id).slice(0, 8)}` : "Unassigned property");
+        const tenantLabel = tenant?.name || (charge.tenant_id ? `Tenant ${String(charge.tenant_id).slice(0, 8)}` : "Unassigned tenant");
+
+        return (
+          <div
+            key={charge.id}
+            className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 flex items-start justify-between gap-4 flex-wrap"
+          >
           <div className="space-y-0.5 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase ${STATUS_COLORS[charge.status] ?? STATUS_COLORS.scheduled}`}>
@@ -38,6 +44,9 @@ export default function ExpectedChargesList({ charges, onPost, onCancel, t }) {
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {charge.period_start} → {charge.period_end} · {t("rentPlans.dueDate")}: {charge.due_date}
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {propertyLabel} · {tenantLabel}
             </p>
             {charge.notes && (
               <p className="text-[11px] text-slate-400 italic">{charge.notes}</p>
@@ -67,8 +76,9 @@ export default function ExpectedChargesList({ charges, onPost, onCancel, t }) {
               ✓ {t("rentPlans.postedToFinance")}
             </p>
           )}
-        </div>
-      ))}
+          </div>
+        );
+      })}
     </div>
   );
 }

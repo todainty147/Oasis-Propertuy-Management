@@ -5,7 +5,9 @@
 import { supabase } from "../lib/supabase";
 
 function nullIfBlank(value) {
-  return value === "" ? null : value;
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -34,6 +36,19 @@ export async function listRentPlans({ accountId, propertyId, tenantId } = {}) {
   return data ?? [];
 }
 
+export async function listRentPlanProperties({ accountId } = {}) {
+  if (!accountId) return [];
+
+  const { data, error } = await supabase
+    .from("properties")
+    .select("id, address, city, tenant_id")
+    .eq("account_id", accountId)
+    .order("address", { ascending: true });
+
+  if (error) throw new Error(`listRentPlanProperties: ${error.message}`);
+  return data ?? [];
+}
+
 /**
  * Get a single rent plan (with charge rules).
  */
@@ -58,9 +73,9 @@ export async function createRentPlan({ accountId, plan, chargeRules = [] }) {
     .from("rent_plans")
     .insert({
       account_id:        accountId,
-      property_id:       plan.propertyId ?? null,
-      tenant_id:         plan.tenantId ?? null,
-      lease_id:          plan.leaseId ?? null,
+      property_id:       nullIfBlank(plan.propertyId ?? null),
+      tenant_id:         nullIfBlank(plan.tenantId ?? null),
+      lease_id:          nullIfBlank(plan.leaseId ?? null),
       market:            plan.market ?? "generic",
       currency:          plan.currency ?? "GBP",
       billing_frequency: plan.billingFrequency ?? "monthly",
@@ -107,9 +122,9 @@ export async function updateRentPlan({ accountId, rentPlanId, updates }) {
   const { data, error } = await supabase
     .from("rent_plans")
     .update({
-      property_id:       updates.propertyId,
-      tenant_id:         updates.tenantId,
-      lease_id:          updates.leaseId,
+      property_id:       nullIfBlank(updates.propertyId),
+      tenant_id:         nullIfBlank(updates.tenantId),
+      lease_id:          nullIfBlank(updates.leaseId),
       market:            updates.market,
       currency:          updates.currency,
       billing_frequency: updates.billingFrequency,
@@ -123,7 +138,6 @@ export async function updateRentPlan({ accountId, rentPlanId, updates }) {
       utilities_policy:  updates.utilitiesPolicy,
       rounding_policy:   updates.roundingPolicy,
       notes:             nullIfBlank(updates.notes),
-      updated_at:        new Date().toISOString(),
     })
     .eq("id", rentPlanId)
     .eq("account_id", accountId)

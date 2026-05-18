@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Calculator, ChevronRight, FilePlus, Plus, RefreshCw } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
 import { usePageTitle } from "../layout/PageTitleContext";
-import { listRentPlans, activateRentPlan, endRentPlan } from "../services/rentPlanService";
+import { listRentPlans, listRentPlanProperties, activateRentPlan, endRentPlan } from "../services/rentPlanService";
+import { listAccountTenants } from "../services/tenantService";
 import { listExpectedCharges, postExpectedCharge, cancelExpectedCharge } from "../services/expectedChargeService";
 import RentPlanForm from "../components/rent/RentPlanForm";
 import RentCalculationPreview from "../components/rent/RentCalculationPreview";
@@ -21,9 +23,13 @@ const STATUS_COLORS = {
   cancelled:      "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-500",
 };
 
-function PlanCard({ plan, onActivate, onEnd, onPreview, onViewCharges, t, planMap }) {
+function PlanCard({ plan, onActivate, onEnd, onPreview, onViewCharges, t, planMap, propertyById, tenantById }) {
   const [busy, setBusy]           = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const property = plan.property || propertyById.get(plan.property_id) || null;
+  const tenant = plan.tenant || tenantById.get(plan.tenant_id) || null;
+  const propertyLabel = property ? `${property.address}${property.city ? `, ${property.city}` : ""}` : "Unassigned property";
+  const tenantLabel = tenant?.name || "Unassigned tenant";
 
   // Build the superseded chain for this plan (follow supersedes_id links backward)
   function buildHistory(currentPlan) {
@@ -70,6 +76,9 @@ function PlanCard({ plan, onActivate, onEnd, onPreview, onViewCharges, t, planMa
           {plan.notes && (
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 italic">{plan.notes}</p>
           )}
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            {propertyLabel} · {tenantLabel}
+          </p>
         </div>
       </div>
 
@@ -157,8 +166,14 @@ export default function RentPlansPage() {
   const { t } = useI18n();
   const { activeAccountId } = useAccount();
   const { setTitle } = usePageTitle();
+  const [searchParams] = useSearchParams();
+  const propertyParam = searchParams.get("property") || "";
+  const tenantParam = searchParams.get("tenant") || "";
+  const chargesParam = searchParams.get("charges") || searchParams.get("panel") || "";
 
   const [plans, setPlans]           = useState([]);
+  const [properties, setProperties] = useState([]);
+  const [tenants, setTenants]       = useState([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState(null);
   const [showForm, setShowForm]     = useState(false);
@@ -166,23 +181,61 @@ export default function RentPlansPage() {
   const [chargesPlan, setChargesPlan] = useState(null);
   const [charges, setCharges]       = useState([]);
   const [chargesLoading, setChargesLoading] = useState(false);
+  const [openedChargesFromUrl, setOpenedChargesFromUrl] = useState(false);
 
   useEffect(() => { setTitle(t("rentPlans.pageTitle")); }, [setTitle, t]);
+
+  const propertyById = useMemo(() => new Map(properties.map((property) => [property.id, property])), [properties]);
+  const tenantById = useMemo(() => new Map(tenants.map((tenant) => [tenant.id, tenant])), [tenants]);
+
+  const contextLabel = useMemo(() => {
+    const property = propertyById.get(propertyParam);
+    const tenant = tenantById.get(tenantParam);
+    if (property && tenant) return `${property.address}${property.city ? `, ${property.city}` : ""} · ${tenant.name}`;
+    if (tenant) return tenant.name;
+    if (property) return `${property.address}${property.city ? `, ${property.city}` : ""}`;
+    return "";
+  }, [propertyById, propertyParam, tenantById, tenantParam]);
 
   const loadPlans = useCallback(async () => {
     if (!activeAccountId) return;
     setLoading(true);
     setError(null);
     try {
-      setPlans(await listRentPlans({ accountId: activeAccountId }));
+      const [planRows, propertyRows, tenantRows] = await Promise.all([
+        listRentPlans({ accountId: activeAccountId, propertyId: propertyParam, tenantId: tenantParam }),
+        listRentPlanProperties({ accountId: activeAccountId }),
+        listAccountTenants(activeAccountId),
+      ]);
+      setPlans(planRows);
+      setProperties(propertyRows);
+      setTenants(tenantRows);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [activeAccountId]);
+  }, [activeAccountId, propertyParam, tenantParam]);
 
   useEffect(() => { loadPlans(); }, [loadPlans]);
+
+  useEffect(() => {
+    if (!activeAccountId || !chargesParam || chargesPlan || openedChargesFromUrl) return;
+    let dead = false;
+    async function loadChargesPanel() {
+      setOpenedChargesFromUrl(true);
+      setChargesPlan({ all: true });
+      setChargesLoading(true);
+      try {
+        const rows = await listExpectedCharges({ accountId: activeAccountId, status: "scheduled" });
+        if (!dead) setCharges(rows);
+      } finally {
+        if (!dead) setChargesLoading(false);
+      }
+    }
+    loadChargesPanel();
+    return () => { dead = true; };
+  }, [activeAccountId, chargesParam, chargesPlan, openedChargesFromUrl]);
 
   async function handleActivate(planId) {
     await activateRentPlan({ accountId: activeAccountId, rentPlanId: planId });
@@ -216,6 +269,9 @@ export default function RentPlansPage() {
 
   // ── Sub-panel: expected charges ───────────────────────────────────────────
   if (chargesPlan) {
+    const title = chargesPlan.all
+      ? "Expected charges"
+      : `${t("rentPlans.expectedChargesFor")} — ${Number(chargesPlan.base_rent_amount).toLocaleString()} ${chargesPlan.currency}/${chargesPlan.billing_frequency}`;
     return (
       <div className="space-y-4 max-w-3xl mx-auto px-4 py-6">
         <button
@@ -226,12 +282,14 @@ export default function RentPlansPage() {
           ← {t("rentPlans.backToPlans")}
         </button>
         <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">
-          {t("rentPlans.expectedChargesFor")} — {Number(chargesPlan.base_rent_amount).toLocaleString()} {chargesPlan.currency}/{chargesPlan.billing_frequency}
+          {title}
         </h2>
         {chargesLoading
           ? <p className="text-sm text-slate-400">{t("common.loading")}</p>
           : <ExpectedChargesList
               charges={charges}
+              propertyById={propertyById}
+              tenantById={tenantById}
               onPost={handlePostCharge}
               onCancel={handleCancelCharge}
               t={t}
@@ -306,10 +364,20 @@ export default function RentPlansPage() {
       {showForm && (
         <RentPlanForm
           accountId={activeAccountId}
+          initialPropertyId={propertyParam}
+          initialTenantId={tenantParam}
+          propertyOptions={properties}
+          tenantOptions={tenants}
           onSaved={() => { setShowForm(false); loadPlans(); }}
           onCancel={() => setShowForm(false)}
           t={t}
         />
+      )}
+
+      {contextLabel && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
+          Showing rent plans for {contextLabel}
+        </div>
       )}
 
       {/* Error */}
@@ -352,6 +420,8 @@ export default function RentPlansPage() {
             onViewCharges={handleViewCharges}
             t={t}
             planMap={planMap}
+            propertyById={propertyById}
+            tenantById={tenantById}
           />
         ));
       })()}

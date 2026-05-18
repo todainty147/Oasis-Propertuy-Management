@@ -508,7 +508,7 @@ export default function Finance({
                 </p>
               </div>
               <Link
-                to="/finance/rent-plans"
+                to="/finance/rent-plans?charges=1"
                 className="shrink-0 rounded-lg bg-amber-700 px-3 py-2 text-xs font-medium text-white hover:bg-amber-800 transition-colors"
               >
                 {t("finance.arrears.cta")}
