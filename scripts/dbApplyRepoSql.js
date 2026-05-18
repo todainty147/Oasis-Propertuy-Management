@@ -143,6 +143,7 @@ const OVERLAY_SEQUENCE = [
   "rent_reminders_rpc.sql",
   "operating_calendar.sql",
   "data_retention_privacy.sql",
+  "supabase_linter_security_hardening.sql",
 ];
 
 function resolvePsqlCommand() {
@@ -338,14 +339,14 @@ function main() {
     return;
   }
 
-  if (!options.dbUrl) {
+  if (!options.dryRun && !options.dbUrl) {
     throw new Error("Missing database URL. Pass --db-url or set DB_APPLY_URL / DATABASE_URL.");
   }
 
   const plan = buildPlan({ includeBaseline: options.includeBaseline });
 
   console.log("OASIS repo SQL apply");
-  console.log(`Target database: ${options.dbUrl}`);
+  console.log(`Target database: ${options.dbUrl || "(not required for dry run)"}`);
   console.log(`Mode: ${options.includeBaseline ? "baseline + overlays" : "overlays only (recommended for existing environments)"}`);
   console.log("");
   console.log("Excluded files:");

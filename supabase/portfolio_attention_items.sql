@@ -1,3 +1,5 @@
+drop function if exists public.portfolio_attention_items(uuid, uuid, integer);
+
 create or replace function public.portfolio_attention_items(
   p_account_id uuid,
   p_tenant_id uuid default null,
@@ -6,6 +8,7 @@ create or replace function public.portfolio_attention_items(
 returns table (
   item_key text,
   item_type text,
+  property_id uuid,
   property_label text,
   city text,
   amount numeric,
@@ -87,6 +90,7 @@ as $$
   overdue_payments as (
     select
       p.id,
+      p.property_id,
       coalesce(pr.address, '—') as property_label,
       coalesce(pr.city, '') as city,
       coalesce(p.amount, 0) as amount
@@ -112,6 +116,7 @@ as $$
   due_soon_payments as (
     select
       p.id,
+      p.property_id,
       coalesce(pr.address, '—') as property_label,
       coalesce(pr.city, '') as city,
       coalesce(p.amount, 0) as amount
@@ -152,6 +157,7 @@ as $$
       select
         'vacant-' || vp.id::text as item_key,
         'vacant'::text as item_type,
+        vp.id as property_id,
         vp.address as property_label,
         vp.city,
         null::numeric as amount,
@@ -171,6 +177,7 @@ as $$
       select
         'vacant-long-' || vp.id::text as item_key,
         'vacant_long'::text as item_type,
+        vp.id as property_id,
         vp.address as property_label,
         vp.city,
         null::numeric as amount,
@@ -189,6 +196,7 @@ as $$
     select
       'overdue-' || op.id::text as item_key,
       'overdue_payment'::text as item_type,
+      op.property_id,
       op.property_label,
       op.city,
       op.amount,
@@ -203,6 +211,7 @@ as $$
     select
       'due-soon-' || dp.id::text as item_key,
       'due_soon_payment'::text as item_type,
+      dp.property_id,
       dp.property_label,
       dp.city,
       dp.amount,
@@ -217,6 +226,7 @@ as $$
     select
       'high-priority-' || r.id::text as item_key,
       'high_priority_request'::text as item_type,
+      null::uuid as property_id,
       null::text as property_label,
       null::text as city,
       null::numeric as amount,
@@ -229,6 +239,7 @@ as $$
   select
     i.item_key,
     i.item_type,
+    i.property_id,
     i.property_label,
     i.city,
     i.amount,

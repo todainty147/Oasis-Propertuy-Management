@@ -63,6 +63,9 @@ This section reflects checked-in code, SQL, and tests rather than planned intent
   - recent fixes closed `/tenants` and improved `/properties`, but this should stay a standing discipline across role-shared routes
 - **Surface naming and CTA semantics**
   - keep labels truthful to the actual filtered data, especially on dashboard summary cards and operational shortcuts
+- **Root/admin RPC hardening follow-up**
+  - root/admin UI RPC grants were intentionally left in place during Supabase linter hardening because the frontend still calls `root_set_account_disabled`, `root_delete_account`, `set_account_trial_end`, and `admin_update_data_deletion_request` directly as authenticated users
+  - migrate these flows behind Edge Functions or private-schema wrappers before revoking direct authenticated execution, otherwise current root/admin screens are likely to break
 
 ### Richer breadth next
 

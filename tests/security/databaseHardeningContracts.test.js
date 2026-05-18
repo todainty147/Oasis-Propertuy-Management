@@ -45,6 +45,29 @@ describe("database security hardening contracts", () => {
     );
   });
 
+  it("keeps Supabase linter security remediations wired into repo SQL apply", () => {
+    const applyScript = readSource("scripts/dbApplyRepoSql.js");
+    const hardeningSql = readSource("supabase/supabase_linter_security_hardening.sql");
+
+    expect(applyScript).toContain('"supabase_linter_security_hardening.sql"');
+    expect(hardeningSql).toContain(
+      "alter view if exists public.work_orders_pending_cancellation set (security_invoker = true);",
+    );
+    expect(hardeningSql).toContain("select e.extrelocatable");
+    expect(hardeningSql).toContain("execute 'alter extension pg_net set schema extensions';");
+    expect(hardeningSql).toContain("does not support SET SCHEMA");
+    expect(hardeningSql).toContain("alter function %s set search_path to public, auth, extensions");
+    expect(hardeningSql).toContain("revoke execute on function %s from public");
+    expect(hardeningSql).toContain("revoke execute on function %s from anon");
+    expect(hardeningSql).toContain("'record_api_rate_limit_attempt'");
+    expect(hardeningSql).toContain("'handle_new_user'");
+    expect(hardeningSql).toContain("revoke execute on function %s from authenticated");
+    expect(hardeningSql).toContain("grant execute on function %s to service_role");
+    expect(hardeningSql).toContain(
+      "grant execute on function public.record_auth_rate_limit_attempt(text, text) to anon;",
+    );
+  });
+
   it("serializes rate-limit attempts and caps notification fan-out", () => {
     const rateLimitSql = readSource("supabase/api_rate_limits.sql");
     const notificationsSql = readSource("supabase/create_notifications.sql");
@@ -152,6 +175,10 @@ describe("database security hardening contracts", () => {
     expect(dashboardSql).toContain("where w.account_id = a.account_id");
     expect(hubSql).toContain("where t.account_id = a.account_id");
     expect(portfolioSql).toContain("left join properties pr on pr.id = p.property_id and pr.account_id = a.account_id");
+    expect(portfolioSql).toContain("drop function if exists public.portfolio_attention_items(uuid, uuid, integer);");
+    expect(portfolioSql).toContain("property_id uuid");
+    expect(portfolioSql).toContain("op.property_id");
+    expect(portfolioSql).toContain("dp.property_id");
   });
 
   it("keeps signature provider URLs HTTPS-only and sandbox status authenticated-only", () => {
