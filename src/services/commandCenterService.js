@@ -1,9 +1,11 @@
 import { supabase } from "../lib/supabase";
 import { getDashboardSnapshot } from "./dashboardService";
+import { getFinanceSnapshot } from "./financeService";
 import { listPropertyOperationalHealthScores } from "./propertyHealthScoreService";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 import { parseCommandCenterItemRow, parseRpcRows } from "./rpcContracts";
 import { getPlComplianceCommandItems } from "./complianceChecklistService";
+import { financeAmountForProperty, getFinanceOverdueAmount } from "../utils/financeSnapshot";
 
 function isMissingBackendObject(error) {
   const message = String(error?.message || "").toLowerCase();
@@ -126,8 +128,9 @@ export async function getCommandCenterData(accountId) {
     };
   }
 
-  const [snapshot, rpcRes, propertyHealthRows] = await Promise.all([
+  const [snapshot, financeSnapshot, rpcRes, propertyHealthRows] = await Promise.all([
     getDashboardSnapshot(accountId, { horizonDays: 7 }),
+    getFinanceSnapshot(accountId, null).catch(() => null),
     supabase.rpc("command_center_items", {
       p_account_id: accountId,
       p_limit: 80,
@@ -167,7 +170,13 @@ export async function getCommandCenterData(accountId) {
     ).map(normalizeRpcItem),
     ...rrItems,
     ...plItems,
-  ];
+  ].map((item) => {
+    if (item.kind !== "overdue_rent") return item;
+    return {
+      ...item,
+      amount: financeAmountForProperty(financeSnapshot, item.propertyId, item.amount),
+    };
+  });
   const urgent = sortItems(items.filter((item) => item.bucket === "urgent")).slice(0, 12);
   const action = sortItems(items.filter((item) => item.bucket === "action")).slice(0, 12);
   const upcoming = sortItems(items.filter((item) => item.bucket === "upcoming")).slice(0, 12);
@@ -210,7 +219,9 @@ export async function getCommandCenterData(accountId) {
       automationCount: automationItems.length,
       propertiesWithIssuesCount: propertyIssues.length,
       unreadAlertsCount: items.filter((item) => item.source === "notifications").length,
-      overdueAmount: Number(snapshot?.overdue_amount || 0),
+      overdueAmount: financeSnapshot != null
+        ? getFinanceOverdueAmount(financeSnapshot)
+        : Number(snapshot?.overdue_amount ?? 0),
     },
     groups: { urgent, action, upcoming, recent },
     propertyIssues,

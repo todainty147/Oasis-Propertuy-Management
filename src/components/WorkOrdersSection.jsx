@@ -39,6 +39,7 @@ import { getContractorRatingByWorkOrder, upsertContractorRating } from "../servi
 import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount, getCurrencyOptions, getDefaultCurrency } from "../utils/currency";
 import { isManageRole } from "../utils/permissions";
+import { normalizeWorkOrderStatus } from "../utils/statuses";
 import { listMaintenanceRequestsByProperty } from "../services/maintenanceService";
 /* -----------------------------
    UI helpers
@@ -66,16 +67,6 @@ function formatBytes(bytes) {
 
 function formatMoney(val, currency = getDefaultCurrency()) {
   return formatCurrencyAmount(val, { currency });
-}
-
-function normalizeWorkOrderStatus(status) {
-  const s = String(status ?? "").trim().toLowerCase();
-  if (["assigned", "przypisane"].includes(s)) return "assigned";
-  if (["in_progress", "w trakcie", "in progress"].includes(s)) return "in_progress";
-  if (["completed", "zakończone", "zakonczone"].includes(s)) return "completed";
-  if (["cancelled", "anulowane"].includes(s)) return "cancelled";
-  if (["blocked", "zablokowane"].includes(s)) return "blocked";
-  return s;
 }
 
 function translateWorkOrderStatus(status, t) {

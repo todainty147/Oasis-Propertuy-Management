@@ -11,6 +11,7 @@ import {
   getPropertyOperationalHealthCategory,
 } from "../services/propertyHealthScoreService";
 import { buildPaymentCycles, calculatePropertyFinance } from "../utils/finance";
+import { normalizeWorkOrderStatus } from "../utils/statuses";
 
 function toDate(value) {
   if (!value) return null;
@@ -22,14 +23,6 @@ function normalizeRequestStatus(status) {
   const s = String(status || "").toLowerCase();
   if (["closed", "zamkniete", "zamknięte"].includes(s)) return "closed";
   return "open";
-}
-
-function normalizeWorkOrderStatus(status) {
-  const s = String(status || "").toLowerCase();
-  if (["completed", "cancelled", "closed", "zakonczone", "zakończone", "anulowane"].includes(s)) {
-    return "final";
-  }
-  return "active";
 }
 
 function toneForAttention({ overdueRent = 0, openRequests = 0, activeWorkOrders = 0 }) {
@@ -193,7 +186,7 @@ export default function PropertyPerformanceCard({
 
       maintenanceInvoiced += Number.isFinite(invoice) ? invoice : 0;
 
-      if (status === "active") {
+      if (!["completed", "cancelled", "closed"].includes(status)) {
         activeWorkOrders += 1;
         maintenanceCommitted += Number.isFinite(invoice) && invoice > 0
           ? invoice

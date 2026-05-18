@@ -49,6 +49,7 @@ describe("fault injection and degraded-path contracts", () => {
     mocks.rpc
       .mockResolvedValueOnce({ data: null, error: missingRpcError })
       .mockResolvedValueOnce({ data: null, error: missingRpcError })
+      .mockResolvedValueOnce({ data: null, error: missingRpcError })
       .mockResolvedValueOnce({ data: null, error: missingRpcError });
 
     const { getDashboardSnapshot } = await import("../../src/services/dashboardService.js");

@@ -1,5 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { formatCurrencyAmount } from "../utils/currency";
+import { financeAmountForProperty, getFinanceOverdueAmount, safeNumber } from "../utils/financeSnapshot";
+import { getFinanceSnapshot } from "./financeService";
 import {
   logOperationalLatencySample,
   logSecurityRelevantFailure,
@@ -43,13 +45,27 @@ export async function getPortfolioHealthSnapshot(accountId, tenantId = null, { f
     if (cached) return cached;
   }
 
-  const startedAt = startOperationalTimer();
   const thresholdMs = 1500;
 
-  const { data, error } = await supabase.rpc("portfolio_health_snapshot", {
-    p_account_id: accountId,
-    p_tenant_id: tenantId,
-  });
+  const portfolioRequest = (async () => {
+    const requestStartedAt = startOperationalTimer();
+    const result = await supabase.rpc("portfolio_health_snapshot", {
+      p_account_id: accountId,
+      p_tenant_id: tenantId,
+    });
+
+    return {
+      ...result,
+      durationMs: startOperationalTimer() - requestStartedAt,
+    };
+  })();
+
+  const [portfolioResult, financeSnapshot] = await Promise.all([
+    portfolioRequest,
+    getFinanceSnapshot(accountId, tenantId, { forceRefresh }).catch(() => null),
+  ]);
+
+  const { data, error, durationMs } = portfolioResult;
 
   if (error && isMissingBackendObject(error)) {
     return { ...EMPTY_PORTFOLIO_HEALTH_SNAPSHOT };
@@ -62,7 +78,6 @@ export async function getPortfolioHealthSnapshot(accountId, tenantId = null, { f
     throw friendly(error, "Failed to load portfolio health snapshot");
   }
 
-  const durationMs = startOperationalTimer() - startedAt;
   logOperationalLatencySample("portfolio_health_snapshot", {
     accountId,
     surface: "portfolio_health",
@@ -77,18 +92,27 @@ export async function getPortfolioHealthSnapshot(accountId, tenantId = null, { f
     thresholdMs,
     context: { hasTenantScope: Boolean(tenantId) },
   });
-  return setSnapshotCacheValue(cacheKey, parsePortfolioHealthSnapshotRow(firstRpcRow(data)));
+  const snapshot = parsePortfolioHealthSnapshotRow(firstRpcRow(data));
+  if (financeSnapshot) {
+    const overdueAmount = getFinanceOverdueAmount(financeSnapshot);
+    snapshot.overdue_amount = overdueAmount;
+    snapshot.outstanding_amount = Math.max(safeNumber(snapshot.outstanding_amount), overdueAmount);
+  }
+  return setSnapshotCacheValue(cacheKey, snapshot);
 }
 
 export async function getPortfolioAttentionItems(accountId, tenantId = null, limit = 10) {
   if (!accountId) throw new Error("Missing accountId");
   if (portfolioAttentionItemsUnavailable) return [];
 
-  const { data, error } = await supabase.rpc("portfolio_attention_items", {
-    p_account_id: accountId,
-    p_tenant_id: tenantId,
-    p_limit: limit,
-  });
+  const [{ data, error }, financeSnapshot] = await Promise.all([
+    supabase.rpc("portfolio_attention_items", {
+      p_account_id: accountId,
+      p_tenant_id: tenantId,
+      p_limit: limit,
+    }),
+    getFinanceSnapshot(accountId, tenantId).catch(() => null),
+  ]);
 
   if (error && isMissingBackendObject(error)) {
     portfolioAttentionItemsUnavailable = true;
@@ -101,7 +125,15 @@ export async function getPortfolioAttentionItems(accountId, tenantId = null, lim
     });
     throw friendly(error, "Failed to load portfolio attention items");
   }
-  return parseRpcRows(data || [], parsePortfolioAttentionItemRow, "portfolio attention items");
+
+  return parseRpcRows(data || [], parsePortfolioAttentionItemRow, "portfolio attention items")
+    .map((item) => {
+      if (String(item?.item_type || "").toLowerCase() !== "overdue_payment") return item;
+      return {
+        ...item,
+        amount: financeAmountForProperty(financeSnapshot, item.property_id, item.amount),
+      };
+    });
 }
 
 export function mapPortfolioAttentionItems(items = [], t) {

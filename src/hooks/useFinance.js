@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
 import { getFinanceSnapshot } from "../services/financeService";
+import { getFinanceOverdueAmount } from "../utils/financeSnapshot";
 import { useRealtimeTables } from "./useRealtimeTables";
 
 function safeNumber(value) {
@@ -72,17 +73,9 @@ export function useFinance({ enabled = true } = {}) {
     if (!snapshotFailed) {
       const snapshot = snapshotResult.value;
       const propertyFinanceRows = Array.isArray(snapshot?.property_finance) ? snapshot.property_finance : [];
-      const overdueFromProperties = propertyFinanceRows.reduce((sum, row) => {
-        const status = String(row?.paymentStatus || row?.payment_status || "").toLowerCase();
-        return status === "overdue" ? sum + safeNumber(row?.remaining) : sum;
-      }, 0);
-      const snapshotOverdue = safeNumber(snapshot?.overdue_income);
-
       setSummary({
         totalIncome: safeNumber(snapshot?.total_income),
-        // Keep the property-level overdue fallback so current-cycle arrears do not disappear
-        // if an older snapshot aggregate under-reports them.
-        overdueIncome: Math.max(snapshotOverdue, overdueFromProperties),
+        overdueIncome: getFinanceOverdueAmount(snapshot),
         dueSoonIncome: safeNumber(snapshot?.due_soon_income),
         outstandingIncome: safeNumber(snapshot?.outstanding_income),
       });
@@ -92,14 +85,14 @@ export function useFinance({ enabled = true } = {}) {
     if (!paymentsFailed) {
       setPayments((paymentsResult.value.data ?? []).map((p) => ({
         id: p.id,
-        amount: Number(p.amount ?? 0),
+          amount: safeNumber(p.amount),
         status: p.status,
         dueDate: p.due_date,
         paidAt: p.paid_at,
         tenantId: p.tenant_id,
         propertyId: p.property_id,
         notes: p.notes ?? null,
-        propertyRent: Number(p.properties?.rent ?? 0),
+          propertyRent: safeNumber(p.properties?.rent),
         tenantName: p.tenants?.name ?? "—",
         propertyAddress: p.properties?.address ?? "—",
       })));

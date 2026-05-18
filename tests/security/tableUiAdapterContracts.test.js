@@ -46,7 +46,7 @@ describe("table-backed UI adapter contracts", () => {
             created_at: "2026-03-28T10:00:00Z",
             status: "OVERDUE",
             tenants: { name: "Tenant A1" },
-            properties: { address: "11 Starlight Avenue" },
+            properties: { address: "11 Starlight Avenue", rent: 1200 },
           },
         ],
         error: null,
@@ -67,6 +67,7 @@ describe("table-backed UI adapter contracts", () => {
         propertyId: "property-1",
         tenantName: "Tenant A1",
         propertyAddress: "11 Starlight Avenue",
+        propertyRent: 1200,
       },
     ]);
   });

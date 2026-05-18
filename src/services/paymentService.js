@@ -65,6 +65,7 @@ function parsePaymentListRow(row) {
     propertyId: payment.property_id,
     tenantName: row?.tenants?.name ?? "—",
     propertyAddress: row?.properties?.address ?? "—",
+    propertyRent: Number(row?.properties?.rent ?? 0),
   };
 }
 
@@ -86,7 +87,7 @@ export async function listAccountPayments(accountId) {
       created_at,
       status,
       tenants ( name ),
-      properties ( address )
+      properties ( address, rent )
     `,
     )
     .eq("account_id", accountId)

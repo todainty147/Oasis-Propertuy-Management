@@ -1,4 +1,6 @@
 import { supabase } from "../lib/supabase";
+import { getFinanceSnapshot } from "./financeService";
+import { getFinanceOverdueAmount } from "../utils/financeSnapshot";
 import {
   logOperationalLatencySample,
   logSecurityRelevantFailure,
@@ -49,14 +51,28 @@ export async function getDashboardSnapshot(
     if (cached) return cached;
   }
 
-  const startedAt = startOperationalTimer();
   const thresholdMs = 1200;
 
-  const { data, error } = await supabase.rpc("dashboard_snapshot", {
-    p_account_id: accountId,
-    p_tenant_id: tenantId,
-    p_horizon_days: horizonDays,
-  });
+  const dashboardRequest = (async () => {
+    const requestStartedAt = startOperationalTimer();
+    const result = await supabase.rpc("dashboard_snapshot", {
+      p_account_id: accountId,
+      p_tenant_id: tenantId,
+      p_horizon_days: horizonDays,
+    });
+
+    return {
+      ...result,
+      durationMs: startOperationalTimer() - requestStartedAt,
+    };
+  })();
+
+  const [dashboardResult, financeSnapshot] = await Promise.all([
+    dashboardRequest,
+    getFinanceSnapshot(accountId, tenantId, { forceRefresh }).catch(() => null),
+  ]);
+
+  const { data, error, durationMs } = dashboardResult;
 
   if (error && isMissingBackendObject(error)) {
     return { ...EMPTY_DASHBOARD_SNAPSHOT };
@@ -69,7 +85,6 @@ export async function getDashboardSnapshot(
     throw friendly(error, "Failed to load dashboard snapshot");
   }
 
-  const durationMs = startOperationalTimer() - startedAt;
   logOperationalLatencySample("dashboard_snapshot", {
     accountId,
     surface: "dashboard",
@@ -84,7 +99,11 @@ export async function getDashboardSnapshot(
     thresholdMs,
     context: { horizonDays, hasTenantScope: Boolean(tenantId) },
   });
-  return setSnapshotCacheValue(cacheKey, parseDashboardSnapshotRow(firstRpcRow(data)));
+  const snapshot = parseDashboardSnapshotRow(firstRpcRow(data));
+  if (financeSnapshot) {
+    snapshot.overdue_amount = getFinanceOverdueAmount(financeSnapshot);
+  }
+  return setSnapshotCacheValue(cacheKey, snapshot);
 }
 
 export async function getDashboardHubExtras(accountId, { tenantId = null, horizonDays = 1 } = {}) {

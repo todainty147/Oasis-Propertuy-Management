@@ -1,5 +1,7 @@
 // src/services/operatingCalendarService.js
 import { supabase } from "../lib/supabase";
+import { financeAmountForProperty } from "../utils/financeSnapshot";
+import { getFinanceSnapshot } from "./financeService";
 
 export async function getOperatingCalendar({
   accountId,
@@ -10,18 +12,29 @@ export async function getOperatingCalendar({
   urgency = null,
   status = null,
 }) {
-  const { data, error } = await supabase.rpc("get_operating_calendar", {
-    p_account_id:    accountId,
-    p_start_date:    startDate,
-    p_end_date:      endDate,
-    p_property_id:   propertyId   ?? null,
-    p_source_module: sourceModule ?? null,
-    p_urgency:       urgency      ?? null,
-    p_status:        status       ?? null,
-  });
+  if (!accountId) throw new Error("Missing accountId");
+
+  const [{ data, error }, financeSnapshot] = await Promise.all([
+    supabase.rpc("get_operating_calendar", {
+      p_account_id:    accountId,
+      p_start_date:    startDate,
+      p_end_date:      endDate,
+      p_property_id:   propertyId   ?? null,
+      p_source_module: sourceModule ?? null,
+      p_urgency:       urgency      ?? null,
+      p_status:        status       ?? null,
+    }),
+    getFinanceSnapshot(accountId, null).catch(() => null),
+  ]);
 
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).map((item) => {
+    if (item?.source_module !== "payment" || item?.status !== "overdue") return item;
+    return {
+      ...item,
+      amount: financeAmountForProperty(financeSnapshot, item.property_id, item.amount),
+    };
+  });
 }
 
 export async function createCalendarItem({ accountId, title, dueDate, propertyId, notes, urgency, status }) {
@@ -53,7 +66,6 @@ export async function updateCalendarItem(id, { title, dueDate, propertyId, notes
       notes:       notes      ?? null,
       urgency:     urgency    ?? "medium",
       status:      status     ?? "scheduled",
-      updated_at:  new Date().toISOString(),
     })
     .eq("id", id)
     .select()

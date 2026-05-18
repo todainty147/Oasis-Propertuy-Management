@@ -895,6 +895,7 @@ export function parsePortfolioAttentionItemRow(row) {
   return {
     item_key: toStringOr(value.item_key),
     item_type: toStringOr(value.item_type),
+    property_id: toNullableString(value.property_id),
     property_label: toStringOr(value.property_label),
     city: toStringOr(value.city),
     amount: toNumberOr(value.amount),

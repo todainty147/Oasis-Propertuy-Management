@@ -98,6 +98,7 @@ describe("rpc contracts", () => {
     const portfolioAttention = parsePortfolioAttentionItemRow({
       item_key: "portfolio-1",
       item_type: "overdue_payment",
+      property_id: "property-1",
       amount: "1234.56",
       days_vacant: null,
       sort_order: "10",
@@ -151,6 +152,7 @@ describe("rpc contracts", () => {
     });
 
     expect(portfolioAttention.amount).toBe(1234.56);
+    expect(portfolioAttention.property_id).toBe("property-1");
     expect(leaseAttention.days_until_end).toBe(30);
     expect(maintenanceAttention.age_hours).toBe(48);
     expect(propertyHealth.reasons[0]).toEqual({
