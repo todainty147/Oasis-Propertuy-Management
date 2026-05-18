@@ -4,6 +4,10 @@
 
 import { supabase } from "../lib/supabase";
 
+function nullIfBlank(value) {
+  return value === "" ? null : value;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Rent Plans
 // ─────────────────────────────────────────────────────────────────────────────
@@ -63,13 +67,13 @@ export async function createRentPlan({ accountId, plan, chargeRules = [] }) {
       base_rent_amount:  plan.baseRentAmount,
       due_day:           plan.dueDay ?? 1,
       start_date:        plan.startDate,
-      end_date:          plan.endDate ?? null,
+      end_date:          nullIfBlank(plan.endDate ?? null),
       proration_policy:  plan.prorationPolicy ?? "actual_days_in_month",
       deposit_policy:    plan.depositPolicy ?? "market_default",
-      deposit_amount:    plan.depositAmount ?? null,
+      deposit_amount:    nullIfBlank(plan.depositAmount ?? null),
       utilities_policy:  plan.utilitiesPolicy ?? "rent_only",
       rounding_policy:   plan.roundingPolicy ?? "nearest_penny",
-      notes:             plan.notes ?? null,
+      notes:             nullIfBlank(plan.notes ?? null),
       status:            "draft",
     })
     .select()
@@ -112,13 +116,13 @@ export async function updateRentPlan({ accountId, rentPlanId, updates }) {
       base_rent_amount:  updates.baseRentAmount,
       due_day:           updates.dueDay,
       start_date:        updates.startDate,
-      end_date:          updates.endDate,
+      end_date:          nullIfBlank(updates.endDate),
       proration_policy:  updates.prorationPolicy,
       deposit_policy:    updates.depositPolicy,
-      deposit_amount:    updates.depositAmount,
+      deposit_amount:    nullIfBlank(updates.depositAmount),
       utilities_policy:  updates.utilitiesPolicy,
       rounding_policy:   updates.roundingPolicy,
-      notes:             updates.notes,
+      notes:             nullIfBlank(updates.notes),
       updated_at:        new Date().toISOString(),
     })
     .eq("id", rentPlanId)
