@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { createRentPlan } from "../../services/rentPlanService";
 
@@ -45,14 +45,19 @@ export default function RentPlanForm({
 
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState(null);
+  const syncedInitialContextRef = useRef(false);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   useEffect(() => {
+    if (syncedInitialContextRef.current) return;
+    if (initialTenantId && !tenantOptions.length) return;
+
+    syncedInitialContextRef.current = true;
     const tenant = tenantOptions.find((tenant) => String(tenant.id) === String(initialTenantId));
     setForm((f) => ({
       ...f,
-      propertyId: initialPropertyId || f.propertyId || tenant?.propertyId || tenant?.property_id || "",
+      propertyId: initialPropertyId || tenant?.propertyId || tenant?.property_id || f.propertyId || "",
       tenantId: initialTenantId || f.tenantId || "",
     }));
   }, [initialPropertyId, initialTenantId, tenantOptions]);
@@ -115,9 +120,9 @@ export default function RentPlanForm({
       {/* Property + tenant */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className={lbl}>Property</label>
+          <label className={lbl}>{t("rentPlans.form.property")}</label>
           <select value={form.propertyId} onChange={(e) => onPropertyChange(e.target.value)} className={cls}>
-            <option value="">No property selected</option>
+            <option value="">{t("rentPlans.form.noPropertySelected")}</option>
             {propertyOptions.map((property) => (
               <option key={property.id} value={property.id}>
                 {property.address}{property.city ? `, ${property.city}` : ""}
@@ -126,9 +131,9 @@ export default function RentPlanForm({
           </select>
         </div>
         <div>
-          <label className={lbl}>Tenant</label>
+          <label className={lbl}>{t("rentPlans.form.tenant")}</label>
           <select value={form.tenantId} onChange={(e) => onTenantChange(e.target.value)} className={cls}>
-            <option value="">No tenant selected</option>
+            <option value="">{t("rentPlans.form.noTenantSelected")}</option>
             {tenantOptions.map((tenant) => (
               <option key={tenant.id} value={tenant.id}>
                 {tenant.name}

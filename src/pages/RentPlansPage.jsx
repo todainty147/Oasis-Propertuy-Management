@@ -28,8 +28,8 @@ function PlanCard({ plan, onActivate, onEnd, onPreview, onViewCharges, t, planMa
   const [showHistory, setShowHistory] = useState(false);
   const property = plan.property || propertyById.get(plan.property_id) || null;
   const tenant = plan.tenant || tenantById.get(plan.tenant_id) || null;
-  const propertyLabel = property ? `${property.address}${property.city ? `, ${property.city}` : ""}` : "Unassigned property";
-  const tenantLabel = tenant?.name || "Unassigned tenant";
+  const propertyLabel = property ? `${property.address}${property.city ? `, ${property.city}` : ""}` : t("rentPlans.unassignedProperty");
+  const tenantLabel = tenant?.name || t("rentPlans.unassignedTenant");
 
   // Build the superseded chain for this plan (follow supersedes_id links backward)
   function buildHistory(currentPlan) {
@@ -202,14 +202,8 @@ export default function RentPlansPage() {
     setLoading(true);
     setError(null);
     try {
-      const [planRows, propertyRows, tenantRows] = await Promise.all([
-        listRentPlans({ accountId: activeAccountId, propertyId: propertyParam, tenantId: tenantParam }),
-        listRentPlanProperties({ accountId: activeAccountId }),
-        listAccountTenants(activeAccountId),
-      ]);
+      const planRows = await listRentPlans({ accountId: activeAccountId, propertyId: propertyParam, tenantId: tenantParam });
       setPlans(planRows);
-      setProperties(propertyRows);
-      setTenants(tenantRows);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -217,6 +211,26 @@ export default function RentPlansPage() {
     }
   }, [activeAccountId, propertyParam, tenantParam]);
 
+  const loadReferenceData = useCallback(async () => {
+    if (!activeAccountId) {
+      setProperties([]);
+      setTenants([]);
+      return;
+    }
+
+    try {
+      const [propertyRows, tenantRows] = await Promise.all([
+        listRentPlanProperties({ accountId: activeAccountId }),
+        listAccountTenants(activeAccountId),
+      ]);
+      setProperties(propertyRows);
+      setTenants(tenantRows);
+    } catch (e) {
+      setError(e.message);
+    }
+  }, [activeAccountId]);
+
+  useEffect(() => { loadReferenceData(); }, [loadReferenceData]);
   useEffect(() => { loadPlans(); }, [loadPlans]);
 
   useEffect(() => {
@@ -270,7 +284,7 @@ export default function RentPlansPage() {
   // ── Sub-panel: expected charges ───────────────────────────────────────────
   if (chargesPlan) {
     const title = chargesPlan.all
-      ? "Expected charges"
+      ? t("rentPlans.expectedCharges")
       : `${t("rentPlans.expectedChargesFor")} — ${Number(chargesPlan.base_rent_amount).toLocaleString()} ${chargesPlan.currency}/${chargesPlan.billing_frequency}`;
     return (
       <div className="space-y-4 max-w-3xl mx-auto px-4 py-6">
@@ -376,7 +390,7 @@ export default function RentPlansPage() {
 
       {contextLabel && (
         <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
-          Showing rent plans for {contextLabel}
+          {t("rentPlans.contextBanner", { label: contextLabel })}
         </div>
       )}
 

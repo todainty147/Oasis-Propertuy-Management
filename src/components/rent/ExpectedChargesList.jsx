@@ -24,8 +24,12 @@ export default function ExpectedChargesList({ charges, propertyById = new Map(),
       {charges.map((charge) => {
         const property = propertyById.get(charge.property_id) || propertyById.get(charge.propertyId) || null;
         const tenant = tenantById.get(charge.tenant_id) || tenantById.get(charge.tenantId) || null;
-        const propertyLabel = property ? `${property.address}${property.city ? `, ${property.city}` : ""}` : (charge.property_id ? `Property ${String(charge.property_id).slice(0, 8)}` : "Unassigned property");
-        const tenantLabel = tenant?.name || (charge.tenant_id ? `Tenant ${String(charge.tenant_id).slice(0, 8)}` : "Unassigned tenant");
+        const propertyLabel = property
+          ? `${property.address}${property.city ? `, ${property.city}` : ""}`
+          : (charge.property_id ? t("rentPlans.propertyFallback", { id: String(charge.property_id).slice(0, 8) }) : t("rentPlans.unassignedProperty"));
+        const tenantLabel = tenant?.name || (charge.tenant_id
+          ? t("rentPlans.tenantFallback", { id: String(charge.tenant_id).slice(0, 8) })
+          : t("rentPlans.unassignedTenant"));
 
         return (
           <div

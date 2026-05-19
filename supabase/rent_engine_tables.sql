@@ -323,6 +323,130 @@ $$;
 grant execute on function public.activate_rent_plan(uuid, uuid) to authenticated;
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- 5b. RPC: end_rent_plan
+--     Ends an active or draft plan without exposing direct table UPDATEs.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+create or replace function public.end_rent_plan(
+  p_account_id   uuid,
+  p_rent_plan_id uuid
+)
+returns public.rent_plans
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_plan public.rent_plans;
+begin
+  perform public.assert_manage_account_access(p_account_id);
+
+  select * into v_plan
+  from public.rent_plans
+  where id = p_rent_plan_id
+    and account_id = p_account_id;
+
+  if not found then
+    raise exception 'rent plan not found';
+  end if;
+
+  if v_plan.status not in ('active', 'draft') then
+    raise exception 'only active or draft plans can be ended; current status: %', v_plan.status;
+  end if;
+
+  update public.rent_plans
+  set    status = 'ended', updated_at = now()
+  where  id = p_rent_plan_id
+  returning * into v_plan;
+
+  return v_plan;
+end;
+$$;
+
+grant execute on function public.end_rent_plan(uuid, uuid) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 5c. RPC: upsert_rent_charge_rules
+--     Replaces a plan's charge rules in one database transaction.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+create or replace function public.upsert_rent_charge_rules(
+  p_account_id   uuid,
+  p_rent_plan_id uuid,
+  p_rules        jsonb default '[]'::jsonb
+)
+returns setof public.rent_charge_rules
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.assert_manage_account_access(p_account_id);
+
+  if not exists (
+    select 1
+    from public.rent_plans
+    where id = p_rent_plan_id
+      and account_id = p_account_id
+  ) then
+    raise exception 'rent plan not found';
+  end if;
+
+  delete from public.rent_charge_rules
+  where rent_plan_id = p_rent_plan_id
+    and account_id = p_account_id;
+
+  if jsonb_array_length(coalesce(p_rules, '[]'::jsonb)) = 0 then
+    return;
+  end if;
+
+  return query
+  insert into public.rent_charge_rules (
+    account_id,
+    rent_plan_id,
+    charge_type,
+    label,
+    amount,
+    calculation_type,
+    frequency,
+    included_in_rent,
+    taxable_flag,
+    effective_from,
+    effective_to,
+    metadata
+  )
+  select
+    p_account_id,
+    p_rent_plan_id,
+    r.charge_type,
+    r.label,
+    r.amount,
+    coalesce(r.calculation_type, 'fixed'),
+    coalesce(r.frequency, 'monthly'),
+    coalesce(r.included_in_rent, false),
+    coalesce(r.taxable_flag, false),
+    r.effective_from,
+    r.effective_to,
+    coalesce(r.metadata, '{}'::jsonb)
+  from jsonb_to_recordset(p_rules) as r(
+    charge_type text,
+    label text,
+    amount numeric,
+    calculation_type text,
+    frequency text,
+    included_in_rent boolean,
+    taxable_flag boolean,
+    effective_from date,
+    effective_to date,
+    metadata jsonb
+  )
+  returning *;
+end;
+$$;
+
+grant execute on function public.upsert_rent_charge_rules(uuid, uuid, jsonb) to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- 6. RPC: save_calculation_run
 --    Persists a completed calculation (preview → approved → posted).
 -- ─────────────────────────────────────────────────────────────────────────────

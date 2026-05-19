@@ -19,6 +19,8 @@ function nullIfBlank(value) {
  * Optionally filtered by property or tenant.
  */
 export async function listRentPlans({ accountId, propertyId, tenantId } = {}) {
+  if (!accountId) return [];
+
   let q = supabase
     .from("rent_plans")
     .select(`
@@ -108,14 +110,22 @@ export async function createRentPlan({ accountId, plan, chargeRules = [] }) {
  * supersede them with a new draft instead.
  */
 export async function updateRentPlan({ accountId, rentPlanId, updates }) {
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("rent_plans")
     .select("status")
     .eq("id", rentPlanId)
     .eq("account_id", accountId)
     .single();
 
-  if (existing?.status !== "draft") {
+  if (existingError && existingError.code !== "PGRST116") {
+    throw new Error(`updateRentPlan: ${existingError.message}`);
+  }
+
+  if (!existing) {
+    throw new Error("Rent plan not found");
+  }
+
+  if (existing.status !== "draft") {
     throw new Error("Only draft rent plans can be edited. Create a new plan to supersede the active one.");
   }
 
@@ -164,15 +174,10 @@ export async function activateRentPlan({ accountId, rentPlanId }) {
  * End an active plan (marks it as 'ended' — not deleted).
  */
 export async function endRentPlan({ accountId, rentPlanId }) {
-  const { data, error } = await supabase
-    .from("rent_plans")
-    .update({ status: "ended", updated_at: new Date().toISOString() })
-    .eq("id", rentPlanId)
-    .eq("account_id", accountId)
-    .in("status", ["active", "draft"])
-    .select()
-    .single();
-
+  const { data, error } = await supabase.rpc("end_rent_plan", {
+    p_account_id:   accountId,
+    p_rent_plan_id: rentPlanId,
+  });
   if (error) throw new Error(`endRentPlan: ${error.message}`);
   return data;
 }
@@ -185,18 +190,7 @@ export async function endRentPlan({ accountId, rentPlanId }) {
  * Upsert charge rules for a plan. Existing rules for the plan are replaced.
  */
 export async function upsertChargeRules({ accountId, rentPlanId, rules }) {
-  // Clear existing
-  await supabase
-    .from("rent_charge_rules")
-    .delete()
-    .eq("rent_plan_id", rentPlanId)
-    .eq("account_id", accountId);
-
-  if (!rules.length) return [];
-
   const rows = rules.map((r) => ({
-    account_id:       accountId,
-    rent_plan_id:     rentPlanId,
     charge_type:      r.chargeType,
     label:            r.label,
     amount:           r.amount,
@@ -210,9 +204,11 @@ export async function upsertChargeRules({ accountId, rentPlanId, rules }) {
   }));
 
   const { data, error } = await supabase
-    .from("rent_charge_rules")
-    .insert(rows)
-    .select();
+    .rpc("upsert_rent_charge_rules", {
+      p_account_id:   accountId,
+      p_rent_plan_id: rentPlanId,
+      p_rules:        rows,
+    });
 
   if (error) throw new Error(`upsertChargeRules: ${error.message}`);
   return data ?? [];
