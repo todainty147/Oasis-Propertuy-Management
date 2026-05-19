@@ -66,8 +66,9 @@ Example overlay order for the current repo:
 
 Recent additions (apply after `command_center_items.sql`, before `attention_center_items.sql`):
 
-25. `supabase/rent_engine_tables.sql` — core Rent Rules Engine (rent_plans, rent_charge_rules, rent_calculation_runs, expected_charges, RPCs: activate_rent_plan, save_calculation_run, generate_expected_charge, post_expected_charge, cancel_expected_charge)
+25. `supabase/rent_engine_tables.sql` — core Rent Rules Engine (rent_plans, rent_charge_rules, rent_calculation_runs, expected_charges, RPCs: activate_rent_plan, end_rent_plan, upsert_rent_charge_rules, save_calculation_run, generate_expected_charge, post_expected_charge, cancel_expected_charge)
 26. `supabase/advanced_rent_models.sql` — advanced rent model tables (rent_splits, property_rooms, room_rent_assignments, utility_charges, rent_adjustments, str_booking_charges) and rent_plans column extensions (change_reason, notice_required, notice_served_at, notice_method, effective_date, extended status values)
+27. `supabase/device_push_tokens.sql` — push notification device-token storage and cleanup helpers. In the full apply sequence this runs after `create_notifications.sql`, before notification trigger/grant overlays.
 
 This is intentionally explicit. Do not assume `supabase db reset` alone reconstructs the full app schema in this repo.
 

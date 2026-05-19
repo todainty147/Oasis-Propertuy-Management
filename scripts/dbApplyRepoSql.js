@@ -81,6 +81,7 @@ const OVERLAY_SEQUENCE = [
   "playbook_status_snapshot.sql",
   "automation_playbooks.sql",
   "create_notifications.sql",
+  "device_push_tokens.sql",
   "fn_documents_notify_uploaded_patch.sql",
   "notifications_rpc_grants.sql",
   "payment_write_authorization.sql",
@@ -256,12 +257,30 @@ function createSanitizedBaselineFile(sourcePath) {
 function buildPlan({ includeBaseline }) {
   const files = includeBaseline ? [BASELINE_FILE, ...OVERLAY_SEQUENCE] : [...OVERLAY_SEQUENCE];
   ensureFilesExist(files);
+  ensureAllSqlFilesAreClassified();
 
   return files.map((file) => ({
     file,
     path: path.join(supabaseDir, file),
     onErrorStop: file === BASELINE_FILE ? false : true,
   }));
+}
+
+function ensureAllSqlFilesAreClassified() {
+  const classified = new Set([
+    BASELINE_FILE,
+    ...OVERLAY_SEQUENCE,
+    ...EXCLUDED_FILES.keys(),
+  ]);
+  const missing = fs
+    .readdirSync(supabaseDir)
+    .filter((file) => file.endsWith(".sql") && !classified.has(file));
+
+  if (missing.length > 0) {
+    throw new Error(
+      `SQL files missing from DbApplyRepo classification:\n${missing.map((file) => `- supabase/${file}`).join("\n")}`
+    );
+  }
 }
 
 function runPsql({ dbUrl, filePath, onErrorStop }) {
