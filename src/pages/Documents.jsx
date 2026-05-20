@@ -15,6 +15,7 @@ import {
   uploadDocument,
   downloadDocument,
   getDocumentPreviewUrl,
+  requestDocumentScan,
   deleteDocument,
   updateDocumentTenantHighlight,
 } from "../services/documentService";
@@ -66,6 +67,38 @@ function formatFileSize(bytes) {
   if (!bytes) return "";
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${Math.round(bytes / 1024)} KB`;
+}
+
+function normalizeScanStatus(doc) {
+  return String(doc?.scan_status || doc?.scanStatus || "legacy_unscanned").trim().toLowerCase();
+}
+
+function isDocumentAvailableForAccess(doc) {
+  return ["clean", "legacy_unscanned"].includes(normalizeScanStatus(doc));
+}
+
+function canRequestScan(doc) {
+  return ["pending_scan", "scan_failed"].includes(normalizeScanStatus(doc));
+}
+
+function getScanStatusLabel(status, t) {
+  const key = {
+    clean: "documents.scanStatus.clean",
+    pending_scan: "documents.scanStatus.pending",
+    flagged: "documents.scanStatus.flagged",
+    scan_failed: "documents.scanStatus.failed",
+    legacy_unscanned: "documents.scanStatus.legacy",
+  }[status] || "documents.scanStatus.unknown";
+  return t(key);
+}
+
+function getScanStatusClass(status) {
+  if (status === "clean") return "bg-emerald-50 text-emerald-700";
+  if (status === "legacy_unscanned") return "bg-amber-50 text-amber-700";
+  if (status === "pending_scan") return "bg-blue-50 text-blue-700";
+  if (status === "flagged") return "bg-rose-50 text-rose-700";
+  if (status === "scan_failed") return "bg-orange-50 text-orange-700";
+  return "bg-slate-100 text-slate-600";
 }
 
 /* ======================
@@ -349,6 +382,8 @@ export default function Documents({ tenants: tenantsProp = null, properties: pro
   /* ---------- DATA ---------- */
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading]     = useState(true);
+  const [scanningIds, setScanningIds] = useState(() => new Set());
+  const [scanErrorById, setScanErrorById] = useState({});
 
   /* ---------- UI STATE ---------- */
   const [uploadOpen, setUploadOpen]               = useState(false);
@@ -470,7 +505,7 @@ export default function Documents({ tenants: tenantsProp = null, properties: pro
 
   /* ---------- PREVIEW ---------- */
   const handlePreview = useCallback(async (doc) => {
-    if (!canPreview(doc.mime_type)) return;
+    if (!canPreview(doc.mime_type) || !isDocumentAvailableForAccess(doc)) return;
     try {
       setPreviewError(null);
       const url = await getDocumentPreviewUrl({
@@ -484,6 +519,27 @@ export default function Documents({ tenants: tenantsProp = null, properties: pro
       setPreviewError(t("attachments.previewError"));
     }
   }, [t]);
+
+  async function handleRequestScan(doc) {
+    if (!doc?.id || !canRequestScan(doc)) return;
+    setScanningIds((current) => new Set(current).add(doc.id));
+    setScanErrorById((current) => ({ ...current, [doc.id]: null }));
+    try {
+      await requestDocumentScan({ documentId: doc.id, accountId: doc.account_id });
+      await loadDocuments();
+    } catch (error) {
+      setScanErrorById((current) => ({
+        ...current,
+        [doc.id]: error?.message || t("documents.scanError"),
+      }));
+    } finally {
+      setScanningIds((current) => {
+        const next = new Set(current);
+        next.delete(doc.id);
+        return next;
+      });
+    }
+  }
 
   const openPreviewById = useCallback(async (docId) => {
     if (!docId) return;
@@ -636,6 +692,10 @@ export default function Documents({ tenants: tenantsProp = null, properties: pro
                   : null;
               const isPriorityExpanded = expandedPriorityIds.has(doc.id);
               const showPriorityEditor = canEditDocumentTags(permissionContext) && doc.visibility === "tenant";
+              const scanStatus = normalizeScanStatus(doc);
+              const isAccessReady = isDocumentAvailableForAccess(doc);
+              const isScanning = scanningIds.has(doc.id);
+              const scanError = scanErrorById[doc.id];
 
               return (
                 <div key={doc.id} className="px-6 py-4 space-y-3">
@@ -655,11 +715,24 @@ export default function Documents({ tenants: tenantsProp = null, properties: pro
                             {t("documents.shared")}
                           </span>
                         )}
+                        <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full ${getScanStatusClass(scanStatus)}`}>
+                          {getScanStatusLabel(scanStatus, t)}
+                        </span>
                       </div>
                       <p className="mt-0.5 text-xs text-slate-500">
                         {formatMime(doc.mime_type)}
                         {doc.size_bytes ? ` · ${formatFileSize(doc.size_bytes)}` : ""}
                       </p>
+                      {!isAccessReady && (
+                        <p className="mt-1 text-xs text-slate-500">
+                          {t("documents.unavailableUntilClean")}
+                        </p>
+                      )}
+                      {scanError && (
+                        <p className="mt-1 text-xs text-rose-600">
+                          {scanError}
+                        </p>
+                      )}
                       {doc.tags?.length > 0 && (
                         <div className="flex gap-1.5 mt-1.5 flex-wrap">
                           {doc.tags.map((tag) => (
@@ -673,11 +746,27 @@ export default function Documents({ tenants: tenantsProp = null, properties: pro
 
                     {/* Right: action buttons */}
                     <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      {canRequestScan(doc) && (
+                        <button
+                          type="button"
+                          onClick={() => handleRequestScan(doc)}
+                          disabled={isScanning}
+                          className="rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-60"
+                        >
+                          {isScanning
+                            ? t("documents.scanning")
+                            : scanStatus === "scan_failed"
+                              ? t("documents.retryScan")
+                              : t("documents.scan")}
+                        </button>
+                      )}
                       {canPreview(doc.mime_type) && (
                         <button
                           type="button"
                           onClick={() => handlePreview(doc)}
-                          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          disabled={!isAccessReady}
+                          title={!isAccessReady ? t("documents.unavailableUntilClean") : undefined}
+                          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {t("attachments.preview")}
                         </button>
@@ -690,7 +779,9 @@ export default function Documents({ tenants: tenantsProp = null, properties: pro
                           propertyId: doc.property_id, tenantId: doc.tenant_id,
                           scope: doc.scope, visibility: doc.visibility,
                         })}
-                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                        disabled={!isAccessReady}
+                        title={!isAccessReady ? t("documents.unavailableUntilClean") : undefined}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {t("attachments.download")}
                       </button>
@@ -835,7 +926,9 @@ export default function Documents({ tenants: tenantsProp = null, properties: pro
                     propertyId: previewDoc.property_id, tenantId: previewDoc.tenant_id,
                     scope: previewDoc.scope, visibility: previewDoc.visibility,
                   })}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  disabled={!isDocumentAvailableForAccess(previewDoc)}
+                  title={!isDocumentAvailableForAccess(previewDoc) ? t("documents.unavailableUntilClean") : undefined}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {t("attachments.download")}
                 </button>
