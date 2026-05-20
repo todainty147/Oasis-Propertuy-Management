@@ -186,7 +186,7 @@ export default function TenantDocumentsSection({ tenantId }) {
     if (!canPreview(doc.mime_type)) return;
 
     try {
-      const url = await getDocumentPreviewUrl(doc.storage_path, {
+      const url = await getDocumentPreviewUrl({
         accountId: doc.account_id,
         documentId: doc.id,
         propertyId: doc.property_id,
@@ -445,7 +445,6 @@ export default function TenantDocumentsSection({ tenantId }) {
                   type="button"
                   onClick={() =>
                     downloadDocument({
-                      storagePath: doc.storage_path,
                       filename: doc.name,
                       accountId: doc.account_id,
                       documentId: doc.id,

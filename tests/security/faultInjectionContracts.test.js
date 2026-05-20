@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   storageFrom: vi.fn(),
   storageUpload: vi.fn(),
   storageCreateSignedUrl: vi.fn(),
+  functionsInvoke: vi.fn(),
   logSecurityRelevantFailure: vi.fn(),
   logOperationalLatencySample: vi.fn(),
   logSlowOperationalTelemetry: vi.fn(),
@@ -15,6 +16,9 @@ vi.mock("../../src/lib/supabase.js", () => ({
     rpc: (...args) => mocks.rpc(...args),
     storage: {
       from: (...args) => mocks.storageFrom(...args),
+    },
+    functions: {
+      invoke: (...args) => mocks.functionsInvoke(...args),
     },
   },
 }));
@@ -175,29 +179,28 @@ describe("fault injection and degraded-path contracts", () => {
     });
   });
 
-  it("logs signed-url storage failures with safe document context", async () => {
+  it("logs scanner-gated signed-url failures with safe document context", async () => {
     const signedUrlError = {
-      message: "Storage signing failed",
-      name: "StorageApiError",
+      message: "Document is not available",
+      name: "FunctionsHttpError",
       statusCode: 403,
     };
-    mocks.storageCreateSignedUrl.mockResolvedValueOnce({ data: null, error: signedUrlError });
+    mocks.functionsInvoke.mockResolvedValueOnce({ data: null, error: signedUrlError });
 
     const { getDocumentPreviewUrl } = await import("../../src/services/documentService.js");
 
     await expect(
-      getDocumentPreviewUrl("account/account-1/documents/sensitive.pdf", {
+      getDocumentPreviewUrl({
         accountId: "account-1",
         documentId: "doc-1",
         visibility: "staff",
       }),
     ).rejects.toBe(signedUrlError);
 
-    expect(mocks.storageFrom).toHaveBeenCalledWith("documents");
-    expect(mocks.storageCreateSignedUrl).toHaveBeenCalledWith(
-      "account/account-1/documents/sensitive.pdf",
-      600,
-    );
+    expect(mocks.storageFrom).not.toHaveBeenCalled();
+    expect(mocks.functionsInvoke).toHaveBeenCalledWith("signed-document-url", {
+      body: { documentId: "doc-1" },
+    });
     expect(mocks.logSecurityRelevantFailure).toHaveBeenCalledWith("document_preview_url", {
       error: signedUrlError,
       context: expect.objectContaining({
@@ -206,7 +209,7 @@ describe("fault injection and degraded-path contracts", () => {
         visibility: "staff",
         operation: "create_preview_url",
         storageBucket: "documents",
-        storageProvider: "supabase_storage",
+        storageProvider: "supabase_edge_function",
       }),
     });
   });

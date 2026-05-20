@@ -223,15 +223,35 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
 
   async function handlePreviewDocument(doc) {
     try {
-      const url = await getDocumentPreviewUrl(doc?.storage_path, {
+      const documentId = doc?.id || doc?.document_id || null;
+      if (!documentId) throw new Error("Document id is required");
+      const url = await getDocumentPreviewUrl({
         accountId: doc?.account_id || accountId,
-        documentId: doc?.id || doc?.document_id || null,
+        documentId,
         propertyId: doc?.property_id || propertyId,
         tenantId: doc?.tenant_id || null,
         scope: doc?.scope || null,
         visibility: doc?.visibility || null,
       });
       if (url) window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      setError(e?.message || t("documents.previewError"));
+    }
+  }
+
+  async function handleDownloadDocument(doc) {
+    try {
+      const documentId = doc?.id || doc?.document_id || null;
+      if (!documentId) throw new Error("Document id is required");
+      await downloadDocument({
+        filename: doc?.name,
+        accountId: doc?.account_id || accountId,
+        documentId,
+        propertyId: doc?.property_id || propertyId,
+        tenantId: doc?.tenant_id || null,
+        scope: doc?.scope || null,
+        visibility: doc?.visibility || null,
+      });
     } catch (e) {
       setError(e?.message || t("documents.previewError"));
     }
@@ -358,16 +378,7 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={() => downloadDocument({
-                                          storagePath: doc?.storage_path,
-                                          filename: doc?.name,
-                                          accountId: doc?.account_id || accountId,
-                                          documentId: doc?.id || doc?.document_id || null,
-                                          propertyId: doc?.property_id || propertyId,
-                                          tenantId: doc?.tenant_id || null,
-                                          scope: doc?.scope || null,
-                                          visibility: doc?.visibility || null,
-                                        })}
+                                        onClick={() => handleDownloadDocument(doc)}
                                         className="text-xs text-slate-600 hover:text-slate-900"
                                       >
                                         {t("documents.download")}

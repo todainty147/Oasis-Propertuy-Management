@@ -122,6 +122,7 @@ const OVERLAY_SEQUENCE = [
   "compliance_hardening_phase7.sql",
   "storage_buckets.sql",
   "storage_documents_policies.sql",
+  "document_antivirus_scanning.sql",
   "storage_maintenance_request_attachments_policies.sql",
   "storage_work_order_attachments_policies.sql",
   "performance_rpc_indexes.sql",

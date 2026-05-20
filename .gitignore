@@ -47,3 +47,7 @@ App logo option 3/
 oasis_logo_options_1/
 oasis_option3_full_brand_asset_pack/
 tenaqo_production_brand_asset_pack/
+
+# Local translation proofreading exports
+translation_exports/
+scripts/export-pl-translations-for-proofreading.js

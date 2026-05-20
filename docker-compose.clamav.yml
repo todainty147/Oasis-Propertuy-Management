@@ -1,0 +1,31 @@
+services:
+  clamav:
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    ports:
+      - "3310:3310"
+    volumes:
+      - clamav_data:/var/lib/clamav
+
+  document-scanner:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: node scanner-worker/server.mjs
+    depends_on:
+      - clamav
+    ports:
+      - "8787:8787"
+    environment:
+      PORT: "8787"
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: "3310"
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      DOCUMENT_SCAN_SERVICE_TOKEN: ${DOCUMENT_SCAN_SERVICE_TOKEN}
+    volumes:
+      - ./scanner-worker:/app/scanner-worker:ro
+      - ./node_modules:/app/node_modules:ro
+
+volumes:
+  clamav_data:

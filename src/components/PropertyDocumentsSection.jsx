@@ -196,7 +196,7 @@ async function loadAll() {
 
     try {
       setPreviewError(null);
-      const url = await getDocumentPreviewUrl(doc.storage_path, {
+      const url = await getDocumentPreviewUrl({
         accountId: doc.account_id,
         documentId: doc.id,
         propertyId: doc.property_id,
@@ -215,7 +215,6 @@ async function loadAll() {
   async function handleDownload(doc) {
     try {
       await downloadDocument({
-        storagePath: doc.storage_path,
         filename: doc.name,
         accountId: doc.account_id,
         documentId: doc.id,

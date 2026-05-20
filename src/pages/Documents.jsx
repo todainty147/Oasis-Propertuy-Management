@@ -473,7 +473,7 @@ export default function Documents({ tenants: tenantsProp = null, properties: pro
     if (!canPreview(doc.mime_type)) return;
     try {
       setPreviewError(null);
-      const url = await getDocumentPreviewUrl(doc.storage_path, {
+      const url = await getDocumentPreviewUrl({
         accountId: doc.account_id, documentId: doc.id,
         propertyId: doc.property_id, tenantId: doc.tenant_id,
         scope: doc.scope, visibility: doc.visibility,
@@ -685,7 +685,7 @@ export default function Documents({ tenants: tenantsProp = null, properties: pro
                       <button
                         type="button"
                         onClick={() => downloadDocument({
-                          storagePath: doc.storage_path, filename: doc.name,
+                          filename: doc.name,
                           accountId: doc.account_id, documentId: doc.id,
                           propertyId: doc.property_id, tenantId: doc.tenant_id,
                           scope: doc.scope, visibility: doc.visibility,
@@ -830,7 +830,7 @@ export default function Documents({ tenants: tenantsProp = null, properties: pro
                 <button
                   type="button"
                   onClick={() => downloadDocument({
-                    storagePath: previewDoc.storage_path, filename: previewDoc.name,
+                    filename: previewDoc.name,
                     accountId: previewDoc.account_id, documentId: previewDoc.id,
                     propertyId: previewDoc.property_id, tenantId: previewDoc.tenant_id,
                     scope: previewDoc.scope, visibility: previewDoc.visibility,

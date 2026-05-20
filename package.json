@@ -38,6 +38,7 @@
     "test:staging:file": "node scripts/with-local-node.mjs vitest run --config vitest.staging.config.js",
     "staging:seed:fixtures": "node scripts/with-local-node.mjs node scripts/seedStagingFixtures.js",
     "functions:cron:deploy": "node scripts/with-local-node.mjs node scripts/deployCronFunctions.js",
+    "documents:scan:legacy": "node scripts/with-local-node.mjs node scripts/backfillLegacyDocumentScans.js",
     "db:bootstrap": "node scripts/with-local-node.mjs node scripts/dbBootstrap.js",
     "db:verify": "node scripts/with-local-node.mjs node scripts/dbVerify.js",
     "db:apply:repo": "node scripts/with-local-node.mjs node scripts/dbApplyRepoSql.js",

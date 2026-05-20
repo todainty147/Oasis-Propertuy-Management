@@ -2,7 +2,6 @@
 import { supabase } from "../lib/supabase";
 import { assertFiles, assertUuid } from "../utils/validation";
 import { parseDocumentRow, parseRpcRows } from "./rpcContracts";
-import { createSignedStorageUrl } from "./storageUrlService";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 
 /* ======================
@@ -73,6 +72,54 @@ function buildDocumentContext({
     storageOperationId,
     storageProvider,
   };
+}
+
+async function createScannerGatedSignedUrl(documentId, context = {}) {
+  if (!documentId) throw new Error("Brak ID dokumentu");
+
+  const { data, error } = await supabase.functions.invoke("signed-document-url", {
+    body: { documentId },
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("signed_document_url", {
+      error,
+      context: buildDocumentContext({
+        accountId: context.accountId || null,
+        documentId,
+        propertyId: context.propertyId || null,
+        tenantId: context.tenantId || null,
+        scope: context.scope || null,
+        visibility: context.visibility || null,
+        operation: context.operation || "create_signed_document_url",
+        storageBucket: "documents",
+        storageProvider: "supabase_edge_function",
+      }),
+    });
+    throw error;
+  }
+
+  const signedUrl = data?.signedUrl || data?.signed_url || null;
+  if (!signedUrl) {
+    const missingUrlError = new Error("Signed document URL was not returned");
+    logSecurityRelevantFailure("signed_document_url", {
+      error: missingUrlError,
+      context: buildDocumentContext({
+        accountId: context.accountId || null,
+        documentId,
+        propertyId: context.propertyId || null,
+        tenantId: context.tenantId || null,
+        scope: context.scope || null,
+        visibility: context.visibility || null,
+        operation: context.operation || "create_signed_document_url",
+        storageBucket: "documents",
+        storageProvider: "supabase_edge_function",
+      }),
+    });
+    throw missingUrlError;
+  }
+
+  return signedUrl;
 }
 
 /* ======================
@@ -320,10 +367,14 @@ export async function searchDocuments({
    PREVIEW
    ====================== */
 
-export async function getDocumentPreviewUrl(storagePath, context = {}) {
+export async function getDocumentPreviewUrl(context = {}) {
   const previewOperationId = createStorageOperationId("document_preview_url");
   try {
-    return await createSignedStorageUrl("documents", storagePath, 60 * 10);
+    return await createScannerGatedSignedUrl(context.documentId, {
+      ...context,
+      operation: "create_preview_url",
+      storageOperationId: previewOperationId,
+    });
   } catch (error) {
     logSecurityRelevantFailure("document_preview_url", {
       error,
@@ -337,7 +388,7 @@ export async function getDocumentPreviewUrl(storagePath, context = {}) {
         operation: "create_preview_url",
         storageBucket: "documents",
         storageOperationId: previewOperationId,
-        storageProvider: "supabase_storage",
+        storageProvider: "supabase_edge_function",
       }),
     });
     throw error;
@@ -349,7 +400,6 @@ export async function getDocumentPreviewUrl(storagePath, context = {}) {
    ====================== */
 
 export async function downloadDocument({
-  storagePath,
   filename,
   accountId = null,
   documentId = null,
@@ -358,14 +408,21 @@ export async function downloadDocument({
   scope = null,
   visibility = null,
 }) {
-  if (!storagePath) throw new Error("Brak ścieżki dokumentu");
+  if (!documentId) throw new Error("Brak ID dokumentu");
 
-  const downloadOperationId = createStorageOperationId("document_storage_download");
-  const { data, error } = await supabase.storage
-    .from("documents")
-    .download(storagePath);
-
-  if (error) {
+  const downloadOperationId = createStorageOperationId("document_download_url");
+  let signedUrl;
+  try {
+    signedUrl = await createScannerGatedSignedUrl(documentId, {
+      accountId,
+      propertyId,
+      tenantId,
+      scope,
+      visibility,
+      operation: "download_document",
+      storageOperationId: downloadOperationId,
+    });
+  } catch (error) {
     logSecurityRelevantFailure("document_storage_download", {
       error,
       context: buildDocumentContext({
@@ -378,20 +435,70 @@ export async function downloadDocument({
         operation: "download_document",
         storageBucket: "documents",
         storageOperationId: downloadOperationId,
-        storageProvider: "supabase_storage",
+        storageProvider: "supabase_edge_function",
       }),
     });
     throw error;
   }
 
-  const url = URL.createObjectURL(data);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename ?? "document";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  let objectUrl = null;
+  try {
+    const response = await fetch(signedUrl);
+    if (!response.ok) {
+      throw new Error(`Document download failed (${response.status})`);
+    }
+    const blob = await response.blob();
+    objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = filename ?? "document";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } catch (error) {
+    logSecurityRelevantFailure("document_blob_download", {
+      error,
+      context: buildDocumentContext({
+        accountId,
+        documentId,
+        propertyId,
+        tenantId,
+        scope,
+        visibility,
+        operation: "download_document_blob",
+        storageBucket: "documents",
+        storageOperationId: downloadOperationId,
+        storageProvider: "supabase_edge_function",
+      }),
+    });
+    throw error;
+  } finally {
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+  }
+}
+
+export async function requestDocumentScan({ documentId, accountId = null } = {}) {
+  if (!documentId) throw new Error("Brak ID dokumentu");
+
+  const { data, error } = await supabase.functions.invoke("scan-document", {
+    body: { documentId },
+  });
+
+  if (error) {
+    logSecurityRelevantFailure("scan_document", {
+      error,
+      context: buildDocumentContext({
+        accountId,
+        documentId,
+        operation: "request_document_scan",
+        storageBucket: "documents",
+        storageProvider: "supabase_edge_function",
+      }),
+    });
+    throw error;
+  }
+
+  return data;
 }
 
 /* ======================
