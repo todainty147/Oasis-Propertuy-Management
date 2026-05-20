@@ -21,6 +21,10 @@ describe("document antivirus scanning contracts", () => {
     const sql = read("supabase/document_antivirus_scanning.sql");
 
     expect(sql).toContain("'legacy_unscanned', 'pending_scan', 'clean', 'flagged', 'scan_failed'");
+    expect(sql).toContain("document_audit_log_action_check");
+    expect(sql).toContain("'scan_requested'");
+    expect(sql).toContain("'scan_clean'");
+    expect(sql).toContain("'scan_flagged'");
     expect(sql).toContain("Clean scan result requires active storage path");
     expect(sql).toContain("Quarantine reason is required for flagged documents");
     expect(sql).toContain("Scan failure reason is required");

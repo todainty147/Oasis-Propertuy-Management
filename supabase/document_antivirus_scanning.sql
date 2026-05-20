@@ -1,5 +1,27 @@
 begin;
 
+alter table public.document_audit_log
+  drop constraint if exists document_audit_log_action_check;
+
+alter table public.document_audit_log
+  add constraint document_audit_log_action_check
+  check (action = any (array[
+    'upload',
+    'delete',
+    'download',
+    'update_tags',
+    'extraction_requested',
+    'extraction_started',
+    'extraction_completed',
+    'extraction_failed',
+    'extraction_viewed',
+    'extraction_marked_stale',
+    'scan_requested',
+    'scan_clean',
+    'scan_flagged',
+    'scan_failed'
+  ]));
+
 alter table if exists public.documents
   add column if not exists scan_status text not null default 'legacy_unscanned',
   add column if not exists scanned_at timestamptz null,
