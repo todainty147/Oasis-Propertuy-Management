@@ -192,6 +192,36 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
       "Każdy obszar poniżej odpowiada konkretnym ekranom Tenaqo: Command Center, zgłoszenia i zlecenia, portal najemcy, dokumenty, kondycja nieruchomości i ślady audytowe.",
     outcomeSections: [
       {
+        eyebrow: "Czynsz i finanse",
+        title: "Czynsz obliczony poprawnie, zaksięgowany bezpiecznie",
+        why:
+          "Czynsz rzadko jest jedną liczbą. Tenaqo obsługuje czynsz podstawowy, media, kaucje, rozliczenia proporcjonalne, podnajem, najem pokoi, wakacje czynszowe, podwyżki i rozliczenia krótkoterminowe — z podglądem obliczeń zanim cokolwiek trafi do finansów.",
+        bullets: [
+          "Tworzysz plany czynszowe z regułami: czynsz podstawowy, media, opłaty serwisowe, kaucje, korekty.",
+          "Wybierasz spośród sześciu metod naliczania proporcjonalnego.",
+          "Obsługujesz podnajem, HMO, najem pokoi i podwyżki za pomocą zaawansowanych modeli czynszowych.",
+          "Przeglądasz podgląd każdej opłaty przed zaksięgowaniem — wymagane zatwierdzenie przed dotknięciem rejestru.",
+          "Widzisz projekcję trzech kolejnych okresów i pełną historię planu czynszowego.",
+          "Ostrzeżenia o kaucjach zgodnie z wytycznymi rynku polskiego — bez porady prawnej.",
+        ],
+        href: "/features/rental-accounting",
+        cta: "Poznaj czynsz i finanse",
+      },
+      {
+        eyebrow: "Zarządzanie najemcami",
+        title: "Właściciel i najemca — jeden czytelny kontekst operacyjny",
+        why:
+          "Tenaqo pomaga właścicielom trzymać dane najemców, powiązania z nieruchomościami, obieg dokumentów i aktywność portalu najemcy wystarczająco blisko, by działać bez odtwarzania historii z wielu miejsc.",
+        bullets: [
+          "Centralny profil najemcy powiązany z właściwą nieruchomością, dokumentami i płatnościami.",
+          "Portal najemcy ogranicza powtarzające się pytania — jedno czytelne miejsce do spraw dokumentowych i zgłoszeń.",
+          "Żądania dokumentów, przesłane dowody i pakiety umów prowadzone w jednym miejscu.",
+          "Śledzisz status umów od szablonu przez wysłanie do gotowości podpisania.",
+        ],
+        href: "/features/tenant-management",
+        cta: "Poznaj zarządzanie najemcami",
+      },
+      {
         eyebrow: "Command Center",
         title: "Zacznij od tego, co naprawdę wymaga działania",
         why:
@@ -311,6 +341,36 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
     sectionBody:
       "Jeder Bereich unten entspricht konkreten Tenaqo-Oberflächen: Command Center, Instandhaltung, Mieterportal, Dokumente, Immobilienzustand und Audit-Trails.",
     outcomeSections: [
+      {
+        eyebrow: "Miete und Finanzen",
+        title: "Miete, die richtig berechnet und sicher gebucht wird",
+        why:
+          "Miete ist selten nur eine Zahl. Tenaqo verarbeitet Grundmiete, Nebenkosten, Kautionen, anteilige Abrechnungen, Raummieten, Mietpausen, Mieterhöhungen und kurzfristige Nächtigungsgebühren — mit Berechnungsvorschau, bevor etwas in die Finanzen gebucht wird.",
+        bullets: [
+          "Sie erstellen Mietpläne mit Regeln: Grundmiete, Nebenkosten, Serviceentgelte, Kautionen, Anpassungen.",
+          "Sie wählen aus sechs Methoden für anteilige Zeiträume.",
+          "Sie verwalten Wohngemeinschaften, HMOs, Zimmervermietungen und Mieterhöhungen mit erweiterten Mietmodellen.",
+          "Sie prüfen jede Buchung per Vorschau — Freigabe erforderlich, bevor das Konto berührt wird.",
+          "Sie sehen die nächsten drei Abrechnungsperioden und die gesamte Planhistorie.",
+          "Kautions-Warnhinweise nach deutschen und österreichischen Marktrichtwerten — keine Rechtsberatung.",
+        ],
+        href: "/features/rental-accounting",
+        cta: "Miete und Finanzen ansehen",
+      },
+      {
+        eyebrow: "Mieterverwaltung",
+        title: "Vermieter und Mieter — ein klarer gemeinsamer Kontext",
+        why:
+          "Tenaqo hilft Vermietern, Mieterdaten, Objektverknüpfungen, Dokumentenabläufe und Mieterportal-Aktivität nah genug zu halten, um handeln zu können, ohne den Zusammenhang aus verschiedenen Werkzeugen neu zusammenzusetzen.",
+        bullets: [
+          "Zentrales Mieterprofil verknüpft mit dem richtigen Objekt, Dokumenten und Zahlungen.",
+          "Das Mieterportal reduziert Rückfragen — ein klar strukturierter Ort für Dokumente und Wartungsstatus.",
+          "Dokumentenanfragen, Nachweise und Vertragspakete werden an einem Ort verwaltet.",
+          "Sie verfolgen den Vertragsstatus vom Entwurf bis zur Unterzeichnungsbereitschaft.",
+        ],
+        href: "/features/tenant-management",
+        cta: "Mieterverwaltung ansehen",
+      },
       {
         eyebrow: "Command Center",
         title: "Mit dem anfangen, was jetzt Handlungsbedarf hat",

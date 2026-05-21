@@ -7,6 +7,14 @@ export const defaultLocale: Locale = "en";
 const localizedPaths = new Set([
   "/",
   "/features",
+  "/features/command-center",
+  "/features/compliance",
+  "/features/maintenance-management",
+  "/features/portfolio-health",
+  "/features/rental-accounting",
+  "/features/security-audit",
+  "/features/tenant-management",
+  "/features/tenant-portal",
   "/pricing",
   "/tenant-portal-software",
   "/blog",
@@ -14,16 +22,7 @@ const localizedPaths = new Set([
   "/compare/oasis-vs-landlordstudio",
 ]);
 
-const localizedPathAliases: Partial<Record<string, string>> = {
-  "/features/command-center": "/features",
-  "/features/compliance": "/features",
-  "/features/maintenance-management": "/features",
-  "/features/portfolio-health": "/features",
-  "/features/rental-accounting": "/features",
-  "/features/security-audit": "/features",
-  "/features/tenant-portal": "/tenant-portal-software",
-  "/features/tenant-management": "/tenant-portal-software",
-};
+const localizedPathAliases: Partial<Record<string, string>> = {};
 
 export function isLocale(value: string): value is Locale {
   return locales.includes(value as Locale);
