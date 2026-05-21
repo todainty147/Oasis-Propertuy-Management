@@ -15,6 +15,12 @@ const localizedPaths = new Set([
 ]);
 
 const localizedPathAliases: Partial<Record<string, string>> = {
+  "/features/command-center": "/features",
+  "/features/compliance": "/features",
+  "/features/maintenance-management": "/features",
+  "/features/portfolio-health": "/features",
+  "/features/rental-accounting": "/features",
+  "/features/security-audit": "/features",
   "/features/tenant-portal": "/tenant-portal-software",
   "/features/tenant-management": "/tenant-portal-software",
 };
@@ -60,9 +66,12 @@ export function getLocalePath(locale: Locale, pathname: string = "/"): string {
 
 export function getEquivalentMarketingPath(pathname: string, targetLocale: Locale): string {
   const normalizedPath = stripLocalePrefix(pathname || "/");
+  const localizedEquivalent = localizedPaths.has(normalizedPath)
+    ? normalizedPath
+    : localizedPathAliases[normalizedPath];
 
-  if (localizedPaths.has(normalizedPath)) {
-    return getLocalePath(targetLocale, normalizedPath);
+  if (localizedEquivalent) {
+    return getLocalePath(targetLocale, localizedEquivalent);
   }
 
   if (targetLocale === defaultLocale) {
