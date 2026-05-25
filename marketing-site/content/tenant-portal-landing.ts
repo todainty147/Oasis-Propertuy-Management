@@ -213,7 +213,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
     seo: {
       title: "Portal najemcy dla właścicieli | Jaśniejsza samoobsługa w Tenaqo",
       description:
-        "Ogranicz chaos po stronie najemcy dzięki portalowi dla płatności, zgłoszeń, dokumentów i przeglądu umów.",
+        "Ogranicz chaos w relacjach z najemcą dzięki portalowi zapewniającemu przejrzystość płatności, aktualizacje zgłoszeń, obieg dokumentów i przegląd umów.",
       canonicalPath: "/pl/tenant-portal-software",
     },
     hero: {
@@ -242,20 +242,20 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
       secondaryCta: { label: "Zobacz portal najemcy", href: "/features/tenant-portal" },
     },
     problemSection: {
-      title: "Dlaczego komunikacja z najemcą zaczyna być głośna",
+      title: "Skąd bierze się chaos w komunikacji z najemcą",
       body:
         "Problemem zwykle nie jest to, że najemcy pytają za dużo. Problemem jest to, że odpowiedzi są rozrzucone po skrzynkach, załącznikach, instrukcjach płatności i aktualizacjach napraw.",
       items: [
         {
           title: "Pytania o płatności wracają bez końca",
-          body: "Najemcy pytają jak zapłacić, gdzie zapłacić i do kogo się odezwać, bo ustawienia nie są widoczne tam, gdzie ich szukają.",
+          body: "Najemcy pytają, jak i gdzie zapłacić oraz z kim się skontaktować, ponieważ te informacje nie są widoczne tam, gdzie ich oczekują.",
         },
         {
           title: "Aktualizacje zgłoszeń są zbyt mgliste",
-          body: "Sprawa może być aktywna, przypisana lub w toku, a najemca nadal czuje, że nic nie wie.",
+          body: "Zgłoszenie może być aktywne, przypisane lub w toku, ale najemca wciąż ma poczucie braku informacji.",
         },
         {
-          title: "Dokumenty odpływają do starych wątków",
+          title: "Dokumenty giną w starych wątkach",
           body: "Potwierdzenia, pliki ID i umowy znikają w załącznikach i zrzutach ekranu zamiast pozostać częścią najmu.",
         },
       ],
@@ -267,16 +267,16 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
         "Obecny portal najemcy w Tenaqo już dziś daje przejrzysty widok najważniejszych spraw, pozostawiając pełną kontrolę operacyjną po stronie właściciela.",
       items: [
         {
-          title: "Przeglądać płatności",
-          body: "Pokazywać salda, historię płatności, akceptowane metody, zewnętrzne linki płatnicze, dane kontaktowe i wskazówki dotyczące autopay.",
+          title: "Podgląd przejrzystości płatności",
+          body: "Pokazywanie sald, historii płatności, akceptowanych metod, zewnętrznych linków do płatności, danych kontaktowych wsparcia i wskazówek dotyczących płatności automatycznych.",
         },
         {
           title: "Śledzić postęp zgłoszeń",
-          body: "Najemca widzi aktywne sprawy i zlecenia w bezpiecznym dashboardzie zamiast dopytywać o każdy update.",
+          body: "Najemca widzi aktywne sprawy i zlecenia w bezpiecznym panelu zamiast dopytywać o każdą aktualizację ręcznie.",
         },
         {
           title: "Otwierać dokumenty i odpowiadać na prośby",
-          body: "Najemcy przeglądają dostępne dokumenty, przesyłają wymagane załączniki i utrzymują obieg dokumentów w tym samym portalu.",
+          body: "Najemcy mogą przeglądać dostępne rejestry, przesyłać wymagane dowody i zarządzać obiegiem dokumentów w ramach tego samego portalu.",
         },
         {
           title: "Przechodzić przez przegląd umowy",
@@ -307,23 +307,23 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
           title: "Najemca reaguje w tym samym portalu",
           body: "Jeśli zespół właściciela prosi o rachunek, plik ID albo przegląd umowy, najemca załatwia to w obszarze dokumentów bez szukania w starych wiadomościach.",
           href: "/features/tenant-portal",
-          points: ["upload wymaganych plików", "przegląd pakietów umów", "spójny ślad działań"],
+          points: ["przesyłanie wymaganych dowodów", "przegląd pakietów umów", "spójny ślad działań"],
           imageSrc: "/screenshots/tenant-documents.png",
-          imageAlt: "Widok dokumentów najemcy Tenaqo z uploadem i przeglądem umowy.",
+          imageAlt: "Widok dokumentów najemcy Tenaqo z przesyłaniem plików i przeglądem pakietu umowy.",
         },
         {
           label: "Krok 3",
           title: "Właściciel zachowuje kontrolę, a obciążenie komunikacją spada",
           body: "Portal ogranicza chaos bez odsłaniania szerszego workflow właściciela, dzięki czemu doświadczenie pozostaje profesjonalne i ściśle ograniczone do właściwego zakresu.",
           href: "/features/tenant-management",
-          points: ["dostęp ograniczony do konta", "izolacja ról", "ten sam rdzeń workflow co w aplikacji"],
+          points: ["dostęp ograniczony do konta", "izolacja ról", "ten sam rdzeń workflow co w głównej aplikacji"],
           imageSrc: "/screenshots/security-audit.png",
-          imageAlt: "Widok Security Audit Tenaqo wspierający zaufany model portalu najemcy.",
+          imageAlt: "Widok Security Audit w Tenaqo, wspierający kontrolowany, przypisany do konta model zaufania, na którym opiera się portal najemcy.",
         },
       ],
     },
     proofSection: {
-      eyebrow: "Dlaczego to działa",
+      eyebrow: "Dlaczego to ważne",
       title: "Portal najemcy to część zaufania operacyjnego",
       body:
         "Platforma dla właściciela wygląda pełniej wtedy, gdy najemca widzi właściwe informacje bez wyciekania do niewłaściwych ekranów. To zmniejsza obciążenie komunikacją i wzmacnia wiarygodność po obu stronach.",

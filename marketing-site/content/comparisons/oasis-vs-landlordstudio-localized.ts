@@ -241,26 +241,26 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
   },
   pl: {
     seo: {
-      title: "Tenaqo vs Landlord Studio | Co lepiej pasuje właścicielowi mieszkań?",
+      title: "Tenaqo vs Landlord Studio | Co sprawdzi się lepiej dla właściciela nieruchomości?",
       description:
-        "Porównanie Tenaqo i Landlord Studio z perspektywy właściciela, który wybiera między narzędziem finansowym a większą kontrolą operacyjną nad najmem.",
+        "Porównaj Tenaqo i Landlord Studio, jeśli wybierasz między oprogramowaniem skupionym na księgowości a głębszą kontrolą nad operacyjnym zarządzaniem nieruchomościami.",
       canonicalPath: "/pl/compare/oasis-vs-landlordstudio",
     },
     hero: {
       eyebrow: "Porównanie",
       title: "Tenaqo vs Landlord Studio",
       body:
-        "Landlord Studio wypada najmocniej tam, gdzie decyzję prowadzą księgowość najmu, bank feeds, pobór czynszu online i raportowanie. Tenaqo jest mocniejszy wtedy, gdy codziennym problemem staje się operacyjna kontrola: follow-up płatności, ruch zgłoszeń, dokumenty, podpisy i decyzja, co wymaga działania jako pierwsze.",
+        "Landlord Studio sprawdza się najlepiej, gdy priorytetem jest księgowość najmu, integracja z bankiem, pobieranie czynszu online i raportowanie finansowe. Tenaqo wygrywa tam, gdzie codziennym wyzwaniem jest kontrola operacyjna: reguły czynszowe, oczekiwane opłaty, płynna obsługa napraw, zbieranie dokumentacji i dowodów zgodności z przepisami, współpraca z wykonawcami, audyty oraz ustalanie kolejnych kroków.",
       imageSrc: "/screenshots/command-center.png",
-      imageAlt: "Command Center Tenaqo z pilnymi zadaniami i połączonymi działaniami w portfelu.",
+      imageAlt: "Centrum dowodzenia Tenaqo z pilnymi zadaniami i połączonymi działaniami w portfelu.",
     },
     summary: {
       eyebrow: "Porównanie w skrócie",
       title: "Prawdziwa różnica zaczyna się wtedy, gdy księgowość przestaje być jedyną pracą",
       body:
-        "Landlord Studio jest atrakcyjny, gdy głównym celem pozostaje jasność finansowa i lżejsze śledzenie najmu. Tenaqo staje się bardziej przekonujący, gdy tydzień kształtują zaległości, postęp napraw, koordynacja wykonawców, kontekst najemców, obieg dokumentów i potrzeba wcześniejszego wychwytywania presji w portfelu.",
+        "Landlord Studio przyciąga uwagę, gdy celem jest przejrzystość księgowa i prostsze śledzenie najmu. Tenaqo staje się kluczowe, gdy Twój tydzień definiują zaległości w opłatach, postępy napraw, koordynacja wykonawców, pełny kontekst najemcy, przekazywanie dokumentów oraz potrzeba zapobiegania kryzysom w portfelu.",
       imageSrc: "/screenshots/documents-workflow.png",
-      imageAlt: "Widok Documents w Tenaqo z prośbami o dokumenty, pakietami umów i workflow na poziomie konta.",
+      imageAlt: "Strona Dokumenty w Tenaqo przedstawiająca prośby o dokumenty, pakiety umów oraz procesy kontroli na poziomie konta.",
     },
     comparisonTable: {
       title: "Porównanie obok siebie",
@@ -309,27 +309,27 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
     },
     differences: {
       eyebrow: "Gdzie Tenaqo się wyróżnia",
-      title: "Dlaczego właściciel może przejść do Tenaqo po wyrośnięciu z narzędzia księgowo-first",
+      title: "Większość narzędzi do najmu zapisuje to, co już się wydarzyło. Tenaqo pomaga pchnąć do przodu to, co ma wydarzyć się dalej.",
       body:
-        "To nie jest twierdzenie, że Landlord Studio nie oferuje wartościowych funkcji. Tenaqo wyróżnia się wtedy, gdy trudniejszym problemem staje się tempo operacyjne: zobaczyć co wymaga uwagi, popchnąć pracę do przodu i ograniczyć zgubiony follow-up w całym portfelu.",
+        "To nie oznacza, że Landlord Studio brakuje przydatnych narzędzi. Tenaqo wyróżnia się jednak tam, gdzie największym wyzwaniem jest kontrola operacyjna: reguły czynszowe i oczekiwane opłaty, płynność obsługi napraw, zbieranie dowodów zgodności z przepisami wewnątrz procesów oraz eliminacja niedokończonych spraw w całym portfelu.",
       imageSrc: "/screenshots/maintenance-inbox.png",
-      imageAlt: "Maintenance Inbox Tenaqo ze strukturalnym workflow zgłoszeń i powiązanymi zleceniami.",
+      imageAlt: "Skrzynka zgłoszeń Tenaqo ze strukturalnym procesem obsługi i powiązanymi zleceniami.",
       imageAlign: "left",
       items: [
         {
-          title: "Naprawy mają czytelniejszą ścieżkę",
+          title: "Silnik planów czynszowych zarządza warstwą obliczeniową",
           body:
-            "Tenaqo prowadzi pracę od zgłoszenia do zlecenia i przeglądu postępu, dzięki czemu łatwiej wychwycić zastój, blokady i brak właściciela kolejnego kroku.",
+            "Tenaqo opiera czynsze na silniku reguł: obsługuje oczekiwane opłaty, proporcjonalne rozliczenia, media, kaucje, zaawansowane modele oraz bezpieczne księgowanie finansów z zatwierdzaniem przed wprowadzeniem zmian w księdze. Podgląd przed zaksięgowaniem.",
         },
         {
-          title: "Łatwiej ustalić priorytet",
+          title: "Jaśniejsza ścieżka obsługi napraw",
           body:
-            "Kolejki w Command Center, briefingi AI i sygnały kondycji portfela ułatwiają decyzję, co zasługuje na uwagę najpierw.",
+            "Tenaqo wyznacza jasną ścieżkę dla napraw — od zgłoszenia, przez zlecenie, aż po przegląd postępów — pomagając właścicielom szybciej wyłapać zastoje, zablokowane zadania i brak osoby odpowiedzialnej.",
         },
         {
-          title: "Kontrola wykracza poza ewidencję",
+          title: "Zgodność z przepisami wpisana w roboczy tydzień",
           body:
-            "Tenaqo trzyma kontekst najemcy, dokumenty, presję płatności, status napraw i ślad audytowy bliżej samej decyzji operacyjnej.",
+            "Gotowość na zmiany prawne (Renters' Rights), ochrona czynszu (Rent Shield), audyt umów (Lease Auditor), rozliczenia podatkowe i zgodność z polskimi przepisami są częścią codziennej pracy — a nie osobnym, sezonowym zrywem.",
         },
       ],
     },
@@ -339,25 +339,25 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
         {
           title: "Wybierz Tenaqo, jeśli",
           body:
-            "spędzasz więcej czasu na pilnowaniu płatności, sprawdzaniu postępu napraw, szukaniu dokumentów i ustalaniu priorytetów niż na samej ewidencji.",
+            "Potrzebujesz reguł czynszowych, obsługi napraw, dowodów zgodności z przepisami, koordynacji wykonawców, dokumentacji, ścieżek audytu i jasnego wglądu w pilne zadania — a wszystko to w jednym, połączonym systemie.",
         },
         {
           title: "Wybierz Landlord Studio, jeśli",
           body:
-            "najbardziej zależy Ci na mobilnej księgowości, raportowaniu, poborze czynszu i lżejszym zestawie narzędzi wokół finansowej administracji.",
+            "Zależy Ci głównie na wygodnej księgowości mobilnej, automatycznej synchronizacji z bankiem, pobieraniu czynszu online, raportowaniu finansowym i lżejszym zestawie narzędzi skupionym na administracji finansowej.",
         },
         {
           title: "Prawdopodobnie wyrastasz z prostszych narzędzi, gdy",
           body:
-            "pytanie nie brzmi już gdzie przechować dane, ale jak utrzymać płatności, naprawy, dokumenty i follow-up w jednym ruchu bez gubionych przekazań.",
+            "Kluczowym pytaniem nie jest już to, gdzie przechowywać informacje, ale jak sprawnie zarządzać czynszami, naprawami, dokumentami, zgodnością z przepisami i bieżącymi sprawami bez gubienia wątków.",
         },
       ],
     },
     finalCta: {
-      title: "Potrzebujesz większej kontroli operacyjnej niż daje narzędzie księgowo-first?",
+      title: "Potrzebujesz większej kontroli operacyjnej, niż oferują programy skupione wyłącznie na księgowości?",
       body:
-        "Jeśli Twój portfel wyszedł poza samą jasność finansową i dziś wymaga codziennej koordynacji, Tenaqo daje płatnościom, naprawom, dokumentom i kolejkom działań wyraźniejszy rytm operacyjny.",
-      primaryCta: { label: "Uzyskaj wcześniejszy dostęp", href: siteConfig.appUrl },
+        "Jeśli wyzwania w Twoim portfelu wykraczają już poza samą przejrzystość księgową i wymagają codziennej koordynacji, Tenaqo nadaje czynszom, naprawom, dokumentom i kolejkom zadań wyraźny rytm operacyjny.",
+      primaryCta: { label: "Zyskaj wcześniejszy dostęp", href: siteConfig.appUrl },
       secondaryCta: { label: "Zobacz portal najemcy", href: "/tenant-portal-software" },
     },
   },

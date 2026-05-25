@@ -57,29 +57,29 @@ export const blogIndexContentByLocale: Record<Locale, BlogIndexContent> = {
   },
   pl: {
     seo: {
-      title: "Blog Tenaqo | Praktyczne materiały dla właścicieli mieszkań",
+      title: "Blog Tenaqo | Zarządzanie najmem, zgodność z przepisami i procesy operacyjne",
       description:
-        "Praktyczne materiały o najmie: płatnościach, zgłoszeniach, dokumentach, follow-upie i prowadzeniu nieruchomości z większą kontrolą.",
+        "Praktyczne poradniki dla właścicieli na temat naliczania czynszu, oczekiwanych opłat, obsługi zgłoszeń, zgodności z przepisami, narzędzi AI, kondycji nieruchomości i zarządzania najmem z większą kontrolą.",
       canonicalPath: "/pl/blog",
     },
     hero: {
       eyebrow: "Blog",
-      title: "Praktyczne materiały dla właścicieli, którzy chcą mieć większą kontrolę",
+      title: "Praktyczna lektura dla właścicieli, którzy chcą mieć większą kontrolę i mniej operacyjnych obciążeń.",
       body:
-        "Bez lania wody. Tylko przydatne wskazówki o płatnościach, zgłoszeniach, dokumentach, presji w portfelu i spokojniejszym rytmie prowadzenia najmu.",
+        "Bez lania wody. Praktyczne wskazówki dotyczące naliczania czynszu, oczekiwanych opłat, napraw, dokumentów, zgodności z przepisami, AI dla wynajmujących oraz rytmu pracy, który zapewnia spokojniejsze zarządzanie portfelem.",
     },
-    launchListTitle: "Lista startowych materiałów",
+    launchListTitle: "Lista artykułów na start",
     launchListBody:
-      "Te pierwsze artykuły pokazują kierunek redakcyjny Tenaqo: praktyczny, skupiony na właścicielu i bliski cotygodniowej pracy z najmem, naprawami, dokumentami i follow-upem.",
+      "Te pierwsze poradniki wyznaczają kierunek redakcyjny Tenaqo: są praktyczne, skoncentrowane na właścicielu i bliskie cotygodniowej pracy związanej z naliczaniem czynszu, naprawami, dokumentacją, zgodnością z przepisami i bieżącymi sprawami. Tematy obejmują m.in.: dlaczego rozliczanie czynszu powinno opierać się na silniku reguł, oczekiwane opłaty a realne wpłaty, jak zmniejszyć obciążenie naprawami, najem okazjonalny dla polskich właścicieli, kondycja nieruchomości a pulpity nawigacyjne oraz jak AI powinna wspierać wynajmujących, nie podejmując decyzji za nich.",
     readMoreLabel: "Czytaj dalej",
     publishingTitle: "O czym pisze Tenaqo",
     publishingBody:
-      "Piszemy dla małych i rosnących właścicieli mieszkań, którzy chcą zamienić reaktywną administrację na lepszy rytm operacyjny. Mniej ogólników, więcej praktycznych wskazówek: co sprawdzić, czego dopilnować, co udokumentować i kiedy portfel potrzebuje większego porządku.",
+      "Piszemy dla małych i rozwijających się właścicieli nieruchomości, którzy chcą zastąpić reaktywne zarządzanie lepszym rytmem operacyjnym. Mniej ogólników, a więcej praktycznych wskazówek dotyczących reguł czynszowych, oczekiwanych opłat, obsługi napraw, gotowości prawno-podatkowej (terminy podatkowe, Lease Auditor, rynek polski), wsparcia AI zachowującego kontrolę właściciela, oceny kondycji nieruchomości oraz momentu, w którym portfel wymaga struktury. Nasze kategorie: Czynsz i finanse, Utrzymanie i naprawy, Zgodność z przepisami, AI dla właścicieli, Rynek polski, Kondycja nieruchomości, Bezpieczeństwo i audyt.",
     finalCta: {
-      title: "Przetestuj Tenaqo przed publicznym startem",
+      title: "Wypróbuj Tenaqo przed oficjalną premierą",
       body:
-        "Uzyskaj wcześniejszy dostęp, sprawdź produkt na realnej pracy najmu i pomóż kształtować rozwój Tenaqo dla właścicieli mieszkań.",
-      primaryCta: { label: "Uzyskaj wcześniejszy dostęp", href: siteConfig.appUrl },
+        "Zyskaj wcześniejszy dostęp, przetestuj produkt w codziennym zarządzaniu najmem i pomóż kształtować rozwój Tenaqo dla właścicieli nieruchomości.",
+      primaryCta: { label: "Zyskaj wcześniejszy dostęp", href: siteConfig.appUrl },
       secondaryCta: { label: "Porównaj plany", href: "/pricing" },
     },
   },
