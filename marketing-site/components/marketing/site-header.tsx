@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { siteConfig, siteCopyByLocale } from "../../content/site";
 import {
@@ -14,6 +14,17 @@ import {
 } from "../../lib/i18n";
 
 const languageOrder: Locale[] = ["en", "pl", "de"];
+const languageFlags: Record<Locale, string> = {
+  en: "🇬🇧",
+  pl: "🇵🇱",
+  de: "🇩🇪",
+};
+
+const languageFullNames: Record<Locale, string> = {
+  en: "English",
+  pl: "Polski",
+  de: "Deutsch",
+};
 
 export function SiteHeader() {
   const pathname = usePathname() || "/";
@@ -21,8 +32,14 @@ export function SiteHeader() {
   const copy = siteCopyByLocale[locale];
   const homeHref = locale === "en" ? "/" : `/${locale}`;
   const [navOpen, setNavOpen] = useState(false);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
 
-  const closeNav = () => setNavOpen(false);
+  const closeNav = () => {
+    setNavOpen(false);
+    if (detailsRef.current) {
+      detailsRef.current.open = false;
+    }
+  };
 
   return (
     <header className="site-header">
@@ -85,22 +102,40 @@ export function SiteHeader() {
               {copy.nav[item.key]}
             </Link>
           ))}
-          <div className="language-switcher" aria-label={copy.languageSwitcherLabel}>
-            {languageOrder.map((targetLocale) => (
-              <Link
-                key={targetLocale}
-                href={getEquivalentMarketingPath(pathname, targetLocale)}
-                className={`language-switcher__link ${
-                  targetLocale === locale ? "language-switcher__link--active" : ""
-                }`}
-                hrefLang={targetLocale}
-                lang={targetLocale}
-                onClick={closeNav}
-              >
-                {copy.languageNames[targetLocale]}
-              </Link>
-            ))}
-          </div>
+          <details className="language-switcher" ref={detailsRef}>
+            <summary className="language-switcher__summary" aria-label={copy.languageSwitcherLabel}>
+              <span aria-hidden="true">{languageFlags[locale]}</span>
+              <span>{languageFullNames[locale]}</span>
+              <span className="language-switcher__chevron" aria-hidden="true">
+                <svg width="10" height="6" viewBox="0 0 10 6" fill="none" focusable="false">
+                  <path
+                    d="M1 1l4 4 4-4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+            </summary>
+            <div className="language-switcher__menu">
+              {languageOrder.map((targetLocale) => (
+                <Link
+                  key={targetLocale}
+                  href={getEquivalentMarketingPath(pathname, targetLocale)}
+                  className={`language-switcher__option ${
+                    targetLocale === locale ? "language-switcher__option--active" : ""
+                  }`}
+                  hrefLang={targetLocale}
+                  lang={targetLocale}
+                  onClick={closeNav}
+                >
+                  <span aria-hidden="true">{languageFlags[targetLocale]}</span>
+                  <span>{languageFullNames[targetLocale]}</span>
+                </Link>
+              ))}
+            </div>
+          </details>
           <Link href={siteConfig.appUrl} onClick={closeNav}>
             {copy.signIn}
           </Link>
