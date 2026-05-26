@@ -117,10 +117,11 @@ describe("marketplace transport helpers", () => {
         },
         response,
       ),
-    ).toEqual({
+    ).toMatchObject({
       externalJobId: "ext-job-7",
       externalReference: "ref-9",
       externalUrl: "https://api.provider.example/jobs/abc123",
+      trades: [],
     });
   });
 
@@ -196,5 +197,80 @@ describe("marketplace transport helpers", () => {
       "Checkatrade requires a contact first and last name.",
       "Checkatrade requires a postcode.",
     ]);
+  });
+
+  it("extracts trades array from a Checkatrade response body alongside external fields", () => {
+    const response = new Response(null, { status: 201 });
+    const payload = {
+      job_id: "chk-job-42",
+      trades: [
+        { id: "t-1", name: "Alpha Plumbing Ltd", profileURL: "https://www.checkatrade.com/trades/alpha-plumbing" },
+        { id: "t-2", name: "Beta Plumbers", profileURL: "https://www.checkatrade.com/trades/beta-plumbers" },
+      ],
+    };
+
+    const result = extractMarketplaceExternalFields(payload, response);
+
+    expect(result.externalJobId).toBe("chk-job-42");
+    expect(result.trades).toHaveLength(2);
+    expect(result.trades[0]).toEqual({
+      id: "t-1",
+      name: "Alpha Plumbing Ltd",
+      profileURL: "https://www.checkatrade.com/trades/alpha-plumbing",
+    });
+    expect(result.trades[1]).toEqual({
+      id: "t-2",
+      name: "Beta Plumbers",
+      profileURL: "https://www.checkatrade.com/trades/beta-plumbers",
+    });
+  });
+
+  it("returns an empty trades array when the Checkatrade response has no trades", () => {
+    const response = new Response(null, { status: 201 });
+    const result = extractMarketplaceExternalFields({ job_id: "chk-job-99" }, response);
+    expect(result.trades).toEqual([]);
+  });
+
+  it("normalises trades that use profile_url instead of profileURL", () => {
+    const response = new Response(null, { status: 201 });
+    const payload = {
+      job_id: "chk-job-7",
+      trades: [{ id: "t-3", name: "Gamma Gas", profile_url: "https://www.checkatrade.com/trades/gamma-gas" }],
+    };
+    const result = extractMarketplaceExternalFields(payload, response);
+    expect(result.trades[0].profileURL).toBe("https://www.checkatrade.com/trades/gamma-gas");
+  });
+
+  it("strips profile URLs that are not https:// checkatrade.com links", () => {
+    const response = new Response(null, { status: 201 });
+    const payload = {
+      job_id: "chk-job-8",
+      trades: [
+        { id: "t-safe", name: "Safe Trade", profileURL: "https://www.checkatrade.com/trades/safe" },
+        { id: "t-http", name: "HTTP Trade", profileURL: "http://www.checkatrade.com/trades/http" },
+        { id: "t-js", name: "XSS Trade", profileURL: "javascript:alert(1)" },
+        { id: "t-other", name: "Other Domain", profileURL: "https://evil.example.com/redirect" },
+        { id: "t-empty", name: "No URL Trade", profileURL: "" },
+      ],
+    };
+    const result = extractMarketplaceExternalFields(payload, response);
+    expect(result.trades).toHaveLength(5);
+    expect(result.trades[0].profileURL).toBe("https://www.checkatrade.com/trades/safe");
+    expect(result.trades[1].profileURL).toBe("");
+    expect(result.trades[2].profileURL).toBe("");
+    expect(result.trades[3].profileURL).toBe("");
+    expect(result.trades[4].profileURL).toBe("");
+  });
+
+  it("classifies 422 (spam) as non-retryable manual follow-up", () => {
+    expect(
+      classifyMarketplaceSubmissionFailure({ httpStatus: 422, attemptCount: 1, maxAttempts: 3 }),
+    ).toEqual({ retryable: false, nextStatus: "manual_follow_up" });
+  });
+
+  it("classifies 404 (no trades found) as non-retryable manual follow-up", () => {
+    expect(
+      classifyMarketplaceSubmissionFailure({ httpStatus: 404, attemptCount: 1, maxAttempts: 3 }),
+    ).toEqual({ retryable: false, nextStatus: "manual_follow_up" });
   });
 });

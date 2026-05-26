@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { checkatradeCategoryMap } from "../../config/checkatradeCategoryMap";
 import { marketplaceProviders } from "../../config/marketplaceProviders";
 import {
   createMarketplaceJob,
   getFulfilmentRoute,
   getMarketplaceJobsForWorkOrder,
+  getMarketplaceJobTrades,
   getMarketplaceProviders,
   getMarketplaceSettings,
   getMarketplaceSuggestion,
@@ -88,6 +90,19 @@ const COPY = {
     submitApi: "Submit to Checkatrade API",
     apiResultFallback:
       "Provider API scaffolding is ready, but manual handoff is still the safe fallback in this rollout phase.",
+    tradesFound: (n) => `${n} trade${n === 1 ? "" : "s"} matched in your area.`,
+    noTradesFound:
+      "No trades were found in your area for this job type. Try a different postcode or trade category.",
+    spamRejected:
+      "This job was flagged as potential spam by Checkatrade. Check the description for unusual content and try again.",
+    trades: "Matched trades",
+    tradeProfileLink: "View profile",
+    saveToDirectory: "Save to directory (coming soon)",
+    saveToDirectoryHint: "Saving matched trades to the contractor directory is not yet available.",
+    categoryPicker: "Trade category",
+    categoryPickerPlaceholder: "Select a category…",
+    categoryOverride: "Or type a custom category",
+    postcode: "Postcode",
   },
   pl: {
     title: "Wybierz ścieżkę realizacji",
@@ -147,6 +162,19 @@ const COPY = {
     submitApi: "Wyślij do API Checkatrade",
     apiResultFallback:
       "Scaffold API providera jest gotowy, ale w tej fazie rolloutu bezpiecznym fallbackiem pozostaje ręczny handoff.",
+    tradesFound: (n) => `Dopasowano ${n} wykonawc${n === 1 ? "ę" : "ów"} w Twojej okolicy.`,
+    noTradesFound:
+      "Nie znaleziono wykonawców w Twojej okolicy dla tego zlecenia. Spróbuj innego kodu pocztowego lub kategorii.",
+    spamRejected:
+      "To zlecenie zostało oznaczone jako potencjalny spam przez Checkatrade. Sprawdź treść opisu i spróbuj ponownie.",
+    trades: "Dopasowani wykonawcy",
+    tradeProfileLink: "Zobacz profil",
+    saveToDirectory: "Zapisz do katalogu (wkrótce)",
+    saveToDirectoryHint: "Zapisywanie dopasowanych wykonawców do katalogu nie jest jeszcze dostępne.",
+    categoryPicker: "Kategoria prac",
+    categoryPickerPlaceholder: "Wybierz kategorię…",
+    categoryOverride: "Lub wpisz własną kategorię",
+    postcode: "Kod pocztowy",
   },
 };
 
@@ -168,9 +196,14 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
   const providers = useMemo(() => getMarketplaceProviders(), []);
   const [route, setRoute] = useState("internal");
   const [jobs, setJobs] = useState([]);
+  const [jobTradesMap, setJobTradesMap] = useState({});
   const [providerKey, setProviderKey] = useState(() => suggestedProvider || "checkatrade");
   const [settings, setSettings] = useState([]);
-  const [tradeCategory, setTradeCategory] = useState("");
+  const [selectedCategoryKey, setSelectedCategoryKey] = useState("");
+  const [customCategory, setCustomCategory] = useState("");
+  const [postcode, setPostcode] = useState(
+    () => workOrder?.properties?.postcode || workOrder?.maintenance_requests?.postcode || "",
+  );
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
@@ -185,6 +218,9 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
     [workOrder?.properties?.address, workOrder?.properties?.city].filter(Boolean).join(", ") ||
     workOrder?.maintenance_requests?.title ||
     "Property";
+
+  const resolvedTradeCategory = customCategory.trim() ||
+    (selectedCategoryKey ? checkatradeCategoryMap.find((e) => e.key === selectedCategoryKey)?.label || selectedCategoryKey : "");
 
   const hasMarketplaceJobs = jobs.length > 0;
   const settingsByProvider = useMemo(
@@ -240,6 +276,17 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
   async function refreshJobs() {
     const nextJobs = await getMarketplaceJobsForWorkOrder({ accountId, workOrderId: workOrder.id });
     setJobs(nextJobs);
+    const tradeResults = await Promise.all(
+      nextJobs
+        .filter((j) => j.status === "submitted" || j.status === "matched")
+        .map(async (j) => {
+          const trades = await getMarketplaceJobTrades({ accountId, marketplaceJobId: j.id }).catch(() => []);
+          return [j.id, trades];
+        }),
+    );
+    const freshMap = {};
+    for (const [id, trades] of tradeResults) freshMap[id] = trades;
+    setJobTradesMap(freshMap);
   }
 
   async function persistRoute(nextRoute) {
@@ -379,13 +426,41 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
               </select>
             </label>
 
-            <label className="text-sm text-slate-700">
-              <span className="mb-1 block text-xs text-slate-500">{copy.tradeCategory}</span>
-              <input
-                value={tradeCategory}
-                onChange={(event) => setTradeCategory(event.target.value)}
+            <div className="text-sm text-slate-700">
+              <span className="mb-1 block text-xs text-slate-500">{copy.categoryPicker}</span>
+              <select
+                value={selectedCategoryKey}
+                onChange={(event) => {
+                  setSelectedCategoryKey(event.target.value);
+                  setCustomCategory("");
+                }}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                placeholder={copy.chooseTrade}
+              >
+                <option value="">{copy.categoryPickerPlaceholder}</option>
+                {checkatradeCategoryMap.map((entry) => (
+                  <option key={entry.key} value={entry.key}>
+                    {entry.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={customCategory}
+                onChange={(event) => {
+                  setCustomCategory(event.target.value);
+                  setSelectedCategoryKey("");
+                }}
+                className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                placeholder={copy.categoryOverride}
+              />
+            </div>
+
+            <label className="text-sm text-slate-700">
+              <span className="mb-1 block text-xs text-slate-500">{copy.postcode}</span>
+              <input
+                value={postcode}
+                onChange={(event) => setPostcode(event.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                placeholder="e.g. SW1A 1AA"
               />
             </label>
 
@@ -442,7 +517,7 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
                     accountId,
                     workOrderId: workOrder.id,
                     providerKey,
-                    tradeCategory,
+                    tradeCategory: resolvedTradeCategory,
                     contactName,
                     contactEmail,
                     contactPhone,
@@ -451,11 +526,18 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
                       workOrder?.maintenance_requests?.title ||
                       workOrder?.notes?.slice(0, 80) ||
                       `Work order ${workOrder.id}`,
-                    description: workOrder?.notes || workOrder?.maintenance_requests?.title || "",
+                    description:
+                      workOrder?.maintenance_requests?.description ||
+                      workOrder?.notes ||
+                      workOrder?.maintenance_requests?.title ||
+                      "",
                     urgency: workOrder?.status || "",
+                    postcode: postcode.trim(),
                     city: workOrder?.properties?.city || "",
                     propertyLabel,
-                    requestPayload: { source: "oasis_marketplace_panel" },
+                    requestPayload: {
+                      source: "oasis_marketplace_panel",
+                    },
                     metadata: { route },
                   });
                   await refreshJobs();
@@ -521,12 +603,28 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
                                       marketplaceJobId: job.id,
                                     });
                                     await refreshJobs();
+                                    let feedback = result.message || copy.apiResultFallback;
+                                    if (result.ok && result.tradeCount > 0) {
+                                      feedback = copy.tradesFound(result.tradeCount);
+                                    } else if (result.ok && result.tradeCount === 0 && result.status === "submitted") {
+                                      feedback = copy.noTradesFound;
+                                    }
+                                    if (result.tradesStorageWarning) {
+                                      feedback = `${feedback} ${result.tradesStorageWarning}`.trim();
+                                    }
                                     setProviderFeedback((prev) => ({
                                       ...prev,
-                                      [job.id]: result.message || copy.apiResultFallback,
+                                      [job.id]: feedback,
                                     }));
                                   } catch (error) {
-                                    setSyncError(error?.message || copy.syncFailed);
+                                    const msg = String(error?.message || "");
+                                    let feedback = msg || copy.syncFailed;
+                                    if (msg.includes("422") || msg.toLowerCase().includes("spam")) {
+                                      feedback = copy.spamRejected;
+                                    } else if (msg.includes("404") || msg.toLowerCase().includes("no trades")) {
+                                      feedback = copy.noTradesFound;
+                                    }
+                                    setSyncError(feedback);
                                   }
                                 }}
                                 disabled={providerSetting?.enabled !== true}
@@ -663,6 +761,39 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
                           </p>
                         </div>
                       </div>
+
+                      {jobTradesMap[job.id]?.length > 0 ? (
+                        <div className="mt-3 border-t border-slate-100 pt-3">
+                          <p className="mb-2 text-xs font-semibold text-slate-700">{copy.trades}</p>
+                          <ul className="space-y-2">
+                            {jobTradesMap[job.id].map((trade) => (
+                              <li key={trade.id || trade.name} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm">
+                                <span className="font-medium text-slate-800">{trade.name || trade.tradeId}</span>
+                                <div className="flex items-center gap-2">
+                                  {trade.profileUrl ? (
+                                    <a
+                                      href={trade.profileUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-xs text-blue-600 underline hover:text-blue-800"
+                                    >
+                                      {copy.tradeProfileLink}
+                                    </a>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    disabled
+                                    title={copy.saveToDirectoryHint}
+                                    className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-400 cursor-not-allowed"
+                                  >
+                                    {copy.saveToDirectory}
+                                  </button>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}

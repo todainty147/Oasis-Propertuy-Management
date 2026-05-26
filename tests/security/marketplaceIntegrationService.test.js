@@ -303,4 +303,109 @@ describe("marketplace integration service", () => {
       },
     });
   });
+
+  it("returns trades array from a successful Checkatrade submission response", async () => {
+    invokeMock.mockResolvedValue({
+      data: {
+        ok: true,
+        providerKey: "checkatrade",
+        marketplaceJobId: "11111111-1111-1111-1111-111111111111",
+        status: "submitted",
+        liveSubmissionAvailable: true,
+        manualFallbackRecommended: false,
+        externalJobId: "provider-job-2",
+        externalReference: "",
+        externalUrl: "",
+        trades: [
+          { id: "t-1", name: "Alpha Plumbing Ltd", profileURL: "https://www.checkatrade.com/trades/alpha-plumbing" },
+          { id: "t-2", name: "Beta Plumbers", profileURL: "https://www.checkatrade.com/trades/beta-plumbers" },
+        ],
+        tradeCount: 2,
+        attemptCount: 1,
+        maxAttempts: 3,
+        preparedPayload: {},
+      },
+      error: null,
+    });
+
+    const { submitMarketplaceJobToProvider } = await import("../../src/services/marketplaceIntegrationService.js");
+    const result = await submitMarketplaceJobToProvider({
+      accountId: "account-1",
+      marketplaceJobId: "11111111-1111-1111-1111-111111111111",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.trades).toHaveLength(2);
+    expect(result.tradeCount).toBe(2);
+    expect(result.trades[0]).toMatchObject({ id: "t-1", name: "Alpha Plumbing Ltd" });
+  });
+
+  it("surfaces 422 spam-classification failures from Checkatrade as a thrown error", async () => {
+    invokeMock.mockResolvedValue({
+      data: null,
+      error: {
+        message: "Provider submission failed: 422 Unprocessable Entity — spam classification",
+        context: { status: 422 },
+      },
+    });
+
+    const { submitMarketplaceJobToProvider } = await import("../../src/services/marketplaceIntegrationService.js");
+
+    await expect(
+      submitMarketplaceJobToProvider({
+        accountId: "account-1",
+        marketplaceJobId: "11111111-1111-1111-1111-111111111111",
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("surfaces 404 no-trades-found failures from Checkatrade as a thrown error", async () => {
+    invokeMock.mockResolvedValue({
+      data: null,
+      error: {
+        message: "Provider submission failed: 404 Not Found — no trades available",
+        context: { status: 404 },
+      },
+    });
+
+    const { submitMarketplaceJobToProvider } = await import("../../src/services/marketplaceIntegrationService.js");
+
+    await expect(
+      submitMarketplaceJobToProvider({
+        accountId: "account-1",
+        marketplaceJobId: "11111111-1111-1111-1111-111111111111",
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("returns an empty trades array when the provider response omits trades", async () => {
+    invokeMock.mockResolvedValue({
+      data: {
+        ok: true,
+        providerKey: "checkatrade",
+        marketplaceJobId: "11111111-1111-1111-1111-111111111111",
+        status: "submitted",
+        liveSubmissionAvailable: true,
+        manualFallbackRecommended: false,
+        externalJobId: "provider-job-3",
+        externalReference: "",
+        externalUrl: "",
+        tradeCount: 0,
+        attemptCount: 1,
+        maxAttempts: 3,
+        preparedPayload: {},
+      },
+      error: null,
+    });
+
+    const { submitMarketplaceJobToProvider } = await import("../../src/services/marketplaceIntegrationService.js");
+    const result = await submitMarketplaceJobToProvider({
+      accountId: "account-1",
+      marketplaceJobId: "11111111-1111-1111-1111-111111111111",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.trades).toEqual([]);
+    expect(result.tradeCount).toBe(0);
+  });
 });

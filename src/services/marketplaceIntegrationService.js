@@ -9,6 +9,7 @@ import {
   firstRpcRow,
   parseMarketplaceIntegrationSettingRow,
   parseMarketplaceJobRow,
+  parseMarketplaceJobTradeRow,
   parseMarketplaceRouteRow,
   parseRpcRows,
 } from "./rpcContracts";
@@ -374,6 +375,23 @@ export async function updateMarketplaceJobStatus({ accountId, marketplaceJobId, 
   if (error) throw friendly(error, "Failed to update marketplace handoff status");
 }
 
+export async function getMarketplaceJobTrades({ accountId, marketplaceJobId } = {}) {
+  if (!accountId || !marketplaceJobId) return [];
+  if (isLocalMarketplaceId(marketplaceJobId)) return [];
+
+  const { data, error } = await supabase.rpc("list_marketplace_job_trades", {
+    p_account_id: accountId,
+    p_marketplace_job_id: marketplaceJobId,
+  });
+
+  if (error) {
+    if (shouldFallbackToLocal(error)) return [];
+    throw friendly(error, "Failed to load marketplace job trades");
+  }
+
+  return parseRpcRows(data || [], parseMarketplaceJobTradeRow, "marketplace job trade rows");
+}
+
 export async function submitMarketplaceJobToProvider({ accountId, marketplaceJobId } = {}) {
   if (!accountId || !marketplaceJobId) {
     throw new Error("accountId and marketplaceJobId are required");
@@ -430,6 +448,11 @@ export async function submitMarketplaceJobToProvider({ accountId, marketplaceJob
         ? data.externalSubmissionUrl.trim()
         : null,
     preparedPayload: isRecord(data?.preparedPayload) ? data.preparedPayload : {},
+    trades: Array.isArray(data?.trades) ? data.trades : [],
+    tradeCount: Number.isFinite(Number(data?.tradeCount)) ? Number(data.tradeCount) : 0,
+    tradesStorageWarning: typeof data?.tradesStorageWarning === "string" && data.tradesStorageWarning.trim()
+      ? data.tradesStorageWarning.trim()
+      : null,
   };
 }
 

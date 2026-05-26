@@ -453,6 +453,21 @@ export function parseMarketplaceJobRow(row) {
   };
 }
 
+export function parseMarketplaceJobTradeRow(row) {
+  const value = assertRecord(row, "marketplace job trade row");
+  return {
+    id: toStringOr(value.id),
+    marketplaceJobId: toNullableString(value.marketplace_job_id),
+    accountId: toNullableString(value.account_id),
+    workOrderId: toNullableString(value.work_order_id),
+    tradeId: toStringOr(value.trade_id),
+    name: toStringOr(value.name),
+    profileUrl: toStringOr(value.profile_url),
+    rawPayload: toObjectOr(value.raw_payload),
+    createdAt: toNullableString(value.created_at),
+  };
+}
+
 export function parseSelfServeLandlordAccountResult(row) {
   const value = assertRecord(row, "self-serve landlord account result");
   return {

@@ -33,6 +33,12 @@ export type MarketplaceSubmissionConfig = {
   signatureBody?: string;
 };
 
+export type MarketplaceTradeItem = {
+  id: string;
+  name: string;
+  profileURL: string;
+};
+
 export type MarketplaceSubmissionTransportResult = {
   ok: boolean;
   httpStatus: number | null;
@@ -41,6 +47,7 @@ export type MarketplaceSubmissionTransportResult = {
   externalJobId: string;
   externalReference: string;
   externalUrl: string;
+  trades: MarketplaceTradeItem[];
 };
 
 function trim(value: unknown) {
@@ -314,6 +321,43 @@ function firstNonEmpty(values: unknown[]) {
   return "";
 }
 
+const CHECKATRADE_ALLOWED_HOSTNAMES = new Set([
+  "www.checkatrade.com",
+  "checkatrade.com",
+]);
+
+function safeCheckatradeProfileUrl(raw: unknown): string {
+  const value = trim(raw);
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") return "";
+    if (!CHECKATRADE_ALLOWED_HOSTNAMES.has(url.hostname.toLowerCase())) return "";
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
+function extractCheckatradeTrades(payload: unknown): MarketplaceTradeItem[] {
+  const body = toRecord(payload);
+  const data = toRecord(body.data);
+  const raw = body.trades ?? data.trades;
+
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .map((item) => {
+      const entry = toRecord(item);
+      return {
+        id: trim(entry.id),
+        name: trim(entry.name),
+        profileURL: safeCheckatradeProfileUrl(entry.profileURL ?? entry.profile_url ?? entry.profileUrl),
+      };
+    })
+    .filter((t) => t.id || t.name);
+}
+
 export function extractMarketplaceExternalFields(payload: unknown, response: Response) {
   const body = toRecord(payload);
   const data = toRecord(body.data);
@@ -339,6 +383,7 @@ export function extractMarketplaceExternalFields(payload: unknown, response: Res
       response.headers.get("location"),
       response.headers.get("content-location"),
     ]),
+    trades: extractCheckatradeTrades(payload),
   };
 }
 
@@ -403,6 +448,7 @@ export async function submitMarketplaceTransport(
       externalJobId: externalFields.externalJobId,
       externalReference: externalFields.externalReference,
       externalUrl: externalFields.externalUrl,
+      trades: externalFields.trades,
     };
   } finally {
     clearTimeout(timeoutId);

@@ -463,6 +463,14 @@ Deno.serve(async (req) => {
           });
         }
 
+        const trades = transportResult.trades ?? [];
+        const { error: tradesError } = await admin.rpc("edge_store_marketplace_job_trades", {
+          p_account_id: accountId,
+          p_marketplace_job_id: String(job.id),
+          p_work_order_id: String(job.work_order_id),
+          p_trades: trades,
+        });
+
         return respond({
           ok: true,
           providerKey: "checkatrade",
@@ -474,6 +482,11 @@ Deno.serve(async (req) => {
           externalJobId: transportResult.externalJobId,
           externalReference: transportResult.externalReference,
           externalUrl: transportResult.externalUrl,
+          trades,
+          tradeCount: trades.length,
+          tradesStorageWarning: tradesError
+            ? "Submission was accepted by Checkatrade but matched trades could not be persisted. Refresh the page to retry."
+            : null,
           message: "Marketplace handoff was submitted through the configured Checkatrade transport.",
           preparedPayload,
           requestBody,
