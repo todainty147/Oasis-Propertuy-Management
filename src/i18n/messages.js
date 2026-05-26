@@ -7701,11 +7701,11 @@ Object.assign(messages.de, {
 });
 
 Object.assign(messages.en, {
-  "sidebar.section.compliance": "Zgodność",
+  "sidebar.section.compliance": "Compliance",
   "sidebar.taxReadiness": "Tax Readiness",
   "sidebar.rentShield": "Rent Shield",
   "sidebar.leaseAuditor": "Lease Auditor",
-  "sidebar.rentersRights": "Prawa najemców",
+  "sidebar.rentersRights": "Renters' Rights",
 
   "compliance.tax.title": "Tax Readiness",
   "compliance.tax.subtitle": "Track filing deadlines, organise income and expense records, and prepare exports for your accountant.",
@@ -7727,7 +7727,7 @@ Object.assign(messages.en, {
   "entitlements.feature.rent_shield": "Rent Shield",
   "entitlements.feature.ai_rent_shield_explainer": "Rent Shield AI Explainer",
   "entitlements.feature.ai_lease_auditor": "AI Lease Auditor",
-  "entitlements.feature.renters_rights_readiness": "Gotowość w zakresie praw najemców",
+  "entitlements.feature.renters_rights_readiness": "Renters' Rights Readiness",
 });
 
 Object.assign(messages.pl, {
