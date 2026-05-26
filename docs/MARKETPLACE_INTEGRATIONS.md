@@ -186,11 +186,89 @@ If any Checkatrade-required fields are still missing, OASIS does not send a live
 - retryable transport/provider failures stay in `failed` until `max_api_attempts` is exhausted
 - once retry policy is exhausted, the job moves to `manual_follow_up`
 
-## Deployment note
+## Deployment steps
 
-This phase requires:
+Complete these in order once Checkatrade has issued your affiliate API credentials.
 
-- `supabase/marketplace_integrations.sql` applied to the environment
-- `supabase/functions/submit-marketplace-handoff/index.ts` deployed to the project
-- `CHECKATRADE_API_KEY` set in the Supabase Edge Function secrets for the target project
-- `CHECKATRADE_API_SECRET` set in the Supabase Edge Function secrets for the target project
+### 1. Apply the database migrations
+
+```bash
+supabase db push
+```
+
+This runs all pending migrations, including:
+
+- `supabase/checkatrade_job_trades.sql` — creates `external_marketplace_job_trades`, its RLS policy, and the `list_marketplace_job_trades` / `edge_store_marketplace_job_trades` RPCs.
+- `supabase/migrations/20260526000000_work_orders_with_flags_add_assignment_columns.sql` — adds `assigned_at`, `acknowledged_at`, `acknowledgement_due_at`, and `acknowledgement_status` to the `work_orders_with_flags` view.
+
+If you prefer to apply them manually, run each file against the target database:
+
+```bash
+psql "$DATABASE_URL" -f supabase/checkatrade_job_trades.sql
+psql "$DATABASE_URL" -f supabase/migrations/20260526000000_work_orders_with_flags_add_assignment_columns.sql
+```
+
+### 2. Set the Edge Function secrets
+
+Secrets are stored in the Supabase project — never in code or `marketplace_integration_settings`.
+
+```bash
+supabase secrets set CHECKATRADE_API_KEY=your-api-key
+supabase secrets set CHECKATRADE_API_SECRET=your-api-secret
+supabase secrets set CHECKATRADE_ENV=staging
+supabase secrets set CHECKATRADE_SUBMISSION_URL=https://api-staging.checkatrade.com/v1/affiliate-job/jobs
+```
+
+Switch to production values once Checkatrade confirms your integration is ready to go live:
+
+```bash
+supabase secrets set CHECKATRADE_ENV=production
+supabase secrets set CHECKATRADE_SUBMISSION_URL=https://api.checkatrade.com/v1/affiliate-job/jobs
+```
+
+### 3. Deploy the Edge Function
+
+```bash
+supabase functions deploy submit-marketplace-handoff
+```
+
+### 4. Enable Checkatrade for an account
+
+Run this SQL once per account you want to go live. Replace `ACCOUNT_ID`, `acct_ref`, and the `trade_category_map` values with real data verified against the Checkatrade category API.
+
+```sql
+select *
+from public.upsert_marketplace_integration_setting(
+  'ACCOUNT_ID'::uuid,
+  'checkatrade',
+  true,
+  jsonb_build_object(
+    'live_submission_enabled',    true,
+    'external_submission_url',    'https://api.checkatrade.com/v1/affiliate-job/jobs',
+    'provider_account_reference', 'acct_ref',
+    'trade_category_map', jsonb_build_object(
+      'plumbing',   667,
+      'electrical', 126
+    ),
+    'default_preferred_start_id', 'WITHIN_2_WEEKS',
+    'urgency_to_preferred_start_map', jsonb_build_object(
+      'high',   'URGENT',
+      'medium', 'WITHIN_2_WEEKS',
+      'low',    'FLEXIBLE'
+    ),
+    'max_api_attempts',   3,
+    'request_timeout_ms', 15000
+  )
+);
+```
+
+Set `live_submission_enabled` to `false` during initial testing — the Edge Function will run in dry-run mode and return `liveSubmissionAvailable: false` without calling Checkatrade.
+
+### 5. Verify
+
+Open a work order in the maintenance inbox and navigate to the External Marketplace panel. If everything is wired up correctly you should see:
+
+- the Checkatrade category picker
+- the postcode pre-filled from the property
+- the **Submit to Checkatrade** button enabled
+- after submission: the matched trades list (name + profile link)
