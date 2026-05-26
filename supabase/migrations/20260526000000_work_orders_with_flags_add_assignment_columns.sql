@@ -3,12 +3,18 @@
 -- These columns were added to the work_orders table after the view was
 -- created and were never projected through it, causing 42703 errors on
 -- any query that selected them via the view.
+--
+-- CREATE OR REPLACE VIEW cannot insert columns mid-list (42P16), so we
+-- drop the dependent view first, drop the main view, then recreate both.
 
-CREATE OR REPLACE VIEW public.work_orders_with_flags AS
+DROP VIEW IF EXISTS public.work_orders_pending_cancellation;
+DROP VIEW IF EXISTS public.work_orders_with_flags;
+
+CREATE VIEW public.work_orders_with_flags AS
 WITH last_req AS (
   SELECT DISTINCT ON (al.work_order_id)
     al.work_order_id,
-    al.created_at  AS last_cancel_request_at,
+    al.created_at    AS last_cancel_request_at,
     al.actor_user_id AS last_cancel_request_by
   FROM public.work_order_audit_log al
   WHERE al.action = 'tenant_cancellation_requested'
@@ -17,8 +23,8 @@ WITH last_req AS (
 last_res AS (
   SELECT DISTINCT ON (al.work_order_id)
     al.work_order_id,
-    al.created_at  AS last_cancel_resolution_at,
-    al.action      AS last_cancel_resolution_action,
+    al.created_at    AS last_cancel_resolution_at,
+    al.action        AS last_cancel_resolution_action,
     al.actor_user_id AS last_cancel_resolution_by
   FROM public.work_order_audit_log al
   WHERE al.action = ANY (ARRAY[
@@ -65,3 +71,36 @@ ALTER VIEW public.work_orders_with_flags OWNER TO postgres;
 GRANT SELECT ON public.work_orders_with_flags TO anon;
 GRANT SELECT ON public.work_orders_with_flags TO authenticated;
 GRANT ALL   ON public.work_orders_with_flags TO service_role;
+
+-- Recreate the dependent view that filters to rows with an open cancel request.
+CREATE VIEW public.work_orders_pending_cancellation AS
+SELECT
+  id,
+  account_id,
+  property_id,
+  maintenance_request_id,
+  contractor_user_id,
+  contractor_name,
+  contractor_phone,
+  status,
+  scheduled_at,
+  notes,
+  quote_amount,
+  invoice_amount,
+  created_by,
+  created_at,
+  updated_at,
+  last_cancel_request_at,
+  last_cancel_request_by,
+  last_cancel_resolution_at,
+  last_cancel_resolution_action,
+  last_cancel_resolution_by,
+  pending_cancel_request
+FROM public.work_orders_with_flags
+WHERE pending_cancel_request = true;
+
+ALTER VIEW public.work_orders_pending_cancellation OWNER TO postgres;
+
+GRANT SELECT ON public.work_orders_pending_cancellation TO anon;
+GRANT SELECT ON public.work_orders_pending_cancellation TO authenticated;
+GRANT ALL   ON public.work_orders_pending_cancellation TO service_role;
