@@ -7703,6 +7703,7 @@ Object.assign(messages.de, {
 Object.assign(messages.en, {
   "sidebar.section.compliance": "Compliance",
   "sidebar.taxReadiness": "Tax Readiness",
+  "sidebar.taxTools": "Tax Tools",
   "sidebar.rentShield": "Rent Shield",
   "sidebar.leaseAuditor": "Lease Auditor",
   "sidebar.rentersRights": "Renters' Rights",
@@ -7728,11 +7729,18 @@ Object.assign(messages.en, {
   "entitlements.feature.ai_rent_shield_explainer": "Rent Shield AI Explainer",
   "entitlements.feature.ai_lease_auditor": "AI Lease Auditor",
   "entitlements.feature.renters_rights_readiness": "Renters' Rights Readiness",
+  "entitlements.feature.tax_tools_in_app": "Tax Tools",
+  "entitlements.feature.mtd_expense_tracker": "MTD Expense Tracker",
+  "entitlements.feature.section24_finance_cost_tracker": "Section 24 Finance Cost Tracker",
+  "entitlements.feature.carried_forward_finance_cost_tracker": "Carried-Forward Finance Cost Tracker",
+  "entitlements.feature.hmrc_mtd_sandbox": "HMRC MTD Sandbox",
+  "entitlements.feature.hmrc_mtd_live_submission": "HMRC MTD Live Submission",
 });
 
 Object.assign(messages.pl, {
   "sidebar.section.compliance": "Zgodność",
   "sidebar.taxReadiness": "Gotowość podatkowa",
+  "sidebar.taxTools": "Narzędzia podatkowe",
   "sidebar.rentShield": "Rent Shield",
   "sidebar.leaseAuditor": "Audytor umów",
   "sidebar.rentersRights": "Prawa najemców",
@@ -7758,11 +7766,18 @@ Object.assign(messages.pl, {
   "entitlements.feature.ai_rent_shield_explainer": "Wyjaśnienia AI dla Rent Shield",
   "entitlements.feature.ai_lease_auditor": "Audytor umów AI",
   "entitlements.feature.renters_rights_readiness": "Gotowość w zakresie praw najemców",
+  "entitlements.feature.tax_tools_in_app": "Narzędzia podatkowe",
+  "entitlements.feature.mtd_expense_tracker": "Tracker wydatków MTD",
+  "entitlements.feature.section24_finance_cost_tracker": "Tracker kosztów finansowania Section 24",
+  "entitlements.feature.carried_forward_finance_cost_tracker": "Tracker przenoszonych kosztów finansowania",
+  "entitlements.feature.hmrc_mtd_sandbox": "Sandbox HMRC MTD",
+  "entitlements.feature.hmrc_mtd_live_submission": "Wysyłka HMRC MTD na żywo",
 });
 
 Object.assign(messages.de, {
   "sidebar.section.compliance": "Compliance",
   "sidebar.taxReadiness": "Steuerbereitschaft",
+  "sidebar.taxTools": "Steuer-Tools",
   "sidebar.rentShield": "Rent Shield",
   "sidebar.leaseAuditor": "Mietvertrags-Auditor",
   "sidebar.rentersRights": "Renters' Rights",
@@ -7788,6 +7803,12 @@ Object.assign(messages.de, {
   "entitlements.feature.ai_rent_shield_explainer": "KI-Erklärung Rent Shield",
   "entitlements.feature.ai_lease_auditor": "KI-Mietvertrags-Auditor",
   "entitlements.feature.renters_rights_readiness": "Renters' Rights Readiness",
+  "entitlements.feature.tax_tools_in_app": "Steuer-Tools",
+  "entitlements.feature.mtd_expense_tracker": "MTD-Ausgaben-Tracker",
+  "entitlements.feature.section24_finance_cost_tracker": "Section-24-Finanzkosten-Tracker",
+  "entitlements.feature.carried_forward_finance_cost_tracker": "Vortrags-Finanzkosten-Tracker",
+  "entitlements.feature.hmrc_mtd_sandbox": "HMRC-MTD-Sandbox",
+  "entitlements.feature.hmrc_mtd_live_submission": "HMRC-MTD-Live-Einreichung",
 });
 
 // ── Phase 1: Tax Readiness Dashboard ─────────────────────────────────────────
