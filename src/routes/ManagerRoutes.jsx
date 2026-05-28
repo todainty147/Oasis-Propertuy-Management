@@ -49,7 +49,6 @@ const SecurityAuditPage           = lazy(() => import("../pages/SecurityAuditPag
 const RootTelemetryPage           = lazy(() => import("../pages/RootTelemetryPage"));
 const RootAccountsPage            = lazy(() => import("../pages/admin/RootAccountsPage"));
 const RootDataRequestsPage        = lazy(() => import("../pages/admin/RootDataRequestsPage"));
-const TaxReadinessPage            = lazy(() => import("../pages/compliance/TaxReadinessPage"));
 const TaxToolsPage                = lazy(() => import("../pages/compliance/TaxToolsPage"));
 const RentShieldPage              = lazy(() => import("../pages/compliance/RentShieldPage"));
 const LeaseAuditorPage            = lazy(() => import("../pages/compliance/LeaseAuditorPage"));
@@ -65,7 +64,7 @@ const WorkOrderDetails            = lazy(() => import("../pages/WorkOrderDetails
 
 // ── Route guard helpers ──────────────────────────────────────────────────────
 
-function EntitledRoute({ feature, children }) {
+function EntitledRoute({ feature, altFeature, children }) {
   const { activeRole, isRootOperator, canAccessTelemetry, hasEntitlement, activePlan } = useAccount();
   const role = String(activeRole || "").toLowerCase();
   const canManage = isManageRole(role, { isRootOperator });
@@ -77,7 +76,7 @@ function EntitledRoute({ feature, children }) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (hasEntitlement(feature)) {
+  if (hasEntitlement(feature) || (altFeature && hasEntitlement(altFeature))) {
     return children;
   }
 
@@ -428,16 +427,15 @@ export default function ManagerRoutes() {
 
       <Route
         path="compliance/tax"
-        element={
-          <EntitledRoute feature={ENTITLEMENT_FEATURES.TAX_READINESS_DASHBOARD}>
-            <TaxReadinessPage />
-          </EntitledRoute>
-        }
+        element={<Navigate to="/compliance/tax-tools" replace />}
       />
       <Route
         path="compliance/tax-tools"
         element={
-          <EntitledRoute feature={ENTITLEMENT_FEATURES.TAX_TOOLS_IN_APP}>
+          <EntitledRoute
+            feature={ENTITLEMENT_FEATURES.TAX_TOOLS_IN_APP}
+            altFeature={ENTITLEMENT_FEATURES.TAX_READINESS_DASHBOARD}
+          >
             <TaxToolsPage properties={ownerProperties} />
           </EntitledRoute>
         }

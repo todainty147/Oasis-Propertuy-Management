@@ -24,7 +24,6 @@ import {
   Activity,
   DatabaseZap,
   Scale,
-  Receipt,
   Calculator,
   Umbrella,
   FileSearch,
@@ -492,21 +491,15 @@ function SidebarContent({ onNavigate }) {
                 open={complianceOpen}
                 onToggle={() => setComplianceOpen((v) => !v)}
               >
-                {hasEntitlement(ENTITLEMENT_FEATURES.TAX_READINESS_DASHBOARD) ? (
-                  <>
-                    <Item to="/compliance/tax"        icon={Receipt}     label={t("sidebar.taxReadiness")} onNavigate={onNavigate} />
-                    <Item to="/compliance/rent-shield" icon={Umbrella}   label={t("sidebar.rentShield")}   onNavigate={onNavigate} />
-                  </>
-                ) : (
-                  <>
-                    <LockedItem to="/compliance/tax"        icon={Receipt}  label={t("sidebar.taxReadiness")} onNavigate={onNavigate} />
-                    <LockedItem to="/compliance/rent-shield" icon={Umbrella} label={t("sidebar.rentShield")}   onNavigate={onNavigate} />
-                  </>
-                )}
-                {hasEntitlement(ENTITLEMENT_FEATURES.TAX_TOOLS_IN_APP) ? (
+                {(hasEntitlement(ENTITLEMENT_FEATURES.TAX_READINESS_DASHBOARD) || hasEntitlement(ENTITLEMENT_FEATURES.TAX_TOOLS_IN_APP)) ? (
                   <Item       to="/compliance/tax-tools" icon={Calculator} label={t("sidebar.taxTools")} onNavigate={onNavigate} />
                 ) : (
                   <LockedItem to="/compliance/tax-tools" icon={Calculator} label={t("sidebar.taxTools")} onNavigate={onNavigate} />
+                )}
+                {hasEntitlement(ENTITLEMENT_FEATURES.TAX_READINESS_DASHBOARD) ? (
+                  <Item to="/compliance/rent-shield" icon={Umbrella} label={t("sidebar.rentShield")} onNavigate={onNavigate} />
+                ) : (
+                  <LockedItem to="/compliance/rent-shield" icon={Umbrella} label={t("sidebar.rentShield")} onNavigate={onNavigate} />
                 )}
                 {hasEntitlement(ENTITLEMENT_FEATURES.AI_LEASE_AUDITOR) ? (
                   <Item       to="/compliance/leases"         icon={FileSearch}  label={t("sidebar.leaseAuditor")}   onNavigate={onNavigate} />

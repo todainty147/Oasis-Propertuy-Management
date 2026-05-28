@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  CalendarDays,
   Calculator,
   CheckCircle2,
   Download,
@@ -36,8 +37,10 @@ import {
   upsertTaxCarriedForwardFinanceCost,
   upsertTaxFinanceCostSummary,
 } from "../../services/taxToolsService";
+import TaxCalendarPanel from "../../components/compliance/TaxCalendarPanel";
 
 const TABS = [
+  { id: "calendar", label: "Tax Calendar", feature: ENTITLEMENT_FEATURES.TAX_READINESS_DASHBOARD, icon: CalendarDays },
   { id: "expenses", label: "MTD Expense Tracker", feature: ENTITLEMENT_FEATURES.MTD_EXPENSE_TRACKER, icon: Receipt },
   { id: "section24", label: "Section 24 Finance Cost Tracker", feature: ENTITLEMENT_FEATURES.SECTION24_FINANCE_COST_TRACKER, icon: Calculator },
   { id: "carried", label: "Carried-Forward Finance Costs", feature: ENTITLEMENT_FEATURES.CARRIED_FORWARD_FINANCE_COST_TRACKER, icon: FileSpreadsheet },
@@ -507,13 +510,19 @@ export default function TaxToolsPage({ properties = [] }) {
         })}
       </div>
 
-      {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p> : null}
-      {loading ? <Panel><p className="text-sm text-slate-500">Loading tax tool records...</p></Panel> : !activeEnabled ? <LockedTabNotice /> : null}
-      {!loading && activeEnabled && activeTab === "expenses" ? <ExpenseTracker accountId={activeAccountId} properties={properties} expenses={expenses} onSaved={loadRecords} /> : null}
-      {!loading && activeEnabled && activeTab === "section24" ? <Section24Tracker accountId={activeAccountId} properties={properties} financeRows={financeRows} onSaved={loadRecords} /> : null}
-      {!loading && activeEnabled && activeTab === "carried" ? <CarriedForwardTracker accountId={activeAccountId} properties={properties} carriedRows={carriedRows} onSaved={loadRecords} /> : null}
-      {!loading && activeEnabled && activeTab === "readiness" ? <ReadinessCheck /> : null}
-      {!loading && activeEnabled && activeTab === "export" ? <ExportPack expenses={expenses} financeRows={financeRows} carriedRows={carriedRows} /> : null}
+      {activeTab === "calendar" ? (
+        activeEnabled ? <TaxCalendarPanel accountId={activeAccountId} /> : <LockedTabNotice />
+      ) : (
+        <>
+          {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p> : null}
+          {loading ? <Panel><p className="text-sm text-slate-500">Loading tax tool records...</p></Panel> : !activeEnabled ? <LockedTabNotice /> : null}
+          {!loading && activeEnabled && activeTab === "expenses" ? <ExpenseTracker accountId={activeAccountId} properties={properties} expenses={expenses} onSaved={loadRecords} /> : null}
+          {!loading && activeEnabled && activeTab === "section24" ? <Section24Tracker accountId={activeAccountId} properties={properties} financeRows={financeRows} onSaved={loadRecords} /> : null}
+          {!loading && activeEnabled && activeTab === "carried" ? <CarriedForwardTracker accountId={activeAccountId} properties={properties} carriedRows={carriedRows} onSaved={loadRecords} /> : null}
+          {!loading && activeEnabled && activeTab === "readiness" ? <ReadinessCheck /> : null}
+          {!loading && activeEnabled && activeTab === "export" ? <ExportPack expenses={expenses} financeRows={financeRows} carriedRows={carriedRows} /> : null}
+        </>
+      )}
     </div>
   );
 }
