@@ -218,7 +218,7 @@ export async function createInspectionReport(accountId, payload = {}) {
 export async function createInspectionEvidenceItem(accountId, roomId, payload = {}) {
   if (!accountId) throw new Error("Missing accountId");
   if (!roomId) throw new Error("Missing room id");
-  const itemLabel = String(payload.itemLabel || "").trim();
+  const itemLabel = String(payload.item_label || "").trim();
   if (!itemLabel) throw new Error("Add an item label");
   const { data, error } = await supabase
     .from("inspection_evidence_items")
@@ -226,9 +226,9 @@ export async function createInspectionEvidenceItem(accountId, roomId, payload = 
       account_id: accountId,
       inspection_room_id: roomId,
       item_label: itemLabel,
-      condition_rating: payload.conditionRating || null,
+      condition_rating: payload.condition_rating || null,
       notes: payload.notes ? String(payload.notes).trim() : null,
-      sort_order: Number(payload.sortOrder || 0),
+      sort_order: Number(payload.sort_order || 0),
     })
     .select("id, item_label, condition_rating, notes, sort_order, created_at, updated_at")
     .single();

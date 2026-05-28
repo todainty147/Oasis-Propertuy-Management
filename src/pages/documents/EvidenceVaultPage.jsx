@@ -22,6 +22,19 @@ function sortByOrder(rows = []) {
   return rows.slice().sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
 }
 
+function updateEvidenceItemInReport(report, itemId, patch = {}) {
+  if (!report) return report;
+  return {
+    ...report,
+    inspection_rooms: (report.inspection_rooms || []).map((room) => ({
+      ...room,
+      inspection_evidence_items: (room.inspection_evidence_items || []).map((item) => (
+        item.id === itemId ? { ...item, ...patch } : item
+      )),
+    })),
+  };
+}
+
 export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   const { activeAccountId, hasEntitlement } = useAccount();
   const [reports, setReports] = useState([]);
@@ -42,8 +55,11 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   });
   const [error, setError] = useState("");
   const mountedRef = useRef(false);
+  const builderRef = useRef(null);
+  const selectedPropertyId = selectedReport?.property_id || null;
+  const selectedTenantId = selectedReport?.tenant_id || null;
 
-  const loadReportDetail = useCallback(async (reportId = selectedReportId) => {
+  const loadReportDetail = useCallback(async (reportId) => {
     if (!activeAccountId || !reportId) {
       setSelectedReport(null);
       return null;
@@ -59,7 +75,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
     } finally {
       if (mountedRef.current) setDetailLoading(false);
     }
-  }, [activeAccountId, selectedReportId]);
+  }, [activeAccountId]);
 
   const load = useCallback(async () => {
     if (!activeAccountId) return;
@@ -99,16 +115,22 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   }, [loadReportDetail, selectedReportId]);
 
   useEffect(() => {
+    if (selectedReport?.id) {
+      builderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [selectedReport?.id]);
+
+  useEffect(() => {
     let cancelled = false;
-    if (!activeAccountId || !selectedReport) {
+    if (!activeAccountId || !selectedReport?.id) {
       setDocuments([]);
       return () => { cancelled = true; };
     }
 
     fetchDocuments({
       accountId: activeAccountId,
-      propertyId: selectedReport.property_id || null,
-      tenantId: selectedReport.tenant_id || null,
+      propertyId: selectedPropertyId,
+      tenantId: selectedTenantId,
       onlyUploaded: true,
     })
       .then((nextDocuments) => {
@@ -119,7 +141,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
       });
 
     return () => { cancelled = true; };
-  }, [activeAccountId, selectedReport]);
+  }, [activeAccountId, selectedPropertyId, selectedTenantId, selectedReport?.id]);
 
   async function handleCreate(event) {
     event.preventDefault();
@@ -127,7 +149,6 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
       setError("");
       const report = await createInspectionReport(activeAccountId, form);
       setSelectedReportId(report?.id || "");
-      setSelectedReport(report || null);
       await load();
     } catch (err) {
       setError(err?.message || "Could not create inspection report.");
@@ -150,7 +171,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   function updateItemDraft(roomId, patch) {
     setItemDrafts((current) => ({
       ...current,
-      [roomId]: { itemLabel: "", conditionRating: "good", notes: "", ...(current[roomId] || {}), ...patch },
+      [roomId]: { item_label: "", condition_rating: "good", notes: "", ...(current[roomId] || {}), ...patch },
     }));
   }
 
@@ -161,9 +182,9 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
       setSavingRoomId(room.id);
       setError("");
       const nextSortOrder = (room.inspection_evidence_items || []).length * 10;
-      await createInspectionEvidenceItem(activeAccountId, room.id, { ...draft, sortOrder: nextSortOrder });
-      setItemDrafts((current) => ({ ...current, [room.id]: { itemLabel: "", conditionRating: "good", notes: "" } }));
-      await loadReportDetail();
+      await createInspectionEvidenceItem(activeAccountId, room.id, { ...draft, sort_order: nextSortOrder });
+      setItemDrafts((current) => ({ ...current, [room.id]: { item_label: "", condition_rating: "good", notes: "" } }));
+      await loadReportDetail(selectedReportId);
     } catch (err) {
       setError(err?.message || "Could not add evidence item.");
     } finally {
@@ -175,9 +196,23 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
     try {
       setError("");
       await updateInspectionEvidenceItem(activeAccountId, item.id, patch);
-      await loadReportDetail();
+      setSelectedReport((current) => updateEvidenceItemInReport(current, item.id, patch));
     } catch (err) {
       setError(err?.message || "Could not update evidence item.");
+      await loadReportDetail(selectedReportId).catch(() => {});
+    }
+  }
+
+  async function handleConditionChange(item, condition_rating) {
+    const previousReport = selectedReport;
+    setSelectedReport((current) => updateEvidenceItemInReport(current, item.id, { condition_rating }));
+    try {
+      setError("");
+      await updateInspectionEvidenceItem(activeAccountId, item.id, { condition_rating });
+    } catch (err) {
+      setError(err?.message || "Could not update condition rating.");
+      setSelectedReport(previousReport);
+      await loadReportDetail(selectedReportId).catch(() => {});
     }
   }
 
@@ -193,12 +228,17 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
         tenantId: selectedReport.tenant_id || null,
         tags: ["evidence-vault", selectedReport.inspection_type],
       });
-      await attachInspectionEvidenceFile(activeAccountId, item.id, {
-        documentId: document.id,
-        storagePath: document.storage_path,
-        caption: document.name || document.original_filename || file.name,
-      });
-      await loadReportDetail();
+      try {
+        await attachInspectionEvidenceFile(activeAccountId, item.id, {
+          documentId: document.id,
+          storagePath: document.storage_path,
+          caption: document.name || document.original_filename || file.name,
+        });
+        await loadReportDetail(selectedReportId);
+      } catch {
+        setDocuments((current) => [document, ...current.filter((doc) => doc.id !== document.id)]);
+        setError("File uploaded but could not be linked. You can attach it via 'Attach existing document'.");
+      }
     } catch (err) {
       setError(err?.message || "Could not upload evidence file.");
     } finally {
@@ -217,7 +257,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
         storagePath: document?.storage_path || null,
         caption: document?.name || document?.original_filename || "Linked document",
       });
-      await loadReportDetail();
+      await loadReportDetail(selectedReportId);
     } catch (err) {
       setError(err?.message || "Could not attach document.");
     } finally {
@@ -232,7 +272,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
       setError("");
       await recordInspectionSignature(activeAccountId, selectedReport.id, signatureForm);
       setSignatureForm({ signerType: "landlord", signerName: "" });
-      await loadReportDetail();
+      await loadReportDetail(selectedReport.id);
     } catch (err) {
       setError(err?.message || "Could not record signature acknowledgement.");
     }
@@ -316,7 +356,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
       </div>
 
       {selectedReport ? (
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <section ref={builderRef} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">Inspection builder</p>
@@ -334,7 +374,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
           <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
             <div className="space-y-4">
               {reportRooms.map((room) => {
-                const draft = itemDrafts[room.id] || { itemLabel: "", conditionRating: "good", notes: "" };
+                const draft = itemDrafts[room.id] || { item_label: "", condition_rating: "good", notes: "" };
                 const items = sortByOrder(room.inspection_evidence_items || []);
                 return (
                   <div key={room.id} className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
@@ -355,7 +395,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
                               <p className="font-medium text-slate-900 dark:text-slate-100">{item.item_label}</p>
                               <p className="text-xs text-slate-500">Evidence files linked: {(item.inspection_photos || []).length}</p>
                             </div>
-                            <select disabled={selectedReportLocked} value={item.condition_rating || ""} onChange={(event) => handleUpdateEvidenceItem(item, { condition_rating: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900">
+                            <select disabled={selectedReportLocked} value={item.condition_rating || ""} onChange={(event) => handleConditionChange(item, event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900">
                               <option value="">Condition</option>
                               {CONDITION_OPTIONS.map((condition) => <option key={condition} value={condition}>{condition.replace("_", " ")}</option>)}
                             </select>
@@ -404,8 +444,8 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
 
                     <form onSubmit={(event) => handleAddEvidenceItem(event, room)} className="mt-4 rounded-lg border border-dashed border-slate-300 p-3 dark:border-slate-700">
                       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
-                        <input disabled={selectedReportLocked} value={draft.itemLabel} onChange={(event) => updateItemDraft(room.id, { itemLabel: event.target.value })} placeholder="Item, fixture, meter or key set" className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950" />
-                        <select disabled={selectedReportLocked} value={draft.conditionRating} onChange={(event) => updateItemDraft(room.id, { conditionRating: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950">
+                        <input required disabled={selectedReportLocked} value={draft.item_label} onChange={(event) => updateItemDraft(room.id, { item_label: event.target.value })} placeholder="Item, fixture, meter or key set" className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950" />
+                        <select disabled={selectedReportLocked} value={draft.condition_rating} onChange={(event) => updateItemDraft(room.id, { condition_rating: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950">
                           {CONDITION_OPTIONS.map((condition) => <option key={condition} value={condition}>{condition.replace("_", " ")}</option>)}
                         </select>
                       </div>
@@ -420,6 +460,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
             <aside className="space-y-4">
               <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
                 <h3 className="font-semibold text-slate-950 dark:text-slate-50">Signature acknowledgements</h3>
+                <p className="mt-1 text-xs text-slate-500">Record that a party has acknowledged this report in person or on paper. Tenaqo does not capture digital signatures.</p>
                 <div className="mt-3 space-y-2">
                   {(selectedReport.inspection_signatures || []).length === 0 ? <p className="text-sm text-slate-500">No acknowledgements recorded.</p> : null}
                   {(selectedReport.inspection_signatures || []).map((signature) => (
@@ -435,7 +476,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
                     <option value="tenant">Tenant</option>
                     <option value="agent">Agent</option>
                   </select>
-                  <input disabled={selectedReportLocked} value={signatureForm.signerName} onChange={(event) => setSignatureForm((current) => ({ ...current, signerName: event.target.value }))} placeholder="Signer name" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950" />
+                  <input required disabled={selectedReportLocked} value={signatureForm.signerName} onChange={(event) => setSignatureForm((current) => ({ ...current, signerName: event.target.value }))} placeholder="Signer name" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950" />
                   <button type="submit" disabled={selectedReportLocked} className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium disabled:opacity-60 dark:border-slate-700"><CheckCircle2 size={14} /> Record acknowledgement</button>
                 </form>
               </div>
