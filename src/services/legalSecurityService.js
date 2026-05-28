@@ -16,7 +16,7 @@ const COMPLIANCE_TEMPLATE_SELECT = [
 const INSPECTION_SELECT = [
   "id", "account_id", "property_id", "tenant_id", "inspection_type", "status",
   "title", "inspection_date", "locked_at", "locked_by", "created_by", "created_at", "updated_at",
-  "inspection_rooms(id, room_name, sort_order, inspection_evidence_items(id, item_label, condition_rating, notes, sort_order, inspection_photos(id, document_id, storage_path, caption, captured_at)))",
+  "inspection_rooms(id, room_name, sort_order)",
 ].join(", ");
 
 const DEFAULT_INSPECTION_ROOMS = [
@@ -179,30 +179,17 @@ export async function listInspectionReports(accountId) {
 export async function createInspectionReport(accountId, payload = {}) {
   if (!accountId) throw new Error("Missing accountId");
   if (!payload.propertyId) throw new Error("Choose a property");
-  const { data: report, error } = await supabase
-    .from("inspection_reports")
-    .insert({
-      account_id: accountId,
-      property_id: payload.propertyId,
-      tenant_id: payload.tenantId || null,
-      inspection_type: payload.inspectionType || "check_in",
-      title: String(payload.title || "Inspection report").trim(),
-      inspection_date: payload.inspectionDate || new Date().toISOString().slice(0, 10),
-    })
-    .select(INSPECTION_SELECT)
-    .single();
-  if (error) throw error;
-
   const rooms = Array.isArray(payload.rooms) && payload.rooms.length > 0 ? payload.rooms : DEFAULT_INSPECTION_ROOMS;
-  const { error: roomsError } = await supabase
-    .from("inspection_rooms")
-    .insert(rooms.map((roomName, index) => ({
-      account_id: accountId,
-      inspection_report_id: report.id,
-      room_name: roomName,
-      sort_order: index * 10,
-    })));
-  if (roomsError) throw roomsError;
+  const { data: report, error } = await supabase.rpc("create_inspection_report_with_rooms", {
+    p_account_id: accountId,
+    p_property_id: payload.propertyId,
+    p_tenant_id: payload.tenantId || null,
+    p_inspection_type: payload.inspectionType || "check_in",
+    p_title: String(payload.title || "Inspection report").trim(),
+    p_inspection_date: payload.inspectionDate || new Date().toISOString().slice(0, 10),
+    p_rooms: rooms,
+  });
+  if (error) throw error;
 
   const { data: hydrated, error: hydrateError } = await supabase
     .from("inspection_reports")

@@ -24,6 +24,7 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
   const [templates, setTemplates] = useState([]);
   const [checklistForm, setChecklistForm] = useState({ propertyId: "", tenantId: "", templateId: "" });
   const [loading, setLoading] = useState(true);
+  const [creatingChecklist, setCreatingChecklist] = useState(false);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -64,12 +65,16 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
 
   async function createChecklist(event) {
     event.preventDefault();
+    if (creatingChecklist) return;
     try {
+      setCreatingChecklist(true);
       setError("");
       await createComplianceChecklistFromTemplate(activeAccountId, checklistForm);
       await load();
     } catch (err) {
       setError(err?.message || "Could not create compliance checklist.");
+    } finally {
+      setCreatingChecklist(false);
     }
   }
 
@@ -112,7 +117,7 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
             <h2 className="font-semibold text-slate-950 dark:text-slate-50">Create checklist from template</h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Choose a property, optional tenant, and UK/England or Poland template. Tenaqo will add missing checklist items for you to update as evidence is logged.</p>
           </div>
-          <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white dark:bg-slate-100 dark:text-slate-900"><Plus size={16} /> Create checklist</button>
+          <button type="submit" disabled={creatingChecklist} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"><Plus size={16} /> {creatingChecklist ? "Creating..." : "Create checklist"}</button>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <select required value={checklistForm.propertyId} onChange={(e) => setChecklistForm((f) => ({ ...f, propertyId: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950">

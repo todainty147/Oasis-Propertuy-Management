@@ -39,9 +39,9 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
       if (!activeAccountId) return;
       try {
         const nextReports = await listInspectionReports(activeAccountId);
-        if (!cancelled && mountedRef.current) setReports(nextReports);
+        if (!cancelled) setReports(nextReports);
       } catch (err) {
-        if (!cancelled && mountedRef.current) setError(err?.message || "Could not load inspection reports.");
+        if (!cancelled) setError(err?.message || "Could not load inspection reports.");
       }
     }
 
@@ -111,7 +111,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {reports.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white/70 p-5 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400">
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white/70 p-5 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400 md:col-span-2 xl:col-span-3">
             No inspection reports yet. Create a draft report to start an evidence record for a property.
           </div>
         ) : null}

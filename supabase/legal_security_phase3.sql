@@ -212,6 +212,77 @@ create trigger trg_prevent_locked_inspection_item_edits
   before insert or update or delete on public.inspection_evidence_items
   for each row execute function public.prevent_locked_inspection_item_edits();
 
+create or replace function public.create_inspection_report_with_rooms(
+  p_account_id uuid,
+  p_property_id uuid,
+  p_tenant_id uuid,
+  p_inspection_type text,
+  p_title text,
+  p_inspection_date date,
+  p_rooms text[]
+) returns public.inspection_reports
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_report public.inspection_reports;
+begin
+  if not public.user_can_manage_account(p_account_id) then
+    raise exception 'Not authorized to create inspection reports for this account';
+  end if;
+
+  if not exists (
+    select 1 from public.properties p
+    where p.id = p_property_id
+      and p.account_id = p_account_id
+  ) then
+    raise exception 'Property is not available for this account';
+  end if;
+
+  if p_tenant_id is not null and not exists (
+    select 1 from public.tenants t
+    where t.id = p_tenant_id
+      and t.account_id = p_account_id
+      and t.archived_at is null
+  ) then
+    raise exception 'Tenant is not available for this account';
+  end if;
+
+  insert into public.inspection_reports (
+    account_id,
+    property_id,
+    tenant_id,
+    inspection_type,
+    title,
+    inspection_date,
+    created_by
+  ) values (
+    p_account_id,
+    p_property_id,
+    p_tenant_id,
+    coalesce(nullif(p_inspection_type, ''), 'check_in'),
+    coalesce(nullif(trim(p_title), ''), 'Inspection report'),
+    coalesce(p_inspection_date, current_date),
+    auth.uid()
+  )
+  returning * into v_report;
+
+  insert into public.inspection_rooms(account_id, inspection_report_id, room_name, sort_order)
+  select
+    p_account_id,
+    v_report.id,
+    nullif(trim(room_name), ''),
+    (ordinality::integer - 1) * 10
+  from unnest(coalesce(p_rooms, array[]::text[])) with ordinality as room(room_name, ordinality)
+  where nullif(trim(room_name), '') is not null;
+
+  return v_report;
+end;
+$$;
+
+grant execute on function public.create_inspection_report_with_rooms(uuid, uuid, uuid, text, text, date, text[]) to authenticated;
+
 -- ── Maintenance Diagnostics ────────────────────────────────────────────────
 
 create table if not exists public.maintenance_diagnostic_templates (
