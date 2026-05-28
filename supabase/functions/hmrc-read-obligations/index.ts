@@ -62,6 +62,7 @@ Deno.serve(async (req) => {
         typeOfBusiness: businessId ? safeObligationsBusinessType(body.typeOfBusiness || body.type_of_business || profile.testBusinessType) : undefined,
         businessId: businessId || undefined,
       },
+      testScenario: null,
     });
 
     const summary = response.ok ? summarizeObligations(response.body) : { safe_code: response.normalized?.safeCode || "hmrc_error" };

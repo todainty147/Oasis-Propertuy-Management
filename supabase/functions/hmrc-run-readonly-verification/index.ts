@@ -90,6 +90,7 @@ Deno.serve(async (req) => {
         typeOfBusiness: obligationsBusinessId ? obligationsBusinessType : undefined,
         businessId: obligationsBusinessId || undefined,
       },
+      testScenario: null,
     });
     const obligationsSummary = obligations.ok ? summarizeObligations(obligations.body) : { safe_code: obligations.normalized?.safeCode || "hmrc_error" };
     const obligationsStatus = obligations.ok && Number(obligationsSummary.obligationCount || 0) === 0 ? "no_data" : obligations.ok ? "success" : obligations.status === 404 ? "no_data" : "failed";
