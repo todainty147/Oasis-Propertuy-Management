@@ -5,6 +5,7 @@ import {
   createOauthStateExpiry,
   decryptToken,
   encryptToken,
+  ensureSandboxProbeScope,
   generateOauthStateToken,
   isOauthStateExpired,
   normalizeHmrcConnectionStatus,
@@ -29,6 +30,11 @@ describe("HMRC MTD sandbox helpers", () => {
     expect(validateHmrcScopes(["hello", "read:self-assessment"])).toEqual(["hello", "read:self-assessment"]);
     expect(validateHmrcScopes([])).toContain("read:self-assessment");
     expect(() => validateHmrcScopes(["write:self-assessment"])).toThrow(/unsupported hmrc scope/i);
+  });
+
+  it("adds the harmless sandbox probe scope server-side", () => {
+    expect(ensureSandboxProbeScope(["read:self-assessment"])).toEqual(["hello", "read:self-assessment"]);
+    expect(ensureSandboxProbeScope(["hello", "read:self-assessment"])).toEqual(["hello", "read:self-assessment"]);
   });
 
   it("encrypts and decrypts tokens without returning plaintext ciphertext", async () => {

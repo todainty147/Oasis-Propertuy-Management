@@ -16,6 +16,7 @@ import {
 } from "../_shared/hmrcEdge.ts";
 import {
   createOauthStateExpiry,
+  ensureSandboxProbeScope,
   generateOauthStateToken,
   validateHmrcScopes,
 } from "../_shared/hmrcMtd.ts";
@@ -30,7 +31,7 @@ Deno.serve(async (req) => {
     const user = await requireUser(req);
     const body = await req.json().catch(() => ({}));
     const accountId = String(body.account_id || body.accountId || "").trim();
-    const requestedScopes = validateHmrcScopes(body.requested_scopes || body.requestedScopes);
+    const requestedScopes = ensureSandboxProbeScope(validateHmrcScopes(body.requested_scopes || body.requestedScopes));
     await assertHmrcAccountAccess(accountId, user.id, "hmrc_mtd_connection");
     await assertHmrcAccountAccess(accountId, user.id, "hmrc_mtd_sandbox");
 

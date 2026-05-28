@@ -32,6 +32,10 @@ export function validateHmrcScopes(requestedScopes: unknown): string[] {
   return normalized;
 }
 
+export function ensureSandboxProbeScope(scopes: string[]): string[] {
+  return Array.from(new Set(["hello", ...scopes]));
+}
+
 export function generateOauthStateToken(byteLength = 32): string {
   const bytes = new Uint8Array(byteLength);
   crypto.getRandomValues(bytes);

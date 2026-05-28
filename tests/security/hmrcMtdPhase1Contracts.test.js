@@ -79,9 +79,12 @@ describe("HMRC MTD Phase 1 security contracts", () => {
   it("uses the harmless HMRC Hello scope only for the sandbox connection probe", () => {
     const helper = read("supabase/functions/_shared/hmrcMtd.ts");
     const page = read("src/pages/compliance/HmrcConnectionPage.jsx");
+    const startFunction = read("supabase/functions/hmrc-start-oauth/index.ts");
     const testFunction = read("supabase/functions/hmrc-test-readonly-call/index.ts");
     expect(helper).toContain('"hello"');
+    expect(helper).toContain("ensureSandboxProbeScope");
     expect(page).toContain('["hello", "read:self-assessment"]');
+    expect(startFunction).toContain("ensureSandboxProbeScope(validateHmrcScopes");
     expect(testFunction).toContain('scopes.includes("hello")');
     expect(testFunction).toContain("needs_reconnect");
   });
