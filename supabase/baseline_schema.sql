@@ -29988,3 +29988,325 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "service_role";
+
+-- checkatrade_job_trades.sql
+-- Stores the trades array returned by Checkatrade after a successful affiliate job submission.
+-- Each row is one trade matched for a specific external_marketplace_jobs record.
+-- Access is gated exclusively through security-definer RPCs — no direct table access is granted.
+
+create table if not exists public.external_marketplace_job_trades (
+  id uuid primary key default gen_random_uuid(),
+  marketplace_job_id uuid not null references public.external_marketplace_jobs(id) on delete cascade,
+  account_id uuid not null references public.accounts(id) on delete cascade,
+  work_order_id uuid not null references public.work_orders(id) on delete cascade,
+  trade_id text not null default '',
+  name text not null default '',
+  profile_url text not null default '',
+  raw_payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists external_marketplace_job_trades_job_idx
+  on public.external_marketplace_job_trades(marketplace_job_id, created_at);
+
+create index if not exists external_marketplace_job_trades_account_idx
+  on public.external_marketplace_job_trades(account_id, work_order_id);
+
+alter table public.external_marketplace_job_trades enable row level security;
+
+drop policy if exists external_marketplace_job_trades_no_direct_access on public.external_marketplace_job_trades;
+create policy external_marketplace_job_trades_no_direct_access
+on public.external_marketplace_job_trades
+for all
+to authenticated
+using (false)
+with check (false);
+
+create or replace function public.list_marketplace_job_trades(
+  p_account_id uuid,
+  p_marketplace_job_id uuid
+)
+returns setof public.external_marketplace_job_trades
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_account_id uuid;
+begin
+  v_account_id := public.assert_manage_account_access(p_account_id);
+
+  if not exists (
+    select 1
+    from public.external_marketplace_jobs j
+    where j.id = p_marketplace_job_id
+      and j.account_id = v_account_id
+  ) then
+    raise exception 'Marketplace job not found' using errcode = 'P0002';
+  end if;
+
+  return query
+  select t.*
+  from public.external_marketplace_job_trades t
+  where t.marketplace_job_id = p_marketplace_job_id
+    and t.account_id = v_account_id
+  order by t.created_at;
+end;
+$$;
+
+create or replace function public.edge_store_marketplace_job_trades(
+  p_account_id uuid,
+  p_marketplace_job_id uuid,
+  p_work_order_id uuid,
+  p_trades jsonb
+)
+returns setof public.external_marketplace_job_trades
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_trade jsonb;
+begin
+  if p_trades is null or jsonb_typeof(p_trades) <> 'array' then
+    raise exception 'p_trades must be a JSON array';
+  end if;
+
+  delete from public.external_marketplace_job_trades t
+  where t.marketplace_job_id = p_marketplace_job_id
+    and t.account_id = p_account_id;
+
+  if jsonb_array_length(p_trades) = 0 then
+    return;
+  end if;
+
+  for v_trade in select * from jsonb_array_elements(p_trades) loop
+    insert into public.external_marketplace_job_trades (
+      marketplace_job_id,
+      account_id,
+      work_order_id,
+      trade_id,
+      name,
+      profile_url,
+      raw_payload
+    )
+    values (
+      p_marketplace_job_id,
+      p_account_id,
+      p_work_order_id,
+      coalesce(nullif(trim(v_trade->>'id'), ''), ''),
+      coalesce(nullif(trim(v_trade->>'name'), ''), ''),
+      coalesce(nullif(trim(v_trade->>'profileURL'), ''), ''),
+      v_trade
+    );
+  end loop;
+
+  return query
+  select t.*
+  from public.external_marketplace_job_trades t
+  where t.marketplace_job_id = p_marketplace_job_id
+    and t.account_id = p_account_id
+  order by t.created_at;
+end;
+$$;
+
+grant execute on function public.list_marketplace_job_trades(uuid, uuid) to authenticated;
+grant execute on function public.edge_store_marketplace_job_trades(uuid, uuid, uuid, jsonb) to service_role;
+
+-- tax_tools_phase2.sql
+-- Phase 2 landlord tax tools: isolated, account-scoped record-keeping tables.
+
+create extension if not exists pgcrypto;
+
+create or replace function public.tax_tools_set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create table if not exists public.tax_expense_classifications (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts(id) on delete cascade,
+  property_id uuid references public.properties(id) on delete set null,
+  source_type text not null default 'manual',
+  source_id uuid,
+  tax_year text not null,
+  expense_date date not null,
+  amount numeric(12,2) not null,
+  description text not null,
+  category text not null,
+  mtd_ready boolean not null default false,
+  confidence text not null default 'manual',
+  notes text,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.tax_finance_cost_summaries (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts(id) on delete cascade,
+  property_id uuid references public.properties(id) on delete set null,
+  tax_year text not null,
+  rental_income numeric(12,2) not null default 0,
+  non_finance_expenses numeric(12,2) not null default 0,
+  finance_costs numeric(12,2) not null default 0,
+  taxable_property_profit_before_finance numeric(12,2) not null default 0,
+  estimated_basic_rate_credit numeric(12,2) not null default 0,
+  estimated_unused_finance_costs numeric(12,2) not null default 0,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(account_id, property_id, tax_year)
+);
+
+create table if not exists public.tax_carried_forward_finance_costs (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts(id) on delete cascade,
+  property_id uuid references public.properties(id) on delete set null,
+  tax_year text not null,
+  brought_forward_amount numeric(12,2) not null default 0,
+  finance_costs_this_year numeric(12,2) not null default 0,
+  used_amount numeric(12,2) not null default 0,
+  carried_forward_amount numeric(12,2) not null default 0,
+  notes text,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(account_id, property_id, tax_year)
+);
+
+create table if not exists public.tax_year_summaries (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts(id) on delete cascade,
+  property_id uuid references public.properties(id) on delete set null,
+  tax_year text not null,
+  readiness_score integer not null default 0 check (readiness_score between 0 and 100),
+  qualifying_income numeric(12,2) not null default 0,
+  mtd_threshold_status text not null default 'under_threshold',
+  notes text,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(account_id, property_id, tax_year)
+);
+
+create table if not exists public.tax_tool_audit_log (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete set null default auth.uid(),
+  action text not null,
+  entity_type text,
+  entity_id uuid,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_tax_expense_classifications_account_year
+  on public.tax_expense_classifications(account_id, tax_year, expense_date desc);
+create index if not exists idx_tax_expense_classifications_property
+  on public.tax_expense_classifications(account_id, property_id)
+  where property_id is not null;
+create index if not exists idx_tax_finance_cost_summaries_account_year
+  on public.tax_finance_cost_summaries(account_id, tax_year);
+create index if not exists idx_tax_carried_forward_account_year
+  on public.tax_carried_forward_finance_costs(account_id, tax_year);
+create index if not exists idx_tax_year_summaries_account_year
+  on public.tax_year_summaries(account_id, tax_year);
+create index if not exists idx_tax_tool_audit_log_account_created
+  on public.tax_tool_audit_log(account_id, created_at desc);
+
+drop trigger if exists trg_tax_expense_classifications_updated_at on public.tax_expense_classifications;
+create trigger trg_tax_expense_classifications_updated_at
+  before update on public.tax_expense_classifications
+  for each row execute function public.tax_tools_set_updated_at();
+
+drop trigger if exists trg_tax_finance_cost_summaries_updated_at on public.tax_finance_cost_summaries;
+create trigger trg_tax_finance_cost_summaries_updated_at
+  before update on public.tax_finance_cost_summaries
+  for each row execute function public.tax_tools_set_updated_at();
+
+drop trigger if exists trg_tax_carried_forward_finance_costs_updated_at on public.tax_carried_forward_finance_costs;
+create trigger trg_tax_carried_forward_finance_costs_updated_at
+  before update on public.tax_carried_forward_finance_costs
+  for each row execute function public.tax_tools_set_updated_at();
+
+drop trigger if exists trg_tax_year_summaries_updated_at on public.tax_year_summaries;
+create trigger trg_tax_year_summaries_updated_at
+  before update on public.tax_year_summaries
+  for each row execute function public.tax_tools_set_updated_at();
+
+alter table public.tax_expense_classifications enable row level security;
+alter table public.tax_finance_cost_summaries enable row level security;
+alter table public.tax_carried_forward_finance_costs enable row level security;
+alter table public.tax_year_summaries enable row level security;
+alter table public.tax_tool_audit_log enable row level security;
+
+drop policy if exists "Managers can read tax expense classifications" on public.tax_expense_classifications;
+create policy "Managers can read tax expense classifications"
+  on public.tax_expense_classifications
+  for select to authenticated
+  using (public.user_can_manage_account(account_id));
+
+drop policy if exists "Managers can insert tax expense classifications" on public.tax_expense_classifications;
+create policy "Managers can insert tax expense classifications"
+  on public.tax_expense_classifications
+  for insert to authenticated
+  with check (public.user_can_manage_account(account_id));
+
+drop policy if exists "Managers can update tax expense classifications" on public.tax_expense_classifications;
+create policy "Managers can update tax expense classifications"
+  on public.tax_expense_classifications
+  for update to authenticated
+  using (public.user_can_manage_account(account_id))
+  with check (public.user_can_manage_account(account_id));
+
+drop policy if exists "Managers can delete tax expense classifications" on public.tax_expense_classifications;
+create policy "Managers can delete tax expense classifications"
+  on public.tax_expense_classifications
+  for delete to authenticated
+  using (public.user_can_manage_account(account_id));
+
+drop policy if exists "Managers can manage tax finance cost summaries" on public.tax_finance_cost_summaries;
+create policy "Managers can manage tax finance cost summaries"
+  on public.tax_finance_cost_summaries
+  for all to authenticated
+  using (public.user_can_manage_account(account_id))
+  with check (public.user_can_manage_account(account_id));
+
+drop policy if exists "Managers can manage carried forward finance costs" on public.tax_carried_forward_finance_costs;
+create policy "Managers can manage carried forward finance costs"
+  on public.tax_carried_forward_finance_costs
+  for all to authenticated
+  using (public.user_can_manage_account(account_id))
+  with check (public.user_can_manage_account(account_id));
+
+drop policy if exists "Managers can manage tax year summaries" on public.tax_year_summaries;
+create policy "Managers can manage tax year summaries"
+  on public.tax_year_summaries
+  for all to authenticated
+  using (public.user_can_manage_account(account_id))
+  with check (public.user_can_manage_account(account_id));
+
+drop policy if exists "Managers can read tax tool audit log" on public.tax_tool_audit_log;
+create policy "Managers can read tax tool audit log"
+  on public.tax_tool_audit_log
+  for select to authenticated
+  using (public.user_can_manage_account(account_id));
+
+drop policy if exists "Managers can insert tax tool audit log" on public.tax_tool_audit_log;
+create policy "Managers can insert tax tool audit log"
+  on public.tax_tool_audit_log
+  for insert to authenticated
+  with check (public.user_can_manage_account(account_id));
+
+grant select, insert, update, delete on public.tax_expense_classifications to authenticated;
+grant select, insert, update, delete on public.tax_finance_cost_summaries to authenticated;
+grant select, insert, update, delete on public.tax_carried_forward_finance_costs to authenticated;
+grant select, insert, update, delete on public.tax_year_summaries to authenticated;
+grant select, insert on public.tax_tool_audit_log to authenticated;
