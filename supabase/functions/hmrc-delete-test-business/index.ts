@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
         status: "blocked",
         message: "Save a sandbox NINO and create a test business before deleting it.",
         safeCode: "missing_test_identifier",
-      }, 400);
+      });
     }
 
     const response = await hmrcRequest({
@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
         hmrcStatusCode: response.status,
         hmrcCode: response.normalized?.hmrcCode || null,
         safeCode: response.normalized?.safeCode || "hmrc_error",
-      }, response.status >= 400 && response.status < 500 ? 400 : 502);
+      });
     }
 
     const updated = await updateSandboxProfile(connection, {

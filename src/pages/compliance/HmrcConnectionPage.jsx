@@ -168,11 +168,15 @@ export default function HmrcConnectionPage() {
     try {
       setBusyAction(action);
       setError("");
+      setTestDataResult(null);
       const next = await runner(activeAccountId, { taxYear: testTaxYear, typeOfBusiness: testBusinessType });
       setTestDataResult(next);
       await load();
     } catch (err) {
-      setError(err?.message || "Could not update HMRC sandbox test data.");
+      setTestDataResult({
+        status: "failed",
+        message: err?.message || "Could not update HMRC sandbox test data. Check the Edge Function deployment and HMRC sandbox scopes.",
+      });
     } finally {
       setBusyAction("");
     }
