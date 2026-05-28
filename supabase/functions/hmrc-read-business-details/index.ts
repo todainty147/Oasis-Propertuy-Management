@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
     const response = await hmrcRequest({
       accountId,
       connection,
-      path: `/individuals/business/details/${encodeURIComponent(profile.nino)}`,
+      path: `/individuals/business/details/${encodeURIComponent(profile.nino)}/list`,
       accept: HMRC_ACCEPT_HEADERS.businessDetails,
       action: "hmrc.read_business_details",
       userId: user.id,

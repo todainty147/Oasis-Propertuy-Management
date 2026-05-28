@@ -13,6 +13,7 @@ export {
   normalizeHmrcError,
   normalizeSandboxNino,
   normalizeTestBusinessType,
+  safeObligationsBusinessType,
   safeTaxYear,
   summarizeBusinessDetails,
   summarizeObligations,
@@ -23,6 +24,7 @@ import {
   normalizeHmrcError,
   normalizeSandboxNino,
   normalizeTestBusinessType,
+  safeObligationsBusinessType,
   taxYearAccountingPeriod,
 } from "./hmrcMtdReadOnlyHelpers.ts";
 
@@ -73,7 +75,7 @@ export async function persistDiscoveredIncomeSourceId(connection: Record<string,
   const profile = metadata.sandbox_profile && typeof metadata.sandbox_profile === "object"
     ? metadata.sandbox_profile as Record<string, unknown>
     : {};
-  if (profile.income_source_id) return;
+  if (profile.income_source_id === id) return;
   await admin
     .from("hmrc_connections")
     .update({

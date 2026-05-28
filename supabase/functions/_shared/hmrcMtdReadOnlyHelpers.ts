@@ -18,7 +18,18 @@ export function maskNino(value: unknown) {
 export function normalizeHmrcError(status: number, body: Record<string, unknown> = {}) {
   const code = String(body.code || body.errorCode || "").trim();
   const message = String(body.message || body.error_description || "").trim();
-  if (status === 400) return { safeCode: "missing_test_identifier", hmrcCode: code || "BAD_REQUEST", message: "Add or check the sandbox test identifier for this HMRC check." };
+  if (status === 400) {
+    const safeCode = code
+      ? code.toLowerCase()
+      : "bad_request";
+    return {
+      safeCode,
+      hmrcCode: code || "BAD_REQUEST",
+      message: message
+        ? `HMRC rejected the sandbox request: ${message}`
+        : "HMRC rejected the sandbox request. Check the identifier, business ID, business type and date range.",
+    };
+  }
   if (status === 401) return { safeCode: "token_expired", hmrcCode: code || "UNAUTHORIZED", message: "The HMRC sandbox token is expired or invalid. Refresh or reconnect HMRC." };
   if (status === 403) return { safeCode: "insufficient_scope", hmrcCode: code || "FORBIDDEN", message: "The OAuth token does not include the required scope or API authorisation for this read-only check." };
   if (status === 404) return { safeCode: "connected_but_no_data", hmrcCode: code || "MATCHING_RESOURCE_NOT_FOUND", message: "HMRC responded successfully but no matching sandbox data was found." };
@@ -27,7 +38,11 @@ export function normalizeHmrcError(status: number, body: Record<string, unknown>
 }
 
 export function summarizeBusinessDetails(body: Record<string, unknown>) {
-  const businesses = Array.isArray(body.businesses) ? body.businesses : [];
+  const businesses = Array.isArray(body.listOfBusinesses)
+    ? body.listOfBusinesses
+    : Array.isArray(body.businesses)
+      ? body.businesses
+      : [];
   const propertyBusinesses = businesses.filter((business) => {
     const text = JSON.stringify(business).toLowerCase();
     return text.includes("property");
@@ -79,6 +94,13 @@ export function taxYearAccountingPeriod(taxYear: string) {
     startDate: `${startYear}-04-06`,
     endDate: `${startYear + 1}-04-05`,
   };
+}
+
+export function safeObligationsBusinessType(value: unknown) {
+  const type = normalizeTestBusinessType(value);
+  if (type === "foreign-property") return "foreign-property";
+  if (type === "self-employment") return "self-employment";
+  return "uk-property";
 }
 
 export function normalizeTestBusinessType(value: unknown) {

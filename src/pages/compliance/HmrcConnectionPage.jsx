@@ -516,11 +516,21 @@ function CheckButton({ label, action, busyAction, disabled, onClick }) {
 }
 
 function CheckResult({ check }) {
+  const safeCode = check.summary?.safeCode || check.summary?.safe_code || "";
+  const hmrcCode = check.hmrcCode || check.hmrc_code || "";
+  const hmrcStatus = check.hmrcStatusCode || check.hmrc_status_code || "";
   return (
     <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{String(check.checkType || check.check_type || "").replace(/_/g, " ")}</p>
       <p className="mt-1 font-medium capitalize">{check.status}</p>
-      <p className="mt-1 text-xs text-slate-500">{check.message || check.hmrc_code || check.summary?.safeCode || "Safe summary stored."}</p>
+      <p className="mt-1 text-xs text-slate-500">{check.message || hmrcCode || safeCode || "Safe summary stored."}</p>
+      {hmrcCode || hmrcStatus || safeCode ? (
+        <p className="mt-2 text-[11px] uppercase tracking-wide text-slate-400">
+          {hmrcStatus ? `HTTP ${hmrcStatus}` : ""}
+          {hmrcStatus && hmrcCode ? " · " : ""}
+          {hmrcCode || safeCode}
+        </p>
+      ) : null}
     </div>
   );
 }

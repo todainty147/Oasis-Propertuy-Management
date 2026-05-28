@@ -82,7 +82,8 @@ describe("HMRC MTD sandbox helpers", () => {
   });
 
   it("normalizes HMRC read-only errors into safe frontend codes", () => {
-    expect(normalizeHmrcError(400, { code: "FORMAT_NINO" }).safeCode).toBe("missing_test_identifier");
+    expect(normalizeHmrcError(400, { code: "FORMAT_NINO" }).safeCode).toBe("format_nino");
+    expect(normalizeHmrcError(400, { code: "FORMAT_BUSINESS_ID", message: "The provided Business ID is invalid" }).message).toContain("Business ID");
     expect(normalizeHmrcError(401, {}).safeCode).toBe("token_expired");
     expect(normalizeHmrcError(403, {}).safeCode).toBe("insufficient_scope");
     expect(normalizeHmrcError(404, { code: "MATCHING_RESOURCE_NOT_FOUND" }).safeCode).toBe("connected_but_no_data");
