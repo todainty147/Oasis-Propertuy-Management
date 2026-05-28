@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
         status: "blocked",
         message: "Save a sandbox NINO before creating HMRC sandbox test data.",
         safeCode: "missing_test_identifier",
-      }, 400);
+      });
     }
 
     const taxYear = safeTaxYear(body.taxYear || body.tax_year || profile.testTaxYear || "2026-27");
@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
         hmrcStatusCode: response.status,
         hmrcCode: response.normalized?.hmrcCode || null,
         safeCode: response.normalized?.safeCode || "hmrc_error",
-      }, response.status >= 400 && response.status < 500 ? 400 : 502);
+      });
     }
 
     const businessId = String(response.body.businessId || "").trim();
