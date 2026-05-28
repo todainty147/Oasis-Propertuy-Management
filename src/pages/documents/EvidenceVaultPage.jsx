@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCircle2, Download, FileText, Lock, Paperclip, Plus, Save, Upload } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Archive, CheckCircle2, Download, FileText, Lock, Paperclip, Plus, Save, Upload } from "lucide-react";
 
 import { useAccount } from "../../context/AccountContext";
 import { ENTITLEMENT_FEATURES } from "../../lib/entitlements";
 import { fetchDocuments, uploadDocument } from "../../services/documentService";
 import {
+  archiveInspectionReport,
   attachInspectionEvidenceFile,
   createInspectionEvidenceItem,
   createInspectionReport,
@@ -17,6 +18,7 @@ import {
 
 const DEFAULT_ROOM_TYPES = ["Entrance / hallway", "Kitchen", "Living room", "Bedroom", "Bathroom", "Garden / exterior", "Meters", "Keys", "Appliances"];
 const CONDITION_OPTIONS = ["excellent", "good", "fair", "poor", "damaged", "needs_review"];
+const REPORT_PAGE_SIZE = 12;
 
 function sortByOrder(rows = []) {
   return rows.slice().sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
@@ -43,8 +45,12 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [itemDrafts, setItemDrafts] = useState({});
   const [savingRoomId, setSavingRoomId] = useState("");
+  const [savingItemId, setSavingItemId] = useState("");
+  const [savedItemId, setSavedItemId] = useState("");
   const [uploadingItemId, setUploadingItemId] = useState("");
   const [documents, setDocuments] = useState([]);
+  const [reportStatusFilter, setReportStatusFilter] = useState("active");
+  const [reportPage, setReportPage] = useState(1);
   const [signatureForm, setSignatureForm] = useState({ signerType: "landlord", signerName: "" });
   const [form, setForm] = useState({
     title: "Check-in inspection",
@@ -58,6 +64,18 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   const builderRef = useRef(null);
   const selectedPropertyId = selectedReport?.property_id || null;
   const selectedTenantId = selectedReport?.tenant_id || null;
+  const propertyById = useMemo(() => Object.fromEntries(properties.map((property) => [property.id, property])), [properties]);
+  const tenantById = useMemo(() => Object.fromEntries(tenants.map((tenant) => [tenant.id, tenant])), [tenants]);
+
+  function propertyLabel(propertyId) {
+    const property = propertyById[propertyId];
+    return property?.address || property?.name || propertyId || "No property selected";
+  }
+
+  function tenantLabel(tenantId) {
+    const tenant = tenantById[tenantId];
+    return tenant?.name || tenant?.email || tenantId || "No tenant linked";
+  }
 
   const loadReportDetail = useCallback(async (reportId) => {
     if (!activeAccountId || !reportId) {
@@ -168,6 +186,22 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
     }
   }
 
+  async function handleArchive(report) {
+    const confirmed = window.confirm("Archive this inspection report? You can still view it from the archived filter.");
+    if (!confirmed) return;
+    try {
+      setError("");
+      await archiveInspectionReport(report.id, activeAccountId);
+      if (selectedReportId === report.id) {
+        setSelectedReportId("");
+        setSelectedReport(null);
+      }
+      await load();
+    } catch (err) {
+      setError(err?.message || "Could not archive inspection report.");
+    }
+  }
+
   function updateItemDraft(roomId, patch) {
     setItemDrafts((current) => ({
       ...current,
@@ -194,12 +228,17 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
 
   async function handleUpdateEvidenceItem(item, patch) {
     try {
+      setSavingItemId(item.id);
+      setSavedItemId("");
       setError("");
       await updateInspectionEvidenceItem(activeAccountId, item.id, patch);
       setSelectedReport((current) => updateEvidenceItemInReport(current, item.id, patch));
+      setSavedItemId(item.id);
     } catch (err) {
       setError(err?.message || "Could not update evidence item.");
       await loadReportDetail(selectedReportId).catch(() => {});
+    } finally {
+      setSavingItemId("");
     }
   }
 
@@ -226,7 +265,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
         accountId: activeAccountId,
         propertyId: selectedReport.property_id || null,
         tenantId: selectedReport.tenant_id || null,
-        tags: ["evidence-vault", selectedReport.inspection_type],
+        tags: ["PROTOKOL"],
       });
       try {
         await attachInspectionEvidenceFile(activeAccountId, item.id, {
@@ -278,8 +317,15 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
     }
   }
 
+  const filteredReports = useMemo(() => reports.filter((report) => {
+    if (reportStatusFilter === "active") return report.status !== "archived";
+    return report.status === reportStatusFilter;
+  }), [reports, reportStatusFilter]);
+  const totalReportPages = Math.max(1, Math.ceil(filteredReports.length / REPORT_PAGE_SIZE));
+  const safeReportPage = Math.min(reportPage, totalReportPages);
+  const pagedReports = filteredReports.slice((safeReportPage - 1) * REPORT_PAGE_SIZE, safeReportPage * REPORT_PAGE_SIZE);
   const reportRooms = sortByOrder(selectedReport?.inspection_rooms || []);
-  const selectedReportLocked = selectedReport?.status === "locked";
+  const selectedReportLocked = selectedReport?.status === "locked" || selectedReport?.status === "archived";
 
   return (
     <div className="space-y-6">
@@ -320,19 +366,35 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
         <button type="submit" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white dark:bg-slate-100 dark:text-slate-900"><Plus size={16} /> Create draft report</button>
       </form>
 
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="font-semibold text-slate-950 dark:text-slate-50">Inspection reports</h2>
+            <p className="text-sm text-slate-500">{filteredReports.length} reports shown</p>
+          </div>
+          <select value={reportStatusFilter} onChange={(event) => { setReportStatusFilter(event.target.value); setReportPage(1); }} className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950">
+            <option value="active">Active reports</option>
+            <option value="draft">Draft</option>
+            <option value="locked">Locked</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {reports.length === 0 ? (
+        {filteredReports.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white/70 p-5 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400 md:col-span-2 xl:col-span-3">
-            No inspection reports yet. Create a draft report to start an evidence record for a property.
+            No inspection reports in this view. Create a draft report or change the status filter.
           </div>
         ) : null}
-        {reports.map((report) => (
+        {pagedReports.map((report) => (
           <div key={report.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-slate-950 dark:text-slate-50">{report.title}</h2>
               <span className="rounded-full bg-slate-100 px-2 py-1 text-xs dark:bg-slate-800">{report.status}</span>
             </div>
-            <p className="mt-2 text-sm text-slate-500">{report.inspection_type} · {report.inspection_date}</p>
+            <p className="mt-2 text-sm text-slate-500">{propertyLabel(report.property_id)} · {tenantLabel(report.tenant_id)}</p>
+            <p className="mt-1 text-sm text-slate-500">{report.inspection_type} · {report.inspection_date}</p>
             <div className="mt-4">
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Evidence sections</p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -348,12 +410,21 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <button type="button" onClick={() => setSelectedReportId(report.id)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium dark:border-slate-700"><FileText size={14} /> Open builder</button>
-              <button type="button" disabled={report.status === "locked"} onClick={() => handleLock(report)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Lock size={14} /> Lock report</button>
+              <button type="button" disabled={report.status === "locked" || report.status === "archived"} onClick={() => handleLock(report)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Lock size={14} /> Lock report</button>
+              <button type="button" disabled={report.status === "archived"} onClick={() => handleArchive(report)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Archive size={14} /> Archive</button>
               <button type="button" disabled={!hasEntitlement(ENTITLEMENT_FEATURES.EVIDENCE_VAULT_PDF_EXPORT)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Download size={14} /> Print/PDF placeholder</button>
             </div>
           </div>
         ))}
       </div>
+
+      {filteredReports.length > REPORT_PAGE_SIZE ? (
+        <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-900">
+          <button type="button" disabled={safeReportPage === 1} onClick={() => setReportPage((page) => Math.max(1, page - 1))} className="rounded-lg border border-slate-200 px-3 py-2 disabled:opacity-50 dark:border-slate-700">Previous</button>
+          <span className="text-slate-500">Page {safeReportPage} of {totalReportPages}</span>
+          <button type="button" disabled={safeReportPage === totalReportPages} onClick={() => setReportPage((page) => Math.min(totalReportPages, page + 1))} className="rounded-lg border border-slate-200 px-3 py-2 disabled:opacity-50 dark:border-slate-700">Next</button>
+        </div>
+      ) : null}
 
       {selectedReport ? (
         <section ref={builderRef} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -361,10 +432,12 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">Inspection builder</p>
               <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-slate-50">{selectedReport.title}</h2>
+              <p className="mt-1 text-sm text-slate-500">{propertyLabel(selectedReport.property_id)} · {tenantLabel(selectedReport.tenant_id)}</p>
               <p className="mt-1 text-sm text-slate-500">{selectedReport.inspection_type} · {selectedReport.inspection_date} · {selectedReport.status}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button type="button" disabled={selectedReportLocked} onClick={() => handleLock(selectedReport)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Lock size={14} /> Lock report</button>
+              <button type="button" disabled={selectedReport?.status === "archived"} onClick={() => handleArchive(selectedReport)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Archive size={14} /> Archive</button>
               <button type="button" disabled={!hasEntitlement(ENTITLEMENT_FEATURES.EVIDENCE_VAULT_PDF_EXPORT)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Download size={14} /> Print/PDF placeholder</button>
             </div>
           </div>
@@ -401,8 +474,8 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
                             </select>
                           </div>
                           <div className="mt-3 flex flex-col gap-2 md:flex-row">
-                            <textarea name="notes" disabled={selectedReportLocked} defaultValue={item.notes || ""} placeholder="Notes" className="min-h-20 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900" />
-                            <button type="submit" disabled={selectedReportLocked} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium disabled:opacity-60 dark:border-slate-700"><Save size={14} /> Save notes</button>
+                            <textarea name="notes" disabled={selectedReportLocked} defaultValue={item.notes || ""} onChange={() => setSavedItemId("")} placeholder="Notes" className="min-h-20 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900" />
+                            <button type="submit" disabled={selectedReportLocked || savingItemId === item.id} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium disabled:opacity-60 dark:border-slate-700"><Save size={14} /> {savingItemId === item.id ? "Saving..." : savedItemId === item.id ? "Saved" : "Save notes"}</button>
                           </div>
                           <div className="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                             <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium dark:border-slate-700">
