@@ -458,13 +458,17 @@ function SidebarContent({ onNavigate }) {
                   onNavigate={onNavigate}
                 />
               )}
-              {canManage && hasEntitlement(ENTITLEMENT_FEATURES.EVIDENCE_VAULT) && (
-                <Item
-                  to="/documents/evidence-vault"
-                  icon={ShieldCheck}
-                  label={t("sidebar.evidenceVault")}
-                  onNavigate={onNavigate}
-                />
+              {canManage && (
+                hasEntitlement(ENTITLEMENT_FEATURES.EVIDENCE_VAULT) ? (
+                  <Item
+                    to="/documents/evidence-vault"
+                    icon={ShieldCheck}
+                    label={t("sidebar.evidenceVault")}
+                    onNavigate={onNavigate}
+                  />
+                ) : (
+                  <LockedItem to="/documents/evidence-vault" icon={ShieldCheck} label={t("sidebar.evidenceVault")} onNavigate={onNavigate} />
+                )
               )}
             </Section>
 
@@ -487,8 +491,10 @@ function SidebarContent({ onNavigate }) {
                 {hasEntitlement(ENTITLEMENT_FEATURES.PORTFOLIO_HEALTH) && (
                   <Item to="/portfolio-health" icon={LineChart}   label={t("sidebar.portfolioHealth")} onNavigate={onNavigate} />
                 )}
-                {(hasEntitlement(ENTITLEMENT_FEATURES.TENANT_APPLICATION_LINKS) || hasEntitlement(ENTITLEMENT_FEATURES.APPLICANT_PRESCREENING_DASHBOARD)) && (
+                {(hasEntitlement(ENTITLEMENT_FEATURES.TENANT_APPLICATION_LINKS) || hasEntitlement(ENTITLEMENT_FEATURES.APPLICANT_PRESCREENING_DASHBOARD)) ? (
                   <Item to="/applications" icon={UserPlus} label={t("sidebar.applications")} onNavigate={onNavigate} />
+                ) : (
+                  <LockedItem to="/applications" icon={UserPlus} label={t("sidebar.applications")} onNavigate={onNavigate} />
                 )}
               </Section>
             )}

@@ -81,7 +81,7 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
         <div className="space-y-3">
           {items.length === 0 ? (
             <div className={panelClass()}>
-              <p className="text-sm text-slate-500">No Compliance Safe checklist items yet. Apply the Phase 3 seed and create tenancy checklist rows to populate this view.</p>
+              <p className="text-sm text-slate-500">No compliance checklist items yet. Items will appear here once a compliance template has been set up for a tenancy.</p>
             </div>
           ) : items.map((item) => (
             <div key={item.id} className={panelClass()}>

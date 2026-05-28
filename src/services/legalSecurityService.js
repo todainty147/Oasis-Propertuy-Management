@@ -59,9 +59,7 @@ export async function updateComplianceSafeItem(id, accountId, patch = {}) {
     status: patch.status,
     notes: patch.notes,
   };
-  if (Object.prototype.hasOwnProperty.call(patch, "expiresAt")) nextPatch.expires_at = patch.expiresAt || null;
   if (Object.prototype.hasOwnProperty.call(patch, "expires_at")) nextPatch.expires_at = patch.expires_at || null;
-  if (Object.prototype.hasOwnProperty.call(patch, "evidenceDocumentId")) nextPatch.evidence_document_id = patch.evidenceDocumentId || null;
   if (Object.prototype.hasOwnProperty.call(patch, "evidence_document_id")) nextPatch.evidence_document_id = patch.evidence_document_id || null;
   Object.keys(nextPatch).forEach((key) => nextPatch[key] === undefined && delete nextPatch[key]);
   if (["logged", "acknowledged"].includes(nextPatch.status)) nextPatch.completed_at = new Date().toISOString();

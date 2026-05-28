@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, Lock, Plus } from "lucide-react";
 
 import { useAccount } from "../../context/AccountContext";
+import { ENTITLEMENT_FEATURES } from "../../lib/entitlements";
 import { createInspectionReport, listInspectionReports, lockInspectionReport } from "../../services/legalSecurityService";
 
-const ROOM_TEMPLATES = ["Entrance / hallway", "Kitchen", "Living room", "Bedroom", "Bathroom", "Garden / exterior", "Meters", "Keys", "Appliances"];
+const EXAMPLE_ROOM_TYPES = ["Entrance / hallway", "Kitchen", "Living room", "Bedroom", "Bathroom", "Garden / exterior", "Meters", "Keys", "Appliances"];
 
 export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   const { activeAccountId, hasEntitlement } = useAccount();
@@ -17,26 +18,26 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
     inspectionDate: new Date().toISOString().slice(0, 10),
   });
   const [error, setError] = useState("");
+  const mountedRef = useRef(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!activeAccountId) return;
-    setReports(await listInspectionReports(activeAccountId));
-  }
+    try {
+      const nextReports = await listInspectionReports(activeAccountId);
+      if (mountedRef.current) setReports(nextReports);
+    } catch (err) {
+      if (mountedRef.current) setError(err?.message || "Could not load inspection reports.");
+      throw err;
+    }
+  }, [activeAccountId]);
 
   useEffect(() => {
-    let cancelled = false;
-    if (!activeAccountId) return () => { cancelled = true; };
-
-    listInspectionReports(activeAccountId)
-      .then((nextReports) => {
-        if (!cancelled) setReports(nextReports);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err?.message || "Could not load inspection reports.");
-      });
-
-    return () => { cancelled = true; };
-  }, [activeAccountId]);
+    mountedRef.current = true;
+    queueMicrotask(() => {
+      load().catch(() => {});
+    });
+    return () => { mountedRef.current = false; };
+  }, [load]);
 
   async function handleCreate(event) {
     event.preventDefault();
@@ -50,8 +51,13 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   }
 
   async function handleLock(report) {
-    await lockInspectionReport(report.id, activeAccountId);
-    await load();
+    try {
+      setError("");
+      await lockInspectionReport(report.id, activeAccountId);
+      await load();
+    } catch (err) {
+      if (mountedRef.current) setError(err?.message || "Could not lock inspection report.");
+    }
   }
 
   return (
@@ -83,8 +89,11 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
           </select>
           <input type="date" value={form.inspectionDate} onChange={(e) => setForm((f) => ({ ...f, inspectionDate: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" />
         </div>
-        <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
-          {ROOM_TEMPLATES.map((room) => <span key={room} className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">{room}</span>)}
+        <div className="mt-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Example room types</p>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+            {EXAMPLE_ROOM_TYPES.map((room) => <span key={room} className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">{room}</span>)}
+          </div>
         </div>
         <button type="submit" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white dark:bg-slate-100 dark:text-slate-900"><Plus size={16} /> Create draft report</button>
       </form>
@@ -99,7 +108,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
             <p className="mt-2 text-sm text-slate-500">{report.inspection_type} · {report.inspection_date}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               <button type="button" disabled={report.status === "locked"} onClick={() => handleLock(report)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Lock size={14} /> Lock report</button>
-              <button type="button" disabled={!hasEntitlement("evidence_vault_pdf_export")} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Download size={14} /> Print/PDF placeholder</button>
+              <button type="button" disabled={!hasEntitlement(ENTITLEMENT_FEATURES.EVIDENCE_VAULT_PDF_EXPORT)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Download size={14} /> Print/PDF placeholder</button>
             </div>
           </div>
         ))}

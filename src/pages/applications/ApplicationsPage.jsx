@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ExternalLink, Plus } from "lucide-react";
 
 import { useAccount } from "../../context/AccountContext";
@@ -8,7 +8,6 @@ import {
   listRentalApplications,
   updateRentalApplicationStatus,
 } from "../../services/legalSecurityService";
-import { scoreRentalApplication } from "../../lib/applicantScoring";
 
 export default function ApplicationsPage({ properties = [] }) {
   const { activeAccountId } = useAccount();
@@ -16,36 +15,31 @@ export default function ApplicationsPage({ properties = [] }) {
   const [applications, setApplications] = useState([]);
   const [form, setForm] = useState({ propertyId: "", title: "Rental application", monthlyRent: "", availableFrom: "" });
   const [error, setError] = useState("");
+  const mountedRef = useRef(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!activeAccountId) return;
-    const [nextLinks, nextApplications] = await Promise.all([
-      listPropertyApplicationLinks(activeAccountId),
-      listRentalApplications(activeAccountId),
-    ]);
-    setLinks(nextLinks);
-    setApplications(nextApplications);
-  }
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!activeAccountId) return () => { cancelled = true; };
-
-    Promise.all([
-      listPropertyApplicationLinks(activeAccountId),
-      listRentalApplications(activeAccountId),
-    ]).then(([nextLinks, nextApplications]) => {
-      if (cancelled) return;
+    try {
+      const [nextLinks, nextApplications] = await Promise.all([
+        listPropertyApplicationLinks(activeAccountId),
+        listRentalApplications(activeAccountId),
+      ]);
+      if (!mountedRef.current) return;
       setLinks(nextLinks);
       setApplications(nextApplications);
-    }).catch((err) => {
-      if (!cancelled) setError(err?.message || "Could not load application links.");
-    });
-
-    return () => { cancelled = true; };
+    } catch (err) {
+      if (mountedRef.current) setError(err?.message || "Could not load application links.");
+      throw err;
+    }
   }, [activeAccountId]);
 
-  const linkById = useMemo(() => Object.fromEntries(links.map((link) => [link.id, link])), [links]);
+  useEffect(() => {
+    mountedRef.current = true;
+    queueMicrotask(() => {
+      load().catch(() => {});
+    });
+    return () => { mountedRef.current = false; };
+  }, [load]);
 
   async function handleCreate(event) {
     event.preventDefault();
@@ -65,8 +59,13 @@ export default function ApplicationsPage({ properties = [] }) {
   }
 
   async function setStatus(application, status) {
-    await updateRentalApplicationStatus(activeAccountId, application.id, status);
-    await load();
+    try {
+      setError("");
+      await updateRentalApplicationStatus(activeAccountId, application.id, status);
+      await load();
+    } catch (err) {
+      if (mountedRef.current) setError(err?.message || "Could not update application status.");
+    }
   }
 
   return (
@@ -111,13 +110,11 @@ export default function ApplicationsPage({ properties = [] }) {
             <thead className="text-xs uppercase text-slate-500"><tr><th className="py-2">Applicant</th><th>Status</th><th>Pre-screening match</th><th>Actions</th></tr></thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {applications.map((application) => {
-                const link = linkById[application.application_link_id];
-                const scored = scoreRentalApplication(application, link?.preferences || {});
                 return (
                   <tr key={application.id}>
                     <td className="py-3"><strong>{application.applicant_name || "Applicant"}</strong><br /><span className="text-xs text-slate-500">{application.applicant_email}</span></td>
                     <td>{application.status}</td>
-                    <td>{Math.max(Number(application.score || 0), scored.score)}%</td>
+                    <td>{Math.max(0, Math.min(100, Number(application.score || 0)))}%</td>
                     <td className="space-x-2">
                       <button type="button" onClick={() => setStatus(application, "shortlisted")} className="rounded-lg border border-slate-200 px-3 py-1 text-xs dark:border-slate-700">Shortlist</button>
                       <button type="button" onClick={() => setStatus(application, "rejected")} className="rounded-lg border border-slate-200 px-3 py-1 text-xs dark:border-slate-700">Reject</button>

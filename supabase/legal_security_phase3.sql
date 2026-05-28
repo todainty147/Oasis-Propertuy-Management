@@ -48,7 +48,7 @@ create table if not exists public.tenancy_compliance_items (
   account_id uuid not null references public.accounts(id) on delete cascade,
   property_id uuid references public.properties(id) on delete cascade,
   tenant_id uuid references public.tenants(id) on delete cascade,
-  tenancy_id uuid,
+  tenancy_id uuid references public.leases(id) on delete set null,
   requirement_id uuid references public.compliance_requirements(id),
   status text not null default 'missing',
   due_date date,
@@ -81,6 +81,21 @@ create index if not exists idx_tenancy_compliance_items_property_tenant
   on public.tenancy_compliance_items(account_id, property_id, tenant_id);
 create index if not exists idx_compliance_evidence_events_account_created
   on public.compliance_evidence_events(account_id, created_at desc);
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'tenancy_compliance_items_tenancy_id_fkey'
+      and conrelid = 'public.tenancy_compliance_items'::regclass
+  ) then
+    alter table public.tenancy_compliance_items
+      add constraint tenancy_compliance_items_tenancy_id_fkey
+      foreign key (tenancy_id) references public.leases(id) on delete set null not valid;
+  end if;
+end;
+$$;
 
 drop trigger if exists trg_tenancy_compliance_items_updated_at on public.tenancy_compliance_items;
 create trigger trg_tenancy_compliance_items_updated_at
@@ -326,6 +341,17 @@ as $$
 declare
   v_link public.property_application_links;
   v_app public.rental_applications;
+  v_score integer := 0;
+  v_reasons jsonb := '[]'::jsonb;
+  v_completed integer := 0;
+  v_preferred_move_in date;
+  v_available_from date;
+  v_days integer;
+  v_monthly_rent numeric := 0;
+  v_income_band text;
+  v_estimated_income numeric;
+  v_has_pets boolean;
+  v_smokes boolean;
 begin
   select *
   into v_link
@@ -341,6 +367,73 @@ begin
   if coalesce((p_payload->>'consent_accepted')::boolean, false) is not true then
     raise exception 'Consent is required';
   end if;
+
+  if nullif(trim(p_payload->>'applicant_name'), '') is not null then v_completed := v_completed + 1; end if;
+  if nullif(trim(p_payload->>'applicant_email'), '') is not null then v_completed := v_completed + 1; end if;
+  if nullif(trim(p_payload->>'preferred_move_in_date'), '') is not null then v_completed := v_completed + 1; end if;
+  if nullif(trim(p_payload->>'occupants_count'), '') is not null then v_completed := v_completed + 1; end if;
+  if nullif(trim(p_payload->>'employment_status'), '') is not null then v_completed := v_completed + 1; end if;
+
+  v_score := v_score + round((v_completed::numeric / 5) * 30)::integer;
+  v_reasons := v_reasons || jsonb_build_array('Application completeness contributed ' || round((v_completed::numeric / 5) * 30)::integer || ' points.');
+
+  v_preferred_move_in := nullif(p_payload->>'preferred_move_in_date', '')::date;
+  v_available_from := coalesce(v_link.available_from, nullif(v_link.preferences->>'availableFrom', '')::date);
+  if v_preferred_move_in is not null and v_available_from is not null then
+    v_days := abs(v_preferred_move_in - v_available_from);
+    if v_days <= 14 then
+      v_score := v_score + 20;
+      v_reasons := v_reasons || jsonb_build_array('Move-in date is close to the property availability date.');
+    end if;
+  end if;
+
+  v_monthly_rent := coalesce(v_link.monthly_rent, nullif(v_link.preferences->>'monthlyRent', '')::numeric, 0);
+  v_income_band := lower(nullif(trim(p_payload->>'estimated_income_band'), ''));
+  v_estimated_income := case v_income_band
+    when 'under_20k' then 20000
+    when '20k_30k' then 30000
+    when '30k_45k' then 45000
+    when '45k_60k' then 60000
+    when '60k_plus' then 75000
+    else null
+  end;
+  if v_monthly_rent > 0 and v_estimated_income is not null then
+    if v_estimated_income >= (v_monthly_rent * 12 * 2.5) then
+      v_score := v_score + 20;
+      v_reasons := v_reasons || jsonb_build_array('Income band appears to meet the configured rent-to-income estimate.');
+    else
+      v_reasons := v_reasons || jsonb_build_array('Income band may need review against the rent level.');
+    end if;
+  end if;
+
+  if coalesce((v_link.preferences->>'guarantorPreferred')::boolean, false)
+     and coalesce((p_payload->>'guarantor_available')::boolean, false) then
+    v_score := v_score + 10;
+    v_reasons := v_reasons || jsonb_build_array('Guarantor is available and this is marked as preferred.');
+  end if;
+
+  if v_link.preferences ? 'petsAllowed' and nullif(trim(p_payload->>'pets_status'), '') is not null then
+    v_has_pets := lower(p_payload->>'pets_status') = 'has_pets';
+    if coalesce((v_link.preferences->>'petsAllowed')::boolean, false) or not v_has_pets then
+      v_score := v_score + 10;
+      v_reasons := v_reasons || jsonb_build_array('Pets answer matches the configured preference.');
+    end if;
+  end if;
+
+  if v_link.preferences ? 'smokingAllowed' and nullif(trim(p_payload->>'smoking_status'), '') is not null then
+    v_smokes := lower(p_payload->>'smoking_status') = 'smoker';
+    if coalesce((v_link.preferences->>'smokingAllowed')::boolean, false) or not v_smokes then
+      v_score := v_score + 5;
+      v_reasons := v_reasons || jsonb_build_array('Smoking answer matches the configured preference.');
+    end if;
+  end if;
+
+  if length(trim(coalesce(p_payload->>'message', ''))) >= 40 then
+    v_score := v_score + 5;
+    v_reasons := v_reasons || jsonb_build_array('Applicant included a useful message.');
+  end if;
+
+  v_score := greatest(0, least(100, v_score));
 
   insert into public.rental_applications (
     account_id, property_id, application_link_id, status,
@@ -362,8 +455,8 @@ begin
     coalesce((p_payload->>'guarantor_available')::boolean, false),
     nullif(trim(p_payload->>'message'), ''),
     true,
-    coalesce((p_payload->>'score')::numeric, 0),
-    coalesce(p_payload->'score_reasons', '[]'::jsonb)
+    v_score,
+    v_reasons
   )
   returning * into v_app;
 
@@ -502,6 +595,11 @@ create policy "Members create diagnostic sessions" on public.maintenance_diagnos
 drop policy if exists "Managers and members read diagnostic sessions" on public.maintenance_diagnostic_sessions;
 create policy "Managers and members read diagnostic sessions" on public.maintenance_diagnostic_sessions
   for select to authenticated using (public.is_account_member(account_id));
+drop policy if exists "Members update diagnostic sessions" on public.maintenance_diagnostic_sessions;
+create policy "Members update diagnostic sessions" on public.maintenance_diagnostic_sessions
+  for update to authenticated
+  using (public.is_account_member(account_id))
+  with check (public.is_account_member(account_id));
 drop policy if exists "Members create diagnostic answers" on public.maintenance_diagnostic_answers;
 create policy "Members create diagnostic answers" on public.maintenance_diagnostic_answers
   for insert to authenticated with check (public.is_account_member(account_id));
@@ -595,7 +693,34 @@ join (
     ('boiler_heating','pressure_gauge','Is the pressure gauge outside the normal range shown in your boiler manual?','single_choice','["yes","no","not_sure"]',null,40),
     ('boiler_heating','thermostat_timer','Have you checked thermostat/timer settings?','single_choice','["yes","no","not_sure"]',null,50),
     ('boiler_heating','meter_checked','Have you checked the utility/prepayment meter?','single_choice','["yes","no","not_sure"]',null,60),
-    ('boiler_heating','affected_area','Is heating affected in all rooms or one room only?','single_choice','["all_rooms","one_room","not_sure"]',null,70)
+    ('boiler_heating','affected_area','Is heating affected in all rooms or one room only?','single_choice','["all_rooms","one_room","not_sure"]',null,70),
+    ('no_hot_water','immediate_danger','Is there a smell of gas, active leak, burning smell, or immediate danger?','boolean','[]','If there is immediate danger, stop and contact the relevant emergency provider.',10),
+    ('no_hot_water','affected_taps','Is hot water missing from all taps or only one tap?','single_choice','["all_taps","one_tap","not_sure"]',null,20),
+    ('no_hot_water','boiler_display','Is there an error code or warning light on the boiler display?','text','[]',null,30),
+    ('damp_mould','location','Where is the damp or mould visible?','text','[]',null,10),
+    ('damp_mould','active_leak','Is there an active leak, flooding, or water entering the property now?','boolean','[]','Active leaks should be reported urgently.',20),
+    ('damp_mould','photos','Can you upload photos of the affected area?','photo','[]',null,30),
+    ('electrical_issue','immediate_danger','Is there sparking, smoke, burning smell, exposed wiring, or loss of power creating immediate risk?','boolean','[]','Do not touch exposed wiring or unsafe fittings.',10),
+    ('electrical_issue','affected_area','Is the issue affecting the whole property or one area?','single_choice','["whole_property","one_area","single_fitting","not_sure"]',null,20),
+    ('electrical_issue','breaker_checked','Have you checked whether a breaker has tripped, if safe to do so?','single_choice','["yes","no","not_safe","not_sure"]',null,30),
+    ('blocked_drain','overflowing','Is water overflowing or backing up inside the property?','boolean','[]','Overflowing water may need urgent review.',10),
+    ('blocked_drain','affected_fixture','Which fixture is blocked?','single_choice','["sink","toilet","bath_shower","external_drain","multiple","not_sure"]',null,20),
+    ('blocked_drain','photo','Can you upload a photo of the affected fixture or drain?','photo','[]',null,30),
+    ('leak','active_leak','Is water actively leaking now?','boolean','[]','If flooding is severe, contact emergency support.',10),
+    ('leak','source_known','Do you know where the leak appears to be coming from?','text','[]',null,20),
+    ('leak','water_isolated','Have you isolated the water supply if safe and practical?','single_choice','["yes","no","not_safe","not_sure"]',null,30),
+    ('appliance_issue','appliance','Which appliance has the issue?','text','[]',null,10),
+    ('appliance_issue','error_code','Is there an error code or warning light?','text','[]',null,20),
+    ('appliance_issue','photo','Can you upload a photo of the appliance and any display?','photo','[]',null,30),
+    ('pest_issue','pest_type','What type of pest or evidence have you seen?','text','[]',null,10),
+    ('pest_issue','location','Where have you seen the issue?','text','[]',null,20),
+    ('pest_issue','photos','Can you upload photos of evidence if available?','photo','[]',null,30),
+    ('lost_keys_security','security_risk','Is there an immediate security risk or suspected break-in?','boolean','[]','If there is immediate risk, contact emergency services.',10),
+    ('lost_keys_security','access_available','Can you currently access the property safely?','single_choice','["yes","no","not_sure"]',null,20),
+    ('lost_keys_security','keys_missing','Which keys, fobs, or access devices are missing?','text','[]',null,30),
+    ('other','issue_summary','Briefly describe the issue.','text','[]',null,10),
+    ('other','urgency','How urgent does this feel?','single_choice','["normal","soon","urgent","emergency"]','Use emergency only for immediate risk to safety or serious property damage.',20),
+    ('other','photos','Can you upload a photo if it helps explain the issue?','photo','[]',null,30)
 ) as s(issue_type, step_key, question, answer_type, options, help_text, sort_order)
   on t.issue_type = s.issue_type
 on conflict(template_id, step_key) do update

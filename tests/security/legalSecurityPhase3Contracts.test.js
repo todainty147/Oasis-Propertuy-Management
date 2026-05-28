@@ -47,9 +47,24 @@ describe("Phase 3 legal security contracts", () => {
     expect(sql).toMatch(/account_id uuid not null references public\.accounts\(id\) on delete cascade/);
     expect(sql).toContain("public.user_can_manage_account(account_id)");
     expect(sql).toContain("public.submit_public_rental_application");
+    expect(sql).toContain("v_score := greatest(0, least(100, v_score))");
+    expect(sql).not.toContain("p_payload->>'score'");
+    expect(sql).not.toContain("p_payload->'score_reasons'");
     expect(sql).toContain("right_to_rent_check");
     expect(sql).toContain("umowa_najmu_okazjonalnego");
     expect(sql).toContain("boiler_heating");
+    [
+      "no_hot_water",
+      "damp_mould",
+      "electrical_issue",
+      "blocked_drain",
+      "leak",
+      "appliance_issue",
+      "pest_issue",
+      "lost_keys_security",
+      "other",
+    ].forEach((template) => expect(sql).toContain(`('${template}',`));
+    expect(sql).toContain('"Members update diagnostic sessions"');
     expect(apply).toContain('"legal_security_phase3.sql"');
     expect(bootstrap).toContain('"legal_security_phase3.sql"');
   });

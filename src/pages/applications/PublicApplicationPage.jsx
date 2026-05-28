@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 
-import { scoreRentalApplication } from "../../lib/applicantScoring";
 import { submitPublicRentalApplication } from "../../services/legalSecurityService";
 
 const INITIAL_FORM = {
@@ -19,9 +18,7 @@ const INITIAL_FORM = {
   consent_accepted: false,
 };
 
-function fieldClass() {
-  return "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
-}
+const fieldClass = "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
 
 export default function PublicApplicationPage() {
   const publicToken = useMemo(() => {
@@ -46,12 +43,9 @@ export default function PublicApplicationPage() {
     try {
       setSubmitting(true);
       setError("");
-      const scored = scoreRentalApplication(form, {});
       await submitPublicRentalApplication(publicToken, {
         ...form,
         occupants_count: Number(form.occupants_count) || null,
-        score: scored.score,
-        score_reasons: scored.reasons,
       });
       setSubmitted(true);
     } catch (err) {
@@ -82,22 +76,22 @@ export default function PublicApplicationPage() {
           <form onSubmit={handleSubmit} className="mt-6 space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p> : null}
             <div className="grid gap-4 md:grid-cols-2">
-              <input required className={fieldClass()} placeholder="Name" value={form.applicant_name} onChange={(e) => update("applicant_name", e.target.value)} />
-              <input required type="email" className={fieldClass()} placeholder="Email" value={form.applicant_email} onChange={(e) => update("applicant_email", e.target.value)} />
-              <input className={fieldClass()} placeholder="Phone" value={form.applicant_phone} onChange={(e) => update("applicant_phone", e.target.value)} />
-              <input type="date" className={fieldClass()} value={form.preferred_move_in_date} onChange={(e) => update("preferred_move_in_date", e.target.value)} />
-              <input type="number" min="1" className={fieldClass()} placeholder="Number of occupants" value={form.occupants_count} onChange={(e) => update("occupants_count", e.target.value)} />
-              <select className={fieldClass()} value={form.pets_status} onChange={(e) => update("pets_status", e.target.value)}>
+              <input required className={fieldClass} placeholder="Name" value={form.applicant_name} onChange={(e) => update("applicant_name", e.target.value)} />
+              <input required type="email" className={fieldClass} placeholder="Email" value={form.applicant_email} onChange={(e) => update("applicant_email", e.target.value)} />
+              <input className={fieldClass} placeholder="Phone" value={form.applicant_phone} onChange={(e) => update("applicant_phone", e.target.value)} />
+              <input type="date" className={fieldClass} value={form.preferred_move_in_date} onChange={(e) => update("preferred_move_in_date", e.target.value)} />
+              <input type="number" min="1" className={fieldClass} placeholder="Number of occupants" value={form.occupants_count} onChange={(e) => update("occupants_count", e.target.value)} />
+              <select className={fieldClass} value={form.pets_status} onChange={(e) => update("pets_status", e.target.value)}>
                 <option value="">Pets</option>
                 <option value="no_pets">No pets</option>
                 <option value="has_pets">Has pets</option>
               </select>
-              <select className={fieldClass()} value={form.smoking_status} onChange={(e) => update("smoking_status", e.target.value)}>
+              <select className={fieldClass} value={form.smoking_status} onChange={(e) => update("smoking_status", e.target.value)}>
                 <option value="">Smoking</option>
                 <option value="non_smoker">Non-smoker</option>
                 <option value="smoker">Smoker</option>
               </select>
-              <select className={fieldClass()} value={form.estimated_income_band} onChange={(e) => update("estimated_income_band", e.target.value)}>
+              <select className={fieldClass} value={form.estimated_income_band} onChange={(e) => update("estimated_income_band", e.target.value)}>
                 <option value="">Estimated annual income band</option>
                 <option value="under_20k">Under 20k</option>
                 <option value="20k_30k">20k to 30k</option>
@@ -105,7 +99,7 @@ export default function PublicApplicationPage() {
                 <option value="45k_60k">45k to 60k</option>
                 <option value="60k_plus">60k plus</option>
               </select>
-              <select className={fieldClass()} value={form.employment_status} onChange={(e) => update("employment_status", e.target.value)}>
+              <select className={fieldClass} value={form.employment_status} onChange={(e) => update("employment_status", e.target.value)}>
                 <option value="">Employment status</option>
                 <option value="employed">Employed</option>
                 <option value="self_employed">Self-employed</option>
@@ -118,7 +112,7 @@ export default function PublicApplicationPage() {
                 Guarantor available
               </label>
             </div>
-            <textarea className={`${fieldClass()} min-h-28 w-full`} placeholder="Message" value={form.message} onChange={(e) => update("message", e.target.value)} />
+            <textarea className={`${fieldClass} min-h-28 w-full`} placeholder="Message" value={form.message} onChange={(e) => update("message", e.target.value)} />
             <label className="flex items-start gap-3 text-sm text-slate-600">
               <input className="mt-1" type="checkbox" checked={form.consent_accepted} onChange={(e) => update("consent_accepted", e.target.checked)} />
               <span>I consent to this information being shared with the landlord or property manager for rental enquiry review.</span>
