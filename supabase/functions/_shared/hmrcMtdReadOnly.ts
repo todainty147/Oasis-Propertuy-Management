@@ -13,6 +13,7 @@ export {
   normalizeHmrcError,
   normalizeSandboxNino,
   normalizeTestBusinessType,
+  safeObligationsBusinessType,
   safeTaxYear,
   summarizeBusinessDetails,
   summarizeObligations,
@@ -23,6 +24,7 @@ import {
   normalizeHmrcError,
   normalizeSandboxNino,
   normalizeTestBusinessType,
+  safeObligationsBusinessType,
   taxYearAccountingPeriod,
 } from "./hmrcMtdReadOnlyHelpers.ts";
 

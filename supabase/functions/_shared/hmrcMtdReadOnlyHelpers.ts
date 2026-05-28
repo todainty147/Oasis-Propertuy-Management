@@ -27,7 +27,11 @@ export function normalizeHmrcError(status: number, body: Record<string, unknown>
 }
 
 export function summarizeBusinessDetails(body: Record<string, unknown>) {
-  const businesses = Array.isArray(body.businesses) ? body.businesses : [];
+  const businesses = Array.isArray(body.listOfBusinesses)
+    ? body.listOfBusinesses
+    : Array.isArray(body.businesses)
+      ? body.businesses
+      : [];
   const propertyBusinesses = businesses.filter((business) => {
     const text = JSON.stringify(business).toLowerCase();
     return text.includes("property");
@@ -79,6 +83,13 @@ export function taxYearAccountingPeriod(taxYear: string) {
     startDate: `${startYear}-04-06`,
     endDate: `${startYear + 1}-04-05`,
   };
+}
+
+export function safeObligationsBusinessType(value: unknown) {
+  const type = normalizeTestBusinessType(value);
+  if (type === "foreign-property") return "foreign-property";
+  if (type === "self-employment") return "self-employment";
+  return "uk-property";
 }
 
 export function normalizeTestBusinessType(value: unknown) {

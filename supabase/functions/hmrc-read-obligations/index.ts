@@ -12,7 +12,9 @@ import {
   HMRC_ACCEPT_HEADERS,
   hmrcRequest,
   requireConnectedHmrcConnection,
+  safeObligationsBusinessType,
   summarizeObligations,
+  taxYearAccountingPeriod,
   writeHmrcReadinessCheck,
 } from "../_shared/hmrcMtdReadOnly.ts";
 
@@ -43,16 +45,23 @@ Deno.serve(async (req) => {
       return json(req, obligationsResult("blocked", "Add the sandbox test user NINO supplied by HMRC to run Obligations.", { safe_code: "missing_test_identifier" }));
     }
 
-    const fromDate = String(body.fromDate || "").trim() || defaultFromDate();
-    const toDate = String(body.toDate || "").trim() || defaultToDate();
+    const businessId = String(body.businessId || body.business_id || profile.incomeSourceId || profile.testBusinessId || "").trim();
+    const period = taxYearAccountingPeriod(body.taxYear || body.tax_year || profile.testTaxYear || "2026-27");
+    const fromDate = String(body.fromDate || "").trim() || period.startDate;
+    const toDate = String(body.toDate || "").trim() || period.endDate;
     const response = await hmrcRequest({
       accountId,
       connection,
-      path: `/individuals/obligations/income-and-expenditure/${encodeURIComponent(profile.nino)}`,
+      path: `/obligations/details/${encodeURIComponent(profile.nino)}/income-and-expenditure`,
       accept: HMRC_ACCEPT_HEADERS.obligations,
       action: "hmrc.read_obligations",
       userId: user.id,
-      query: { fromDate, toDate },
+      query: {
+        fromDate,
+        toDate,
+        typeOfBusiness: businessId ? safeObligationsBusinessType(body.typeOfBusiness || body.type_of_business || profile.testBusinessType) : undefined,
+        businessId: businessId || undefined,
+      },
     });
 
     const summary = response.ok ? summarizeObligations(response.body) : { safe_code: response.normalized?.safeCode || "hmrc_error" };
@@ -86,18 +95,6 @@ Deno.serve(async (req) => {
     });
   }
 });
-
-function defaultFromDate() {
-  const date = new Date();
-  date.setUTCMonth(date.getUTCMonth() - 6);
-  return date.toISOString().slice(0, 10);
-}
-
-function defaultToDate() {
-  const date = new Date();
-  date.setUTCMonth(date.getUTCMonth() + 12);
-  return date.toISOString().slice(0, 10);
-}
 
 function obligationsResult(status: string, message: string, summary: Record<string, unknown>, hmrcStatusCode: number | null = null, hmrcCode: string | null = null) {
   return {

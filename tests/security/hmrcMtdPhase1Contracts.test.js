@@ -118,7 +118,11 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(files).toContain("ensureSandboxOnly");
     expect(files).toContain("writeHmrcReadinessCheck");
     expect(files).toContain("/individuals/business/details/");
-    expect(files).toContain("/individuals/obligations/income-and-expenditure/");
+    expect(files).toContain("/list");
+    expect(shared).toContain("listOfBusinesses");
+    expect(files).toContain("/obligations/details/");
+    expect(files).toContain("/income-and-expenditure");
+    expect(files).toContain("safeObligationsBusinessType");
     expect(files).toContain("/individuals/business/property/");
     expect(shared).toContain("application/vnd.hmrc.2.0+json");
     expect(shared).toContain("application/vnd.hmrc.3.0+json");

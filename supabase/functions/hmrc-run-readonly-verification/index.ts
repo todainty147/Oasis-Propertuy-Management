@@ -13,8 +13,10 @@ import {
   hmrcRequest,
   persistDiscoveredIncomeSourceId,
   requireConnectedHmrcConnection,
+  safeObligationsBusinessType,
   summarizeBusinessDetails,
   summarizeObligations,
+  taxYearAccountingPeriod,
   writeHmrcReadinessCheck,
 } from "../_shared/hmrcMtdReadOnly.ts";
 
@@ -45,7 +47,7 @@ Deno.serve(async (req) => {
     const business = await hmrcRequest({
       accountId,
       connection,
-      path: `/individuals/business/details/${encodeURIComponent(profile.nino)}`,
+      path: `/individuals/business/details/${encodeURIComponent(profile.nino)}/list`,
       accept: HMRC_ACCEPT_HEADERS.businessDetails,
       action: "hmrc.read_business_details",
       userId: user.id,
@@ -72,14 +74,22 @@ Deno.serve(async (req) => {
       summary: publicBusinessSummary(businessSummary),
     });
 
+    const obligationsBusinessId = String(businessSummary.firstIncomeSourceId || profile.incomeSourceId || profile.testBusinessId || "").trim();
+    const obligationsBusinessType = safeObligationsBusinessType(profile.testBusinessType || "");
+    const obligationsPeriod = taxYearAccountingPeriod(profile.testTaxYear || "2026-27");
     const obligations = await hmrcRequest({
       accountId,
       connection,
-      path: `/individuals/obligations/income-and-expenditure/${encodeURIComponent(profile.nino)}`,
+      path: `/obligations/details/${encodeURIComponent(profile.nino)}/income-and-expenditure`,
       accept: HMRC_ACCEPT_HEADERS.obligations,
       action: "hmrc.read_obligations",
       userId: user.id,
-      query: { fromDate: defaultFromDate(), toDate: defaultToDate() },
+      query: {
+        fromDate: obligationsPeriod.startDate,
+        toDate: obligationsPeriod.endDate,
+        typeOfBusiness: obligationsBusinessId ? obligationsBusinessType : undefined,
+        businessId: obligationsBusinessId || undefined,
+      },
     });
     const obligationsSummary = obligations.ok ? summarizeObligations(obligations.body) : { safe_code: obligations.normalized?.safeCode || "hmrc_error" };
     const obligationsStatus = obligations.ok && Number(obligationsSummary.obligationCount || 0) === 0 ? "no_data" : obligations.ok ? "success" : obligations.status === 404 ? "no_data" : "failed";
@@ -131,18 +141,6 @@ Deno.serve(async (req) => {
     });
   }
 });
-
-function defaultFromDate() {
-  const date = new Date();
-  date.setUTCMonth(date.getUTCMonth() - 6);
-  return date.toISOString().slice(0, 10);
-}
-
-function defaultToDate() {
-  const date = new Date();
-  date.setUTCMonth(date.getUTCMonth() + 12);
-  return date.toISOString().slice(0, 10);
-}
 
 function publicBusinessSummary(summary: Record<string, unknown>) {
   return {
