@@ -12,6 +12,7 @@ const routes = [
   "/pl/pricing",
   "/de/pricing",
   "/features",
+  "/property-risk-protection-software",
   "/pl/features",
   "/de/features",
   "/tenant-portal-software",
