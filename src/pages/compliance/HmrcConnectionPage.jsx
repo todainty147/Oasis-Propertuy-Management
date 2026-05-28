@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ExternalLink, PlugZap, RefreshCw, ShieldAlert, Unplug } from "lucide-react";
+import { CheckCircle2, ExternalLink, PlugZap, RefreshCw, Save, ShieldAlert, Unplug } from "lucide-react";
 
 import { useAccount } from "../../context/AccountContext";
 import { ENTITLEMENT_FEATURES } from "../../lib/entitlements";
@@ -7,7 +7,12 @@ import {
   disconnectHmrc,
   getHmrcConnectionStatus,
   normalizeHmrcConnectionStatus,
+  readHmrcBusinessDetails,
+  readHmrcObligations,
+  readHmrcPropertyBusiness,
   refreshHmrcConnection,
+  runHmrcReadonlyVerification,
+  saveHmrcSandboxProfile,
   startHmrcSandboxOAuth,
   testHmrcReadonlyCall,
 } from "../../services/hmrcMtdService";
@@ -33,11 +38,15 @@ function statusLabel(status) {
 export default function HmrcConnectionPage() {
   const { activeAccountId, hasEntitlement } = useAccount();
   const [connection, setConnection] = useState(null);
+  const [sandboxProfile, setSandboxProfile] = useState(null);
   const [auditEvents, setAuditEvents] = useState([]);
+  const [readinessChecks, setReadinessChecks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyAction, setBusyAction] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const [verificationResult, setVerificationResult] = useState(null);
+  const [sandboxNino, setSandboxNino] = useState("");
 
   const canReadOnly = hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_READ_ONLY);
   const canConnectSandbox = hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_CONNECTION) && hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_SANDBOX);
@@ -51,7 +60,9 @@ export default function HmrcConnectionPage() {
       setError("");
       const next = await getHmrcConnectionStatus(activeAccountId);
       setConnection(next.connection);
+      setSandboxProfile(next.sandboxProfile);
       setAuditEvents(next.auditEvents || []);
+      setReadinessChecks(next.readinessChecks || []);
     } catch (err) {
       setError(err?.message || "Could not load HMRC connection status.");
     } finally {
@@ -99,6 +110,34 @@ export default function HmrcConnectionPage() {
       await load();
     } catch (err) {
       setError(err?.message || "Could not test HMRC sandbox connection.");
+    } finally {
+      setBusyAction("");
+    }
+  }
+
+  async function handleSaveSandboxProfile() {
+    try {
+      setBusyAction("save-profile");
+      setError("");
+      setSandboxProfile(await saveHmrcSandboxProfile(activeAccountId, { nino: sandboxNino }));
+      setSandboxNino("");
+      await load();
+    } catch (err) {
+      setError(err?.message || "Could not save HMRC sandbox test identifier.");
+    } finally {
+      setBusyAction("");
+    }
+  }
+
+  async function handleVerification(action, runner) {
+    try {
+      setBusyAction(action);
+      setError("");
+      const next = await runner(activeAccountId);
+      setVerificationResult(next);
+      await load();
+    } catch (err) {
+      setError(err?.message || "Could not run HMRC read-only verification.");
     } finally {
       setBusyAction("");
     }
@@ -227,6 +266,78 @@ export default function HmrcConnectionPage() {
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">MTD Sandbox Verification</h2>
+            <p className="mt-1 max-w-3xl text-sm text-slate-500">
+              Verifies subscribed MTD read-only sandbox APIs. This does not submit quarterly updates, annual updates or final declarations.
+            </p>
+          </div>
+          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-teal-200 px-3 py-1 text-xs font-medium text-teal-700 dark:border-teal-800 dark:text-teal-300">
+            <ShieldAlert size={14} /> Live submission disabled
+          </span>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-5">
+          <VerificationPill label="OAuth connected" active={isConnected} />
+          <VerificationPill label="Business Details" active={latestCheck(readinessChecks, "business_details")?.status === "success"} />
+          <VerificationPill label="Obligations checked" active={Boolean(latestCheck(readinessChecks, "obligations_income_and_expenditure"))} />
+          <VerificationPill label="Property Business" active={Boolean(latestCheck(readinessChecks, "property_business_read"))} />
+          <VerificationPill label="No submissions" active />
+        </div>
+
+        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+          <label className="text-xs font-medium uppercase tracking-wide text-slate-500" htmlFor="hmrc-sandbox-nino">Sandbox NINO / test identifier</label>
+          <div className="mt-2 flex flex-col gap-3 md:flex-row">
+            <input
+              id="hmrc-sandbox-nino"
+              value={sandboxNino}
+              onChange={(event) => setSandboxNino(event.target.value)}
+              placeholder={sandboxProfile?.ninoMasked || "Example: AA000000A"}
+              className="min-h-11 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900"
+            />
+            <button
+              type="button"
+              disabled={!isConnected || busyAction === "save-profile"}
+              onClick={handleSaveSandboxProfile}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium disabled:opacity-50 dark:border-slate-700"
+            >
+              <Save size={16} /> {busyAction === "save-profile" ? "Saving..." : "Save identifier"}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            Stored server-side for sandbox checks only. Current profile: {sandboxProfile?.hasNino ? sandboxProfile.ninoMasked : "No sandbox NINO saved"}.
+          </p>
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-3">
+          <button
+            type="button"
+            disabled={!isConnected || !canReadOnly || busyAction === "run-verification"}
+            onClick={() => handleVerification("run-verification", runHmrcReadonlyVerification)}
+            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {busyAction === "run-verification" ? "Running..." : "Run read-only verification"}
+          </button>
+          <CheckButton label="Check Business Details" action="business-details" busyAction={busyAction} disabled={!isConnected || !canReadOnly} onClick={() => handleVerification("business-details", readHmrcBusinessDetails)} />
+          <CheckButton label="Check Obligations" action="obligations" busyAction={busyAction} disabled={!isConnected || !canReadOnly} onClick={() => handleVerification("obligations", readHmrcObligations)} />
+          <CheckButton label="Check Property Business" action="property-business" busyAction={busyAction} disabled={!isConnected || !canReadOnly} onClick={() => handleVerification("property-business", readHmrcPropertyBusiness)} />
+        </div>
+
+        {verificationResult ? (
+          <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-950">
+            <p className="font-medium capitalize">{verificationResult.overallStatus || verificationResult.status}</p>
+            <p className="mt-1 text-slate-500">{verificationResult.message}</p>
+            {Array.isArray(verificationResult.checks) ? (
+              <div className="mt-3 grid gap-2 md:grid-cols-3">
+                {verificationResult.checks.map((check) => <CheckResult key={check.checkType} check={check} />)}
+              </div>
+            ) : <CheckResult check={verificationResult} />}
+          </div>
+        ) : null}
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Recent HMRC audit events</h2>
         <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
           {auditEvents.length ? auditEvents.map((event) => (
@@ -245,11 +356,46 @@ export default function HmrcConnectionPage() {
   );
 }
 
+function latestCheck(checks, checkType) {
+  return checks.find((check) => check.check_type === checkType);
+}
+
 function InfoTile({ label, value }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
       <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">{value}</p>
+    </div>
+  );
+}
+
+function VerificationPill({ label, active }) {
+  return (
+    <div className={`rounded-xl border px-3 py-2 text-xs font-medium ${active ? "border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-900 dark:bg-teal-950/30 dark:text-teal-200" : "border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-800 dark:bg-slate-950"}`}>
+      {label}
+    </div>
+  );
+}
+
+function CheckButton({ label, action, busyAction, disabled, onClick }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled || busyAction === action}
+      onClick={onClick}
+      className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium disabled:opacity-50 dark:border-slate-700"
+    >
+      {busyAction === action ? "Checking..." : label}
+    </button>
+  );
+}
+
+function CheckResult({ check }) {
+  return (
+    <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{String(check.checkType || check.check_type || "").replace(/_/g, " ")}</p>
+      <p className="mt-1 font-medium capitalize">{check.status}</p>
+      <p className="mt-1 text-xs text-slate-500">{check.message || check.hmrc_code || check.summary?.safeCode || "Safe summary stored."}</p>
     </div>
   );
 }

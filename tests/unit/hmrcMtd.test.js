@@ -12,6 +12,14 @@ import {
   safeHmrcConnectionPayload,
   validateHmrcScopes,
 } from "../../supabase/functions/_shared/hmrcMtd.ts";
+import {
+  HMRC_ACCEPT_HEADERS,
+  maskNino,
+  normalizeHmrcError,
+  normalizeSandboxNino,
+  summarizeBusinessDetails,
+  summarizeObligations,
+} from "../../supabase/functions/_shared/hmrcMtdReadOnlyHelpers.ts";
 
 describe("HMRC MTD sandbox helpers", () => {
   it("generates OAuth state tokens and expiry windows", () => {
@@ -59,5 +67,36 @@ describe("HMRC MTD sandbox helpers", () => {
   it("keeps the live submission guard closed", () => {
     expect(assertLiveSubmissionDisabled()).toBe(true);
     expect(normalizeHmrcConnectionStatus("unexpected")).toBe("not_connected");
+  });
+
+  it("uses HMRC versioned Accept headers for real read-only probes", () => {
+    expect(HMRC_ACCEPT_HEADERS.businessDetails).toBe("application/vnd.hmrc.2.0+json");
+    expect(HMRC_ACCEPT_HEADERS.obligations).toBe("application/vnd.hmrc.3.0+json");
+    expect(HMRC_ACCEPT_HEADERS.propertyBusiness).toBe("application/vnd.hmrc.6.0+json");
+  });
+
+  it("normalizes HMRC read-only errors into safe frontend codes", () => {
+    expect(normalizeHmrcError(400, { code: "FORMAT_NINO" }).safeCode).toBe("missing_test_identifier");
+    expect(normalizeHmrcError(401, {}).safeCode).toBe("token_expired");
+    expect(normalizeHmrcError(403, {}).safeCode).toBe("insufficient_scope");
+    expect(normalizeHmrcError(404, { code: "MATCHING_RESOURCE_NOT_FOUND" }).safeCode).toBe("connected_but_no_data");
+  });
+
+  it("formats sandbox identifiers and safe readiness summaries", () => {
+    expect(normalizeSandboxNino(" aa 000000 a ")).toBe("AA000000A");
+    expect(maskNino("AA000000A")).toBe("AA****A");
+    expect(summarizeBusinessDetails({ businesses: [{ businessId: "X123", typeOfBusiness: "uk-property" }] })).toEqual({
+      businessCount: 1,
+      hasUkProperty: true,
+      hasForeignProperty: false,
+      discoveredIncomeSourceIdsCount: 1,
+      firstIncomeSourceId: "X123",
+    });
+    expect(summarizeObligations({ obligations: [{ status: "O", dueDate: "2026-08-07" }] })).toEqual({
+      obligationCount: 1,
+      openCount: 1,
+      fulfilledCount: 0,
+      nextDueDate: "2026-08-07",
+    });
   });
 });

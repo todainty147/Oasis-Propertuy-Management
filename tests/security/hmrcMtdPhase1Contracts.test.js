@@ -32,6 +32,18 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(sql).not.toMatch(/account_feature_flags_manage_managers/);
   });
 
+  it("adds HMRC readiness checks with manager-only read access", () => {
+    const sql = read("supabase/hmrc_mtd_phase2_readonly.sql");
+    expect(sql).toContain("create table if not exists public.hmrc_readiness_checks");
+    expect(sql).toContain("business_details");
+    expect(sql).toContain("obligations_income_and_expenditure");
+    expect(sql).toContain("property_business_read");
+    expect(sql).toContain("alter table public.hmrc_readiness_checks enable row level security");
+    expect(sql).toContain("using (public.user_can_manage_account(account_id))");
+    expect(sql).toContain("revoke all on public.hmrc_readiness_checks from anon, authenticated");
+    expect(sql).toContain("grant select on public.hmrc_readiness_checks to authenticated");
+  });
+
   it("keeps HMRC credentials out of frontend Vite env usage", () => {
     const frontend = [
       read("src/services/hmrcMtdService.js"),
@@ -93,6 +105,42 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(testFunction).toContain("sandbox_reachable");
   });
 
+  it("implements real MTD read-only sandbox probes without write endpoints", () => {
+    const files = [
+      "hmrc-read-business-details",
+      "hmrc-read-obligations",
+      "hmrc-read-property-business",
+      "hmrc-run-readonly-verification",
+      "hmrc-save-sandbox-profile",
+    ].map((name) => read(`supabase/functions/${name}/index.ts`)).join("\n");
+    const shared = `${read("supabase/functions/_shared/hmrcMtdReadOnly.ts")}\n${read("supabase/functions/_shared/hmrcMtdReadOnlyHelpers.ts")}`;
+    expect(files).toContain("hmrc_mtd_read_only");
+    expect(files).toContain("ensureSandboxOnly");
+    expect(files).toContain("writeHmrcReadinessCheck");
+    expect(files).toContain("/individuals/business/details/");
+    expect(files).toContain("/individuals/obligations/income-and-expenditure/");
+    expect(files).toContain("/individuals/business/property/");
+    expect(shared).toContain("application/vnd.hmrc.2.0+json");
+    expect(shared).toContain("application/vnd.hmrc.3.0+json");
+    expect(shared).toContain("application/vnd.hmrc.6.0+json");
+    expect(files).not.toMatch(/method:\s*"(POST|PUT|PATCH|DELETE)"/);
+    expect(files).not.toMatch(/submit|final declaration|quarterly update/i);
+  });
+
+  it("surfaces read-only verification controls without exposing secrets", () => {
+    const page = read("src/pages/compliance/HmrcConnectionPage.jsx");
+    const service = read("src/services/hmrcMtdService.js");
+    expect(page).toContain("MTD Sandbox Verification");
+    expect(page).toContain("Run read-only verification");
+    expect(page).toContain("Check Business Details");
+    expect(page).toContain("Check Obligations");
+    expect(page).toContain("Check Property Business");
+    expect(page).toContain("Live submission disabled");
+    expect(service).toContain("hmrc-run-readonly-verification");
+    expect(service).toContain("hmrc-read-business-details");
+    expect(`${page}\n${service}`).not.toMatch(/access_token|refresh_token|HMRC_CLIENT_SECRET|VITE_HMRC/);
+  });
+
   it("allows HMRC Edge Function CORS from APP_URL and ALLOWED_APP_ORIGINS", () => {
     const edge = read("supabase/functions/_shared/hmrcEdge.ts");
     expect(edge).toContain("HMRC_CORS_ALLOWED_ORIGINS");
@@ -121,6 +169,9 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(setup).toContain("No 'Access-Control-Allow-Origin' header");
     expect(setup).toContain("No live submission");
     expect(setup).toContain("No quarterly update submission");
+    expect(setup).toContain("Business Details (MTD) 2.0");
+    expect(setup).toContain("Property Business (MTD) 6.0");
+    expect(read("docs/integrations/hmrc-mtd-readonly-verification.md")).toContain("Business Details (MTD) 2.0");
     expect(security).toContain("Never log");
     expect(security).toContain("Tenants cannot access HMRC connection data");
     expect(security).toContain("Contractors cannot access HMRC connection data");
