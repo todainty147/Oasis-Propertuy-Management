@@ -13,6 +13,8 @@ import {
 } from "../_shared/hmrcEdge.ts";
 import { safeHmrcConnectionPayload } from "../_shared/hmrcMtd.ts";
 
+const HELLO_ACCEPT_HEADER = "application/vnd.hmrc.1.0+json";
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return handleOptions(req);
   if (req.method !== "POST") return methodNotAllowed(req);
@@ -45,16 +47,14 @@ Deno.serve(async (req) => {
     }
 
     const accessToken = await decryptConnectionAccessToken(connection);
-    const endpoint = "/hello/user";
-    const response = await fetch(`${HMRC_BASE_URL}${endpoint}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: "application/vnd.hmrc.1.0+json",
-      },
-    });
-    const responseJson = await response.json().catch(() => ({}));
-    const ok = response.ok;
+    const userHello = await callHmrcJson("/hello/user", accessToken);
+    const sandboxUserHello = userHello.ok ? null : await callHmrcJson("/sandbox/hello/user", accessToken);
+    const selectedUserHello = userHello.ok ? userHello : sandboxUserHello;
+    const openHello = selectedUserHello?.ok ? null : await callHmrcJson("/hello/world");
+    const ok = Boolean(selectedUserHello?.ok || openHello?.ok);
+    const endpoint = selectedUserHello?.ok ? selectedUserHello.endpoint : openHello?.endpoint || userHello.endpoint;
+    const userRestrictedOk = Boolean(selectedUserHello?.ok);
+    const failure = userRestrictedOk ? null : selectedUserHello || userHello;
 
     await auditHmrcEvent({
       accountId,
@@ -63,17 +63,34 @@ Deno.serve(async (req) => {
       endpoint,
       method: "GET",
       status: ok ? "success" : "failed",
-      httpStatus: response.status,
-      responseSummary: { ok, status: response.status },
+      httpStatus: selectedUserHello?.status || openHello?.status || userHello.status,
+      responseSummary: {
+        ok,
+        user_restricted_ok: userRestrictedOk,
+        fallback_open_ok: Boolean(openHello?.ok),
+        hmrc_code: failure?.body?.code || null,
+      },
       errorMessage: ok ? null : "HMRC sandbox read-only test failed",
     });
 
     return json(req, {
       result: {
-        status: ok ? "success" : "failed",
-        httpStatus: response.status,
-        message: ok ? "HMRC sandbox read-only test completed." : "HMRC sandbox responded but the read-only test did not complete.",
-        responseSummary: ok ? { message: responseJson?.message || null } : { ok: false, hmrc_code: responseJson?.code || null },
+        status: userRestrictedOk ? "success" : openHello?.ok ? "sandbox_reachable" : "failed",
+        httpStatus: selectedUserHello?.status || openHello?.status || userHello.status,
+        message: userRestrictedOk
+          ? "HMRC sandbox user-restricted read-only test completed."
+          : openHello?.ok
+            ? "HMRC sandbox is reachable, but the user-restricted Hello API returned 403. Check the sandbox app API subscription and test-user authorisation."
+            : "HMRC sandbox responded but the read-only test did not complete.",
+        responseSummary: userRestrictedOk
+          ? { message: selectedUserHello?.body?.message || null, endpoint }
+          : {
+              user_restricted_status: selectedUserHello?.status || userHello.status,
+              user_restricted_code: failure?.body?.code || null,
+              user_restricted_message: failure?.body?.message || null,
+              fallback_open_status: openHello?.status || null,
+              fallback_open_message: openHello?.body?.message || null,
+            },
       },
       connection: safeHmrcConnectionPayload(connection),
     });
@@ -84,3 +101,22 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+async function callHmrcJson(endpoint: string, accessToken = "") {
+  const headers: Record<string, string> = {
+    Accept: HELLO_ACCEPT_HEADER,
+  };
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+  const response = await fetch(`${HMRC_BASE_URL}${endpoint}`, {
+    method: "GET",
+    headers,
+  });
+  const body = await response.json().catch(() => ({}));
+  return {
+    endpoint,
+    ok: response.ok,
+    status: response.status,
+    body,
+  };
+}

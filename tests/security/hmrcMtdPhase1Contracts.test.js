@@ -87,6 +87,10 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(startFunction).toContain("ensureSandboxProbeScope(validateHmrcScopes");
     expect(testFunction).toContain('scopes.includes("hello")');
     expect(testFunction).toContain("needs_reconnect");
+    expect(testFunction).toContain('callHmrcJson("/hello/user"');
+    expect(testFunction).toContain('callHmrcJson("/sandbox/hello/user"');
+    expect(testFunction).toContain('callHmrcJson("/hello/world"');
+    expect(testFunction).toContain("sandbox_reachable");
   });
 
   it("allows HMRC Edge Function CORS from APP_URL and ALLOWED_APP_ORIGINS", () => {
@@ -113,6 +117,7 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(setup).toContain("Do not set `APP_URL` to the old `https://www.oasisrentalmgt.app` domain");
     expect(setup).toContain("ALLOWED_APP_ORIGINS");
     expect(setup).toContain("`hello` for the harmless HMRC Hello API read-only connection probe");
+    expect(setup).toContain("sandbox_reachable");
     expect(setup).toContain("No 'Access-Control-Allow-Origin' header");
     expect(setup).toContain("No live submission");
     expect(setup).toContain("No quarterly update submission");
