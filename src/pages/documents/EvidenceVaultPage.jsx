@@ -33,11 +33,21 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
 
   useEffect(() => {
     mountedRef.current = true;
-    queueMicrotask(() => {
-      load().catch(() => {});
-    });
-    return () => { mountedRef.current = false; };
-  }, [load]);
+    let cancelled = false;
+
+    async function loadInitial() {
+      if (!activeAccountId) return;
+      try {
+        const nextReports = await listInspectionReports(activeAccountId);
+        if (!cancelled && mountedRef.current) setReports(nextReports);
+      } catch (err) {
+        if (!cancelled && mountedRef.current) setError(err?.message || "Could not load inspection reports.");
+      }
+    }
+
+    loadInitial();
+    return () => { cancelled = true; mountedRef.current = false; };
+  }, [activeAccountId]);
 
   async function handleCreate(event) {
     event.preventDefault();

@@ -35,11 +35,26 @@ export default function ApplicationsPage({ properties = [] }) {
 
   useEffect(() => {
     mountedRef.current = true;
-    queueMicrotask(() => {
-      load().catch(() => {});
-    });
-    return () => { mountedRef.current = false; };
-  }, [load]);
+    let cancelled = false;
+
+    async function loadInitial() {
+      if (!activeAccountId) return;
+      try {
+        const [nextLinks, nextApplications] = await Promise.all([
+          listPropertyApplicationLinks(activeAccountId),
+          listRentalApplications(activeAccountId),
+        ]);
+        if (cancelled || !mountedRef.current) return;
+        setLinks(nextLinks);
+        setApplications(nextApplications);
+      } catch (err) {
+        if (!cancelled && mountedRef.current) setError(err?.message || "Could not load application links.");
+      }
+    }
+
+    loadInitial();
+    return () => { cancelled = true; mountedRef.current = false; };
+  }, [activeAccountId]);
 
   async function handleCreate(event) {
     event.preventDefault();

@@ -11,6 +11,8 @@ function hasText(value) {
 }
 
 export function scoreRentalApplication(application = {}, preferences = {}) {
+  // Production submissions are scored in submit_public_rental_application; keep
+  // this documentation/test helper aligned with the PL/pgSQL implementation.
   let score = 0;
   const reasons = [];
 
