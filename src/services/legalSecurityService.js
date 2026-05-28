@@ -190,15 +190,7 @@ export async function createInspectionReport(accountId, payload = {}) {
     p_rooms: rooms,
   });
   if (error) throw error;
-
-  const { data: hydrated, error: hydrateError } = await supabase
-    .from("inspection_reports")
-    .select(INSPECTION_SELECT)
-    .eq("id", report.id)
-    .eq("account_id", accountId)
-    .single();
-  if (hydrateError) throw hydrateError;
-  return hydrated;
+  return report;
 }
 
 export async function lockInspectionReport(id, accountId) {
