@@ -50,6 +50,7 @@ const RootTelemetryPage           = lazy(() => import("../pages/RootTelemetryPag
 const RootAccountsPage            = lazy(() => import("../pages/admin/RootAccountsPage"));
 const RootDataRequestsPage        = lazy(() => import("../pages/admin/RootDataRequestsPage"));
 const TaxReadinessPage            = lazy(() => import("../pages/compliance/TaxReadinessPage"));
+const TaxToolsPage                = lazy(() => import("../pages/compliance/TaxToolsPage"));
 const RentShieldPage              = lazy(() => import("../pages/compliance/RentShieldPage"));
 const LeaseAuditorPage            = lazy(() => import("../pages/compliance/LeaseAuditorPage"));
 const RentersRightsPage           = lazy(() => import("../pages/compliance/RentersRightsPage"));
@@ -430,6 +431,14 @@ export default function ManagerRoutes() {
         element={
           <EntitledRoute feature={ENTITLEMENT_FEATURES.TAX_READINESS_DASHBOARD}>
             <TaxReadinessPage />
+          </EntitledRoute>
+        }
+      />
+      <Route
+        path="compliance/tax-tools"
+        element={
+          <EntitledRoute feature={ENTITLEMENT_FEATURES.TAX_TOOLS_IN_APP}>
+            <TaxToolsPage properties={ownerProperties} />
           </EntitledRoute>
         }
       />
