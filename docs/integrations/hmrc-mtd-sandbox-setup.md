@@ -14,8 +14,24 @@ Store these only as Supabase Edge Function secrets or equivalent server-side env
 - `HMRC_AUTH_BASE_URL=https://test-www.tax.service.gov.uk`
 - `HMRC_TOKEN_ENCRYPTION_KEY`
 - `HMRC_LIVE_SUBMISSION_ENABLED=false`
+- `APP_URL=https://your-app-preview-or-production-origin`
+- `ALLOWED_APP_ORIGINS=https://your-app-preview-or-production-origin`
 
 Do not put HMRC credentials in Vite environment variables, frontend code, GitHub, screenshots, logs, database migrations, seed data, or plain database rows.
+
+`APP_URL` is used for safe redirects back into Tenaqo and must be one origin only, with no comma and no path. For the live app, use:
+
+```text
+APP_URL=https://app.tenaqo.com
+```
+
+`ALLOWED_APP_ORIGINS` is used for browser CORS preflight responses from Supabase Edge Functions. Multiple origins can be comma-separated. For example:
+
+```text
+ALLOWED_APP_ORIGINS=https://app.tenaqo.com,https://oasis-property-management-...vercel.app
+```
+
+Do not set `APP_URL` to the old `https://www.oasisrentalmgt.app` domain, and do not put multiple origins in `APP_URL`.
 
 ## HMRC Sandbox URLs
 
@@ -46,6 +62,15 @@ Configure the HMRC sandbox application redirect URI to the deployed Supabase Edg
 
 Set the same value in `HMRC_REDIRECT_URI`.
 
+The callback function must allow unauthenticated browser redirects from HMRC. Keep this in `supabase/config.toml`:
+
+```toml
+[functions.hmrc-oauth-callback]
+verify_jwt = false
+```
+
+This does not expose HMRC tokens to the browser. The callback is protected by the short-lived OAuth `state` value created by `hmrc-start-oauth`, and token exchange still happens server-side.
+
 ## Feature Flags
 
 The frontend and Edge Functions require account-level flags:
@@ -55,6 +80,13 @@ The frontend and Edge Functions require account-level flags:
 - `hmrc_mtd_read_only`
 
 `hmrc_mtd_live_submission` must remain disabled. It is not used by the UI or Edge Functions.
+
+The sandbox OAuth flow currently requests:
+
+- `hello` for the harmless HMRC Hello API read-only connection probe
+- `read:self-assessment` for the MTD read-only foundation
+
+If an older sandbox connection only shows `read:self-assessment`, disconnect and reconnect HMRC before using `Test sandbox connection`.
 
 Enable flags for a staging/internal account only:
 
@@ -71,7 +103,12 @@ do update set enabled = excluded.enabled;
 ## How To Test In Staging
 
 1. Apply `supabase/hmrc_mtd_phase1.sql`.
-2. Deploy the HMRC Edge Functions.
+2. Deploy the HMRC Edge Functions. Deploy `hmrc-oauth-callback` with JWT verification disabled, either through `supabase/config.toml` or:
+
+   ```bash
+   supabase functions deploy hmrc-oauth-callback --no-verify-jwt
+   ```
+
 3. Set the Edge Function secrets.
 4. Enable the account-level feature flags for the staging account.
 5. Open `Compliance -> Making Tax Digital -> HMRC Connection`.
@@ -79,6 +116,18 @@ do update set enabled = excluded.enabled;
 7. Authorise with an HMRC sandbox user.
 8. Confirm the status card shows `connected`.
 9. Run `Test sandbox connection`.
+
+## CORS Troubleshooting
+
+If the browser console shows:
+
+```text
+No 'Access-Control-Allow-Origin' header is present on the requested resource
+```
+
+then the deployed Edge Function is running but the app origin is not trusted by the function. Set `ALLOWED_APP_ORIGINS` to the exact browser origin that is calling the function, redeploy or restart the Edge Function runtime if needed, then refresh the app.
+
+If the OAuth callback redirects to a malformed URL such as `https://old-domain,https/compliance/hmrc-connection`, then `APP_URL` is misconfigured. Set `APP_URL` to a single valid origin, for example `https://app.tenaqo.com`, and redeploy `hmrc-oauth-callback`.
 
 ## Disable The Feature
 

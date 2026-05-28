@@ -16,6 +16,7 @@ export const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 export const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 export const ALLOWED_APP_ORIGINS = Deno.env.get("ALLOWED_APP_ORIGINS") || "";
 export const APP_URL = Deno.env.get("APP_URL") || "";
+export const HMRC_CORS_ALLOWED_ORIGINS = [APP_URL, ALLOWED_APP_ORIGINS].filter(Boolean).join(",");
 
 export const HMRC_ENVIRONMENT = Deno.env.get("HMRC_ENVIRONMENT") || "sandbox";
 export const HMRC_CLIENT_ID = Deno.env.get("HMRC_CLIENT_ID") || "";
@@ -31,7 +32,7 @@ export const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 export function json(req: Request, payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: buildJsonHeaders(req, ALLOWED_APP_ORIGINS),
+    headers: buildJsonHeaders(req, HMRC_CORS_ALLOWED_ORIGINS),
   });
 }
 
@@ -40,12 +41,12 @@ export function methodNotAllowed(req: Request) {
 }
 
 export function handleOptions(req: Request) {
-  return new Response("ok", { headers: buildCorsHeaders(req, ALLOWED_APP_ORIGINS) });
+  return new Response("ok", { headers: buildCorsHeaders(req, HMRC_CORS_ALLOWED_ORIGINS) });
 }
 
 export function safeHmrcError(req: Request, error: unknown, status = 500, message = "HMRC operation failed", context: Record<string, unknown> = {}) {
   return safeErrorResponse(req, {
-    allowedOrigins: ALLOWED_APP_ORIGINS,
+    allowedOrigins: HMRC_CORS_ALLOWED_ORIGINS,
     context,
     error,
     functionName: context.functionName ? String(context.functionName) : "hmrc-mtd",
@@ -180,7 +181,10 @@ export async function encryptedTokenRow(tokenResponse: Record<string, unknown>, 
 
 export function appRedirectUrl(path: string, params: Record<string, string> = {}) {
   const resolved = resolveTrustedAppOrigin({ appUrl: APP_URL, allowedOrigins: ALLOWED_APP_ORIGINS });
-  const url = new URL(path, resolved.origin || APP_URL || "http://localhost:5173");
+  if (!resolved.origin) {
+    throw new HttpError("Trusted app redirect origin is not configured", 500);
+  }
+  const url = new URL(path, resolved.origin);
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
   return url.toString();
 }

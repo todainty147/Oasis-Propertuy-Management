@@ -1,4 +1,5 @@
 export const APPROVED_HMRC_READ_ONLY_SCOPES = Object.freeze([
+  "hello",
   "read:self-assessment",
   "read:vat",
 ]);
@@ -29,6 +30,10 @@ export function validateHmrcScopes(requestedScopes: unknown): string[] {
     throw new Error("Unsupported HMRC scope requested");
   }
   return normalized;
+}
+
+export function ensureSandboxProbeScope(scopes: string[]): string[] {
+  return Array.from(new Set(["hello", ...scopes]));
 }
 
 export function generateOauthStateToken(byteLength = 32): string {
