@@ -166,7 +166,7 @@ function ExpenseTracker({ accountId, properties, expenses, onSaved }) {
           </div>
           <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-medium text-teal-700 dark:bg-teal-950/40 dark:text-teal-200">No HMRC submission</span>
         </div>
-        {error ? <p className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p> : null}
+        {error ? <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p> : null}
         <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-3">
           <Field label="Expense date">
             <input type="date" required value={form.expenseDate} onChange={(e) => setForm((f) => ({ ...f, expenseDate: e.target.value }))} className={inputClass()} />
@@ -260,11 +260,13 @@ function ExpenseTracker({ accountId, properties, expenses, onSaved }) {
 function Section24Tracker({ accountId, properties, financeRows, onSaved }) {
   const [form, setForm] = useState(EMPTY_FINANCE);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const result = useMemo(() => calculateSection24Comparison(form), [form]);
 
   async function handleSave() {
-    setBusy(true);
     try {
+      setBusy(true);
+      setError("");
       await upsertTaxFinanceCostSummary(accountId, {
         ...form,
         taxablePropertyProfitBeforeFinance: result.currentRules.taxableRentalProfitBeforeFinanceCosts,
@@ -272,6 +274,8 @@ function Section24Tracker({ accountId, properties, financeRows, onSaved }) {
         estimatedUnusedFinanceCosts: 0,
       });
       await onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save finance cost summary.");
     } finally {
       setBusy(false);
     }
@@ -282,6 +286,7 @@ function Section24Tracker({ accountId, properties, financeRows, onSaved }) {
       <Panel>
         <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Section 24 finance cost tracker</h2>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Section 24 is the common name landlords use for the residential finance cost restriction rules.</p>
+        {error ? <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p> : null}
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <Field label="Tax year"><select value={form.taxYear} onChange={(e) => setForm((f) => ({ ...f, taxYear: e.target.value }))} className={inputClass()}>{TAX_YEAR_OPTIONS.map((year) => <option key={year}>{year}</option>)}</select></Field>
           <Field label="Property"><PropertySelect properties={properties} value={form.propertyId} onChange={(propertyId) => setForm((f) => ({ ...f, propertyId }))} /></Field>
@@ -326,15 +331,19 @@ function Section24Tracker({ accountId, properties, financeRows, onSaved }) {
 function CarriedForwardTracker({ accountId, properties, carriedRows, onSaved }) {
   const [form, setForm] = useState(EMPTY_CARRIED);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const result = useMemo(() => calculateCarriedForwardFinanceCost(form), [form]);
 
   async function handleSave(event) {
     event.preventDefault();
-    setBusy(true);
     try {
+      setBusy(true);
+      setError("");
       await upsertTaxCarriedForwardFinanceCost(accountId, { ...form, carriedForwardAmount: result.carriedForwardAmount });
       setForm(EMPTY_CARRIED);
       await onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save carried-forward record.");
     } finally {
       setBusy(false);
     }
@@ -345,6 +354,7 @@ function CarriedForwardTracker({ accountId, properties, carriedRows, onSaved }) 
       <Panel>
         <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Carried-forward finance costs</h2>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{TAX_TOOL_ADVICE_NOTICE}</p>
+        {error ? <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p> : null}
         <form onSubmit={handleSave} className="mt-4 grid gap-4 md:grid-cols-3">
           <Field label="Tax year"><select value={form.taxYear} onChange={(e) => setForm((f) => ({ ...f, taxYear: e.target.value }))} className={inputClass()}>{TAX_YEAR_OPTIONS.map((year) => <option key={year}>{year}</option>)}</select></Field>
           <Field label="Property"><PropertySelect properties={properties} value={form.propertyId} onChange={(propertyId) => setForm((f) => ({ ...f, propertyId }))} /></Field>
