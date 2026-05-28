@@ -70,10 +70,20 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(files).not.toMatch(/VITE_HMRC|console\.log\([^)]*(token|secret|code)/i);
   });
 
+  it("allows HMRC Edge Function CORS from APP_URL and ALLOWED_APP_ORIGINS", () => {
+    const edge = read("supabase/functions/_shared/hmrcEdge.ts");
+    expect(edge).toContain("HMRC_CORS_ALLOWED_ORIGINS");
+    expect(edge).toContain("[APP_URL, ALLOWED_APP_ORIGINS]");
+    expect(edge).toContain("buildJsonHeaders(req, HMRC_CORS_ALLOWED_ORIGINS)");
+    expect(edge).toContain("buildCorsHeaders(req, HMRC_CORS_ALLOWED_ORIGINS)");
+  });
+
   it("documents secret handling and unfinished scope", () => {
     const setup = read("docs/integrations/hmrc-mtd-sandbox-setup.md");
     const security = read("docs/integrations/hmrc-mtd-security.md");
     expect(setup).toContain("Supabase Edge Function secrets");
+    expect(setup).toContain("ALLOWED_APP_ORIGINS");
+    expect(setup).toContain("No 'Access-Control-Allow-Origin' header");
     expect(setup).toContain("No live submission");
     expect(setup).toContain("No quarterly update submission");
     expect(security).toContain("Never log");

@@ -14,8 +14,12 @@ Store these only as Supabase Edge Function secrets or equivalent server-side env
 - `HMRC_AUTH_BASE_URL=https://test-www.tax.service.gov.uk`
 - `HMRC_TOKEN_ENCRYPTION_KEY`
 - `HMRC_LIVE_SUBMISSION_ENABLED=false`
+- `APP_URL=https://your-app-preview-or-production-origin`
+- `ALLOWED_APP_ORIGINS=https://your-app-preview-or-production-origin`
 
 Do not put HMRC credentials in Vite environment variables, frontend code, GitHub, screenshots, logs, database migrations, seed data, or plain database rows.
+
+`APP_URL` is used for safe redirects back into Tenaqo. `ALLOWED_APP_ORIGINS` is used for browser CORS preflight responses from Supabase Edge Functions. For Vercel preview deployments, include the exact preview origin, for example `https://oasis-property-management-...vercel.app`. Multiple origins can be comma-separated.
 
 ## HMRC Sandbox URLs
 
@@ -79,6 +83,16 @@ do update set enabled = excluded.enabled;
 7. Authorise with an HMRC sandbox user.
 8. Confirm the status card shows `connected`.
 9. Run `Test sandbox connection`.
+
+## CORS Troubleshooting
+
+If the browser console shows:
+
+```text
+No 'Access-Control-Allow-Origin' header is present on the requested resource
+```
+
+then the deployed Edge Function is running but the app origin is not trusted by the function. Set `ALLOWED_APP_ORIGINS` to the exact browser origin that is calling the function, redeploy or restart the Edge Function runtime if needed, then refresh the app.
 
 ## Disable The Feature
 
