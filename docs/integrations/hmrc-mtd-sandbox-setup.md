@@ -88,6 +88,7 @@ The frontend and Edge Functions require account-level flags:
 - `hmrc_mtd_connection`
 - `hmrc_mtd_sandbox`
 - `hmrc_mtd_read_only`
+- `hmrc_mtd_sandbox_test_data` for internal sandbox test-data setup only
 
 `hmrc_mtd_live_submission` must remain disabled. It is not used by the UI or Edge Functions.
 
@@ -95,6 +96,7 @@ The sandbox OAuth flow currently requests:
 
 - `hello` for the harmless HMRC Hello API read-only connection probe
 - `read:self-assessment` for the MTD read-only foundation
+- `write:self-assessment` only when using the internal sandbox test-data setup panel
 
 If an older sandbox connection only shows `read:self-assessment`, disconnect and reconnect HMRC before using `Test sandbox connection`.
 
@@ -112,6 +114,27 @@ On `Compliance -> Making Tax Digital -> HMRC Connection`, add the sandbox test u
 
 Business Details is the first real probe. If it returns an income source ID, Tenaqo stores that ID server-side for later Property Business read-only checks.
 
+## Sandbox Test Data Setup
+
+If Business Details and Obligations return `no_data`, use the internal `Sandbox test-data setup` panel on the HMRC Connection page.
+
+This panel calls HMRC's **Self Assessment Test Support (MTD) 1.0** sandbox endpoints server-side:
+
+- `POST /individuals/self-assessment-test-support/itsa-status/{nino}/{taxYear}`
+- `POST /individuals/self-assessment-test-support/business/{nino}`
+- `DELETE /individuals/self-assessment-test-support/business/{nino}/{businessId}`
+
+These endpoints mutate HMRC sandbox vendor state only. They are not live submissions and they must remain behind `hmrc_mtd_sandbox_test_data`.
+
+To use them:
+
+1. Enable `hmrc_mtd_sandbox_test_data` for the internal/staging account.
+2. Reconnect HMRC using `Reconnect with test-data scope` so the OAuth token includes `write:self-assessment`.
+3. Save the sandbox NINO.
+4. Create ITSA status for the tax year.
+5. Create a UK property test business.
+6. Run Business Details again, then Obligations.
+
 ## Read-Only Verification Results
 
 - `success`: HMRC returned usable read-only sandbox data.
@@ -128,7 +151,8 @@ insert into public.account_feature_flags (account_id, feature_key, enabled)
 values
   ('<account-id>', 'hmrc_mtd_connection', true),
   ('<account-id>', 'hmrc_mtd_sandbox', true),
-  ('<account-id>', 'hmrc_mtd_read_only', true)
+  ('<account-id>', 'hmrc_mtd_read_only', true),
+  ('<account-id>', 'hmrc_mtd_sandbox_test_data', true)
 on conflict (account_id, feature_key)
 do update set enabled = excluded.enabled;
 ```
@@ -149,6 +173,7 @@ do update set enabled = excluded.enabled;
 7. Authorise with an HMRC sandbox user.
 8. Confirm the status card shows `connected`.
 9. Run `Test sandbox connection`.
+10. If you need seeded sandbox MTD data, use the sandbox test-data setup panel, then run `Check Business Details`.
 
 ## CORS Troubleshooting
 

@@ -1,6 +1,11 @@
-export const APPROVED_HMRC_READ_ONLY_SCOPES = Object.freeze([
+export const DEFAULT_HMRC_READ_ONLY_SCOPES = Object.freeze([
   "hello",
   "read:self-assessment",
+]);
+
+export const APPROVED_HMRC_READ_ONLY_SCOPES = Object.freeze([
+  ...DEFAULT_HMRC_READ_ONLY_SCOPES,
+  "write:self-assessment",
   "read:vat",
 ]);
 
@@ -19,7 +24,7 @@ export const HMRC_CONNECTION_STATUSES = Object.freeze([
 export function validateHmrcScopes(requestedScopes: unknown): string[] {
   const input = Array.isArray(requestedScopes) && requestedScopes.length
     ? requestedScopes
-    : APPROVED_HMRC_READ_ONLY_SCOPES;
+    : DEFAULT_HMRC_READ_ONLY_SCOPES;
   const normalized = Array.from(new Set(
     input
       .map((scope) => String(scope || "").trim())

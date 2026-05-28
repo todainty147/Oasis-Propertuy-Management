@@ -2,6 +2,7 @@ export const HMRC_ACCEPT_HEADERS = Object.freeze({
   businessDetails: "application/vnd.hmrc.2.0+json",
   obligations: "application/vnd.hmrc.3.0+json",
   propertyBusiness: "application/vnd.hmrc.6.0+json",
+  testSupport: "application/vnd.hmrc.1.0+json",
 });
 
 export function normalizeSandboxNino(value: unknown) {
@@ -63,4 +64,26 @@ export function summarizeObligations(body: Record<string, unknown>) {
     fulfilledCount: fulfilled.length,
     nextDueDate: dueDates[0] || null,
   };
+}
+
+export function safeTaxYear(value: unknown, fallback = "2026-27") {
+  const taxYear = String(value || "").trim();
+  return /^20\d{2}-\d{2}$/.test(taxYear) ? taxYear : fallback;
+}
+
+export function taxYearAccountingPeriod(taxYear: string) {
+  const normalized = safeTaxYear(taxYear);
+  const startYear = Number(normalized.slice(0, 4));
+  return {
+    taxYear: normalized,
+    startDate: `${startYear}-04-06`,
+    endDate: `${startYear + 1}-04-05`,
+  };
+}
+
+export function normalizeTestBusinessType(value: unknown) {
+  const type = String(value || "").trim();
+  return ["uk-property", "foreign-property", "property-unspecified", "self-employment"].includes(type)
+    ? type
+    : "uk-property";
 }
