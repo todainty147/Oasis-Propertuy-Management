@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { BenefitGrid } from "../../../components/marketing/benefit-grid";
+import { LandlordToolsCta } from "../../../components/landlord-tools/landlord-tools-cta";
 import { ContentSection } from "../../../components/marketing/content-section";
 import { FinalCta } from "../../../components/marketing/final-cta";
 import { PageHero } from "../../../components/marketing/page-hero";
@@ -16,6 +17,7 @@ export default function RentalAccountingPage() {
       <ContentSection {...rentalAccountingContent.painPoints} />
       <ContentSection {...rentalAccountingContent.solution} />
       <BenefitGrid {...rentalAccountingContent.benefits} />
+      <LandlordToolsCta locale="en" />
       <FinalCta {...rentalAccountingContent.finalCta} />
     </>
   );

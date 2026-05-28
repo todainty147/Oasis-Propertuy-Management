@@ -41,6 +41,7 @@ export function SiteFooter() {
           <Link href={getLocalizedMarketingHref(locale, "/compare/oasis-vs-landlordstudio")}>
             {copy.footerLinks.compare}
           </Link>
+          {locale === "en" ? <Link href="/landlord-tools">{copy.footerLinks.tools}</Link> : null}
           <Link href={getLocalizedMarketingHref(locale, "/blog")}>{copy.footerLinks.blog}</Link>
           <Link href={getLocalizedMarketingHref(locale, "/impressum")}>{copy.footerLinks.legalNotice}</Link>
           <Link href={siteConfig.appUrl}>{copy.footerLinks.earlyAccess}</Link>
