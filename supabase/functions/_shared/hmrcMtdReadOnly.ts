@@ -9,6 +9,8 @@ import {
 } from "./hmrcEdge.ts";
 export {
   HMRC_ACCEPT_HEADERS,
+  buildPropertyBusinessReadPath,
+  isTaxYearFrom2025,
   maskNino,
   normalizeHmrcError,
   normalizeSandboxNino,
@@ -17,6 +19,7 @@ export {
   safeTaxYear,
   summarizeBusinessDetails,
   summarizeObligations,
+  summarizePropertyBusiness,
   taxYearAccountingPeriod,
 } from "./hmrcMtdReadOnlyHelpers.ts";
 import {

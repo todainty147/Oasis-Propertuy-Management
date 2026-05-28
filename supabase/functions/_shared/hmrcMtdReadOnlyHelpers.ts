@@ -96,6 +96,31 @@ export function taxYearAccountingPeriod(taxYear: string) {
   };
 }
 
+export function isTaxYearFrom2025(taxYear: string) {
+  const normalized = safeTaxYear(taxYear);
+  return Number(normalized.slice(0, 4)) >= 2025;
+}
+
+export function buildPropertyBusinessReadPath(nino: string, businessId: string, taxYear: string, typeOfBusiness = "uk-property") {
+  const scope = typeOfBusiness === "foreign-property" ? "foreign" : "uk";
+  if (isTaxYearFrom2025(taxYear)) {
+    return `/individuals/business/property/${scope}/${encodeURIComponent(nino)}/${encodeURIComponent(businessId)}/cumulative/${encodeURIComponent(taxYear)}`;
+  }
+  return `/individuals/business/property/${encodeURIComponent(nino)}/${encodeURIComponent(businessId)}/period/${encodeURIComponent(taxYear)}`;
+}
+
+export function summarizePropertyBusiness(body: Record<string, unknown>, taxYear: string, typeOfBusiness = "uk-property") {
+  const submissions = Array.isArray(body.submissions) ? body.submissions : [];
+  const hasCumulativeSummary = Boolean(body.ukProperty || body.foreignProperty || body.foreignPropertyFhlEea);
+  return {
+    periodSummaryCount: submissions.length || (hasCumulativeSummary ? 1 : 0),
+    annualSubmissionFound: Boolean(body.annualSubmission),
+    ukPropertyFound: typeOfBusiness !== "foreign-property" && (hasCumulativeSummary || submissions.length > 0),
+    foreignPropertyFound: typeOfBusiness === "foreign-property" && (hasCumulativeSummary || submissions.length > 0),
+    endpointMode: isTaxYearFrom2025(taxYear) ? "cumulative" : "period_list",
+  };
+}
+
 export function safeObligationsBusinessType(value: unknown) {
   const type = normalizeTestBusinessType(value);
   if (type === "foreign-property") return "foreign-property";

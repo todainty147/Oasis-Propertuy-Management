@@ -19,8 +19,10 @@ import {
   normalizeSandboxNino,
   normalizeTestBusinessType,
   safeTaxYear,
+  buildPropertyBusinessReadPath,
   summarizeBusinessDetails,
   summarizeObligations,
+  summarizePropertyBusiness,
   taxYearAccountingPeriod,
 } from "../../supabase/functions/_shared/hmrcMtdReadOnlyHelpers.ts";
 
@@ -105,6 +107,13 @@ describe("HMRC MTD sandbox helpers", () => {
       fulfilledCount: 0,
       nextDueDate: "2026-08-07",
     });
+    expect(summarizePropertyBusiness({ ukProperty: { income: {} } }, "2026-27", "uk-property")).toEqual({
+      periodSummaryCount: 1,
+      annualSubmissionFound: false,
+      ukPropertyFound: true,
+      foreignPropertyFound: false,
+      endpointMode: "cumulative",
+    });
   });
 
   it("normalizes HMRC sandbox test-data inputs", () => {
@@ -118,5 +127,7 @@ describe("HMRC MTD sandbox helpers", () => {
     });
     expect(normalizeTestBusinessType("foreign-property")).toBe("foreign-property");
     expect(normalizeTestBusinessType("unexpected")).toBe("uk-property");
+    expect(buildPropertyBusinessReadPath("AA000000A", "XKIS00000000735", "2026-27", "uk-property")).toContain("/property/uk/AA000000A/XKIS00000000735/cumulative/2026-27");
+    expect(buildPropertyBusinessReadPath("AA000000A", "XKIS00000000735", "2024-25", "uk-property")).toContain("/property/AA000000A/XKIS00000000735/period/2024-25");
   });
 });

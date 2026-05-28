@@ -9,6 +9,7 @@ import {
 } from "../_shared/hmrcEdge.ts";
 import {
   getSandboxProfile,
+  buildPropertyBusinessReadPath,
   HMRC_ACCEPT_HEADERS,
   hmrcRequest,
   persistDiscoveredIncomeSourceId,
@@ -16,6 +17,7 @@ import {
   safeObligationsBusinessType,
   summarizeBusinessDetails,
   summarizeObligations,
+  summarizePropertyBusiness,
   taxYearAccountingPeriod,
   writeHmrcReadinessCheck,
 } from "../_shared/hmrcMtdReadOnly.ts";
@@ -123,6 +125,39 @@ Deno.serve(async (req) => {
         message: "Property Business skipped until Business Details returns or stores an income source ID.",
         summary: { safeCode: "missing_test_identifier" },
       });
+    } else {
+      const propertyTaxYear = profile.testTaxYear || "2026-27";
+      const propertyBusinessType = profile.testBusinessType || "uk-property";
+      const property = await hmrcRequest({
+        accountId,
+        connection,
+        path: buildPropertyBusinessReadPath(profile.nino, discoveredIncomeSourceId, propertyTaxYear, propertyBusinessType),
+        accept: HMRC_ACCEPT_HEADERS.propertyBusiness,
+        action: "hmrc.read_property_business",
+        userId: user.id,
+      });
+      const propertySummary = property.ok
+        ? summarizePropertyBusiness(property.body, propertyTaxYear, propertyBusinessType)
+        : { safe_code: property.normalized?.safeCode || "hmrc_error" };
+      const propertyStatus = property.ok ? "success" : property.status === 404 ? "no_data" : "failed";
+      await writeHmrcReadinessCheck({
+        accountId,
+        connectionId: String(connection.id || ""),
+        checkType: "property_business_read",
+        status: propertyStatus,
+        hmrcStatusCode: property.status,
+        hmrcCode: property.normalized?.hmrcCode || null,
+        summary: propertySummary,
+        checkedBy: user.id,
+      });
+      checks.push({
+        checkType: "property_business_read",
+        status: propertyStatus,
+        message: property.ok
+          ? "Property Business read-only sandbox check completed."
+          : property.normalized?.message,
+        summary: publicPropertySummary(propertySummary),
+      });
     }
 
     const successCount = checks.filter((check) => check.status === "success").length;
@@ -159,6 +194,17 @@ function publicObligationsSummary(summary: Record<string, unknown>) {
     openCount: Number(summary.openCount || 0),
     fulfilledCount: Number(summary.fulfilledCount || 0),
     nextDueDate: summary.nextDueDate || null,
+    safeCode: summary.safe_code || null,
+  };
+}
+
+function publicPropertySummary(summary: Record<string, unknown>) {
+  return {
+    periodSummaryCount: Number(summary.periodSummaryCount || 0),
+    annualSubmissionFound: Boolean(summary.annualSubmissionFound),
+    ukPropertyFound: Boolean(summary.ukPropertyFound),
+    foreignPropertyFound: Boolean(summary.foreignPropertyFound),
+    endpointMode: summary.endpointMode || null,
     safeCode: summary.safe_code || null,
   };
 }

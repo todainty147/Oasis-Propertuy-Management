@@ -125,7 +125,11 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(files).toContain("safeObligationsBusinessType");
     expect(read("supabase/functions/hmrc-read-obligations/index.ts")).toContain("testScenario: null");
     expect(read("supabase/functions/hmrc-run-readonly-verification/index.ts")).toContain("testScenario: null");
-    expect(files).toContain("/individuals/business/property/");
+    expect(shared).toContain("buildPropertyBusinessReadPath");
+    expect(shared).toContain("/individuals/business/property/");
+    expect(shared).toContain("/cumulative/");
+    expect(shared).toContain("/period/");
+    expect(files).toContain("summarizePropertyBusiness");
     expect(shared).toContain("application/vnd.hmrc.2.0+json");
     expect(shared).toContain("application/vnd.hmrc.3.0+json");
     expect(shared).toContain("application/vnd.hmrc.6.0+json");
