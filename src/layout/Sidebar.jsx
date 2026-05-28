@@ -458,6 +458,14 @@ function SidebarContent({ onNavigate }) {
                   onNavigate={onNavigate}
                 />
               )}
+              {canManage && hasEntitlement(ENTITLEMENT_FEATURES.EVIDENCE_VAULT) && (
+                <Item
+                  to="/documents/evidence-vault"
+                  icon={ShieldCheck}
+                  label={t("sidebar.evidenceVault")}
+                  onNavigate={onNavigate}
+                />
+              )}
             </Section>
 
             {/* ── Operations ── */}
@@ -479,6 +487,9 @@ function SidebarContent({ onNavigate }) {
                 {hasEntitlement(ENTITLEMENT_FEATURES.PORTFOLIO_HEALTH) && (
                   <Item to="/portfolio-health" icon={LineChart}   label={t("sidebar.portfolioHealth")} onNavigate={onNavigate} />
                 )}
+                {(hasEntitlement(ENTITLEMENT_FEATURES.TENANT_APPLICATION_LINKS) || hasEntitlement(ENTITLEMENT_FEATURES.APPLICANT_PRESCREENING_DASHBOARD)) && (
+                  <Item to="/applications" icon={UserPlus} label={t("sidebar.applications")} onNavigate={onNavigate} />
+                )}
               </Section>
             )}
 
@@ -495,6 +506,11 @@ function SidebarContent({ onNavigate }) {
                   <Item       to="/compliance/tax-tools" icon={Calculator} label={t("sidebar.taxTools")} onNavigate={onNavigate} />
                 ) : (
                   <LockedItem to="/compliance/tax-tools" icon={Calculator} label={t("sidebar.taxTools")} onNavigate={onNavigate} />
+                )}
+                {hasEntitlement(ENTITLEMENT_FEATURES.COMPLIANCE_SAFE) ? (
+                  <Item       to="/compliance/safe" icon={Shield} label={t("sidebar.complianceSafe")} onNavigate={onNavigate} />
+                ) : (
+                  <LockedItem to="/compliance/safe" icon={Shield} label={t("sidebar.complianceSafe")} onNavigate={onNavigate} />
                 )}
                 {hasEntitlement(ENTITLEMENT_FEATURES.TAX_READINESS_DASHBOARD) ? (
                   <Item to="/compliance/rent-shield" icon={Umbrella} label={t("sidebar.rentShield")} onNavigate={onNavigate} />

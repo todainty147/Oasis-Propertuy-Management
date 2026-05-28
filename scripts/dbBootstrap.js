@@ -463,6 +463,16 @@ const bootstrapSteps = [
     file: path.join(supabaseDir, "renters_rights_tenant_filter_fix.sql"),
     onErrorStop: true,
   },
+  {
+    label: "Apply landlord tax tools Phase 2 overlay",
+    file: path.join(supabaseDir, "tax_tools_phase2.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply legal security Phase 3 overlay",
+    file: path.join(supabaseDir, "legal_security_phase3.sql"),
+    onErrorStop: true,
+  },
 ];
 
 function resolvePsqlCommand() {

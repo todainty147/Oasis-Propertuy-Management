@@ -30,6 +30,7 @@ const Tenants                     = lazy(() => import("../pages/Tenants"));
 const PropertyDetails             = lazy(() => import("../pages/PropertyDetails"));
 const TenantDetails               = lazy(() => import("../pages/TenantDetails"));
 const Documents                   = lazy(() => import("../pages/Documents"));
+const EvidenceVaultPage           = lazy(() => import("../pages/documents/EvidenceVaultPage"));
 const MaintenanceInboxPage        = lazy(() => import("../pages/MaintenanceInboxPage"));
 const MaintenanceKPIDashboardPage = lazy(() => import("../pages/MaintenanceKPIDashboardPage"));
 const CommandCenterPage           = lazy(() => import("../pages/CommandCenterPage"));
@@ -50,6 +51,7 @@ const RootTelemetryPage           = lazy(() => import("../pages/RootTelemetryPag
 const RootAccountsPage            = lazy(() => import("../pages/admin/RootAccountsPage"));
 const RootDataRequestsPage        = lazy(() => import("../pages/admin/RootDataRequestsPage"));
 const TaxToolsPage                = lazy(() => import("../pages/compliance/TaxToolsPage"));
+const ComplianceSafePage          = lazy(() => import("../pages/compliance/ComplianceSafePage"));
 const RentShieldPage              = lazy(() => import("../pages/compliance/RentShieldPage"));
 const LeaseAuditorPage            = lazy(() => import("../pages/compliance/LeaseAuditorPage"));
 const RentersRightsPage           = lazy(() => import("../pages/compliance/RentersRightsPage"));
@@ -61,6 +63,7 @@ const OperatingCalendarPage       = lazy(() => import("../pages/OperatingCalenda
 const ContractorPortal            = lazy(() => import("../pages/ContractorPortal"));
 const ContractorJobDetails        = lazy(() => import("../pages/ContractorJobDetails"));
 const WorkOrderDetails            = lazy(() => import("../pages/WorkOrderDetails"));
+const ApplicationsPage            = lazy(() => import("../pages/applications/ApplicationsPage"));
 
 // ── Route guard helpers ──────────────────────────────────────────────────────
 
@@ -315,7 +318,28 @@ export default function ManagerRoutes() {
         }
       />
 
+      <Route
+        path="documents/evidence-vault"
+        element={
+          <EntitledRoute feature={ENTITLEMENT_FEATURES.EVIDENCE_VAULT}>
+            <EvidenceVaultPage properties={ownerProperties} tenants={ownerTenants} />
+          </EntitledRoute>
+        }
+      />
+
       <Route path="maintenance-inbox" element={<MaintenanceInboxPage />} />
+
+      <Route
+        path="applications"
+        element={
+          <EntitledRoute
+            feature={ENTITLEMENT_FEATURES.TENANT_APPLICATION_LINKS}
+            altFeature={ENTITLEMENT_FEATURES.APPLICANT_PRESCREENING_DASHBOARD}
+          >
+            <ApplicationsPage properties={ownerProperties} />
+          </EntitledRoute>
+        }
+      />
 
       <Route
         path="maintenance-kpi"
@@ -437,6 +461,14 @@ export default function ManagerRoutes() {
             altFeature={ENTITLEMENT_FEATURES.TAX_READINESS_DASHBOARD}
           >
             <TaxToolsPage properties={ownerProperties} />
+          </EntitledRoute>
+        }
+      />
+      <Route
+        path="compliance/safe"
+        element={
+          <EntitledRoute feature={ENTITLEMENT_FEATURES.COMPLIANCE_SAFE}>
+            <ComplianceSafePage properties={ownerProperties} tenants={ownerTenants} />
           </EntitledRoute>
         }
       />

@@ -141,26 +141,26 @@ type HomePageContent = {
 export const homepageContentByLocale: Record<Locale, HomePageContent> = {
   en: {
     seo: {
-      title: "Tenaqo | Rental Operations Software for Landlords",
+      title: "Tenaqo | Rental Operations Software That Protects Your Portfolio",
       description:
-        "Tenaqo helps landlords manage rent, maintenance, tenants, documents, compliance readiness, and AI-assisted action queues from one rental operations dashboard.",
+        "Tenaqo helps landlords organise compliance evidence, maintenance workflows, tenant onboarding, documents, rent records and property operations in one secure workspace.",
       canonicalPath: "/",
     },
     hero: {
       eyebrow: "Automated property management software for landlords",
-      title: "Less landlord stress. More control over every rental.",
+      title: "Rental operations software that protects your portfolio",
       body:
-        "Tenaqo brings rent, repairs, documents, contractors, compliance readiness, and AI-assisted action queues into one operating layer — so landlords know what needs action next.",
+        "Organise compliance evidence, maintenance workflows, tenant onboarding, documents, rent records and property operations in one secure workspace.",
       emphasis:
-        "Rent, repairs, documents, and compliance in one action queue.",
+        "Compliance evidence, maintenance triage, documents, and rent records in one action queue.",
       support:
         "No guaranteed income claims. No payment collection rail today. Just visibility, workflows, and the operational clarity that keeps a rental portfolio running without constant intervention.",
       highlights: [
-        { label: "Rent and expected charges", href: "/features/rental-accounting" },
-        { label: "Command Center", href: "/features/command-center" },
-        { label: "Maintenance and work orders", href: "/features/maintenance-management" },
-        { label: "Compliance readiness", href: "/features/compliance" },
-        { label: "Security and audit trail", href: "/features/security-audit" },
+        { label: "Compliance evidence", href: "/features/compliance" },
+        { label: "Deposit defence", href: "/property-risk-protection-software" },
+        { label: "Maintenance triage", href: "/features/maintenance-management" },
+        { label: "Tenant onboarding", href: "/features/tenant-management" },
+        { label: "Property records", href: "/features/security-audit" },
       ],
       microcopy: [
         "See rent, arrears, maintenance, and documents in one dashboard.",
@@ -177,11 +177,11 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       title: "Built for landlords who want clarity, control, and fewer surprises",
       body: "Tenaqo gives landlords the operating layer usually missing between spreadsheets, inboxes, tenants, contractors, and finance records.",
       badges: [
-        { label: "Professional Standards" },
-        { label: "Compliance-Ready Workflows" },
-        { label: "Secure Landlord Records" },
-        { label: "Tenant & Contractor Portals" },
-        { label: "Audit-Ready Operations" },
+        { label: "Compliance evidence" },
+        { label: "Deposit defence" },
+        { label: "Maintenance triage" },
+        { label: "Tenant onboarding" },
+        { label: "Property records" },
       ],
       disclaimer: "Verified partner and industry badges can be added here once approved.",
     },

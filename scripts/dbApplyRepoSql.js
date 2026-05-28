@@ -148,6 +148,7 @@ const OVERLAY_SEQUENCE = [
   "data_retention_privacy.sql",
   "supabase_linter_security_hardening.sql",
   "tax_tools_phase2.sql",
+  "legal_security_phase3.sql",
 ];
 
 function resolvePsqlCommand() {
