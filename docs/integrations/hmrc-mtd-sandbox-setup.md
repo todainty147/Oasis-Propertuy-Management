@@ -88,6 +88,8 @@ The sandbox OAuth flow currently requests:
 
 If an older sandbox connection only shows `read:self-assessment`, disconnect and reconnect HMRC before using `Test sandbox connection`.
 
+The test call first tries HMRC's user-restricted Hello endpoint with the OAuth token. If HMRC returns `403`, Tenaqo also checks the open Hello World endpoint and shows `sandbox_reachable` when the sandbox itself is reachable but the user-restricted probe is not authorised. In that case, check that the sandbox app is subscribed to the Hello World API and that the test user granted the `hello` scope.
+
 Enable flags for a staging/internal account only:
 
 ```sql

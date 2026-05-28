@@ -216,6 +216,12 @@ export default function HmrcConnectionPage() {
           <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-950">
             <p className="font-medium capitalize">{result.status}</p>
             <p className="mt-1 text-slate-500">{result.message}</p>
+            {result.responseSummary?.user_restricted_code || result.responseSummary?.user_restricted_status ? (
+              <p className="mt-2 text-xs text-slate-500">
+                HMRC user test: {result.responseSummary.user_restricted_status || "unknown"}
+                {result.responseSummary.user_restricted_code ? ` (${result.responseSummary.user_restricted_code})` : ""}
+              </p>
+            ) : null}
           </div>
         ) : null}
       </section>
