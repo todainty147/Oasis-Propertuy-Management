@@ -59,6 +59,7 @@ const OVERLAY_SEQUENCE = [
   "contractor_work_order_cards.sql",
   "contractor_ratings.sql",
   "marketplace_integrations.sql",
+  "checkatrade_job_trades.sql",
   "dashboard_snapshot.sql",
   "finance_snapshot.sql",
   "portfolio_health_snapshot.sql",
@@ -146,6 +147,7 @@ const OVERLAY_SEQUENCE = [
   "operating_calendar.sql",
   "data_retention_privacy.sql",
   "supabase_linter_security_hardening.sql",
+  "tax_tools_phase2.sql",
 ];
 
 function resolvePsqlCommand() {

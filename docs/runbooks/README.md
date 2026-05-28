@@ -36,6 +36,10 @@ If the symptom is:
   - start with [ai-cost-controls-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/ai-cost-controls-operations.md)
 - Tax Readiness Dashboard is missing deadlines, status badges look wrong, exports contain wrong data, or Records totals appear merged across currencies:
   - start with [compliance-tax-readiness-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/compliance-tax-readiness-operations.md)
+- In-app Tax Tools tab is hidden, a save is silently failing, the carried-forward calculation looks wrong, or the CSV export shows UUIDs:
+  - start with [tax-tools-in-app-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/tax-tools-in-app-operations.md)
+- Checkatrade submit button is missing or disabled, a submission is stuck in `failed` / `manual_follow_up`, matched trades are not showing, or the Edge Function is returning errors:
+  - start with [marketplace-checkatrade-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/marketplace-checkatrade-operations.md)
 - Rent Shield score looks wrong, portfolio overview is empty, or recalculation is not updating the score:
   - start with [compliance-rent-shield-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/compliance-rent-shield-operations.md)
 - Lease Auditor findings are not saving, overall risk is not updating, or the lease list is not loading:

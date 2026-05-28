@@ -179,6 +179,18 @@ When OASIS submits a live Checkatrade job, it now shapes the outbound body to th
 
 If any Checkatrade-required fields are still missing, OASIS does not send a live request. The handoff is moved to `manual_follow_up` with validation guidance instead.
 
+## Matched trades storage
+
+After a successful submission Checkatrade returns a list of matched trades (contractor profiles). OASIS stores these in `external_marketplace_job_trades` via the service-role RPC `edge_store_marketplace_job_trades`.
+
+The RPC is a bulk-replace: it deletes all existing trades for the job then inserts the new batch atomically. This means resubmitting a job overwrites any previously stored trades — consistent with the Checkatrade result for the latest submission attempt.
+
+Direct table access is blocked by an `USING (false)` RLS policy. All reads go through `list_marketplace_job_trades(account_id, marketplace_job_id)` and all writes go through `edge_store_marketplace_job_trades(account_id, marketplace_job_id, work_order_id, trades_jsonb)`.
+
+The `edge_store_marketplace_job_trades` function validates that `p_trades` is a JSON array before touching any stored data. Passing a non-array (including `null`) raises `p_trades must be a JSON array` and leaves existing trades intact.
+
+Applied via `supabase/checkatrade_job_trades.sql`.
+
 ## Idempotency and retries
 
 - OASIS sends a stable idempotency key per marketplace job submission attempt
