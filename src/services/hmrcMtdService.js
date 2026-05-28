@@ -32,6 +32,10 @@ export async function startHmrcSandboxOAuth(accountId, requestedScopes = []) {
   return data;
 }
 
+export async function startHmrcSandboxTestDataOAuth(accountId) {
+  return startHmrcSandboxOAuth(accountId, ["hello", "read:self-assessment", "write:self-assessment"]);
+}
+
 export async function refreshHmrcConnection(accountId) {
   assertAccount(accountId);
   const { data, error } = await supabase.functions.invoke("hmrc-refresh-token", {
@@ -89,10 +93,22 @@ export async function runHmrcReadonlyVerification(accountId) {
   return data || null;
 }
 
-async function invokeHmrcReadOnlyCheck(accountId, functionName, fallback) {
+export async function createHmrcTestItsaStatus(accountId, { taxYear } = {}) {
+  return invokeHmrcReadOnlyCheck(accountId, "hmrc-create-test-itsa-status", "Could not create HMRC sandbox ITSA status.", { taxYear });
+}
+
+export async function createHmrcTestBusiness(accountId, { taxYear, typeOfBusiness } = {}) {
+  return invokeHmrcReadOnlyCheck(accountId, "hmrc-create-test-business", "Could not create HMRC sandbox test business.", { taxYear, typeOfBusiness });
+}
+
+export async function deleteHmrcTestBusiness(accountId) {
+  return invokeHmrcReadOnlyCheck(accountId, "hmrc-delete-test-business", "Could not delete HMRC sandbox test business.");
+}
+
+async function invokeHmrcReadOnlyCheck(accountId, functionName, fallback, body = {}) {
   assertAccount(accountId);
   const { data, error } = await supabase.functions.invoke(functionName, {
-    body: { account_id: accountId },
+    body: { account_id: accountId, ...body },
   });
   if (error) throw safeInvokeError(error, fallback);
   return data || null;

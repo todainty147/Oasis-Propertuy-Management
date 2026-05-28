@@ -49,6 +49,7 @@ export const ENTITLEMENT_FEATURES = Object.freeze({
   HMRC_MTD_CONNECTION: "hmrc_mtd_connection",
   HMRC_MTD_SANDBOX: "hmrc_mtd_sandbox",
   HMRC_MTD_READ_ONLY: "hmrc_mtd_read_only",
+  HMRC_MTD_SANDBOX_TEST_DATA: "hmrc_mtd_sandbox_test_data",
   HMRC_MTD_LIVE_SUBMISSION: "hmrc_mtd_live_submission",
   COMPLIANCE_SAFE: "compliance_safe",
   COMPLIANCE_SAFE_UK: "compliance_safe_uk",

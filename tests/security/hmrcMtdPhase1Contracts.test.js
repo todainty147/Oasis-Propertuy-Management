@@ -8,7 +8,7 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "u
 describe("HMRC MTD Phase 1 security contracts", () => {
   it("adds HMRC account-level flags without adding live submission to plan entitlements", () => {
     const entitlements = read("src/lib/entitlements.js");
-    ["hmrc_mtd_connection", "hmrc_mtd_sandbox", "hmrc_mtd_read_only", "hmrc_mtd_live_submission"].forEach((flag) => {
+    ["hmrc_mtd_connection", "hmrc_mtd_sandbox", "hmrc_mtd_read_only", "hmrc_mtd_sandbox_test_data", "hmrc_mtd_live_submission"].forEach((flag) => {
       expect(entitlements).toContain(flag);
     });
     const planSection = entitlements.slice(entitlements.indexOf("const STARTER_FEATURES"), entitlements.indexOf("export const PLAN_ENTITLEMENTS"));
@@ -127,6 +127,29 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(files).not.toMatch(/submit|final declaration|quarterly update/i);
   });
 
+  it("keeps HMRC sandbox test-data setup separately flagged and sandbox-only", () => {
+    const sql = read("supabase/hmrc_mtd_phase3_sandbox_test_data.sql");
+    const files = [
+      "hmrc-create-test-business",
+      "hmrc-create-test-itsa-status",
+      "hmrc-delete-test-business",
+    ].map((name) => read(`supabase/functions/${name}/index.ts`)).join("\n");
+    const helper = `${read("supabase/functions/_shared/hmrcMtd.ts")}\n${read("supabase/functions/_shared/hmrcMtdReadOnly.ts")}\n${read("supabase/functions/_shared/hmrcMtdReadOnlyHelpers.ts")}`;
+    const page = read("src/pages/compliance/HmrcConnectionPage.jsx");
+
+    expect(sql).toContain("hmrc_mtd_sandbox_test_data");
+    expect(files).toContain("ensureSandboxOnly");
+    expect(files).toContain("hmrc_mtd_sandbox_test_data");
+    expect(files).toContain("assertWriteSelfAssessmentScope");
+    expect(files).toContain("/individuals/self-assessment-test-support/business/");
+    expect(files).toContain("/individuals/self-assessment-test-support/itsa-status/");
+    expect(helper).toContain("application/vnd.hmrc.1.0+json");
+    expect(helper).toContain('"write:self-assessment"');
+    expect(page).toContain("Sandbox test-data setup");
+    expect(page).toContain("Reconnect with test-data scope");
+    expect(`${files}\n${page}`).not.toMatch(/access_token|refresh_token|HMRC_CLIENT_SECRET|VITE_HMRC/);
+  });
+
   it("surfaces read-only verification controls without exposing secrets", () => {
     const page = read("src/pages/compliance/HmrcConnectionPage.jsx");
     const service = read("src/services/hmrcMtdService.js");
@@ -136,6 +159,7 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(page).toContain("Check Obligations");
     expect(page).toContain("Check Property Business");
     expect(page).toContain("Live submission disabled");
+    expect(read("supabase/functions/_shared/hmrcMtdReadOnly.ts")).toContain("Gov-Test-Scenario");
     expect(service).toContain("hmrc-run-readonly-verification");
     expect(service).toContain("hmrc-read-business-details");
     expect(`${page}\n${service}`).not.toMatch(/access_token|refresh_token|HMRC_CLIENT_SECRET|VITE_HMRC/);

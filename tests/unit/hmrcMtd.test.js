@@ -17,8 +17,11 @@ import {
   maskNino,
   normalizeHmrcError,
   normalizeSandboxNino,
+  normalizeTestBusinessType,
+  safeTaxYear,
   summarizeBusinessDetails,
   summarizeObligations,
+  taxYearAccountingPeriod,
 } from "../../supabase/functions/_shared/hmrcMtdReadOnlyHelpers.ts";
 
 describe("HMRC MTD sandbox helpers", () => {
@@ -32,12 +35,14 @@ describe("HMRC MTD sandbox helpers", () => {
     expect(isOauthStateExpired(expiresAt, new Date("2026-05-28T10:10:00Z"))).toBe(true);
   });
 
-  it("allows only approved read-only scopes", () => {
+  it("allows approved sandbox scopes without allowing live submission", () => {
     expect(validateHmrcScopes(["hello"])).toEqual(["hello"]);
     expect(validateHmrcScopes(["read:self-assessment"])).toEqual(["read:self-assessment"]);
+    expect(validateHmrcScopes(["write:self-assessment"])).toEqual(["write:self-assessment"]);
     expect(validateHmrcScopes(["hello", "read:self-assessment"])).toEqual(["hello", "read:self-assessment"]);
     expect(validateHmrcScopes([])).toContain("read:self-assessment");
-    expect(() => validateHmrcScopes(["write:self-assessment"])).toThrow(/unsupported hmrc scope/i);
+    expect(validateHmrcScopes([])).not.toContain("write:self-assessment");
+    expect(() => validateHmrcScopes(["submit:self-assessment"])).toThrow(/unsupported hmrc scope/i);
   });
 
   it("adds the harmless sandbox probe scope server-side", () => {
@@ -73,6 +78,7 @@ describe("HMRC MTD sandbox helpers", () => {
     expect(HMRC_ACCEPT_HEADERS.businessDetails).toBe("application/vnd.hmrc.2.0+json");
     expect(HMRC_ACCEPT_HEADERS.obligations).toBe("application/vnd.hmrc.3.0+json");
     expect(HMRC_ACCEPT_HEADERS.propertyBusiness).toBe("application/vnd.hmrc.6.0+json");
+    expect(HMRC_ACCEPT_HEADERS.testSupport).toBe("application/vnd.hmrc.1.0+json");
   });
 
   it("normalizes HMRC read-only errors into safe frontend codes", () => {
@@ -98,5 +104,18 @@ describe("HMRC MTD sandbox helpers", () => {
       fulfilledCount: 0,
       nextDueDate: "2026-08-07",
     });
+  });
+
+  it("normalizes HMRC sandbox test-data inputs", () => {
+    expect(safeTaxYear("2026-27")).toBe("2026-27");
+    expect(safeTaxYear("2026-28")).toBe("2026-28");
+    expect(safeTaxYear("bad")).toBe("2026-27");
+    expect(taxYearAccountingPeriod("2026-27")).toEqual({
+      taxYear: "2026-27",
+      startDate: "2026-04-06",
+      endDate: "2027-04-05",
+    });
+    expect(normalizeTestBusinessType("foreign-property")).toBe("foreign-property");
+    expect(normalizeTestBusinessType("unexpected")).toBe("uk-property");
   });
 });

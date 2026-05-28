@@ -12,13 +12,18 @@ export {
   maskNino,
   normalizeHmrcError,
   normalizeSandboxNino,
+  normalizeTestBusinessType,
+  safeTaxYear,
   summarizeBusinessDetails,
   summarizeObligations,
+  taxYearAccountingPeriod,
 } from "./hmrcMtdReadOnlyHelpers.ts";
 import {
   maskNino,
   normalizeHmrcError,
   normalizeSandboxNino,
+  normalizeTestBusinessType,
+  taxYearAccountingPeriod,
 } from "./hmrcMtdReadOnlyHelpers.ts";
 
 export type HmrcCheckType =
@@ -37,6 +42,9 @@ export function getSandboxProfile(connection: Record<string, unknown> | null | u
     nino: normalizeSandboxNino(profile.nino),
     incomeSourceId: String(profile.income_source_id || "").trim(),
     mtditid: String(profile.mtditid || "").trim(),
+    testBusinessId: String(profile.test_business_id || "").trim(),
+    testBusinessType: String(profile.test_business_type || "").trim(),
+    testTaxYear: String(profile.test_tax_year || "").trim(),
     updatedAt: profile.updated_at || null,
   };
 }
@@ -48,6 +56,10 @@ export function safeSandboxProfile(connection: Record<string, unknown> | null | 
     ninoMasked: maskNino(profile.nino),
     hasIncomeSourceId: Boolean(profile.incomeSourceId),
     incomeSourceIdMasked: profile.incomeSourceId ? maskIdentifier(profile.incomeSourceId) : "",
+    hasTestBusinessId: Boolean(profile.testBusinessId),
+    testBusinessIdMasked: profile.testBusinessId ? maskIdentifier(profile.testBusinessId) : "",
+    testBusinessType: profile.testBusinessType || "",
+    testTaxYear: profile.testTaxYear || "",
     updatedAt: profile.updatedAt,
   };
 }
@@ -77,6 +89,33 @@ export async function persistDiscoveredIncomeSourceId(connection: Record<string,
     .eq("id", connection.id);
 }
 
+export async function updateSandboxProfile(connection: Record<string, unknown>, patch: Record<string, unknown>) {
+  if (!connection?.id) return null;
+  const metadata = connection.metadata && typeof connection.metadata === "object"
+    ? connection.metadata as Record<string, unknown>
+    : {};
+  const profile = metadata.sandbox_profile && typeof metadata.sandbox_profile === "object"
+    ? metadata.sandbox_profile as Record<string, unknown>
+    : {};
+  const { data, error } = await admin
+    .from("hmrc_connections")
+    .update({
+      metadata: {
+        ...metadata,
+        sandbox_profile: {
+          ...profile,
+          ...patch,
+          updated_at: new Date().toISOString(),
+        },
+      },
+    })
+    .eq("id", connection.id)
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 export function maskIdentifier(value: unknown) {
   const id = String(value || "").trim();
   if (id.length <= 6) return id ? "configured" : "";
@@ -99,6 +138,9 @@ export async function hmrcRequest({
   action,
   userId,
   query = {},
+  method = "GET",
+  body = null,
+  testScenario = "STATEFUL",
 }: {
   accountId: string;
   connection: Record<string, unknown>;
@@ -107,6 +149,9 @@ export async function hmrcRequest({
   action: string;
   userId: string;
   query?: Record<string, string | undefined>;
+  method?: "GET" | "POST" | "DELETE";
+  body?: Record<string, unknown> | null;
+  testScenario?: string | null;
 }) {
   const accessToken = await decryptConnectionAccessToken(connection);
   const url = new URL(path, HMRC_BASE_URL);
@@ -115,21 +160,24 @@ export async function hmrcRequest({
   });
 
   const response = await fetch(url.toString(), {
-    method: "GET",
+    method,
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: accept,
+      ...(body ? { "Content-Type": "application/json" } : {}),
+      ...(testScenario ? { "Gov-Test-Scenario": testScenario } : {}),
     },
+    ...(body ? { body: JSON.stringify(body) } : {}),
   });
-  const body = await response.json().catch(() => ({}));
-  const normalized = response.ok ? null : normalizeHmrcError(response.status, body);
+  const responseBody = await response.json().catch(() => ({}));
+  const normalized = response.ok ? null : normalizeHmrcError(response.status, responseBody);
 
   await auditHmrcEvent({
     accountId,
     userId,
     action,
     endpoint: path,
-    method: "GET",
+    method,
     status: response.ok ? "success" : response.status === 404 ? "success" : "failed",
     httpStatus: response.status,
     responseSummary: {
@@ -144,8 +192,48 @@ export async function hmrcRequest({
   return {
     ok: response.ok,
     status: response.status,
-    body: body as Record<string, unknown>,
+    body: responseBody as Record<string, unknown>,
     normalized,
+  };
+}
+
+export function assertWriteSelfAssessmentScope(connection: Record<string, unknown>) {
+  const scopes = Array.isArray(connection.scopes) ? connection.scopes.map((scope) => String(scope)) : [];
+  if (!scopes.includes("write:self-assessment")) {
+    throw new HttpError("Reconnect HMRC sandbox with the test-data scope before creating sandbox MTD test data.", 400);
+  }
+}
+
+export function buildTestItsaStatusBody() {
+  return {
+    itsaStatusDetails: [
+      {
+        submittedOn: new Date().toISOString(),
+        status: "MTD Mandated",
+        statusReason: "Sign up - return available",
+        businessIncome2YearsPrior: 60000,
+      },
+    ],
+  };
+}
+
+export function buildTestBusinessBody(typeOfBusiness: string, taxYear: string) {
+  const type = normalizeTestBusinessType(typeOfBusiness);
+  const period = taxYearAccountingPeriod(taxYear);
+  const base = {
+    typeOfBusiness: type,
+    firstAccountingPeriodStartDate: period.startDate,
+    firstAccountingPeriodEndDate: period.endDate,
+    accountingType: "CASH",
+    commencementDate: period.startDate,
+  };
+  if (type !== "self-employment") return base;
+  return {
+    ...base,
+    tradingName: "Tenaqo Sandbox Test Business",
+    businessAddressLineOne: "1 Test Street",
+    businessAddressCountryCode: "GB",
+    businessAddressPostcode: "AA1 1AA",
   };
 }
 

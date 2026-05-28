@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ExternalLink, PlugZap, RefreshCw, Save, ShieldAlert, Unplug } from "lucide-react";
+import { CheckCircle2, ExternalLink, PlugZap, RefreshCw, Save, ShieldAlert, Trash2, Unplug } from "lucide-react";
 
 import { useAccount } from "../../context/AccountContext";
 import { ENTITLEMENT_FEATURES } from "../../lib/entitlements";
@@ -7,6 +7,9 @@ import {
   disconnectHmrc,
   getHmrcConnectionStatus,
   normalizeHmrcConnectionStatus,
+  createHmrcTestBusiness,
+  createHmrcTestItsaStatus,
+  deleteHmrcTestBusiness,
   readHmrcBusinessDetails,
   readHmrcObligations,
   readHmrcPropertyBusiness,
@@ -14,6 +17,7 @@ import {
   runHmrcReadonlyVerification,
   saveHmrcSandboxProfile,
   startHmrcSandboxOAuth,
+  startHmrcSandboxTestDataOAuth,
   testHmrcReadonlyCall,
 } from "../../services/hmrcMtdService";
 
@@ -46,9 +50,13 @@ export default function HmrcConnectionPage() {
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
   const [verificationResult, setVerificationResult] = useState(null);
+  const [testDataResult, setTestDataResult] = useState(null);
   const [sandboxNino, setSandboxNino] = useState("");
+  const [testTaxYear, setTestTaxYear] = useState("2026-27");
+  const [testBusinessType, setTestBusinessType] = useState("uk-property");
 
   const canReadOnly = hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_READ_ONLY);
+  const canTestData = hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_SANDBOX_TEST_DATA);
   const canConnectSandbox = hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_CONNECTION) && hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_SANDBOX);
   const status = normalizeHmrcConnectionStatus(connection?.connection_status);
   const isConnected = status === "connected";
@@ -84,6 +92,19 @@ export default function HmrcConnectionPage() {
       window.location.assign(redirectUrl);
     } catch (err) {
       setError(err?.message || "Could not start HMRC sandbox connection.");
+    } finally {
+      setBusyAction("");
+    }
+  }
+
+  async function handleConnectForTestData() {
+    try {
+      setBusyAction("connect-test-data");
+      setError("");
+      const { redirectUrl } = await startHmrcSandboxTestDataOAuth(activeAccountId);
+      window.location.assign(redirectUrl);
+    } catch (err) {
+      setError(err?.message || "Could not start HMRC sandbox test-data connection.");
     } finally {
       setBusyAction("");
     }
@@ -138,6 +159,20 @@ export default function HmrcConnectionPage() {
       await load();
     } catch (err) {
       setError(err?.message || "Could not run HMRC read-only verification.");
+    } finally {
+      setBusyAction("");
+    }
+  }
+
+  async function handleTestDataAction(action, runner) {
+    try {
+      setBusyAction(action);
+      setError("");
+      const next = await runner(activeAccountId, { taxYear: testTaxYear, typeOfBusiness: testBusinessType });
+      setTestDataResult(next);
+      await load();
+    } catch (err) {
+      setError(err?.message || "Could not update HMRC sandbox test data.");
     } finally {
       setBusyAction("");
     }
@@ -336,6 +371,82 @@ export default function HmrcConnectionPage() {
           </div>
         ) : null}
       </section>
+
+      {canTestData ? (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm dark:border-amber-900/50 dark:bg-amber-950/20">
+          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Sandbox test-data setup</h2>
+              <p className="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
+                Creates HMRC sandbox-only MTD test state so the read-only probes can find Business Details and obligations. This does not enable live submissions.
+              </p>
+            </div>
+            <span className="inline-flex w-fit rounded-full border border-amber-300 px-3 py-1 text-xs font-medium text-amber-800 dark:border-amber-800 dark:text-amber-200">
+              Sandbox mutation
+            </span>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+              Tax year
+              <input
+                value={testTaxYear}
+                onChange={(event) => setTestTaxYear(event.target.value)}
+                className="mt-2 min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900"
+                placeholder="2026-27"
+              />
+            </label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+              Test business type
+              <select
+                value={testBusinessType}
+                onChange={(event) => setTestBusinessType(event.target.value)}
+                className="mt-2 min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900"
+              >
+                <option value="uk-property">UK property</option>
+                <option value="foreign-property">Foreign property</option>
+                <option value="property-unspecified">Property unspecified</option>
+                <option value="self-employment">Self-employment</option>
+              </select>
+            </label>
+            <div className="rounded-xl border border-amber-200 bg-white p-3 text-xs text-slate-600 dark:border-amber-900/50 dark:bg-slate-950 dark:text-slate-300">
+              Current test business: {sandboxProfile?.hasTestBusinessId ? `${sandboxProfile.testBusinessType || "configured"} (${sandboxProfile.testBusinessIdMasked})` : "None stored"}.
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled={!canConnectSandbox || busyAction === "connect-test-data"}
+              onClick={handleConnectForTestData}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900"
+            >
+              <ExternalLink size={16} /> {busyAction === "connect-test-data" ? "Opening HMRC..." : "Reconnect with test-data scope"}
+            </button>
+            <CheckButton label="Create ITSA status" action="create-itsa" busyAction={busyAction} disabled={!isConnected || !canReadOnly} onClick={() => handleTestDataAction("create-itsa", createHmrcTestItsaStatus)} />
+            <CheckButton label="Create test business" action="create-business" busyAction={busyAction} disabled={!isConnected || !canReadOnly} onClick={() => handleTestDataAction("create-business", createHmrcTestBusiness)} />
+            <button
+              type="button"
+              disabled={!isConnected || !canReadOnly || busyAction === "delete-business" || !sandboxProfile?.hasTestBusinessId}
+              onClick={() => handleTestDataAction("delete-business", deleteHmrcTestBusiness)}
+              className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-medium text-rose-700 disabled:opacity-50 dark:border-rose-900 dark:bg-slate-900 dark:text-rose-200"
+            >
+              <Trash2 size={16} /> {busyAction === "delete-business" ? "Deleting..." : "Delete test business"}
+            </button>
+          </div>
+
+          <p className="mt-3 text-xs text-slate-500">
+            HMRC requires `write:self-assessment` for sandbox test-support endpoints. Use this only with HMRC sandbox test users.
+          </p>
+
+          {testDataResult ? (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-white p-4 text-sm dark:border-amber-900/50 dark:bg-slate-950">
+              <p className="font-medium capitalize">{testDataResult.status}</p>
+              <p className="mt-1 text-slate-500">{testDataResult.message}</p>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Recent HMRC audit events</h2>
