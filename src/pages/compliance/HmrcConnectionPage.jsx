@@ -83,6 +83,7 @@ export default function HmrcConnectionPage() {
   }, [load]);
 
   const grantedScopes = useMemo(() => connection?.scopes || [], [connection?.scopes]);
+  const hasTestDataScope = grantedScopes.includes("write:self-assessment");
 
   async function handleConnect() {
     try {
@@ -418,6 +419,15 @@ export default function HmrcConnectionPage() {
             </div>
           </div>
 
+          <div className={`mt-4 rounded-xl border p-3 text-sm ${hasTestDataScope ? "border-teal-200 bg-teal-50 text-teal-900 dark:border-teal-900/50 dark:bg-teal-950/30 dark:text-teal-100" : "border-amber-200 bg-white text-amber-900 dark:border-amber-900/50 dark:bg-slate-950 dark:text-amber-100"}`}>
+            <p className="font-medium">Test-data scope: {hasTestDataScope ? "granted" : "missing"}</p>
+            <p className="mt-1 text-xs opacity-80">
+              {hasTestDataScope
+                ? "This sandbox token includes write:self-assessment for HMRC test-support setup only."
+                : "Reconnect with test-data scope and authorise again before creating ITSA status or a test business."}
+            </p>
+          </div>
+
           <div className="mt-5 flex flex-wrap gap-3">
             <button
               type="button"
@@ -427,11 +437,11 @@ export default function HmrcConnectionPage() {
             >
               <ExternalLink size={16} /> {busyAction === "connect-test-data" ? "Opening HMRC..." : "Reconnect with test-data scope"}
             </button>
-            <CheckButton label="Create ITSA status" action="create-itsa" busyAction={busyAction} disabled={!isConnected || !canReadOnly} onClick={() => handleTestDataAction("create-itsa", createHmrcTestItsaStatus)} />
-            <CheckButton label="Create test business" action="create-business" busyAction={busyAction} disabled={!isConnected || !canReadOnly} onClick={() => handleTestDataAction("create-business", createHmrcTestBusiness)} />
+            <CheckButton label="Create ITSA status" action="create-itsa" busyAction={busyAction} disabled={!isConnected || !canReadOnly || !hasTestDataScope} onClick={() => handleTestDataAction("create-itsa", createHmrcTestItsaStatus)} />
+            <CheckButton label="Create test business" action="create-business" busyAction={busyAction} disabled={!isConnected || !canReadOnly || !hasTestDataScope} onClick={() => handleTestDataAction("create-business", createHmrcTestBusiness)} />
             <button
               type="button"
-              disabled={!isConnected || !canReadOnly || busyAction === "delete-business" || !sandboxProfile?.hasTestBusinessId}
+              disabled={!isConnected || !canReadOnly || !hasTestDataScope || busyAction === "delete-business" || !sandboxProfile?.hasTestBusinessId}
               onClick={() => handleTestDataAction("delete-business", deleteHmrcTestBusiness)}
               className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-medium text-rose-700 disabled:opacity-50 dark:border-rose-900 dark:bg-slate-900 dark:text-rose-200"
             >

@@ -144,11 +144,14 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(files).toContain("/individuals/self-assessment-test-support/business/");
     expect(files).toContain("/individuals/self-assessment-test-support/itsa-status/");
     expect(files).toContain('status: "blocked"');
+    expect(files).toContain("missing_write_scope");
     expect(files).not.toContain("safeCode: \"missing_test_identifier\",\n      }, 400)");
     expect(helper).toContain("application/vnd.hmrc.1.0+json");
     expect(helper).toContain('"write:self-assessment"');
     expect(page).toContain("Sandbox test-data setup");
     expect(page).toContain("Reconnect with test-data scope");
+    expect(page).toContain("hasTestDataScope");
+    expect(page).toContain("Test-data scope");
     expect(`${files}\n${page}`).not.toMatch(/access_token|refresh_token|HMRC_CLIENT_SECRET|VITE_HMRC/);
   });
 

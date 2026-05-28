@@ -85,6 +85,13 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     const status = typeof (error as { status?: unknown })?.status === "number" ? Number((error as { status?: unknown }).status) : 500;
+    if (status === 400 && String((error as { message?: unknown })?.message || "").includes("test-data scope")) {
+      return json(req, {
+        status: "blocked",
+        message: "Reconnect HMRC sandbox with the test-data scope before creating sandbox MTD test data.",
+        safeCode: "missing_write_scope",
+      });
+    }
     return safeHmrcError(req, error, status, "Could not create HMRC sandbox ITSA status", {
       functionName: "hmrc-create-test-itsa-status",
     });
