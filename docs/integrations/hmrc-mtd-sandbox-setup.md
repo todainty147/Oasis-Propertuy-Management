@@ -54,6 +54,16 @@ Token exchange uses the API host plus `/oauth/token`:
 https://test-api.service.hmrc.gov.uk/oauth/token
 ```
 
+## Subscribed Sandbox APIs
+
+The Tenaqo sandbox application is expected to be subscribed to:
+
+- Property Business (MTD) 6.0
+- Self Assessment Individual Details (MTD) 2.0
+- Self Assessment Accounts (MTD) 4.0
+- Obligations (MTD) 3.0
+- Business Details (MTD) 2.0
+
 ## Redirect URI
 
 Configure the HMRC sandbox application redirect URI to the deployed Supabase Edge Function callback URL:
@@ -89,6 +99,27 @@ The sandbox OAuth flow currently requests:
 If an older sandbox connection only shows `read:self-assessment`, disconnect and reconnect HMRC before using `Test sandbox connection`.
 
 The test call first tries HMRC's user-restricted Hello endpoint with the OAuth token. If HMRC returns `403`, Tenaqo also checks the open Hello World endpoint and shows `sandbox_reachable` when the sandbox itself is reachable but the user-restricted probe is not authorised. In that case, check that the sandbox app is subscribed to the Hello World API and that the test user granted the `hello` scope.
+
+Hello World is no longer the main verification signal. The main MTD read-only verification checks subscribed MTD sandbox APIs in this order:
+
+1. Business Details (MTD) 2.0
+2. Obligations (MTD) 3.0
+3. Property Business (MTD) 6.0, only when an income source ID is available
+
+## Sandbox Test Identifiers
+
+On `Compliance -> Making Tax Digital -> HMRC Connection`, add the sandbox test user NINO supplied by HMRC. Tenaqo stores it server-side in `hmrc_connections.metadata.sandbox_profile` and only shows a masked value in the UI.
+
+Business Details is the first real probe. If it returns an income source ID, Tenaqo stores that ID server-side for later Property Business read-only checks.
+
+## Read-Only Verification Results
+
+- `success`: HMRC returned usable read-only sandbox data.
+- `no_data`: HMRC responded, but there were no records or obligations for the sandbox test profile.
+- `blocked`: the check needs a missing sandbox identifier or connected HMRC account.
+- `failed`: HMRC returned an error such as insufficient scope, invalid token, or unavailable sandbox.
+
+Live submission remains disabled. No quarterly updates, annual updates or final declarations are submitted by these checks.
 
 Enable flags for a staging/internal account only:
 
