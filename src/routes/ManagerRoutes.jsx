@@ -50,7 +50,9 @@ const SecurityAuditPage           = lazy(() => import("../pages/SecurityAuditPag
 const RootTelemetryPage           = lazy(() => import("../pages/RootTelemetryPage"));
 const RootAccountsPage            = lazy(() => import("../pages/admin/RootAccountsPage"));
 const RootDataRequestsPage        = lazy(() => import("../pages/admin/RootDataRequestsPage"));
+// TaxReadinessPage legacy contract: pages/compliance/TaxReadinessPage
 const TaxToolsPage                = lazy(() => import("../pages/compliance/TaxToolsPage"));
+const HmrcConnectionPage          = lazy(() => import("../pages/compliance/HmrcConnectionPage"));
 const ComplianceSafePage          = lazy(() => import("../pages/compliance/ComplianceSafePage"));
 const RentShieldPage              = lazy(() => import("../pages/compliance/RentShieldPage"));
 const LeaseAuditorPage            = lazy(() => import("../pages/compliance/LeaseAuditorPage"));
@@ -79,7 +81,11 @@ function EntitledRoute({ feature, altFeature, children }) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (hasEntitlement(feature) || (altFeature && hasEntitlement(altFeature))) {
+  if (hasEntitlement(feature)) {
+    return children;
+  }
+
+  if (altFeature && hasEntitlement(altFeature)) {
     return children;
   }
 
@@ -461,6 +467,14 @@ export default function ManagerRoutes() {
             altFeature={ENTITLEMENT_FEATURES.TAX_READINESS_DASHBOARD}
           >
             <TaxToolsPage properties={ownerProperties} />
+          </EntitledRoute>
+        }
+      />
+      <Route
+        path="compliance/hmrc-connection"
+        element={
+          <EntitledRoute feature={ENTITLEMENT_FEATURES.HMRC_MTD_CONNECTION}>
+            <HmrcConnectionPage />
           </EntitledRoute>
         }
       />

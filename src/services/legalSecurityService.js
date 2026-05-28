@@ -306,6 +306,18 @@ export async function lockInspectionReport(id, accountId) {
   return data;
 }
 
+export async function archiveInspectionReport(id, accountId) {
+  const { data, error } = await supabase
+    .from("inspection_reports")
+    .update({ status: "archived" })
+    .eq("id", id)
+    .eq("account_id", accountId)
+    .select(INSPECTION_SELECT)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function listDiagnosticTemplates() {
   const { data, error } = await supabase
     .from("maintenance_diagnostic_templates")
