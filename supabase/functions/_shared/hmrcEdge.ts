@@ -181,7 +181,10 @@ export async function encryptedTokenRow(tokenResponse: Record<string, unknown>, 
 
 export function appRedirectUrl(path: string, params: Record<string, string> = {}) {
   const resolved = resolveTrustedAppOrigin({ appUrl: APP_URL, allowedOrigins: ALLOWED_APP_ORIGINS });
-  const url = new URL(path, resolved.origin || APP_URL || "http://localhost:5173");
+  if (!resolved.origin) {
+    throw new HttpError("Trusted app redirect origin is not configured", 500);
+  }
+  const url = new URL(path, resolved.origin);
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
   return url.toString();
 }

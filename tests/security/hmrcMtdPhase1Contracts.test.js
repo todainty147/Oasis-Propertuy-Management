@@ -84,10 +84,20 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(edge).toContain("buildCorsHeaders(req, HMRC_CORS_ALLOWED_ORIGINS)");
   });
 
+  it("does not fall back to raw APP_URL when building HMRC callback redirects", () => {
+    const edge = read("supabase/functions/_shared/hmrcEdge.ts");
+    const redirectHelper = edge.slice(edge.indexOf("export function appRedirectUrl"));
+    expect(redirectHelper).toContain("if (!resolved.origin)");
+    expect(redirectHelper).toContain('new URL(path, resolved.origin)');
+    expect(redirectHelper).not.toContain("resolved.origin || APP_URL");
+  });
+
   it("documents secret handling and unfinished scope", () => {
     const setup = read("docs/integrations/hmrc-mtd-sandbox-setup.md");
     const security = read("docs/integrations/hmrc-mtd-security.md");
     expect(setup).toContain("Supabase Edge Function secrets");
+    expect(setup).toContain("APP_URL=https://app.tenaqo.com");
+    expect(setup).toContain("Do not set `APP_URL` to the old `https://www.oasisrentalmgt.app` domain");
     expect(setup).toContain("ALLOWED_APP_ORIGINS");
     expect(setup).toContain("No 'Access-Control-Allow-Origin' header");
     expect(setup).toContain("No live submission");

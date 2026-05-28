@@ -19,7 +19,19 @@ Store these only as Supabase Edge Function secrets or equivalent server-side env
 
 Do not put HMRC credentials in Vite environment variables, frontend code, GitHub, screenshots, logs, database migrations, seed data, or plain database rows.
 
-`APP_URL` is used for safe redirects back into Tenaqo. `ALLOWED_APP_ORIGINS` is used for browser CORS preflight responses from Supabase Edge Functions. For Vercel preview deployments, include the exact preview origin, for example `https://oasis-property-management-...vercel.app`. Multiple origins can be comma-separated.
+`APP_URL` is used for safe redirects back into Tenaqo and must be one origin only, with no comma and no path. For the live app, use:
+
+```text
+APP_URL=https://app.tenaqo.com
+```
+
+`ALLOWED_APP_ORIGINS` is used for browser CORS preflight responses from Supabase Edge Functions. Multiple origins can be comma-separated. For example:
+
+```text
+ALLOWED_APP_ORIGINS=https://app.tenaqo.com,https://oasis-property-management-...vercel.app
+```
+
+Do not set `APP_URL` to the old `https://www.oasisrentalmgt.app` domain, and do not put multiple origins in `APP_URL`.
 
 ## HMRC Sandbox URLs
 
@@ -107,6 +119,8 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource
 ```
 
 then the deployed Edge Function is running but the app origin is not trusted by the function. Set `ALLOWED_APP_ORIGINS` to the exact browser origin that is calling the function, redeploy or restart the Edge Function runtime if needed, then refresh the app.
+
+If the OAuth callback redirects to a malformed URL such as `https://old-domain,https/compliance/hmrc-connection`, then `APP_URL` is misconfigured. Set `APP_URL` to a single valid origin, for example `https://app.tenaqo.com`, and redeploy `hmrc-oauth-callback`.
 
 ## Disable The Feature
 
