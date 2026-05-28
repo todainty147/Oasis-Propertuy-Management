@@ -53,6 +53,12 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(sidebar).toContain("ENTITLEMENT_FEATURES.HMRC_MTD_CONNECTION");
   });
 
+  it("allows the HMRC OAuth callback to receive browser redirects without Supabase JWT", () => {
+    const config = read("supabase/config.toml");
+    expect(config).toContain("[functions.hmrc-oauth-callback]");
+    expect(config).toMatch(/\[functions\.hmrc-oauth-callback\][\s\S]*verify_jwt\s*=\s*false/);
+  });
+
   it("implements only sandbox OAuth and read-only Edge Functions", () => {
     const files = [
       "hmrc-start-oauth",

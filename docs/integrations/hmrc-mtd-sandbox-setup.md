@@ -50,6 +50,15 @@ Configure the HMRC sandbox application redirect URI to the deployed Supabase Edg
 
 Set the same value in `HMRC_REDIRECT_URI`.
 
+The callback function must allow unauthenticated browser redirects from HMRC. Keep this in `supabase/config.toml`:
+
+```toml
+[functions.hmrc-oauth-callback]
+verify_jwt = false
+```
+
+This does not expose HMRC tokens to the browser. The callback is protected by the short-lived OAuth `state` value created by `hmrc-start-oauth`, and token exchange still happens server-side.
+
 ## Feature Flags
 
 The frontend and Edge Functions require account-level flags:
@@ -75,7 +84,12 @@ do update set enabled = excluded.enabled;
 ## How To Test In Staging
 
 1. Apply `supabase/hmrc_mtd_phase1.sql`.
-2. Deploy the HMRC Edge Functions.
+2. Deploy the HMRC Edge Functions. Deploy `hmrc-oauth-callback` with JWT verification disabled, either through `supabase/config.toml` or:
+
+   ```bash
+   supabase functions deploy hmrc-oauth-callback --no-verify-jwt
+   ```
+
 3. Set the Edge Function secrets.
 4. Enable the account-level feature flags for the staging account.
 5. Open `Compliance -> Making Tax Digital -> HMRC Connection`.
