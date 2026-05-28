@@ -12,7 +12,7 @@ import {
   testHmrcReadonlyCall,
 } from "../../services/hmrcMtdService";
 
-const READ_ONLY_SCOPES = ["read:self-assessment"];
+const READ_ONLY_SCOPES = ["hello", "read:self-assessment"];
 
 function formatDateTime(value) {
   if (!value) return "Not recorded";

@@ -1,4 +1,5 @@
 export const APPROVED_HMRC_READ_ONLY_SCOPES = Object.freeze([
+  "hello",
   "read:self-assessment",
   "read:vat",
 ]);

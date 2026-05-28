@@ -81,6 +81,13 @@ The frontend and Edge Functions require account-level flags:
 
 `hmrc_mtd_live_submission` must remain disabled. It is not used by the UI or Edge Functions.
 
+The sandbox OAuth flow currently requests:
+
+- `hello` for the harmless HMRC Hello API read-only connection probe
+- `read:self-assessment` for the MTD read-only foundation
+
+If an older sandbox connection only shows `read:self-assessment`, disconnect and reconnect HMRC before using `Test sandbox connection`.
+
 Enable flags for a staging/internal account only:
 
 ```sql

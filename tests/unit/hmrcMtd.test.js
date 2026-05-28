@@ -24,7 +24,9 @@ describe("HMRC MTD sandbox helpers", () => {
   });
 
   it("allows only approved read-only scopes", () => {
+    expect(validateHmrcScopes(["hello"])).toEqual(["hello"]);
     expect(validateHmrcScopes(["read:self-assessment"])).toEqual(["read:self-assessment"]);
+    expect(validateHmrcScopes(["hello", "read:self-assessment"])).toEqual(["hello", "read:self-assessment"]);
     expect(validateHmrcScopes([])).toContain("read:self-assessment");
     expect(() => validateHmrcScopes(["write:self-assessment"])).toThrow(/unsupported hmrc scope/i);
   });

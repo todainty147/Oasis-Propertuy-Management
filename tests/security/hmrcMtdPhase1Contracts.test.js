@@ -76,6 +76,16 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(files).not.toMatch(/VITE_HMRC|console\.log\([^)]*(token|secret|code)/i);
   });
 
+  it("uses the harmless HMRC Hello scope only for the sandbox connection probe", () => {
+    const helper = read("supabase/functions/_shared/hmrcMtd.ts");
+    const page = read("src/pages/compliance/HmrcConnectionPage.jsx");
+    const testFunction = read("supabase/functions/hmrc-test-readonly-call/index.ts");
+    expect(helper).toContain('"hello"');
+    expect(page).toContain('["hello", "read:self-assessment"]');
+    expect(testFunction).toContain('scopes.includes("hello")');
+    expect(testFunction).toContain("needs_reconnect");
+  });
+
   it("allows HMRC Edge Function CORS from APP_URL and ALLOWED_APP_ORIGINS", () => {
     const edge = read("supabase/functions/_shared/hmrcEdge.ts");
     expect(edge).toContain("HMRC_CORS_ALLOWED_ORIGINS");
@@ -99,6 +109,7 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(setup).toContain("APP_URL=https://app.tenaqo.com");
     expect(setup).toContain("Do not set `APP_URL` to the old `https://www.oasisrentalmgt.app` domain");
     expect(setup).toContain("ALLOWED_APP_ORIGINS");
+    expect(setup).toContain("`hello` for the harmless HMRC Hello API read-only connection probe");
     expect(setup).toContain("No 'Access-Control-Allow-Origin' header");
     expect(setup).toContain("No live submission");
     expect(setup).toContain("No quarterly update submission");

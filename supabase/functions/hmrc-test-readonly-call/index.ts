@@ -32,6 +32,18 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
+    const scopes = Array.isArray(connection.scopes) ? connection.scopes.map((scope) => String(scope)) : [];
+    if (!scopes.includes("hello")) {
+      return json(req, {
+        result: {
+          status: "needs_reconnect",
+          message: "HMRC is connected. Reconnect the sandbox account to grant the harmless Hello API scope used by this test.",
+          responseSummary: { required_scope: "hello", granted_scopes: scopes },
+        },
+        connection: safeHmrcConnectionPayload(connection),
+      });
+    }
+
     const accessToken = await decryptConnectionAccessToken(connection);
     const endpoint = "/hello/user";
     const response = await fetch(`${HMRC_BASE_URL}${endpoint}`, {
@@ -61,10 +73,10 @@ Deno.serve(async (req) => {
         status: ok ? "success" : "failed",
         httpStatus: response.status,
         message: ok ? "HMRC sandbox read-only test completed." : "HMRC sandbox responded but the read-only test did not complete.",
-        responseSummary: ok ? { application: responseJson?.application || null } : { ok: false },
+        responseSummary: ok ? { message: responseJson?.message || null } : { ok: false, hmrc_code: responseJson?.code || null },
       },
       connection: safeHmrcConnectionPayload(connection),
-    }, ok ? 200 : 400);
+    });
   } catch (error) {
     const status = typeof (error as { status?: unknown })?.status === "number" ? Number((error as { status?: unknown }).status) : 500;
     return safeHmrcError(req, error, status, "Could not run HMRC sandbox read-only test", {
