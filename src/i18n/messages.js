@@ -7820,7 +7820,7 @@ Object.assign(messages.en, {
   "compliance.tax.emptyState": "No tax deadlines yet. Add your first filing deadline to get started.",
 
   "compliance.tax.jurisdiction.all": "All",
-  "compliance.tax.jurisdiction.gb": "Wielka Brytania (GB)",
+  "compliance.tax.jurisdiction.gb": "Great Britain (GB)",
   "compliance.tax.jurisdiction.pl": "Poland (PL)",
   "compliance.tax.jurisdiction.de": "Germany (DE)",
 
