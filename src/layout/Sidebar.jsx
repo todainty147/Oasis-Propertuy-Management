@@ -24,7 +24,8 @@ import {
   Activity,
   DatabaseZap,
   Scale,
-  Calculator,
+  Receipt,
+  PlugZap,
   Umbrella,
   FileSearch,
   ShieldCheck,
@@ -89,6 +90,7 @@ function LockedItem({ to, icon: Icon, label, onNavigate }) {
       className="flex items-center gap-2.5 px-2.5 py-[5px] rounded-md text-[13px] leading-5 text-slate-400/60 dark:text-slate-600 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-400/60 dark:focus-visible:ring-slate-500/70"
       data-testid={`locked-nav-${to.replace(/\//g, "-").replace(/^-/, "")}`}
     >
+      {/* <Lock icon marks feature-flagged or plan-gated destinations. */}
       <Icon size={14} strokeWidth={1.7} className="shrink-0" />
       <span className="flex-1">{label}</span>
       <Lock size={10} className="shrink-0 opacity-40" aria-label="Requires upgrade" />
@@ -509,9 +511,12 @@ function SidebarContent({ onNavigate }) {
                 onToggle={() => setComplianceOpen((v) => !v)}
               >
                 {(hasEntitlement(ENTITLEMENT_FEATURES.TAX_READINESS_DASHBOARD) || hasEntitlement(ENTITLEMENT_FEATURES.TAX_TOOLS_IN_APP)) ? (
-                  <Item       to="/compliance/tax-tools" icon={Calculator} label={t("sidebar.taxTools")} onNavigate={onNavigate} />
+                  <Item       to="/compliance/tax-tools" icon={Receipt} label={t("sidebar.taxTools")} onNavigate={onNavigate} />
                 ) : (
-                  <LockedItem to="/compliance/tax-tools" icon={Calculator} label={t("sidebar.taxTools")} onNavigate={onNavigate} />
+                  <LockedItem to="/compliance/tax-tools" icon={Receipt} label={t("sidebar.taxTools")} onNavigate={onNavigate} />
+                )}
+                {hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_CONNECTION) && (
+                  <Item       to="/compliance/hmrc-connection" icon={PlugZap} label="HMRC Connection" onNavigate={onNavigate} />
                 )}
                 {hasEntitlement(ENTITLEMENT_FEATURES.COMPLIANCE_SAFE) ? (
                   <Item       to="/compliance/safe" icon={Shield} label={t("sidebar.complianceSafe")} onNavigate={onNavigate} />

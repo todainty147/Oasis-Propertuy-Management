@@ -12,6 +12,41 @@ import { getAccountActiveEntitlement } from "../services/founderOfferService";
 
 const AccountContext = createContext(null);
 
+async function loadAccountFeatureFlags(accountIds = []) {
+  const ids = Array.from(new Set((accountIds || []).filter(Boolean)));
+  if (!ids.length) return new Map();
+
+  try {
+    const { data, error } = await supabase
+      .from("account_feature_flags")
+      .select("account_id, feature_key")
+      .in("account_id", ids)
+      .eq("enabled", true);
+
+    if (error) {
+      const message = String(error?.message || "").toLowerCase();
+      if (error.code === "42P01" || message.includes("relation") || message.includes("does not exist")) {
+        return new Map();
+      }
+      throw error;
+    }
+
+    const flagsByAccount = new Map();
+    for (const row of data || []) {
+      const accountId = row.account_id;
+      const featureKey = String(row.feature_key || "").trim().toLowerCase();
+      if (!accountId || !featureKey) continue;
+      const current = flagsByAccount.get(accountId) || [];
+      current.push(featureKey);
+      flagsByAccount.set(accountId, current);
+    }
+    return flagsByAccount;
+  } catch (error) {
+    console.warn("Account feature flags could not be loaded; continuing with plan entitlements only.", error);
+    return new Map();
+  }
+}
+
 /* ======================
    PROVIDER
    ====================== */
@@ -236,6 +271,12 @@ export function AccountProvider({ children }) {
         if (!rootOperator) {
           accs = accs.filter((a) => !a.is_disabled);
         }
+
+        const accountFeatureFlags = await loadAccountFeatureFlags(accs.map((account) => account.id));
+        accs = accs.map((account) => ({
+          ...account,
+          featureFlags: accountFeatureFlags.get(account.id) || [],
+        }));
 
         setAccounts(accs);
 
@@ -603,9 +644,13 @@ export function AccountProvider({ children }) {
   const founderAiMonthlyLimit  = founderEntitlement?.monthly_ai_credit_limit ?? null;
   const founderPosition        = founderEntitlement?.metadata?.founder_position ?? null;
 
+  const activeFeatureFlags = useMemo(() => {
+    if (!Array.isArray(activeAccount?.featureFlags)) return [];
+    return activeAccount.featureFlags;
+  }, [activeAccount?.featureFlags]);
   const hasEntitlement = useMemo(
-    () => (feature) => hasFeature(activePlan, feature),
-    [activePlan],
+    () => (feature) => hasFeature(activePlan, feature) || activeFeatureFlags.includes(String(feature || "").trim().toLowerCase()),
+    [activePlan, activeFeatureFlags],
   );
   const assertEntitlement = useMemo(
     () => (feature) => assertFeature(activePlan, feature),
