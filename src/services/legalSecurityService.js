@@ -8,10 +8,28 @@ const COMPLIANCE_SELECT = [
   "compliance_requirements(label, requirement_key, expiry_tracking, acknowledgement_required, compliance_templates(country_code, jurisdiction, name))",
 ].join(", ");
 
+const COMPLIANCE_TEMPLATE_SELECT = [
+  "id", "country_code", "jurisdiction", "template_key", "name", "description",
+  "compliance_requirements(id, requirement_key, label, default_due_offset_days, sort_order, active)",
+].join(", ");
+
 const INSPECTION_SELECT = [
   "id", "account_id", "property_id", "tenant_id", "inspection_type", "status",
   "title", "inspection_date", "locked_at", "locked_by", "created_by", "created_at", "updated_at",
+  "inspection_rooms(id, room_name, sort_order)",
 ].join(", ");
+
+const DEFAULT_INSPECTION_ROOMS = [
+  "Entrance / hallway",
+  "Kitchen",
+  "Living room",
+  "Bedroom",
+  "Bathroom",
+  "Garden / exterior",
+  "Meters",
+  "Keys",
+  "Appliances",
+];
 
 const APPLICATION_LINK_SELECT = [
   "id", "account_id", "property_id", "public_token", "title", "status",
@@ -49,6 +67,74 @@ export async function listComplianceSafeItems(accountId, filters = {}) {
     if (isMissingBackendObject(error)) return [];
     throw error;
   }
+  return data || [];
+}
+
+export async function listComplianceTemplates() {
+  const { data, error } = await supabase
+    .from("compliance_templates")
+    .select(COMPLIANCE_TEMPLATE_SELECT)
+    .eq("active", true)
+    .order("country_code", { ascending: true });
+  if (error) {
+    if (isMissingBackendObject(error)) return [];
+    throw error;
+  }
+  return (data || []).map((template) => ({
+    ...template,
+    compliance_requirements: (template.compliance_requirements || [])
+      .filter((requirement) => requirement.active !== false)
+      .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0)),
+  }));
+}
+
+export async function createComplianceChecklistFromTemplate(accountId, payload = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!payload.propertyId) throw new Error("Choose a property");
+  if (!payload.templateId) throw new Error("Choose a compliance template");
+
+  const { data: requirements, error: requirementsError } = await supabase
+    .from("compliance_requirements")
+    .select("id, default_due_offset_days, active")
+    .eq("template_id", payload.templateId)
+    .eq("active", true);
+  if (requirementsError) throw requirementsError;
+  if (!requirements?.length) throw new Error("This compliance template has no active requirements.");
+
+  let existingQuery = supabase
+    .from("tenancy_compliance_items")
+    .select("requirement_id")
+    .eq("account_id", accountId)
+    .eq("property_id", payload.propertyId)
+    .in("requirement_id", requirements.map((requirement) => requirement.id));
+  existingQuery = payload.tenantId ? existingQuery.eq("tenant_id", payload.tenantId) : existingQuery.is("tenant_id", null);
+
+  const { data: existing, error: existingError } = await existingQuery;
+  if (existingError) throw existingError;
+  const existingIds = new Set((existing || []).map((item) => item.requirement_id));
+  const today = new Date();
+  const rows = requirements
+    .filter((requirement) => !existingIds.has(requirement.id))
+    .map((requirement) => {
+      const due = new Date(today);
+      due.setDate(due.getDate() + Number(requirement.default_due_offset_days || 0));
+      return {
+        account_id: accountId,
+        property_id: payload.propertyId,
+        tenant_id: payload.tenantId || null,
+        requirement_id: requirement.id,
+        status: "missing",
+        due_date: due.toISOString().slice(0, 10),
+        notes: payload.notes || null,
+      };
+    });
+
+  if (rows.length === 0) return [];
+  const { data, error } = await supabase
+    .from("tenancy_compliance_items")
+    .insert(rows)
+    .select(COMPLIANCE_SELECT);
+  if (error) throw error;
   return data || [];
 }
 
@@ -93,20 +179,18 @@ export async function listInspectionReports(accountId) {
 export async function createInspectionReport(accountId, payload = {}) {
   if (!accountId) throw new Error("Missing accountId");
   if (!payload.propertyId) throw new Error("Choose a property");
-  const { data, error } = await supabase
-    .from("inspection_reports")
-    .insert({
-      account_id: accountId,
-      property_id: payload.propertyId,
-      tenant_id: payload.tenantId || null,
-      inspection_type: payload.inspectionType || "check_in",
-      title: String(payload.title || "Inspection report").trim(),
-      inspection_date: payload.inspectionDate || new Date().toISOString().slice(0, 10),
-    })
-    .select(INSPECTION_SELECT)
-    .single();
+  const rooms = Array.isArray(payload.rooms) && payload.rooms.length > 0 ? payload.rooms : DEFAULT_INSPECTION_ROOMS;
+  const { data: report, error } = await supabase.rpc("create_inspection_report_with_rooms", {
+    p_account_id: accountId,
+    p_property_id: payload.propertyId,
+    p_tenant_id: payload.tenantId || null,
+    p_inspection_type: payload.inspectionType || "check_in",
+    p_title: String(payload.title || "Inspection report").trim(),
+    p_inspection_date: payload.inspectionDate || new Date().toISOString().slice(0, 10),
+    p_rooms: rooms,
+  });
   if (error) throw error;
-  return data;
+  return report;
 }
 
 export async function lockInspectionReport(id, accountId) {

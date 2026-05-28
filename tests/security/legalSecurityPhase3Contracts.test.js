@@ -47,6 +47,10 @@ describe("Phase 3 legal security contracts", () => {
     expect(sql).toMatch(/account_id uuid not null references public\.accounts\(id\) on delete cascade/);
     expect(sql).toContain("public.user_can_manage_account(account_id)");
     expect(sql).toContain("public.submit_public_rental_application");
+    expect(sql).toContain("public.create_inspection_report_with_rooms");
+    expect(sql).toContain("security invoker");
+    expect(sql).toContain("jsonb_build_object('inspection_rooms'");
+    expect(sql).toContain("grant execute on function public.create_inspection_report_with_rooms");
     expect(sql).toContain("v_score := greatest(0, least(100, v_score))");
     expect(sql).not.toContain("p_payload->>'score'");
     expect(sql).not.toContain("p_payload->'score_reasons'");
