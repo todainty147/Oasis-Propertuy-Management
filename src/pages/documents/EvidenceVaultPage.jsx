@@ -1,15 +1,51 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Download, Lock, Plus } from "lucide-react";
+import { CheckCircle2, Download, FileText, Lock, Paperclip, Plus, Save, Upload } from "lucide-react";
 
 import { useAccount } from "../../context/AccountContext";
 import { ENTITLEMENT_FEATURES } from "../../lib/entitlements";
-import { createInspectionReport, listInspectionReports, lockInspectionReport } from "../../services/legalSecurityService";
+import { fetchDocuments, uploadDocument } from "../../services/documentService";
+import {
+  attachInspectionEvidenceFile,
+  createInspectionEvidenceItem,
+  createInspectionReport,
+  getInspectionReportDetails,
+  listInspectionReports,
+  lockInspectionReport,
+  recordInspectionSignature,
+  updateInspectionEvidenceItem,
+} from "../../services/legalSecurityService";
 
 const DEFAULT_ROOM_TYPES = ["Entrance / hallway", "Kitchen", "Living room", "Bedroom", "Bathroom", "Garden / exterior", "Meters", "Keys", "Appliances"];
+const CONDITION_OPTIONS = ["excellent", "good", "fair", "poor", "damaged", "needs_review"];
+
+function sortByOrder(rows = []) {
+  return rows.slice().sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+}
+
+function updateEvidenceItemInReport(report, itemId, patch = {}) {
+  if (!report) return report;
+  return {
+    ...report,
+    inspection_rooms: (report.inspection_rooms || []).map((room) => ({
+      ...room,
+      inspection_evidence_items: (room.inspection_evidence_items || []).map((item) => (
+        item.id === itemId ? { ...item, ...patch } : item
+      )),
+    })),
+  };
+}
 
 export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   const { activeAccountId, hasEntitlement } = useAccount();
   const [reports, setReports] = useState([]);
+  const [selectedReportId, setSelectedReportId] = useState("");
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [itemDrafts, setItemDrafts] = useState({});
+  const [savingRoomId, setSavingRoomId] = useState("");
+  const [uploadingItemId, setUploadingItemId] = useState("");
+  const [documents, setDocuments] = useState([]);
+  const [signatureForm, setSignatureForm] = useState({ signerType: "landlord", signerName: "" });
   const [form, setForm] = useState({
     title: "Check-in inspection",
     propertyId: "",
@@ -19,6 +55,27 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   });
   const [error, setError] = useState("");
   const mountedRef = useRef(false);
+  const builderRef = useRef(null);
+  const selectedPropertyId = selectedReport?.property_id || null;
+  const selectedTenantId = selectedReport?.tenant_id || null;
+
+  const loadReportDetail = useCallback(async (reportId) => {
+    if (!activeAccountId || !reportId) {
+      setSelectedReport(null);
+      return null;
+    }
+    try {
+      setDetailLoading(true);
+      const detail = await getInspectionReportDetails(activeAccountId, reportId);
+      if (mountedRef.current) setSelectedReport(detail);
+      return detail;
+    } catch (err) {
+      if (mountedRef.current) setError(err?.message || "Could not load inspection report details.");
+      throw err;
+    } finally {
+      if (mountedRef.current) setDetailLoading(false);
+    }
+  }, [activeAccountId]);
 
   const load = useCallback(async () => {
     if (!activeAccountId) return;
@@ -49,11 +106,49 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
     return () => { cancelled = true; mountedRef.current = false; };
   }, [activeAccountId]);
 
+  useEffect(() => {
+    if (!selectedReportId) {
+      setSelectedReport(null);
+      return;
+    }
+    loadReportDetail(selectedReportId).catch(() => {});
+  }, [loadReportDetail, selectedReportId]);
+
+  useEffect(() => {
+    if (selectedReport?.id) {
+      builderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [selectedReport?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!activeAccountId || !selectedReport?.id) {
+      setDocuments([]);
+      return () => { cancelled = true; };
+    }
+
+    fetchDocuments({
+      accountId: activeAccountId,
+      propertyId: selectedPropertyId,
+      tenantId: selectedTenantId,
+      onlyUploaded: true,
+    })
+      .then((nextDocuments) => {
+        if (!cancelled) setDocuments(nextDocuments);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err?.message || "Could not load documents for evidence linking.");
+      });
+
+    return () => { cancelled = true; };
+  }, [activeAccountId, selectedPropertyId, selectedTenantId, selectedReport?.id]);
+
   async function handleCreate(event) {
     event.preventDefault();
     try {
       setError("");
-      await createInspectionReport(activeAccountId, form);
+      const report = await createInspectionReport(activeAccountId, form);
+      setSelectedReportId(report?.id || "");
       await load();
     } catch (err) {
       setError(err?.message || "Could not create inspection report.");
@@ -61,14 +156,130 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   }
 
   async function handleLock(report) {
+    const confirmed = window.confirm("Lock this inspection report? Locked reports cannot be edited.");
+    if (!confirmed) return;
     try {
       setError("");
       await lockInspectionReport(report.id, activeAccountId);
       await load();
+      await loadReportDetail(report.id);
     } catch (err) {
       if (mountedRef.current) setError(err?.message || "Could not lock inspection report.");
     }
   }
+
+  function updateItemDraft(roomId, patch) {
+    setItemDrafts((current) => ({
+      ...current,
+      [roomId]: { item_label: "", condition_rating: "good", notes: "", ...(current[roomId] || {}), ...patch },
+    }));
+  }
+
+  async function handleAddEvidenceItem(event, room) {
+    event.preventDefault();
+    const draft = itemDrafts[room.id] || {};
+    try {
+      setSavingRoomId(room.id);
+      setError("");
+      const nextSortOrder = (room.inspection_evidence_items || []).length * 10;
+      await createInspectionEvidenceItem(activeAccountId, room.id, { ...draft, sort_order: nextSortOrder });
+      setItemDrafts((current) => ({ ...current, [room.id]: { item_label: "", condition_rating: "good", notes: "" } }));
+      await loadReportDetail(selectedReportId);
+    } catch (err) {
+      setError(err?.message || "Could not add evidence item.");
+    } finally {
+      setSavingRoomId("");
+    }
+  }
+
+  async function handleUpdateEvidenceItem(item, patch) {
+    try {
+      setError("");
+      await updateInspectionEvidenceItem(activeAccountId, item.id, patch);
+      setSelectedReport((current) => updateEvidenceItemInReport(current, item.id, patch));
+    } catch (err) {
+      setError(err?.message || "Could not update evidence item.");
+      await loadReportDetail(selectedReportId).catch(() => {});
+    }
+  }
+
+  async function handleConditionChange(item, condition_rating) {
+    const previousReport = selectedReport;
+    setSelectedReport((current) => updateEvidenceItemInReport(current, item.id, { condition_rating }));
+    try {
+      setError("");
+      await updateInspectionEvidenceItem(activeAccountId, item.id, { condition_rating });
+    } catch (err) {
+      setError(err?.message || "Could not update condition rating.");
+      setSelectedReport(previousReport);
+      await loadReportDetail(selectedReportId).catch(() => {});
+    }
+  }
+
+  async function handleUploadEvidenceFile(item, file) {
+    if (!file || !selectedReport) return;
+    try {
+      setUploadingItemId(item.id);
+      setError("");
+      const document = await uploadDocument({
+        file,
+        accountId: activeAccountId,
+        propertyId: selectedReport.property_id || null,
+        tenantId: selectedReport.tenant_id || null,
+        tags: ["evidence-vault", selectedReport.inspection_type],
+      });
+      try {
+        await attachInspectionEvidenceFile(activeAccountId, item.id, {
+          documentId: document.id,
+          storagePath: document.storage_path,
+          caption: document.name || document.original_filename || file.name,
+        });
+        await loadReportDetail(selectedReportId);
+      } catch {
+        setDocuments((current) => [document, ...current.filter((doc) => doc.id !== document.id)]);
+        setError("File uploaded but could not be linked. You can attach it via 'Attach existing document'.");
+      }
+    } catch (err) {
+      setError(err?.message || "Could not upload evidence file.");
+    } finally {
+      setUploadingItemId("");
+    }
+  }
+
+  async function handleAttachExistingDocument(item, documentId) {
+    if (!documentId) return;
+    const document = documents.find((doc) => String(doc.id) === String(documentId));
+    try {
+      setUploadingItemId(item.id);
+      setError("");
+      await attachInspectionEvidenceFile(activeAccountId, item.id, {
+        documentId,
+        storagePath: document?.storage_path || null,
+        caption: document?.name || document?.original_filename || "Linked document",
+      });
+      await loadReportDetail(selectedReportId);
+    } catch (err) {
+      setError(err?.message || "Could not attach document.");
+    } finally {
+      setUploadingItemId("");
+    }
+  }
+
+  async function handleRecordSignature(event) {
+    event.preventDefault();
+    if (!selectedReport) return;
+    try {
+      setError("");
+      await recordInspectionSignature(activeAccountId, selectedReport.id, signatureForm);
+      setSignatureForm({ signerType: "landlord", signerName: "" });
+      await loadReportDetail(selectedReport.id);
+    } catch (err) {
+      setError(err?.message || "Could not record signature acknowledgement.");
+    }
+  }
+
+  const reportRooms = sortByOrder(selectedReport?.inspection_rooms || []);
+  const selectedReportLocked = selectedReport?.status === "locked";
 
   return (
     <div className="space-y-6">
@@ -136,12 +347,143 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
               </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" onClick={() => setSelectedReportId(report.id)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium dark:border-slate-700"><FileText size={14} /> Open builder</button>
               <button type="button" disabled={report.status === "locked"} onClick={() => handleLock(report)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Lock size={14} /> Lock report</button>
               <button type="button" disabled={!hasEntitlement(ENTITLEMENT_FEATURES.EVIDENCE_VAULT_PDF_EXPORT)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Download size={14} /> Print/PDF placeholder</button>
             </div>
           </div>
         ))}
       </div>
+
+      {selectedReport ? (
+        <section ref={builderRef} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">Inspection builder</p>
+              <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-slate-50">{selectedReport.title}</h2>
+              <p className="mt-1 text-sm text-slate-500">{selectedReport.inspection_type} · {selectedReport.inspection_date} · {selectedReport.status}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" disabled={selectedReportLocked} onClick={() => handleLock(selectedReport)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Lock size={14} /> Lock report</button>
+              <button type="button" disabled={!hasEntitlement(ENTITLEMENT_FEATURES.EVIDENCE_VAULT_PDF_EXPORT)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Download size={14} /> Print/PDF placeholder</button>
+            </div>
+          </div>
+
+          {detailLoading ? <p className="mt-4 text-sm text-slate-500">Loading report details...</p> : null}
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="space-y-4">
+              {reportRooms.map((room) => {
+                const draft = itemDrafts[room.id] || { item_label: "", condition_rating: "good", notes: "" };
+                const items = sortByOrder(room.inspection_evidence_items || []);
+                return (
+                  <div key={room.id} className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="font-semibold text-slate-950 dark:text-slate-50">{room.room_name}</h3>
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-500 dark:bg-slate-800">{items.length} items</span>
+                    </div>
+
+                    <div className="mt-3 space-y-3">
+                      {items.length === 0 ? <p className="text-sm text-slate-500">No evidence items logged for this room yet.</p> : null}
+                      {items.map((item) => (
+                        <form key={item.id} onSubmit={(event) => {
+                          event.preventDefault();
+                          handleUpdateEvidenceItem(item, { notes: event.currentTarget.elements.notes.value });
+                        }} className="rounded-lg bg-slate-50 p-3 dark:bg-slate-950">
+                          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                            <div>
+                              <p className="font-medium text-slate-900 dark:text-slate-100">{item.item_label}</p>
+                              <p className="text-xs text-slate-500">Evidence files linked: {(item.inspection_photos || []).length}</p>
+                            </div>
+                            <select disabled={selectedReportLocked} value={item.condition_rating || ""} onChange={(event) => handleConditionChange(item, event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900">
+                              <option value="">Condition</option>
+                              {CONDITION_OPTIONS.map((condition) => <option key={condition} value={condition}>{condition.replace("_", " ")}</option>)}
+                            </select>
+                          </div>
+                          <div className="mt-3 flex flex-col gap-2 md:flex-row">
+                            <textarea name="notes" disabled={selectedReportLocked} defaultValue={item.notes || ""} placeholder="Notes" className="min-h-20 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900" />
+                            <button type="submit" disabled={selectedReportLocked} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium disabled:opacity-60 dark:border-slate-700"><Save size={14} /> Save notes</button>
+                          </div>
+                          <div className="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium dark:border-slate-700">
+                              <Upload size={14} />
+                              {uploadingItemId === item.id ? "Uploading..." : "Upload photo/file"}
+                              <input
+                                type="file"
+                                accept="image/*,.pdf,.doc,.docx"
+                                capture="environment"
+                                disabled={selectedReportLocked || uploadingItemId === item.id}
+                                className="sr-only"
+                                onChange={(event) => {
+                                  const file = event.target.files?.[0];
+                                  event.target.value = "";
+                                  handleUploadEvidenceFile(item, file);
+                                }}
+                              />
+                            </label>
+                            <label className="inline-flex items-center gap-2">
+                              <Paperclip size={14} className="text-slate-500" />
+                              <select disabled={selectedReportLocked || uploadingItemId === item.id} value="" onChange={(event) => handleAttachExistingDocument(item, event.target.value)} className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900">
+                                <option value="">Attach existing document</option>
+                                {documents.map((document) => <option key={document.id} value={document.id}>{document.name || document.original_filename || document.id}</option>)}
+                              </select>
+                            </label>
+                          </div>
+                          {(item.inspection_photos || []).length > 0 ? (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {(item.inspection_photos || []).map((photo) => (
+                                <span key={photo.id} className="rounded-full bg-white px-3 py-1 text-xs text-slate-500 dark:bg-slate-900">
+                                  {photo.caption || photo.storage_path || photo.document_id || "Evidence file"}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                        </form>
+                      ))}
+                    </div>
+
+                    <form onSubmit={(event) => handleAddEvidenceItem(event, room)} className="mt-4 rounded-lg border border-dashed border-slate-300 p-3 dark:border-slate-700">
+                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
+                        <input required disabled={selectedReportLocked} value={draft.item_label} onChange={(event) => updateItemDraft(room.id, { item_label: event.target.value })} placeholder="Item, fixture, meter or key set" className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950" />
+                        <select disabled={selectedReportLocked} value={draft.condition_rating} onChange={(event) => updateItemDraft(room.id, { condition_rating: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950">
+                          {CONDITION_OPTIONS.map((condition) => <option key={condition} value={condition}>{condition.replace("_", " ")}</option>)}
+                        </select>
+                      </div>
+                      <textarea disabled={selectedReportLocked} value={draft.notes} onChange={(event) => updateItemDraft(room.id, { notes: event.target.value })} placeholder="Condition notes" className="mt-3 min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950" />
+                      <button type="submit" disabled={selectedReportLocked || savingRoomId === room.id} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"><Plus size={14} /> {savingRoomId === room.id ? "Adding..." : "Add evidence item"}</button>
+                    </form>
+                  </div>
+                );
+              })}
+            </div>
+
+            <aside className="space-y-4">
+              <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+                <h3 className="font-semibold text-slate-950 dark:text-slate-50">Signature acknowledgements</h3>
+                <p className="mt-1 text-xs text-slate-500">Record that a party has acknowledged this report in person or on paper. Tenaqo does not capture digital signatures.</p>
+                <div className="mt-3 space-y-2">
+                  {(selectedReport.inspection_signatures || []).length === 0 ? <p className="text-sm text-slate-500">No acknowledgements recorded.</p> : null}
+                  {(selectedReport.inspection_signatures || []).map((signature) => (
+                    <div key={signature.id} className="rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-950">
+                      <p className="font-medium">{signature.signer_name}</p>
+                      <p className="text-xs text-slate-500">{signature.signer_type} · {new Date(signature.signed_at).toLocaleDateString()}</p>
+                    </div>
+                  ))}
+                </div>
+                <form onSubmit={handleRecordSignature} className="mt-4 space-y-3">
+                  <select disabled={selectedReportLocked} value={signatureForm.signerType} onChange={(event) => setSignatureForm((current) => ({ ...current, signerType: event.target.value }))} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950">
+                    <option value="landlord">Landlord</option>
+                    <option value="tenant">Tenant</option>
+                    <option value="agent">Agent</option>
+                  </select>
+                  <input required disabled={selectedReportLocked} value={signatureForm.signerName} onChange={(event) => setSignatureForm((current) => ({ ...current, signerName: event.target.value }))} placeholder="Signer name" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950" />
+                  <button type="submit" disabled={selectedReportLocked} className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium disabled:opacity-60 dark:border-slate-700"><CheckCircle2 size={14} /> Record acknowledgement</button>
+                </form>
+              </div>
+            </aside>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
