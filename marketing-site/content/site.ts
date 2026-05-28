@@ -11,6 +11,7 @@ export const siteConfig = {
   nav: [
     { key: "features", href: "/features" },
     { key: "tenantPortal", href: "/features/tenant-portal" },
+    { key: "tools", href: "/landlord-tools" },
     { key: "pricing", href: "/pricing" },
     { key: "compare", href: "/compare/oasis-vs-landlordstudio" },
     { key: "blog", href: "/blog" },
@@ -27,6 +28,7 @@ type SiteCopy = {
     features: string;
     pricing: string;
     compare: string;
+    tools: string;
     blog: string;
     legalNotice: string;
     earlyAccess: string;
@@ -40,6 +42,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
     nav: {
       features: "Features",
       tenantPortal: "Tenant Portal",
+      tools: "Tools",
       pricing: "Pricing",
       compare: "Compare",
       blog: "Blog",
@@ -55,6 +58,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       features: "Features",
       pricing: "Pricing",
       compare: "Compare",
+      tools: "Landlord tax tools",
       blog: "Blog",
       legalNotice: "Legal notice",
       earlyAccess: "Early access",
@@ -70,6 +74,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
     nav: {
       features: "Funkcje",
       tenantPortal: "Portal najemcy",
+      tools: "Narzędzia",
       pricing: "Cennik",
       compare: "Porównanie",
       blog: "Blog",
@@ -85,6 +90,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       features: "Funkcje",
       pricing: "Cennik",
       compare: "Porównanie",
+      tools: "Narzędzia podatkowe",
       blog: "Blog",
       legalNotice: "Informacje prawne",
       earlyAccess: "Wczesny dostęp",
@@ -100,6 +106,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
     nav: {
       features: "Funktionen",
       tenantPortal: "Mieterportal",
+      tools: "Tools",
       pricing: "Preise",
       compare: "Vergleich",
       blog: "Blog",
@@ -115,6 +122,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       features: "Funktionen",
       pricing: "Preise",
       compare: "Vergleich",
+      tools: "Vermieter-Steuertools",
       blog: "Blog",
       legalNotice: "Impressum",
       earlyAccess: "Frühzugang",

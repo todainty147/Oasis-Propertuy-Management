@@ -1,6 +1,7 @@
 import type { Locale } from "../../lib/i18n";
 
 import { homepageContentByLocale } from "../../content/homepage";
+import { LandlordToolsCta } from "../landlord-tools/landlord-tools-cta";
 import { AgentComparison } from "./agent-comparison";
 import { AppTease } from "./app-tease";
 import { ContentSection } from "./content-section";
@@ -46,6 +47,8 @@ export function MarketingHomePage({ locale }: { locale: Locale }) {
           passiveLandlord={c.passiveLandlordSection}
         />
       )}
+
+      <LandlordToolsCta locale={locale} />
 
       {/* 9 — Tenaqo vs High-Street Agents */}
       {c.agentComparison && <AgentComparison {...c.agentComparison} />}

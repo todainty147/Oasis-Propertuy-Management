@@ -4,6 +4,7 @@ import type { Locale } from "../../lib/i18n";
 import { getLocalizedMarketingHref } from "../../lib/i18n";
 import { blogArticles } from "../../content/blog";
 import { blogIndexContentByLocale } from "../../content/blog-index";
+import { LandlordToolsCta } from "../landlord-tools/landlord-tools-cta";
 import { FinalCta } from "./final-cta";
 import { PageHero } from "./page-hero";
 
@@ -43,6 +44,7 @@ export function MarketingBlogIndexPage({ locale }: { locale: Locale }) {
           </div>
         </div>
       </section>
+      <LandlordToolsCta locale={locale} />
       <FinalCta
         locale={locale}
         {...{
