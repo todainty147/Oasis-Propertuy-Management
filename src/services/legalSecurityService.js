@@ -11,7 +11,20 @@ const COMPLIANCE_SELECT = [
 const INSPECTION_SELECT = [
   "id", "account_id", "property_id", "tenant_id", "inspection_type", "status",
   "title", "inspection_date", "locked_at", "locked_by", "created_by", "created_at", "updated_at",
+  "inspection_rooms(id, room_name, sort_order, inspection_evidence_items(id, item_label, condition_rating, notes, sort_order, inspection_photos(id, document_id, storage_path, caption, captured_at)))",
 ].join(", ");
+
+const DEFAULT_INSPECTION_ROOMS = [
+  "Entrance / hallway",
+  "Kitchen",
+  "Living room",
+  "Bedroom",
+  "Bathroom",
+  "Garden / exterior",
+  "Meters",
+  "Keys",
+  "Appliances",
+];
 
 const APPLICATION_LINK_SELECT = [
   "id", "account_id", "property_id", "public_token", "title", "status",
@@ -93,7 +106,7 @@ export async function listInspectionReports(accountId) {
 export async function createInspectionReport(accountId, payload = {}) {
   if (!accountId) throw new Error("Missing accountId");
   if (!payload.propertyId) throw new Error("Choose a property");
-  const { data, error } = await supabase
+  const { data: report, error } = await supabase
     .from("inspection_reports")
     .insert({
       account_id: accountId,
@@ -106,7 +119,26 @@ export async function createInspectionReport(accountId, payload = {}) {
     .select(INSPECTION_SELECT)
     .single();
   if (error) throw error;
-  return data;
+
+  const rooms = Array.isArray(payload.rooms) && payload.rooms.length > 0 ? payload.rooms : DEFAULT_INSPECTION_ROOMS;
+  const { error: roomsError } = await supabase
+    .from("inspection_rooms")
+    .insert(rooms.map((roomName, index) => ({
+      account_id: accountId,
+      inspection_report_id: report.id,
+      room_name: roomName,
+      sort_order: index * 10,
+    })));
+  if (roomsError) throw roomsError;
+
+  const { data: hydrated, error: hydrateError } = await supabase
+    .from("inspection_reports")
+    .select(INSPECTION_SELECT)
+    .eq("id", report.id)
+    .eq("account_id", accountId)
+    .single();
+  if (hydrateError) throw hydrateError;
+  return hydrated;
 }
 
 export async function lockInspectionReport(id, accountId) {
