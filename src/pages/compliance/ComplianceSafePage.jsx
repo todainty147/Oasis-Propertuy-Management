@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, FileText, ShieldCheck } from "lucide-react";
+import { CheckCircle2, FileText, Plus, ShieldCheck } from "lucide-react";
 
 import { useAccount } from "../../context/AccountContext";
 import { calculateComplianceRating, COMPLIANCE_SAFE_STATUS_LABELS } from "../../utils/complianceSafe";
-import { listComplianceSafeItems, updateComplianceSafeItem } from "../../services/legalSecurityService";
+import {
+  createComplianceChecklistFromTemplate,
+  listComplianceSafeItems,
+  listComplianceTemplates,
+  updateComplianceSafeItem,
+} from "../../services/legalSecurityService";
 
 const SAFE_COPY =
   "Track statutory tenancy documents, safety certificates, deposit evidence and onboarding acknowledgements. Tenaqo helps organise evidence and does not provide legal advice.";
@@ -16,6 +21,8 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
   const { activeAccountId } = useAccount();
   const [items, setItems] = useState([]);
   const [filters, setFilters] = useState({ propertyId: "", tenantId: "", status: "" });
+  const [templates, setTemplates] = useState([]);
+  const [checklistForm, setChecklistForm] = useState({ propertyId: "", tenantId: "", templateId: "" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -34,11 +41,36 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    let cancelled = false;
+    listComplianceTemplates()
+      .then((nextTemplates) => {
+        if (cancelled) return;
+        setTemplates(nextTemplates);
+        setChecklistForm((form) => ({ ...form, templateId: form.templateId || nextTemplates[0]?.id || "" }));
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err?.message || "Could not load compliance templates.");
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   const rating = useMemo(() => calculateComplianceRating(items), [items]);
 
   async function updateStatus(item, status) {
     await updateComplianceSafeItem(item.id, activeAccountId, { status });
     await load();
+  }
+
+  async function createChecklist(event) {
+    event.preventDefault();
+    try {
+      setError("");
+      await createComplianceChecklistFromTemplate(activeAccountId, checklistForm);
+      await load();
+    } catch (err) {
+      setError(err?.message || "Could not create compliance checklist.");
+    }
   }
 
   return (
@@ -73,6 +105,30 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
           {Object.entries(COMPLIANCE_SAFE_STATUS_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
         </select>
       </div>
+
+      <form onSubmit={createChecklist} className={panelClass()}>
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h2 className="font-semibold text-slate-950 dark:text-slate-50">Create checklist from template</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Choose a property, optional tenant, and UK/England or Poland template. Tenaqo will add missing checklist items for you to update as evidence is logged.</p>
+          </div>
+          <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white dark:bg-slate-100 dark:text-slate-900"><Plus size={16} /> Create checklist</button>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <select required value={checklistForm.propertyId} onChange={(e) => setChecklistForm((f) => ({ ...f, propertyId: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950">
+            <option value="">Property</option>
+            {properties.map((property) => <option key={property.id} value={property.id}>{property.address || property.name || property.id}</option>)}
+          </select>
+          <select value={checklistForm.tenantId} onChange={(e) => setChecklistForm((f) => ({ ...f, tenantId: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950">
+            <option value="">Tenant optional</option>
+            {tenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.name || tenant.email || tenant.id}</option>)}
+          </select>
+          <select required value={checklistForm.templateId} onChange={(e) => setChecklistForm((f) => ({ ...f, templateId: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950">
+            <option value="">Template</option>
+            {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
+          </select>
+        </div>
+      </form>
 
       {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p> : null}
       {loading ? <div className={panelClass()}>Loading Compliance Safe...</div> : null}
