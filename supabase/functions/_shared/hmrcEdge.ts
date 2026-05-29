@@ -89,6 +89,29 @@ export async function assertHmrcAccountAccess(accountId: string, userId: string,
   if (!hasFeature) throw new HttpError("HMRC connection feature is disabled for this account", 403);
 }
 
+export async function assertHmrcAccountFeatures(accountId: string, userId: string, features: string[]) {
+  if (!accountId) throw new HttpError("Missing account id", 400);
+  const { data: member, error: memberError } = await admin
+    .from("account_members")
+    .select("role")
+    .eq("account_id", accountId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (memberError) throw memberError;
+  if (!member || !["owner", "admin", "staff"].includes(String(member.role || "").toLowerCase())) {
+    throw new HttpError("No permission for this account", 403);
+  }
+
+  const checks = await Promise.all(features.map((feature) => admin.rpc("account_has_feature", {
+    p_account_id: accountId,
+    p_feature: feature,
+  })));
+  const failed = checks.find((check) => check.error);
+  if (failed?.error) throw failed.error;
+  if (checks.some((check) => !check.data)) throw new HttpError("HMRC connection feature is disabled for this account", 403);
+}
+
 export async function auditHmrcEvent({
   accountId,
   userId = null,
@@ -114,7 +137,7 @@ export async function auditHmrcEvent({
   errorMessage?: string | null;
   correlationId?: string | null;
 }) {
-  await admin.from("hmrc_api_audit_log").insert({
+  const { error } = await admin.from("hmrc_api_audit_log").insert({
     account_id: accountId,
     user_id: userId,
     environment: HMRC_ENVIRONMENT,
@@ -128,6 +151,14 @@ export async function auditHmrcEvent({
     error_message: errorMessage ? String(errorMessage).slice(0, 500) : null,
     correlation_id: correlationId,
   });
+  if (error) {
+    console.error("[hmrc] audit insert failed", {
+      action,
+      accountId,
+      correlationId,
+      message: error.message,
+    });
+  }
 }
 
 export function ensureSandboxOnly() {
@@ -147,7 +178,7 @@ export function ensureHmrcConfig() {
 export async function getConnection(accountId: string) {
   const { data, error } = await admin
     .from("hmrc_connections")
-    .select("*")
+    .select("id, account_id, created_by, environment, connection_status, hmrc_subject_type, hmrc_display_label, scopes, access_token_ciphertext, refresh_token_ciphertext, access_token_expires_at, refresh_token_expires_at, last_connected_at, last_refreshed_at, disconnected_at, metadata, updated_at")
     .eq("account_id", accountId)
     .eq("environment", HMRC_ENVIRONMENT)
     .maybeSingle();

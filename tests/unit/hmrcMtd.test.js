@@ -121,6 +121,10 @@ describe("HMRC MTD sandbox helpers", () => {
       fulfilledCount: 0,
       nextDueDate: "2026-08-07",
     });
+    expect(summarizeObligations({ obligations: [{ nested: { status: "open" }, status: "F" }] })).toMatchObject({
+      openCount: 0,
+      fulfilledCount: 1,
+    });
     expect(summarizePropertyBusiness({ ukProperty: { income: {} } }, "2026-27", "uk-property")).toEqual({
       periodSummaryCount: 1,
       annualSubmissionFound: false,
@@ -132,7 +136,8 @@ describe("HMRC MTD sandbox helpers", () => {
 
   it("normalizes HMRC sandbox test-data inputs", () => {
     expect(safeTaxYear("2026-27")).toBe("2026-27");
-    expect(safeTaxYear("2026-28")).toBe("2026-28");
+    expect(safeTaxYear("2026-28")).toBe("2026-27");
+    expect(safeTaxYear("2026-99")).toBe("2026-27");
     expect(safeTaxYear("bad")).toBe("2026-27");
     expect(taxYearAccountingPeriod("2026-27")).toEqual({
       taxYear: "2026-27",

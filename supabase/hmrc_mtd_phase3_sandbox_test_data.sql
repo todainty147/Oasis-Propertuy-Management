@@ -21,6 +21,8 @@ as $$
       'hmrc_mtd_sandbox',
       'hmrc_mtd_read_only',
       'hmrc_mtd_sandbox_test_data',
+      'hmrc_mtd_quarterly_draft_builder',
+      'hmrc_mtd_sandbox_submission',
       'hmrc_mtd_live_submission'
     ) then exists (
       select 1

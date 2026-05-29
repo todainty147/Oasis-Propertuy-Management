@@ -79,7 +79,7 @@ export async function persistDiscoveredIncomeSourceId(connection: Record<string,
     ? metadata.sandbox_profile as Record<string, unknown>
     : {};
   if (profile.income_source_id === id) return;
-  await admin
+  const { error } = await admin
     .from("hmrc_connections")
     .update({
       metadata: {
@@ -93,6 +93,13 @@ export async function persistDiscoveredIncomeSourceId(connection: Record<string,
     })
     .eq("id", connection.id)
     .eq("account_id", accountId);
+  if (error) {
+    console.error("[hmrc] income source profile update failed", {
+      accountId,
+      connectionId: String(connection.id || ""),
+      message: error.message,
+    });
+  }
 }
 
 export async function updateSandboxProfile(connection: Record<string, unknown>, patch: Record<string, unknown>, accountId: string) {
@@ -117,7 +124,7 @@ export async function updateSandboxProfile(connection: Record<string, unknown>, 
     })
     .eq("id", connection.id)
     .eq("account_id", accountId)
-    .select("*")
+    .select("id, account_id, environment, connection_status, scopes, metadata, last_connected_at, last_refreshed_at, hmrc_display_label")
     .maybeSingle();
   if (error) throw error;
   return data;
@@ -185,7 +192,7 @@ export async function hmrcRequest({
     action,
     endpoint: path,
     method,
-    status: response.ok ? "success" : response.status === 404 ? "success" : "failed",
+    status: response.ok ? "success" : response.status === 404 ? "blocked" : "failed",
     httpStatus: response.status,
     responseSummary: {
       ok: response.ok,
@@ -263,7 +270,7 @@ export async function writeHmrcReadinessCheck({
   summary?: Record<string, unknown>;
   checkedBy: string;
 }) {
-  await admin.from("hmrc_readiness_checks").insert({
+  const { error } = await admin.from("hmrc_readiness_checks").insert({
     account_id: accountId,
     connection_id: connectionId || null,
     environment: HMRC_ENVIRONMENT,
@@ -274,4 +281,12 @@ export async function writeHmrcReadinessCheck({
     summary,
     checked_by: checkedBy,
   });
+  if (error) {
+    console.error("[hmrc] readiness check insert failed", {
+      accountId,
+      connectionId,
+      checkType,
+      message: error.message,
+    });
+  }
 }

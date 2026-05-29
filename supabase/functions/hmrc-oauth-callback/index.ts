@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
 
     const { data: oauthState, error: stateError } = await admin
       .from("hmrc_oauth_states")
-      .select("*")
+      .select("id, account_id, user_id, consumed_at, expires_at, code_verifier_hash, code_verifier_ciphertext, requested_scopes")
       .eq("state_token", state)
       .eq("environment", HMRC_ENVIRONMENT)
       .maybeSingle();
@@ -53,9 +53,14 @@ Deno.serve(async (req) => {
       return Response.redirect(appRedirectUrl("/compliance/hmrc-connection", { hmrc: "state_rejected" }), 302);
     }
 
-    const codeVerifier = String(oauthState.code_verifier_ciphertext || "")
-      ? await decryptToken(String(oauthState.code_verifier_ciphertext), HMRC_TOKEN_ENCRYPTION_KEY)
-      : "";
+    let codeVerifier = "";
+    try {
+      codeVerifier = String(oauthState.code_verifier_ciphertext || "")
+        ? await decryptToken(String(oauthState.code_verifier_ciphertext), HMRC_TOKEN_ENCRYPTION_KEY)
+        : "";
+    } catch {
+      codeVerifier = "";
+    }
     if (!codeVerifier || await createPkceCodeChallenge(codeVerifier) !== oauthState.code_verifier_hash) {
       await auditHmrcEvent({
         accountId: oauthState.account_id,
@@ -116,10 +121,11 @@ Deno.serve(async (req) => {
     }, { onConflict: "account_id,environment" });
     if (upsertError) throw upsertError;
 
-    await admin
+    const { error: consumeError } = await admin
       .from("hmrc_oauth_states")
       .update({ consumed_at: now })
       .eq("id", oauthState.id);
+    if (consumeError) throw consumeError;
 
     await auditHmrcEvent({
       accountId: oauthState.account_id,

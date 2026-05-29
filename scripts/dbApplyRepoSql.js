@@ -155,6 +155,7 @@ const OVERLAY_SEQUENCE = [
   "hmrc_mtd_phase1.sql",
   "hmrc_mtd_phase2_readonly.sql",
   "hmrc_mtd_phase3_sandbox_test_data.sql",
+  "hmrc_mtd_phase3_quarterly_drafts.sql",
 ];
 
 function resolvePsqlCommand() {

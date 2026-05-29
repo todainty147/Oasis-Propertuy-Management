@@ -75,8 +75,14 @@ function businessType(business: unknown) {
 
 export function summarizeObligations(body: Record<string, unknown>) {
   const obligations = Array.isArray(body.obligations) ? body.obligations : [];
-  const open = obligations.filter((item) => JSON.stringify(item).toLowerCase().includes('"status":"o"') || JSON.stringify(item).toLowerCase().includes('"status":"open"'));
-  const fulfilled = obligations.filter((item) => JSON.stringify(item).toLowerCase().includes('"status":"f"') || JSON.stringify(item).toLowerCase().includes('"status":"fulfilled"'));
+  const open = obligations.filter((item) => {
+    const status = item && typeof item === "object" ? String((item as Record<string, unknown>).status || "").toLowerCase() : "";
+    return ["o", "open"].includes(status);
+  });
+  const fulfilled = obligations.filter((item) => {
+    const status = item && typeof item === "object" ? String((item as Record<string, unknown>).status || "").toLowerCase() : "";
+    return ["f", "fulfilled"].includes(status);
+  });
   const dueDates = obligations
     .map((item) => item && typeof item === "object" ? String((item as Record<string, unknown>).dueDate || "") : "")
     .filter(Boolean)
@@ -91,7 +97,10 @@ export function summarizeObligations(body: Record<string, unknown>) {
 
 export function safeTaxYear(value: unknown, fallback = "2026-27") {
   const taxYear = String(value || "").trim();
-  return /^20\d{2}-\d{2}$/.test(taxYear) ? taxYear : fallback;
+  if (!/^20\d{2}-\d{2}$/.test(taxYear)) return fallback;
+  const startYear = Number(taxYear.slice(0, 4));
+  const expectedSuffix = String((startYear + 1) % 100).padStart(2, "0");
+  return taxYear.slice(5) === expectedSuffix ? taxYear : fallback;
 }
 
 export function taxYearAccountingPeriod(taxYear: string) {
