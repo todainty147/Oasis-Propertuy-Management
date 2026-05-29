@@ -44,11 +44,11 @@ export function summarizeBusinessDetails(body: Record<string, unknown>) {
       ? body.businesses
       : [];
   const propertyBusinesses = businesses.filter((business) => {
-    const text = JSON.stringify(business).toLowerCase();
-    return text.includes("property");
+    const type = businessType(business);
+    return type.includes("PROPERTY");
   });
-  const ukProperty = propertyBusinesses.filter((business) => JSON.stringify(business).toLowerCase().includes("uk"));
-  const foreignProperty = propertyBusinesses.filter((business) => JSON.stringify(business).toLowerCase().includes("foreign"));
+  const ukProperty = propertyBusinesses.filter((business) => businessType(business).startsWith("UK_PROPERTY"));
+  const foreignProperty = propertyBusinesses.filter((business) => businessType(business).startsWith("FOREIGN_PROPERTY"));
   const incomeSourceIds = businesses
     .map((business) => {
       if (!business || typeof business !== "object") return "";
@@ -63,6 +63,14 @@ export function summarizeBusinessDetails(body: Record<string, unknown>) {
     discoveredIncomeSourceIdsCount: incomeSourceIds.length,
     firstIncomeSourceId: incomeSourceIds[0] || "",
   };
+}
+
+function businessType(business: unknown) {
+  if (!business || typeof business !== "object") return "";
+  return String((business as Record<string, unknown>).typeOfBusiness || "")
+    .trim()
+    .replace(/-/g, "_")
+    .toUpperCase();
 }
 
 export function summarizeObligations(body: Record<string, unknown>) {

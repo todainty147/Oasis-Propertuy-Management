@@ -77,7 +77,9 @@ Deno.serve(async (req) => {
       status,
       response.ok
         ? "Property Business read-only sandbox check completed."
-        : response.normalized?.message || "Property Business read-only check failed.",
+        : status === "no_data"
+          ? "HMRC found the sandbox property business, but no read-only property summary exists for this tax year yet."
+          : response.normalized?.message || "Property Business read-only check failed.",
       summary,
       response.status,
       response.normalized?.hmrcCode,

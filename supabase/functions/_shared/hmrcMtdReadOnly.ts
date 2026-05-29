@@ -69,9 +69,9 @@ export function safeSandboxProfile(connection: Record<string, unknown> | null | 
   };
 }
 
-export async function persistDiscoveredIncomeSourceId(connection: Record<string, unknown>, incomeSourceId: string) {
+export async function persistDiscoveredIncomeSourceId(connection: Record<string, unknown>, incomeSourceId: string, accountId: string) {
   const id = String(incomeSourceId || "").trim();
-  if (!id || !connection?.id) return;
+  if (!id || !connection?.id || !accountId) return;
   const metadata = connection.metadata && typeof connection.metadata === "object"
     ? connection.metadata as Record<string, unknown>
     : {};
@@ -91,11 +91,12 @@ export async function persistDiscoveredIncomeSourceId(connection: Record<string,
         },
       },
     })
-    .eq("id", connection.id);
+    .eq("id", connection.id)
+    .eq("account_id", accountId);
 }
 
-export async function updateSandboxProfile(connection: Record<string, unknown>, patch: Record<string, unknown>) {
-  if (!connection?.id) return null;
+export async function updateSandboxProfile(connection: Record<string, unknown>, patch: Record<string, unknown>, accountId: string) {
+  if (!connection?.id || !accountId) return null;
   const metadata = connection.metadata && typeof connection.metadata === "object"
     ? connection.metadata as Record<string, unknown>
     : {};
@@ -115,6 +116,7 @@ export async function updateSandboxProfile(connection: Record<string, unknown>, 
       },
     })
     .eq("id", connection.id)
+    .eq("account_id", accountId)
     .select("*")
     .maybeSingle();
   if (error) throw error;

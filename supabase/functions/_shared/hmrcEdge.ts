@@ -6,6 +6,7 @@ import {
 } from "./trustedOrigin.ts";
 import { safeErrorResponse } from "./safeErrorResponse.ts";
 import {
+  assertLiveSubmissionDisabled,
   decryptToken,
   encryptToken,
   safeHmrcConnectionPayload,
@@ -130,7 +131,9 @@ export async function auditHmrcEvent({
 }
 
 export function ensureSandboxOnly() {
-  if (HMRC_ENVIRONMENT !== "sandbox" || HMRC_LIVE_SUBMISSION_ENV === "true") {
+  try {
+    assertLiveSubmissionDisabled(HMRC_ENVIRONMENT, HMRC_LIVE_SUBMISSION_ENV);
+  } catch {
     throw new HttpError("HMRC live submission is disabled for this phase", 403);
   }
 }

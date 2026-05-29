@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertLiveSubmissionDisabled,
+  createPkceCodeChallenge,
   createOauthStateExpiry,
   decryptToken,
   encryptToken,
   ensureSandboxProbeScope,
+  generatePkceCodeVerifier,
   generateOauthStateToken,
   isOauthStateExpired,
   normalizeHmrcConnectionStatus,
@@ -54,7 +56,7 @@ describe("HMRC MTD sandbox helpers", () => {
 
   it("encrypts and decrypts tokens without returning plaintext ciphertext", async () => {
     const ciphertext = await encryptToken("sandbox-access-token", "test-encryption-key");
-    expect(ciphertext).toMatch(/^v1\./);
+    expect(ciphertext).toMatch(/^v2\./);
     expect(ciphertext).not.toContain("sandbox-access-token");
     await expect(decryptToken(ciphertext, "test-encryption-key")).resolves.toBe("sandbox-access-token");
   });
@@ -73,7 +75,17 @@ describe("HMRC MTD sandbox helpers", () => {
 
   it("keeps the live submission guard closed", () => {
     expect(assertLiveSubmissionDisabled()).toBe(true);
+    expect(() => assertLiveSubmissionDisabled("production", "false")).toThrow(/disabled/);
+    expect(() => assertLiveSubmissionDisabled("sandbox", "true")).toThrow(/disabled/);
     expect(normalizeHmrcConnectionStatus("unexpected")).toBe("not_connected");
+  });
+
+  it("generates PKCE verifier and challenge values", async () => {
+    const verifier = generatePkceCodeVerifier();
+    const challenge = await createPkceCodeChallenge(verifier);
+    expect(verifier).toMatch(/^[A-Za-z0-9_-]{64,}$/);
+    expect(challenge).toMatch(/^[A-Za-z0-9_-]{32,}$/);
+    await expect(createPkceCodeChallenge(verifier)).resolves.toBe(challenge);
   });
 
   it("uses HMRC versioned Accept headers for real read-only probes", () => {
@@ -101,6 +113,8 @@ describe("HMRC MTD sandbox helpers", () => {
       discoveredIncomeSourceIdsCount: 1,
       firstIncomeSourceId: "X123",
     });
+    expect(summarizeBusinessDetails({ businesses: [{ businessId: "Y456", typeOfBusiness: "FOREIGN_PROPERTY" }] }).hasForeignProperty).toBe(true);
+    expect(summarizeBusinessDetails({ businesses: [{ businessId: "Z789", typeOfBusiness: "SELF_EMPLOYMENT", tradingName: "Property Lane Ltd" }] }).hasUkProperty).toBe(false);
     expect(summarizeObligations({ obligations: [{ status: "O", dueDate: "2026-08-07" }] })).toEqual({
       obligationCount: 1,
       openCount: 1,

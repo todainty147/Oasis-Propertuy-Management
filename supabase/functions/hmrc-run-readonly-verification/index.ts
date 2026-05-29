@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     });
     const businessSummary = business.ok ? summarizeBusinessDetails(business.body) : { safe_code: business.normalized?.safeCode || "hmrc_error" };
     if (business.ok && businessSummary.firstIncomeSourceId) {
-      await persistDiscoveredIncomeSourceId(connection, String(businessSummary.firstIncomeSourceId));
+      await persistDiscoveredIncomeSourceId(connection, String(businessSummary.firstIncomeSourceId), accountId);
     }
     const businessStatus = business.ok ? "success" : business.status === 404 ? "no_data" : "failed";
     await writeHmrcReadinessCheck({
@@ -155,6 +155,8 @@ Deno.serve(async (req) => {
         status: propertyStatus,
         message: property.ok
           ? "Property Business read-only sandbox check completed."
+          : propertyStatus === "no_data"
+            ? "HMRC found the sandbox property business, but no read-only property summary exists for this tax year yet."
           : property.normalized?.message,
         summary: publicPropertySummary(propertySummary),
       });

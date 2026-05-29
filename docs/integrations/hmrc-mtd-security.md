@@ -6,6 +6,8 @@ HMRC credentials and OAuth tokens are server-side secrets. The browser must neve
 
 - Access and refresh tokens are encrypted by Supabase Edge Functions before storage.
 - Encryption uses `HMRC_TOKEN_ENCRYPTION_KEY`, stored only as an Edge Function secret.
+- New ciphertext uses AES-GCM with an HKDF-derived key and a purpose label of `hmrc-token-enc`.
+- Legacy `v1` sandbox ciphertext remains readable so existing sandbox connections are not stranded after key-derivation upgrades.
 - Token ciphertext is stored in `hmrc_connections`.
 - `hmrc_connections` and `hmrc_oauth_states` are not granted direct authenticated browser access.
 - The browser receives only safe metadata: status, environment, scopes, dates, and display label.
@@ -40,6 +42,8 @@ Never log:
 - Contractors cannot access HMRC connection data.
 - Edge Functions verify the authenticated user and account membership before each action.
 - Live submission is blocked by code and must remain disabled by environment.
+- `ensureSandboxOnly()` is the authoritative runtime guard: `HMRC_ENVIRONMENT` must be `sandbox` and `HMRC_LIVE_SUBMISSION_ENABLED` must not be `true`.
+- OAuth uses PKCE. The verifier is encrypted in the short-lived `hmrc_oauth_states` row and validated against `code_verifier_hash` before token exchange.
 
 ## Safe Logging Policy
 
