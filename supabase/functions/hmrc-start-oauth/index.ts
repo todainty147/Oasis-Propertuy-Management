@@ -1,6 +1,6 @@
 import {
   admin,
-  assertHmrcAccountAccess,
+  assertHmrcAccountFeatures,
   auditHmrcEvent,
   ensureHmrcConfig,
   ensureSandboxOnly,
@@ -36,8 +36,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const accountId = String(body.account_id || body.accountId || "").trim();
     const requestedScopes = ensureSandboxProbeScope(validateHmrcScopes(body.requested_scopes || body.requestedScopes));
-    await assertHmrcAccountAccess(accountId, user.id, "hmrc_mtd_connection");
-    await assertHmrcAccountAccess(accountId, user.id, "hmrc_mtd_sandbox");
+    await assertHmrcAccountFeatures(accountId, user.id, ["hmrc_mtd_connection", "hmrc_mtd_sandbox"]);
 
     const stateToken = generateOauthStateToken();
     const codeVerifier = generatePkceCodeVerifier();

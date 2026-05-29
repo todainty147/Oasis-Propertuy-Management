@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ExternalLink, PlugZap, RefreshCw, Save, ShieldAlert, Trash2, Unplug } from "lucide-react";
+import { CheckCircle2, ExternalLink, PlugZap, RefreshCw, Save, ShieldAlert, Trash2, Unplug, X } from "lucide-react";
 
 import { useAccount } from "../../context/AccountContext";
 import { ENTITLEMENT_FEATURES } from "../../lib/entitlements";
@@ -53,6 +53,7 @@ export default function HmrcConnectionPage() {
   const [verificationResult, setVerificationResult] = useState(null);
   const [testDataResult, setTestDataResult] = useState(null);
   const [sandboxNino, setSandboxNino] = useState("");
+  const [sandboxNinoError, setSandboxNinoError] = useState("");
   const [testTaxYear, setTestTaxYear] = useState("2026-27");
   const [testBusinessType, setTestBusinessType] = useState("uk-property");
 
@@ -141,17 +142,13 @@ export default function HmrcConnectionPage() {
   async function handleSaveSandboxProfile() {
     const normalizedNino = sandboxNino.replace(/\s+/g, "").toUpperCase();
     if (normalizedNino && !NINO_PATTERN.test(normalizedNino)) {
-      setVerificationResult({
-        status: "blocked",
-        checkType: "sandbox_profile",
-        message: "Enter a sandbox NINO in the format AA000000A.",
-        summary: { safeCode: "invalid_nino_format" },
-      });
+      setSandboxNinoError("Enter a sandbox NINO in the format AA000000A.");
       return;
     }
     try {
       setBusyAction("save-profile");
       setError("");
+      setSandboxNinoError("");
       setSandboxProfile(await saveHmrcSandboxProfile(activeAccountId, { nino: normalizedNino }));
       setSandboxNino("");
       await load();
@@ -233,8 +230,16 @@ export default function HmrcConnectionPage() {
       </div>
 
       {error ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
-          {error}
+        <div className="flex items-start justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError("")}
+            className="rounded-full p-1 text-rose-700 transition hover:bg-rose-100 dark:text-rose-200 dark:hover:bg-rose-900/50"
+            aria-label="Dismiss HMRC error"
+          >
+            <X size={14} />
+          </button>
         </div>
       ) : null}
 
@@ -344,8 +349,8 @@ export default function HmrcConnectionPage() {
         <div className="mt-5 grid gap-3 md:grid-cols-5">
           <VerificationPill label="OAuth connected" active={isConnected} />
           <VerificationPill label="Business Details" active={latestCheck(readinessChecks, "business_details")?.status === "success"} />
-          <VerificationPill label="Obligations checked" active={Boolean(latestCheck(readinessChecks, "obligations_income_and_expenditure"))} />
-          <VerificationPill label="Property Business" active={Boolean(latestCheck(readinessChecks, "property_business_read"))} />
+          <VerificationPill label="Obligations checked" active={latestCheck(readinessChecks, "obligations_income_and_expenditure")?.status === "success"} />
+          <VerificationPill label="Property Business" active={latestCheck(readinessChecks, "property_business_read")?.status === "success"} />
           <VerificationPill label="No submissions" active />
         </div>
 
@@ -355,7 +360,10 @@ export default function HmrcConnectionPage() {
             <input
               id="hmrc-sandbox-nino"
               value={sandboxNino}
-              onChange={(event) => setSandboxNino(event.target.value)}
+              onChange={(event) => {
+                setSandboxNino(event.target.value);
+                if (sandboxNinoError) setSandboxNinoError("");
+              }}
               placeholder={sandboxProfile?.ninoMasked || "Example: AA000000A"}
               maxLength={9}
               pattern="[A-Za-z]{2}[0-9]{6}[A-Za-z]"
@@ -374,6 +382,7 @@ export default function HmrcConnectionPage() {
           <p className="mt-2 text-xs text-slate-500">
             Stored server-side for sandbox checks only. Current profile: {sandboxProfile?.hasNino ? sandboxProfile.ninoMasked : "No sandbox NINO saved"}.
           </p>
+          {sandboxNinoError ? <p className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-300">{sandboxNinoError}</p> : null}
         </div>
 
         <div className="mt-5 flex flex-wrap gap-3">

@@ -17,6 +17,7 @@ describe("Phase 3 legal security contracts", () => {
       "compliance_safe_pl",
       "compliance_safe_tenant_acknowledgement",
       "compliance_safe_expiry_reminders",
+      "risk_protection_suite",
       "evidence_vault",
       "evidence_vault_pdf_export",
       "evidence_vault_tenant_sharing",
@@ -104,6 +105,7 @@ describe("Phase 3 legal security contracts", () => {
       "acknowledged_by_tenant_at = coalesce(new.acknowledged_at, now())",
       "tenant_acknowledged",
       "tenant_disputed",
+      "risk_protection_suite",
       "Tenant cannot edit landlord-controlled acknowledgement fields",
       "Tenants read assigned acknowledgement compliance items",
     ].forEach((needle) => expect(sql).toContain(needle));
@@ -117,7 +119,8 @@ describe("Phase 3 legal security contracts", () => {
     expect(page).toContain("Request tenant acknowledgement");
     expect(page).toContain("Tenant acknowledgement is disabled for this account.");
     expect(tenantRoutes).toContain('path="compliance-documents"');
-    expect(tenantLayout).toContain("Compliance Documents");
+    expect(tenantLayout).toContain("tenantPortal.shell.nav.complianceDocuments");
+    expect(read("src/i18n/messages.js")).toContain('"tenantPortal.shell.nav.complianceDocuments": "Compliance Documents"');
     expect(tenantPage).toContain("I confirm that I have received/reviewed this document or compliance record. This acknowledgement does not replace legal advice.");
     expect(docs).toContain("Poland/Najem Okazjonalny checklist");
 

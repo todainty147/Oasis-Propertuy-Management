@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
       .from("hmrc_connections")
       .update({ metadata: { ...metadata, sandbox_profile: sandboxProfile } })
       .eq("id", connection.id)
-      .select("*")
+      .select("id, account_id, environment, connection_status, scopes, metadata, last_connected_at, last_refreshed_at, hmrc_display_label")
       .single();
     if (error) throw error;
 

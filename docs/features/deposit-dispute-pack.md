@@ -26,6 +26,18 @@ The MVP can reference:
 
 Suggested evidence is shown for review. Tenaqo does not auto-include everything without landlord confirmation.
 
+## Compliance Safe Suggestions
+
+When a pack is opened for a property/tenant, Tenaqo suggests relevant Compliance Safe evidence for landlord review:
+
+- Deposit protection certificate
+- Deposit prescribed information
+- Tenancy agreement
+- Inventory/check-in report
+- Tenant onboarding acknowledgement
+
+The landlord must explicitly add a suggestion to the pack. Suggested Compliance Safe items are referenced as `compliance_safe_item` evidence references and displayed with human-readable labels in the evidence index.
+
 ## Pack Statuses
 
 - `draft`

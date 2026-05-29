@@ -363,7 +363,7 @@ function DeadlinesTab({ accountId }) {
   );
 }
 
-export default function TaxCalendarPanel({ accountId }) {
+export default function TaxCalendarPanel({ accountId, quarterlyDraftsEnabled = false }) {
   const { t } = useI18n();
   const [subTab, setSubTab] = useState("deadlines");
 
@@ -373,6 +373,11 @@ export default function TaxCalendarPanel({ accountId }) {
         <AlertTriangle size={15} className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-400" />
         <p className="text-xs text-amber-900 dark:text-amber-200">{t("compliance.tax.disclaimer")}</p>
       </div>
+      {quarterlyDraftsEnabled ? (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-100">
+          Quarterly update draft state is managed in Tax Tools → Quarterly Drafts. Calendar actions stay review/export only; HMRC submission is disabled.
+        </div>
+      ) : null}
 
       <div className="flex gap-1 rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-900" role="tablist">
         {SUBTABS.map((tab) => (

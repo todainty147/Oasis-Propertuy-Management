@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { CheckCircle2, FileText, HelpCircle, MessageSquare, X } from "lucide-react";
 
@@ -122,8 +122,6 @@ export default function TenantComplianceDocumentsPage({ properties = [] }) {
     }
   }
 
-  const cards = useMemo(() => acknowledgements, [acknowledgements]);
-
   return (
     <div className="space-y-6">
       <div className={panelClass()}>
@@ -146,11 +144,11 @@ export default function TenantComplianceDocumentsPage({ properties = [] }) {
 
       {!loading && listMode ? (
         <div className="grid gap-3 md:grid-cols-2">
-          {cards.length === 0 ? (
+          {acknowledgements.length === 0 ? (
             <div className={`${panelClass()} md:col-span-2`}>
               <p className="text-sm text-slate-500">No compliance documents have been shared with you yet.</p>
             </div>
-          ) : cards.map((ack) => {
+          ) : acknowledgements.map((ack) => {
             const item = ack.tenancy_compliance_items || {};
             const req = item.compliance_requirements || {};
             return (

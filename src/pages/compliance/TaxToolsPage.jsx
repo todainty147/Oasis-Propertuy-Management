@@ -5,6 +5,7 @@ import {
   Calculator,
   CheckCircle2,
   Download,
+  FileCheck2,
   FileSpreadsheet,
   Plus,
   Receipt,
@@ -38,10 +39,12 @@ import {
   upsertTaxFinanceCostSummary,
 } from "../../services/taxToolsService";
 import TaxCalendarPanel from "../../components/compliance/TaxCalendarPanel";
+import QuarterlyDraftsTab from "../../components/compliance/QuarterlyDraftsTab";
 
 const TABS = [
   { id: "calendar", label: "Tax Calendar", feature: ENTITLEMENT_FEATURES.TAX_READINESS_DASHBOARD, icon: CalendarDays },
   { id: "expenses", label: "MTD Expense Tracker", feature: ENTITLEMENT_FEATURES.MTD_EXPENSE_TRACKER, icon: Receipt },
+  { id: "quarterlyDrafts", label: "Quarterly Drafts", feature: ENTITLEMENT_FEATURES.HMRC_MTD_QUARTERLY_DRAFT_BUILDER, icon: FileCheck2 },
   { id: "section24", label: "Section 24 Finance Cost Tracker", feature: ENTITLEMENT_FEATURES.SECTION24_FINANCE_COST_TRACKER, icon: Calculator },
   { id: "carried", label: "Carried-Forward Finance Costs", feature: ENTITLEMENT_FEATURES.CARRIED_FORWARD_FINANCE_COST_TRACKER, icon: FileSpreadsheet },
   { id: "readiness", label: "Digital Record Readiness", feature: ENTITLEMENT_FEATURES.TAX_TOOLS_IN_APP, icon: ShieldCheck },
@@ -393,7 +396,7 @@ function CarriedForwardTracker({ accountId, properties, carriedRows, onSaved }) 
   );
 }
 
-function ReadinessCheck() {
+function ReadinessCheck({ quarterlyDraftsEnabled = false }) {
   const [form, setForm] = useState(EMPTY_READINESS);
   const result = useMemo(() => calculateMtdReadiness(form), [form]);
   const toggle = (key) => setForm((f) => ({ ...f, [key]: !f[key] }));
@@ -401,6 +404,11 @@ function ReadinessCheck() {
   return (
     <Panel>
       <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Digital record readiness</h2>
+      {quarterlyDraftsEnabled ? (
+        <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-100">
+          Quarterly draft readiness is now part of the MTD preparation flow: create a draft for the due period, clear review issues, then export the accountant pack. HMRC submission remains disabled.
+        </div>
+      ) : null}
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <Field label="Annual property income"><input type="number" min="0" value={form.propertyIncome} onChange={(e) => setForm((f) => ({ ...f, propertyIncome: e.target.value }))} className={inputClass()} /></Field>
         <Field label="Annual self-employment income"><input type="number" min="0" value={form.selfEmploymentIncome} onChange={(e) => setForm((f) => ({ ...f, selfEmploymentIncome: e.target.value }))} className={inputClass()} /></Field>
@@ -439,7 +447,7 @@ function ExportPack({ expenses, financeRows, carriedRows }) {
   return (
     <Panel>
       <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Export / Accountant Pack</h2>
-      <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Export organisational records for accountant review. This is not HMRC submission software.</p>
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Export organisational records for accountant review. Quarterly draft summary and source-record exports are available from the Quarterly Drafts tab. This is not HMRC submission software.</p>
       <div className="mt-5 flex flex-wrap gap-3">
         <button type="button" disabled={!expenses.length} onClick={() => downloadTaxToolsCsv(generateTaxExpenseClassificationsCsv(expenses), "tenaqo-tax-expenses.csv")} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium disabled:opacity-50 dark:border-slate-700"><Download size={16} /> Expense records</button>
         <button type="button" disabled={!financeRows.length} onClick={() => downloadTaxToolsCsv(generateTaxFinanceCostSummariesCsv(financeRows), "tenaqo-section-24.csv")} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium disabled:opacity-50 dark:border-slate-700"><Download size={16} /> Section 24 summaries</button>
@@ -511,15 +519,16 @@ export default function TaxToolsPage({ properties = [] }) {
       </div>
 
       {activeTab === "calendar" ? (
-        activeEnabled ? <TaxCalendarPanel accountId={activeAccountId} /> : <LockedTabNotice />
+        activeEnabled ? <TaxCalendarPanel accountId={activeAccountId} quarterlyDraftsEnabled={hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_QUARTERLY_DRAFT_BUILDER)} /> : <LockedTabNotice />
       ) : (
         <>
           {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p> : null}
           {loading ? <Panel><p className="text-sm text-slate-500">Loading tax tool records...</p></Panel> : !activeEnabled ? <LockedTabNotice /> : null}
           {!loading && activeEnabled && activeTab === "expenses" ? <ExpenseTracker accountId={activeAccountId} properties={properties} expenses={expenses} onSaved={loadRecords} /> : null}
+          {!loading && activeEnabled && activeTab === "quarterlyDrafts" ? <QuarterlyDraftsTab accountId={activeAccountId} properties={properties} /> : null}
           {!loading && activeEnabled && activeTab === "section24" ? <Section24Tracker accountId={activeAccountId} properties={properties} financeRows={financeRows} onSaved={loadRecords} /> : null}
           {!loading && activeEnabled && activeTab === "carried" ? <CarriedForwardTracker accountId={activeAccountId} properties={properties} carriedRows={carriedRows} onSaved={loadRecords} /> : null}
-          {!loading && activeEnabled && activeTab === "readiness" ? <ReadinessCheck /> : null}
+          {!loading && activeEnabled && activeTab === "readiness" ? <ReadinessCheck quarterlyDraftsEnabled={hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_QUARTERLY_DRAFT_BUILDER)} /> : null}
           {!loading && activeEnabled && activeTab === "export" ? <ExportPack expenses={expenses} financeRows={financeRows} carriedRows={carriedRows} /> : null}
         </>
       )}

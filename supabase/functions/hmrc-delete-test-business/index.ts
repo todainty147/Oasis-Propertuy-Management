@@ -1,5 +1,5 @@
 import {
-  assertHmrcAccountAccess,
+  assertHmrcAccountFeatures,
   ensureSandboxOnly,
   handleOptions,
   json,
@@ -26,10 +26,12 @@ Deno.serve(async (req) => {
     const user = await requireUser(req);
     const body = await req.json().catch(() => ({}));
     const accountId = String(body.account_id || body.accountId || "").trim();
-    await assertHmrcAccountAccess(accountId, user.id, "hmrc_mtd_connection");
-    await assertHmrcAccountAccess(accountId, user.id, "hmrc_mtd_sandbox");
-    await assertHmrcAccountAccess(accountId, user.id, "hmrc_mtd_read_only");
-    await assertHmrcAccountAccess(accountId, user.id, "hmrc_mtd_sandbox_test_data");
+    await assertHmrcAccountFeatures(accountId, user.id, [
+      "hmrc_mtd_connection",
+      "hmrc_mtd_sandbox",
+      "hmrc_mtd_read_only",
+      "hmrc_mtd_sandbox_test_data",
+    ]);
 
     const connection = await requireConnectedHmrcConnection(accountId);
     assertWriteSelfAssessmentScope(connection);
