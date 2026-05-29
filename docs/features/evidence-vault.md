@@ -106,6 +106,12 @@ The tenant portal review page lets tenants view the shared report, add general o
 
 Deposit dispute packs help landlords compile a supporting evidence bundle from existing Tenaqo records. Packs include a summary, deduction schedule, evidence index, check-in/check-out comparison, signatures/responses, photo groups and browser-printable PDF export.
 
+## Risk Protection Suite Cross-links
+
+Check-in reports can be linked to Compliance Safe inventory/onboarding checklist items. The link stores only the Compliance Safe evidence source fields (`inspection_report` plus the report id) and keeps the report data in Evidence Vault.
+
+Tenant portal pending actions now aggregate Evidence Vault report reviews/signatures alongside Compliance Safe document acknowledgements. A tenant still only sees reports explicitly shared with their tenant record; linking a report to Compliance Safe does not grant access by itself.
+
 Pack statuses are:
 
 - `draft`

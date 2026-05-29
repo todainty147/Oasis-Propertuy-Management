@@ -4,9 +4,9 @@ import type { Metadata } from "next";
 import { buildMetadata } from "../../lib/metadata";
 
 export const metadata: Metadata = buildMetadata({
-  title: "Property Risk Protection Software for Landlords | Tenaqo",
+  title: "Property Risk Protection Software for Landlords | Risk Protection Suite | Tenaqo",
   description:
-    "Protect your rental portfolio from compliance gaps, deposit disputes, missing evidence and avoidable maintenance call-outs with Tenaqo.",
+    "Protect your rental operations with organised compliance evidence, inspection records, tenant acknowledgements and deposit dispute packs.",
   canonical: "/property-risk-protection-software",
 });
 
@@ -53,14 +53,14 @@ export default function PropertyRiskProtectionPage() {
     <>
       <section className="page-hero">
         <div className="container">
-          <span className="eyebrow">Property risk protection</span>
-          <h1>Protect your rental portfolio from compliance gaps, deposit disputes and avoidable call-outs</h1>
+          <span className="eyebrow">Risk Protection Suite</span>
+          <h1>Protect your rental operations with organised evidence, compliance records and tenant responses</h1>
           <p className="muted" style={{ maxWidth: 820, marginTop: "1.25rem" }}>
-            Tenaqo helps landlords and property managers keep the records, evidence and workflows that protect rental income — from onboarding documents and check-in reports to maintenance diagnostics and applicant pre-screening.
-            Tenaqo helps landlords keep a clearer record of what has been logged, what needs tenant acknowledgement and what may expire soon — without pretending to replace legal advice.
+            Protect your rental operations with organised compliance evidence, inspection records, tenant acknowledgements and deposit dispute packs.
+            Tenaqo helps landlords keep everything in one place without pretending to replace legal advice.
           </p>
           <div className="button-row">
-            <Link className="button button-primary" href="/pricing">Claim Founder Access</Link>
+            <Link className="button button-primary" href="/pricing">Protect your rental operations with Tenaqo</Link>
             <Link className="button button-secondary" href="/features/compliance">Explore compliance features</Link>
           </div>
         </div>

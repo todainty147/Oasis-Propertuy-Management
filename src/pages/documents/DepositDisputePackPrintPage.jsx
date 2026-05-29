@@ -298,7 +298,7 @@ export default function DepositDisputePackPrintPage({ properties = [], tenants =
                   {evidenceIndex.map((entry) => (
                     <tr key={entry.number} className="border-b border-slate-200">
                       <td className="py-2 pr-2 font-semibold">{entry.number}</td>
-                      <td className="py-2 pr-2 capitalize">{String(entry.type).replace(/_/g, " ")}</td>
+                      <td className="py-2 pr-2">{entry.typeLabel || String(entry.type).replace(/_/g, " ")}</td>
                       <td className="py-2 pr-2">{entry.title}</td>
                       <td className="py-2 pr-2">{entry.source}</td>
                     </tr>

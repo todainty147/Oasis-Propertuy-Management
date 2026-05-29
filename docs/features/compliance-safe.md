@@ -65,6 +65,10 @@ Checklist items can link to:
 
 Documents use the existing private storage and signed URL pattern. Compliance Safe does not create a public bucket.
 
+When an Evidence Vault report is linked, the drawer shows the report title, status, inspection date, locked state and an Open report action. The service checks that the linked report belongs to the same account and compatible property/tenant context before writing the link.
+
+The audit event for this path is `evidence_vault_report_linked`.
+
 ## Tenant Acknowledgement
 
 Landlords request acknowledgement from the item detail drawer. Tenants respond from Tenant Portal -> Compliance Documents.
@@ -74,6 +78,8 @@ Tenant acknowledgement copy:
 > I confirm that I have received/reviewed this document or compliance record. This acknowledgement does not replace legal advice.
 
 Tenants can acknowledge or add a question/dispute. Acknowledgement sets the checklist item to `acknowledged`. A dispute sets the item to `needs_review`. Tenants cannot edit landlord notes, evidence, expiry dates, statuses or checklist content.
+
+Tenant Portal -> Pending Actions aggregates Compliance Safe acknowledgement requests with Evidence Vault report reviews so tenants have one place to find outstanding response tasks.
 
 ## Expiry Handling
 
@@ -115,4 +121,3 @@ Compliance events are stored in `compliance_evidence_events`, including:
 - Automated expiry reminder delivery is not enabled in this phase.
 - Tenant acknowledgement records receipt/review only; it does not guarantee legal validity.
 - Tenaqo does not provide legal advice or guarantee compliance outcomes.
-

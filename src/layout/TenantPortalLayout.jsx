@@ -8,6 +8,7 @@ import {
   ClipboardCheck,
   Home,
   LayoutDashboard,
+  ListChecks,
   LogOut,
   Moon,
   ScrollText,
@@ -71,8 +72,9 @@ function TenantPortalNav() {
       <TenantNavItem to="/tenant/property" icon={Home} label={t("tenantPortal.shell.nav.homeDetails")} />
       <TenantNavItem to="/tenant/maintenance" icon={Wrench} label={t("tenantPortal.shell.nav.maintenance")} />
       <TenantNavItem to="/tenant/documents" icon={FileText} label={t("tenantPortal.shell.nav.documents")} />
-      <TenantNavItem to="/tenant/evidence-reports" icon={FileCheck2} label="Evidence Reports" />
-      <TenantNavItem to="/tenant/compliance-documents" icon={ClipboardCheck} label="Compliance Documents" />
+      <TenantNavItem to="/tenant/pending-actions" icon={ListChecks} label={t("tenantPortal.shell.nav.pendingActions")} />
+      <TenantNavItem to="/tenant/evidence-reports" icon={FileCheck2} label={t("tenantPortal.shell.nav.evidenceReports")} />
+      <TenantNavItem to="/tenant/compliance-documents" icon={ClipboardCheck} label={t("tenantPortal.shell.nav.complianceDocuments")} />
       <TenantNavItem to="/tenant/payments" icon={Wallet} label={t("tenantPortal.shell.nav.payments")} />
       <TenantNavItem to="/tenant/profile" icon={UserRound} label={t("tenantPortal.shell.nav.profile")} />
     </nav>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   AlertCircle,
   CheckCircle2,
@@ -11,8 +12,10 @@ import {
   X,
 } from "lucide-react";
 
+import RiskProtectionSummary from "../../components/risk/RiskProtectionSummary";
 import { useAccount } from "../../context/AccountContext";
 import { ENTITLEMENT_FEATURES } from "../../lib/entitlements";
+import { getRiskProtectionSummary } from "../../lib/riskProtectionSummary";
 import {
   calculateComplianceRating,
   COMPLIANCE_SAFE_STATUS_LABELS,
@@ -104,6 +107,9 @@ function ComplianceItemDrawer({
   const status = deriveComplianceItemStatus(item);
   const requirement = item?.compliance_requirements || {};
   const template = requirement?.compliance_templates || {};
+  const linkedReport = item?.evidence_source_type === "inspection_report"
+    ? reports.find((report) => String(report.id) === String(item.evidence_source_id))
+    : null;
 
   if (!item) return null;
 
@@ -139,6 +145,23 @@ function ComplianceItemDrawer({
             <p className="text-xs uppercase text-slate-500">Evidence</p>
             <p className="mt-2 text-sm">{item.evidence_document_id ? "Evidence attached" : item.evidence_source_type === "inspection_report" ? "Inspection report linked" : "No evidence attached"}</p>
             <p className="mt-1 text-xs text-slate-500">Served/sent: {formatDate(item.served_at)}</p>
+            {linkedReport ? (
+              <div className="mt-3 rounded-xl border border-slate-700 bg-slate-950/70 p-3">
+                <p className="text-sm font-semibold text-slate-100">{linkedReport.title || "Evidence Vault report"}</p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {linkedReport.status || "draft"} · {linkedReport.inspection_date || "No inspection date"}
+                  {linkedReport.locked_at ? " · locked" : ""}
+                </p>
+                <Link
+                  to={`/documents/evidence-vault/${linkedReport.id}`}
+                  className="mt-2 inline-flex text-xs font-semibold text-blue-300 hover:text-blue-200"
+                >
+                  Open Evidence Vault report
+                </Link>
+              </div>
+            ) : item.evidence_source_type === "inspection_report" ? (
+              <p className="mt-2 text-xs text-amber-200">Linked report details are unavailable from the current property filter.</p>
+            ) : null}
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
             <p className="text-xs uppercase text-slate-500">Tenant acknowledgement</p>
@@ -274,6 +297,7 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
   const [checklistForm, setChecklistForm] = useState({ propertyId: "", tenantId: "", templateId: "" });
   const [documents, setDocuments] = useState([]);
   const [reports, setReports] = useState([]);
+  const [summaryReports, setSummaryReports] = useState([]);
   const [selectedItemId, setSelectedItemId] = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedItemLoading, setSelectedItemLoading] = useState(false);
@@ -290,11 +314,15 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
     try {
       setLoading(true);
       setError("");
-      const nextItems = await listComplianceSafeItems(activeAccountId, {
-        propertyId: filters.propertyId,
-        tenantId: filters.tenantId,
-      });
+      const [nextItems, nextReports] = await Promise.all([
+        listComplianceSafeItems(activeAccountId, {
+          propertyId: filters.propertyId,
+          tenantId: filters.tenantId,
+        }),
+        listInspectionReports(activeAccountId),
+      ]);
       setItems(nextItems);
+      setSummaryReports(nextReports);
     } catch (err) {
       setError(err?.message || "Could not load Compliance Safe records.");
     } finally {
@@ -370,6 +398,10 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
     [filters.status, items],
   );
   const rating = useMemo(() => calculateComplianceRating(items), [items]);
+  const riskSummary = useMemo(
+    () => getRiskProtectionSummary({ complianceItems: items, evidenceReports: summaryReports }),
+    [items, summaryReports],
+  );
 
   async function refreshAfterAction(itemId = selectedItemId) {
     await load();
@@ -452,6 +484,8 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
         <div className={panelClass()}><p className="text-xs uppercase text-slate-500">Expired</p><p className="mt-2 text-2xl font-semibold">{rating.counts.expired}</p></div>
         <div className={panelClass()}><p className="text-xs uppercase text-slate-500">Needs review</p><p className="mt-2 text-2xl font-semibold">{rating.counts.needs_review}</p></div>
       </div>
+
+      <RiskProtectionSummary summary={riskSummary} complianceRating={rating.rating} />
 
       <div className={`${panelClass()} grid gap-3 md:grid-cols-3`}>
         <select value={filters.propertyId} onChange={(e) => setFilters((f) => ({ ...f, propertyId: e.target.value }))} className={fieldClass}>

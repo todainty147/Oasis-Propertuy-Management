@@ -9,6 +9,7 @@ import {
   addDepositDisputePackItem,
   createDepositDisputePack,
   getDepositDisputePackDetails,
+  listComplianceSafeItems,
   listDepositDisputePacks,
   listInspectionReports,
   removeDepositDisputePackItem,
@@ -45,6 +46,7 @@ export default function DepositDisputePacksPage({ properties = [], tenants = [] 
   const [packs, setPacks] = useState([]);
   const [selectedPack, setSelectedPack] = useState(null);
   const [reports, setReports] = useState([]);
+  const [complianceItems, setComplianceItems] = useState([]);
   const [packForm, setPackForm] = useState(initialPackForm);
   const [itemForm, setItemForm] = useState(initialItemForm);
   const [editingItemId, setEditingItemId] = useState("");
@@ -77,6 +79,15 @@ export default function DepositDisputePacksPage({ properties = [], tenants = [] 
       setPacks(nextPacks);
       setReports(nextReports);
       setSelectedPack(nextSelected);
+      if (nextSelected?.property_id) {
+        const nextComplianceItems = await listComplianceSafeItems(activeAccountId, {
+          propertyId: nextSelected.property_id,
+          tenantId: nextSelected.tenant_id || "",
+        });
+        setComplianceItems(nextComplianceItems);
+      } else {
+        setComplianceItems([]);
+      }
     } catch (err) {
       setError(err?.message || "Could not load deposit dispute packs.");
     } finally {
@@ -197,6 +208,48 @@ export default function DepositDisputePacksPage({ properties = [], tenants = [] 
     itemForm.evidenceReferenceId &&
     !suggestedReports.some((report) => report.id === itemForm.evidenceReferenceId)
   );
+  const complianceEvidenceSuggestions = complianceItems
+    .filter((item) => {
+      const label = String(item.compliance_requirements?.label || "").toLowerCase();
+      return Boolean(item.evidence_document_id || item.evidence_source_id) && (
+        label.includes("deposit protection") ||
+        label.includes("prescribed information") ||
+        label.includes("tenancy agreement") ||
+        label.includes("inventory") ||
+        label.includes("check-in") ||
+        label.includes("check in") ||
+        label.includes("onboarding acknowledgement")
+      );
+    })
+    .slice(0, 8);
+
+  function disputeItemTypeForComplianceItem(item) {
+    const label = String(item.compliance_requirements?.label || "").toLowerCase();
+    if (label.includes("tenancy agreement")) return "tenancy_agreement";
+    if (label.includes("inventory") || label.includes("check-in") || label.includes("check in")) return "check_in_report";
+    return "other";
+  }
+
+  async function handleAddComplianceSuggestion(item) {
+    if (!selectedPack) return;
+    setSavingItem(true);
+    setError("");
+    try {
+      await addDepositDisputePackItem(activeAccountId, selectedPack.id, {
+        itemType: disputeItemTypeForComplianceItem(item),
+        title: item.compliance_requirements?.label || "Compliance Safe evidence",
+        description: "Suggested Compliance Safe evidence selected by the landlord for dispute preparation.",
+        evidenceReferenceType: "compliance_safe_item",
+        evidenceReferenceId: item.id,
+        sortOrder: selectedItems.length * 10,
+      });
+      await load(selectedPack.id);
+    } catch (err) {
+      setError(err?.message || "Could not add Compliance Safe evidence.");
+    } finally {
+      setSavingItem(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -397,6 +450,28 @@ export default function DepositDisputePacksPage({ properties = [], tenants = [] 
                         <p className="mt-1 text-xs text-slate-500">{report.status} · {report.inspection_date}</p>
                       </div>
                     ))}
+                    {complianceEvidenceSuggestions.map((item) => (
+                      <div key={item.id} className="rounded-2xl border border-teal-400/20 bg-teal-400/10 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-teal-200">Compliance Safe</p>
+                        <p className="mt-1 font-semibold">{item.compliance_requirements?.label || "Compliance evidence"}</p>
+                        <p className="mt-1 text-xs text-teal-100/70">
+                          {item.evidence_source_type === "inspection_report" ? "Linked inspection report" : item.evidence_document_id ? "Document attached" : "Evidence linked"}
+                        </p>
+                        {selectedPack.status !== "locked" && selectedPack.status !== "archived" ? (
+                          <button
+                            type="button"
+                            disabled={savingItem}
+                            onClick={() => handleAddComplianceSuggestion(item)}
+                            className="mt-3 inline-flex rounded-lg border border-teal-300/30 px-3 py-1.5 text-xs font-semibold text-teal-100 disabled:opacity-60"
+                          >
+                            Add to pack
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                    {suggestedReports.length === 0 && complianceEvidenceSuggestions.length === 0 ? (
+                      <p className="text-sm text-slate-500">No suggested evidence found for this property yet.</p>
+                    ) : null}
                   </div>
                 </section>
               </>

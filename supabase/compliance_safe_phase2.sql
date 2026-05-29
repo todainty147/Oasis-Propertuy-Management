@@ -6,7 +6,8 @@ select a.id, flag.feature_key, false, null
 from public.accounts a
 cross join (values
   ('compliance_safe_tenant_acknowledgement'),
-  ('compliance_safe_expiry_reminders')
+  ('compliance_safe_expiry_reminders'),
+  ('risk_protection_suite')
 ) as flag(feature_key)
 on conflict (account_id, feature_key) do nothing;
 
@@ -280,4 +281,3 @@ create policy "Tenants insert compliance evidence events for acknowledgement" on
   );
 
 grant select, insert, update, delete on public.compliance_item_acknowledgements to authenticated;
-

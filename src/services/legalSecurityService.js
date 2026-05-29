@@ -1,6 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { buildDefaultEvidenceItemsPayload, getDefaultInspectionRoomNames } from "../data/inspectionRoomTemplates";
-import { normalizeDisputePackItemType } from "../lib/depositDisputePack";
+import { normalizeDisputePackEvidenceReferenceType, normalizeDisputePackItemType } from "../lib/depositDisputePack";
 
 const COMPLIANCE_SELECT = [
   "id", "account_id", "property_id", "tenant_id", "tenancy_id",
@@ -278,13 +278,38 @@ export async function attachComplianceDocument(accountId, itemId, documentId) {
 }
 
 export async function linkComplianceInspectionReport(accountId, itemId, reportId) {
+  if (!accountId || !itemId) throw new Error("Missing compliance item.");
   if (!reportId) throw new Error("Choose an inspection report to link.");
+  const [item, reportResult] = await Promise.all([
+    getComplianceSafeItemDetails(accountId, itemId),
+    supabase
+      .from("inspection_reports")
+      .select("id, account_id, property_id, tenant_id, title, status, inspection_date")
+      .eq("account_id", accountId)
+      .eq("id", reportId)
+      .maybeSingle(),
+  ]);
+  if (!item) throw new Error("Compliance item not found.");
+  if (reportResult.error) throw reportResult.error;
+  const report = reportResult.data;
+  if (!report) throw new Error("Evidence Vault report not found.");
+  if ((item.property_id || report.property_id) && String(item.property_id || "") !== String(report.property_id || "")) {
+    throw new Error("The Evidence Vault report must belong to the same property as this compliance item.");
+  }
+  if ((item.tenant_id || report.tenant_id) && String(item.tenant_id || "") !== String(report.tenant_id || "")) {
+    throw new Error("The Evidence Vault report must belong to the same tenant as this compliance item.");
+  }
   return updateComplianceSafeItem(itemId, accountId, {
     status: "logged",
     evidence_source_type: "inspection_report",
     evidence_source_id: reportId,
-    eventType: "document_attached",
-    eventMetadata: { evidence_source_type: "inspection_report", evidence_source_id: reportId },
+    eventType: "evidence_vault_report_linked",
+    eventMetadata: {
+      evidence_source_type: "inspection_report",
+      evidence_source_id: reportId,
+      report_title: report.title || null,
+      report_status: report.status || null,
+    },
   });
 }
 
@@ -988,7 +1013,7 @@ function parseOptionalNonNegativeAmount(value, label) {
 
 function normalizeEvidenceReferenceType(value) {
   if (!value) return null;
-  const nextType = normalizeDisputePackItemType(value);
+  const nextType = normalizeDisputePackEvidenceReferenceType(value);
   if (!nextType) throw new Error("Choose a valid evidence reference type");
   return nextType;
 }

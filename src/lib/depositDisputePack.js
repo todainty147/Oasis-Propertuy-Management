@@ -15,11 +15,25 @@ export const DISPUTE_PACK_ITEM_TYPES = [
 ];
 
 export const DISPUTE_PACK_ITEM_TYPE_VALUES = DISPUTE_PACK_ITEM_TYPES.map((type) => type.value);
+export const DISPUTE_PACK_EVIDENCE_REFERENCE_TYPES = [
+  ...DISPUTE_PACK_ITEM_TYPES,
+  { value: "compliance_safe_item", label: "Compliance Safe item" },
+];
+export const DISPUTE_PACK_EVIDENCE_REFERENCE_TYPE_VALUES = DISPUTE_PACK_EVIDENCE_REFERENCE_TYPES.map((type) => type.value);
+const EVIDENCE_REFERENCE_LABELS = Object.fromEntries(
+  DISPUTE_PACK_EVIDENCE_REFERENCE_TYPES.map((type) => [type.value, type.label]),
+);
 
 export function normalizeDisputePackItemType(value, fallback = "") {
   const nextValue = String(value ?? "").trim();
   if (!nextValue) return fallback;
   return DISPUTE_PACK_ITEM_TYPE_VALUES.includes(nextValue) ? nextValue : "";
+}
+
+export function normalizeDisputePackEvidenceReferenceType(value, fallback = "") {
+  const nextValue = String(value ?? "").trim();
+  if (!nextValue) return fallback;
+  return DISPUTE_PACK_EVIDENCE_REFERENCE_TYPE_VALUES.includes(nextValue) ? nextValue : "";
 }
 
 export function calculateDeductionTotal(items = []) {
@@ -41,6 +55,7 @@ export function buildEvidenceIndex(items = []) {
     .map((item, index) => ({
       number: index + 1,
       type: item.evidence_reference_type || item.item_type || "other",
+      typeLabel: EVIDENCE_REFERENCE_LABELS[item.evidence_reference_type || item.item_type] || "Evidence item",
       title: item.title || "Evidence item",
       date: item.created_at || null,
       source: item.evidence_reference_id ? "Tenaqo reference" : "Manual entry",

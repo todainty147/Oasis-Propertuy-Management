@@ -27,6 +27,8 @@ import {
   createInspectionReport,
   getActiveInspectionShare,
   getInspectionReportDetails,
+  linkComplianceInspectionReport,
+  listComplianceSafeItems,
   listInspectionAuditEvents,
   listInspectionReports,
   lockInspectionReport,
@@ -305,6 +307,9 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   const [creatingReport, setCreatingReport] = useState(false);
   const [signatureForm, setSignatureForm] = useState({ signerType: "landlord", signerName: "" });
   const [sharingReport, setSharingReport] = useState(false);
+  const [complianceItems, setComplianceItems] = useState([]);
+  const [selectedComplianceItemId, setSelectedComplianceItemId] = useState("");
+  const [linkingComplianceItem, setLinkingComplianceItem] = useState(false);
   const [form, setForm] = useState(createInitialReportForm);
   const [error, setError] = useState("");
   const selectedPropertyId = selectedReport?.property_id || null;
@@ -315,6 +320,19 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   const reportStats = useMemo(() => calculateEvidenceVaultStats(reports), [reports]);
   const tenantSharingEnabled = hasEntitlement(ENTITLEMENT_FEATURES.EVIDENCE_VAULT_TENANT_SHARING);
   const disputePackEnabled = hasEntitlement(ENTITLEMENT_FEATURES.EVIDENCE_VAULT_DISPUTE_PACK);
+  const complianceLinkCandidates = useMemo(() => {
+    if (selectedReport?.inspection_type !== "check_in") return [];
+    return complianceItems.filter((item) => {
+      const label = String(item.compliance_requirements?.label || "").toLowerCase();
+      return label.includes("inventory") ||
+        label.includes("check-in") ||
+        label.includes("check in") ||
+        label.includes("protocol") ||
+        label.includes("protokol") ||
+        label.includes("zdawczo") ||
+        label.includes("onboarding acknowledgement");
+    });
+  }, [complianceItems, selectedReport?.inspection_type]);
 
   function propertyLabel(propertyId) {
     const property = propertyById[propertyId];
@@ -427,6 +445,30 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
 
     return () => { cancelled = true; };
   }, [activeAccountId, selectedPropertyId, selectedTenantId, selectedReport?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!activeAccountId || !selectedReport?.id || selectedReport.inspection_type !== "check_in" || !selectedPropertyId) {
+      setComplianceItems([]);
+      setSelectedComplianceItemId("");
+      return () => { cancelled = true; };
+    }
+    listComplianceSafeItems(activeAccountId, {
+      propertyId: selectedPropertyId,
+      tenantId: selectedTenantId || "",
+    })
+      .then((nextItems) => {
+        if (cancelled) return;
+        setComplianceItems(nextItems);
+        setSelectedComplianceItemId((current) => (
+          current && nextItems.some((item) => item.id === current) ? current : ""
+        ));
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err?.message || "Could not load Compliance Safe inventory items.");
+      });
+    return () => { cancelled = true; };
+  }, [activeAccountId, selectedPropertyId, selectedReport?.id, selectedReport?.inspection_type, selectedTenantId]);
 
   async function handleCreate(event) {
     event.preventDefault();
@@ -640,6 +682,20 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
     }
   }
 
+  async function handleUseAsComplianceEvidence() {
+    if (!selectedComplianceItemId || !selectedReport?.id) return;
+    try {
+      setLinkingComplianceItem(true);
+      setError("");
+      await linkComplianceInspectionReport(activeAccountId, selectedComplianceItemId, selectedReport.id);
+      setSelectedComplianceItemId("");
+    } catch (err) {
+      setError(err?.message || "Could not link this report to Compliance Safe.");
+    } finally {
+      setLinkingComplianceItem(false);
+    }
+  }
+
   async function handleRevokeTenantShare(shareId) {
     if (!selectedReport || !shareId) return;
     if (!window.confirm("Revoke tenant access to this inspection report?")) return;
@@ -799,6 +855,41 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
                 {selectedReportLocked ? (
                   <div className="mt-4 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
                     This report is locked. Editing is disabled to preserve the evidence record.
+                  </div>
+                ) : null}
+
+                {selectedReport.inspection_type === "check_in" && complianceLinkCandidates.length > 0 ? (
+                  <div className="mt-4 rounded-xl border border-teal-400/20 bg-teal-400/10 px-4 py-3">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-teal-100">Use as Compliance Safe inventory evidence</p>
+                        <p className="mt-1 text-xs text-teal-100/75">
+                          Link this check-in report to an inventory or onboarding checklist item without duplicating evidence.
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <select
+                          value={selectedComplianceItemId}
+                          onChange={(event) => setSelectedComplianceItemId(event.target.value)}
+                          className="min-w-64 rounded-xl border border-teal-300/30 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                        >
+                          <option value="">Choose Compliance Safe item</option>
+                          {complianceLinkCandidates.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.compliance_requirements?.label || "Compliance item"}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          disabled={!selectedComplianceItemId || linkingComplianceItem}
+                          onClick={handleUseAsComplianceEvidence}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-300 px-3 py-2 text-sm font-semibold text-slate-950 disabled:opacity-60"
+                        >
+                          <FileText size={14} /> {linkingComplianceItem ? "Linking..." : "Link evidence"}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ) : null}
               </div>
