@@ -23,6 +23,7 @@ import {
   listInspectionAuditEvents,
   listInspectionReports,
   lockInspectionReport,
+  populateInspectionReportDefaults,
   recordInspectionSignature,
   updateInspectionEvidenceItem,
 } from "../../services/legalSecurityService";
@@ -95,6 +96,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [itemDrafts, setItemDrafts] = useState({});
   const [savingRoomId, setSavingRoomId] = useState("");
+  const [populatingDefaults, setPopulatingDefaults] = useState(false);
   const [savingItemId, setSavingItemId] = useState("");
   const [savedItemId, setSavedItemId] = useState("");
   const [uploadingItemId, setUploadingItemId] = useState("");
@@ -188,6 +190,8 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   useEffect(() => {
     if (routeReportId && routeReportId !== selectedReportId) {
       setSelectedReportId(routeReportId);
+    } else if (!routeReportId && selectedReportId) {
+      setSelectedReportId("");
     }
   }, [routeReportId, selectedReportId]);
 
@@ -294,6 +298,21 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
       setError(err?.message || "Could not add evidence item.");
     } finally {
       setSavingRoomId("");
+    }
+  }
+
+  async function handlePopulateDefaults() {
+    if (!selectedReportId) return;
+    try {
+      setPopulatingDefaults(true);
+      setError("");
+      await populateInspectionReportDefaults(activeAccountId, selectedReportId);
+      await load();
+      await loadReportDetail(selectedReportId);
+    } catch (err) {
+      setError(err?.message || "Could not add default rooms and checklist items.");
+    } finally {
+      setPopulatingDefaults(false);
     }
   }
 
@@ -514,9 +533,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
         <section ref={builderRef} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
-              {routeReportId ? (
-                <Link to="/documents/evidence-vault" className="text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300">Back to Evidence Vault</Link>
-              ) : null}
+              <Link to="/documents/evidence-vault" className="text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300">Back to Evidence Vault</Link>
               <p className="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">Inspection builder</p>
               <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-slate-50">{selectedReport.title}</h2>
               <p className="mt-1 text-sm text-slate-500">{propertyLabel(selectedReport.property_id)} · {tenantLabel(selectedReport.tenant_id)}</p>
@@ -539,6 +556,22 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
 
           <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
             <div className="space-y-4">
+              {reportRooms.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-300 p-5 text-sm dark:border-slate-700">
+                  <h3 className="font-semibold text-slate-950 dark:text-slate-50">No room sections yet</h3>
+                  <p className="mt-1 text-slate-500 dark:text-slate-400">
+                    Add the default Evidence Vault rooms and checklist items for this inspection record.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={selectedReportLocked || populatingDefaults}
+                    onClick={handlePopulateDefaults}
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"
+                  >
+                    <Plus size={14} /> {populatingDefaults ? "Adding..." : "Add default rooms and checklist items"}
+                  </button>
+                </div>
+              ) : null}
               {reportRooms.map((room) => {
                 const draft = itemDrafts[room.id] || { item_label: "", condition_rating: "good", notes: "" };
                 const items = sortBySortOrder(room.inspection_evidence_items || []);

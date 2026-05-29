@@ -307,6 +307,78 @@ export async function createInspectionEvidenceItem(accountId, roomId, payload = 
   return data;
 }
 
+export async function populateInspectionReportDefaults(accountId, reportId) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!reportId) throw new Error("Missing report id");
+  const report = await getInspectionStatusForReport(accountId, reportId);
+  assertEditableStatus(report.status);
+
+  const defaultRoomNames = getDefaultInspectionRoomNames();
+  const defaultItemsByRoom = buildDefaultEvidenceItemsPayload(defaultRoomNames);
+
+  const { data: existingRooms, error: roomsError } = await supabase
+    .from("inspection_rooms")
+    .select("id, room_name")
+    .eq("account_id", accountId)
+    .eq("inspection_report_id", reportId);
+  if (roomsError) throw roomsError;
+
+  const existingRoomNames = new Set((existingRooms || []).map((room) => String(room.room_name || "").toLowerCase()));
+  const roomsToCreate = defaultRoomNames
+    .filter((roomName) => !existingRoomNames.has(roomName.toLowerCase()))
+    .map((roomName, index) => ({
+      account_id: accountId,
+      inspection_report_id: reportId,
+      room_name: roomName,
+      sort_order: index * 10,
+    }));
+
+  let createdRooms = [];
+  if (roomsToCreate.length > 0) {
+    const { data, error } = await supabase
+      .from("inspection_rooms")
+      .insert(roomsToCreate)
+      .select("id, room_name, sort_order");
+    if (error) throw error;
+    createdRooms = data || [];
+  }
+
+  const allRooms = [...(existingRooms || []), ...createdRooms];
+  const itemRows = allRooms.flatMap((room) => {
+    const template = defaultItemsByRoom.find((entry) => String(entry.room_name).toLowerCase() === String(room.room_name || "").toLowerCase());
+    return (template?.items || []).map((label, index) => ({
+      account_id: accountId,
+      inspection_room_id: room.id,
+      item_label: label,
+      condition_rating: null,
+      sort_order: index * 10,
+    }));
+  });
+
+  if (itemRows.length > 0) {
+    const { data: existingItems, error: itemsError } = await supabase
+      .from("inspection_evidence_items")
+      .select("inspection_room_id, item_label")
+      .eq("account_id", accountId)
+      .in("inspection_room_id", allRooms.map((room) => room.id));
+    if (itemsError) throw itemsError;
+
+    const existingItemKeys = new Set((existingItems || []).map((item) => `${item.inspection_room_id}:${String(item.item_label || "").toLowerCase()}`));
+    const itemsToCreate = itemRows.filter((item) => !existingItemKeys.has(`${item.inspection_room_id}:${String(item.item_label || "").toLowerCase()}`));
+    if (itemsToCreate.length > 0) {
+      const { error } = await supabase.from("inspection_evidence_items").insert(itemsToCreate);
+      if (error) throw error;
+    }
+  }
+
+  await writeInspectionAuditEvent(accountId, reportId, "room_created", {
+    source: "default_room_template_recovery",
+    room_count: defaultRoomNames.length,
+  });
+
+  return true;
+}
+
 export async function updateInspectionEvidenceItem(accountId, itemId, patch = {}) {
   if (!accountId) throw new Error("Missing accountId");
   if (!itemId) throw new Error("Missing item id");
