@@ -1,28 +1,34 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Archive, CheckCircle2, Download, FileText, Lock, Paperclip, Plus, Save, Upload } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Archive, Camera, CheckCircle2, Download, FileText, Lock, Paperclip, Plus, Save, Upload } from "lucide-react";
 
 import { useAccount } from "../../context/AccountContext";
-import { ENTITLEMENT_FEATURES } from "../../lib/entitlements";
-import { fetchDocuments, uploadDocument } from "../../services/documentService";
+import { getDefaultInspectionRoomNames } from "../../data/inspectionRoomTemplates";
+import {
+  calculateEvidenceVaultStats,
+  calculateInspectionReportCounts,
+  CONDITION_RATINGS,
+  filterInspectionReportsByStatus,
+  formatInspectionType,
+  isInspectionReportEditable,
+  sortBySortOrder,
+} from "../../lib/evidenceVault";
+import { fetchDocuments, getDocumentPreviewUrl, uploadDocument } from "../../services/documentService";
 import {
   archiveInspectionReport,
   attachInspectionEvidenceFile,
   createInspectionEvidenceItem,
   createInspectionReport,
   getInspectionReportDetails,
+  listInspectionAuditEvents,
   listInspectionReports,
   lockInspectionReport,
   recordInspectionSignature,
   updateInspectionEvidenceItem,
 } from "../../services/legalSecurityService";
 
-const DEFAULT_ROOM_TYPES = ["Entrance / hallway", "Kitchen", "Living room", "Bedroom", "Bathroom", "Garden / exterior", "Meters", "Keys", "Appliances"];
-const CONDITION_OPTIONS = ["excellent", "good", "fair", "poor", "damaged", "needs_review"];
+const DEFAULT_ROOM_TYPES = getDefaultInspectionRoomNames();
 const REPORT_PAGE_SIZE = 12;
-
-function sortByOrder(rows = []) {
-  return rows.slice().sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
-}
 
 function updateEvidenceItemInReport(report, itemId, patch = {}) {
   if (!report) return report;
@@ -37,11 +43,55 @@ function updateEvidenceItemInReport(report, itemId, patch = {}) {
   };
 }
 
+function PhotoThumbnail({ photo, accountId, propertyId, tenantId }) {
+  const [url, setUrl] = useState("");
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!photo?.document_id) {
+      return () => { cancelled = true; };
+    }
+    getDocumentPreviewUrl({
+      documentId: photo.document_id,
+      accountId,
+      propertyId,
+      tenantId,
+      scope: propertyId && tenantId ? "shared" : propertyId ? "property" : tenantId ? "tenant" : "account",
+      visibility: tenantId ? "tenant" : "staff",
+    })
+      .then((signedUrl) => {
+        if (!cancelled) setUrl(signedUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => { cancelled = true; };
+  }, [accountId, photo?.document_id, propertyId, tenantId]);
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      {url && !failed ? (
+        <img src={url} alt={photo.caption || "Evidence photo"} className="h-24 w-full object-cover" />
+      ) : (
+        <div className="flex h-24 items-center justify-center bg-slate-100 text-slate-400 dark:bg-slate-950">
+          <Camera size={18} />
+        </div>
+      )}
+      <p className="truncate px-2 py-1 text-xs text-slate-500">{photo.caption || "Evidence file"}</p>
+    </div>
+  );
+}
+
 export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
-  const { activeAccountId, hasEntitlement } = useAccount();
+  const { activeAccountId } = useAccount();
+  const navigate = useNavigate();
+  const { reportId: routeReportId } = useParams();
   const [reports, setReports] = useState([]);
-  const [selectedReportId, setSelectedReportId] = useState("");
+  const [selectedReportId, setSelectedReportId] = useState(routeReportId || "");
   const [selectedReport, setSelectedReport] = useState(null);
+  const [auditEvents, setAuditEvents] = useState([]);
+  const [openRooms, setOpenRooms] = useState({});
   const [detailLoading, setDetailLoading] = useState(false);
   const [itemDrafts, setItemDrafts] = useState({});
   const [savingRoomId, setSavingRoomId] = useState("");
@@ -66,6 +116,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   const selectedTenantId = selectedReport?.tenant_id || null;
   const propertyById = useMemo(() => Object.fromEntries(properties.map((property) => [property.id, property])), [properties]);
   const tenantById = useMemo(() => Object.fromEntries(tenants.map((tenant) => [tenant.id, tenant])), [tenants]);
+  const reportStats = useMemo(() => calculateEvidenceVaultStats(reports), [reports]);
 
   function propertyLabel(propertyId) {
     const property = propertyById[propertyId];
@@ -84,8 +135,18 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
     }
     try {
       setDetailLoading(true);
-      const detail = await getInspectionReportDetails(activeAccountId, reportId);
-      if (mountedRef.current) setSelectedReport(detail);
+      const [detail, events] = await Promise.all([
+        getInspectionReportDetails(activeAccountId, reportId),
+        listInspectionAuditEvents(activeAccountId, reportId),
+      ]);
+      if (mountedRef.current) {
+        setSelectedReport(detail);
+        setAuditEvents(events);
+        setOpenRooms((current) => {
+          if (Object.keys(current).length > 0) return current;
+          return Object.fromEntries((detail?.inspection_rooms || []).slice(0, 2).map((room) => [room.id, true]));
+        });
+      }
       return detail;
     } catch (err) {
       if (mountedRef.current) setError(err?.message || "Could not load inspection report details.");
@@ -125,8 +186,15 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   }, [activeAccountId]);
 
   useEffect(() => {
+    if (routeReportId && routeReportId !== selectedReportId) {
+      setSelectedReportId(routeReportId);
+    }
+  }, [routeReportId, selectedReportId]);
+
+  useEffect(() => {
     if (!selectedReportId) {
       setSelectedReport(null);
+      setAuditEvents([]);
       return;
     }
     loadReportDetail(selectedReportId).catch(() => {});
@@ -167,6 +235,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
       setError("");
       const report = await createInspectionReport(activeAccountId, form);
       setSelectedReportId(report?.id || "");
+      if (report?.id) navigate(`/documents/evidence-vault/${report.id}`);
       await load();
     } catch (err) {
       setError(err?.message || "Could not create inspection report.");
@@ -174,7 +243,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   }
 
   async function handleLock(report) {
-    const confirmed = window.confirm("Lock this inspection report? Locked reports cannot be edited.");
+    const confirmed = window.confirm("Lock this report? Editing will be disabled to preserve the evidence record.");
     if (!confirmed) return;
     try {
       setError("");
@@ -195,6 +264,8 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
       if (selectedReportId === report.id) {
         setSelectedReportId("");
         setSelectedReport(null);
+        setAuditEvents([]);
+        if (routeReportId) navigate("/documents/evidence-vault");
       }
       await load();
     } catch (err) {
@@ -317,15 +388,12 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
     }
   }
 
-  const filteredReports = useMemo(() => reports.filter((report) => {
-    if (reportStatusFilter === "active") return report.status !== "archived";
-    return report.status === reportStatusFilter;
-  }), [reports, reportStatusFilter]);
+  const filteredReports = useMemo(() => filterInspectionReportsByStatus(reports, reportStatusFilter), [reports, reportStatusFilter]);
   const totalReportPages = Math.max(1, Math.ceil(filteredReports.length / REPORT_PAGE_SIZE));
   const safeReportPage = Math.min(reportPage, totalReportPages);
   const pagedReports = filteredReports.slice((safeReportPage - 1) * REPORT_PAGE_SIZE, safeReportPage * REPORT_PAGE_SIZE);
-  const reportRooms = sortByOrder(selectedReport?.inspection_rooms || []);
-  const selectedReportLocked = selectedReport?.status === "locked" || selectedReport?.status === "archived";
+  const reportRooms = sortBySortOrder(selectedReport?.inspection_rooms || []);
+  const selectedReportLocked = !isInspectionReportEditable(selectedReport);
 
   return (
     <div className="space-y-6">
@@ -366,6 +434,20 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
         <button type="submit" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white dark:bg-slate-100 dark:text-slate-900"><Plus size={16} /> Create draft report</button>
       </form>
 
+      <div className="grid gap-3 md:grid-cols-4">
+        {[
+          ["Draft reports", reportStats.draftReports],
+          ["Locked reports", reportStats.lockedReports],
+          ["Photos captured", reportStats.photosCaptured],
+          ["Reports this month", reportStats.reportsThisMonth],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-slate-50">{value}</p>
+          </div>
+        ))}
+      </div>
+
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
@@ -387,35 +469,37 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
             No inspection reports in this view. Create a draft report or change the status filter.
           </div>
         ) : null}
-        {pagedReports.map((report) => (
+        {pagedReports.map((report) => {
+          const counts = calculateInspectionReportCounts(report);
+          return (
           <div key={report.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-slate-950 dark:text-slate-50">{report.title}</h2>
               <span className="rounded-full bg-slate-100 px-2 py-1 text-xs dark:bg-slate-800">{report.status}</span>
             </div>
             <p className="mt-2 text-sm text-slate-500">{propertyLabel(report.property_id)} · {tenantLabel(report.tenant_id)}</p>
-            <p className="mt-1 text-sm text-slate-500">{report.inspection_type} · {report.inspection_date}</p>
+            <p className="mt-1 text-sm text-slate-500">{formatInspectionType(report.inspection_type)} · {report.inspection_date}</p>
+            <p className="mt-1 text-xs text-slate-500">Updated {report.updated_at ? new Date(report.updated_at).toLocaleString() : "not recorded"}</p>
             <div className="mt-4">
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Evidence sections</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {(report.inspection_rooms || [])
-                  .slice()
-                  .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
-                  .map((room) => (
-                    <span key={room.id} className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                      {room.room_name}
-                    </span>
-                  ))}
-              </div>
+              {counts.roomCount > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">{counts.roomCount} rooms</span>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">{counts.itemCount} checklist items</span>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">{counts.photoCount} photos</span>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-slate-500">No evidence sections added yet</p>
+              )}
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" onClick={() => setSelectedReportId(report.id)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium dark:border-slate-700"><FileText size={14} /> Open builder</button>
+              <button type="button" onClick={() => { setSelectedReportId(report.id); navigate(`/documents/evidence-vault/${report.id}`); }} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium dark:border-slate-700"><FileText size={14} /> Open builder</button>
               <button type="button" disabled={report.status === "locked" || report.status === "archived"} onClick={() => handleLock(report)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Lock size={14} /> Lock report</button>
               <button type="button" disabled={report.status === "archived"} onClick={() => handleArchive(report)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Archive size={14} /> Archive</button>
-              <button type="button" disabled={!hasEntitlement(ENTITLEMENT_FEATURES.EVIDENCE_VAULT_PDF_EXPORT)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Download size={14} /> Print/PDF placeholder</button>
+              <Link to={`/documents/evidence-vault/${report.id}/print`} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium dark:border-slate-700"><Download size={14} /> Print / save PDF</Link>
             </div>
           </div>
-        ))}
+        );})}
       </div>
 
       {filteredReports.length > REPORT_PAGE_SIZE ? (
@@ -430,17 +514,26 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
         <section ref={builderRef} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
+              {routeReportId ? (
+                <Link to="/documents/evidence-vault" className="text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300">Back to Evidence Vault</Link>
+              ) : null}
               <p className="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">Inspection builder</p>
               <h2 className="mt-1 text-xl font-semibold text-slate-950 dark:text-slate-50">{selectedReport.title}</h2>
               <p className="mt-1 text-sm text-slate-500">{propertyLabel(selectedReport.property_id)} · {tenantLabel(selectedReport.tenant_id)}</p>
-              <p className="mt-1 text-sm text-slate-500">{selectedReport.inspection_type} · {selectedReport.inspection_date} · {selectedReport.status}</p>
+              <p className="mt-1 text-sm text-slate-500">{formatInspectionType(selectedReport.inspection_type)} · {selectedReport.inspection_date} · {selectedReport.status}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button type="button" disabled={selectedReportLocked} onClick={() => handleLock(selectedReport)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Lock size={14} /> Lock report</button>
               <button type="button" disabled={selectedReport?.status === "archived"} onClick={() => handleArchive(selectedReport)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Archive size={14} /> Archive</button>
-              <button type="button" disabled={!hasEntitlement(ENTITLEMENT_FEATURES.EVIDENCE_VAULT_PDF_EXPORT)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Download size={14} /> Print/PDF placeholder</button>
+              <Link to={`/documents/evidence-vault/${selectedReport.id}/print`} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium dark:border-slate-700"><Download size={14} /> Print / save PDF</Link>
             </div>
           </div>
+
+          {selectedReportLocked ? (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+              This report is locked. Editing is disabled to preserve the evidence record.
+            </div>
+          ) : null}
 
           {detailLoading ? <p className="mt-4 text-sm text-slate-500">Loading report details...</p> : null}
 
@@ -448,14 +541,22 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
             <div className="space-y-4">
               {reportRooms.map((room) => {
                 const draft = itemDrafts[room.id] || { item_label: "", condition_rating: "good", notes: "" };
-                const items = sortByOrder(room.inspection_evidence_items || []);
+                const items = sortBySortOrder(room.inspection_evidence_items || []);
+                const roomPhotoCount = items.reduce((total, item) => total + (item.inspection_photos || []).length, 0);
+                const ratedCount = items.filter((item) => Boolean(item.condition_rating)).length;
+                const isOpen = openRooms[room.id] !== false;
                 return (
                   <div key={room.id} className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="font-semibold text-slate-950 dark:text-slate-50">{room.room_name}</h3>
+                    <button type="button" onClick={() => setOpenRooms((current) => ({ ...current, [room.id]: !isOpen }))} className="flex w-full items-center justify-between gap-3 text-left">
+                      <div>
+                        <h3 className="font-semibold text-slate-950 dark:text-slate-50">{room.room_name}</h3>
+                        <p className="mt-1 text-xs text-slate-500">{ratedCount} of {items.length} items rated · {roomPhotoCount} photos</p>
+                      </div>
                       <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-500 dark:bg-slate-800">{items.length} items</span>
-                    </div>
+                    </button>
 
+                    {isOpen ? (
+                    <>
                     <div className="mt-3 space-y-3">
                       {items.length === 0 ? <p className="text-sm text-slate-500">No evidence items logged for this room yet.</p> : null}
                       {items.map((item) => (
@@ -468,10 +569,19 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
                               <p className="font-medium text-slate-900 dark:text-slate-100">{item.item_label}</p>
                               <p className="text-xs text-slate-500">Evidence files linked: {(item.inspection_photos || []).length}</p>
                             </div>
-                            <select disabled={selectedReportLocked} value={item.condition_rating || ""} onChange={(event) => handleConditionChange(item, event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900">
-                              <option value="">Condition</option>
-                              {CONDITION_OPTIONS.map((condition) => <option key={condition} value={condition}>{condition.replace("_", " ")}</option>)}
-                            </select>
+                            <div className="flex flex-wrap gap-1">
+                              {CONDITION_RATINGS.map((condition) => (
+                                <button
+                                  key={condition.value}
+                                  type="button"
+                                  disabled={selectedReportLocked}
+                                  onClick={() => handleConditionChange(item, condition.value)}
+                                  className={`rounded-full border px-3 py-1 text-xs font-medium disabled:opacity-60 ${item.condition_rating === condition.value ? "border-blue-500 bg-blue-600 text-white" : "border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"}`}
+                                >
+                                  {condition.label}
+                                </button>
+                              ))}
+                            </div>
                           </div>
                           <div className="mt-3 flex flex-col gap-2 md:flex-row">
                             <textarea name="notes" disabled={selectedReportLocked} defaultValue={item.notes || ""} onChange={() => setSavedItemId("")} placeholder="Notes" className="min-h-20 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900" />
@@ -503,14 +613,12 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
                             </label>
                           </div>
                           {(item.inspection_photos || []).length > 0 ? (
-                            <div className="mt-3 flex flex-wrap gap-2">
+                            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
                               {(item.inspection_photos || []).map((photo) => (
-                                <span key={photo.id} className="rounded-full bg-white px-3 py-1 text-xs text-slate-500 dark:bg-slate-900">
-                                  {photo.caption || photo.storage_path || photo.document_id || "Evidence file"}
-                                </span>
+                                <PhotoThumbnail key={photo.id} photo={photo} accountId={activeAccountId} propertyId={selectedReport.property_id} tenantId={selectedReport.tenant_id} />
                               ))}
                             </div>
-                          ) : null}
+                          ) : <p className="mt-3 text-xs text-slate-500">No photos added yet. Add photos from your phone during the walkthrough.</p>}
                         </form>
                       ))}
                     </div>
@@ -519,12 +627,14 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
                       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
                         <input required disabled={selectedReportLocked} value={draft.item_label} onChange={(event) => updateItemDraft(room.id, { item_label: event.target.value })} placeholder="Item, fixture, meter or key set" className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950" />
                         <select disabled={selectedReportLocked} value={draft.condition_rating} onChange={(event) => updateItemDraft(room.id, { condition_rating: event.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950">
-                          {CONDITION_OPTIONS.map((condition) => <option key={condition} value={condition}>{condition.replace("_", " ")}</option>)}
+                          {CONDITION_RATINGS.map((condition) => <option key={condition.value} value={condition.value}>{condition.label}</option>)}
                         </select>
                       </div>
                       <textarea disabled={selectedReportLocked} value={draft.notes} onChange={(event) => updateItemDraft(room.id, { notes: event.target.value })} placeholder="Condition notes" className="mt-3 min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950" />
                       <button type="submit" disabled={selectedReportLocked || savingRoomId === room.id} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900"><Plus size={14} /> {savingRoomId === room.id ? "Adding..." : "Add evidence item"}</button>
                     </form>
+                    </>
+                    ) : null}
                   </div>
                 );
               })}
@@ -552,6 +662,19 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
                   <input required disabled={selectedReportLocked} value={signatureForm.signerName} onChange={(event) => setSignatureForm((current) => ({ ...current, signerName: event.target.value }))} placeholder="Signer name" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950" />
                   <button type="submit" disabled={selectedReportLocked} className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium disabled:opacity-60 dark:border-slate-700"><CheckCircle2 size={14} /> Record acknowledgement</button>
                 </form>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+                <h3 className="font-semibold text-slate-950 dark:text-slate-50">Recent activity</h3>
+                <div className="mt-3 space-y-2">
+                  {auditEvents.length === 0 ? <p className="text-sm text-slate-500">No recent activity recorded yet.</p> : null}
+                  {auditEvents.map((event) => (
+                    <div key={event.id} className="rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-950">
+                      <p className="font-medium text-slate-900 dark:text-slate-100">{String(event.event_type || "").replace(/_/g, " ")}</p>
+                      <p className="mt-1 text-xs text-slate-500">{event.created_at ? new Date(event.created_at).toLocaleString() : "Time not recorded"}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </aside>
           </div>

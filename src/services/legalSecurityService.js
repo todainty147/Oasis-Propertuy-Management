@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { buildDefaultEvidenceItemsPayload, getDefaultInspectionRoomNames } from "../data/inspectionRoomTemplates";
 
 const COMPLIANCE_SELECT = [
   "id", "account_id", "property_id", "tenant_id", "tenancy_id",
@@ -15,28 +16,18 @@ const COMPLIANCE_TEMPLATE_SELECT = [
 
 const INSPECTION_SELECT = [
   "id", "account_id", "property_id", "tenant_id", "inspection_type", "status",
-  "title", "inspection_date", "locked_at", "locked_by", "created_by", "created_at", "updated_at",
-  "inspection_rooms(id, room_name, sort_order)",
+  "title", "inspection_date", "locked_at", "locked_by", "archived_at", "archived_by", "created_by", "created_at", "updated_at",
+  "inspection_rooms(id, room_name, sort_order, inspection_evidence_items(id, condition_rating, inspection_photos(id)))",
 ].join(", ");
 
 const INSPECTION_DETAIL_SELECT = [
   "id", "account_id", "property_id", "tenant_id", "inspection_type", "status",
-  "title", "inspection_date", "locked_at", "locked_by", "created_by", "created_at", "updated_at",
+  "title", "inspection_date", "locked_at", "locked_by", "archived_at", "archived_by", "created_by", "created_at", "updated_at",
   "inspection_rooms(id, room_name, sort_order, inspection_evidence_items(id, item_label, condition_rating, notes, sort_order, created_at, updated_at, inspection_photos(id, document_id, storage_path, caption, captured_at)))",
   "inspection_signatures(id, signer_type, signer_name, signed_at, metadata)",
 ].join(", ");
 
-const DEFAULT_INSPECTION_ROOMS = [
-  "Entrance / hallway",
-  "Kitchen",
-  "Living room",
-  "Bedroom",
-  "Bathroom",
-  "Garden / exterior",
-  "Meters",
-  "Keys",
-  "Appliances",
-];
+const INSPECTION_AUDIT_SELECT = "id, account_id, inspection_report_id, user_id, event_type, metadata, created_at";
 
 const APPLICATION_LINK_SELECT = [
   "id", "account_id", "property_id", "public_token", "title", "status",
@@ -201,7 +192,7 @@ export async function getInspectionReportDetails(accountId, reportId) {
 export async function createInspectionReport(accountId, payload = {}) {
   if (!accountId) throw new Error("Missing accountId");
   if (!payload.propertyId) throw new Error("Choose a property");
-  const rooms = Array.isArray(payload.rooms) && payload.rooms.length > 0 ? payload.rooms : DEFAULT_INSPECTION_ROOMS;
+  const rooms = Array.isArray(payload.rooms) && payload.rooms.length > 0 ? payload.rooms : getDefaultInspectionRoomNames();
   const { data: report, error } = await supabase.rpc("create_inspection_report_with_rooms", {
     p_account_id: accountId,
     p_property_id: payload.propertyId,
@@ -210,9 +201,83 @@ export async function createInspectionReport(accountId, payload = {}) {
     p_title: String(payload.title || "Inspection report").trim(),
     p_inspection_date: payload.inspectionDate || new Date().toISOString().slice(0, 10),
     p_rooms: rooms,
+    p_room_items: buildDefaultEvidenceItemsPayload(rooms),
   });
   if (error) throw error;
   return report;
+}
+
+async function getCurrentUserId() {
+  const { data } = await supabase.auth.getUser();
+  return data?.user?.id || null;
+}
+
+function assertEditableStatus(status) {
+  if (["locked", "archived"].includes(status)) {
+    throw new Error("This report is locked or archived. Editing is disabled to preserve the evidence record.");
+  }
+}
+
+async function getInspectionStatusForReport(accountId, reportId) {
+  const { data, error } = await supabase
+    .from("inspection_reports")
+    .select("id, status")
+    .eq("account_id", accountId)
+    .eq("id", reportId)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+async function getInspectionStatusForRoom(accountId, roomId) {
+  const { data, error } = await supabase
+    .from("inspection_rooms")
+    .select("id, room_name, inspection_reports(id, status)")
+    .eq("account_id", accountId)
+    .eq("id", roomId)
+    .single();
+  if (error) throw error;
+  return {
+    roomName: data?.room_name || "Room",
+    reportId: data?.inspection_reports?.id,
+    status: data?.inspection_reports?.status,
+  };
+}
+
+async function getInspectionStatusForItem(accountId, itemId) {
+  const { data, error } = await supabase
+    .from("inspection_evidence_items")
+    .select("id, item_label, inspection_rooms(id, room_name, inspection_reports(id, status))")
+    .eq("account_id", accountId)
+    .eq("id", itemId)
+    .single();
+  if (error) throw error;
+  return {
+    itemLabel: data?.item_label || "Evidence item",
+    roomName: data?.inspection_rooms?.room_name || "Room",
+    reportId: data?.inspection_rooms?.inspection_reports?.id,
+    status: data?.inspection_rooms?.inspection_reports?.status,
+  };
+}
+
+async function writeInspectionAuditEvent(accountId, reportId, eventType, metadata = {}) {
+  if (!accountId || !reportId || !eventType) return null;
+  const { data, error } = await supabase
+    .from("inspection_audit_events")
+    .insert({
+      account_id: accountId,
+      inspection_report_id: reportId,
+      user_id: await getCurrentUserId(),
+      event_type: eventType,
+      metadata,
+    })
+    .select(INSPECTION_AUDIT_SELECT)
+    .single();
+  if (error) {
+    if (isMissingBackendObject(error)) return null;
+    throw error;
+  }
+  return data;
 }
 
 export async function createInspectionEvidenceItem(accountId, roomId, payload = {}) {
@@ -220,6 +285,8 @@ export async function createInspectionEvidenceItem(accountId, roomId, payload = 
   if (!roomId) throw new Error("Missing room id");
   const itemLabel = String(payload.item_label || "").trim();
   if (!itemLabel) throw new Error("Add an item label");
+  const report = await getInspectionStatusForRoom(accountId, roomId);
+  assertEditableStatus(report.status);
   const { data, error } = await supabase
     .from("inspection_evidence_items")
     .insert({
@@ -233,12 +300,18 @@ export async function createInspectionEvidenceItem(accountId, roomId, payload = 
     .select("id, item_label, condition_rating, notes, sort_order, created_at, updated_at")
     .single();
   if (error) throw error;
+  await writeInspectionAuditEvent(accountId, report.reportId, "room_created", {
+    room_name: report.roomName,
+    item_label: itemLabel,
+  });
   return data;
 }
 
 export async function updateInspectionEvidenceItem(accountId, itemId, patch = {}) {
   if (!accountId) throw new Error("Missing accountId");
   if (!itemId) throw new Error("Missing item id");
+  const report = await getInspectionStatusForItem(accountId, itemId);
+  assertEditableStatus(report.status);
   const nextPatch = {};
   if (Object.prototype.hasOwnProperty.call(patch, "condition_rating")) nextPatch.condition_rating = patch.condition_rating || null;
   if (Object.prototype.hasOwnProperty.call(patch, "notes")) nextPatch.notes = patch.notes ? String(patch.notes).trim() : null;
@@ -252,6 +325,11 @@ export async function updateInspectionEvidenceItem(accountId, itemId, patch = {}
     .select("id, item_label, condition_rating, notes, sort_order, created_at, updated_at")
     .single();
   if (error) throw error;
+  await writeInspectionAuditEvent(accountId, report.reportId, "evidence_item_updated", {
+    room_name: report.roomName,
+    item_label: report.itemLabel,
+    changed_fields: Object.keys(nextPatch),
+  });
   return data;
 }
 
@@ -259,6 +337,8 @@ export async function attachInspectionEvidenceFile(accountId, evidenceItemId, pa
   if (!accountId) throw new Error("Missing accountId");
   if (!evidenceItemId) throw new Error("Missing evidence item id");
   if (!payload.documentId && !payload.storagePath) throw new Error("Choose a file to attach");
+  const report = await getInspectionStatusForItem(accountId, evidenceItemId);
+  assertEditableStatus(report.status);
   const { data, error } = await supabase
     .from("inspection_photos")
     .insert({
@@ -271,12 +351,19 @@ export async function attachInspectionEvidenceFile(accountId, evidenceItemId, pa
     .select("id, document_id, storage_path, caption, captured_at")
     .single();
   if (error) throw error;
+  await writeInspectionAuditEvent(accountId, report.reportId, "photo_added", {
+    room_name: report.roomName,
+    item_label: report.itemLabel,
+    has_document: Boolean(payload.documentId),
+  });
   return data;
 }
 
 export async function recordInspectionSignature(accountId, reportId, payload = {}) {
   if (!accountId) throw new Error("Missing accountId");
   if (!reportId) throw new Error("Missing report id");
+  const report = await getInspectionStatusForReport(accountId, reportId);
+  assertEditableStatus(report.status);
   const signerName = String(payload.signerName || "").trim();
   if (!signerName) throw new Error("Add signer name");
   const { data, error } = await supabase
@@ -291,31 +378,55 @@ export async function recordInspectionSignature(accountId, reportId, payload = {
     .select("id, signer_type, signer_name, signed_at, metadata")
     .single();
   if (error) throw error;
+  await writeInspectionAuditEvent(accountId, reportId, "report_updated", {
+    action: "signature_acknowledgement_recorded",
+    signer_type: payload.signerType || "landlord",
+  });
   return data;
 }
 
 export async function lockInspectionReport(id, accountId) {
+  const current = await getInspectionStatusForReport(accountId, id);
+  assertEditableStatus(current.status);
   const { data, error } = await supabase
     .from("inspection_reports")
-    .update({ status: "locked", locked_at: new Date().toISOString() })
+    .update({ status: "locked", locked_at: new Date().toISOString(), locked_by: await getCurrentUserId() })
     .eq("id", id)
     .eq("account_id", accountId)
     .select(INSPECTION_SELECT)
     .single();
   if (error) throw error;
+  await writeInspectionAuditEvent(accountId, id, "report_locked", {});
   return data;
 }
 
 export async function archiveInspectionReport(id, accountId) {
   const { data, error } = await supabase
     .from("inspection_reports")
-    .update({ status: "archived" })
+    .update({ status: "archived", archived_at: new Date().toISOString(), archived_by: await getCurrentUserId() })
     .eq("id", id)
     .eq("account_id", accountId)
     .select(INSPECTION_SELECT)
     .single();
   if (error) throw error;
+  await writeInspectionAuditEvent(accountId, id, "report_archived", {});
   return data;
+}
+
+export async function listInspectionAuditEvents(accountId, reportId) {
+  if (!accountId || !reportId) return [];
+  const { data, error } = await supabase
+    .from("inspection_audit_events")
+    .select(INSPECTION_AUDIT_SELECT)
+    .eq("account_id", accountId)
+    .eq("inspection_report_id", reportId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) {
+    if (isMissingBackendObject(error)) return [];
+    throw error;
+  }
+  return data || [];
 }
 
 export async function listDiagnosticTemplates() {

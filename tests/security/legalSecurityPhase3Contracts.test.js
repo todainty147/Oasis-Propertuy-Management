@@ -39,6 +39,7 @@ describe("Phase 3 legal security contracts", () => {
       "compliance_templates",
       "tenancy_compliance_items",
       "inspection_reports",
+      "inspection_audit_events",
       "maintenance_diagnostic_sessions",
       "property_application_links",
       "rental_application_events",
@@ -50,6 +51,8 @@ describe("Phase 3 legal security contracts", () => {
     expect(sql).toContain("public.create_inspection_report_with_rooms");
     expect(sql).toContain("security invoker");
     expect(sql).toContain("jsonb_build_object('inspection_rooms'");
+    expect(sql).toContain("p_room_items jsonb");
+    expect(sql).toContain("archived_at timestamptz");
     expect(sql).toContain("grant execute on function public.create_inspection_report_with_rooms");
     expect(sql).toContain("v_score := greatest(0, least(100, v_score))");
     expect(sql).not.toContain("p_payload->>'score'");
@@ -71,6 +74,23 @@ describe("Phase 3 legal security contracts", () => {
     expect(sql).toContain('"Members update diagnostic sessions"');
     expect(apply).toContain('"legal_security_phase3.sql"');
     expect(bootstrap).toContain('"legal_security_phase3.sql"');
+  });
+
+  it("keeps Evidence Vault builder behaviour wired to templates, audit and print routes", () => {
+    const routes = read("src/routes/ManagerRoutes.jsx");
+    const page = read("src/pages/documents/EvidenceVaultPage.jsx");
+    const service = read("src/services/legalSecurityService.js");
+    const templates = read("src/data/inspectionRoomTemplates.js");
+
+    expect(routes).toContain('path="documents/evidence-vault/:reportId"');
+    expect(routes).toContain('path="documents/evidence-vault/:reportId/print"');
+    expect(templates).toContain("Fridge/freezer");
+    expect(service).toContain("buildDefaultEvidenceItemsPayload");
+    expect(service).toContain("inspection_audit_events");
+    expect(service).toContain("report_locked");
+    expect(service).toContain("report_archived");
+    expect(page).toContain("Print / save PDF");
+    expect(page).toContain("This report is locked. Editing is disabled to preserve the evidence record.");
   });
 
   it("keeps public application submission consent-based and public without auth shell", () => {

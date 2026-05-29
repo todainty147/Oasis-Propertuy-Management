@@ -115,6 +115,8 @@ create table if not exists public.inspection_reports (
   inspection_date date not null,
   locked_at timestamptz,
   locked_by uuid,
+  archived_at timestamptz,
+  archived_by uuid,
   created_by uuid,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -125,6 +127,10 @@ create table if not exists public.inspection_reports (
     status in ('draft', 'ready_for_signature', 'signed', 'locked', 'archived')
   )
 );
+
+alter table public.inspection_reports
+  add column if not exists archived_at timestamptz,
+  add column if not exists archived_by uuid;
 
 create table if not exists public.inspection_rooms (
   id uuid primary key default gen_random_uuid(),
@@ -171,12 +177,24 @@ create table if not exists public.inspection_signatures (
   metadata jsonb not null default '{}'::jsonb
 );
 
+create table if not exists public.inspection_audit_events (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts(id) on delete cascade,
+  inspection_report_id uuid references public.inspection_reports(id) on delete cascade,
+  user_id uuid,
+  event_type text not null,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists idx_inspection_reports_account_property
   on public.inspection_reports(account_id, property_id, inspection_date desc);
 create index if not exists idx_inspection_rooms_report
   on public.inspection_rooms(account_id, inspection_report_id);
 create index if not exists idx_inspection_items_room
   on public.inspection_evidence_items(account_id, inspection_room_id);
+create index if not exists idx_inspection_audit_report
+  on public.inspection_audit_events(account_id, inspection_report_id, created_at desc);
 
 drop trigger if exists trg_inspection_reports_updated_at on public.inspection_reports;
 create trigger trg_inspection_reports_updated_at
@@ -200,8 +218,8 @@ begin
   join public.inspection_rooms room on room.inspection_report_id = r.id
   where room.id = coalesce(new.inspection_room_id, old.inspection_room_id);
 
-  if v_status = 'locked' then
-    raise exception 'Locked inspection reports cannot be edited';
+  if v_status in ('locked', 'archived') then
+    raise exception 'Locked or archived inspection reports cannot be edited';
   end if;
   return coalesce(new, old);
 end;
@@ -212,7 +230,56 @@ create trigger trg_prevent_locked_inspection_item_edits
   before insert or update or delete on public.inspection_evidence_items
   for each row execute function public.prevent_locked_inspection_item_edits();
 
+create or replace function public.prevent_locked_inspection_photo_edits()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_status text;
+begin
+  select r.status into v_status
+  from public.inspection_reports r
+  join public.inspection_rooms room on room.inspection_report_id = r.id
+  join public.inspection_evidence_items item on item.inspection_room_id = room.id
+  where item.id = coalesce(new.evidence_item_id, old.evidence_item_id);
+
+  if v_status in ('locked', 'archived') then
+    raise exception 'Locked or archived inspection reports cannot be edited';
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+
+drop trigger if exists trg_prevent_locked_inspection_photo_edits on public.inspection_photos;
+create trigger trg_prevent_locked_inspection_photo_edits
+  before insert or update or delete on public.inspection_photos
+  for each row execute function public.prevent_locked_inspection_photo_edits();
+
+create or replace function public.prevent_locked_inspection_signature_edits()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_status text;
+begin
+  select r.status into v_status
+  from public.inspection_reports r
+  where r.id = coalesce(new.inspection_report_id, old.inspection_report_id);
+
+  if v_status in ('locked', 'archived') then
+    raise exception 'Locked or archived inspection reports cannot be edited';
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+
+drop trigger if exists trg_prevent_locked_inspection_signature_edits on public.inspection_signatures;
+create trigger trg_prevent_locked_inspection_signature_edits
+  before insert or update or delete on public.inspection_signatures
+  for each row execute function public.prevent_locked_inspection_signature_edits();
+
 drop function if exists public.create_inspection_report_with_rooms(uuid, uuid, uuid, text, text, date, text[]);
+drop function if exists public.create_inspection_report_with_rooms(uuid, uuid, uuid, text, text, date, text[], jsonb);
 
 create or replace function public.create_inspection_report_with_rooms(
   p_account_id uuid,
@@ -221,7 +288,8 @@ create or replace function public.create_inspection_report_with_rooms(
   p_inspection_type text,
   p_title text,
   p_inspection_date date,
-  p_rooms text[]
+  p_rooms text[],
+  p_room_items jsonb default '[]'::jsonb
 ) returns jsonb
 language plpgsql
 security invoker
@@ -230,6 +298,7 @@ as $$
 declare
   v_report public.inspection_reports;
   v_rooms jsonb := '[]'::jsonb;
+  v_items jsonb := coalesce(p_room_items, '[]'::jsonb);
 begin
   if not public.user_can_manage_account(p_account_id) then
     raise exception 'Not authorized to create inspection reports for this account';
@@ -280,12 +349,52 @@ begin
   from unnest(coalesce(p_rooms, array[]::text[])) with ordinality as room(room_name, ordinality)
   where nullif(trim(room_name), '') is not null;
 
+  insert into public.inspection_evidence_items(account_id, inspection_room_id, item_label, condition_rating, sort_order)
+  select
+    p_account_id,
+    r.id,
+    nullif(trim(item.value), ''),
+    null,
+    (item.ordinality::integer - 1) * 10
+  from jsonb_array_elements(v_items) as room_item(payload)
+  join public.inspection_rooms r
+    on r.account_id = p_account_id
+   and r.inspection_report_id = v_report.id
+   and lower(r.room_name) = lower(room_item.payload->>'room_name')
+  cross join lateral jsonb_array_elements_text(coalesce(room_item.payload->'items', '[]'::jsonb)) with ordinality as item(value, ordinality)
+  where nullif(trim(item.value), '') is not null;
+
+  insert into public.inspection_audit_events(account_id, inspection_report_id, user_id, event_type, metadata)
+  values (
+    p_account_id,
+    v_report.id,
+    auth.uid(),
+    'report_created',
+    jsonb_build_object('room_count', cardinality(coalesce(p_rooms, array[]::text[])))
+  );
+
   select coalesce(
     jsonb_agg(
       jsonb_build_object(
         'id', r.id,
         'room_name', r.room_name,
-        'sort_order', r.sort_order
+        'sort_order', r.sort_order,
+        'inspection_evidence_items', coalesce((
+          select jsonb_agg(
+            jsonb_build_object(
+              'id', item.id,
+              'item_label', item.item_label,
+              'condition_rating', item.condition_rating,
+              'notes', item.notes,
+              'sort_order', item.sort_order,
+              'inspection_photos', '[]'::jsonb
+            )
+            order by item.sort_order asc
+          )
+          from public.inspection_evidence_items item
+          where item.account_id = p_account_id
+            and item.inspection_room_id = r.id
+        ), '[]'::jsonb)
       )
       order by r.sort_order asc
     ),
@@ -300,7 +409,7 @@ begin
 end;
 $$;
 
-grant execute on function public.create_inspection_report_with_rooms(uuid, uuid, uuid, text, text, date, text[]) to authenticated;
+grant execute on function public.create_inspection_report_with_rooms(uuid, uuid, uuid, text, text, date, text[], jsonb) to authenticated;
 
 -- ── Maintenance Diagnostics ────────────────────────────────────────────────
 
@@ -570,6 +679,7 @@ alter table public.inspection_rooms enable row level security;
 alter table public.inspection_evidence_items enable row level security;
 alter table public.inspection_photos enable row level security;
 alter table public.inspection_signatures enable row level security;
+alter table public.inspection_audit_events enable row level security;
 alter table public.maintenance_diagnostic_templates enable row level security;
 alter table public.maintenance_diagnostic_steps enable row level security;
 alter table public.maintenance_diagnostic_sessions enable row level security;
@@ -644,6 +754,12 @@ create policy "Managers manage inspection photos" on public.inspection_photos
 drop policy if exists "Managers manage inspection signatures" on public.inspection_signatures;
 create policy "Managers manage inspection signatures" on public.inspection_signatures
   for all to authenticated using (public.user_can_manage_account(account_id)) with check (public.user_can_manage_account(account_id));
+drop policy if exists "Managers read inspection audit events" on public.inspection_audit_events;
+create policy "Managers read inspection audit events" on public.inspection_audit_events
+  for select to authenticated using (public.user_can_manage_account(account_id));
+drop policy if exists "Managers insert inspection audit events" on public.inspection_audit_events;
+create policy "Managers insert inspection audit events" on public.inspection_audit_events
+  for insert to authenticated with check (public.user_can_manage_account(account_id));
 drop policy if exists "Tenants read assigned inspection signatures" on public.inspection_signatures;
 create policy "Tenants read assigned inspection signatures" on public.inspection_signatures
   for select to authenticated using (
@@ -708,6 +824,7 @@ grant select on public.compliance_templates, public.compliance_requirements to a
 grant select, insert, update, delete on public.tenancy_compliance_items to authenticated;
 grant select, insert on public.compliance_evidence_events to authenticated;
 grant select, insert, update, delete on public.inspection_reports, public.inspection_rooms, public.inspection_evidence_items, public.inspection_photos, public.inspection_signatures to authenticated;
+grant select, insert on public.inspection_audit_events to authenticated;
 grant select on public.maintenance_diagnostic_templates, public.maintenance_diagnostic_steps to authenticated;
 grant select, insert, update on public.maintenance_diagnostic_sessions to authenticated;
 grant select, insert on public.maintenance_diagnostic_answers to authenticated;
