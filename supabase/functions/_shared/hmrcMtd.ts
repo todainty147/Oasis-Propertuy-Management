@@ -3,13 +3,13 @@ export const DEFAULT_HMRC_READ_ONLY_SCOPES = Object.freeze([
   "read:self-assessment",
 ]);
 
-export const APPROVED_HMRC_READ_ONLY_SCOPES = Object.freeze([
+// Includes the sandbox-only test-support write scope. Operational HMRC features
+// still use read-only defaults unless a dedicated test-data reconnect requests it.
+export const APPROVED_HMRC_SANDBOX_SCOPES = Object.freeze([
   ...DEFAULT_HMRC_READ_ONLY_SCOPES,
   "write:self-assessment",
   "read:vat",
 ]);
-
-export const HMRC_LIVE_SUBMISSION_ENABLED = false;
 
 export const HMRC_CONNECTION_STATUSES = Object.freeze([
   "not_connected",
@@ -30,7 +30,7 @@ export function validateHmrcScopes(requestedScopes: unknown): string[] {
       .map((scope) => String(scope || "").trim())
       .filter(Boolean),
   ));
-  const invalid = normalized.filter((scope) => !APPROVED_HMRC_READ_ONLY_SCOPES.includes(scope));
+  const invalid = normalized.filter((scope) => !APPROVED_HMRC_SANDBOX_SCOPES.includes(scope));
   if (invalid.length) {
     throw new Error("Unsupported HMRC scope requested");
   }
@@ -60,8 +60,8 @@ export function normalizeHmrcConnectionStatus(status: unknown): string {
   return HMRC_CONNECTION_STATUSES.includes(normalized) ? normalized : "not_connected";
 }
 
-export function assertLiveSubmissionDisabled() {
-  if (HMRC_LIVE_SUBMISSION_ENABLED) {
+export function assertLiveSubmissionDisabled(environment = "sandbox", liveSubmissionEnabled = "false") {
+  if (environment !== "sandbox" || String(liveSubmissionEnabled).toLowerCase() === "true") {
     throw new Error("Live HMRC submission is disabled for this phase");
   }
   return true;
@@ -87,15 +87,17 @@ export async function encryptToken(plaintext: string, keyMaterial: string): Prom
     key,
     new TextEncoder().encode(plaintext),
   );
-  return `v1.${base64UrlEncode(iv)}.${base64UrlEncode(new Uint8Array(ciphertext))}`;
+  return `v2.${base64UrlEncode(iv)}.${base64UrlEncode(new Uint8Array(ciphertext))}`;
 }
 
 export async function decryptToken(ciphertext: string, keyMaterial: string): Promise<string> {
   const parts = String(ciphertext || "").split(".");
-  if (parts.length !== 3 || parts[0] !== "v1") {
+  if (parts.length !== 3 || !["v1", "v2"].includes(parts[0])) {
     throw new Error("Unsupported token ciphertext format");
   }
-  const key = await deriveAesKey(keyMaterial);
+  const key = parts[0] === "v1"
+    ? await deriveLegacyAesKey(keyMaterial)
+    : await deriveAesKey(keyMaterial);
   const iv = base64UrlDecode(parts[1]);
   const encrypted = base64UrlDecode(parts[2]);
   const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, encrypted);
@@ -106,11 +108,45 @@ async function deriveAesKey(keyMaterial: string): Promise<CryptoKey> {
   if (!String(keyMaterial || "").trim()) {
     throw new Error("HMRC token encryption key is not configured");
   }
+  const sourceKey = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(keyMaterial),
+    "HKDF",
+    false,
+    ["deriveKey"],
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: new TextEncoder().encode("tenaqo-hmrc-token-v1"),
+      info: new TextEncoder().encode("hmrc-token-enc"),
+    },
+    sourceKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"],
+  );
+}
+
+async function deriveLegacyAesKey(keyMaterial: string): Promise<CryptoKey> {
+  if (!String(keyMaterial || "").trim()) {
+    throw new Error("HMRC token encryption key is not configured");
+  }
   const digest = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(keyMaterial),
   );
   return crypto.subtle.importKey("raw", digest, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+}
+
+export function generatePkceCodeVerifier(byteLength = 64): string {
+  return generateOauthStateToken(byteLength);
+}
+
+export async function createPkceCodeChallenge(verifier: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  return base64UrlEncode(new Uint8Array(digest));
 }
 
 function base64UrlEncode(bytes: Uint8Array): string {

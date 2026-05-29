@@ -21,7 +21,8 @@ import {
   testHmrcReadonlyCall,
 } from "../../services/hmrcMtdService";
 
-const READ_ONLY_SCOPES = ["hello", "read:self-assessment"];
+const TAX_YEAR_PATTERN = /^20\d{2}-\d{2}$/;
+const NINO_PATTERN = /^[A-Za-z]{2}[0-9]{6}[A-Za-z]$/;
 
 function formatDateTime(value) {
   if (!value) return "Not recorded";
@@ -89,7 +90,7 @@ export default function HmrcConnectionPage() {
     try {
       setBusyAction("connect");
       setError("");
-      const { redirectUrl } = await startHmrcSandboxOAuth(activeAccountId, READ_ONLY_SCOPES);
+      const { redirectUrl } = await startHmrcSandboxOAuth(activeAccountId);
       window.location.assign(redirectUrl);
     } catch (err) {
       setError(err?.message || "Could not start HMRC sandbox connection.");
@@ -138,10 +139,20 @@ export default function HmrcConnectionPage() {
   }
 
   async function handleSaveSandboxProfile() {
+    const normalizedNino = sandboxNino.replace(/\s+/g, "").toUpperCase();
+    if (normalizedNino && !NINO_PATTERN.test(normalizedNino)) {
+      setVerificationResult({
+        status: "blocked",
+        checkType: "sandbox_profile",
+        message: "Enter a sandbox NINO in the format AA000000A.",
+        summary: { safeCode: "invalid_nino_format" },
+      });
+      return;
+    }
     try {
       setBusyAction("save-profile");
       setError("");
-      setSandboxProfile(await saveHmrcSandboxProfile(activeAccountId, { nino: sandboxNino }));
+      setSandboxProfile(await saveHmrcSandboxProfile(activeAccountId, { nino: normalizedNino }));
       setSandboxNino("");
       await load();
     } catch (err) {
@@ -155,17 +166,29 @@ export default function HmrcConnectionPage() {
     try {
       setBusyAction(action);
       setError("");
+      setVerificationResult(null);
       const next = await runner(activeAccountId);
       setVerificationResult(next);
       await load();
     } catch (err) {
-      setError(err?.message || "Could not run HMRC read-only verification.");
+      setVerificationResult({
+        status: "failed",
+        checkType: action,
+        message: err?.message || "Could not run HMRC read-only verification.",
+      });
     } finally {
       setBusyAction("");
     }
   }
 
   async function handleTestDataAction(action, runner) {
+    if (!TAX_YEAR_PATTERN.test(testTaxYear)) {
+      setTestDataResult({
+        status: "blocked",
+        message: "Enter the tax year in HMRC format, for example 2026-27.",
+      });
+      return;
+    }
     try {
       setBusyAction(action);
       setError("");
@@ -334,6 +357,9 @@ export default function HmrcConnectionPage() {
               value={sandboxNino}
               onChange={(event) => setSandboxNino(event.target.value)}
               placeholder={sandboxProfile?.ninoMasked || "Example: AA000000A"}
+              maxLength={9}
+              pattern="[A-Za-z]{2}[0-9]{6}[A-Za-z]"
+              title="NINO format: 2 letters, 6 digits, 1 letter"
               className="min-h-11 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900"
             />
             <button
@@ -397,6 +423,8 @@ export default function HmrcConnectionPage() {
               <input
                 value={testTaxYear}
                 onChange={(event) => setTestTaxYear(event.target.value)}
+                pattern="^20\\d{2}-\\d{2}$"
+                title="Tax year format: 2026-27"
                 className="mt-2 min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900"
                 placeholder="2026-27"
               />
@@ -437,11 +465,11 @@ export default function HmrcConnectionPage() {
             >
               <ExternalLink size={16} /> {busyAction === "connect-test-data" ? "Opening HMRC..." : "Reconnect with test-data scope"}
             </button>
-            <CheckButton label="Create ITSA status" action="create-itsa" busyAction={busyAction} disabled={!isConnected || !canReadOnly || !hasTestDataScope} onClick={() => handleTestDataAction("create-itsa", createHmrcTestItsaStatus)} />
-            <CheckButton label="Create test business" action="create-business" busyAction={busyAction} disabled={!isConnected || !canReadOnly || !hasTestDataScope} onClick={() => handleTestDataAction("create-business", createHmrcTestBusiness)} />
+            <CheckButton label="Create ITSA status" action="create-itsa" busyAction={busyAction} disabled={!isConnected || !canTestData || !hasTestDataScope} onClick={() => handleTestDataAction("create-itsa", createHmrcTestItsaStatus)} />
+            <CheckButton label="Create test business" action="create-business" busyAction={busyAction} disabled={!isConnected || !canTestData || !hasTestDataScope} onClick={() => handleTestDataAction("create-business", createHmrcTestBusiness)} />
             <button
               type="button"
-              disabled={!isConnected || !canReadOnly || !hasTestDataScope || busyAction === "delete-business" || !sandboxProfile?.hasTestBusinessId}
+              disabled={!isConnected || !canTestData || !hasTestDataScope || busyAction === "delete-business" || !sandboxProfile?.hasTestBusinessId}
               onClick={() => handleTestDataAction("delete-business", deleteHmrcTestBusiness)}
               className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-medium text-rose-700 disabled:opacity-50 dark:border-rose-900 dark:bg-slate-900 dark:text-rose-200"
             >
@@ -482,7 +510,9 @@ export default function HmrcConnectionPage() {
 }
 
 function latestCheck(checks, checkType) {
-  return checks.find((check) => check.check_type === checkType);
+  return [...checks]
+    .filter((check) => check.check_type === checkType)
+    .sort((a, b) => new Date(b.checked_at || b.created_at || 0).getTime() - new Date(a.checked_at || a.created_at || 0).getTime())[0];
 }
 
 function InfoTile({ label, value }) {

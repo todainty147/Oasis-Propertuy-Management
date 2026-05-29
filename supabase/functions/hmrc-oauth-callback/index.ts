@@ -10,9 +10,10 @@ import {
   HMRC_ENVIRONMENT,
   HMRC_REDIRECT_URI,
   HMRC_BASE_URL,
+  HMRC_TOKEN_ENCRYPTION_KEY,
   safeHmrcError,
 } from "../_shared/hmrcEdge.ts";
-import { isOauthStateExpired } from "../_shared/hmrcMtd.ts";
+import { createPkceCodeChallenge, decryptToken, isOauthStateExpired } from "../_shared/hmrcMtd.ts";
 
 Deno.serve(async (req) => {
   try {
@@ -52,6 +53,22 @@ Deno.serve(async (req) => {
       return Response.redirect(appRedirectUrl("/compliance/hmrc-connection", { hmrc: "state_rejected" }), 302);
     }
 
+    const codeVerifier = String(oauthState.code_verifier_ciphertext || "")
+      ? await decryptToken(String(oauthState.code_verifier_ciphertext), HMRC_TOKEN_ENCRYPTION_KEY)
+      : "";
+    if (!codeVerifier || await createPkceCodeChallenge(codeVerifier) !== oauthState.code_verifier_hash) {
+      await auditHmrcEvent({
+        accountId: oauthState.account_id,
+        userId: oauthState.user_id,
+        action: "hmrc.oauth_callback",
+        endpoint: "/oauth/token",
+        method: "POST",
+        status: "blocked",
+        errorMessage: "OAuth PKCE verifier missing or invalid",
+      });
+      return Response.redirect(appRedirectUrl("/compliance/hmrc-connection", { hmrc: "pkce_rejected" }), 302);
+    }
+
     const tokenResponse = await fetch(`${HMRC_BASE_URL}/oauth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -61,6 +78,7 @@ Deno.serve(async (req) => {
         client_secret: HMRC_CLIENT_SECRET,
         redirect_uri: HMRC_REDIRECT_URI,
         code,
+        code_verifier: codeVerifier,
       }),
     });
     const tokenJson = await tokenResponse.json().catch(() => ({}));
@@ -81,6 +99,7 @@ Deno.serve(async (req) => {
 
     const tokenRow = await encryptedTokenRow(tokenJson, oauthState.requested_scopes || []);
     const now = new Date().toISOString();
+    const existingConnection = await getExistingConnectionMetadata(oauthState.account_id);
     const { error: upsertError } = await admin.from("hmrc_connections").upsert({
       account_id: oauthState.account_id,
       created_by: oauthState.user_id,
@@ -92,7 +111,7 @@ Deno.serve(async (req) => {
       last_connected_at: now,
       last_refreshed_at: now,
       disconnected_at: null,
-      metadata: { token_type: tokenJson.token_type || "bearer" },
+      metadata: { ...existingConnection, token_type: tokenJson.token_type || "bearer" },
       updated_at: now,
     }, { onConflict: "account_id,environment" });
     if (upsertError) throw upsertError;
@@ -120,3 +139,16 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+async function getExistingConnectionMetadata(accountId: string) {
+  const { data, error } = await admin
+    .from("hmrc_connections")
+    .select("metadata")
+    .eq("account_id", accountId)
+    .eq("environment", HMRC_ENVIRONMENT)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.metadata && typeof data.metadata === "object"
+    ? data.metadata as Record<string, unknown>
+    : {};
+}

@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
       test_tax_year: taxYear,
       test_itsa_status: "MTD Mandated",
       test_data_updated_at: new Date().toISOString(),
-    });
+    }, accountId);
 
     return json(req, {
       status: "success",

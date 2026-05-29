@@ -9,9 +9,12 @@ import {
 } from "../_shared/hmrcEdge.ts";
 import {
   getSandboxProfile,
+  buildPropertyBusinessReadPath,
   HMRC_ACCEPT_HEADERS,
   hmrcRequest,
   requireConnectedHmrcConnection,
+  safeTaxYear,
+  summarizePropertyBusiness,
   writeHmrcReadinessCheck,
 } from "../_shared/hmrcMtdReadOnly.ts";
 
@@ -44,22 +47,21 @@ Deno.serve(async (req) => {
       return json(req, propertyResult("blocked", "Property Business read-only check needs a sandbox NINO and income source ID. Run Business Details first.", summary));
     }
 
-    const taxYear = String(body.taxYear || "2025-26").trim();
+    const taxYear = safeTaxYear(body.taxYear || body.tax_year || profile.testTaxYear || "2026-27");
+    const typeOfBusiness = String(body.typeOfBusiness || body.type_of_business || profile.testBusinessType || "uk-property").trim();
     const response = await hmrcRequest({
       accountId,
       connection,
-      path: `/individuals/business/property/${encodeURIComponent(profile.nino)}/${encodeURIComponent(incomeSourceId)}/periodic-summaries`,
+      path: buildPropertyBusinessReadPath(profile.nino, incomeSourceId, taxYear, typeOfBusiness),
       accept: HMRC_ACCEPT_HEADERS.propertyBusiness,
       action: "hmrc.read_property_business",
       userId: user.id,
-      query: { taxYear },
     });
 
-    const summaries = Array.isArray(response.body.periodicSummaries) ? response.body.periodicSummaries : [];
     const summary = response.ok
-      ? { periodSummaryCount: summaries.length, annualSubmissionFound: Boolean(response.body.annualSubmission), ukPropertyFound: true, foreignPropertyFound: false }
+      ? summarizePropertyBusiness(response.body, taxYear, typeOfBusiness)
       : { safe_code: response.normalized?.safeCode || "hmrc_error" };
-    const status = response.ok && summaries.length === 0 ? "no_data" : response.ok ? "success" : response.status === 404 ? "no_data" : "failed";
+    const status = response.ok ? "success" : response.status === 404 ? "no_data" : "failed";
     await writeHmrcReadinessCheck({
       accountId,
       connectionId: String(connection.id || ""),
@@ -75,7 +77,9 @@ Deno.serve(async (req) => {
       status,
       response.ok
         ? "Property Business read-only sandbox check completed."
-        : response.normalized?.message || "Property Business read-only check failed.",
+        : status === "no_data"
+          ? "HMRC found the sandbox property business, but no read-only property summary exists for this tax year yet."
+          : response.normalized?.message || "Property Business read-only check failed.",
       summary,
       response.status,
       response.normalized?.hmrcCode,

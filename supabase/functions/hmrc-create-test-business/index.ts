@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
       test_business_type: typeOfBusiness,
       test_tax_year: taxYear,
       test_data_updated_at: new Date().toISOString(),
-    });
+    }, accountId);
 
     return json(req, {
       status: "success",

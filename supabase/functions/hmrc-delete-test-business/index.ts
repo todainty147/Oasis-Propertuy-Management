@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
       test_business_id: "",
       test_business_type: "",
       test_data_updated_at: new Date().toISOString(),
-    });
+    }, accountId);
 
     return json(req, {
       status: response.status === 404 ? "no_data" : "success",

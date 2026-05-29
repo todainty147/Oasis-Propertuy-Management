@@ -42,6 +42,7 @@ create table if not exists public.hmrc_oauth_states (
   user_id uuid,
   state_token text not null unique,
   code_verifier_hash text,
+  code_verifier_ciphertext text,
   redirect_uri text not null,
   requested_scopes text[] not null default '{}',
   environment text not null default 'sandbox',
@@ -83,6 +84,9 @@ create index if not exists hmrc_oauth_states_state_token_idx
 create index if not exists hmrc_oauth_states_expiry_idx
   on public.hmrc_oauth_states (expires_at)
   where consumed_at is null;
+
+alter table public.hmrc_oauth_states
+  add column if not exists code_verifier_ciphertext text;
 
 create index if not exists hmrc_api_audit_log_account_created_idx
   on public.hmrc_api_audit_log (account_id, created_at desc);

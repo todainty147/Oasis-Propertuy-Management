@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
 
     const summary = response.ok ? summarizeBusinessDetails(response.body) : { safe_code: response.normalized?.safeCode || "hmrc_error" };
     if (response.ok && summary.firstIncomeSourceId) {
-      await persistDiscoveredIncomeSourceId(connection, String(summary.firstIncomeSourceId));
+      await persistDiscoveredIncomeSourceId(connection, String(summary.firstIncomeSourceId), accountId);
     }
     const status = response.ok ? "success" : response.status === 404 ? "no_data" : "failed";
     await writeHmrcReadinessCheck({

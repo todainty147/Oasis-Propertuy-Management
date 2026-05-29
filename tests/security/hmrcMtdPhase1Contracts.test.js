@@ -25,6 +25,7 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     });
     expect(sql).toContain("access_token_ciphertext");
     expect(sql).toContain("refresh_token_ciphertext");
+    expect(sql).toContain("code_verifier_ciphertext");
     expect(sql).toContain("revoke all on public.account_feature_flags from anon, authenticated");
     expect(sql).toContain("revoke all on public.hmrc_connections from anon, authenticated");
     expect(sql).toContain("grant select (");
@@ -95,8 +96,12 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     const testFunction = read("supabase/functions/hmrc-test-readonly-call/index.ts");
     expect(helper).toContain('"hello"');
     expect(helper).toContain("ensureSandboxProbeScope");
-    expect(page).toContain('["hello", "read:self-assessment"]');
+    expect(page).not.toContain("READ_ONLY_SCOPES");
     expect(startFunction).toContain("ensureSandboxProbeScope(validateHmrcScopes");
+    expect(startFunction).toContain("code_challenge_method");
+    expect(startFunction).toContain("code_verifier_ciphertext");
+    expect(read("supabase/functions/hmrc-oauth-callback/index.ts")).toContain("code_verifier");
+    expect(read("supabase/functions/hmrc-oauth-callback/index.ts")).toContain("createPkceCodeChallenge");
     expect(testFunction).toContain('scopes.includes("hello")');
     expect(testFunction).toContain("needs_reconnect");
     expect(testFunction).toContain('callHmrcJson("/hello/user"');
@@ -120,12 +125,18 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(files).toContain("/individuals/business/details/");
     expect(files).toContain("/list");
     expect(shared).toContain("listOfBusinesses");
+    expect(shared).toContain("typeOfBusiness");
+    expect(shared).not.toContain("text.includes(\"property\")");
     expect(files).toContain("/obligations/details/");
     expect(files).toContain("/income-and-expenditure");
     expect(files).toContain("safeObligationsBusinessType");
     expect(read("supabase/functions/hmrc-read-obligations/index.ts")).toContain("testScenario: null");
     expect(read("supabase/functions/hmrc-run-readonly-verification/index.ts")).toContain("testScenario: null");
-    expect(files).toContain("/individuals/business/property/");
+    expect(shared).toContain("buildPropertyBusinessReadPath");
+    expect(shared).toContain("/individuals/business/property/");
+    expect(shared).toContain("/cumulative/");
+    expect(shared).toContain("/period/");
+    expect(files).toContain("summarizePropertyBusiness");
     expect(shared).toContain("application/vnd.hmrc.2.0+json");
     expect(shared).toContain("application/vnd.hmrc.3.0+json");
     expect(shared).toContain("application/vnd.hmrc.6.0+json");
@@ -157,6 +168,7 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(page).toContain("Sandbox test-data setup");
     expect(page).toContain("Reconnect with test-data scope");
     expect(page).toContain("hasTestDataScope");
+    expect(page).toContain("!canTestData");
     expect(page).toContain("Test-data scope");
     expect(`${files}\n${page}`).not.toMatch(/access_token|refresh_token|HMRC_CLIENT_SECRET|VITE_HMRC/);
   });
@@ -170,6 +182,8 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(page).toContain("Check Obligations");
     expect(page).toContain("Check Property Business");
     expect(page).toContain("Live submission disabled");
+    expect(page).toContain("pattern=\"[A-Za-z]{2}[0-9]{6}[A-Za-z]\"");
+    expect(page).toContain("pattern=\"^20\\\\d{2}-\\\\d{2}$\"");
     expect(read("supabase/functions/_shared/hmrcMtdReadOnly.ts")).toContain("Gov-Test-Scenario");
     expect(service).toContain("hmrc-run-readonly-verification");
     expect(service).toContain("hmrc-read-business-details");

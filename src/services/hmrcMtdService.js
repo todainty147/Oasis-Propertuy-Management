@@ -24,8 +24,10 @@ export async function getHmrcConnectionStatus(accountId) {
 
 export async function startHmrcSandboxOAuth(accountId, requestedScopes = []) {
   assertAccount(accountId);
+  const body = { account_id: accountId };
+  if (requestedScopes.length) body.requested_scopes = requestedScopes;
   const { data, error } = await supabase.functions.invoke("hmrc-start-oauth", {
-    body: { account_id: accountId, requested_scopes: requestedScopes },
+    body,
   });
   if (error) throw safeInvokeError(error, "Could not start HMRC sandbox connection.");
   if (!data?.redirectUrl) throw new Error("HMRC sandbox redirect URL was not returned.");

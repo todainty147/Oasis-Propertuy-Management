@@ -10,7 +10,7 @@ This phase verifies sandbox connectivity against subscribed MTD read-only APIs. 
 
 Business Details runs first because it can confirm the sandbox test NINO and may discover income source IDs used by later checks.
 
-Read-only probes send `Gov-Test-Scenario: STATEFUL` so they can see vendor state created through HMRC sandbox support APIs.
+Business Details and Property Business probes send `Gov-Test-Scenario: STATEFUL` so they can see vendor state created through HMRC sandbox support APIs. Obligations currently omits that header because HMRC rejects the scenario for the income-and-expenditure obligations endpoint.
 
 ## Sandbox Test Data Setup
 
@@ -54,6 +54,7 @@ Never log access tokens, refresh tokens, client secrets or full HMRC responses.
 - `401`: token is invalid or expired. Refresh or reconnect HMRC sandbox.
 - `403`: insufficient scope or API authorisation. Check the sandbox app API subscriptions and reconnect.
 - `404`: no data/no obligations for the sandbox test profile. Treat as non-fatal where appropriate.
+- Property Business `404 MATCHING_RESOURCE_NOT_FOUND`: the property business exists, but HMRC has no retrievable read-only property summary for that tax year. This is expected if only ITSA status and the business source have been created and no property update/summary exists in sandbox state.
 - `400`: missing or invalid sandbox identifier. Check the sandbox NINO.
 - Missing `write:self-assessment`: reconnect through `Reconnect with test-data scope` before using sandbox test-data setup.
 

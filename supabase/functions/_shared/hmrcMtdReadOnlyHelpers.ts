@@ -44,11 +44,11 @@ export function summarizeBusinessDetails(body: Record<string, unknown>) {
       ? body.businesses
       : [];
   const propertyBusinesses = businesses.filter((business) => {
-    const text = JSON.stringify(business).toLowerCase();
-    return text.includes("property");
+    const type = businessType(business);
+    return type.includes("PROPERTY");
   });
-  const ukProperty = propertyBusinesses.filter((business) => JSON.stringify(business).toLowerCase().includes("uk"));
-  const foreignProperty = propertyBusinesses.filter((business) => JSON.stringify(business).toLowerCase().includes("foreign"));
+  const ukProperty = propertyBusinesses.filter((business) => businessType(business).startsWith("UK_PROPERTY"));
+  const foreignProperty = propertyBusinesses.filter((business) => businessType(business).startsWith("FOREIGN_PROPERTY"));
   const incomeSourceIds = businesses
     .map((business) => {
       if (!business || typeof business !== "object") return "";
@@ -63,6 +63,14 @@ export function summarizeBusinessDetails(body: Record<string, unknown>) {
     discoveredIncomeSourceIdsCount: incomeSourceIds.length,
     firstIncomeSourceId: incomeSourceIds[0] || "",
   };
+}
+
+function businessType(business: unknown) {
+  if (!business || typeof business !== "object") return "";
+  return String((business as Record<string, unknown>).typeOfBusiness || "")
+    .trim()
+    .replace(/-/g, "_")
+    .toUpperCase();
 }
 
 export function summarizeObligations(body: Record<string, unknown>) {
@@ -93,6 +101,31 @@ export function taxYearAccountingPeriod(taxYear: string) {
     taxYear: normalized,
     startDate: `${startYear}-04-06`,
     endDate: `${startYear + 1}-04-05`,
+  };
+}
+
+export function isTaxYearFrom2025(taxYear: string) {
+  const normalized = safeTaxYear(taxYear);
+  return Number(normalized.slice(0, 4)) >= 2025;
+}
+
+export function buildPropertyBusinessReadPath(nino: string, businessId: string, taxYear: string, typeOfBusiness = "uk-property") {
+  const scope = typeOfBusiness === "foreign-property" ? "foreign" : "uk";
+  if (isTaxYearFrom2025(taxYear)) {
+    return `/individuals/business/property/${scope}/${encodeURIComponent(nino)}/${encodeURIComponent(businessId)}/cumulative/${encodeURIComponent(taxYear)}`;
+  }
+  return `/individuals/business/property/${encodeURIComponent(nino)}/${encodeURIComponent(businessId)}/period/${encodeURIComponent(taxYear)}`;
+}
+
+export function summarizePropertyBusiness(body: Record<string, unknown>, taxYear: string, typeOfBusiness = "uk-property") {
+  const submissions = Array.isArray(body.submissions) ? body.submissions : [];
+  const hasCumulativeSummary = Boolean(body.ukProperty || body.foreignProperty || body.foreignPropertyFhlEea);
+  return {
+    periodSummaryCount: submissions.length || (hasCumulativeSummary ? 1 : 0),
+    annualSubmissionFound: Boolean(body.annualSubmission),
+    ukPropertyFound: typeOfBusiness !== "foreign-property" && (hasCumulativeSummary || submissions.length > 0),
+    foreignPropertyFound: typeOfBusiness === "foreign-property" && (hasCumulativeSummary || submissions.length > 0),
+    endpointMode: isTaxYearFrom2025(taxYear) ? "cumulative" : "period_list",
   };
 }
 
