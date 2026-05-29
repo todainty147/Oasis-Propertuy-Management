@@ -473,6 +473,16 @@ const bootstrapSteps = [
     file: path.join(supabaseDir, "legal_security_phase3.sql"),
     onErrorStop: true,
   },
+  {
+    label: "Apply Evidence Vault Phase 2 overlay",
+    file: path.join(supabaseDir, "evidence_vault_phase2.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply Evidence Vault Phase 2 fixes overlay",
+    file: path.join(supabaseDir, "evidence_vault_phase2_fixes.sql"),
+    onErrorStop: true,
+  },
 ];
 
 function resolvePsqlCommand() {

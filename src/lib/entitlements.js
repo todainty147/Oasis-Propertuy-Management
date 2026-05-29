@@ -56,6 +56,8 @@ export const ENTITLEMENT_FEATURES = Object.freeze({
   COMPLIANCE_SAFE_PL: "compliance_safe_pl",
   EVIDENCE_VAULT: "evidence_vault",
   EVIDENCE_VAULT_PDF_EXPORT: "evidence_vault_pdf_export",
+  EVIDENCE_VAULT_TENANT_SHARING: "evidence_vault_tenant_sharing",
+  EVIDENCE_VAULT_DISPUTE_PACK: "evidence_vault_dispute_pack",
   MAINTENANCE_DIAGNOSTICS: "maintenance_diagnostics",
   TENANT_APPLICATION_LINKS: "tenant_application_links",
   APPLICANT_PRESCREENING_DASHBOARD: "applicant_prescreening_dashboard",

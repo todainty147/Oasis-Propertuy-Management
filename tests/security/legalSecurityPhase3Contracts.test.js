@@ -17,6 +17,8 @@ describe("Phase 3 legal security contracts", () => {
       "compliance_safe_pl",
       "evidence_vault",
       "evidence_vault_pdf_export",
+      "evidence_vault_tenant_sharing",
+      "evidence_vault_dispute_pack",
       "maintenance_diagnostics",
       "tenant_application_links",
       "applicant_prescreening_dashboard",
@@ -24,6 +26,7 @@ describe("Phase 3 legal security contracts", () => {
 
     expect(routes).toContain("ENTITLEMENT_FEATURES.COMPLIANCE_SAFE");
     expect(routes).toContain("ENTITLEMENT_FEATURES.EVIDENCE_VAULT");
+    expect(routes).toContain("ENTITLEMENT_FEATURES.EVIDENCE_VAULT_DISPUTE_PACK");
     expect(routes).toContain("ENTITLEMENT_FEATURES.TENANT_APPLICATION_LINKS");
     expect(sidebar).toContain('to="/compliance/safe"');
     expect(sidebar).toContain('to="/documents/evidence-vault"');
@@ -91,6 +94,50 @@ describe("Phase 3 legal security contracts", () => {
     expect(service).toContain("report_archived");
     expect(page).toContain("Print / save PDF");
     expect(page).toContain("This report is locked. Editing is disabled to preserve the evidence record.");
+  });
+
+  it("adds tenant sharing and deposit dispute pack overlays without unsafe legal wording", () => {
+    const sql = `${read("supabase/evidence_vault_phase2.sql")}\n${read("supabase/evidence_vault_phase2_fixes.sql")}`;
+    const apply = read("scripts/dbApplyRepoSql.js");
+    const bootstrap = read("scripts/dbBootstrap.js");
+    const service = read("src/services/legalSecurityService.js");
+    const tenantRoutes = read("src/routes/TenantRoutes.jsx");
+    const disputePage = read("src/pages/documents/DepositDisputePacksPage.jsx");
+    const disputePrint = read("src/pages/documents/DepositDisputePackPrintPage.jsx");
+
+    [
+      "inspection_report_shares",
+      "inspection_report_tenant_comments",
+      "deposit_dispute_packs",
+      "deposit_dispute_pack_items",
+      "deposit_dispute_pack_exports",
+      "deposit_dispute_pack_audit_events",
+    ].forEach((table) => expect(sql).toContain(`public.${table}`));
+    expect(sql).toContain("Tenants sign shared inspection reports");
+    expect(sql).toContain('drop policy if exists "Tenants read assigned inspection reports"');
+    expect(sql).toContain("Tenants read shared inspection reports");
+    expect(sql).toContain("Managers manage deposit dispute packs");
+    expect(sql).toContain("deposit_dispute_packs_tenancy_id_fkey");
+    expect(sql).toContain("enforce_deposit_dispute_pack_child_account");
+    expect(sql).toContain("Dispute pack child rows cannot be reassigned to a different pack");
+    expect(sql).toContain("before insert on public.deposit_dispute_pack_exports");
+    expect(sql).toContain("idx_deposit_dispute_pack_audit_events_pack");
+    expect(apply).toContain('"evidence_vault_phase2_fixes.sql"');
+    expect(bootstrap).toContain("evidence_vault_phase2_fixes.sql");
+    expect(service).toContain("shareInspectionReportWithTenant");
+    expect(service).toContain("recordTenantInspectionSignature");
+    expect(service).toContain("createDepositDisputePack");
+    expect(service).toContain("assertDepositDisputePackOwned");
+    expect(service).toContain("updateDepositDisputePackItem");
+    expect(service).toContain("removeDepositDisputePackItem");
+    expect(service).toContain("updateDepositDisputePackStatus");
+    expect(service).toContain("A locked dispute pack can only be archived.");
+    expect(tenantRoutes).toContain('path="evidence-reports"');
+    expect(disputePage).toContain("Deposit Dispute Packs");
+    expect(disputePrint).toContain("organisational evidence bundle");
+
+    const newCopy = `${sql}\n${service}\n${disputePage}\n${disputePrint}`;
+    expect(newCopy).not.toMatch(/bulletproof|court-proof|legally guaranteed|guaranteed win|guaranteed deduction|legally binding pack/i);
   });
 
   it("keeps public application submission consent-based and public without auth shell", () => {
