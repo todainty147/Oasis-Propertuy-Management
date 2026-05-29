@@ -13,11 +13,15 @@ export const metadata: Metadata = buildMetadata({
 const sections = [
   {
     title: "Compliance Safe",
-    body: "Track statutory tenancy documents, safety certificates, deposit evidence and onboarding acknowledgements for review.",
+    body: "Track tenancy documents, safety certificates, deposit evidence and tenant acknowledgements in one organised compliance checklist.",
   },
   {
     title: "Photo Evidence Vault",
-    body: "Create structured check-in, check-out and maintenance evidence records with rooms, notes, photos and signatures.",
+    body: "Create structured check-in and check-out evidence records with room-by-room notes, photos, signatures and downloadable reports.",
+  },
+  {
+    title: "Deposit Dispute Pack",
+    body: "Prepare an organised evidence bundle with inspection reports, photos, tenant responses, deductions and supporting documents.",
   },
   {
     title: "Smart Maintenance Diagnostics",
@@ -53,6 +57,7 @@ export default function PropertyRiskProtectionPage() {
           <h1>Protect your rental portfolio from compliance gaps, deposit disputes and avoidable call-outs</h1>
           <p className="muted" style={{ maxWidth: 820, marginTop: "1.25rem" }}>
             Tenaqo helps landlords and property managers keep the records, evidence and workflows that protect rental income — from onboarding documents and check-in reports to maintenance diagnostics and applicant pre-screening.
+            Tenaqo helps landlords keep a clearer record of what has been logged, what needs tenant acknowledgement and what may expire soon — without pretending to replace legal advice.
           </p>
           <div className="button-row">
             <Link className="button button-primary" href="/pricing">Claim Founder Access</Link>
@@ -86,7 +91,7 @@ export default function PropertyRiskProtectionPage() {
 
       <section className="section section-tight-top">
         <div className="container grid grid-3">
-          {["Compliance evidence", "Deposit defence", "Maintenance triage"].map((title) => (
+          {["Compliance evidence", "Deposit dispute preparation", "Maintenance triage"].map((title) => (
             <article className="card" key={title}>
               <h2>{title}</h2>
               <p className="muted">Organise the operational records landlords need to review, reduce risk and keep decisions traceable.</p>

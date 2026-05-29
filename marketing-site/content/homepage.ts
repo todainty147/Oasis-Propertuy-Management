@@ -157,7 +157,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
         "No guaranteed income claims. No payment collection rail today. Just visibility, workflows, and the operational clarity that keeps a rental portfolio running without constant intervention.",
       highlights: [
         { label: "Compliance evidence", href: "/features/compliance" },
-        { label: "Deposit defence", href: "/property-risk-protection-software" },
+        { label: "Deposit dispute preparation", href: "/property-risk-protection-software" },
         { label: "Maintenance triage", href: "/features/maintenance-management" },
         { label: "Tenant onboarding", href: "/features/tenant-management" },
         { label: "Property records", href: "/features/security-audit" },
@@ -178,7 +178,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       body: "Tenaqo gives landlords the operating layer usually missing between spreadsheets, inboxes, tenants, contractors, and finance records.",
       badges: [
         { label: "Compliance evidence" },
-        { label: "Deposit defence" },
+        { label: "Deposit dispute preparation" },
         { label: "Maintenance triage" },
         { label: "Tenant onboarding" },
         { label: "Property records" },

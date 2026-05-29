@@ -1,5 +1,22 @@
 # Evidence Vault Phase 2 Rollout
 
+## Operator Enablement
+
+Tenant sharing and deposit dispute packs are gated by account-level feature flags, not by landlord role alone. A landlord may be the account owner and still see tenant sharing disabled until Tenaqo operator/support enablement is complete.
+
+Do not ask landlords to run SQL. During rollout, a root/operator or authorised support workflow should enable the flags for the target account and record the change according to the normal release/support process.
+
+```sql
+insert into public.account_feature_flags (account_id, feature_key, enabled)
+values
+  ('<account-id>', 'evidence_vault_tenant_sharing', true),
+  ('<account-id>', 'evidence_vault_dispute_pack', true)
+on conflict (account_id, feature_key)
+do update set enabled = excluded.enabled;
+```
+
+After enablement, ask the landlord to refresh the app or switch accounts once so the entitlement state reloads.
+
 ## Tenant Sharing Checklist
 
 - Enable `evidence_vault_tenant_sharing` for the staging account.
@@ -27,6 +44,7 @@
 - Archive a pack and confirm item edits are blocked.
 - Generate the dispute pack PDF with browser print.
 - Confirm the disclaimer is present.
+- Confirm the PDF includes summary, timeline, deduction schedule, evidence index, check-in/check-out comparison where available, signatures/responses and grouped photos.
 - Confirm tenant and contractor accounts cannot access landlord packs.
 
 ## Regression Checklist

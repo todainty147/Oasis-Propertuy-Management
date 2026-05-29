@@ -5,15 +5,26 @@ import { normalizeDisputePackItemType } from "../lib/depositDisputePack";
 const COMPLIANCE_SELECT = [
   "id", "account_id", "property_id", "tenant_id", "tenancy_id",
   "requirement_id", "status", "due_date", "completed_at", "expires_at",
-  "evidence_document_id", "acknowledged_by_tenant_at", "notes",
+  "served_at", "evidence_document_id", "evidence_source_type", "evidence_source_id",
+  "reminder_days_before", "last_reminder_sent_at", "marked_not_applicable_at", "marked_not_applicable_by",
+  "acknowledged_by_tenant_at", "needs_review_reason", "notes",
   "created_by", "created_at", "updated_at",
-  "compliance_requirements(label, requirement_key, expiry_tracking, acknowledgement_required, compliance_templates(country_code, jurisdiction, name))",
+  "compliance_requirements(label, description, requirement_key, requirement_type, expiry_tracking, acknowledgement_required, compliance_templates(country_code, jurisdiction, name))",
+  "compliance_item_acknowledgements(id, tenant_id, acknowledgement_status, message, acknowledged_at, comment, created_at, updated_at)",
 ].join(", ");
 
 const COMPLIANCE_TEMPLATE_SELECT = [
   "id", "country_code", "jurisdiction", "template_key", "name", "description",
-  "compliance_requirements(id, requirement_key, label, default_due_offset_days, sort_order, active)",
+  "compliance_requirements(id, requirement_key, label, description, requirement_type, expiry_tracking, acknowledgement_required, default_due_offset_days, sort_order, active)",
 ].join(", ");
+
+const COMPLIANCE_ACK_SELECT = [
+  "id", "account_id", "compliance_item_id", "tenant_id", "acknowledged_by",
+  "acknowledgement_status", "message", "acknowledged_at", "comment", "created_at", "updated_at",
+  "tenancy_compliance_items(id, account_id, property_id, tenant_id, status, due_date, served_at, expires_at, evidence_document_id, evidence_source_type, evidence_source_id, notes, compliance_requirements(label, description, requirement_key, requirement_type, compliance_templates(country_code, jurisdiction, name)))",
+].join(", ");
+
+const COMPLIANCE_EVENT_SELECT = "id, account_id, compliance_item_id, user_id, event_type, metadata, created_at";
 
 const INSPECTION_SELECT = [
   "id", "account_id", "property_id", "tenant_id", "inspection_type", "status",
@@ -33,7 +44,7 @@ const INSPECTION_AUDIT_SELECT = "id, account_id, inspection_report_id, user_id, 
 const TENANT_SHARE_SELECT = [
   "id", "account_id", "inspection_report_id", "tenant_id", "share_status", "message",
   "response_due_at", "shared_at", "viewed_at", "responded_at", "revoked_at", "created_at", "updated_at",
-  "inspection_reports(id, account_id, property_id, tenant_id, inspection_type, status, title, inspection_date, locked_at, created_at, updated_at, inspection_rooms(id, room_name, sort_order, inspection_evidence_items(id, item_label, condition_rating, notes, sort_order, inspection_photos(id, document_id, storage_path, caption, captured_at))), inspection_signatures(id, signer_type, signer_role, signer_name, signed_at, signed_from, tenant_id, share_id, signature_status, metadata))",
+  "inspection_reports(id, account_id, property_id, tenant_id, inspection_type, status, title, inspection_date, locked_at, created_at, updated_at, inspection_rooms(id, room_name, sort_order, inspection_evidence_items(id, item_label, condition_rating, notes, sort_order, inspection_photos(id, document_id, caption, captured_at))), inspection_signatures(id, signer_type, signer_role, signer_name, signed_at, signed_from, tenant_id, share_id, signature_status, metadata))",
   "inspection_report_tenant_comments(id, evidence_item_id, comment_type, comment, created_at, updated_at)",
 ].join(", ");
 
@@ -81,6 +92,56 @@ export async function listComplianceSafeItems(accountId, filters = {}) {
     throw error;
   }
   return data || [];
+}
+
+export async function getComplianceSafeItemDetails(accountId, itemId) {
+  if (!accountId || !itemId) return null;
+  const { data, error } = await supabase
+    .from("tenancy_compliance_items")
+    .select(COMPLIANCE_SELECT)
+    .eq("account_id", accountId)
+    .eq("id", itemId)
+    .single();
+  if (error) {
+    if (isMissingBackendObject(error)) return null;
+    throw error;
+  }
+  return data;
+}
+
+export async function listComplianceEvidenceEvents(accountId, itemId) {
+  if (!accountId || !itemId) return [];
+  const { data, error } = await supabase
+    .from("compliance_evidence_events")
+    .select(COMPLIANCE_EVENT_SELECT)
+    .eq("account_id", accountId)
+    .eq("compliance_item_id", itemId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) {
+    if (isMissingBackendObject(error)) return [];
+    throw error;
+  }
+  return data || [];
+}
+
+async function writeComplianceEvidenceEvent(accountId, itemId, eventType, metadata = {}) {
+  if (!accountId || !itemId || !eventType) return null;
+  const { data, error } = await supabase
+    .from("compliance_evidence_events")
+    .insert({
+      account_id: accountId,
+      compliance_item_id: itemId,
+      event_type: eventType,
+      metadata,
+    })
+    .select(COMPLIANCE_EVENT_SELECT)
+    .single();
+  if (error) {
+    if (isMissingBackendObject(error)) return null;
+    throw error;
+  }
+  return data;
 }
 
 export async function listComplianceTemplates() {
@@ -148,20 +209,37 @@ export async function createComplianceChecklistFromTemplate(accountId, payload =
     .insert(rows)
     .select(COMPLIANCE_SELECT);
   if (error) throw error;
+  await Promise.all((data || []).map((item) =>
+    writeComplianceEvidenceEvent(accountId, item.id, "checklist_created", {
+      template_id: payload.templateId,
+      property_id: payload.propertyId,
+      tenant_id: payload.tenantId || null,
+    }).catch(() => null),
+  ));
   return data || [];
 }
 
 export async function updateComplianceSafeItem(id, accountId, patch = {}) {
   if (!id) throw new Error("Missing compliance item id");
   if (!accountId) throw new Error("Missing accountId");
-  const nextPatch = {
-    status: patch.status,
-    notes: patch.notes,
-  };
+  const nextPatch = {};
+  if (Object.prototype.hasOwnProperty.call(patch, "status")) nextPatch.status = patch.status === "" ? null : patch.status;
+  if (Object.prototype.hasOwnProperty.call(patch, "notes")) nextPatch.notes = patch.notes || null;
   if (Object.prototype.hasOwnProperty.call(patch, "expires_at")) nextPatch.expires_at = patch.expires_at || null;
   if (Object.prototype.hasOwnProperty.call(patch, "evidence_document_id")) nextPatch.evidence_document_id = patch.evidence_document_id || null;
+  if (Object.prototype.hasOwnProperty.call(patch, "evidence_source_type")) nextPatch.evidence_source_type = patch.evidence_source_type || null;
+  if (Object.prototype.hasOwnProperty.call(patch, "evidence_source_id")) nextPatch.evidence_source_id = patch.evidence_source_id || null;
+  if (Object.prototype.hasOwnProperty.call(patch, "served_at")) nextPatch.served_at = patch.served_at || null;
+  if (Object.prototype.hasOwnProperty.call(patch, "reminder_days_before")) nextPatch.reminder_days_before = patch.reminder_days_before === "" ? null : Number(patch.reminder_days_before);
+  if (Object.prototype.hasOwnProperty.call(patch, "needs_review_reason")) nextPatch.needs_review_reason = patch.needs_review_reason || null;
+  if (Object.prototype.hasOwnProperty.call(patch, "marked_not_applicable_at")) nextPatch.marked_not_applicable_at = patch.marked_not_applicable_at || null;
+  if (Object.prototype.hasOwnProperty.call(patch, "marked_not_applicable_by")) nextPatch.marked_not_applicable_by = patch.marked_not_applicable_by || null;
   Object.keys(nextPatch).forEach((key) => nextPatch[key] === undefined && delete nextPatch[key]);
   if (["logged", "acknowledged"].includes(nextPatch.status)) nextPatch.completed_at = new Date().toISOString();
+  if (nextPatch.status === "not_applicable") {
+    nextPatch.marked_not_applicable_at = nextPatch.marked_not_applicable_at || new Date().toISOString();
+    nextPatch.marked_not_applicable_by = nextPatch.marked_not_applicable_by || await getCurrentUserId();
+  }
 
   const { data, error } = await supabase
     .from("tenancy_compliance_items")
@@ -171,6 +249,150 @@ export async function updateComplianceSafeItem(id, accountId, patch = {}) {
     .select(COMPLIANCE_SELECT)
     .single();
   if (error) throw error;
+  const auditEvents = [];
+  if (patch.eventType) {
+    auditEvents.push([patch.eventType, patch.eventMetadata || {}]);
+  } else {
+    if (nextPatch.evidence_document_id) auditEvents.push(["document_attached", { document_id: nextPatch.evidence_document_id }]);
+    if (nextPatch.expires_at) auditEvents.push(["expiry_date_set", { expires_at: nextPatch.expires_at }]);
+    if (nextPatch.status === "not_applicable") auditEvents.push(["item_marked_not_applicable", {}]);
+    if (nextPatch.status === "needs_review") auditEvents.push(["item_marked_needs_review", { reason: nextPatch.needs_review_reason || null }]);
+    if (nextPatch.status === "logged") auditEvents.push(["item_logged", {}]);
+  }
+  await Promise.all(auditEvents.map(([eventType, metadata]) =>
+    writeComplianceEvidenceEvent(accountId, id, eventType, metadata).catch(() => null),
+  ));
+  return data;
+}
+
+export async function attachComplianceDocument(accountId, itemId, documentId) {
+  if (!documentId) throw new Error("Choose a document to attach.");
+  return updateComplianceSafeItem(itemId, accountId, {
+    status: "logged",
+    evidence_document_id: documentId,
+    evidence_source_type: "document",
+    evidence_source_id: documentId,
+    eventType: "document_attached",
+    eventMetadata: { document_id: documentId },
+  });
+}
+
+export async function linkComplianceInspectionReport(accountId, itemId, reportId) {
+  if (!reportId) throw new Error("Choose an inspection report to link.");
+  return updateComplianceSafeItem(itemId, accountId, {
+    status: "logged",
+    evidence_source_type: "inspection_report",
+    evidence_source_id: reportId,
+    eventType: "document_attached",
+    eventMetadata: { evidence_source_type: "inspection_report", evidence_source_id: reportId },
+  });
+}
+
+export async function requestComplianceTenantAcknowledgement(accountId, itemId, payload = {}) {
+  if (!accountId || !itemId) throw new Error("Missing compliance item.");
+  if (!payload.tenantId) throw new Error("Link a tenant before requesting acknowledgement.");
+  const { data, error } = await supabase
+    .from("compliance_item_acknowledgements")
+    .insert({
+      account_id: accountId,
+      compliance_item_id: itemId,
+      tenant_id: payload.tenantId,
+      message: payload.message || null,
+      acknowledgement_status: "pending",
+    })
+    .select(COMPLIANCE_ACK_SELECT)
+    .single();
+  if (error) throw error;
+  await writeComplianceEvidenceEvent(accountId, itemId, "acknowledgement_requested", {
+    tenant_id: payload.tenantId,
+    acknowledgement_id: data.id,
+  }).catch(() => null);
+  return data;
+}
+
+export async function revokeComplianceTenantAcknowledgement(accountId, acknowledgementId) {
+  if (!accountId || !acknowledgementId) throw new Error("Missing acknowledgement.");
+  const { data, error } = await supabase
+    .from("compliance_item_acknowledgements")
+    .update({ acknowledgement_status: "revoked" })
+    .eq("account_id", accountId)
+    .eq("id", acknowledgementId)
+    .select(COMPLIANCE_ACK_SELECT)
+    .single();
+  if (error) throw error;
+  const itemId = data?.tenancy_compliance_items?.id || data?.compliance_item_id;
+  if (itemId) {
+    await writeComplianceEvidenceEvent(accountId, itemId, "acknowledgement_revoked", {
+      acknowledgement_id: acknowledgementId,
+      tenant_id: data.tenant_id || null,
+    }).catch(() => null);
+  }
+  return data;
+}
+
+export async function listTenantComplianceAcknowledgements(accountId) {
+  if (!accountId) return [];
+  const { data, error } = await supabase
+    .from("compliance_item_acknowledgements")
+    .select(COMPLIANCE_ACK_SELECT)
+    .eq("account_id", accountId)
+    .neq("acknowledgement_status", "revoked")
+    .order("created_at", { ascending: false });
+  if (error) {
+    if (isMissingBackendObject(error)) return [];
+    throw error;
+  }
+  return data || [];
+}
+
+export async function getTenantComplianceAcknowledgement(accountId, acknowledgementId) {
+  if (!accountId || !acknowledgementId) return null;
+  const { data, error } = await supabase
+    .from("compliance_item_acknowledgements")
+    .select(COMPLIANCE_ACK_SELECT)
+    .eq("account_id", accountId)
+    .eq("id", acknowledgementId)
+    .neq("acknowledgement_status", "revoked")
+    .single();
+  if (error) {
+    if (isMissingBackendObject(error)) return null;
+    throw error;
+  }
+  return data;
+}
+
+export async function markTenantComplianceAcknowledgementViewed(accountId, acknowledgementId) {
+  if (!accountId || !acknowledgementId) return null;
+  const { data, error } = await supabase
+    .from("compliance_item_acknowledgements")
+    .update({ acknowledgement_status: "viewed" })
+    .eq("account_id", accountId)
+    .eq("id", acknowledgementId)
+    .in("acknowledgement_status", ["pending"])
+    .select(COMPLIANCE_ACK_SELECT)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function respondToComplianceAcknowledgement(accountId, acknowledgementId, payload = {}) {
+  if (!accountId || !acknowledgementId) throw new Error("Missing acknowledgement.");
+  const status = payload.disputed ? "disputed" : "acknowledged";
+  const { data, error } = await supabase
+    .from("compliance_item_acknowledgements")
+    .update({
+      acknowledgement_status: status,
+      comment: payload.comment || null,
+      acknowledged_at: new Date().toISOString(),
+    })
+    .eq("account_id", accountId)
+    .eq("id", acknowledgementId)
+    .select(COMPLIANCE_ACK_SELECT)
+    .single();
+  if (error) throw error;
+  // The compliance_safe_phase2 SQL trigger applies the item status update and
+  // audit event in the database, so tenant clients never need direct write
+  // access to landlord-controlled compliance rows.
   return data;
 }
 
@@ -554,6 +776,7 @@ export async function listTenantInspectionReportShares(accountId) {
     .select(TENANT_SHARE_SELECT)
     .eq("account_id", accountId)
     .is("revoked_at", null)
+    .not("share_status", "in", "(revoked,expired)")
     .order("shared_at", { ascending: false });
   if (error) {
     if (isMissingBackendObject(error)) return [];
@@ -569,6 +792,8 @@ export async function getTenantInspectionReportShare(accountId, shareId) {
     .select(TENANT_SHARE_SELECT)
     .eq("account_id", accountId)
     .eq("id", shareId)
+    .is("revoked_at", null)
+    .not("share_status", "in", "(revoked,expired)")
     .single();
   if (error) {
     if (isMissingBackendObject(error)) return null;
@@ -585,6 +810,8 @@ export async function markTenantInspectionReportViewed(accountId, shareId) {
     .select("id, share_status, viewed_at, inspection_report_id")
     .eq("account_id", accountId)
     .eq("id", shareId)
+    .is("revoked_at", null)
+    .not("share_status", "in", "(revoked,expired)")
     .single();
   if (currentError) throw currentError;
   if (current.viewed_at) return current;
@@ -593,6 +820,8 @@ export async function markTenantInspectionReportViewed(accountId, shareId) {
     .update({ viewed_at: now, share_status: current.share_status === "shared" ? "viewed" : current.share_status })
     .eq("account_id", accountId)
     .eq("id", shareId)
+    .is("revoked_at", null)
+    .not("share_status", "in", "(revoked,expired)")
     .select("id, share_status, viewed_at, inspection_report_id")
     .single();
   if (error) throw error;
@@ -610,6 +839,8 @@ export async function addTenantInspectionReportComment(accountId, shareId, paylo
     .select("id, account_id, inspection_report_id, tenant_id, share_status")
     .eq("account_id", accountId)
     .eq("id", shareId)
+    .is("revoked_at", null)
+    .not("share_status", "in", "(revoked,expired)")
     .single();
   if (shareError) throw shareError;
   const commentType = ["general", "agree", "dispute", "clarification"].includes(payload.comment_type) ? payload.comment_type : "general";
@@ -628,11 +859,14 @@ export async function addTenantInspectionReportComment(accountId, shareId, paylo
     .single();
   if (error) throw error;
   if (commentType === "dispute") {
-    await supabase
+    const { error: shareUpdateError } = await supabase
       .from("inspection_report_shares")
       .update({ share_status: "tenant_disputed", responded_at: new Date().toISOString() })
       .eq("account_id", accountId)
-      .eq("id", share.id);
+      .eq("id", share.id)
+      .is("revoked_at", null)
+      .not("share_status", "in", "(revoked,expired)");
+    if (shareUpdateError) throw shareUpdateError;
   }
   await writeInspectionAuditEvent(accountId, share.inspection_report_id, commentType === "dispute" ? "tenant_disputed_report" : "tenant_commented_on_report", {
     comment_type: commentType,
@@ -651,8 +885,20 @@ export async function recordTenantInspectionSignature(accountId, shareId, payloa
     .select("id, account_id, inspection_report_id, tenant_id, share_status, inspection_report_tenant_comments(comment_type)")
     .eq("account_id", accountId)
     .eq("id", shareId)
+    .is("revoked_at", null)
+    .not("share_status", "in", "(revoked,expired)")
     .single();
   if (shareError) throw shareError;
+  const { data: existingSignature, error: existingSignatureError } = await supabase
+    .from("inspection_signatures")
+    .select("id")
+    .eq("account_id", accountId)
+    .eq("share_id", share.id)
+    .eq("tenant_id", share.tenant_id)
+    .eq("signer_role", "tenant")
+    .maybeSingle();
+  if (existingSignatureError) throw existingSignatureError;
+  if (existingSignature) throw new Error("This inspection report has already been signed from the tenant portal.");
   const hasDispute = (share.inspection_report_tenant_comments || []).some((comment) => comment.comment_type === "dispute");
   const { data, error } = await supabase
     .from("inspection_signatures")
@@ -671,11 +917,14 @@ export async function recordTenantInspectionSignature(accountId, shareId, payloa
     .single();
   if (error) throw error;
   const nextStatus = hasDispute ? "tenant_disputed" : "tenant_signed";
-  await supabase
+  const { error: shareUpdateError } = await supabase
     .from("inspection_report_shares")
     .update({ share_status: nextStatus, responded_at: new Date().toISOString() })
     .eq("account_id", accountId)
-    .eq("id", share.id);
+    .eq("id", share.id)
+    .is("revoked_at", null)
+    .not("share_status", "in", "(revoked,expired)");
+  if (shareUpdateError) throw shareUpdateError;
   await writeInspectionAuditEvent(accountId, share.inspection_report_id, hasDispute ? "tenant_disputed_report" : "tenant_signed_report", {
     tenant_id: share.tenant_id,
   });
@@ -847,7 +1096,7 @@ export async function addDepositDisputePackItem(accountId, packId, payload = {})
     .select("id, item_type, title, description, claimed_amount, evidence_reference_type, evidence_reference_id, sort_order, created_at, updated_at")
     .single();
   if (error) throw error;
-  await writeDepositDisputePackAuditEvent(accountId, packId, "pack_item_added", {
+  await writeDepositDisputePackAuditEvent(accountId, packId, itemType === "deduction" ? "deduction_added" : "evidence_added", {
     item_type: itemType,
     has_evidence_reference: Boolean(payload.evidenceReferenceId || payload.evidence_reference_id),
   });
@@ -974,7 +1223,7 @@ export async function recordDepositDisputePackExport(accountId, packId, payload 
       .eq("id", packId);
     if (updateError) throw updateError;
   }
-  await writeDepositDisputePackAuditEvent(accountId, packId, "pack_export_generated", {
+  await writeDepositDisputePackAuditEvent(accountId, packId, "pack_exported", {
     export_type: payload.exportType || "pdf",
   });
   return data;

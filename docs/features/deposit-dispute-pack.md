@@ -51,6 +51,9 @@ The browser-printable PDF includes:
 - Timeline
 - Deduction schedule
 - Evidence index
+- Check-in / check-out comparison where report references are available
+- Signatures and tenant response
+- Photo groups from referenced inspection reports
 - Supporting documents and inspection report references
 - Safe disclaimer
 

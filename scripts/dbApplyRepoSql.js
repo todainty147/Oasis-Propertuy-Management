@@ -149,6 +149,7 @@ const OVERLAY_SEQUENCE = [
   "supabase_linter_security_hardening.sql",
   "tax_tools_phase2.sql",
   "legal_security_phase3.sql",
+  "compliance_safe_phase2.sql",
   "evidence_vault_phase2.sql",
   "evidence_vault_phase2_fixes.sql",
   "hmrc_mtd_phase1.sql",

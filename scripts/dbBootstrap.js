@@ -474,6 +474,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply Compliance Safe Phase 2 overlay",
+    file: path.join(supabaseDir, "compliance_safe_phase2.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply Evidence Vault Phase 2 overlay",
     file: path.join(supabaseDir, "evidence_vault_phase2.sql"),
     onErrorStop: true,

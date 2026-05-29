@@ -252,7 +252,7 @@ export default function EvidenceVaultPrintPage({ properties = [], tenants = [] }
             </section>
 
             <footer className="mt-8 border-t border-slate-300 pt-4 text-xs leading-5 text-slate-600">
-              This report is an organisational evidence record created in Tenaqo. It does not replace legal advice.
+              This report is an organisational evidence record created in Tenaqo. It does not guarantee the outcome of any deposit dispute and does not replace legal advice.
             </footer>
           </article>
         ) : null}

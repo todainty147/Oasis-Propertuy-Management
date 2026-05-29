@@ -6,19 +6,98 @@ import {
   buildDisputeTimeline,
   buildEvidenceIndex,
   calculateDeductionTotal,
+  compareInspectionReports,
   formatDisputePackMoney,
 } from "../../lib/depositDisputePack";
 import {
+  formatInspectionType,
+  getConditionRatingLabel,
+  sortBySortOrder,
+} from "../../lib/evidenceVault";
+import { getDocumentPreviewUrl } from "../../services/documentService";
+import {
   getDepositDisputePackDetails,
+  getInspectionReportDetails,
   listInspectionReports,
   recordDepositDisputePackExport,
 } from "../../services/legalSecurityService";
+
+function getReferencedReportIds(pack) {
+  const ids = new Set();
+  for (const item of pack?.deposit_dispute_pack_items || []) {
+    const type = item.evidence_reference_type || item.item_type;
+    if (item.evidence_reference_id && ["check_in_report", "check_out_report", "inspection_report"].includes(type)) {
+      ids.add(item.evidence_reference_id);
+    }
+  }
+  return [...ids];
+}
+
+function findReferencedReport(pack, reports, itemType, inspectionType) {
+  const referencedId = (pack?.deposit_dispute_pack_items || []).find((item) =>
+    item.evidence_reference_id && (item.item_type === itemType || item.evidence_reference_type === itemType)
+  )?.evidence_reference_id;
+  return reports.find((report) => report.id === referencedId) || reports.find((report) => report.inspection_type === inspectionType) || null;
+}
+
+function collectReportPhotos(reports) {
+  return reports.flatMap((report) =>
+    sortBySortOrder(report.inspection_rooms || []).flatMap((room) =>
+      sortBySortOrder(room.inspection_evidence_items || []).flatMap((item) =>
+        (item.inspection_photos || []).map((photo) => ({
+          ...photo,
+          report,
+          roomName: room.room_name,
+          itemLabel: item.item_label,
+        }))
+      )
+    )
+  );
+}
+
+function DisputePackPhoto({ photo, accountId }) {
+  const [url, setUrl] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!photo?.document_id) return () => { cancelled = true; };
+    getDocumentPreviewUrl({
+      documentId: photo.document_id,
+      accountId,
+      propertyId: photo.report?.property_id || null,
+      tenantId: photo.report?.tenant_id || null,
+      scope: photo.report?.tenant_id ? "shared" : "property",
+      visibility: photo.report?.tenant_id ? "tenant" : "staff",
+    })
+      .then((signedUrl) => {
+        if (!cancelled) setUrl(signedUrl);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [accountId, photo?.document_id, photo.report?.property_id, photo.report?.tenant_id]);
+
+  return (
+    <figure className="break-inside-avoid overflow-hidden rounded-lg border border-slate-300">
+      {url ? (
+        <img src={url} alt={photo.caption || `${photo.roomName} ${photo.itemLabel}`} className="h-40 w-full object-cover" />
+      ) : (
+        <div className="flex h-40 items-center justify-center bg-slate-100 text-xs text-slate-500">Photo preview unavailable</div>
+      )}
+      <figcaption className="space-y-1 p-3 text-xs text-slate-600">
+        <p className="font-semibold text-slate-900">{photo.roomName} · {photo.itemLabel}</p>
+        <p>{photo.caption || "No caption recorded"}</p>
+        <p>{photo.captured_at ? new Date(photo.captured_at).toLocaleString() : "Timestamp not recorded"}</p>
+      </figcaption>
+    </figure>
+  );
+}
 
 export default function DepositDisputePackPrintPage({ properties = [], tenants = [] }) {
   const { packId } = useParams();
   const { activeAccountId } = useAccount();
   const [pack, setPack] = useState(null);
   const [reports, setReports] = useState([]);
+  const [referencedReports, setReferencedReports] = useState([]);
   const [error, setError] = useState("");
   const [recordingExport, setRecordingExport] = useState(false);
 
@@ -37,8 +116,15 @@ export default function DepositDisputePackPrintPage({ properties = [], tenants =
           ? await listInspectionReports(activeAccountId, { propertyId: nextPack.property_id })
           : [];
         if (cancelled) return;
+        const nextReferencedReports = await Promise.all(
+          getReferencedReportIds(nextPack).map((reportId) =>
+            getInspectionReportDetails(activeAccountId, reportId).catch(() => null)
+          )
+        );
+        if (cancelled) return;
         setPack(nextPack);
         setReports(nextReports);
+        setReferencedReports(nextReferencedReports.filter(Boolean));
       } catch (err) {
         if (!cancelled) setError(err?.message || "Could not load dispute pack.");
       }
@@ -59,6 +145,18 @@ export default function DepositDisputePackPrintPage({ properties = [], tenants =
   const timeline = buildDisputeTimeline(pack || {}, reports);
   const property = propertyById[pack?.property_id];
   const tenant = tenantById[pack?.tenant_id];
+  const checkInReport = findReferencedReport(pack, referencedReports, "check_in_report", "check_in");
+  const checkOutReport = findReferencedReport(pack, referencedReports, "check_out_report", "check_out");
+  const comparisonRows = checkInReport && checkOutReport ? compareInspectionReports(checkInReport, checkOutReport) : [];
+  const reportPhotos = collectReportPhotos(referencedReports);
+  const signatures = referencedReports.flatMap((report) =>
+    (report.inspection_signatures || []).map((signature) => ({ ...signature, report }))
+  );
+  const tenantResponses = referencedReports.flatMap((report) =>
+    (report.inspection_report_shares || []).flatMap((share) =>
+      (share.inspection_report_tenant_comments || []).map((comment) => ({ ...comment, share, report }))
+    )
+  );
 
   function handlePrint() {
     window.print();
@@ -114,14 +212,14 @@ export default function DepositDisputePackPrintPage({ properties = [], tenants =
               <h1 className="mt-3 text-4xl font-bold tracking-tight">Deposit Dispute Pack</h1>
               <p className="mt-2 text-lg font-semibold">{pack.title}</p>
               <p className="mt-2 max-w-2xl text-sm text-slate-600">
-                This pack is an organisational evidence bundle prepared in Tenaqo. It does not guarantee the outcome of any deposit dispute and does not replace legal advice.
+                This pack is an organisational evidence record created in Tenaqo. It does not guarantee the outcome of any deposit dispute and does not replace legal advice.
               </p>
             </section>
 
             <section className="print-section mt-6 grid gap-4 border-b border-slate-300 pb-6 text-sm sm:grid-cols-2">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Property</p>
-                <p className="mt-1 font-semibold">{property?.address || property?.name || pack.property_id}</p>
+                <p className="mt-1 font-semibold">{property?.address || property?.name || "Property not loaded"}</p>
               </div>
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Tenant</p>
@@ -210,6 +308,82 @@ export default function DepositDisputePackPrintPage({ properties = [], tenants =
             </section>
 
             <section className="print-section mt-6">
+              <h2 className="text-lg font-bold">Check-in / check-out comparison</h2>
+              {comparisonRows.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-600">
+                  Add check-in and check-out inspection report references to include a room-by-room comparison.
+                </p>
+              ) : (
+                <table className="mt-3 w-full border-collapse text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-300">
+                      <th className="py-2 pr-2">Room</th>
+                      <th className="py-2 pr-2">Item</th>
+                      <th className="py-2 pr-2">Check-in</th>
+                      <th className="py-2 pr-2">Check-out</th>
+                      <th className="py-2 pr-2">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {comparisonRows.map((row) => (
+                      <tr key={`${row.roomName}-${row.itemLabel}`} className="border-b border-slate-200 align-top">
+                        <td className="py-2 pr-2 font-semibold">{row.roomName}</td>
+                        <td className="py-2 pr-2">{row.itemLabel}</td>
+                        <td className="py-2 pr-2">{row.checkInCondition ? getConditionRatingLabel(row.checkInCondition) : "Not recorded"}</td>
+                        <td className="py-2 pr-2">{row.checkOutCondition ? getConditionRatingLabel(row.checkOutCondition) : "Not recorded"}</td>
+                        <td className="py-2 pr-2">
+                          {[row.checkInNotes && `In: ${row.checkInNotes}`, row.checkOutNotes && `Out: ${row.checkOutNotes}`]
+                            .filter(Boolean)
+                            .join(" · ") || "No notes"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+
+            <section className="print-section mt-6">
+              <h2 className="text-lg font-bold">Signatures and tenant response</h2>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {signatures.length === 0 ? <p className="text-sm text-slate-600">No inspection signatures recorded.</p> : null}
+                {signatures.map((signature) => (
+                  <div key={signature.id} className="rounded-lg border border-slate-300 p-3 text-sm">
+                    <p className="font-semibold">{signature.signer_name}</p>
+                    <p className="capitalize text-slate-600">
+                      {signature.signer_role || signature.signer_type} · {signature.signed_from === "tenant_portal" ? "Tenant portal" : "Landlord portal"}
+                    </p>
+                    <p className="text-slate-600">{signature.signed_at ? new Date(signature.signed_at).toLocaleString() : "Signed timestamp not recorded"}</p>
+                    <p className="text-xs text-slate-500">{signature.report?.title || formatInspectionType(signature.report?.inspection_type)}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 space-y-3">
+                {tenantResponses.length === 0 ? <p className="text-sm text-slate-600">No tenant comments or disputes recorded.</p> : null}
+                {tenantResponses.map((comment) => (
+                  <div key={comment.id} className="rounded-lg border border-slate-300 p-3 text-sm">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{String(comment.comment_type || "comment").replace(/_/g, " ")}</p>
+                    <p className="mt-1 whitespace-pre-wrap text-slate-700">{comment.comment}</p>
+                    <p className="mt-2 text-xs text-slate-500">{comment.created_at ? new Date(comment.created_at).toLocaleString() : "Timestamp not recorded"}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="print-section mt-6">
+              <h2 className="text-lg font-bold">Photos</h2>
+              {reportPhotos.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-600">No referenced inspection photos found for this pack.</p>
+              ) : (
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                  {reportPhotos.map((photo) => (
+                    <DisputePackPhoto key={photo.id} photo={photo} accountId={activeAccountId} />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="print-section mt-6">
               <h2 className="text-lg font-bold">Supporting documents and inspection reports</h2>
               <p className="mt-2 text-sm text-slate-700">
                 Include tenancy agreements, deposit protection documents, invoices, quotes, receipts, signed inspection reports, tenant comments and photo evidence where relevant.
@@ -217,7 +391,7 @@ export default function DepositDisputePackPrintPage({ properties = [], tenants =
             </section>
 
             <footer className="mt-8 border-t border-slate-300 pt-4 text-xs leading-5 text-slate-600">
-              This pack is an organisational evidence bundle prepared in Tenaqo. It does not guarantee the outcome of any deposit dispute and does not replace legal advice.
+              This pack is an organisational evidence record created in Tenaqo. It does not guarantee the outcome of any deposit dispute and does not replace legal advice.
             </footer>
           </article>
         ) : null}

@@ -8,6 +8,21 @@ Evidence Vault lets landlords and property managers create room-by-room inspecti
 - `evidence_vault_tenant_sharing`
 - `evidence_vault_dispute_pack`
 
+Tenant sharing and dispute packs are account-level feature flags controlled by Tenaqo operators/support during rollout. Landlords should not be asked to run SQL or self-enable these flags. Owner/admin/staff roles determine what a user can do after the account has the feature; they do not grant the feature by themselves.
+
+Operational enablement should use the existing account feature flag pattern:
+
+```sql
+insert into public.account_feature_flags (account_id, feature_key, enabled)
+values
+  ('<account-id>', 'evidence_vault_tenant_sharing', true),
+  ('<account-id>', 'evidence_vault_dispute_pack', true)
+on conflict (account_id, feature_key)
+do update set enabled = excluded.enabled;
+```
+
+When root/operator tooling exposes feature management in-app, these flags should be toggled from that controlled surface with an audit trail instead of manual database updates.
+
 ## Routes
 
 - `/documents/evidence-vault`
@@ -85,11 +100,11 @@ Landlords can share a report with the linked tenant from the builder. Share stat
 - `revoked`
 - `expired`
 
-The tenant portal review page lets tenants view the shared report, add general or item-level comments, mark disputes, and sign the report. Tenant copy states that signature confirms receipt/review, not necessarily agreement with every item unless stated.
+The tenant portal review page lets tenants view the shared report, add general or item-level comments, mark disputes, and sign the report. Tenant signing copy states: “I confirm that I have reviewed this inspection report. My signature confirms receipt/review of this report, not necessarily agreement with every item unless stated in my comments.”
 
 ## Deposit Dispute Pack
 
-Deposit dispute packs help landlords compile a supporting evidence bundle from existing Tenaqo records. Packs include a summary, deduction schedule, evidence index and browser-printable PDF export.
+Deposit dispute packs help landlords compile a supporting evidence bundle from existing Tenaqo records. Packs include a summary, deduction schedule, evidence index, check-in/check-out comparison, signatures/responses, photo groups and browser-printable PDF export.
 
 Pack statuses are:
 
@@ -99,7 +114,7 @@ Pack statuses are:
 - `locked`
 - `archived`
 
-Pack PDFs use the disclaimer: “This pack is an organisational evidence bundle prepared in Tenaqo. It does not guarantee the outcome of any deposit dispute and does not replace legal advice.”
+Report and pack PDFs use the disclaimer: “This report/pack is an organisational evidence record created in Tenaqo. It does not guarantee the outcome of any deposit dispute and does not replace legal advice.”
 
 ## MVP Limitations
 
