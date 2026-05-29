@@ -31,6 +31,7 @@ const PropertyDetails             = lazy(() => import("../pages/PropertyDetails"
 const TenantDetails               = lazy(() => import("../pages/TenantDetails"));
 const Documents                   = lazy(() => import("../pages/Documents"));
 const EvidenceVaultPage           = lazy(() => import("../pages/documents/EvidenceVaultPage"));
+const EvidenceVaultPrintPage      = lazy(() => import("../pages/documents/EvidenceVaultPrintPage"));
 const MaintenanceInboxPage        = lazy(() => import("../pages/MaintenanceInboxPage"));
 const MaintenanceKPIDashboardPage = lazy(() => import("../pages/MaintenanceKPIDashboardPage"));
 const CommandCenterPage           = lazy(() => import("../pages/CommandCenterPage"));
@@ -329,6 +330,24 @@ export default function ManagerRoutes() {
         element={
           <EntitledRoute feature={ENTITLEMENT_FEATURES.EVIDENCE_VAULT}>
             <EvidenceVaultPage properties={ownerProperties} tenants={ownerTenants} />
+          </EntitledRoute>
+        }
+      />
+
+      <Route
+        path="documents/evidence-vault/:reportId"
+        element={
+          <EntitledRoute feature={ENTITLEMENT_FEATURES.EVIDENCE_VAULT}>
+            <EvidenceVaultPage properties={ownerProperties} tenants={ownerTenants} />
+          </EntitledRoute>
+        }
+      />
+
+      <Route
+        path="documents/evidence-vault/:reportId/print"
+        element={
+          <EntitledRoute feature={ENTITLEMENT_FEATURES.EVIDENCE_VAULT}>
+            <EvidenceVaultPrintPage properties={ownerProperties} tenants={ownerTenants} />
           </EntitledRoute>
         }
       />
