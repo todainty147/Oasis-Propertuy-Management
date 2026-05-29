@@ -31,6 +31,14 @@ import {
 const DEFAULT_ROOM_TYPES = getDefaultInspectionRoomNames();
 const REPORT_PAGE_SIZE = 12;
 
+function normalizeScanStatus(document) {
+  return String(document?.scan_status || document?.scanStatus || "legacy_unscanned").trim().toLowerCase();
+}
+
+function isDocumentPreviewReady(document) {
+  return Boolean(document) && ["clean", "legacy_unscanned"].includes(normalizeScanStatus(document));
+}
+
 function updateEvidenceItemInReport(report, itemId, patch = {}) {
   if (!report) return report;
   return {
@@ -44,13 +52,14 @@ function updateEvidenceItemInReport(report, itemId, patch = {}) {
   };
 }
 
-function PhotoThumbnail({ photo, accountId, propertyId, tenantId }) {
+function PhotoThumbnail({ photo, document, accountId, propertyId, tenantId }) {
   const [url, setUrl] = useState("");
   const [failed, setFailed] = useState(false);
+  const previewReady = isDocumentPreviewReady(document);
 
   useEffect(() => {
     let cancelled = false;
-    if (!photo?.document_id) {
+    if (!photo?.document_id || !previewReady) {
       return () => { cancelled = true; };
     }
     getDocumentPreviewUrl({
@@ -66,17 +75,18 @@ function PhotoThumbnail({ photo, accountId, propertyId, tenantId }) {
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
-      });
+    });
     return () => { cancelled = true; };
-  }, [accountId, photo?.document_id, propertyId, tenantId]);
+  }, [accountId, photo?.document_id, previewReady, propertyId, tenantId]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       {url && !failed ? (
         <img src={url} alt={photo.caption || "Evidence photo"} className="h-24 w-full object-cover" />
       ) : (
-        <div className="flex h-24 items-center justify-center bg-slate-100 text-slate-400 dark:bg-slate-950">
+        <div className="flex h-24 flex-col items-center justify-center gap-1 bg-slate-100 px-2 text-center text-slate-400 dark:bg-slate-950">
           <Camera size={18} />
+          <span className="text-[11px]">{previewReady ? "Preview unavailable" : "Preview pending"}</span>
         </div>
       )}
       <p className="truncate px-2 py-1 text-xs text-slate-500">{photo.caption || "Evidence file"}</p>
@@ -118,6 +128,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   const selectedTenantId = selectedReport?.tenant_id || null;
   const propertyById = useMemo(() => Object.fromEntries(properties.map((property) => [property.id, property])), [properties]);
   const tenantById = useMemo(() => Object.fromEntries(tenants.map((tenant) => [tenant.id, tenant])), [tenants]);
+  const documentById = useMemo(() => Object.fromEntries(documents.map((document) => [String(document.id), document])), [documents]);
   const reportStats = useMemo(() => calculateEvidenceVaultStats(reports), [reports]);
 
   function propertyLabel(propertyId) {
@@ -357,6 +368,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
         tenantId: selectedReport.tenant_id || null,
         tags: ["PROTOKOL"],
       });
+      setDocuments((current) => [document, ...current.filter((doc) => doc.id !== document.id)]);
       try {
         await attachInspectionEvidenceFile(activeAccountId, item.id, {
           documentId: document.id,
@@ -648,7 +660,14 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
                           {(item.inspection_photos || []).length > 0 ? (
                             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
                               {(item.inspection_photos || []).map((photo) => (
-                                <PhotoThumbnail key={photo.id} photo={photo} accountId={activeAccountId} propertyId={selectedReport.property_id} tenantId={selectedReport.tenant_id} />
+                                <PhotoThumbnail
+                                  key={photo.id}
+                                  photo={photo}
+                                  document={documentById[String(photo.document_id)]}
+                                  accountId={activeAccountId}
+                                  propertyId={selectedReport.property_id}
+                                  tenantId={selectedReport.tenant_id}
+                                />
                               ))}
                             </div>
                           ) : <p className="mt-3 text-xs text-slate-500">No photos added yet. Add photos from your phone during the walkthrough.</p>}
