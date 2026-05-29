@@ -110,6 +110,10 @@ begin
   end if;
 end $$;
 
+create index if not exists idx_inspection_signatures_tenant_share
+  on public.inspection_signatures(account_id, share_id)
+  where share_id is not null and signer_role = 'tenant';
+
 create table if not exists public.deposit_dispute_packs (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts(id) on delete cascade,
@@ -248,6 +252,88 @@ begin
 end;
 $$;
 
+create or replace function public.enforce_inspection_report_share_tenant_update()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_is_tenant boolean;
+begin
+  if public.user_can_manage_account(new.account_id) then
+    return new;
+  end if;
+
+  select exists (
+    select 1
+    from public.tenants t
+    where t.id = old.tenant_id
+      and t.account_id = old.account_id
+      and t.user_id = auth.uid()
+      and t.archived_at is null
+  ) into v_is_tenant;
+
+  if not v_is_tenant then
+    raise exception 'Inspection report share update is not allowed';
+  end if;
+
+  if new.account_id <> old.account_id
+    or new.inspection_report_id <> old.inspection_report_id
+    or new.tenant_id <> old.tenant_id
+    or new.shared_by is distinct from old.shared_by
+    or new.message is distinct from old.message
+    or new.response_due_at is distinct from old.response_due_at
+    or new.shared_at is distinct from old.shared_at
+    or new.revoked_at is distinct from old.revoked_at
+  then
+    raise exception 'Tenant cannot change landlord-controlled share fields';
+  end if;
+
+  if old.revoked_at is not null or old.share_status in ('revoked', 'expired') then
+    raise exception 'Inspection report share is no longer active';
+  end if;
+
+  if new.share_status not in (old.share_status, 'viewed', 'tenant_signed', 'tenant_disputed') then
+    raise exception 'Tenant share status transition is not allowed';
+  end if;
+
+  if new.share_status = 'viewed' and old.share_status <> 'shared' then
+    raise exception 'Tenant share status transition is not allowed';
+  end if;
+
+  if new.share_status = 'tenant_signed' and not exists (
+    select 1
+    from public.inspection_signatures sig
+    where sig.account_id = old.account_id
+      and sig.inspection_report_id = old.inspection_report_id
+      and sig.share_id = old.id
+      and sig.tenant_id = old.tenant_id
+      and sig.signer_role = 'tenant'
+      and sig.signed_from = 'tenant_portal'
+  ) then
+    raise exception 'Tenant signature must exist before marking share signed';
+  end if;
+
+  if new.share_status = 'tenant_disputed' and not exists (
+    select 1
+    from public.inspection_report_tenant_comments c
+    where c.account_id = old.account_id
+      and c.share_id = old.id
+      and c.tenant_id = old.tenant_id
+      and c.comment_type = 'dispute'
+  ) then
+    raise exception 'Tenant dispute comment must exist before marking share disputed';
+  end if;
+
+  if new.responded_at is not null and new.share_status not in ('tenant_signed', 'tenant_disputed') then
+    raise exception 'Tenant response timestamp requires a tenant response';
+  end if;
+
+  return new;
+end;
+$$;
+
 drop trigger if exists trg_deposit_dispute_pack_items_account_match on public.deposit_dispute_pack_items;
 create trigger trg_deposit_dispute_pack_items_account_match
   before insert or update on public.deposit_dispute_pack_items
@@ -267,6 +353,11 @@ drop trigger if exists trg_inspection_report_shares_updated_at on public.inspect
 create trigger trg_inspection_report_shares_updated_at
   before update on public.inspection_report_shares
   for each row execute function public.phase3_set_updated_at();
+
+drop trigger if exists trg_inspection_report_shares_tenant_update_guard on public.inspection_report_shares;
+create trigger trg_inspection_report_shares_tenant_update_guard
+  before update on public.inspection_report_shares
+  for each row execute function public.enforce_inspection_report_share_tenant_update();
 
 drop trigger if exists trg_inspection_report_tenant_comments_updated_at on public.inspection_report_tenant_comments;
 create trigger trg_inspection_report_tenant_comments_updated_at
@@ -298,6 +389,7 @@ drop policy if exists "Tenants read assigned inspection report shares" on public
 create policy "Tenants read assigned inspection report shares" on public.inspection_report_shares
   for select to authenticated using (
     revoked_at is null
+    and share_status not in ('revoked', 'expired')
     and exists (
       select 1 from public.tenants t
       where t.id = inspection_report_shares.tenant_id
@@ -311,6 +403,7 @@ drop policy if exists "Tenants update assigned inspection report shares" on publ
 create policy "Tenants update assigned inspection report shares" on public.inspection_report_shares
   for update to authenticated using (
     revoked_at is null
+    and share_status not in ('revoked', 'expired')
     and exists (
       select 1 from public.tenants t
       where t.id = inspection_report_shares.tenant_id
@@ -320,6 +413,7 @@ create policy "Tenants update assigned inspection report shares" on public.inspe
     )
   ) with check (
     revoked_at is null
+    and share_status not in ('revoked', 'expired')
     and exists (
       select 1 from public.tenants t
       where t.id = inspection_report_shares.tenant_id
@@ -343,6 +437,7 @@ create policy "Tenants read assigned inspection comments" on public.inspection_r
       where s.id = inspection_report_tenant_comments.share_id
         and s.account_id = inspection_report_tenant_comments.account_id
         and s.revoked_at is null
+        and s.share_status not in ('revoked', 'expired')
         and t.user_id = auth.uid()
         and t.archived_at is null
     )

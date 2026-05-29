@@ -33,7 +33,7 @@ const INSPECTION_AUDIT_SELECT = "id, account_id, inspection_report_id, user_id, 
 const TENANT_SHARE_SELECT = [
   "id", "account_id", "inspection_report_id", "tenant_id", "share_status", "message",
   "response_due_at", "shared_at", "viewed_at", "responded_at", "revoked_at", "created_at", "updated_at",
-  "inspection_reports(id, account_id, property_id, tenant_id, inspection_type, status, title, inspection_date, locked_at, created_at, updated_at, inspection_rooms(id, room_name, sort_order, inspection_evidence_items(id, item_label, condition_rating, notes, sort_order, inspection_photos(id, document_id, storage_path, caption, captured_at))), inspection_signatures(id, signer_type, signer_role, signer_name, signed_at, signed_from, tenant_id, share_id, signature_status, metadata))",
+  "inspection_reports(id, account_id, property_id, tenant_id, inspection_type, status, title, inspection_date, locked_at, created_at, updated_at, inspection_rooms(id, room_name, sort_order, inspection_evidence_items(id, item_label, condition_rating, notes, sort_order, inspection_photos(id, document_id, caption, captured_at))), inspection_signatures(id, signer_type, signer_role, signer_name, signed_at, signed_from, tenant_id, share_id, signature_status, metadata))",
   "inspection_report_tenant_comments(id, evidence_item_id, comment_type, comment, created_at, updated_at)",
 ].join(", ");
 
@@ -554,6 +554,7 @@ export async function listTenantInspectionReportShares(accountId) {
     .select(TENANT_SHARE_SELECT)
     .eq("account_id", accountId)
     .is("revoked_at", null)
+    .not("share_status", "in", "(revoked,expired)")
     .order("shared_at", { ascending: false });
   if (error) {
     if (isMissingBackendObject(error)) return [];
@@ -569,6 +570,8 @@ export async function getTenantInspectionReportShare(accountId, shareId) {
     .select(TENANT_SHARE_SELECT)
     .eq("account_id", accountId)
     .eq("id", shareId)
+    .is("revoked_at", null)
+    .not("share_status", "in", "(revoked,expired)")
     .single();
   if (error) {
     if (isMissingBackendObject(error)) return null;
@@ -585,6 +588,8 @@ export async function markTenantInspectionReportViewed(accountId, shareId) {
     .select("id, share_status, viewed_at, inspection_report_id")
     .eq("account_id", accountId)
     .eq("id", shareId)
+    .is("revoked_at", null)
+    .not("share_status", "in", "(revoked,expired)")
     .single();
   if (currentError) throw currentError;
   if (current.viewed_at) return current;
@@ -593,6 +598,8 @@ export async function markTenantInspectionReportViewed(accountId, shareId) {
     .update({ viewed_at: now, share_status: current.share_status === "shared" ? "viewed" : current.share_status })
     .eq("account_id", accountId)
     .eq("id", shareId)
+    .is("revoked_at", null)
+    .not("share_status", "in", "(revoked,expired)")
     .select("id, share_status, viewed_at, inspection_report_id")
     .single();
   if (error) throw error;
@@ -610,6 +617,8 @@ export async function addTenantInspectionReportComment(accountId, shareId, paylo
     .select("id, account_id, inspection_report_id, tenant_id, share_status")
     .eq("account_id", accountId)
     .eq("id", shareId)
+    .is("revoked_at", null)
+    .not("share_status", "in", "(revoked,expired)")
     .single();
   if (shareError) throw shareError;
   const commentType = ["general", "agree", "dispute", "clarification"].includes(payload.comment_type) ? payload.comment_type : "general";
@@ -628,11 +637,14 @@ export async function addTenantInspectionReportComment(accountId, shareId, paylo
     .single();
   if (error) throw error;
   if (commentType === "dispute") {
-    await supabase
+    const { error: shareUpdateError } = await supabase
       .from("inspection_report_shares")
       .update({ share_status: "tenant_disputed", responded_at: new Date().toISOString() })
       .eq("account_id", accountId)
-      .eq("id", share.id);
+      .eq("id", share.id)
+      .is("revoked_at", null)
+      .not("share_status", "in", "(revoked,expired)");
+    if (shareUpdateError) throw shareUpdateError;
   }
   await writeInspectionAuditEvent(accountId, share.inspection_report_id, commentType === "dispute" ? "tenant_disputed_report" : "tenant_commented_on_report", {
     comment_type: commentType,
@@ -651,8 +663,20 @@ export async function recordTenantInspectionSignature(accountId, shareId, payloa
     .select("id, account_id, inspection_report_id, tenant_id, share_status, inspection_report_tenant_comments(comment_type)")
     .eq("account_id", accountId)
     .eq("id", shareId)
+    .is("revoked_at", null)
+    .not("share_status", "in", "(revoked,expired)")
     .single();
   if (shareError) throw shareError;
+  const { data: existingSignature, error: existingSignatureError } = await supabase
+    .from("inspection_signatures")
+    .select("id")
+    .eq("account_id", accountId)
+    .eq("share_id", share.id)
+    .eq("tenant_id", share.tenant_id)
+    .eq("signer_role", "tenant")
+    .maybeSingle();
+  if (existingSignatureError) throw existingSignatureError;
+  if (existingSignature) throw new Error("This inspection report has already been signed from the tenant portal.");
   const hasDispute = (share.inspection_report_tenant_comments || []).some((comment) => comment.comment_type === "dispute");
   const { data, error } = await supabase
     .from("inspection_signatures")
@@ -671,11 +695,14 @@ export async function recordTenantInspectionSignature(accountId, shareId, payloa
     .single();
   if (error) throw error;
   const nextStatus = hasDispute ? "tenant_disputed" : "tenant_signed";
-  await supabase
+  const { error: shareUpdateError } = await supabase
     .from("inspection_report_shares")
     .update({ share_status: nextStatus, responded_at: new Date().toISOString() })
     .eq("account_id", accountId)
-    .eq("id", share.id);
+    .eq("id", share.id)
+    .is("revoked_at", null)
+    .not("share_status", "in", "(revoked,expired)");
+  if (shareUpdateError) throw shareUpdateError;
   await writeInspectionAuditEvent(accountId, share.inspection_report_id, hasDispute ? "tenant_disputed_report" : "tenant_signed_report", {
     tenant_id: share.tenant_id,
   });
@@ -847,7 +874,7 @@ export async function addDepositDisputePackItem(accountId, packId, payload = {})
     .select("id, item_type, title, description, claimed_amount, evidence_reference_type, evidence_reference_id, sort_order, created_at, updated_at")
     .single();
   if (error) throw error;
-  await writeDepositDisputePackAuditEvent(accountId, packId, "pack_item_added", {
+  await writeDepositDisputePackAuditEvent(accountId, packId, itemType === "deduction" ? "deduction_added" : "evidence_added", {
     item_type: itemType,
     has_evidence_reference: Boolean(payload.evidenceReferenceId || payload.evidence_reference_id),
   });
@@ -974,7 +1001,7 @@ export async function recordDepositDisputePackExport(accountId, packId, payload 
       .eq("id", packId);
     if (updateError) throw updateError;
   }
-  await writeDepositDisputePackAuditEvent(accountId, packId, "pack_export_generated", {
+  await writeDepositDisputePackAuditEvent(accountId, packId, "pack_exported", {
     export_type: payload.exportType || "pdf",
   });
   return data;

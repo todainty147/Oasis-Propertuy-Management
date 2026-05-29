@@ -17,7 +17,11 @@ const sections = [
   },
   {
     title: "Photo Evidence Vault",
-    body: "Create structured check-in, check-out and maintenance evidence records with rooms, notes, photos and signatures.",
+    body: "Create structured check-in and check-out evidence records with room-by-room notes, photos, signatures and downloadable reports.",
+  },
+  {
+    title: "Deposit Dispute Pack",
+    body: "Prepare an organised evidence bundle with inspection reports, photos, tenant responses, deductions and supporting documents.",
   },
   {
     title: "Smart Maintenance Diagnostics",
@@ -86,7 +90,7 @@ export default function PropertyRiskProtectionPage() {
 
       <section className="section section-tight-top">
         <div className="container grid grid-3">
-          {["Compliance evidence", "Deposit defence", "Maintenance triage"].map((title) => (
+          {["Compliance evidence", "Deposit dispute preparation", "Maintenance triage"].map((title) => (
             <article className="card" key={title}>
               <h2>{title}</h2>
               <p className="muted">Organise the operational records landlords need to review, reduce risk and keep decisions traceable.</p>

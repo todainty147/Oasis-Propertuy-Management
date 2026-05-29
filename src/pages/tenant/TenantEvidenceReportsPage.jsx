@@ -241,7 +241,7 @@ export default function TenantEvidenceReportsPage({ properties = [] }) {
                 {counts.roomCount} rooms · {counts.itemCount} checklist items · {counts.photoCount} photos
               </p>
               <p className="mt-3 rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-2)] p-3 text-sm text-[var(--text-secondary)]">
-                Your signature confirms receipt/review of this report, not necessarily agreement with every item unless stated.
+                Your signature confirms receipt/review of this report, not necessarily agreement with every item unless stated in your comments.
               </p>
             </Card>
 
@@ -325,7 +325,7 @@ export default function TenantEvidenceReportsPage({ properties = [] }) {
               ) : (
                 <form onSubmit={handleSign} className="mt-3 space-y-3">
                   <p className="text-sm text-[var(--text-secondary)]">
-                    I confirm that I have reviewed this inspection report. My signature confirms receipt/review of this report, not necessarily agreement with every item unless stated.
+                    I confirm that I have reviewed this inspection report. My signature confirms receipt/review of this report, not necessarily agreement with every item unless stated in my comments.
                   </p>
                   <input
                     required
