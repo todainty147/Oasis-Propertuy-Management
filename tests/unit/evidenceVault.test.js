@@ -7,9 +7,11 @@ import {
 } from "../../src/data/inspectionRoomTemplates";
 import {
   calculateEvidenceVaultStats,
+  calculateInspectionCompletion,
   calculateInspectionReportCounts,
   filterInspectionReportsByStatus,
   getConditionRatingLabel,
+  getFirstIncompleteRoomId,
   isInspectionReportEditable,
   normalizeConditionRating,
 } from "../../src/lib/evidenceVault";
@@ -55,6 +57,11 @@ describe("Evidence Vault helpers", () => {
       photosCaptured: 1,
       reportsThisMonth: 1,
     });
+    expect(calculateInspectionCompletion(reports[0])).toMatchObject({
+      itemCount: 2,
+      ratedCount: 1,
+      percent: 50,
+    });
   });
 
   it("normalises conditions, filters statuses and blocks locked edits", () => {
@@ -64,5 +71,16 @@ describe("Evidence Vault helpers", () => {
     expect(filterInspectionReportsByStatus([{ status: "draft" }, { status: "archived" }], "active")).toEqual([{ status: "draft" }]);
     expect(isInspectionReportEditable({ status: "locked" })).toBe(false);
     expect(isInspectionReportEditable({ status: "draft" })).toBe(true);
+  });
+
+  it("finds the first incomplete room for the builder tabs", () => {
+    const rooms = [
+      { id: "complete", sort_order: 20, inspection_evidence_items: [{ condition_rating: "good" }] },
+      { id: "incomplete", sort_order: 30, inspection_evidence_items: [{ condition_rating: "" }] },
+      { id: "first", sort_order: 10, inspection_evidence_items: [{ condition_rating: "excellent" }] },
+    ];
+
+    expect(getFirstIncompleteRoomId(rooms)).toBe("incomplete");
+    expect(getFirstIncompleteRoomId([{ id: "empty", sort_order: 1, inspection_evidence_items: [] }])).toBe("empty");
   });
 });

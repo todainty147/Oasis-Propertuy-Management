@@ -33,6 +33,21 @@ export function calculateInspectionReportCounts(report = {}) {
   };
 }
 
+export function calculateInspectionCompletion(report = {}) {
+  const counts = calculateInspectionReportCounts(report);
+  const percent = counts.itemCount > 0 ? Math.round((counts.ratedCount / counts.itemCount) * 100) : 0;
+  return { ...counts, percent };
+}
+
+export function getFirstIncompleteRoomId(rooms = []) {
+  const sortedRooms = sortBySortOrder(rooms);
+  const incomplete = sortedRooms.find((room) => {
+    const items = room.inspection_evidence_items || [];
+    return items.length === 0 || items.some((item) => !item.condition_rating);
+  });
+  return incomplete?.id || sortedRooms[0]?.id || "";
+}
+
 export function calculateEvidenceVaultStats(reports = []) {
   const monthKey = new Date().toISOString().slice(0, 7);
   return reports.reduce((stats, report) => {
