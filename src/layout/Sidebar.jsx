@@ -56,7 +56,8 @@ import { isPolishMarket } from "../utils/complianceMarket";
    No rings, no colour shifts — just weight + fill.
 ───────────────────────────────────────────── */
 
-function Item({ to, icon: Icon, label, onNavigate, end = false }) {
+function Item({ to, icon, label, onNavigate, end = false }) {
+  const IconComponent = icon;
   return (
     <NavLink
       to={to}
@@ -70,7 +71,7 @@ function Item({ to, icon: Icon, label, onNavigate, end = false }) {
         }`
       }
     >
-      <Icon size={14} strokeWidth={1.7} className="shrink-0" />
+      <IconComponent size={14} strokeWidth={1.7} className="shrink-0" />
       <span>{label}</span>
     </NavLink>
   );
@@ -82,7 +83,8 @@ function Item({ to, icon: Icon, label, onNavigate, end = false }) {
    so the plan-upgrade page can be reached.
 ───────────────────────────────────────────── */
 
-function LockedItem({ to, icon: Icon, label, onNavigate }) {
+function LockedItem({ to, icon, label, onNavigate }) {
+  const IconComponent = icon;
   return (
     <NavLink
       to={to}
@@ -91,7 +93,7 @@ function LockedItem({ to, icon: Icon, label, onNavigate }) {
       data-testid={`locked-nav-${to.replace(/\//g, "-").replace(/^-/, "")}`}
     >
       {/* <Lock icon marks feature-flagged or plan-gated destinations. */}
-      <Icon size={14} strokeWidth={1.7} className="shrink-0" />
+      <IconComponent size={14} strokeWidth={1.7} className="shrink-0" />
       <span className="flex-1">{label}</span>
       <Lock size={10} className="shrink-0 opacity-40" aria-label="Requires upgrade" />
     </NavLink>
@@ -185,7 +187,8 @@ function FooterThemeSegment({ theme, setTheme, t }) {
       role="group"
       aria-label={t("topbar.theme")}
     >
-      {items.map(({ key, label, icon: Icon }) => {
+      {items.map(({ key, label, icon }) => {
+        const IconComponent = icon;
         const active = theme === key;
         return (
           <button
@@ -201,7 +204,7 @@ function FooterThemeSegment({ theme, setTheme, t }) {
             aria-pressed={active}
             title={label}
           >
-            <Icon size={12} strokeWidth={1.8} aria-hidden="true" />
+            <IconComponent size={12} strokeWidth={1.8} aria-hidden="true" />
           </button>
         );
       })}
@@ -458,6 +461,7 @@ function SidebarContent({ onNavigate }) {
                   icon={FileText}
                   label={t("sidebar.documents")}
                   onNavigate={onNavigate}
+                  end
                 />
               )}
               {canManage && (
