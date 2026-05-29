@@ -15,6 +15,8 @@ describe("Phase 3 legal security contracts", () => {
       "compliance_safe",
       "compliance_safe_uk",
       "compliance_safe_pl",
+      "compliance_safe_tenant_acknowledgement",
+      "compliance_safe_expiry_reminders",
       "evidence_vault",
       "evidence_vault_pdf_export",
       "evidence_vault_tenant_sharing",
@@ -76,7 +78,51 @@ describe("Phase 3 legal security contracts", () => {
     ].forEach((template) => expect(sql).toContain(`('${template}',`));
     expect(sql).toContain('"Members update diagnostic sessions"');
     expect(apply).toContain('"legal_security_phase3.sql"');
+    expect(apply).toContain('"compliance_safe_phase2.sql"');
     expect(bootstrap).toContain('"legal_security_phase3.sql"');
+    expect(bootstrap).toContain('"compliance_safe_phase2.sql"');
+  });
+
+  it("adds Compliance Safe Phase 2 acknowledgement, expiry and tenant portal hardening", () => {
+    const sql = read("supabase/compliance_safe_phase2.sql");
+    const service = read("src/services/legalSecurityService.js");
+    const page = read("src/pages/compliance/ComplianceSafePage.jsx");
+    const tenantRoutes = read("src/routes/TenantRoutes.jsx");
+    const tenantPage = read("src/pages/tenant/TenantComplianceDocumentsPage.jsx");
+    const tenantLayout = read("src/layout/TenantPortalLayout.jsx");
+    const docs = read("docs/features/compliance-safe.md");
+
+    [
+      "served_at",
+      "evidence_source_type",
+      "reminder_days_before",
+      "marked_not_applicable_at",
+      "needs_review_reason",
+      "compliance_item_acknowledgements",
+      "enforce_compliance_acknowledgement_tenant_update",
+      "apply_compliance_acknowledgement_response",
+      "acknowledged_by_tenant_at = coalesce(new.acknowledged_at, now())",
+      "tenant_acknowledged",
+      "tenant_disputed",
+      "Tenant cannot edit landlord-controlled acknowledgement fields",
+      "Tenants read assigned acknowledgement compliance items",
+    ].forEach((needle) => expect(sql).toContain(needle));
+
+    expect(service).toContain("requestComplianceTenantAcknowledgement");
+    expect(service).toContain("respondToComplianceAcknowledgement");
+    expect(service).toContain("acknowledgement_revoked");
+    expect(service).toContain("tenant clients never need direct write");
+    expect(service).toContain("attachComplianceDocument");
+    expect(service).toContain("linkComplianceInspectionReport");
+    expect(page).toContain("Request tenant acknowledgement");
+    expect(page).toContain("Tenant acknowledgement is disabled for this account.");
+    expect(tenantRoutes).toContain('path="compliance-documents"');
+    expect(tenantLayout).toContain("Compliance Documents");
+    expect(tenantPage).toContain("I confirm that I have received/reviewed this document or compliance record. This acknowledgement does not replace legal advice.");
+    expect(docs).toContain("Poland/Najem Okazjonalny checklist");
+
+    const newCopy = `${sql}\n${service}\n${page}\n${tenantPage}\n${docs}`;
+    expect(newCopy).not.toMatch(/legally guaranteed|eviction guaranteed|court-proof|guaranteed compliance|guaranteed possession/i);
   });
 
   it("keeps Evidence Vault builder behaviour wired to templates, audit and print routes", () => {

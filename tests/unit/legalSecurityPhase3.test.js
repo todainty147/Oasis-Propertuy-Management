@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { scoreRentalApplication } from "../../src/lib/applicantScoring.js";
-import { calculateComplianceRating, deriveComplianceSafeStatus } from "../../src/utils/complianceSafe.js";
+import {
+  calculateComplianceRating,
+  deriveComplianceSafeStatus,
+  isExpiringSoon,
+  normalizeComplianceStatus,
+} from "../../src/utils/complianceSafe.js";
 
 describe("Phase 3 legal security utilities", () => {
   it("calculates compliance rating without counting not-applicable items against the score", () => {
@@ -24,6 +29,29 @@ describe("Phase 3 legal security utilities", () => {
 
     expect(deriveComplianceSafeStatus({ status: "logged", expires_at: "2026-06-20" }, today)).toBe("expiring_soon");
     expect(deriveComplianceSafeStatus({ status: "logged", expires_at: "2026-05-01" }, today)).toBe("expired");
+  });
+
+  it("uses item reminder windows and normalises legacy evidence statuses", () => {
+    const today = new Date("2026-05-28T00:00:00Z");
+
+    expect(normalizeComplianceStatus("evidence_logged")).toBe("logged");
+    expect(isExpiringSoon({ expires_at: "2026-07-01", reminder_days_before: 45 }, today)).toBe(true);
+    expect(deriveComplianceSafeStatus({ status: "acknowledged", expires_at: "2026-07-01", reminder_days_before: 10 }, today)).toBe("acknowledged");
+  });
+
+  it("counts expiring soon as complete with a warning", () => {
+    const today = new Date("2026-05-28T00:00:00Z");
+    const result = calculateComplianceRating([
+      { status: "logged", expires_at: "2026-06-02" },
+      { status: "expired", expires_at: "2026-04-01" },
+      { status: "needs_review" },
+      { status: "not_applicable" },
+    ], today);
+
+    expect(result.complete).toBe(1);
+    expect(result.warnings).toBe(1);
+    expect(result.incomplete).toBe(2);
+    expect(result.rating).toBe(33);
   });
 
   it("scores rental applications using transparent non-protected preference signals", () => {

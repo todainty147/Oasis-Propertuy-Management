@@ -5,6 +5,7 @@ import PasswordUpgradeNotice from "../components/security/PasswordUpgradeNotice"
 import {
   FileText,
   FileCheck2,
+  ClipboardCheck,
   Home,
   LayoutDashboard,
   LogOut,
@@ -71,6 +72,7 @@ function TenantPortalNav() {
       <TenantNavItem to="/tenant/maintenance" icon={Wrench} label={t("tenantPortal.shell.nav.maintenance")} />
       <TenantNavItem to="/tenant/documents" icon={FileText} label={t("tenantPortal.shell.nav.documents")} />
       <TenantNavItem to="/tenant/evidence-reports" icon={FileCheck2} label="Evidence Reports" />
+      <TenantNavItem to="/tenant/compliance-documents" icon={ClipboardCheck} label="Compliance Documents" />
       <TenantNavItem to="/tenant/payments" icon={Wallet} label={t("tenantPortal.shell.nav.payments")} />
       <TenantNavItem to="/tenant/profile" icon={UserRound} label={t("tenantPortal.shell.nav.profile")} />
     </nav>

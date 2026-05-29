@@ -13,7 +13,7 @@ export const metadata: Metadata = buildMetadata({
 const sections = [
   {
     title: "Compliance Safe",
-    body: "Track statutory tenancy documents, safety certificates, deposit evidence and onboarding acknowledgements for review.",
+    body: "Track tenancy documents, safety certificates, deposit evidence and tenant acknowledgements in one organised compliance checklist.",
   },
   {
     title: "Photo Evidence Vault",
@@ -57,6 +57,7 @@ export default function PropertyRiskProtectionPage() {
           <h1>Protect your rental portfolio from compliance gaps, deposit disputes and avoidable call-outs</h1>
           <p className="muted" style={{ maxWidth: 820, marginTop: "1.25rem" }}>
             Tenaqo helps landlords and property managers keep the records, evidence and workflows that protect rental income — from onboarding documents and check-in reports to maintenance diagnostics and applicant pre-screening.
+            Tenaqo helps landlords keep a clearer record of what has been logged, what needs tenant acknowledgement and what may expire soon — without pretending to replace legal advice.
           </p>
           <div className="button-row">
             <Link className="button button-primary" href="/pricing">Claim Founder Access</Link>
