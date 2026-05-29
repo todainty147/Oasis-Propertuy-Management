@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { buildDefaultEvidenceItemsPayload, getDefaultInspectionRoomNames } from "../data/inspectionRoomTemplates";
+import { normalizeDisputePackItemType } from "../lib/depositDisputePack";
 
 const COMPLIANCE_SELECT = [
   "id", "account_id", "property_id", "tenant_id", "tenancy_id",
@@ -24,10 +25,24 @@ const INSPECTION_DETAIL_SELECT = [
   "id", "account_id", "property_id", "tenant_id", "inspection_type", "status",
   "title", "inspection_date", "locked_at", "locked_by", "archived_at", "archived_by", "created_by", "created_at", "updated_at",
   "inspection_rooms(id, room_name, sort_order, inspection_evidence_items(id, item_label, condition_rating, notes, sort_order, created_at, updated_at, inspection_photos(id, document_id, storage_path, caption, captured_at)))",
-  "inspection_signatures(id, signer_type, signer_name, signed_at, metadata)",
+  "inspection_signatures(id, signer_type, signer_role, signer_name, signed_at, signed_from, tenant_id, share_id, signature_status, metadata)",
+  "inspection_report_shares(id, account_id, inspection_report_id, tenant_id, share_status, message, response_due_at, shared_at, viewed_at, responded_at, revoked_at, created_at, updated_at, inspection_report_tenant_comments(id, evidence_item_id, comment_type, comment, created_at, updated_at))",
 ].join(", ");
 
 const INSPECTION_AUDIT_SELECT = "id, account_id, inspection_report_id, user_id, event_type, metadata, created_at";
+const TENANT_SHARE_SELECT = [
+  "id", "account_id", "inspection_report_id", "tenant_id", "share_status", "message",
+  "response_due_at", "shared_at", "viewed_at", "responded_at", "revoked_at", "created_at", "updated_at",
+  "inspection_reports(id, account_id, property_id, tenant_id, inspection_type, status, title, inspection_date, locked_at, created_at, updated_at, inspection_rooms(id, room_name, sort_order, inspection_evidence_items(id, item_label, condition_rating, notes, sort_order, inspection_photos(id, document_id, storage_path, caption, captured_at))), inspection_signatures(id, signer_type, signer_role, signer_name, signed_at, signed_from, tenant_id, share_id, signature_status, metadata))",
+  "inspection_report_tenant_comments(id, evidence_item_id, comment_type, comment, created_at, updated_at)",
+].join(", ");
+
+const DISPUTE_PACK_SELECT = [
+  "id", "account_id", "property_id", "tenant_id", "tenancy_id", "title", "status",
+  "deposit_amount", "proposed_deduction_amount", "summary", "created_by", "created_at", "updated_at", "locked_at", "archived_at",
+  "deposit_dispute_pack_items(id, item_type, title, description, claimed_amount, evidence_reference_type, evidence_reference_id, sort_order, created_at, updated_at)",
+  "deposit_dispute_pack_exports(id, export_type, status, document_id, storage_path, generated_at, metadata)",
+].join(", ");
 
 const APPLICATION_LINK_SELECT = [
   "id", "account_id", "property_id", "public_token", "title", "status",
@@ -159,14 +174,19 @@ export async function updateComplianceSafeItem(id, accountId, patch = {}) {
   return data;
 }
 
-export async function listInspectionReports(accountId) {
+export async function listInspectionReports(accountId, filters = {}) {
   if (!accountId) return [];
-  const { data, error } = await supabase
+  let query = supabase
     .from("inspection_reports")
     .select(INSPECTION_SELECT)
     .eq("account_id", accountId)
     .order("inspection_date", { ascending: false })
     .limit(100);
+  if (filters.propertyId) query = query.eq("property_id", filters.propertyId);
+  if (filters.tenantId) query = query.eq("tenant_id", filters.tenantId);
+  if (filters.status) query = query.eq("status", filters.status);
+
+  const { data, error } = await query;
   if (error) {
     if (isMissingBackendObject(error)) return [];
     throw error;
@@ -438,21 +458,226 @@ export async function recordInspectionSignature(accountId, reportId, payload = {
   assertEditableStatus(report.status);
   const signerName = String(payload.signerName || "").trim();
   if (!signerName) throw new Error("Add signer name");
+  const signerType = payload.signerType === "agent" ? "agent" : "landlord";
   const { data, error } = await supabase
     .from("inspection_signatures")
     .insert({
       account_id: accountId,
       inspection_report_id: reportId,
-      signer_type: payload.signerType || "landlord",
+      signer_type: signerType,
+      signer_role: "landlord",
       signer_name: signerName,
+      signed_from: "landlord_portal",
       metadata: { source: "evidence_vault_manual_acknowledgement" },
     })
-    .select("id, signer_type, signer_name, signed_at, metadata")
+    .select("id, signer_type, signer_role, signer_name, signed_at, signed_from, tenant_id, share_id, signature_status, metadata")
     .single();
   if (error) throw error;
   await writeInspectionAuditEvent(accountId, reportId, "report_updated", {
     action: "signature_acknowledgement_recorded",
-    signer_type: payload.signerType || "landlord",
+    signer_type: signerType,
+  });
+  return data;
+}
+
+export function getActiveInspectionShare(report = {}) {
+  return (report.inspection_report_shares || []).find((share) => !share.revoked_at && !["revoked", "expired"].includes(share.share_status)) || null;
+}
+
+export async function shareInspectionReportWithTenant(accountId, reportId, payload = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!reportId) throw new Error("Missing report id");
+  const { data: report, error: reportError } = await supabase
+    .from("inspection_reports")
+    .select("id, account_id, tenant_id, status")
+    .eq("account_id", accountId)
+    .eq("id", reportId)
+    .single();
+  if (reportError) throw reportError;
+  if (!report?.tenant_id) throw new Error("Link a tenant before sharing this inspection report.");
+
+  const row = {
+    account_id: accountId,
+    inspection_report_id: reportId,
+    tenant_id: report.tenant_id,
+    shared_by: await getCurrentUserId(),
+    share_status: "shared",
+    message: payload.message ? String(payload.message).trim() : null,
+    response_due_at: payload.response_due_at || null,
+    revoked_at: null,
+  };
+
+  const { data: existing, error: existingError } = await supabase
+    .from("inspection_report_shares")
+    .select("id")
+    .eq("account_id", accountId)
+    .eq("inspection_report_id", reportId)
+    .eq("tenant_id", report.tenant_id)
+    .is("revoked_at", null)
+    .maybeSingle();
+  if (existingError) throw existingError;
+
+  const query = existing?.id
+    ? supabase.from("inspection_report_shares").update(row).eq("account_id", accountId).eq("id", existing.id)
+    : supabase.from("inspection_report_shares").insert(row);
+  const { data, error } = await query
+    .select("id, account_id, inspection_report_id, tenant_id, share_status, message, response_due_at, shared_at, viewed_at, responded_at, revoked_at, created_at, updated_at")
+    .single();
+  if (error) throw error;
+  await writeInspectionAuditEvent(accountId, reportId, "report_shared_with_tenant", {
+    tenant_id: report.tenant_id,
+  });
+  return data;
+}
+
+export async function revokeInspectionReportShare(accountId, shareId) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!shareId) throw new Error("Missing share id");
+  const { data, error } = await supabase
+    .from("inspection_report_shares")
+    .update({ share_status: "revoked", revoked_at: new Date().toISOString() })
+    .eq("account_id", accountId)
+    .eq("id", shareId)
+    .select("id, account_id, inspection_report_id, tenant_id, share_status, revoked_at")
+    .single();
+  if (error) throw error;
+  await writeInspectionAuditEvent(accountId, data.inspection_report_id, "report_share_revoked", {
+    tenant_id: data.tenant_id,
+  });
+  return data;
+}
+
+export async function listTenantInspectionReportShares(accountId) {
+  if (!accountId) return [];
+  const { data, error } = await supabase
+    .from("inspection_report_shares")
+    .select(TENANT_SHARE_SELECT)
+    .eq("account_id", accountId)
+    .is("revoked_at", null)
+    .order("shared_at", { ascending: false });
+  if (error) {
+    if (isMissingBackendObject(error)) return [];
+    throw error;
+  }
+  return data || [];
+}
+
+export async function getTenantInspectionReportShare(accountId, shareId) {
+  if (!accountId || !shareId) return null;
+  const { data, error } = await supabase
+    .from("inspection_report_shares")
+    .select(TENANT_SHARE_SELECT)
+    .eq("account_id", accountId)
+    .eq("id", shareId)
+    .single();
+  if (error) {
+    if (isMissingBackendObject(error)) return null;
+    throw error;
+  }
+  return data;
+}
+
+export async function markTenantInspectionReportViewed(accountId, shareId) {
+  if (!accountId || !shareId) return null;
+  const now = new Date().toISOString();
+  const { data: current, error: currentError } = await supabase
+    .from("inspection_report_shares")
+    .select("id, share_status, viewed_at, inspection_report_id")
+    .eq("account_id", accountId)
+    .eq("id", shareId)
+    .single();
+  if (currentError) throw currentError;
+  if (current.viewed_at) return current;
+  const { data, error } = await supabase
+    .from("inspection_report_shares")
+    .update({ viewed_at: now, share_status: current.share_status === "shared" ? "viewed" : current.share_status })
+    .eq("account_id", accountId)
+    .eq("id", shareId)
+    .select("id, share_status, viewed_at, inspection_report_id")
+    .single();
+  if (error) throw error;
+  await writeInspectionAuditEvent(accountId, data.inspection_report_id, "tenant_viewed_report", {});
+  return data;
+}
+
+export async function addTenantInspectionReportComment(accountId, shareId, payload = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!shareId) throw new Error("Missing share id");
+  const comment = String(payload.comment || "").trim();
+  if (!comment) throw new Error("Add a comment");
+  const { data: share, error: shareError } = await supabase
+    .from("inspection_report_shares")
+    .select("id, account_id, inspection_report_id, tenant_id, share_status")
+    .eq("account_id", accountId)
+    .eq("id", shareId)
+    .single();
+  if (shareError) throw shareError;
+  const commentType = ["general", "agree", "dispute", "clarification"].includes(payload.comment_type) ? payload.comment_type : "general";
+  const { data, error } = await supabase
+    .from("inspection_report_tenant_comments")
+    .insert({
+      account_id: accountId,
+      inspection_report_id: share.inspection_report_id,
+      share_id: share.id,
+      tenant_id: share.tenant_id,
+      evidence_item_id: payload.evidence_item_id || null,
+      comment_type: commentType,
+      comment,
+    })
+    .select("id, evidence_item_id, comment_type, comment, created_at, updated_at")
+    .single();
+  if (error) throw error;
+  if (commentType === "dispute") {
+    await supabase
+      .from("inspection_report_shares")
+      .update({ share_status: "tenant_disputed", responded_at: new Date().toISOString() })
+      .eq("account_id", accountId)
+      .eq("id", share.id);
+  }
+  await writeInspectionAuditEvent(accountId, share.inspection_report_id, commentType === "dispute" ? "tenant_disputed_report" : "tenant_commented_on_report", {
+    comment_type: commentType,
+    evidence_item_id: payload.evidence_item_id || null,
+  });
+  return data;
+}
+
+export async function recordTenantInspectionSignature(accountId, shareId, payload = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!shareId) throw new Error("Missing share id");
+  const signerName = String(payload.signerName || "").trim();
+  if (!signerName) throw new Error("Add signer name");
+  const { data: share, error: shareError } = await supabase
+    .from("inspection_report_shares")
+    .select("id, account_id, inspection_report_id, tenant_id, share_status, inspection_report_tenant_comments(comment_type)")
+    .eq("account_id", accountId)
+    .eq("id", shareId)
+    .single();
+  if (shareError) throw shareError;
+  const hasDispute = (share.inspection_report_tenant_comments || []).some((comment) => comment.comment_type === "dispute");
+  const { data, error } = await supabase
+    .from("inspection_signatures")
+    .insert({
+      account_id: accountId,
+      inspection_report_id: share.inspection_report_id,
+      signer_type: "tenant",
+      signer_role: "tenant",
+      signer_name: signerName,
+      signed_from: "tenant_portal",
+      tenant_id: share.tenant_id,
+      share_id: share.id,
+      metadata: { source: "tenant_portal_review" },
+    })
+    .select("id, signer_type, signer_role, signer_name, signed_at, signed_from, tenant_id, share_id, signature_status, metadata")
+    .single();
+  if (error) throw error;
+  const nextStatus = hasDispute ? "tenant_disputed" : "tenant_signed";
+  await supabase
+    .from("inspection_report_shares")
+    .update({ share_status: nextStatus, responded_at: new Date().toISOString() })
+    .eq("account_id", accountId)
+    .eq("id", share.id);
+  await writeInspectionAuditEvent(accountId, share.inspection_report_id, hasDispute ? "tenant_disputed_report" : "tenant_signed_report", {
+    tenant_id: share.tenant_id,
   });
   return data;
 }
@@ -482,6 +707,276 @@ export async function archiveInspectionReport(id, accountId) {
     .single();
   if (error) throw error;
   await writeInspectionAuditEvent(accountId, id, "report_archived", {});
+  return data;
+}
+
+async function writeDepositDisputePackAuditEvent(accountId, packId, eventType, metadata = {}) {
+  if (!accountId || !eventType) return null;
+  const { data, error } = await supabase
+    .from("deposit_dispute_pack_audit_events")
+    .insert({
+      account_id: accountId,
+      dispute_pack_id: packId || null,
+      user_id: await getCurrentUserId(),
+      event_type: eventType,
+      metadata,
+    })
+    .select("id, account_id, dispute_pack_id, user_id, event_type, metadata, created_at")
+    .single();
+  if (error) {
+    if (isMissingBackendObject(error)) return null;
+    throw error;
+  }
+  return data;
+}
+
+function parseOptionalNonNegativeAmount(value, label) {
+  if (value === undefined || value === null || value === "") return null;
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount < 0) throw new Error(`${label} must be a positive number`);
+  return amount;
+}
+
+function normalizeEvidenceReferenceType(value) {
+  if (!value) return null;
+  const nextType = normalizeDisputePackItemType(value);
+  if (!nextType) throw new Error("Choose a valid evidence reference type");
+  return nextType;
+}
+
+async function assertDepositDisputePackOwned(accountId, packId) {
+  const { data, error } = await supabase
+    .from("deposit_dispute_packs")
+    .select("id, account_id, status")
+    .eq("account_id", accountId)
+    .eq("id", packId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Dispute pack not found");
+  return data;
+}
+
+function assertDisputePackEditable(status) {
+  if (["locked", "archived"].includes(status)) {
+    throw new Error("This dispute pack is locked or archived. Editing is disabled to preserve the evidence bundle.");
+  }
+}
+
+export async function listDepositDisputePacks(accountId) {
+  if (!accountId) return [];
+  const { data, error } = await supabase
+    .from("deposit_dispute_packs")
+    .select(DISPUTE_PACK_SELECT)
+    .eq("account_id", accountId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) {
+    if (isMissingBackendObject(error)) return [];
+    throw error;
+  }
+  return data || [];
+}
+
+export async function getDepositDisputePackDetails(accountId, packId) {
+  if (!accountId || !packId) return null;
+  const { data, error } = await supabase
+    .from("deposit_dispute_packs")
+    .select(DISPUTE_PACK_SELECT)
+    .eq("account_id", accountId)
+    .eq("id", packId)
+    .single();
+  if (error) {
+    if (isMissingBackendObject(error)) return null;
+    throw error;
+  }
+  return data;
+}
+
+export async function createDepositDisputePack(accountId, payload = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!payload.propertyId) throw new Error("Choose a property");
+  const depositAmount = parseOptionalNonNegativeAmount(payload.depositAmount, "Deposit amount");
+  const proposedDeductionAmount = parseOptionalNonNegativeAmount(payload.proposedDeductionAmount, "Proposed deduction amount");
+  const title = String(payload.title || "").trim() || "Deposit dispute pack";
+  const { data, error } = await supabase
+    .from("deposit_dispute_packs")
+    .insert({
+      account_id: accountId,
+      property_id: payload.propertyId,
+      tenant_id: payload.tenantId || null,
+      title,
+      deposit_amount: depositAmount,
+      proposed_deduction_amount: proposedDeductionAmount,
+      summary: payload.summary ? String(payload.summary).trim() : null,
+      created_by: await getCurrentUserId(),
+    })
+    .select(DISPUTE_PACK_SELECT)
+    .single();
+  if (error) throw error;
+  await writeDepositDisputePackAuditEvent(accountId, data.id, "pack_created", {
+    property_id: payload.propertyId,
+    tenant_id: payload.tenantId || null,
+  });
+  return data;
+}
+
+export async function addDepositDisputePackItem(accountId, packId, payload = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!packId) throw new Error("Missing dispute pack id");
+  const pack = await assertDepositDisputePackOwned(accountId, packId);
+  assertDisputePackEditable(pack.status);
+  const title = String(payload.title || "").trim();
+  if (!title) throw new Error("Add an item title");
+  const itemType = normalizeDisputePackItemType(payload.itemType || payload.item_type, "deduction");
+  if (!itemType) throw new Error("Choose a valid item type");
+  const claimedAmount = parseOptionalNonNegativeAmount(payload.claimedAmount ?? payload.claimed_amount, "Claimed amount");
+  const evidenceReferenceType = normalizeEvidenceReferenceType(payload.evidenceReferenceType || payload.evidence_reference_type);
+  const { data, error } = await supabase
+    .from("deposit_dispute_pack_items")
+    .insert({
+      account_id: accountId,
+      dispute_pack_id: packId,
+      item_type: itemType,
+      title,
+      description: payload.description ? String(payload.description).trim() : null,
+      claimed_amount: claimedAmount,
+      evidence_reference_type: evidenceReferenceType,
+      evidence_reference_id: payload.evidenceReferenceId || payload.evidence_reference_id || null,
+      sort_order: Number(payload.sortOrder || payload.sort_order || 0),
+    })
+    .select("id, item_type, title, description, claimed_amount, evidence_reference_type, evidence_reference_id, sort_order, created_at, updated_at")
+    .single();
+  if (error) throw error;
+  await writeDepositDisputePackAuditEvent(accountId, packId, "pack_item_added", {
+    item_type: itemType,
+    has_evidence_reference: Boolean(payload.evidenceReferenceId || payload.evidence_reference_id),
+  });
+  return data;
+}
+
+export async function updateDepositDisputePackItem(accountId, packId, itemId, payload = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!packId) throw new Error("Missing dispute pack id");
+  if (!itemId) throw new Error("Missing dispute pack item id");
+  const pack = await assertDepositDisputePackOwned(accountId, packId);
+  assertDisputePackEditable(pack.status);
+  const patch = {};
+  if (Object.prototype.hasOwnProperty.call(payload, "itemType") || Object.prototype.hasOwnProperty.call(payload, "item_type")) {
+    const itemType = normalizeDisputePackItemType(payload.itemType || payload.item_type);
+    if (!itemType) throw new Error("Choose a valid item type");
+    patch.item_type = itemType;
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, "title")) {
+    const title = String(payload.title || "").trim();
+    if (!title) throw new Error("Add an item title");
+    patch.title = title;
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, "description")) {
+    patch.description = payload.description ? String(payload.description).trim() : null;
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, "claimedAmount") || Object.prototype.hasOwnProperty.call(payload, "claimed_amount")) {
+    patch.claimed_amount = parseOptionalNonNegativeAmount(payload.claimedAmount ?? payload.claimed_amount, "Claimed amount");
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, "evidenceReferenceType") || Object.prototype.hasOwnProperty.call(payload, "evidence_reference_type")) {
+    patch.evidence_reference_type = normalizeEvidenceReferenceType(payload.evidenceReferenceType || payload.evidence_reference_type);
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, "evidenceReferenceId") || Object.prototype.hasOwnProperty.call(payload, "evidence_reference_id")) {
+    patch.evidence_reference_id = payload.evidenceReferenceId || payload.evidence_reference_id || null;
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, "sortOrder") || Object.prototype.hasOwnProperty.call(payload, "sort_order")) {
+    patch.sort_order = Number(payload.sortOrder || payload.sort_order || 0);
+  }
+  const { data, error } = await supabase
+    .from("deposit_dispute_pack_items")
+    .update(patch)
+    .eq("account_id", accountId)
+    .eq("dispute_pack_id", packId)
+    .eq("id", itemId)
+    .select("id, item_type, title, description, claimed_amount, evidence_reference_type, evidence_reference_id, sort_order, created_at, updated_at")
+    .single();
+  if (error) throw error;
+  await writeDepositDisputePackAuditEvent(accountId, packId, "pack_item_updated", {
+    item_type: data.item_type,
+  });
+  return data;
+}
+
+export async function removeDepositDisputePackItem(accountId, packId, itemId) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!packId) throw new Error("Missing dispute pack id");
+  if (!itemId) throw new Error("Missing dispute pack item id");
+  const pack = await assertDepositDisputePackOwned(accountId, packId);
+  assertDisputePackEditable(pack.status);
+  const { error } = await supabase
+    .from("deposit_dispute_pack_items")
+    .delete()
+    .eq("account_id", accountId)
+    .eq("dispute_pack_id", packId)
+    .eq("id", itemId);
+  if (error) throw error;
+  await writeDepositDisputePackAuditEvent(accountId, packId, "pack_item_removed", {
+    item_id: itemId,
+  });
+  return true;
+}
+
+export async function updateDepositDisputePackStatus(accountId, packId, status) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!packId) throw new Error("Missing dispute pack id");
+  const allowedStatuses = new Set(["draft", "ready", "exported", "locked", "archived"]);
+  if (!allowedStatuses.has(status)) throw new Error("Choose a valid dispute pack status");
+  const pack = await assertDepositDisputePackOwned(accountId, packId);
+  if (pack.status === "archived") throw new Error("An archived dispute pack cannot be changed.");
+  if (pack.status === "locked" && status !== "archived") {
+    throw new Error("A locked dispute pack can only be archived.");
+  }
+  if (pack.status === "exported" && status === "draft") {
+    throw new Error("An exported dispute pack cannot be reset to draft.");
+  }
+  const patch = { status };
+  if (status === "locked") patch.locked_at = new Date().toISOString();
+  if (status === "archived") patch.archived_at = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("deposit_dispute_packs")
+    .update(patch)
+    .eq("account_id", accountId)
+    .eq("id", packId)
+    .select(DISPUTE_PACK_SELECT)
+    .single();
+  if (error) throw error;
+  await writeDepositDisputePackAuditEvent(accountId, packId, `pack_${status}`, {});
+  return data;
+}
+
+export async function recordDepositDisputePackExport(accountId, packId, payload = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!packId) throw new Error("Missing dispute pack id");
+  const pack = await assertDepositDisputePackOwned(accountId, packId);
+  if (pack.status === "archived") throw new Error("An archived dispute pack cannot be exported.");
+  const { data, error } = await supabase
+    .from("deposit_dispute_pack_exports")
+    .insert({
+      account_id: accountId,
+      dispute_pack_id: packId,
+      export_type: payload.exportType || "pdf",
+      status: "generated",
+      generated_by: await getCurrentUserId(),
+      metadata: payload.metadata || {},
+    })
+    .select("id, export_type, status, document_id, storage_path, generated_at, metadata")
+    .single();
+  if (error) throw error;
+  if (!["locked", "archived"].includes(pack.status)) {
+    const { error: updateError } = await supabase
+      .from("deposit_dispute_packs")
+      .update({ status: "exported" })
+      .eq("account_id", accountId)
+      .eq("id", packId);
+    if (updateError) throw updateError;
+  }
+  await writeDepositDisputePackAuditEvent(accountId, packId, "pack_export_generated", {
+    export_type: payload.exportType || "pdf",
+  });
   return data;
 }
 

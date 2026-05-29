@@ -4,6 +4,7 @@ import BrandLogo from "../components/BrandLogo";
 import PasswordUpgradeNotice from "../components/security/PasswordUpgradeNotice";
 import {
   FileText,
+  FileCheck2,
   Home,
   LayoutDashboard,
   LogOut,
@@ -69,6 +70,7 @@ function TenantPortalNav() {
       <TenantNavItem to="/tenant/property" icon={Home} label={t("tenantPortal.shell.nav.homeDetails")} />
       <TenantNavItem to="/tenant/maintenance" icon={Wrench} label={t("tenantPortal.shell.nav.maintenance")} />
       <TenantNavItem to="/tenant/documents" icon={FileText} label={t("tenantPortal.shell.nav.documents")} />
+      <TenantNavItem to="/tenant/evidence-reports" icon={FileCheck2} label="Evidence Reports" />
       <TenantNavItem to="/tenant/payments" icon={Wallet} label={t("tenantPortal.shell.nav.payments")} />
       <TenantNavItem to="/tenant/profile" icon={UserRound} label={t("tenantPortal.shell.nav.profile")} />
     </nav>

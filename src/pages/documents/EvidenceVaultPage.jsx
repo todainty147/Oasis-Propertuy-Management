@@ -7,6 +7,7 @@ import EvidenceItemRow from "../../components/documents/EvidenceItemRow";
 import RoomTab from "../../components/documents/RoomTab";
 import { useAccount } from "../../context/AccountContext";
 import { getDefaultInspectionRoomNames } from "../../data/inspectionRoomTemplates";
+import { ENTITLEMENT_FEATURES } from "../../lib/entitlements";
 import {
   calculateEvidenceVaultStats,
   calculateInspectionCompletion,
@@ -24,12 +25,15 @@ import {
   attachInspectionEvidenceFile,
   createInspectionEvidenceItem,
   createInspectionReport,
+  getActiveInspectionShare,
   getInspectionReportDetails,
   listInspectionAuditEvents,
   listInspectionReports,
   lockInspectionReport,
   populateInspectionReportDefaults,
   recordInspectionSignature,
+  revokeInspectionReportShare,
+  shareInspectionReportWithTenant,
   updateInspectionEvidenceItem,
 } from "../../services/legalSecurityService";
 
@@ -119,6 +123,7 @@ function ListPanel({
   onNewReport,
   onLock,
   onArchive,
+  showDisputePacks,
   propertyLabel,
   tenantLabel,
   page,
@@ -142,6 +147,14 @@ function ListPanel({
             <Plus size={14} /> New
           </button>
         </div>
+        {showDisputePacks ? (
+          <Link
+            to="/documents/evidence-vault/dispute-packs"
+            className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-slate-600"
+          >
+            Deposit Dispute Packs
+          </Link>
+        ) : null}
 
         <div className="mt-4 grid grid-cols-4 gap-2 text-center">
           {[
@@ -268,7 +281,7 @@ function ListPanel({
 }
 
 export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
-  const { activeAccountId } = useAccount();
+  const { activeAccountId, hasEntitlement } = useAccount();
   const navigate = useNavigate();
   const { reportId: routeReportId } = useParams();
   const [reports, setReports] = useState([]);
@@ -291,6 +304,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [creatingReport, setCreatingReport] = useState(false);
   const [signatureForm, setSignatureForm] = useState({ signerType: "landlord", signerName: "" });
+  const [sharingReport, setSharingReport] = useState(false);
   const [form, setForm] = useState(createInitialReportForm);
   const [error, setError] = useState("");
   const selectedPropertyId = selectedReport?.property_id || null;
@@ -299,6 +313,8 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
   const tenantById = useMemo(() => Object.fromEntries(tenants.map((tenant) => [tenant.id, tenant])), [tenants]);
   const documentById = useMemo(() => Object.fromEntries(documents.map((document) => [String(document.id), document])), [documents]);
   const reportStats = useMemo(() => calculateEvidenceVaultStats(reports), [reports]);
+  const tenantSharingEnabled = hasEntitlement(ENTITLEMENT_FEATURES.EVIDENCE_VAULT_TENANT_SHARING);
+  const disputePackEnabled = hasEntitlement(ENTITLEMENT_FEATURES.EVIDENCE_VAULT_DISPUTE_PACK);
 
   function propertyLabel(propertyId) {
     const property = propertyById[propertyId];
@@ -610,6 +626,35 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
     setSignatureForm((current) => ({ ...current, ...patch }));
   }
 
+  async function handleShareWithTenant() {
+    if (!selectedReport) return;
+    setSharingReport(true);
+    setError("");
+    try {
+      await shareInspectionReportWithTenant(activeAccountId, selectedReport.id, {});
+      await loadReportDetail(selectedReport.id);
+    } catch (err) {
+      setError(err?.message || "Could not share this report with the tenant.");
+    } finally {
+      setSharingReport(false);
+    }
+  }
+
+  async function handleRevokeTenantShare(shareId) {
+    if (!selectedReport || !shareId) return;
+    if (!window.confirm("Revoke tenant access to this inspection report?")) return;
+    setSharingReport(true);
+    setError("");
+    try {
+      await revokeInspectionReportShare(activeAccountId, shareId);
+      await loadReportDetail(selectedReport.id);
+    } catch (err) {
+      setError(err?.message || "Could not revoke tenant access.");
+    } finally {
+      setSharingReport(false);
+    }
+  }
+
   const filteredReports = useMemo(() => filterInspectionReportsByStatus(reports, reportStatusFilter), [reports, reportStatusFilter]);
   const totalReportPages = Math.max(1, Math.ceil(filteredReports.length / REPORT_PAGE_SIZE));
   const safeReportPage = Math.min(reportPage, totalReportPages);
@@ -662,6 +707,7 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
             onNewReport={() => setCreateModalOpen(true)}
             onLock={handleLock}
             onArchive={handleArchive}
+            showDisputePacks={disputePackEnabled}
             propertyLabel={propertyLabel}
             tenantLabel={tenantLabel}
             page={safeReportPage}
@@ -872,6 +918,11 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
                             signatureForm={signatureForm}
                             onSignatureFormChange={handleSignatureFormChange}
                             handleRecordSignature={handleRecordSignature}
+                            tenantLabel={tenantLabel}
+                            tenantSharingEnabled={tenantSharingEnabled}
+                            sharingReport={sharingReport}
+                            onShareWithTenant={handleShareWithTenant}
+                            onRevokeTenantShare={handleRevokeTenantShare}
                             selectedReportLocked={selectedReportLocked}
                           />
                         </div>
@@ -906,6 +957,11 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
                       signatureForm={signatureForm}
                       onSignatureFormChange={handleSignatureFormChange}
                       handleRecordSignature={handleRecordSignature}
+                      tenantLabel={tenantLabel}
+                      tenantSharingEnabled={tenantSharingEnabled}
+                      sharingReport={sharingReport}
+                      onShareWithTenant={handleShareWithTenant}
+                      onRevokeTenantShare={handleRevokeTenantShare}
                       selectedReportLocked={selectedReportLocked}
                       tab={bottomStripTab}
                     />
@@ -926,23 +982,32 @@ function EvidenceVaultSidePanel({
   signatureForm,
   onSignatureFormChange,
   handleRecordSignature,
+  tenantLabel,
+  tenantSharingEnabled,
+  sharingReport,
+  onShareWithTenant,
+  onRevokeTenantShare,
   selectedReportLocked,
   tab = "",
 }) {
   const showSignatures = !tab || tab === "signatures";
   const showActivity = !tab || tab === "activity";
+  const activeShare = getActiveInspectionShare(selectedReport);
+  const tenantSignature = (selectedReport.inspection_signatures || []).find((signature) => signature.signer_role === "tenant" || signature.signer_type === "tenant");
+  const tenantComments = (activeShare?.inspection_report_tenant_comments || []).filter(Boolean);
+  const hasTenant = Boolean(selectedReport.tenant_id);
 
   return (
     <aside className="space-y-4">
       {showSignatures ? (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-          <h3 className="font-semibold text-slate-50">Signature acknowledgements</h3>
+          <h3 className="font-semibold text-slate-50">Landlord acknowledgements</h3>
           <p className="mt-1 text-xs text-slate-500">
-            Record that a party has acknowledged this report in person or on paper. Tenaqo does not capture digital signatures.
+            Record that the landlord or agent has acknowledged this report in person or on paper. Tenant review happens in the tenant portal.
           </p>
           <div className="mt-3 space-y-2">
-            {(selectedReport.inspection_signatures || []).length === 0 ? <p className="text-sm text-slate-500">No acknowledgements recorded.</p> : null}
-            {(selectedReport.inspection_signatures || []).map((signature) => (
+            {(selectedReport.inspection_signatures || []).filter((signature) => signature.signer_role !== "tenant" && signature.signer_type !== "tenant").length === 0 ? <p className="text-sm text-slate-500">No landlord acknowledgements recorded.</p> : null}
+            {(selectedReport.inspection_signatures || []).filter((signature) => signature.signer_role !== "tenant" && signature.signer_type !== "tenant").map((signature) => (
               <div key={signature.id} className="rounded-xl bg-slate-950 p-3 text-sm">
                 <p className="font-medium text-slate-100">{signature.signer_name}</p>
                 <p className="text-xs text-slate-500">{signature.signer_type} · {new Date(signature.signed_at).toLocaleDateString()}</p>
@@ -957,7 +1022,6 @@ function EvidenceVaultSidePanel({
               className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 disabled:opacity-60"
             >
               <option value="landlord">Landlord</option>
-              <option value="tenant">Tenant</option>
               <option value="agent">Agent</option>
             </select>
             <input
@@ -976,6 +1040,67 @@ function EvidenceVaultSidePanel({
               <CheckCircle2 size={14} /> Record acknowledgement
             </button>
           </form>
+        </div>
+      ) : null}
+
+      {showSignatures ? (
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+          <h3 className="font-semibold text-slate-50">Tenant review & signature</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Share this report with the tenant so they can review it in their portal, add comments and sign. The tenant cannot edit your evidence.
+          </p>
+          {!tenantSharingEnabled ? (
+            <p className="mt-3 rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-slate-400">
+              Tenant sharing is disabled for this account.
+            </p>
+          ) : !hasTenant ? (
+            <p className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
+              Link a tenant to this report before sharing it for review.
+            </p>
+          ) : (
+            <div className="mt-3 space-y-3 text-sm">
+              <div className="rounded-xl bg-slate-950 p-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Linked tenant</p>
+                <p className="mt-1 font-medium text-slate-100">{tenantLabel?.(selectedReport.tenant_id) || selectedReport.tenant_id}</p>
+              </div>
+              <div className="grid gap-2 text-xs text-slate-400">
+                <p><span className="text-slate-500">Share status:</span> <span className="font-semibold text-slate-200">{activeShare?.share_status || "Not shared"}</span></p>
+                <p><span className="text-slate-500">Viewed:</span> {activeShare?.viewed_at ? new Date(activeShare.viewed_at).toLocaleString() : "Not recorded"}</p>
+                <p><span className="text-slate-500">Responded:</span> {activeShare?.responded_at ? new Date(activeShare.responded_at).toLocaleString() : "Not recorded"}</p>
+                <p><span className="text-slate-500">Tenant signature:</span> {tenantSignature?.signed_at ? `Signed ${new Date(tenantSignature.signed_at).toLocaleDateString()}` : "Waiting for tenant signature"}</p>
+                <p><span className="text-slate-500">Comments/disputes:</span> {tenantComments.length}</p>
+              </div>
+              {tenantComments.length > 0 ? (
+                <div className="space-y-2">
+                  {tenantComments.slice(0, 3).map((comment) => (
+                    <div key={comment.id} className="rounded-xl border border-slate-800 bg-slate-950 p-3">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">{comment.comment_type}</p>
+                      <p className="mt-1 text-slate-200">{comment.comment}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {activeShare ? (
+                <button
+                  type="button"
+                  disabled={sharingReport}
+                  onClick={() => onRevokeTenantShare?.(activeShare.id)}
+                  className="inline-flex w-full items-center justify-center rounded-xl border border-rose-400/40 px-3 py-2 text-sm font-semibold text-rose-100 disabled:opacity-60"
+                >
+                  Revoke share
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={sharingReport || selectedReportLocked}
+                  onClick={onShareWithTenant}
+                  className="inline-flex w-full items-center justify-center rounded-xl border border-teal-400/40 bg-teal-400/10 px-3 py-2 text-sm font-semibold text-teal-100 disabled:opacity-60"
+                >
+                  {sharingReport ? "Sharing..." : "Share with tenant"}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       ) : null}
 

@@ -70,6 +70,10 @@ export default function EvidenceVaultPrintPage({ properties = [], tenants = [] }
   const counts = calculateInspectionReportCounts(report || {});
   const property = propertyById[report?.property_id];
   const tenant = tenantById[report?.tenant_id];
+  const activeShare = (report?.inspection_report_shares || []).find((share) => !share.revoked_at && !["revoked", "expired"].includes(share.share_status));
+  const tenantSignature = (report?.inspection_signatures || []).find((signature) => signature.signer_role === "tenant" || signature.signer_type === "tenant");
+  const landlordSignatures = (report?.inspection_signatures || []).filter((signature) => signature.signer_role !== "tenant" && signature.signer_type !== "tenant");
+  const tenantComments = activeShare?.inspection_report_tenant_comments || [];
 
   return (
     <main className="min-h-screen bg-slate-100 p-6 text-slate-950 dark:bg-slate-100 print:bg-white print:p-0">
@@ -170,6 +174,47 @@ export default function EvidenceVaultPrintPage({ properties = [], tenants = [] }
                 <div className="sm:col-span-2">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Locked</p>
                   <p className="mt-1 font-semibold text-slate-950">{new Date(report.locked_at).toLocaleString()}</p>
+                </div>
+              ) : null}
+            </section>
+
+            <section className="mt-6">
+              <h2 className="text-lg font-bold text-slate-950">Signatures and tenant response</h2>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-slate-300 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Landlord / agent signature</p>
+                  {landlordSignatures.length === 0 ? <p className="mt-2 text-sm text-slate-600">No landlord acknowledgement recorded.</p> : null}
+                  {landlordSignatures.map((signature) => (
+                    <p key={signature.id} className="mt-2 text-sm text-slate-800">
+                      <span className="font-semibold">{signature.signer_name}</span> · {signature.signer_type} · {signature.signed_at ? new Date(signature.signed_at).toLocaleString() : "Time not recorded"}
+                    </p>
+                  ))}
+                </div>
+                <div className="rounded-lg border border-slate-300 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Tenant signature</p>
+                  {tenantSignature ? (
+                    <p className="mt-2 text-sm text-slate-800">
+                      <span className="font-semibold">{tenantSignature.signer_name}</span> · {tenantSignature.signed_at ? new Date(tenantSignature.signed_at).toLocaleString() : "Time not recorded"}
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-sm text-slate-600">Tenant signature: not yet provided</p>
+                  )}
+                  <p className="mt-2 text-xs text-slate-600">Tenant response: {activeShare?.share_status ? String(activeShare.share_status).replace(/_/g, " ") : "not shared"}</p>
+                  <p className="mt-1 text-xs text-slate-600">Viewed: {activeShare?.viewed_at ? new Date(activeShare.viewed_at).toLocaleString() : "Not recorded"}</p>
+                  <p className="mt-1 text-xs text-slate-600">Responded: {activeShare?.responded_at ? new Date(activeShare.responded_at).toLocaleString() : "Not recorded"}</p>
+                </div>
+              </div>
+              {tenantComments.length > 0 ? (
+                <div className="mt-4 rounded-lg border border-slate-300 p-4">
+                  <h3 className="font-bold text-slate-950">Tenant comments and disputes</h3>
+                  <div className="mt-3 space-y-3">
+                    {tenantComments.map((comment) => (
+                      <div key={comment.id} className="break-inside-avoid border-t border-slate-200 pt-3">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{comment.comment_type}</p>
+                        <p className="mt-1 text-sm leading-6 text-slate-700">{comment.comment}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : null}
             </section>

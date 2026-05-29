@@ -21,6 +21,7 @@ const TenantPayments  = lazy(() => import("../pages/TenantPayments"));
 const ProfilePage     = lazy(() => import("../pages/ProfilePage"));
 const TenantPropertyPage = lazy(() => import("../pages/TenantPropertyPage"));
 const Documents       = lazy(() => import("../pages/Documents"));
+const TenantEvidenceReportsPage = lazy(() => import("../pages/tenant/TenantEvidenceReportsPage"));
 
 export default function TenantRoutes() {
   const { activeAccountId } = useAccount();
@@ -85,6 +86,16 @@ export default function TenantRoutes() {
       <Route
         path="documents"
         element={<Documents tenants={tenants} properties={properties} />}
+      />
+
+      <Route
+        path="evidence-reports"
+        element={<TenantEvidenceReportsPage properties={properties} tenants={tenants} />}
+      />
+
+      <Route
+        path="evidence-reports/:shareId"
+        element={<TenantEvidenceReportsPage properties={properties} tenants={tenants} />}
       />
     </>
   );

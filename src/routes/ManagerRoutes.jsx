@@ -32,6 +32,8 @@ const TenantDetails               = lazy(() => import("../pages/TenantDetails"))
 const Documents                   = lazy(() => import("../pages/Documents"));
 const EvidenceVaultPage           = lazy(() => import("../pages/documents/EvidenceVaultPage"));
 const EvidenceVaultPrintPage      = lazy(() => import("../pages/documents/EvidenceVaultPrintPage"));
+const DepositDisputePacksPage     = lazy(() => import("../pages/documents/DepositDisputePacksPage"));
+const DepositDisputePackPrintPage = lazy(() => import("../pages/documents/DepositDisputePackPrintPage"));
 const MaintenanceInboxPage        = lazy(() => import("../pages/MaintenanceInboxPage"));
 const MaintenanceKPIDashboardPage = lazy(() => import("../pages/MaintenanceKPIDashboardPage"));
 const CommandCenterPage           = lazy(() => import("../pages/CommandCenterPage"));
@@ -348,6 +350,33 @@ export default function ManagerRoutes() {
         element={
           <EntitledRoute feature={ENTITLEMENT_FEATURES.EVIDENCE_VAULT}>
             <EvidenceVaultPrintPage properties={ownerProperties} tenants={ownerTenants} />
+          </EntitledRoute>
+        }
+      />
+
+      <Route
+        path="documents/evidence-vault/dispute-packs"
+        element={
+          <EntitledRoute feature={ENTITLEMENT_FEATURES.EVIDENCE_VAULT_DISPUTE_PACK}>
+            <DepositDisputePacksPage properties={ownerProperties} tenants={ownerTenants} />
+          </EntitledRoute>
+        }
+      />
+
+      <Route
+        path="documents/evidence-vault/dispute-packs/:packId"
+        element={
+          <EntitledRoute feature={ENTITLEMENT_FEATURES.EVIDENCE_VAULT_DISPUTE_PACK}>
+            <DepositDisputePacksPage properties={ownerProperties} tenants={ownerTenants} />
+          </EntitledRoute>
+        }
+      />
+
+      <Route
+        path="documents/evidence-vault/dispute-packs/:packId/print"
+        element={
+          <EntitledRoute feature={ENTITLEMENT_FEATURES.EVIDENCE_VAULT_DISPUTE_PACK}>
+            <DepositDisputePackPrintPage properties={ownerProperties} tenants={ownerTenants} />
           </EntitledRoute>
         }
       />
