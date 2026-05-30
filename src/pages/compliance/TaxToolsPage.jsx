@@ -40,6 +40,7 @@ import {
 } from "../../services/taxToolsService";
 import TaxCalendarPanel from "../../components/compliance/TaxCalendarPanel";
 import QuarterlyDraftsTab from "../../components/compliance/QuarterlyDraftsTab";
+import { listQuarterlyDrafts } from "../../services/mtdQuarterlyDraftService";
 
 const TABS = [
   { id: "calendar", label: "Tax Calendar", feature: ENTITLEMENT_FEATURES.TAX_READINESS_DASHBOARD, icon: CalendarDays },
@@ -396,10 +397,14 @@ function CarriedForwardTracker({ accountId, properties, carriedRows, onSaved }) 
   );
 }
 
-function ReadinessCheck({ quarterlyDraftsEnabled = false }) {
+function ReadinessCheck({ quarterlyDraftsEnabled = false, quarterlyDrafts = [] }) {
   const [form, setForm] = useState(EMPTY_READINESS);
   const result = useMemo(() => calculateMtdReadiness(form), [form]);
   const toggle = (key) => setForm((f) => ({ ...f, [key]: !f[key] }));
+  const sandboxSubmissionVerified = quarterlyDrafts.some((draft) => (
+    String(draft.sandbox_submission_status || "").toLowerCase() === "success"
+      && String(draft.sandbox_receipt_summary?.readBack || "").toLowerCase() === "succeeded"
+  ));
   const scoreReasons = [
     [form.usesSpreadsheets === false, "Records are kept in a digital system rather than only spreadsheets."],
     [form.keepsReceiptsDigitally === true, "Receipts and invoices are kept digitally."],
@@ -413,7 +418,9 @@ function ReadinessCheck({ quarterlyDraftsEnabled = false }) {
       <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Digital record readiness</h2>
       {quarterlyDraftsEnabled ? (
         <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-100">
-          Quarterly draft readiness is now part of the MTD preparation flow: create a draft for the due period, clear review issues, then export the accountant pack. HMRC submission remains disabled.
+          {sandboxSubmissionVerified
+            ? "Sandbox submission tested successfully. Live HMRC submission remains disabled."
+            : "Quarterly draft readiness is now part of the MTD preparation flow: create a draft for the due period, clear review issues, then export the accountant pack. Live HMRC submission remains disabled."}
         </div>
       ) : null}
       <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -468,11 +475,17 @@ function ReadinessCheck({ quarterlyDraftsEnabled = false }) {
   );
 }
 
-function ExportPack({ expenses, financeRows, carriedRows }) {
+function ExportPack({ expenses, financeRows, carriedRows, quarterlyDrafts = [] }) {
+  const latestSandboxDraft = quarterlyDrafts.find((draft) => String(draft.sandbox_submission_status || "").toLowerCase() === "success");
   return (
     <Panel>
       <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Export / Accountant Pack</h2>
       <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Export organisational records for accountant review. Quarterly draft summary and source-record exports are available from the Quarterly Drafts tab. This is not HMRC submission software.</p>
+      {latestSandboxDraft ? (
+        <div className="mt-4 rounded-xl border border-teal-200 bg-teal-50 p-3 text-sm text-teal-900 dark:border-teal-900/60 dark:bg-teal-950/30 dark:text-teal-100">
+          Sandbox accepted status is recorded for the latest quarterly draft, including read-back verification where available. This was a sandbox submission and does not represent a live HMRC filing.
+        </div>
+      ) : null}
       <div className="mt-5 flex flex-wrap gap-3">
         <button type="button" disabled={!expenses.length} onClick={() => downloadTaxToolsCsv(generateTaxExpenseClassificationsCsv(expenses), "tenaqo-tax-expenses.csv")} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium disabled:opacity-50 dark:border-slate-700"><Download size={16} /> Expense records</button>
         <button type="button" disabled={!financeRows.length} onClick={() => downloadTaxToolsCsv(generateTaxFinanceCostSummariesCsv(financeRows), "tenaqo-section-24.csv")} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium disabled:opacity-50 dark:border-slate-700"><Download size={16} /> Section 24 summaries</button>
@@ -488,28 +501,35 @@ export default function TaxToolsPage({ properties = [] }) {
   const [expenses, setExpenses] = useState([]);
   const [financeRows, setFinanceRows] = useState([]);
   const [carriedRows, setCarriedRows] = useState([]);
+  const [quarterlyDrafts, setQuarterlyDrafts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const quarterlyDraftsEnabled = hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_QUARTERLY_DRAFT_BUILDER);
+  const sandboxSubmissionEnabled = hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_SANDBOX_SUBMISSION);
 
   const loadRecords = useCallback(async () => {
     if (!activeAccountId) return;
     try {
       setLoading(true);
       setError("");
-      const [expenseRows, financeCostRows, carriedForwardRows] = await Promise.all([
+      const [expenseRows, financeCostRows, carriedForwardRows, draftRows] = await Promise.all([
         listTaxExpenseClassifications(activeAccountId),
         listTaxFinanceCostSummaries(activeAccountId),
         listTaxCarriedForwardFinanceCosts(activeAccountId),
+        quarterlyDraftsEnabled
+          ? listQuarterlyDrafts({ accountId: activeAccountId })
+          : Promise.resolve([]),
       ]);
       setExpenses(expenseRows);
       setFinanceRows(financeCostRows);
       setCarriedRows(carriedForwardRows);
+      setQuarterlyDrafts(draftRows);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load tax tool records.");
     } finally {
       setLoading(false);
     }
-  }, [activeAccountId]);
+  }, [activeAccountId, quarterlyDraftsEnabled]);
 
   useEffect(() => { loadRecords(); }, [loadRecords]);
 
@@ -544,7 +564,7 @@ export default function TaxToolsPage({ properties = [] }) {
       </div>
 
       {activeTab === "calendar" ? (
-        activeEnabled ? <TaxCalendarPanel accountId={activeAccountId} quarterlyDraftsEnabled={hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_QUARTERLY_DRAFT_BUILDER)} /> : <LockedTabNotice />
+        activeEnabled ? <TaxCalendarPanel accountId={activeAccountId} quarterlyDraftsEnabled={quarterlyDraftsEnabled} /> : <LockedTabNotice />
       ) : (
         <>
           {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p> : null}
@@ -554,13 +574,13 @@ export default function TaxToolsPage({ properties = [] }) {
             <QuarterlyDraftsTab
               accountId={activeAccountId}
               properties={properties}
-              sandboxSubmissionEnabled={hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_SANDBOX_SUBMISSION)}
+              sandboxSubmissionEnabled={sandboxSubmissionEnabled}
             />
           ) : null}
           {!loading && activeEnabled && activeTab === "section24" ? <Section24Tracker accountId={activeAccountId} properties={properties} financeRows={financeRows} onSaved={loadRecords} /> : null}
           {!loading && activeEnabled && activeTab === "carried" ? <CarriedForwardTracker accountId={activeAccountId} properties={properties} carriedRows={carriedRows} onSaved={loadRecords} /> : null}
-          {!loading && activeEnabled && activeTab === "readiness" ? <ReadinessCheck quarterlyDraftsEnabled={hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_QUARTERLY_DRAFT_BUILDER)} /> : null}
-          {!loading && activeEnabled && activeTab === "export" ? <ExportPack expenses={expenses} financeRows={financeRows} carriedRows={carriedRows} /> : null}
+          {!loading && activeEnabled && activeTab === "readiness" ? <ReadinessCheck quarterlyDraftsEnabled={quarterlyDraftsEnabled} quarterlyDrafts={quarterlyDrafts} /> : null}
+          {!loading && activeEnabled && activeTab === "export" ? <ExportPack expenses={expenses} financeRows={financeRows} carriedRows={carriedRows} quarterlyDrafts={quarterlyDrafts} /> : null}
         </>
       )}
     </div>

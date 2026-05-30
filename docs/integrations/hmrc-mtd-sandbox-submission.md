@@ -27,8 +27,10 @@ Phase 4 closes that loop by submitting a reviewed quarterly draft to the sandbox
 6. Mark the draft reviewed or lock it.
 7. Enable `hmrc_mtd_sandbox_submission` for the internal/staging account.
 8. Submit to HMRC sandbox.
-9. Store the submission ID, correlation ID and safe receipt summary.
+9. Store the submission ID when HMRC returns one, plus the correlation ID and safe receipt summary.
 10. Attempt read-back verification.
+
+For the 2025-26 and later cumulative UK Property endpoint, HMRC can accept a sandbox submission with `204 No Content`. In that case there may be no `submissionId` in the response. Treat the HMRC correlation ID and successful read-back verification as the meaningful sandbox receipt.
 
 ## Submission Guards
 
@@ -49,11 +51,11 @@ Tenants and contractors cannot submit.
 
 ## Payload Mapping
 
-The payload builder maps included quarterly draft lines into a conservative UK property period summary shape:
+The payload builder maps included quarterly draft lines into the HMRC Property Business API 6.0 cumulative UK property summary shape:
 
-- rent income becomes `totalRentsReceived`
-- other property income becomes `otherPropertyIncome`
-- included expenses are submitted as consolidated expenses
+- rent income becomes `ukProperty.income.periodAmount`
+- other property income becomes `ukProperty.income.otherIncome`
+- included expenses are submitted as `ukProperty.expenses.consolidatedExpenses`
 - excluded lines are omitted
 - unresolved review lines block submission
 - negative or invalid amounts block submission
@@ -82,6 +84,10 @@ Common safe messages:
 
 If create succeeds but read-back fails, the submission remains successful and the read-back issue is recorded separately.
 
+Repeat submit is blocked after a successful sandbox submission for the same draft. Create a new draft, or an explicit amendment flow in a later phase, to test another submission.
+
+Earlier failed audit rows remain visible for traceability. They can reflect previous sandbox payload validation before the latest successful submission.
+
 ## Not Implemented
 
 - No live HMRC submission.
@@ -89,3 +95,5 @@ If create succeeds but read-back fails, the submission remains successful and th
 - No annual update.
 - No foreign property period summaries.
 - No self-employment period summaries.
+
+Sandbox submission records do not represent a live HMRC filing.

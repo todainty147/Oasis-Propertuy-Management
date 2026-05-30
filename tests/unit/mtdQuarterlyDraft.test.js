@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatHmrcSandboxReceipt,
   generateQuarterlyDraftLinesCsv,
   generateQuarterlyDraftSummaryCsv,
 } from "../../src/services/mtdQuarterlyDraftService.js";
@@ -241,5 +242,42 @@ describe("HMRC sandbox UK property period summary payload builder", () => {
     const summaryText = JSON.stringify(result.payloadSummary);
     expect(summaryText).not.toMatch(/token|secret|client/i);
     expect(result.payloadSummary.issue_count).toBe(0);
+  });
+
+  it("formats a successful 204 sandbox receipt without treating the missing submission id as an error", () => {
+    const receipt = formatHmrcSandboxReceipt({
+      status: "success",
+      hmrc_http_status: 204,
+      hmrc_correlation_id: "corr-123",
+      submitted_at: "2026-05-30T05:25:00Z",
+      response_summary: { readBack: "succeeded" },
+    });
+
+    expect(receipt.statusLabel).toBe("Accepted by HMRC sandbox");
+    expect(receipt.submissionReference).toBe("No submission ID returned; 204 No Content accepted.");
+    expect(receipt.correlationId).toBe("corr-123");
+    expect(receipt.readBackLabel).toBe("Read-back verified.");
+    expect(receipt.propertyBusinessReadLabel).toBe("Property Business read confirmed submitted data.");
+  });
+
+  it("includes sandbox-only receipt details in the quarterly draft summary export", () => {
+    const csv = generateQuarterlyDraftSummaryCsv({
+      tax_year: "2026-27",
+      period_label: "Q1 2026-27",
+      status: "locked",
+      validation_summary: { incomeTotal: 1200, expenseTotal: 200, issueCount: 0, includedLines: 2, excludedLines: 0 },
+      submissionAttempts: [{
+        status: "success",
+        hmrc_http_status: 204,
+        hmrc_correlation_id: "corr-456",
+        submitted_at: "2026-05-30T05:25:00Z",
+        response_summary: { readBack: "succeeded" },
+      }],
+    });
+
+    expect(csv).toContain("\"Sandbox accepted status\",\"Accepted by HMRC sandbox\"");
+    expect(csv).toContain("\"HMRC correlation ID\",\"corr-456\"");
+    expect(csv).toContain("\"Read-back verification\",\"Read-back verified.\"");
+    expect(csv).toContain("Sandbox submission records do not represent a live HMRC filing.");
   });
 });
