@@ -131,6 +131,7 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
       .sort((a, b) => new Date(b.checked_at || b.created_at || 0).getTime() - new Date(a.checked_at || a.created_at || 0).getTime())[0];
   }, [hmrcStatus]);
   const sandboxProfile = hmrcStatus?.sandboxProfile || {};
+  const connectionStatus = hmrcStatus?.connection?.connection_status || hmrcStatus?.connection?.status || "not_connected";
   const businessIdPresent = Boolean(sandboxProfile.hasIncomeSourceId || sandboxProfile.hasTestBusinessId);
   const frontendPayloadIssues = useMemo(() => validateUkPropertyPeriodSummaryInput({
     draft: selectedDraft,
@@ -142,7 +143,7 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
   const canSubmitSandbox = Boolean(
     sandboxSubmissionEnabled
       && selectedDraft?.id
-      && hmrcStatus?.connection?.status === "connected"
+      && connectionStatus === "connected"
       && frontendPayloadIssues.length === 0,
   );
 
@@ -245,7 +246,7 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
         <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">HMRC read-only status</h3>
         <div className="mt-3 grid gap-3 md:grid-cols-5">
           {[
-            ["Connection", hmrcStatus?.connection?.status === "connected" ? "Connected" : "Not connected"],
+            ["Connection", connectionStatus === "connected" ? "Connected" : "Not connected"],
             ["Business Details", latestCheck("business_details")?.status === "success" ? "Verified" : "Not verified"],
             ["Obligations", checkSucceeded(latestCheck("obligations_income_and_expenditure")) ? "Checked" : "Not checked"],
             ["Property Business", checkSucceeded(latestCheck("property_business_read")) ? "Checked" : "Not checked"],
