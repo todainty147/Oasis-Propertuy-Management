@@ -4,14 +4,14 @@
 
 1. OAuth + read-only verification - complete.
 2. Digital record and tax tools - implemented.
-3. Quarterly draft builder - current phase.
-4. Sandbox quarterly submission - next phase.
+3. Quarterly draft builder - complete.
+4. Sandbox UK property period summary submission - current phase.
 5. Live submission pilot - later.
 6. End-of-year / final declaration - later.
 
 ## Guardrails
 
-Live HMRC submission remains disabled. The quarterly draft builder prepares reviewable summaries, validation issues and export files only.
+Live HMRC submission remains disabled. Sandbox submission is limited to reviewed or locked quarterly drafts, the HMRC test API base URL, and accounts explicitly enabled with `hmrc_mtd_sandbox_submission`.
 
 HMRC tokens stay server-side and encrypted. Draft exports must not include access tokens, refresh tokens, client secrets or unnecessary raw HMRC identifiers.
 
@@ -40,10 +40,10 @@ It does not call HMRC submission endpoints.
 | Quarterly draft snapshots | Implemented |
 | Payload preview | Preview-only |
 | Accountant exports | Implemented for draft summary/source records |
-| Sandbox quarterly submission | Not implemented |
+| Sandbox UK property period summary submission | Current |
 | Live quarterly submission | Not implemented |
 | Final declaration | Not implemented |
 
 ## Next Phase
 
-The next phase is sandbox quarterly submission design. It must remain behind `hmrc_mtd_sandbox_submission` and must continue to keep `hmrc_mtd_live_submission` disabled until a separate live pilot is approved.
+The next phase after sandbox UK property period summary submission is a live-submission pilot design. It must remain behind a separate approval process and keep `hmrc_mtd_live_submission` disabled until production controls are ready.

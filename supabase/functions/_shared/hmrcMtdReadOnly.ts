@@ -163,7 +163,7 @@ export async function hmrcRequest({
   action: string;
   userId: string;
   query?: Record<string, string | undefined>;
-  method?: "GET" | "POST" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: Record<string, unknown> | null;
   testScenario?: string | null;
 }) {
@@ -185,6 +185,10 @@ export async function hmrcRequest({
   });
   const responseBody = await response.json().catch(() => ({}));
   const normalized = response.ok ? null : normalizeHmrcError(response.status, responseBody);
+  const correlationId = response.headers.get("X-CorrelationId")
+    || response.headers.get("x-correlation-id")
+    || response.headers.get("CorrelationId")
+    || null;
 
   await auditHmrcEvent({
     accountId,
@@ -199,6 +203,7 @@ export async function hmrcRequest({
       status: response.status,
       hmrc_code: normalized?.hmrcCode || null,
       safe_code: normalized?.safeCode || null,
+      hmrc_correlation_id: correlationId,
     },
     errorMessage: response.ok || response.status === 404 ? null : normalized?.message || "HMRC read-only check failed",
   });
@@ -207,6 +212,7 @@ export async function hmrcRequest({
     ok: response.ok,
     status: response.status,
     body: responseBody as Record<string, unknown>,
+    correlationId,
     normalized,
   };
 }

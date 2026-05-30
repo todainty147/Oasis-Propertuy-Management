@@ -8,12 +8,22 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "u
 describe("HMRC MTD Phase 1 security contracts", () => {
   it("adds HMRC account-level flags without adding live submission to plan entitlements", () => {
     const entitlements = read("src/lib/entitlements.js");
-    ["hmrc_mtd_connection", "hmrc_mtd_sandbox", "hmrc_mtd_read_only", "hmrc_mtd_sandbox_test_data", "hmrc_mtd_live_submission"].forEach((flag) => {
+    [
+      "hmrc_mtd_connection",
+      "hmrc_mtd_sandbox",
+      "hmrc_mtd_read_only",
+      "hmrc_mtd_sandbox_test_data",
+      "hmrc_mtd_quarterly_draft_builder",
+      "hmrc_mtd_sandbox_submission",
+      "hmrc_mtd_live_submission",
+    ].forEach((flag) => {
       expect(entitlements).toContain(flag);
     });
     const planSection = entitlements.slice(entitlements.indexOf("const STARTER_FEATURES"), entitlements.indexOf("export const PLAN_ENTITLEMENTS"));
     expect(planSection).not.toContain("ENTITLEMENT_FEATURES.HMRC_MTD_CONNECTION");
     expect(planSection).not.toContain("ENTITLEMENT_FEATURES.HMRC_MTD_READ_ONLY");
+    expect(planSection).not.toContain("ENTITLEMENT_FEATURES.HMRC_MTD_QUARTERLY_DRAFT_BUILDER");
+    expect(planSection).not.toContain("ENTITLEMENT_FEATURES.HMRC_MTD_SANDBOX_SUBMISSION");
     expect(planSection).not.toContain("ENTITLEMENT_FEATURES.HMRC_MTD_LIVE_SUBMISSION");
   });
 
@@ -248,7 +258,7 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(setup).toContain("sandbox_reachable");
     expect(setup).toContain("No 'Access-Control-Allow-Origin' header");
     expect(setup).toContain("No live submission");
-    expect(setup).toContain("No quarterly update submission");
+    expect(setup).toContain("No live quarterly update submission");
     expect(setup).toContain("Business Details (MTD) 2.0");
     expect(setup).toContain("Property Business (MTD) 6.0");
     expect(read("docs/integrations/hmrc-mtd-readonly-verification.md")).toContain("Business Details (MTD) 2.0");

@@ -107,6 +107,20 @@ export async function deleteHmrcTestBusiness(accountId) {
   return invokeHmrcReadOnlyCheck(accountId, "hmrc-delete-test-business", "Could not delete HMRC sandbox test business.");
 }
 
+export async function submitHmrcUkPropertyPeriodSummarySandbox(accountId, draftId, confirmSandboxSubmission = false) {
+  assertAccount(accountId);
+  if (!draftId) throw new Error("Missing quarterly draft id.");
+  const { data, error } = await supabase.functions.invoke("hmrc-submit-uk-property-period-summary-sandbox", {
+    body: {
+      account_id: accountId,
+      draft_id: draftId,
+      confirmSandboxSubmission,
+    },
+  });
+  if (error) throw safeInvokeError(error, "Could not submit HMRC sandbox period summary.");
+  return data || null;
+}
+
 async function invokeHmrcReadOnlyCheck(accountId, functionName, fallback, body = {}) {
   assertAccount(accountId);
   const { data, error } = await supabase.functions.invoke(functionName, {

@@ -66,8 +66,15 @@ Deno.serve(async (req) => {
 });
 
 async function revokeRefreshTokenBestEffort(connection: Record<string, unknown> | null | undefined) {
+  const timestamp = new Date().toISOString();
   if (!connection?.refresh_token_ciphertext) {
-    return { revoke_endpoint_called: false, revoke_reason: "no_refresh_token" };
+    return {
+      revocationAttempted: false,
+      revocationStatus: "skipped",
+      environment: HMRC_ENVIRONMENT,
+      reason: "no_refresh_token",
+      timestamp,
+    };
   }
   try {
     ensureHmrcBaseUrl();
@@ -89,15 +96,24 @@ async function revokeRefreshTokenBestEffort(connection: Record<string, unknown> 
       });
     }
     return {
-      revoke_endpoint_called: true,
-      revoke_http_status: response.status,
-      revoke_ok: response.ok,
+      revocationAttempted: true,
+      revocationStatus: response.ok ? "succeeded" : "failed",
+      environment: HMRC_ENVIRONMENT,
+      httpStatus: response.status,
+      reason: response.ok ? null : "hmrc_revoke_rejected",
+      timestamp,
     };
   } catch (error) {
     console.error("[hmrc] token revoke failed", {
       connectionId: String(connection.id || ""),
       message: error instanceof Error ? error.message : "Unknown revoke error",
     });
-    return { revoke_endpoint_called: true, revoke_ok: false };
+    return {
+      revocationAttempted: true,
+      revocationStatus: "failed",
+      environment: HMRC_ENVIRONMENT,
+      reason: error instanceof Error ? error.message : "Unknown revoke error",
+      timestamp,
+    };
   }
 }

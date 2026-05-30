@@ -15,6 +15,10 @@ import {
   mapRecordsToDraftLines,
   validateDraftLines,
 } from "../../src/lib/mtd/mtdQuarterlyDraft.js";
+import {
+  buildUkPropertyPeriodSummaryPayload,
+  validateUkPropertyPeriodSummaryInput,
+} from "../../src/lib/mtd/hmrcUkPropertyPeriodSummaryPayloadBuilder.js";
 
 describe("MTD quarterly draft category mapping", () => {
   it("maps existing Tax Tools categories to review-safe MTD categories", () => {
@@ -165,5 +169,77 @@ describe("MTD quarterly draft lines", () => {
     expect(linesCsv).toContain("\"record-1\"");
     expect(summaryCsv).toContain("not a tax return");
     expect(summaryCsv).toContain("not been submitted to HMRC");
+  });
+});
+
+describe("HMRC sandbox UK property period summary payload builder", () => {
+  const draft = {
+    status: "reviewed",
+    tax_year: "2026-27",
+    period_start: "2026-04-06",
+    period_end: "2026-07-05",
+  };
+
+  it("maps basic rent income and consolidated expenses into the sandbox payload shape", () => {
+    const result = buildUkPropertyPeriodSummaryPayload({
+      draft,
+      nino: "QQ123456C",
+      businessId: "XAIS12345678910",
+      lines: [
+        { include_in_draft: true, direction: "income", amount: 1200, issue_status: "ok", hmrc_category_key: "rent_income" },
+        { include_in_draft: true, direction: "expense", amount: 100.235, issue_status: "ok", hmrc_category_key: "repairs_and_maintenance" },
+      ],
+    });
+
+    expect(result.validationIssues).toEqual([]);
+    expect(result.method).toBe("PUT");
+    expect(result.payload.fromDate).toBe("2026-04-06");
+    expect(result.payload.ukProperty.income.totalRentsReceived.periodAmount).toBe(1200);
+    expect(result.payload.ukProperty.expenses.consolidatedExpenses.periodAmount).toBe(100.24);
+    expect(result.payloadSummary.submissionMode).toBe("sandbox");
+  });
+
+  it("omits excluded lines and separates other property income", () => {
+    const result = buildUkPropertyPeriodSummaryPayload({
+      draft,
+      nino: "QQ123456C",
+      businessId: "XAIS12345678910",
+      lines: [
+        { include_in_draft: true, direction: "income", amount: 200, issue_status: "ok", hmrc_category_key: "other_property_income" },
+        { include_in_draft: false, direction: "income", amount: 999, issue_status: "excluded", hmrc_category_key: "rent_income" },
+      ],
+    });
+
+    expect(result.payload.ukProperty.income.otherPropertyIncome.periodAmount).toBe(200);
+    expect(result.payload.ukProperty.income.totalRentsReceived).toBeUndefined();
+    expect(result.payloadSummary.included_line_count).toBe(1);
+  });
+
+  it("blocks unresolved review lines and missing identifiers", () => {
+    const issues = validateUkPropertyPeriodSummaryInput({
+      draft,
+      nino: "",
+      businessId: "",
+      lines: [
+        { include_in_draft: true, direction: "expense", amount: 500, issue_status: "needs_review", description: "Capital improvement" },
+      ],
+    });
+
+    expect(issues.join(" ")).toMatch(/NINO/i);
+    expect(issues.join(" ")).toMatch(/business/i);
+    expect(issues.join(" ")).toMatch(/needs review/i);
+  });
+
+  it("keeps secrets out of the payload summary", () => {
+    const result = buildUkPropertyPeriodSummaryPayload({
+      draft,
+      nino: "QQ123456C",
+      businessId: "XAIS12345678910",
+      lines: [{ include_in_draft: true, direction: "income", amount: 100, issue_status: "ok", hmrc_category_key: "rent_income" }],
+    });
+
+    const summaryText = JSON.stringify(result.payloadSummary);
+    expect(summaryText).not.toMatch(/token|secret|client/i);
+    expect(result.payloadSummary.issue_count).toBe(0);
   });
 });
