@@ -14,10 +14,6 @@ function roundMoney(value: unknown) {
   return Math.round(Number(value || 0) * 100) / 100;
 }
 
-function periodAmount(value: unknown) {
-  return { periodAmount: roundMoney(value) };
-}
-
 function includedLines(lines: Record<string, unknown>[] = []) {
   return lines.filter((line) => Boolean(line.include_in_draft));
 }
@@ -93,12 +89,12 @@ export function buildUkPropertyPeriodSummaryPayload({
   const ukProperty: Record<string, unknown> = {};
   if (incomeTotal > 0) {
     ukProperty.income = {
-      ...(rentIncome > 0 ? { totalRentsReceived: periodAmount(rentIncome) } : {}),
-      ...(otherIncome > 0 ? { otherPropertyIncome: periodAmount(otherIncome) } : {}),
+      ...(rentIncome > 0 ? { periodAmount: roundMoney(rentIncome) } : {}),
+      ...(otherIncome > 0 ? { otherIncome: roundMoney(otherIncome) } : {}),
     };
   }
   if (expenseTotal > 0) {
-    ukProperty.expenses = { consolidatedExpenses: periodAmount(expenseTotal) };
+    ukProperty.expenses = { consolidatedExpenses: roundMoney(expenseTotal) };
   }
 
   const categoryCount = new Set(rows.map((line) => line.hmrc_category_key || line.mtd_category || line.tenaqo_category || "uncategorised")).size;

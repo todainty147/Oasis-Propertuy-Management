@@ -484,8 +484,11 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
               ) : null}
               <button
                 type="button"
-                disabled={busy || !canSubmitSandbox}
-                onClick={() => setConfirmOpen(true)}
+                disabled={busy || !canSubmitSandbox || latestAttempt?.status === "success" || selectedDraft.sandbox_submission_status === "success"}
+                onClick={() => {
+                  setConfirmSandbox(false);
+                  setConfirmOpen(true);
+                }}
                 className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900"
               >
                 <Send size={15} /> Submit to HMRC sandbox
