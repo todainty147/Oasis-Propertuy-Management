@@ -2,13 +2,13 @@ import {
   admin,
   assertHmrcAccountAccess,
   getConnection,
-  getSafeConnectionStatus,
   handleOptions,
   json,
   methodNotAllowed,
   requireUser,
   safeHmrcError,
 } from "../_shared/hmrcEdge.ts";
+import { safeHmrcConnectionPayload } from "../_shared/hmrcMtd.ts";
 import { safeSandboxProfile } from "../_shared/hmrcMtdReadOnly.ts";
 
 Deno.serve(async (req) => {
@@ -26,20 +26,20 @@ Deno.serve(async (req) => {
       .select("id, action, status, http_status, error_message, created_at")
       .eq("account_id", accountId)
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(30);
     if (auditError) throw auditError;
     const { data: readinessRows, error: readinessError } = await admin
       .from("hmrc_readiness_checks")
       .select("id, check_type, status, hmrc_status_code, hmrc_code, summary, checked_at")
       .eq("account_id", accountId)
       .order("checked_at", { ascending: false })
-      .limit(10);
+      .limit(30);
     if (readinessError) throw readinessError;
 
     const rawConnection = await getConnection(accountId);
 
     return json(req, {
-      connection: await getSafeConnectionStatus(accountId),
+      connection: safeHmrcConnectionPayload(rawConnection),
       sandboxProfile: safeSandboxProfile(rawConnection),
       auditEvents: auditRows || [],
       readinessChecks: readinessRows || [],

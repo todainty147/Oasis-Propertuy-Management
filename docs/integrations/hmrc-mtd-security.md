@@ -11,6 +11,10 @@ HMRC credentials and OAuth tokens are server-side secrets. The browser must neve
 - Token ciphertext is stored in `hmrc_connections`.
 - `hmrc_connections` and `hmrc_oauth_states` are not granted direct authenticated browser access.
 - The browser receives only safe metadata: status, environment, scopes, dates, and display label.
+- Disconnect attempts best-effort refresh-token revocation with HMRC before encrypted token fields are cleared.
+- Refresh-token rotation is guarded by a single in-progress connection state so concurrent refresh attempts cannot reuse the same HMRC refresh token.
+- HMRC API calls validate `HMRC_BASE_URL` against the trusted HMRC API hosts before token exchange or read-only requests.
+- Expired, unconsumed OAuth state rows are cleaned up opportunistically from the callback path.
 
 ## Audit Logging
 

@@ -27,6 +27,7 @@ export const HMRC_BASE_URL = Deno.env.get("HMRC_BASE_URL") || "https://test-api.
 export const HMRC_AUTH_BASE_URL = Deno.env.get("HMRC_AUTH_BASE_URL") || "https://test-www.tax.service.gov.uk";
 export const HMRC_TOKEN_ENCRYPTION_KEY = Deno.env.get("HMRC_TOKEN_ENCRYPTION_KEY") || "";
 export const HMRC_LIVE_SUBMISSION_ENV = Deno.env.get("HMRC_LIVE_SUBMISSION_ENABLED") || "false";
+const ALLOWED_HMRC_HOSTS = Object.freeze(["test-api.service.hmrc.gov.uk", "api.service.hmrc.gov.uk"]);
 
 export const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -172,6 +173,20 @@ export function ensureSandboxOnly() {
 export function ensureHmrcConfig() {
   if (!HMRC_CLIENT_ID || !HMRC_CLIENT_SECRET || !HMRC_REDIRECT_URI || !HMRC_TOKEN_ENCRYPTION_KEY) {
     throw new HttpError("HMRC sandbox credentials are not configured", 500);
+  }
+  ensureHmrcBaseUrl();
+}
+
+export function ensureHmrcBaseUrl() {
+  const host = (() => {
+    try {
+      return new URL(HMRC_BASE_URL).hostname;
+    } catch {
+      return "";
+    }
+  })();
+  if (!ALLOWED_HMRC_HOSTS.includes(host)) {
+    throw new HttpError("HMRC base URL is not trusted", 500);
   }
 }
 

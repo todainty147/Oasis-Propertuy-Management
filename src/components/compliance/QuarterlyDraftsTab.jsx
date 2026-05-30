@@ -64,6 +64,10 @@ function summaryValue(summary, key) {
   return Number(summary?.[key] || 0);
 }
 
+function checkSucceeded(check) {
+  return ["success", "no_data"].includes(String(check?.status || "").toLowerCase());
+}
+
 function formatSignedCurrency(value) {
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
@@ -203,8 +207,8 @@ export default function QuarterlyDraftsTab({ accountId, properties = [] }) {
           {[
             ["Connection", hmrcStatus?.connection?.status === "connected" ? "Connected" : "Not connected"],
             ["Business Details", latestCheck("business_details")?.status === "success" ? "Verified" : "Not verified"],
-            ["Obligations", latestCheck("obligations_income_and_expenditure") ? "Checked" : "Not checked"],
-            ["Property Business", latestCheck("property_business_read") ? "Checked" : "Not checked"],
+            ["Obligations", checkSucceeded(latestCheck("obligations_income_and_expenditure")) ? "Checked" : "Not checked"],
+            ["Property Business", checkSucceeded(latestCheck("property_business_read")) ? "Checked" : "Not checked"],
             ["Live submission", "Disabled"],
           ].map(([label, value]) => (
             <div key={label} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
@@ -216,8 +220,11 @@ export default function QuarterlyDraftsTab({ accountId, properties = [] }) {
       </Panel>
 
       {error ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100">
-          {error}
+        <div className="flex items-start justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100">
+          <span>{error}</span>
+          <button type="button" onClick={() => setError("")} className="rounded px-1 text-lg leading-none hover:bg-rose-100 dark:hover:bg-rose-900/60" aria-label="Dismiss error">
+            ×
+          </button>
         </div>
       ) : null}
 
@@ -337,7 +344,7 @@ export default function QuarterlyDraftsTab({ accountId, properties = [] }) {
               <div className="mt-3 max-h-[520px] overflow-auto">
                 {(selectedDraft.lines || []).length === 0 ? <p className="text-sm text-slate-500">No source records collected for this period.</p> : (
                   <table className="w-full min-w-[980px] text-left text-sm">
-                    <thead className="text-xs uppercase text-slate-500"><tr><th className="py-2">Date</th><th>Property</th><th>Description</th><th>Source</th><th>Category</th><th>Amount</th><th>Issue</th><th>Included</th></tr></thead>
+                    <thead className="text-xs uppercase text-slate-500"><tr><th className="py-2">Date</th><th>Property</th><th>Description</th><th>Source</th><th>Source ref</th><th>Category</th><th>Amount</th><th>Issue</th><th>Included</th></tr></thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {selectedDraft.lines.map((line) => (
                         <tr key={line.id}>
@@ -345,6 +352,10 @@ export default function QuarterlyDraftsTab({ accountId, properties = [] }) {
                           <td>{propertyLabel(properties, line.property_id)}</td>
                           <td>{line.description}</td>
                           <td>{line.source_type}</td>
+                          <td>
+                            <span className="block text-xs text-slate-500">{line.source_table || "No table"}</span>
+                            <span className="block max-w-40 truncate text-xs text-slate-400">{line.source_id || "No source id"}</span>
+                          </td>
                           <td>{line.hmrc_category_key || line.mtd_category || "Unmapped"}</td>
                           <td>{formatCurrency(line.amount)}</td>
                           <td><span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${line.issue_status === "ok" ? "bg-teal-50 text-teal-700" : "bg-amber-50 text-amber-700"}`}>{line.issue_status}</span></td>
@@ -378,6 +389,9 @@ export default function QuarterlyDraftsTab({ accountId, properties = [] }) {
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Payload preview</h3>
                   <button type="button" onClick={() => handleExport("record")} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium dark:border-slate-700"><FileJson size={14} /> Record export</button>
+                </div>
+                <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
+                  This is a preview only. It is not submitted to HMRC.
                 </div>
                 <pre className="mt-3 max-h-96 overflow-auto rounded-xl bg-slate-950 p-3 text-xs text-slate-100">{JSON.stringify(selectedDraft.payload_preview || {}, null, 2)}</pre>
                 <button type="button" disabled className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-500 opacity-70 dark:border-slate-700">

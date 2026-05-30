@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  generateQuarterlyDraftLinesCsv,
+  generateQuarterlyDraftSummaryCsv,
+} from "../../src/services/mtdQuarterlyDraftService.js";
+import {
   aggregateDraftLinesByCategory,
   getCategoryMappingIssue,
   mapRecordToHmrcCategoryKey,
@@ -51,6 +55,39 @@ describe("MTD quarterly draft lines", () => {
     expect(line.include_in_draft).toBe(false);
   });
 
+  it("keeps review-only tax categories excluded until explicitly reviewed", () => {
+    const [capital, finance, mixedUse] = mapRecordsToDraftLines([
+      { sourceType: "tax_record", date: "2026-05-01", amount: 1000, direction: "expense", tenaqoCategory: "capital_improvement", propertyId: "property-1" },
+      { sourceType: "tax_record", date: "2026-05-02", amount: 400, direction: "expense", tenaqoCategory: "finance_cost", propertyId: "property-1" },
+      { sourceType: "tax_record", date: "2026-05-03", amount: 80, direction: "expense", tenaqoCategory: "mixed_use_review", propertyId: "property-1" },
+    ]);
+
+    expect(capital.issue_status).toBe("needs_review");
+    expect(finance.issue_status).toBe("needs_review");
+    expect(mixedUse.issue_status).toBe("needs_review");
+    expect(capital.include_in_draft).toBe(false);
+    expect(finance.include_in_draft).toBe(false);
+    expect(mixedUse.include_in_draft).toBe(false);
+  });
+
+  it("flags invalid dates and amounts without crashing draft line creation", () => {
+    const [line] = mapRecordsToDraftLines([{
+      sourceType: "tax_record",
+      sourceTable: "tax_records",
+      sourceId: "record-1",
+      date: "2026-99-99",
+      amount: "not-a-number",
+      direction: "expense",
+      tenaqoCategory: "repairs_maintenance",
+      propertyId: "property-1",
+    }]);
+
+    expect(line.issue_status).toBe("needs_review");
+    expect(line.issue_reason).toMatch(/amount/i);
+    expect(line.amount).toBe(0);
+    expect(line.transaction_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
   it("aggregates included lines by category", () => {
     const lines = [
       { include_in_draft: true, direction: "income", hmrc_category_key: "rent_income", amount: 1200, issue_status: "ok" },
@@ -79,12 +116,54 @@ describe("MTD quarterly draft lines", () => {
 
   it("generates a preview-only payload", () => {
     const preview = generatePayloadPreview(
-      { tax_year: "2026/27", period_label: "Q1", period_start: "2026-04-06", period_end: "2026-07-05" },
+      {
+        tax_year: "2026/27",
+        period_label: "Q1",
+        period_start: "2026-04-06",
+        period_end: "2026-07-05",
+        source_summary: {
+          collectedRecords: 1,
+          access_token: "secret-token",
+          nested: { refresh_token: "secret-refresh", kept: true },
+        },
+      },
       [{ include_in_draft: true, direction: "income", amount: 100, issue_status: "ok", hmrc_category_key: "rent_income" }],
     );
 
     expect(preview.previewOnly).toBe(true);
     expect(preview.hmrcSubmissionDisabled).toBe(true);
+    expect(preview.submission.enabled).toBe(false);
     expect(preview.period.label).toBe("Q1");
+    expect(JSON.stringify(preview)).not.toContain("secret-token");
+    expect(JSON.stringify(preview)).not.toContain("secret-refresh");
+    expect(preview.sourceSummary.nested.kept).toBe(true);
+  });
+
+  it("exports traceability fields and review disclaimers in draft CSVs", () => {
+    const linesCsv = generateQuarterlyDraftLinesCsv([{
+      transaction_date: "2026-05-01",
+      property_id: "property-1",
+      description: "Repair",
+      source_type: "tax_record",
+      source_table: "tax_records",
+      source_id: "record-1",
+      direction: "expense",
+      tenaqo_category: "repairs_maintenance",
+      hmrc_category_key: "repairs_and_maintenance",
+      amount: 120,
+      include_in_draft: true,
+      issue_status: "ok",
+    }]);
+    const summaryCsv = generateQuarterlyDraftSummaryCsv({
+      tax_year: "2026/27",
+      period_label: "Q1",
+      status: "locked",
+      validation_summary: { incomeTotal: 0, expenseTotal: 120, issueCount: 0, includedLines: 1, excludedLines: 0 },
+    });
+
+    expect(linesCsv).toContain("\"tax_records\"");
+    expect(linesCsv).toContain("\"record-1\"");
+    expect(summaryCsv).toContain("not a tax return");
+    expect(summaryCsv).toContain("not been submitted to HMRC");
   });
 });

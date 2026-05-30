@@ -23,6 +23,7 @@ Deno.serve(async (req) => {
     const code = url.searchParams.get("code") || "";
     const state = url.searchParams.get("state") || "";
     const errorCode = url.searchParams.get("error") || "";
+    await cleanupExpiredOauthStates();
 
     if (errorCode) {
       return Response.redirect(appRedirectUrl("/compliance/hmrc-connection", { hmrc: "failed" }), 302);
@@ -157,4 +158,17 @@ async function getExistingConnectionMetadata(accountId: string) {
   return data?.metadata && typeof data.metadata === "object"
     ? data.metadata as Record<string, unknown>
     : {};
+}
+
+async function cleanupExpiredOauthStates() {
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { error } = await admin
+    .from("hmrc_oauth_states")
+    .delete()
+    .is("consumed_at", null)
+    .eq("environment", HMRC_ENVIRONMENT)
+    .lt("expires_at", cutoff);
+  if (error) {
+    console.error("[hmrc] oauth state cleanup failed", { message: error.message });
+  }
 }

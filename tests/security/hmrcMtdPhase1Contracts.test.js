@@ -89,6 +89,35 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(files).not.toMatch(/VITE_HMRC|console\.log\([^)]*(token|secret|code)/i);
   });
 
+  it("revokes refresh tokens on disconnect and guards concurrent token refreshes", () => {
+    const disconnect = read("supabase/functions/hmrc-disconnect/index.ts");
+    const refresh = read("supabase/functions/hmrc-refresh-token/index.ts");
+    const edge = read("supabase/functions/_shared/hmrcEdge.ts");
+
+    expect(disconnect).toContain("/oauth/revoke");
+    expect(disconnect).toContain("token_type_hint");
+    expect(disconnect).toContain("refresh_token");
+    expect(disconnect).toContain("ensureHmrcBaseUrl");
+    expect(disconnect).toContain(".eq(\"environment\", HMRC_ENVIRONMENT)");
+    expect(disconnect).not.toContain("requestSummary: { revoke_endpoint_called: false }");
+
+    expect(refresh).toContain(".update({ connection_status: \"pending\"");
+    expect(refresh).toContain(".eq(\"connection_status\", \"connected\")");
+    expect(refresh).toContain("Token refresh already in progress");
+    expect(refresh).toContain("connection_status: \"failed\"");
+
+    expect(edge).toContain("ALLOWED_HMRC_HOSTS");
+    expect(edge).toContain("test-api.service.hmrc.gov.uk");
+    expect(edge).toContain("api.service.hmrc.gov.uk");
+  });
+
+  it("keeps HMRC status reads efficient and readiness history broad enough for repeated checks", () => {
+    const statusFunction = read("supabase/functions/hmrc-get-connection-status/index.ts");
+    expect(statusFunction).toContain("safeHmrcConnectionPayload(rawConnection)");
+    expect(statusFunction).not.toContain("getSafeConnectionStatus(accountId)");
+    expect(statusFunction.match(/\.limit\(30\)/g) || []).toHaveLength(2);
+  });
+
   it("uses the harmless HMRC Hello scope only for the sandbox connection probe", () => {
     const helper = read("supabase/functions/_shared/hmrcMtd.ts");
     const page = read("src/pages/compliance/HmrcConnectionPage.jsx");
@@ -120,6 +149,7 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     ].map((name) => read(`supabase/functions/${name}/index.ts`)).join("\n");
     const shared = `${read("supabase/functions/_shared/hmrcMtdReadOnly.ts")}\n${read("supabase/functions/_shared/hmrcMtdReadOnlyHelpers.ts")}`;
     expect(files).toContain("hmrc_mtd_read_only");
+    expect(files).toContain("assertHmrcAccountFeatures");
     expect(files).toContain("ensureSandboxOnly");
     expect(files).toContain("writeHmrcReadinessCheck");
     expect(files).toContain("/individuals/business/details/");
@@ -140,6 +170,7 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(shared).toContain("application/vnd.hmrc.2.0+json");
     expect(shared).toContain("application/vnd.hmrc.3.0+json");
     expect(shared).toContain("application/vnd.hmrc.6.0+json");
+    expect(shared).toContain('response.ok || response.status === 404 ? "success"');
     expect(files).not.toMatch(/method:\s*"(POST|PUT|PATCH|DELETE)"/);
     expect(files).not.toMatch(/submit|final declaration|quarterly update/i);
   });

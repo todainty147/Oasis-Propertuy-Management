@@ -22,6 +22,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return handleOptions(req);
   if (req.method !== "POST") return methodNotAllowed(req);
 
+  let guardedConnectionId = "";
   try {
     ensureSandboxOnly();
     ensureHmrcConfig();
@@ -30,9 +31,26 @@ Deno.serve(async (req) => {
     const accountId = String(body.account_id || body.accountId || "").trim();
     await assertHmrcAccountAccess(accountId, user.id, "hmrc_mtd_connection");
     const connection = await getConnection(accountId);
+    if (connection?.connection_status !== "connected") {
+      throw new Error("HMRC connection is not connected.");
+    }
     if (!connection?.refresh_token_ciphertext) {
       throw new Error("No refresh token is available for this HMRC connection");
     }
+
+    const { data: guard, error: guardError } = await admin
+      .from("hmrc_connections")
+      .update({ connection_status: "pending", updated_at: new Date().toISOString() })
+      .eq("id", connection.id)
+      .eq("connection_status", "connected")
+      .select("id")
+      .maybeSingle();
+    if (guardError) throw guardError;
+    if (!guard) {
+      return json(req, { error: "Token refresh already in progress" }, 409);
+    }
+    guardedConnectionId = String(connection.id || "");
+
     const refreshToken = await decryptToken(String(connection.refresh_token_ciphertext), HMRC_TOKEN_ENCRYPTION_KEY);
     const tokenResponse = await fetch(`${HMRC_BASE_URL}/oauth/token`, {
       method: "POST",
@@ -46,6 +64,11 @@ Deno.serve(async (req) => {
     });
     const tokenJson = await tokenResponse.json().catch(() => ({}));
     if (!tokenResponse.ok) {
+      await admin
+        .from("hmrc_connections")
+        .update({ connection_status: "failed", updated_at: new Date().toISOString() })
+        .eq("id", connection.id)
+        .eq("account_id", accountId);
       await auditHmrcEvent({
         accountId,
         userId: user.id,
@@ -60,10 +83,11 @@ Deno.serve(async (req) => {
     }
 
     const now = new Date().toISOString();
+    const scopes = Array.isArray(connection.scopes) ? connection.scopes.map((scope) => String(scope)) : [];
     const { data, error } = await admin
       .from("hmrc_connections")
       .update({
-        ...(await encryptedTokenRow(tokenJson, connection.scopes || [])),
+        ...(await encryptedTokenRow(tokenJson, scopes)),
         connection_status: "connected",
         last_refreshed_at: now,
         updated_at: now,
@@ -86,6 +110,12 @@ Deno.serve(async (req) => {
 
     return json(req, { connection: safeHmrcConnectionPayload(data) });
   } catch (error) {
+    if (guardedConnectionId) {
+      await admin
+        .from("hmrc_connections")
+        .update({ connection_status: "failed", updated_at: new Date().toISOString() })
+        .eq("id", guardedConnectionId);
+    }
     const status = typeof (error as { status?: unknown })?.status === "number" ? Number((error as { status?: unknown }).status) : 500;
     return safeHmrcError(req, error, status, "Could not refresh HMRC sandbox connection", {
       functionName: "hmrc-refresh-token",
