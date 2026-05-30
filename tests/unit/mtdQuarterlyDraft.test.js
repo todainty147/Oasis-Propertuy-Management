@@ -194,8 +194,8 @@ describe("HMRC sandbox UK property period summary payload builder", () => {
     expect(result.validationIssues).toEqual([]);
     expect(result.method).toBe("PUT");
     expect(result.payload.fromDate).toBe("2026-04-06");
-    expect(result.payload.ukProperty.income.totalRentsReceived.periodAmount).toBe(1200);
-    expect(result.payload.ukProperty.expenses.consolidatedExpenses.periodAmount).toBe(100.24);
+    expect(result.payload.ukProperty.income.periodAmount).toBe(1200);
+    expect(result.payload.ukProperty.expenses.consolidatedExpenses).toBe(100.24);
     expect(result.payloadSummary.submissionMode).toBe("sandbox");
   });
 
@@ -210,8 +210,8 @@ describe("HMRC sandbox UK property period summary payload builder", () => {
       ],
     });
 
-    expect(result.payload.ukProperty.income.otherPropertyIncome.periodAmount).toBe(200);
-    expect(result.payload.ukProperty.income.totalRentsReceived).toBeUndefined();
+    expect(result.payload.ukProperty.income.otherIncome).toBe(200);
+    expect(result.payload.ukProperty.income.periodAmount).toBeUndefined();
     expect(result.payloadSummary.included_line_count).toBe(1);
   });
 

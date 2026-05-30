@@ -19,10 +19,6 @@ function sumLines(lines, predicate) {
   return roundMoney(lines.filter(predicate).reduce((total, line) => total + Number(line.amount || 0), 0));
 }
 
-function periodAmount(value) {
-  return { periodAmount: roundMoney(value) };
-}
-
 function safeTaxYear(value) {
   return String(value || "").trim();
 }
@@ -88,13 +84,13 @@ export function buildUkPropertyPeriodSummaryPayload({
   const ukProperty = {};
   if (incomeTotal > 0) {
     ukProperty.income = {
-      ...(rentIncome > 0 ? { totalRentsReceived: periodAmount(rentIncome) } : {}),
-      ...(otherIncome > 0 ? { otherPropertyIncome: periodAmount(otherIncome) } : {}),
+      ...(rentIncome > 0 ? { periodAmount: roundMoney(rentIncome) } : {}),
+      ...(otherIncome > 0 ? { otherIncome: roundMoney(otherIncome) } : {}),
     };
   }
   if (expenseTotal > 0) {
     ukProperty.expenses = {
-      consolidatedExpenses: periodAmount(expenseTotal),
+      consolidatedExpenses: roundMoney(expenseTotal),
     };
   }
 

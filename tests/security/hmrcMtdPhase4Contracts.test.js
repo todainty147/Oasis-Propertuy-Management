@@ -79,6 +79,8 @@ describe("HMRC MTD Phase 4 sandbox submission contracts", () => {
     expect(component).toContain("connectionStatus === \"connected\"");
     expect(component).toContain("connection?.connection_status");
     expect(component).toContain("I understand this is a sandbox test submission only");
+    expect(component).toContain("setConfirmSandbox(false)");
+    expect(component).toContain("latestAttempt?.status === \"success\"");
     expect(component).toContain("Live submission disabled");
     expect(service).toContain("hmrc-submit-uk-property-period-summary-sandbox");
     expect(read("src/services/mtdQuarterlyDraftService.js")).toContain(".order(\"submitted_at\", { ascending: false })");
