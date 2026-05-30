@@ -550,7 +550,13 @@ export default function TaxToolsPage({ properties = [] }) {
           {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p> : null}
           {loading ? <Panel><p className="text-sm text-slate-500">Loading tax tool records...</p></Panel> : !activeEnabled ? <LockedTabNotice /> : null}
           {!loading && activeEnabled && activeTab === "expenses" ? <ExpenseTracker accountId={activeAccountId} properties={properties} expenses={expenses} onSaved={loadRecords} /> : null}
-          {!loading && activeEnabled && activeTab === "quarterlyDrafts" ? <QuarterlyDraftsTab accountId={activeAccountId} properties={properties} /> : null}
+          {!loading && activeEnabled && activeTab === "quarterlyDrafts" ? (
+            <QuarterlyDraftsTab
+              accountId={activeAccountId}
+              properties={properties}
+              sandboxSubmissionEnabled={hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_SANDBOX_SUBMISSION)}
+            />
+          ) : null}
           {!loading && activeEnabled && activeTab === "section24" ? <Section24Tracker accountId={activeAccountId} properties={properties} financeRows={financeRows} onSaved={loadRecords} /> : null}
           {!loading && activeEnabled && activeTab === "carried" ? <CarriedForwardTracker accountId={activeAccountId} properties={properties} carriedRows={carriedRows} onSaved={loadRecords} /> : null}
           {!loading && activeEnabled && activeTab === "readiness" ? <ReadinessCheck quarterlyDraftsEnabled={hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_QUARTERLY_DRAFT_BUILDER)} /> : null}

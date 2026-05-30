@@ -211,7 +211,6 @@ To disconnect a specific account, use the UI `Disconnect HMRC` action. This clea
 
 - No live submission
 - No final declaration
-- No quarterly update submission
+- No live quarterly update submission
 - No production HMRC credentials
-- No HMRC revoke endpoint call
 - No background refresh schedule

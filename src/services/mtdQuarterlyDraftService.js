@@ -20,6 +20,8 @@ const DRAFT_SELECT = [
   "obligation_id", "property_business_id", "income_source_id", "hmrc_connection_id",
   "status", "source_summary", "category_totals", "validation_summary", "payload_preview",
   "reviewed_by", "reviewed_at", "locked_at", "locked_by", "archived_at",
+  "sandbox_submitted_at", "sandbox_submission_status", "sandbox_submission_attempt_id",
+  "sandbox_submission_id", "sandbox_receipt_summary",
   "created_by", "created_at", "updated_at",
 ].join(", ");
 
@@ -80,7 +82,15 @@ export async function getQuarterlyDraft(draftId) {
     .eq("account_id", draft.account_id)
     .order("transaction_date", { ascending: true });
   if (lineError) throw lineError;
-  return { ...draft, lines: lines || [] };
+  const { data: attempts, error: attemptError } = await supabase
+    .from("mtd_quarterly_submission_attempts")
+    .select("id, status, submission_mode, submission_type, hmrc_submission_id, hmrc_correlation_id, hmrc_http_status, hmrc_error_code, hmrc_error_message, response_summary, submitted_at, completed_at")
+    .eq("draft_id", draft.id)
+    .eq("account_id", draft.account_id)
+    .order("submitted_at", { ascending: false })
+    .limit(5);
+  if (attemptError && !isMissingBackendObject(attemptError)) throw attemptError;
+  return { ...draft, lines: lines || [], submissionAttempts: attempts || [] };
 }
 
 export async function createQuarterlyDraft({
@@ -274,6 +284,9 @@ export function generateQuarterlyDraftSummaryCsv(draft) {
     ["Issue count", summary.issueCount || 0],
     ["Included lines", summary.includedLines || 0],
     ["Excluded lines", summary.excludedLines || 0],
+    ["Sandbox submission status", draft?.sandbox_submission_status || "Not submitted"],
+    ["Sandbox submission ID", draft?.sandbox_submission_id || ""],
+    ["Sandbox disclaimer", "Sandbox submission records do not represent a live HMRC filing."],
   ];
   return rows.map((row) => row.map(csvCell).join(",")).join("\n");
 }

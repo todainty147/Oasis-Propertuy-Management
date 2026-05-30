@@ -9,7 +9,7 @@ It does not submit anything to HMRC. Payload JSON is preview-only and every expo
 ## Feature Flags
 
 - `hmrc_mtd_quarterly_draft_builder` - enables the Quarterly Drafts tab per account.
-- `hmrc_mtd_sandbox_submission` - reserved for a later sandbox submission phase and remains disabled.
+- `hmrc_mtd_sandbox_submission` - enables sandbox-only UK property period summary submission for reviewed or locked drafts.
 - `hmrc_mtd_live_submission` - reserved for a later live pilot and remains disabled.
 
 All HMRC MTD flags are account-level flags and are disabled by default.
@@ -87,6 +87,19 @@ Each draft stores a `payload_preview` JSON object with:
 
 No secrets, tokens, refresh tokens or client credentials are included. Preview metadata is scrubbed for token/secret-like keys before storage/export.
 
+## Sandbox Submission
+
+Phase 4 adds a sandbox-only submission panel for reviewed or locked drafts. It is guarded by:
+
+- exact sandbox environment
+- exact HMRC test API base URL
+- `hmrc_mtd_sandbox_submission`
+- disabled `hmrc_mtd_live_submission`
+- `write:self-assessment` scope
+- zero unresolved draft issues
+
+The UI requires a confirmation checkbox before sending the draft to HMRC sandbox. Successful attempts store a safe submission receipt and read-back verification result. Sandbox submission records do not represent a live HMRC filing.
+
 ## Export / Accountant Pack
 
 Quarterly Drafts supports:
@@ -101,10 +114,9 @@ The Export / Accountant Pack tab points users to the Quarterly Drafts tab for dr
 
 ## Not Implemented
 
-- No sandbox quarterly submission.
 - No live quarterly submission.
 - No final declaration.
-- No HMRC write endpoints.
+- No live HMRC write endpoints.
 
 ## Hardening Checklist
 

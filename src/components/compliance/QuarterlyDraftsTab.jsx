@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Download, FileJson, Lock, RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, FileJson, Lock, RefreshCw, Send, X } from "lucide-react";
 
 import { DEFAULT_TAX_YEAR, TAX_YEAR_OPTIONS, formatCurrency } from "../../utils/taxTools";
 import {
@@ -17,7 +17,8 @@ import {
   rebuildQuarterlyDraft,
   setDraftLineIncluded,
 } from "../../services/mtdQuarterlyDraftService";
-import { getHmrcConnectionStatus } from "../../services/hmrcMtdService";
+import { getHmrcConnectionStatus, submitHmrcUkPropertyPeriodSummarySandbox } from "../../services/hmrcMtdService";
+import { validateUkPropertyPeriodSummaryInput } from "../../lib/mtd/hmrcUkPropertyPeriodSummaryPayloadBuilder";
 
 const EMPTY_FORM = {
   taxYear: DEFAULT_TAX_YEAR,
@@ -76,7 +77,7 @@ function formatSignedCurrency(value) {
   }).format(Number(value || 0));
 }
 
-export default function QuarterlyDraftsTab({ accountId, properties = [] }) {
+export default function QuarterlyDraftsTab({ accountId, properties = [], sandboxSubmissionEnabled = false }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [drafts, setDrafts] = useState([]);
   const [selectedDraftId, setSelectedDraftId] = useState("");
@@ -85,6 +86,9 @@ export default function QuarterlyDraftsTab({ accountId, properties = [] }) {
   const [hmrcStatus, setHmrcStatus] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [submissionResult, setSubmissionResult] = useState(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmSandbox, setConfirmSandbox] = useState(false);
 
   const load = useCallback(async (nextDraftId = selectedDraftId) => {
     if (!accountId) return;
@@ -122,8 +126,25 @@ export default function QuarterlyDraftsTab({ accountId, properties = [] }) {
     [selectedDraft],
   );
   const latestCheck = useCallback((checkType) => {
-    return (hmrcStatus?.readinessChecks || []).find((check) => check.check_type === checkType);
+    return [...(hmrcStatus?.readinessChecks || [])]
+      .filter((check) => check.check_type === checkType)
+      .sort((a, b) => new Date(b.checked_at || b.created_at || 0).getTime() - new Date(a.checked_at || a.created_at || 0).getTime())[0];
   }, [hmrcStatus]);
+  const sandboxProfile = hmrcStatus?.sandboxProfile || {};
+  const businessIdPresent = Boolean(sandboxProfile.hasIncomeSourceId || sandboxProfile.hasTestBusinessId);
+  const frontendPayloadIssues = useMemo(() => validateUkPropertyPeriodSummaryInput({
+    draft: selectedDraft,
+    lines: selectedDraft?.lines || [],
+    nino: sandboxProfile.hasNino ? "MASKED-SANDBOX-NINO" : "",
+    businessId: businessIdPresent ? "MASKED-BUSINESS-ID" : "",
+  }), [businessIdPresent, sandboxProfile.hasNino, selectedDraft]);
+  const latestAttempt = selectedDraft?.submissionAttempts?.[0] || null;
+  const canSubmitSandbox = Boolean(
+    sandboxSubmissionEnabled
+      && selectedDraft?.id
+      && hmrcStatus?.connection?.status === "connected"
+      && frontendPayloadIssues.length === 0,
+  );
 
   async function handleCreate(event) {
     event.preventDefault();
@@ -143,6 +164,25 @@ export default function QuarterlyDraftsTab({ accountId, properties = [] }) {
       await load(draft.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create quarterly draft.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSandboxSubmit() {
+    if (!selectedDraft?.id || !confirmSandbox) return;
+    try {
+      setBusy(true);
+      setError("");
+      setSubmissionResult(null);
+      const result = await submitHmrcUkPropertyPeriodSummarySandbox(accountId, selectedDraft.id, true);
+      setSubmissionResult(result);
+      setConfirmOpen(false);
+      setConfirmSandbox(false);
+      await load(selectedDraft.id);
+      getHmrcConnectionStatus(accountId).then(setHmrcStatus).catch(() => {});
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not submit HMRC sandbox period summary.");
     } finally {
       setBusy(false);
     }
@@ -192,12 +232,12 @@ export default function QuarterlyDraftsTab({ accountId, properties = [] }) {
               Prepare HMRC-ready quarterly summaries from existing Tenaqo tax records, expense classifications, and finance-cost context.
             </p>
           </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-            HMRC submission disabled
+          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${sandboxSubmissionEnabled ? "bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-200" : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}>
+            {sandboxSubmissionEnabled ? "Sandbox submission available" : "HMRC submission disabled"}
           </span>
         </div>
         <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-100">
-          This screen prepares draft totals only. Tenaqo will not submit anything to HMRC from this phase.
+          This screen prepares draft totals and can send reviewed drafts to HMRC sandbox only when enabled. Live HMRC submission remains disabled.
         </div>
       </Panel>
 
@@ -209,6 +249,7 @@ export default function QuarterlyDraftsTab({ accountId, properties = [] }) {
             ["Business Details", latestCheck("business_details")?.status === "success" ? "Verified" : "Not verified"],
             ["Obligations", checkSucceeded(latestCheck("obligations_income_and_expenditure")) ? "Checked" : "Not checked"],
             ["Property Business", checkSucceeded(latestCheck("property_business_read")) ? "Checked" : "Not checked"],
+            ["Sandbox submission", sandboxSubmissionEnabled ? "Enabled" : "Disabled"],
             ["Live submission", "Disabled"],
           ].map(([label, value]) => (
             <div key={label} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
@@ -394,14 +435,92 @@ export default function QuarterlyDraftsTab({ accountId, properties = [] }) {
                   This is a preview only. It is not submitted to HMRC.
                 </div>
                 <pre className="mt-3 max-h-96 overflow-auto rounded-xl bg-slate-950 p-3 text-xs text-slate-100">{JSON.stringify(selectedDraft.payload_preview || {}, null, 2)}</pre>
-                <button type="button" disabled className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-500 opacity-70 dark:border-slate-700">
-                  HMRC submission disabled
-                </button>
               </Panel>
             </div>
+            <Panel>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">HMRC Sandbox Submission</h3>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Submit this reviewed quarterly draft to HMRC sandbox only. This does not affect a real tax account.
+                  </p>
+                </div>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">Live submission disabled</span>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-4">
+                {[
+                  ["Environment", "Sandbox"],
+                  ["Draft status", selectedDraft.status],
+                  ["NINO", sandboxProfile.ninoMasked || (sandboxProfile.hasNino ? "Configured" : "Missing")],
+                  ["Business ID", businessIdPresent ? "Present" : "Missing"],
+                  ["Last result", latestAttempt?.status || selectedDraft.sandbox_submission_status || "Not submitted"],
+                  ["Submission ID", latestAttempt?.hmrc_submission_id || selectedDraft.sandbox_submission_id || "Not recorded"],
+                  ["Correlation ID", latestAttempt?.hmrc_correlation_id || "Not recorded"],
+                  ["Read-back", latestAttempt?.response_summary?.readBack || selectedDraft.sandbox_receipt_summary?.readBack || "Not run"],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+                    <p className="text-xs uppercase text-slate-500">{label}</p>
+                    <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{value}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
+                <strong>Sandbox only.</strong> Before sandbox submission, HMRC may return no period summary for this property business. After a successful sandbox submission, Tenaqo attempts to read the period summary back.
+              </div>
+              {frontendPayloadIssues.length ? (
+                <div className="mt-3 rounded-xl border border-slate-200 p-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
+                  <p className="font-semibold text-slate-900 dark:text-slate-100">Submission checks</p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    {frontendPayloadIssues.slice(0, 5).map((issue) => <li key={issue}>{issue}</li>)}
+                  </ul>
+                </div>
+              ) : null}
+              {submissionResult ? (
+                <div className="mt-3 rounded-xl border border-teal-200 bg-teal-50 p-3 text-sm text-teal-900 dark:border-teal-900/60 dark:bg-teal-950/30 dark:text-teal-100">
+                  <p className="font-semibold">{submissionResult.message || "HMRC sandbox accepted this UK property period summary."}</p>
+                  {submissionResult.hmrcSubmissionId ? <p className="mt-1">Submission ID: {submissionResult.hmrcSubmissionId}</p> : null}
+                </div>
+              ) : null}
+              <button
+                type="button"
+                disabled={busy || !canSubmitSandbox}
+                onClick={() => setConfirmOpen(true)}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900"
+              >
+                <Send size={15} /> Submit to HMRC sandbox
+              </button>
+              {!sandboxSubmissionEnabled ? <p className="mt-2 text-xs text-slate-500">Sandbox submission is disabled for this account.</p> : null}
+            </Panel>
           </div>
         )}
       </div>
+      {confirmOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Submit this quarterly draft to HMRC sandbox?</h3>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                  This sends the reviewed quarterly draft to HMRC's sandbox only. It does not submit anything to live HMRC and does not affect a real tax account.
+                </p>
+              </div>
+              <button type="button" onClick={() => setConfirmOpen(false)} className="rounded-lg p-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close sandbox submission confirmation">
+                <X size={18} />
+              </button>
+            </div>
+            <label className="mt-4 flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800">
+              <input type="checkbox" checked={confirmSandbox} onChange={(event) => setConfirmSandbox(event.target.checked)} className="mt-1" />
+              <span>I understand this is a sandbox test submission only.</span>
+            </label>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setConfirmOpen(false)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium dark:border-slate-700">Cancel</button>
+              <button type="button" disabled={busy || !confirmSandbox} onClick={handleSandboxSubmit} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900">
+                {busy ? "Submitting..." : "Submit to sandbox"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
