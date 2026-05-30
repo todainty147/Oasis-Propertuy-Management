@@ -73,15 +73,21 @@ describe("HMRC MTD Phase 4 sandbox submission contracts", () => {
     const page = read("src/pages/compliance/TaxToolsPage.jsx");
     const service = read("src/services/hmrcMtdService.js");
 
-    expect(page).toContain("sandboxSubmissionEnabled={hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_SANDBOX_SUBMISSION)}");
+    expect(page).toContain("const sandboxSubmissionEnabled = hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_SANDBOX_SUBMISSION)");
+    expect(page).toContain("sandboxSubmissionEnabled={sandboxSubmissionEnabled}");
     expect(component).toContain("HMRC Sandbox Submission");
     expect(component).toContain("Submit to HMRC sandbox");
     expect(component).toContain("connectionStatus === \"connected\"");
     expect(component).toContain("connection?.connection_status");
     expect(component).toContain("I understand this is a sandbox test submission only");
     expect(component).toContain("setConfirmSandbox(false)");
-    expect(component).toContain("latestAttempt?.status === \"success\"");
+    expect(component).toContain("hasSuccessfulSandboxAttempt");
+    expect(read("src/services/mtdQuarterlyDraftService.js")).toContain("No submission ID returned; 204 No Content accepted.");
+    expect(component).toContain("Earlier failed attempts may reflect previous sandbox payload validation");
+    expect(component).toContain("This draft has already been submitted to HMRC sandbox");
     expect(component).toContain("Live submission disabled");
+    expect(page).toContain("Sandbox submission tested successfully. Live HMRC submission remains disabled.");
+    expect(page).toContain("This was a sandbox submission and does not represent a live HMRC filing.");
     expect(service).toContain("hmrc-submit-uk-property-period-summary-sandbox");
     expect(read("src/services/mtdQuarterlyDraftService.js")).toContain(".order(\"submitted_at\", { ascending: false })");
     expect(`${component}\n${service}`).not.toMatch(/access_token|refresh_token|HMRC_CLIENT_SECRET|VITE_HMRC/);

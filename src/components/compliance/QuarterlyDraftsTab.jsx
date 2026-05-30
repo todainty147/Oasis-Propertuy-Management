@@ -7,6 +7,7 @@ import {
   createQuarterlyDraft,
   downloadQuarterlyDraftCsv,
   exportDraftSummary,
+  formatHmrcSandboxReceipt,
   generateQuarterlyDraftLinesCsv,
   generateQuarterlyDraftSummaryCsv,
   getQuarterlyDraft,
@@ -77,6 +78,12 @@ function formatSignedCurrency(value) {
   }).format(Number(value || 0));
 }
 
+function formatTableLabel(value) {
+  return String(value || "Unmapped")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 export default function QuarterlyDraftsTab({ accountId, properties = [], sandboxSubmissionEnabled = false }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [drafts, setDrafts] = useState([]);
@@ -140,6 +147,11 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
     businessId: businessIdPresent ? "MASKED-BUSINESS-ID" : "",
   }), [businessIdPresent, sandboxProfile.hasNino, selectedDraft]);
   const latestAttempt = selectedDraft?.submissionAttempts?.[0] || null;
+  const receipt = useMemo(() => formatHmrcSandboxReceipt(latestAttempt), [latestAttempt]);
+  const hasSuccessfulSandboxAttempt = latestAttempt?.status === "success" || selectedDraft?.sandbox_submission_status === "success";
+  const hasHistoricalFailedAttempts = Boolean(
+    (selectedDraft?.submissionAttempts || []).some((attempt, index) => index > 0 && String(attempt.status || "").toLowerCase() === "failed"),
+  );
   const canSubmitSandbox = Boolean(
     sandboxSubmissionEnabled
       && selectedDraft?.id
@@ -371,7 +383,7 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
                   <thead className="text-xs uppercase text-slate-500"><tr><th className="py-2">Category</th><th>Direction</th><th>Total</th><th>Records</th><th>Issues</th></tr></thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {(selectedDraft.category_totals || []).map((row) => (
-                      <tr key={row.categoryKey}><td className="py-2">{row.categoryKey}</td><td>{row.direction}</td><td>{formatCurrency(row.total)}</td><td>{row.count}</td><td>{row.issueCount}</td></tr>
+                      <tr key={row.categoryKey}><td className="py-2">{formatTableLabel(row.categoryKey)}</td><td>{formatTableLabel(row.direction)}</td><td>{formatCurrency(row.total)}</td><td>{row.count}</td><td>{row.issueCount}</td></tr>
                     ))}
                   </tbody>
                 </table>
@@ -393,14 +405,14 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
                           <td className="py-2">{line.transaction_date}</td>
                           <td>{propertyLabel(properties, line.property_id)}</td>
                           <td>{line.description}</td>
-                          <td>{line.source_type}</td>
+                          <td>{formatTableLabel(line.source_type)}</td>
                           <td>
                             <span className="block text-xs text-slate-500">{line.source_table || "No table"}</span>
                             <span className="block max-w-40 truncate text-xs text-slate-400">{line.source_id || "No source id"}</span>
                           </td>
-                          <td>{line.hmrc_category_key || line.mtd_category || "Unmapped"}</td>
+                          <td>{formatTableLabel(line.hmrc_category_key || line.mtd_category || "Unmapped")}</td>
                           <td>{formatCurrency(line.amount)}</td>
-                          <td><span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${line.issue_status === "ok" ? "bg-teal-50 text-teal-700" : "bg-amber-50 text-amber-700"}`}>{line.issue_status}</span></td>
+                          <td><span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${line.issue_status === "ok" ? "bg-teal-50 text-teal-700" : "bg-amber-50 text-amber-700"}`}>{formatTableLabel(line.issue_status)}</span></td>
                           <td>
                             <button type="button" disabled={busy || selectedDraft.status === "locked" || selectedDraft.status === "archived"} onClick={() => handleToggleLine(line)} className="rounded-lg border border-slate-200 px-2 py-1 text-xs disabled:opacity-50 dark:border-slate-700">
                               {line.include_in_draft ? "Included" : "Excluded"}
@@ -454,10 +466,12 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
                   ["Draft status", selectedDraft.status],
                   ["NINO", sandboxProfile.ninoMasked || (sandboxProfile.hasNino ? "Configured" : "Missing")],
                   ["Business ID", businessIdPresent ? "Present" : "Missing"],
-                  ["Last result", latestAttempt?.status || selectedDraft.sandbox_submission_status || "Not submitted"],
-                  ["Submission ID", latestAttempt?.hmrc_submission_id || selectedDraft.sandbox_submission_id || "Not recorded"],
-                  ["Correlation ID", latestAttempt?.hmrc_correlation_id || "Not recorded"],
-                  ["Read-back", latestAttempt?.response_summary?.readBack || selectedDraft.sandbox_receipt_summary?.readBack || "Not run"],
+                  ["Last result", receipt.statusLabel],
+                  ["Submission reference", receipt.submissionReference],
+                  ["HMRC correlation ID", receipt.correlationId],
+                  ["Submitted", receipt.submittedAt ? new Date(receipt.submittedAt).toLocaleString("en-GB") : "Not submitted"],
+                  ["Read-back", receipt.readBackLabel],
+                  ["Property Business read", receipt.propertyBusinessReadLabel],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
                     <p className="text-xs uppercase text-slate-500">{label}</p>
@@ -468,6 +482,16 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
               <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
                 <strong>Sandbox only.</strong> Before sandbox submission, HMRC may return no period summary for this property business. After a successful sandbox submission, Tenaqo attempts to read the period summary back.
               </div>
+              {hasSuccessfulSandboxAttempt ? (
+                <div className="mt-3 rounded-xl border border-teal-200 bg-teal-50 p-3 text-sm text-teal-900 dark:border-teal-900/60 dark:bg-teal-950/30 dark:text-teal-100">
+                  This draft has already been submitted to HMRC sandbox. Create a new draft or amendment flow to test another submission.
+                </div>
+              ) : null}
+              {hasHistoricalFailedAttempts ? (
+                <p className="mt-3 text-xs text-slate-500">
+                  Earlier failed attempts may reflect previous sandbox payload validation before the latest successful submission.
+                </p>
+              ) : null}
               {frontendPayloadIssues.length ? (
                 <div className="mt-3 rounded-xl border border-slate-200 p-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
                   <p className="font-semibold text-slate-900 dark:text-slate-100">Submission checks</p>
@@ -479,12 +503,12 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
               {submissionResult ? (
                 <div className="mt-3 rounded-xl border border-teal-200 bg-teal-50 p-3 text-sm text-teal-900 dark:border-teal-900/60 dark:bg-teal-950/30 dark:text-teal-100">
                   <p className="font-semibold">{submissionResult.message || "HMRC sandbox accepted this UK property period summary."}</p>
-                  {submissionResult.hmrcSubmissionId ? <p className="mt-1">Submission ID: {submissionResult.hmrcSubmissionId}</p> : null}
+                  {submissionResult.hmrcSubmissionId ? <p className="mt-1">Submission ID: {submissionResult.hmrcSubmissionId}</p> : <p className="mt-1">Submission reference: Not returned by HMRC for this endpoint.</p>}
                 </div>
               ) : null}
               <button
                 type="button"
-                disabled={busy || !canSubmitSandbox || latestAttempt?.status === "success" || selectedDraft.sandbox_submission_status === "success"}
+                disabled={busy || !canSubmitSandbox || hasSuccessfulSandboxAttempt}
                 onClick={() => {
                   setConfirmSandbox(false);
                   setConfirmOpen(true);

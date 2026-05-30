@@ -271,8 +271,29 @@ export function generateQuarterlyDraftLinesCsv(lines = []) {
   return [headers.join(","), ...body].join("\n");
 }
 
+export function formatHmrcSandboxReceipt(attempt = null) {
+  const status = String(attempt?.status || "").toLowerCase();
+  const httpStatus = Number(attempt?.hmrc_http_status || 0);
+  const submissionId = attempt?.hmrc_submission_id || "";
+  const readBack = String(attempt?.response_summary?.readBack || "").toLowerCase();
+  const accepted = status === "success";
+  return {
+    accepted,
+    statusLabel: accepted ? "Accepted by HMRC sandbox" : (status ? status.replaceAll("_", " ") : "Not submitted"),
+    submissionReference: submissionId || (accepted && httpStatus === 204
+      ? "No submission ID returned; 204 No Content accepted."
+      : "Not recorded"),
+    correlationId: attempt?.hmrc_correlation_id || "Not recorded",
+    submittedAt: attempt?.submitted_at || "",
+    readBackLabel: readBack === "succeeded" ? "Read-back verified." : (readBack ? readBack.replaceAll("_", " ") : "Not run"),
+    propertyBusinessReadLabel: readBack === "succeeded" ? "Property Business read confirmed submitted data." : "Not confirmed",
+  };
+}
+
 export function generateQuarterlyDraftSummaryCsv(draft) {
   const summary = draft?.validation_summary || {};
+  const latestAttempt = draft?.submissionAttempts?.[0] || null;
+  const receipt = formatHmrcSandboxReceipt(latestAttempt);
   const rows = [
     ["Export timestamp", new Date().toISOString()],
     ["Disclaimer", "This export is for review. It is not a tax return and has not been submitted to HMRC."],
@@ -284,8 +305,11 @@ export function generateQuarterlyDraftSummaryCsv(draft) {
     ["Issue count", summary.issueCount || 0],
     ["Included lines", summary.includedLines || 0],
     ["Excluded lines", summary.excludedLines || 0],
-    ["Sandbox submission status", draft?.sandbox_submission_status || "Not submitted"],
-    ["Sandbox submission ID", draft?.sandbox_submission_id || ""],
+    ["Sandbox accepted status", receipt.statusLabel],
+    ["Sandbox submission reference", receipt.submissionReference],
+    ["HMRC correlation ID", receipt.correlationId],
+    ["Read-back verification", receipt.readBackLabel],
+    ["Submitted timestamp", receipt.submittedAt],
     ["Sandbox disclaimer", "Sandbox submission records do not represent a live HMRC filing."],
   ];
   return rows.map((row) => row.map(csvCell).join(",")).join("\n");
