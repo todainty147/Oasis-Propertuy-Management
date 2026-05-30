@@ -192,7 +192,7 @@ export async function hmrcRequest({
     action,
     endpoint: path,
     method,
-    status: response.ok ? "success" : response.status === 404 ? "blocked" : "failed",
+    status: response.ok || response.status === 404 ? "success" : "failed",
     httpStatus: response.status,
     responseSummary: {
       ok: response.ok,

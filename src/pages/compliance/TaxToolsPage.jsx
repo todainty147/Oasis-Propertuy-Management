@@ -400,6 +400,13 @@ function ReadinessCheck({ quarterlyDraftsEnabled = false }) {
   const [form, setForm] = useState(EMPTY_READINESS);
   const result = useMemo(() => calculateMtdReadiness(form), [form]);
   const toggle = (key) => setForm((f) => ({ ...f, [key]: !f[key] }));
+  const scoreReasons = [
+    [form.usesSpreadsheets === false, "Records are kept in a digital system rather than only spreadsheets."],
+    [form.keepsReceiptsDigitally === true, "Receipts and invoices are kept digitally."],
+    [form.tracksExpensesByProperty === true, "Income and expenses are tracked by property."],
+    [form.usesAccountant === true, "Accountant review is part of the process."],
+    [form.ownsMoreThanOneProperty === false || form.tracksExpensesByProperty === true, "Multi-property records are separated by property."],
+  ];
 
   return (
     <Panel>
@@ -430,7 +437,8 @@ function ReadinessCheck({ quarterlyDraftsEnabled = false }) {
       <div className="mt-5 grid gap-4 md:grid-cols-[220px_1fr]">
         <div className="rounded-2xl bg-teal-50 p-5 text-center dark:bg-teal-950/30">
           <p className="text-4xl font-semibold text-teal-700 dark:text-teal-200">{result.score}%</p>
-          <p className="text-sm text-teal-800 dark:text-teal-200">Readiness score</p>
+          <p className="text-sm text-teal-800 dark:text-teal-200">Digital-record readiness score</p>
+          <p className="mt-2 text-xs text-teal-800/80 dark:text-teal-100/80">This is not full MTD compliance and does not replace tax advice.</p>
         </div>
         <div>
           <p className="font-medium text-slate-900 dark:text-slate-100">{result.threshold.message}</p>
@@ -438,6 +446,23 @@ function ReadinessCheck({ quarterlyDraftsEnabled = false }) {
             {result.nextSteps.map((step) => <li key={step} className="flex gap-2"><CheckCircle2 size={15} className="mt-0.5 shrink-0 text-teal-500" />{step}</li>)}
           </ul>
         </div>
+      </div>
+      <div className="mt-5 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Why this score?</h3>
+        <ul className="mt-3 grid gap-2 text-sm text-slate-600 dark:text-slate-300 md:grid-cols-2">
+          {scoreReasons.map(([passed, label]) => (
+            <li key={label} className="flex items-start gap-2">
+              <CheckCircle2 size={15} className={`mt-0.5 shrink-0 ${passed ? "text-teal-500" : "text-slate-400"}`} />
+              <span>{label}</span>
+            </li>
+          ))}
+          {quarterlyDraftsEnabled ? (
+            <li className="flex items-start gap-2 md:col-span-2">
+              <AlertTriangle size={15} className="mt-0.5 shrink-0 text-amber-500" />
+              <span>Create and review a Quarterly Draft for the due period before relying on accountant-pack exports. HMRC submission remains disabled.</span>
+            </li>
+          ) : null}
+        </ul>
       </div>
     </Panel>
   );

@@ -26,3 +26,24 @@ The quarterly draft builder:
 - exports draft summary and source-record CSV files
 
 It does not call HMRC submission endpoints.
+
+## Capability Matrix
+
+| Capability | Status |
+| --- | --- |
+| OAuth connection | Complete |
+| Server-side encrypted tokens | Complete |
+| Business Details read-only check | Complete |
+| Obligations read-only check | Complete, including no-data handling |
+| Property Business read-only check | Complete, including no-data handling |
+| Tax records and Tax Tools | Implemented |
+| Quarterly draft snapshots | Implemented |
+| Payload preview | Preview-only |
+| Accountant exports | Implemented for draft summary/source records |
+| Sandbox quarterly submission | Not implemented |
+| Live quarterly submission | Not implemented |
+| Final declaration | Not implemented |
+
+## Next Phase
+
+The next phase is sandbox quarterly submission design. It must remain behind `hmrc_mtd_sandbox_submission` and must continue to keep `hmrc_mtd_live_submission` disabled until a separate live pilot is approved.

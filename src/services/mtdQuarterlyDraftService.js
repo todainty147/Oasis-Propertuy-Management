@@ -243,12 +243,14 @@ export async function setDraftLineIncluded(draftId, lineId, includeInDraft) {
 }
 
 export function generateQuarterlyDraftLinesCsv(lines = []) {
-  const headers = ["Date", "Property", "Description", "Source", "Direction", "Tenaqo category", "MTD category", "Amount", "Included", "Issue"];
+  const headers = ["Date", "Property", "Description", "Source", "Source table", "Source id", "Direction", "Tenaqo category", "MTD category", "Amount", "Included", "Issue"];
   const body = lines.map((line) => [
     line.transaction_date,
     line.property_id || "",
     line.description || "",
     line.source_type,
+    line.source_table || "",
+    line.source_id || "",
     line.direction,
     line.tenaqo_category || "",
     line.hmrc_category_key || line.mtd_category || "",
@@ -262,6 +264,8 @@ export function generateQuarterlyDraftLinesCsv(lines = []) {
 export function generateQuarterlyDraftSummaryCsv(draft) {
   const summary = draft?.validation_summary || {};
   const rows = [
+    ["Export timestamp", new Date().toISOString()],
+    ["Disclaimer", "This export is for review. It is not a tax return and has not been submitted to HMRC."],
     ["Tax year", draft?.tax_year],
     ["Period", draft?.period_label || `${draft?.period_start} to ${draft?.period_end}`],
     ["Status", draft?.status],
