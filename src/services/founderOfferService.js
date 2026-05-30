@@ -1,4 +1,3 @@
-/* global console */
 import { supabase } from "../lib/supabase";
 
 const FOUNDER_OFFER_CODE = "FOUNDER20";

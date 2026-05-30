@@ -34,7 +34,6 @@ import {
   parseReviewPromptRow,
   listRentReviewRecords,
   createRentReviewRecord,
-  updateRentReviewStatus,
   listPetRequests,
   createPetRequest,
   updatePetRequestStatus,

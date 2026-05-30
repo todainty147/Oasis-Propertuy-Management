@@ -36,9 +36,11 @@ export default defineConfig([
         'error',
         {
           varsIgnorePattern: '^[A-Z_]',
+          argsIgnorePattern: '^_|^[A-Z]',
           caughtErrorsIgnorePattern: '^_',
         },
       ],
+      'react-refresh/only-export-components': 'warn',
     },
   },
 
@@ -52,7 +54,14 @@ export default defineConfig([
       sourceType: 'module',
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
+      'no-unused-vars': [
+        'error',
+        {
+          varsIgnorePattern: '^_',
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
     },
   },
 
@@ -68,6 +77,7 @@ export default defineConfig([
       ecmaVersion: 2022,
       globals: {
         ...globals.node,
+        ...globals.browser,
         // Vitest globals
         describe:   'readonly',
         it:         'readonly',
@@ -82,7 +92,15 @@ export default defineConfig([
       parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
+      'no-redeclare': 'off',
+      'no-unused-vars': [
+        'warn',
+        {
+          varsIgnorePattern: '^_',
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
     },
   },
 ])

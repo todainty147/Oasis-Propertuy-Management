@@ -44,7 +44,7 @@ export default function PropertyDocumentsSection({ propertyId }) {
   const { t } = useI18n();
   const fileInputRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user, loading: authLoading } = useAuth();
+  const { loading: authLoading } = useAuth();
   const { activeAccountId, accountLoading, activePermissionContext } = useAccount(); // ✅ MULTI-TENANT
 
   /* ---------- URL FILTER STATE ---------- */
@@ -111,11 +111,11 @@ async function loadAll() {
   /* ---------- PERMISSIONS ---------- */
   const canUpload = canUploadDocument(activePermissionContext);
 
-  function canEdit(doc) {
+  function canEdit(_doc) {
     return canEditDocumentTags(activePermissionContext);
   }
 
-  function canDelete(doc) {
+  function canDelete(_doc) {
     return canDeleteDocument(activePermissionContext);
   }
 

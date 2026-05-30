@@ -12,6 +12,31 @@ import { APP_LANGUAGES } from "../i18n/languages";
 import { useTenant } from "../context/TenantContext";
 import { useAuth } from "../context/AuthContext";
 
+function Segment({ items, active, onChange }) {
+  return (
+    <div className="flex rounded-lg bg-black/[0.05] dark:bg-white/[0.05] p-[3px] gap-[3px]">
+      {items.map(({ key, label }) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => onChange(key)}
+          className={`flex-1 py-[5px] text-[11px] rounded-md transition-colors ${
+            active === key
+              ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-medium shadow-sm"
+              : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MenuDivider() {
+  return <div className="border-t border-black/[0.05] dark:border-white/[0.05]" />;
+}
+
 /* ─────────────────────────────────────────────
    USER MENU
    Avatar circle → popover with:
@@ -57,31 +82,6 @@ function UserMenu() {
   const email   = user?.email ?? "";
   const initial = email[0]?.toUpperCase() ?? "?";
 
-  /* ── Segmented control ── */
-  function Segment({ items, active, onChange }) {
-    return (
-      <div className="flex rounded-lg bg-black/[0.05] dark:bg-white/[0.05] p-[3px] gap-[3px]">
-        {items.map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onChange(key)}
-            className={`flex-1 py-[5px] text-[11px] rounded-md transition-colors ${
-              active === key
-                ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-medium shadow-sm"
-                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-    );
-  }
-
-  /* ── Divider ── */
-  const Div = () => <div className="border-t border-black/[0.05] dark:border-white/[0.05]" />;
-
   return (
     <div ref={ref} className="relative">
       {/* Avatar button */}
@@ -111,7 +111,7 @@ function UserMenu() {
             </div>
           </div>
 
-          <Div />
+          <MenuDivider />
 
           {/* Profile link */}
           <div className="px-1.5 py-1.5">
@@ -124,7 +124,7 @@ function UserMenu() {
             </Link>
           </div>
 
-          <Div />
+          <MenuDivider />
 
           {/* Theme */}
           <div className="px-3.5 py-2.5 space-y-1.5">
@@ -142,7 +142,7 @@ function UserMenu() {
             />
           </div>
 
-          <Div />
+          <MenuDivider />
 
           {/* Language */}
           <div className="px-3.5 py-2.5 space-y-1.5">
@@ -159,7 +159,7 @@ function UserMenu() {
             />
           </div>
 
-          <Div />
+          <MenuDivider />
 
           {/* Sign out */}
           <div className="px-1.5 py-1.5">

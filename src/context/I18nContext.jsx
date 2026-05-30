@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { messages } from "../i18n/messages";
 
 const I18nContext = createContext(null);
@@ -44,7 +44,7 @@ function interpolate(template, vars = {}) {
 export function I18nProvider({ children }) {
   const [lang, setLangRaw] = useState(getInitialLang);
 
-  const setLang = (next) => {
+  const setLang = useCallback((next) => {
     const safe = normalizeSupportedLang(next) || DEFAULT_LANG;
     setLangRaw(safe);
     try {
@@ -52,18 +52,18 @@ export function I18nProvider({ children }) {
     } catch {
       // ignore localStorage failures
     }
-  };
+  }, []);
 
-  const t = (key, vars = {}) => {
+  const t = useCallback((key, vars = {}) => {
     const dict = messages[lang] || {};
     const fallback = messages.en || {};
     const template = dict[key] ?? fallback[key] ?? key;
     return interpolate(template, vars);
-  };
+  }, [lang]);
 
   const value = useMemo(
     () => ({ lang, setLang, t }),
-    [lang]
+    [lang, setLang, t]
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

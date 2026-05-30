@@ -12,12 +12,11 @@ export function usePayments({ enabled = true, accountId: accountIdProp = null } 
   const effectiveAccountId = accountIdProp ?? activeAccountId;
 
   const [payments, setPayments] = useState([]);
-  const [loading, setLoading] = useState(enabled);
+  const [loading, setLoading] = useState(Boolean(enabled && effectiveAccountId));
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!enabled || !effectiveAccountId) {
-      setLoading(false);
       return;
     }
 
@@ -61,5 +60,5 @@ export function usePayments({ enabled = true, accountId: accountIdProp = null } 
     };
   }, [enabled, effectiveAccountId, activeTenantId]);
 
-  return { payments, loading, error };
+  return { payments, loading: enabled && effectiveAccountId ? loading : false, error };
 }

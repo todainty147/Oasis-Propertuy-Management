@@ -59,11 +59,11 @@ export function PageHeroPanel({ children, className = "" }) {
 }
 
 export const TenaqoCard = forwardRef(function TenaqoCard(
-  { children, className = "", variant = "default", as: Component = "div", ...props },
+  { children, className = "", variant = "default", as: Element = "div", ...props },
   ref,
 ) {
   return (
-    <Component
+    <Element
       ref={ref}
       {...props}
       className={cx(
@@ -73,7 +73,7 @@ export const TenaqoCard = forwardRef(function TenaqoCard(
       )}
     >
       {children}
-    </Component>
+    </Element>
   );
 });
 

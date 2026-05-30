@@ -3,7 +3,7 @@
 // Shows only the fields relevant to the selected model.
 
 import { useState } from "react";
-import { runSplitRentCalculation, runRoomRentCalculation, runUtilityCalculation, calculateRentIncreaseSummary, applyRentAdjustment, runStrCalculation, toPence, fromPence } from "../../utils/rentCalculationEngine";
+import { runSplitRentCalculation, runRoomRentCalculation, runUtilityCalculation, calculateRentIncreaseSummary, applyRentAdjustment, runStrCalculation, toPence } from "../../utils/rentCalculationEngine";
 
 const MODELS = [
   { id: "monthly",       label: "Monthly rent" },
@@ -84,7 +84,7 @@ function PreviewCard({ result, currency = "GBP" }) {
 // ── Model panels ─────────────────────────────────────────────────────────────
 
 function SplitRentPanel({ baseRent, currency, onResult }) {
-  const [tenants, setTenants]     = useState([{ id: "t1", pct: 50 }, { id: "t2", pct: 50 }]);
+  const [tenants]                 = useState([{ id: "t1", pct: 50 }, { id: "t2", pct: 50 }]);
   const [splitType, setSplitType] = useState("equal_split");
   const [result, setResult]       = useState(null);
 
@@ -399,7 +399,7 @@ function StrNightlyPanel({ currency }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function AdvancedModelSelector({ plan, t }) {
+export default function AdvancedModelSelector({ plan }) {
   const [model, setModel] = useState("monthly");
   const currency = plan?.currency ?? "GBP";
   const baseRent = plan?.base_rent_amount ?? 0;

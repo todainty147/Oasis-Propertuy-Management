@@ -14,12 +14,11 @@ export function useMaintenanceRequests({
   const effectiveAccountId = accountId ?? activeAccountId;
 
   const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(Boolean(enabled));
+  const [loading, setLoading] = useState(Boolean(enabled && effectiveAccountId));
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!enabled || !effectiveAccountId) {
-      setLoading(false);
       return;
     }
 
@@ -94,5 +93,5 @@ export function useMaintenanceRequests({
     };
   }, [enabled, effectiveAccountId, propertyId, limit]);
 
-  return { requests: items, loading, error };
+  return { requests: items, loading: enabled && effectiveAccountId ? loading : false, error };
 }

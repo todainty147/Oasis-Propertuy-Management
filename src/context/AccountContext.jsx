@@ -4,9 +4,9 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
 import { rootListAccounts } from "../services/rootAccountService";
 import { finalizeSelfServeLandlordAccount } from "../services/selfServeSignupService";
-import { canAccessRootTelemetry, getRootTelemetryAccessMode } from "../utils/telemetryAccess";
+import { getRootTelemetryAccessMode } from "../utils/telemetryAccess";
 import { getPermissionKeysForRole } from "../utils/permissions";
-import { assertFeature, hasFeature, isLockedPlan, normalizePlan } from "../lib/entitlements";
+import { assertFeature, hasFeature, normalizePlan } from "../lib/entitlements";
 import { getMyOaGrantStatus } from "../services/operatorAgencyService";
 import { getAccountActiveEntitlement } from "../services/founderOfferService";
 
@@ -79,13 +79,15 @@ export function AccountProvider({ children }) {
 
     // 🔒 Logged out
     if (!user) {
-      setAccounts([]);
-      setActiveAccountId(null);
-      setIsRootOperator(false);
-      setTenantContext(null);
-      setContractorContext(null);
-      setAuthzError(null);
-      setAccountLoading(false);
+      queueMicrotask(() => {
+        setAccounts([]);
+        setActiveAccountId(null);
+        setIsRootOperator(false);
+        setTenantContext(null);
+        setContractorContext(null);
+        setAuthzError(null);
+        setAccountLoading(false);
+      });
       localStorage.removeItem("activeAccountId");
       return;
     }
@@ -496,7 +498,7 @@ export function AccountProvider({ children }) {
   /* Founder entitlement — load alongside OA grant status */
   useEffect(() => {
     if (!activeAccountId) {
-      setFounderEntitlement(null);
+      queueMicrotask(() => setFounderEntitlement(null));
       return;
     }
     let cancelled = false;
@@ -548,7 +550,7 @@ export function AccountProvider({ children }) {
   useEffect(() => {
     const role = String(activeRole || "").toLowerCase();
     if (!activeAccountId || isRootOperator || role === "tenant" || role === "contractor") {
-      setOaGrantStatus(null);
+      queueMicrotask(() => setOaGrantStatus(null));
       return;
     }
     let cancelled = false;
@@ -560,18 +562,19 @@ export function AccountProvider({ children }) {
 
   // Trial derived values
   const trialEndsAt = activeAccount?.trial_ends_at ?? null;
+  const [now] = useState(() => Date.now());
   const isInTrial = useMemo(
-    () => Boolean(trialEndsAt && new Date(trialEndsAt) > new Date()),
-    [trialEndsAt],
+    () => Boolean(trialEndsAt && new Date(trialEndsAt).getTime() > now),
+    [now, trialEndsAt],
   );
   const isTrialExpired = useMemo(
-    () => Boolean(trialEndsAt && new Date(trialEndsAt) <= new Date()),
-    [trialEndsAt],
+    () => Boolean(trialEndsAt && new Date(trialEndsAt).getTime() <= now),
+    [now, trialEndsAt],
   );
   const trialDaysLeft = useMemo(() => {
     if (!isInTrial || !trialEndsAt) return 0;
-    return Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / 86_400_000);
-  }, [isInTrial, trialEndsAt]);
+    return Math.ceil((new Date(trialEndsAt).getTime() - now) / 86_400_000);
+  }, [isInTrial, now, trialEndsAt]);
 
   const activePlan = useMemo(() => {
     // Root operators are always operator_agency

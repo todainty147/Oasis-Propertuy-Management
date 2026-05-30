@@ -126,7 +126,7 @@ export function prorateMonthlyPence(monthlyPence, periodStart, periodEnd, policy
   if (policy === "manual_override") return override ?? monthlyPence;
 
   const startDate  = parseDate(periodStart);
-  const endDate    = parseDate(periodEnd);
+  parseDate(periodEnd);
   const year       = startDate.getUTCFullYear();
   const month      = startDate.getUTCMonth() + 1; // 1-based
   const days       = daysBetween(periodStart, periodEnd);
@@ -437,9 +437,6 @@ export function runRentCalculation({
   const subtotalPence = lineItems
     .filter((li) => !li.includedInRent || li.chargeType === "rent")
     .reduce((s, li) => s + li.amountPence, 0);
-
-  const totalPence = lineItems
-    .reduce((s, li) => s + (li.includedInRent ? 0 : li.amountPence) + (li.chargeType === "rent" ? li.amountPence : 0), 0);
 
   // Simpler: total = sum of all non-zero line items (rent + additions)
   const simpleTotalPence = lineItems.reduce((s, li) => s + li.amountPence, 0);

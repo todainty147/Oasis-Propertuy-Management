@@ -66,6 +66,9 @@ export async function listAccountDocuments({
   if (propertyId) {
     query = query.or(`property_id.eq.${propertyId},property_id.is.null`);
   }
+  if (tenantId) {
+    query = query.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
+  }
 
   const { data, error } = await query;
   if (error) throw error;

@@ -62,12 +62,6 @@ function isOpenRequest(row) {
   return ["open", "in_progress", "waiting", "otwarte", "w trakcie", "oczekuje"].includes(normalize(row?.status));
 }
 
-function isFinalWorkOrder(row) {
-  return ["completed", "cancelled", "closed", "zakończone", "zakonczone", "anulowane"].includes(
-    normalize(row?.status),
-  );
-}
-
 function isActiveWorkOrder(row) {
   return ["assigned", "in_progress", "blocked", "przypisane", "w trakcie", "zablokowane"].includes(
     normalize(row?.status),
@@ -88,16 +82,6 @@ function isOpenComplianceItem(row) {
 
 function makeReason(key, penalty, meta = {}) {
   return { key, penalty, ...meta };
-}
-
-function normalizeSnapshotReason(reason) {
-  if (!reason) return null;
-  return {
-    key: reason.key || "",
-    penalty: Number(reason.penalty || 0),
-    amount: reason.amount != null ? Number(reason.amount) : undefined,
-    count: reason.count != null ? Number(reason.count) : undefined,
-  };
 }
 
 export function getPropertyOperationalHealthCategory(score) {

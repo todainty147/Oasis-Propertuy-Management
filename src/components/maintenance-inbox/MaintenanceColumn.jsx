@@ -1,5 +1,6 @@
 import MaintenanceRequestCard from "./MaintenanceRequestCard";
 import { useI18n } from "../../context/I18nContext";
+import { useState } from "react";
 
 function titleForStatus(status, t) {
   const s = String(status ?? "").toLowerCase();
@@ -23,10 +24,12 @@ function statusAccent(status) {
 
 // Mini SLA bar: renders up to 8 colored dots summarising age distribution
 function SlaBar({ items }) {
+  const [now] = useState(() => Date.now());
+
   if (!items.length) return null;
   const dots = items.slice(0, 8).map((item) => {
     const h = item.created_at
-      ? Math.max(0, Math.floor((Date.now() - new Date(item.created_at).getTime()) / 3600000))
+      ? Math.max(0, Math.floor((now - new Date(item.created_at).getTime()) / 3600000))
       : 0;
     const s = String(item.status || "").toLowerCase();
     let color;

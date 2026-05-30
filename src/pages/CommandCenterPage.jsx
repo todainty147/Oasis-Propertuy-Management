@@ -428,17 +428,6 @@ export default function CommandCenterPage() {
     onChange: loadData,
   });
 
-  if (!canManage) {
-    return (
-      <div className="space-y-4">
-        <DashboardBreadcrumbs items={[{ label: t("commandCenter.pageTitle") }]} />
-        <Card className="p-6">
-          <p className="text-sm text-slate-600">{t("commandCenter.accessDenied")}</p>
-        </Card>
-      </div>
-    );
-  }
-
   const view = data ?? {
     summary: { urgentCount: 0, actionCount: 0, upcomingCount: 0, recentCount: 0, automationCount: 0, propertiesWithIssuesCount: 0, unreadAlertsCount: 0, overdueAmount: 0 },
     groups: { urgent: [], action: [], upcoming: [], recent: [] },
@@ -453,6 +442,17 @@ export default function CommandCenterPage() {
       return acc;
     }, {});
   }, [view.groups]);
+
+  if (!canManage) {
+    return (
+      <div className="space-y-4">
+        <DashboardBreadcrumbs items={[{ label: t("commandCenter.pageTitle") }]} />
+        <Card className="p-6">
+          <p className="text-sm text-slate-600">{t("commandCenter.accessDenied")}</p>
+        </Card>
+      </div>
+    );
+  }
 
   // Apply category filter to each group
   function filterGroup(items) {

@@ -134,13 +134,12 @@ function StatusBarChart({ title, rows = [], labels = {}, toByKey = {} }) {
 function DonutChart({ title, rows = [], labels = {}, totalLabel = "Total", toByKey = {} }) {
   const total = rows.reduce((a, b) => a + b.value, 0);
   const palette = ["#0ea5e9", "#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#64748b"];
-  let start = 0;
-  const segments = rows.map((r, idx) => {
+  const segments = rows.reduce((acc, r, idx) => {
+    const start = acc.length ? acc[acc.length - 1].to : 0;
     const pct = total > 0 ? (r.value / total) * 100 : 0;
-    const seg = { key: r.key, value: r.value, pct, color: palette[idx % palette.length], from: start, to: start + pct };
-    start += pct;
-    return seg;
-  });
+    acc.push({ key: r.key, value: r.value, pct, color: palette[idx % palette.length], from: start, to: start + pct });
+    return acc;
+  }, []);
   const gradient = segments.length
     ? `conic-gradient(${segments.map((s) => `${s.color} ${s.from.toFixed(2)}% ${s.to.toFixed(2)}%`).join(", ")})`
     : "conic-gradient(#e2e8f0 0 100%)";
@@ -243,7 +242,7 @@ function SpendBars({ title, rows = [], emptyText = "", valueFormatter = (v) => v
    SECTION NAV
    ====================== */
 
-function SectionNav({ sections, t }) {
+function SectionNav({ sections }) {
   function scrollTo(id) {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -320,7 +319,7 @@ export default function MaintenanceKPIDashboardPage() {
     }
   }
 
-  useEffect(() => { if (!activeAccountId) return; loadAll(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [activeAccountId, t]);
+  useEffect(() => { if (!activeAccountId) return; loadAll();   }, [activeAccountId, t]);
 
   useRealtimeTables({
     enabled: !!activeAccountId && canManage,
@@ -443,7 +442,7 @@ export default function MaintenanceKPIDashboardPage() {
       <OnboardingHintCard title={t("pageHints.maintenanceKpi.title")} body={t("pageHints.maintenanceKpi.body")} />
 
       {/* SECTION NAV */}
-      <SectionNav sections={SECTIONS} t={t} />
+      <SectionNav sections={SECTIONS} />
 
       {error && <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
 

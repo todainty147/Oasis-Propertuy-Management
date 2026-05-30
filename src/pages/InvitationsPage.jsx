@@ -218,7 +218,7 @@ export default function InvitationsPage() {
 
   async function onToggleAccount(row) {
     if (!isRootOperator || !rootAccountId || !row?.id || row?.is_root) return;
-    const nextDisabled = !Boolean(row.is_disabled);
+    const nextDisabled = !row.is_disabled;
     const ok = window.confirm(
       nextDisabled ? t("invites.disableConfirm") : t("invites.enableConfirm")
     );

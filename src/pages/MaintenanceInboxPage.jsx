@@ -320,6 +320,18 @@ export default function MaintenanceInboxPage() {
     return map;
   }, [grouped, page, pageSize]);
 
+  // Count by status for badges
+  const statusCounts = useMemo(() => {
+    const source =
+      ageFilter || agingFilter || woStatusFilter || priorityFilterValues.length > 0
+        ? requestsAfterWoFilter
+        : requests;
+    return STATUS_ORDER.reduce((acc, s) => {
+      acc[s] = (source || []).filter((r) => String(r?.status || "").toLowerCase() === s).length;
+      return acc;
+    }, {});
+  }, [ageFilter, agingFilter, woStatusFilter, priorityFilterValues, requestsAfterWoFilter, requests]);
+
   if (!canManage) {
     return (
       <div className="space-y-4">
@@ -332,18 +344,6 @@ export default function MaintenanceInboxPage() {
       </div>
     );
   }
-
-  // Count by status for badges
-  const statusCounts = useMemo(() => {
-    const source =
-      ageFilter || agingFilter || woStatusFilter || priorityFilterValues.length > 0
-        ? requestsAfterWoFilter
-        : requests;
-    return STATUS_ORDER.reduce((acc, s) => {
-      acc[s] = (source || []).filter((r) => String(r?.status || "").toLowerCase() === s).length;
-      return acc;
-    }, {});
-  }, [ageFilter, agingFilter, woStatusFilter, priorityFilterValues, requestsAfterWoFilter, requests]);
 
   return (
     <div className="space-y-3">

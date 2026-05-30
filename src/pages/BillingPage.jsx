@@ -46,12 +46,6 @@ function formatDate(value) {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString();
 }
 
-function daysUntil(value) {
-  if (!value) return null;
-  const ms = new Date(value).getTime() - Date.now();
-  return Math.ceil(ms / 86_400_000);
-}
-
 // ── OA Card ───────────────────────────────────────────────────────────────────
 
 function OaCard({ t, isOaPending, oaCheckoutUrl, oaGrantStatus, activePlan }) {

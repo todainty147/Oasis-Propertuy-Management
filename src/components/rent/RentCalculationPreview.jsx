@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AlertTriangle, CheckCircle, Calculator, CalendarDays } from "lucide-react";
-import { runRentCalculation, generateBillingPeriods, generateUpcomingPeriods } from "../../utils/rentCalculationEngine";
-import { saveCalculationRun, listCalculationRuns } from "../../services/rentPlanService";
+import { runRentCalculation, generateUpcomingPeriods } from "../../utils/rentCalculationEngine";
+import { saveCalculationRun } from "../../services/rentPlanService";
 import { generateExpectedCharge } from "../../services/expectedChargeService";
 
 function LineItem({ item, currency }) {
@@ -13,7 +13,7 @@ function LineItem({ item, currency }) {
   );
 }
 
-export default function RentCalculationPreview({ plan, accountId, onClose, t }) {
+export default function RentCalculationPreview({ plan, accountId, t }) {
   const today    = new Date();
   const thisYear = today.getFullYear();
   const thisMon  = String(today.getMonth() + 1).padStart(2, "0");

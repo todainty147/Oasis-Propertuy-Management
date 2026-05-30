@@ -20,7 +20,7 @@ test.describe("Maintenance Inbox Redesign", () => {
     await expect(page.getByText("Maintenance Inbox / Triage Board")).toBeVisible({ timeout: 20_000 });
 
     // SLA dot legend is inline — look for the text markers
-    await expect(page.getByText(/\<24h/)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/<24h/)).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText(/24.48h/)).toBeVisible({ timeout: 5_000 });
 
     // The old handoff guide card should be gone

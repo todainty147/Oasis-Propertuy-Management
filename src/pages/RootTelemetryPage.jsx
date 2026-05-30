@@ -522,7 +522,7 @@ function StatCard({ title, value, hint = "", tone = "blue" }) {
 export default function RootTelemetryPage() {
   const { setTitle } = usePageTitle();
   const { t } = useI18n();
-  const { activeAccountId, activeAccount, isRootOperator, activeRole, canAccessTelemetry, rootTelemetryAccessMode, isRootTelemetryAdmin } = useAccount();
+  const { activeAccountId, activeAccount, isRootOperator, activeRole, canAccessTelemetry, isRootTelemetryAdmin } = useAccount();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [grantError, setGrantError] = useState("");

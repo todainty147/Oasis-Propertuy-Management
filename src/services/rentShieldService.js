@@ -107,7 +107,6 @@ export function periodKeyToDateRange(period, today = new Date()) {
   const [, y, m] = match;
   const from = `${y}-${m}-01`;
   // For the current month use month-to-date; otherwise use full calendar month
-  const periodStart = new Date(`${y}-${m}-01T00:00:00`);
   const isCurrentMonth =
     today.getFullYear() === Number(y) && today.getMonth() + 1 === Number(m);
   const to = isCurrentMonth
