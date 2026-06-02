@@ -74,11 +74,16 @@ describe("Property Risk & Deposit Financial Controls contracts", () => {
     expect(page).toContain("Indicative cost (editable)");
     expect(page).toContain("EPC data needed. Add the current band or score to improve the planning estimate.");
     expect(page).toContain('item.plan_item_id ? "Prepare handoff" : "Save plan first"');
+    expect(page).toContain("selected: true");
+    expect(page).toContain('aria-label="Planning target EPC band"');
+    expect(page).toContain('>Band {band}</option>');
+    expect(page).toContain('className="min-w-[920px] table-fixed text-left text-sm"');
     expect(page).not.toContain("Open Eco-Upgrade Planner</span>");
     expect(page).not.toContain("Mark upgrade completed");
     expect(page).not.toContain("Attach EPC certificate");
     expect(page).not.toContain("Risk label: {riskLevel}");
     expect(page).not.toContain("Create work order");
+    expect(page).not.toContain("Planning target: Band {band}</option>");
   });
 
   it("uses current database columns for Deposit Vault joins", () => {
