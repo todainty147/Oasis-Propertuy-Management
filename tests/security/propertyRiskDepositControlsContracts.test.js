@@ -62,5 +62,33 @@ describe("Property Risk & Deposit Financial Controls contracts", () => {
     expect(routes).toContain("ENTITLEMENT_FEATURES.ECO_UPGRADE_PLANNER");
     expect(sidebar).toContain('to="/finance/deposit-vault"');
     expect(sidebar).toContain('to="/portfolio-health/eco-upgrade-planner"');
+    expect(sidebar).toContain("indent />");
+  });
+
+  it("keeps Eco-Upgrade Planner actions and estimate copy partner-safe", () => {
+    const page = read("src/pages/EcoUpgradePlannerPage.jsx");
+
+    expect(page).toContain("static planning estimates from Tenaqo's seeded upgrade catalogue");
+    expect(page).toContain("not live quotes or web-searched prices");
+    expect(page).toContain("Indicative cost (editable)");
+    expect(page).not.toContain("Open Eco-Upgrade Planner</span>");
+    expect(page).not.toContain("Mark upgrade completed");
+    expect(page).not.toContain("Attach EPC certificate");
+  });
+
+  it("uses current database columns for Deposit Vault joins", () => {
+    const service = read("src/services/depositSettlementService.js");
+
+    expect(service).toContain("properties:property_id(id,address)");
+    expect(service).not.toContain("properties:property_id(id,address,name)");
+  });
+
+  it("saves EPC profiles without depending on deployed upsert conflict metadata", () => {
+    const service = read("src/services/ecoUpgradePlannerService.js");
+
+    expect(service).toContain("getPropertyEpcProfile({ accountId: row.account_id, propertyId: row.property_id })");
+    expect(service).toContain('supabase.from("property_epc_profiles").update(row)');
+    expect(service).toContain('supabase.from("property_epc_profiles").insert(row)');
+    expect(service).not.toContain('onConflict: "account_id,property_id"');
   });
 });

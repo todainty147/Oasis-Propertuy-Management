@@ -90,7 +90,7 @@ export async function listDepositSettlements({ accountId, propertyId, tenantId, 
   if (!accountId) return [];
   let query = supabase
     .from("deposit_settlements")
-    .select("*, deposit_deductions(*, deposit_deduction_evidence_links(*)), properties:property_id(id,address,name), tenants:tenant_id(id,name,email)")
+    .select("*, deposit_deductions(*, deposit_deduction_evidence_links(*)), properties:property_id(id,address), tenants:tenant_id(id,name,email)")
     .eq("account_id", accountId)
     .order("updated_at", { ascending: false });
   if (propertyId) query = query.eq("property_id", propertyId);
@@ -105,7 +105,7 @@ export async function getDepositSettlement(settlementId) {
   if (!settlementId) return null;
   const { data, error } = await supabase
     .from("deposit_settlements")
-    .select("*, deposit_deductions(*, deposit_deduction_evidence_links(*)), deposit_settlement_exports(*)")
+    .select("*, deposit_deductions(*, deposit_deduction_evidence_links(*)), deposit_settlement_exports(*), properties:property_id(id,address), tenants:tenant_id(id,name,email)")
     .eq("id", settlementId)
     .maybeSingle();
   if (error) throw error;
