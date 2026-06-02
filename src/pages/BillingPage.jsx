@@ -35,6 +35,8 @@ const COMPLIANCE_FEATURES = [
   { labelKey: "billing.feature.taxReadiness",   minRank: 2 },
   { labelKey: "billing.feature.rentShield",     minRank: 2 },
   { labelKey: "billing.feature.aiRentShield",   minRank: 2 },
+  { labelKey: "billing.feature.depositVault",   minRank: 2 },
+  { labelKey: "billing.feature.ecoUpgrade",     minRank: 2 },
   { labelKey: "billing.feature.aiLeaseAuditor", minRank: 3 },
 ];
 

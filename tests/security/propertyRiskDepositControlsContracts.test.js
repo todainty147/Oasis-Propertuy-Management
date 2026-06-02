@@ -6,9 +6,12 @@ const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
 
 describe("Property Risk & Deposit Financial Controls contracts", () => {
-  it("adds account-level feature flags without enabling live HMRC or money-holding behavior", () => {
+  it("keeps property risk controls Growth+ while preserving safe copy", () => {
     const entitlements = read("src/lib/entitlements.js");
     const sql = read("supabase/property_risk_deposit_controls.sql");
+    const accountEntitlements = read("supabase/account_entitlements.sql");
+    const rentersRightsEntitlements = read("supabase/renters_rights_entitlement.sql");
+    const polandAdvancedEntitlements = read("supabase/poland_advanced_features.sql");
 
     [
       "deposit_deductions_log",
@@ -18,10 +21,25 @@ describe("Property Risk & Deposit Financial Controls contracts", () => {
     ].forEach((flag) => {
       expect(entitlements).toContain(flag);
       expect(sql).toContain(`('${flag}')`);
+      expect(accountEntitlements).toContain(`when '${flag}'`);
+      expect(rentersRightsEntitlements).toContain(`when '${flag}'`);
+      expect(polandAdvancedEntitlements).toContain(`WHEN '${flag}'`);
     });
 
-    expect(sql).toContain("enabled, created_by)");
-    expect(sql).toContain("false, null");
+    const growthBlock = entitlements.slice(
+      entitlements.indexOf("const GROWTH_FEATURES"),
+      entitlements.indexOf("const PRO_FEATURES"),
+    );
+    const starterBlock = entitlements.slice(
+      entitlements.indexOf("const STARTER_FEATURES"),
+      entitlements.indexOf("const GROWTH_FEATURES"),
+    );
+    expect(starterBlock).not.toContain("DEPOSIT_DEDUCTIONS_LOG");
+    expect(starterBlock).not.toContain("ECO_UPGRADE_PLANNER");
+    expect(growthBlock).toContain("DEPOSIT_DEDUCTIONS_LOG");
+    expect(growthBlock).toContain("DEPOSIT_SETTLEMENT_STATEMENT");
+    expect(growthBlock).toContain("ECO_UPGRADE_PLANNER");
+    expect(growthBlock).toContain("PORTFOLIO_HEALTH_ECO_COMPLIANCE");
     expect(`${entitlements}\n${sql}`).not.toMatch(/escrow|court-proof|guaranteed EPC uplift|guaranteed compliance/i);
   });
 
