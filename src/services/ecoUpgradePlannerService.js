@@ -28,18 +28,29 @@ export async function getPropertyEpcProfile({ accountId, propertyId }) {
   return data || null;
 }
 
+function blankToNull(value) {
+  return value === "" || value == null ? null : value;
+}
+
+function integerOrNull(value) {
+  const normalized = blankToNull(value);
+  if (normalized == null) return null;
+  const numeric = Number(normalized);
+  return Number.isFinite(numeric) ? Math.round(numeric) : null;
+}
+
 export async function upsertPropertyEpcProfile(payload = {}) {
   const row = {
     account_id: payload.accountId || payload.account_id,
     property_id: payload.propertyId || payload.property_id,
     current_epc_band: payload.currentEpcBand || payload.current_epc_band || null,
-    current_epc_score: payload.currentEpcScore === "" ? null : payload.currentEpcScore ?? payload.current_epc_score ?? null,
+    current_epc_score: integerOrNull(payload.currentEpcScore ?? payload.current_epc_score),
     target_epc_band: payload.targetEpcBand || payload.target_epc_band || "C",
-    target_epc_score: payload.targetEpcScore === "" ? null : payload.targetEpcScore ?? payload.target_epc_score ?? null,
+    target_epc_score: integerOrNull(payload.targetEpcScore ?? payload.target_epc_score),
     property_type: payload.propertyType || payload.property_type || null,
     heating_type: payload.heatingType || payload.heating_type || null,
     insulation_notes: payload.insulationNotes || payload.insulation_notes || null,
-    last_epc_date: payload.lastEpcDate || payload.last_epc_date || null,
+    last_epc_date: blankToNull(payload.lastEpcDate ?? payload.last_epc_date),
     epc_certificate_document_id: payload.epcCertificateDocumentId || payload.epc_certificate_document_id || null,
   };
   if (!row.account_id || !row.property_id) {
