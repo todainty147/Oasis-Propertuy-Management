@@ -43,7 +43,7 @@ function safeBaseName(fileName = "") {
 
   return base
     .replace(/\s+/g, "_")
-    .replace(/[^\w.\-]+/g, "_")
+    .replace(/[^\w.-]+/g, "_")
     .replace(/_+/g, "_")
     .replace(/^_+|_+$/g, "");
 }
@@ -95,7 +95,7 @@ export function buildPath({ accountId, workOrderId, fileName }) {
     // replace spaces first
     .replace(/\s+/g, "_")
     // replace anything sketchy
-    .replace(/[^\w.\-]+/g, "_")
+    .replace(/[^\w.-]+/g, "_")
     // avoid accidental "__"
     .replace(/_+/g, "_")
     // trim underscores

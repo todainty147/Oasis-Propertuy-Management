@@ -11,9 +11,9 @@ export const commandCenterContent = {
     eyebrow: "Command center",
     title: "Start with the work that actually needs attention",
     body:
-      "Tenaqo gives landlords a command center for urgent queues, overdue balances, next actions, and an AI operator briefing so the week does not begin with reconstruction work.",
+      "Tenaqo gives landlords a command center for urgent queues, overdue balances, next actions, and an AI-assisted briefing so the week does not begin with reconstruction work.",
     imageSrc: "/screenshots/command-center.png",
-    imageAlt: "Tenaqo Command Center showing AI operator briefing, urgent items, overdue balance, and action queues.",
+    imageAlt: "Tenaqo Command Center showing AI-assisted briefing, urgent items, overdue balance, and action queues.",
   },
   problemSection: {
     eyebrow: "Why it matters",
@@ -39,14 +39,14 @@ export const commandCenterContent = {
     eyebrow: "What Tenaqo does",
     title: "One operating view for what should move next",
     body:
-      "The Command Center keeps urgent actions, arrears pressure, maintenance drag, and broader portfolio priorities close enough to act on immediately, with an AI-generated briefing that still shows the underlying facts.",
+      "The Command Center keeps urgent actions, arrears pressure, maintenance drag, and broader portfolio priorities close enough to act on immediately, with an AI-assisted summary that still shows the underlying facts.",
     items: [
       {
         title: "Urgent queues",
         body: "Surface the actions that need attention now instead of relying on ad hoc triage.",
       },
       {
-        title: "AI operator briefing",
+        title: "AI-assisted briefing",
         body: "Generate a concise summary of what needs attention today, why it matters, and what to review next without mutating workflow state.",
       },
       {
@@ -59,7 +59,7 @@ export const commandCenterContent = {
       },
     ],
     imageSrc: "/screenshots/command-center.png",
-    imageAlt: "Tenaqo Command Center with AI briefing and needs-action queues.",
+    imageAlt: "Tenaqo Command Center with AI-assisted briefing and needs-action queues.",
     imageAlign: "left" as const,
   },
   benefits: {

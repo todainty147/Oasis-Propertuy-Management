@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
 import { useAccount } from "../context/AccountContext";
 import { useTenant } from "../context/TenantContext";
 import { useRealtimeTables } from "./useRealtimeTables";
@@ -15,7 +14,7 @@ export function useTenants({ enabled = true } = {}) {
   const { activeTenantId, clearTenant } = useTenant();
 
   const [tenants, setTenants] = useState([]);
-  const [loading, setLoading] = useState(enabled);
+  const [loading, setLoading] = useState(Boolean(enabled && activeAccountId));
   const [error, setError] = useState(null);
 
   /* ======================
@@ -24,7 +23,6 @@ export function useTenants({ enabled = true } = {}) {
 
   async function loadTenants() {
     if (!enabled || !activeAccountId) {
-      setLoading(false);
       return;
     }
 
@@ -54,11 +52,10 @@ export function useTenants({ enabled = true } = {}) {
 
   useEffect(() => {
     if (!enabled || !activeAccountId) {
-      setLoading(false);
       return;
     }
 
-    loadTenants();
+    queueMicrotask(() => loadTenants());
   }, [enabled, activeAccountId, activeTenantId, clearTenant]);
 
   useRealtimeTables({
@@ -93,7 +90,7 @@ export function useTenants({ enabled = true } = {}) {
 
   return {
     tenants,
-    loading,
+    loading: enabled && activeAccountId ? loading : false,
     error,
 
     // Canonical tenant mutations now flow through the shared service.

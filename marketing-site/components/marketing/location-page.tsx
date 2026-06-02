@@ -43,7 +43,7 @@ export function LocationPage({ city }: { city: CityContent }) {
             What Tenaqo gives {city.city} landlords
           </h2>
           <p className="muted" style={{ maxWidth: 600 }}>
-            Automated Property Management Software that connects rent, maintenance, documents, and compliance in one dashboard.
+            Rental operations software that connects rent, maintenance, documents, and compliance while keeping landlords in control.
           </p>
           <div className="location-features__grid">
             {city.features.map((f) => (

@@ -38,7 +38,9 @@ const MaintenanceInboxPage        = lazy(() => import("../pages/MaintenanceInbox
 const MaintenanceKPIDashboardPage = lazy(() => import("../pages/MaintenanceKPIDashboardPage"));
 const CommandCenterPage           = lazy(() => import("../pages/CommandCenterPage"));
 const PortfolioHealthDashboardPage = lazy(() => import("../pages/PortfolioHealthDashboardPage"));
+const EcoUpgradePlannerPage       = lazy(() => import("../pages/EcoUpgradePlannerPage"));
 const FinancePage                 = lazy(() => import("../pages/FinancePage"));
+const DepositVaultPage            = lazy(() => import("../pages/DepositVaultPage"));
 const LandlordOnboardingPage      = lazy(() => import("../pages/LandlordOnboardingPage"));
 const InvitationsPage             = lazy(() => import("../pages/InvitationsPage"));
 const AccountBrandingPage         = lazy(() => import("../pages/AccountBrandingPage"));
@@ -315,6 +317,18 @@ export default function ManagerRoutes() {
       />
 
       <Route
+        path="finance/deposit-vault"
+        element={
+          <EntitledRoute
+            feature={ENTITLEMENT_FEATURES.DEPOSIT_DEDUCTIONS_LOG}
+            altFeature={ENTITLEMENT_FEATURES.DEPOSIT_SETTLEMENT_STATEMENT}
+          >
+            <DepositVaultPage />
+          </EntitledRoute>
+        }
+      />
+
+      <Route
         path="documents"
         element={
           tenantRole ? (
@@ -499,6 +513,18 @@ export default function ManagerRoutes() {
         element={
           <EntitledRoute feature={ENTITLEMENT_FEATURES.PORTFOLIO_HEALTH}>
             <PortfolioHealthDashboardPage />
+          </EntitledRoute>
+        }
+      />
+
+      <Route
+        path="portfolio-health/eco-upgrade-planner"
+        element={
+          <EntitledRoute
+            feature={ENTITLEMENT_FEATURES.ECO_UPGRADE_PLANNER}
+            altFeature={ENTITLEMENT_FEATURES.PORTFOLIO_HEALTH_ECO_COMPLIANCE}
+          >
+            <EcoUpgradePlannerPage />
           </EntitledRoute>
         }
       />

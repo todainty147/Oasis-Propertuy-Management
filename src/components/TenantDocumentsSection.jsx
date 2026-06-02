@@ -87,7 +87,7 @@ function getDocumentTagLabel(tag, t) {
    ====================== */
 
 export default function TenantDocumentsSection({ tenantId }) {
-  const { user, loading: authLoading } = useAuth();
+  const { loading: authLoading } = useAuth();
   const { activeAccountId, accountLoading, activePermissionContext } = useAccount(); // ✅ MULTI-TENANT
   const { t } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -100,7 +100,7 @@ export default function TenantDocumentsSection({ tenantId }) {
 
   /* ---------- DATA ---------- */
   const [documents, setDocuments] = useState([]);
-  const [audit, setAudit] = useState([]);
+  const [, setAudit] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -173,11 +173,11 @@ export default function TenantDocumentsSection({ tenantId }) {
   /* ---------- PERMISSIONS ---------- */
   const canUpload = canUploadDocument(activePermissionContext);
 
-  function canEdit(doc) {
+  function canEdit(_doc) {
     return canEditDocumentTags(activePermissionContext);
   }
 
-  function canDelete(doc) {
+  function canDelete(_doc) {
     return canDeleteDocument(activePermissionContext);
   }
 

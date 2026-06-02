@@ -66,6 +66,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
           "Handle shared tenancies, HMOs, STR nightly, and rent increases with Advanced Rent Models.",
           "Preview every charge before posting. Approval required before the ledger is touched.",
           "See the next 3 billing periods projected and full plan history inline.",
+          "Create itemised deposit deduction statements linked to inspection evidence, maintenance records and invoices.",
           "Deposit warnings for UK Tenant Fees Act cap and Poland market guidelines — not legal advice.",
         ],
         href: "/features/rental-accounting",
@@ -75,7 +76,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
         eyebrow: "Command Center",
         title: "Start with the work that needs action now",
         why:
-          "The operational day goes faster when the urgent queue, AI briefing, and next review targets already sit in one place.",
+          "The operational day goes faster when the urgent queue, AI-assisted briefing, and next review targets already sit in one place.",
         bullets: [
           "See portfolio-wide pressure before it spreads.",
           "Review AI-assisted briefings grounded in current account signals.",
@@ -105,6 +106,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
         bullets: [
           "Review weak addresses before the damage spreads.",
           "Understand why a score is moving with an AI explainer.",
+          "Plan EPC improvements with indicative costs, upgrade checklists and work-order handoff.",
           "Tie the signal back to the work creating the risk.",
         ],
         href: "/features/portfolio-health",

@@ -23,6 +23,7 @@ The MVP can reference:
 - Landlord and tenant signature timestamps
 - Manual invoice, quote, receipt and note entries
 - Existing documents by reference where selected by the landlord
+- Deposit Settlement Statements and Deposit Deductions Log items where selected by the landlord
 
 Suggested evidence is shown for review. Tenaqo does not auto-include everything without landlord confirmation.
 
@@ -37,6 +38,12 @@ When a pack is opened for a property/tenant, Tenaqo suggests relevant Compliance
 - Tenant onboarding acknowledgement
 
 The landlord must explicitly add a suggestion to the pack. Suggested Compliance Safe items are referenced as `compliance_safe_item` evidence references and displayed with human-readable labels in the evidence index.
+
+## Deposit Vault Suggestions
+
+Deposit Settlement Statements can be imported into a dispute pack as landlord-selected evidence. Individual Deposit Deductions Log items can also be referenced so the pack shows the deduction title, amount, category, notes and linked supporting evidence.
+
+The pack keeps the same disclaimer: Tenaqo organises evidence for dispute preparation, does not replace legal advice and does not guarantee the outcome of any deposit dispute.
 
 ## Pack Statuses
 
@@ -79,6 +86,7 @@ Packs are account-scoped. Owners, admins and staff who can manage the account ca
 - ZIP bundles are not implemented yet.
 - Tenant-shared dispute packs are not implemented yet.
 - The pack is organisational evidence, not legal advice.
+- Deposit Vault settlement import is landlord-controlled and does not move or hold money.
 
 ## Future Enhancements
 

@@ -67,8 +67,8 @@ export const cityPages: CityContent[] = [
       canonicalPath: "/locations/bristol",
     },
     hero: {
-      eyebrow: "Automated Property Management in Bristol",
-      title: "Bristol Landlords: Run a More Passive Portfolio With Tenaqo",
+      eyebrow: "Rental operations software for landlords in Bristol",
+      title: "Bristol Landlords: Run a Calmer Landlord Workflow With Tenaqo",
       body: "Managing properties in Bristol — from Clifton to Easton — means balancing tenant expectations, maintenance demands, and ever-changing compliance requirements. Tenaqo gives you the operating layer to handle it all without living in your inbox.",
       primaryCta: { label: "Claim Founder Access", href: siteConfig.appUrl },
       secondaryCta: { label: "See all features", href: "/features" },
@@ -79,7 +79,7 @@ export const cityPages: CityContent[] = [
     },
     features: SHARED_FEATURES,
     cta: {
-      heading: "Ready to run a more passive portfolio in Bristol?",
+      heading: "Ready for less day-to-day chasing in Bristol?",
       body: "Tenaqo is built for landlords who want visibility, control, and less daily admin — not a letting agent, but an operating layer you control.",
       primaryCta: { label: "Claim Founder Access", href: siteConfig.appUrl },
     },
@@ -95,9 +95,9 @@ export const cityPages: CityContent[] = [
       canonicalPath: "/locations/manchester",
     },
     hero: {
-      eyebrow: "Automated Property Management in Manchester",
+      eyebrow: "Rental operations software for landlords in Manchester",
       title: "Manchester Landlords: One Dashboard for Rent, Repairs, and Compliance",
-      body: "From Didsbury to Salford Quays, Manchester's rental market moves fast. Tenaqo keeps your rent rules, maintenance workflows, tenant records, and compliance readiness in one place — so you stop chasing and start running a more passive portfolio.",
+      body: "From Didsbury to Salford Quays, Manchester's rental market moves fast. Tenaqo keeps your rent rules, maintenance workflows, tenant records, and compliance readiness in one place — so you spend less time chasing and more time reviewing what needs action.",
       primaryCta: { label: "Claim Founder Access", href: siteConfig.appUrl },
       secondaryCta: { label: "See all features", href: "/features" },
     },
@@ -107,7 +107,7 @@ export const cityPages: CityContent[] = [
     },
     features: SHARED_FEATURES,
     cta: {
-      heading: "Ready to run a more passive portfolio in Manchester?",
+      heading: "Ready for less day-to-day chasing in Manchester?",
       body: "Tenaqo is built for landlords who want visibility and control without the agent fee structure — an operating layer you own.",
       primaryCta: { label: "Claim Founder Access", href: siteConfig.appUrl },
     },
@@ -123,7 +123,7 @@ export const cityPages: CityContent[] = [
       canonicalPath: "/locations/london",
     },
     hero: {
-      eyebrow: "Automated Property Management in London",
+      eyebrow: "Rental operations software for landlords in London",
       title: "London Landlords: Stop Managing Your Portfolio From an Inbox",
       body: "London's rental market is high-pressure: rising compliance obligations, tenant expectations, and maintenance complexity across zones. Tenaqo gives London landlords the operating clarity to see what needs action — before it becomes expensive.",
       primaryCta: { label: "Claim Founder Access", href: siteConfig.appUrl },
@@ -135,7 +135,7 @@ export const cityPages: CityContent[] = [
     },
     features: SHARED_FEATURES,
     cta: {
-      heading: "Ready to run a more passive London portfolio?",
+      heading: "Ready to run a London portfolio with less day-to-day chasing?",
       body: "Tenaqo gives London landlords the operating layer between spreadsheets and a letting agent — at software cost, not commission.",
       primaryCta: { label: "Claim Founder Access", href: siteConfig.appUrl },
     },
@@ -151,7 +151,7 @@ export const cityPages: CityContent[] = [
       canonicalPath: "/locations/birmingham",
     },
     hero: {
-      eyebrow: "Automated Property Management in Birmingham",
+      eyebrow: "Rental operations software for landlords in Birmingham",
       title: "Birmingham Landlords: Clearer Rent, Faster Maintenance, Less Admin",
       body: "Whether you manage properties in Edgbaston, Moseley, or across the West Midlands, Tenaqo keeps your rental portfolio visible and moving — from rent plans and expected charges through to maintenance, documents, and compliance readiness.",
       primaryCta: { label: "Claim Founder Access", href: siteConfig.appUrl },
@@ -159,7 +159,7 @@ export const cityPages: CityContent[] = [
     },
     intro: {
       heading: "Rental Portfolio Management Built for Birmingham Landlords",
-      body: "Tenaqo helps Birmingham landlords consolidate the daily rental operation: rent tracking, maintenance workflows, tenancy documents, contractor coordination, and compliance readiness — all in one accountable place. Less time in spreadsheets. More time running a passive portfolio.",
+      body: "Tenaqo helps Birmingham landlords consolidate the daily rental operation: rent tracking, maintenance workflows, tenancy documents, contractor coordination, and compliance readiness — all in one accountable place. Less time in spreadsheets. More time running a portfolio with less day-to-day chasing.",
     },
     features: SHARED_FEATURES,
     cta: {
@@ -179,9 +179,9 @@ export const cityPages: CityContent[] = [
       canonicalPath: "/locations/leeds",
     },
     hero: {
-      eyebrow: "Automated Property Management in Leeds",
+      eyebrow: "Rental operations software for landlords in Leeds",
       title: "Leeds Landlords: Rent, Maintenance, and Compliance — One Dashboard",
-      body: "From Headingley student lets to city centre apartments, Leeds landlords face the same operational pressure: rent to track, maintenance to manage, compliance to stay on top of. Tenaqo brings it all into one place — so you can run a more passive portfolio without the admin chaos.",
+      body: "From Headingley student lets to city centre apartments, Leeds landlords face the same operational pressure: rent to track, maintenance to manage, compliance to stay on top of. Tenaqo brings it all into one place — so you get less day-to-day chasing without the admin chaos.",
       primaryCta: { label: "Claim Founder Access", href: siteConfig.appUrl },
       secondaryCta: { label: "See all features", href: "/features" },
     },
@@ -191,7 +191,7 @@ export const cityPages: CityContent[] = [
     },
     features: SHARED_FEATURES,
     cta: {
-      heading: "Ready to run a more passive portfolio in Leeds?",
+      heading: "Ready for less day-to-day chasing in Leeds?",
       body: "Tenaqo gives Leeds landlords the operational clarity to see what needs action — before it becomes expensive.",
       primaryCta: { label: "Claim Founder Access", href: siteConfig.appUrl },
     },

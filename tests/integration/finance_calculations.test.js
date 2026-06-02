@@ -186,7 +186,9 @@ $$
   } catch {
     // best-effort — failures are non-fatal for cleanup
   } finally {
-    try { unlinkSync(tmpFile); } catch {}
+    try { unlinkSync(tmpFile); } catch {
+      // best-effort cleanup
+    }
   }
 }
 

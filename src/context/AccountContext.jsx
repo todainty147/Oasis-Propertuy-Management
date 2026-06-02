@@ -4,9 +4,9 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
 import { rootListAccounts } from "../services/rootAccountService";
 import { finalizeSelfServeLandlordAccount } from "../services/selfServeSignupService";
-import { canAccessRootTelemetry, getRootTelemetryAccessMode } from "../utils/telemetryAccess";
+import { getRootTelemetryAccessMode } from "../utils/telemetryAccess";
 import { getPermissionKeysForRole } from "../utils/permissions";
-import { assertFeature, hasFeature, isLockedPlan, normalizePlan } from "../lib/entitlements";
+import { assertFeature, hasFeature, normalizePlan } from "../lib/entitlements";
 import { getMyOaGrantStatus } from "../services/operatorAgencyService";
 import { getAccountActiveEntitlement } from "../services/founderOfferService";
 
@@ -70,6 +70,16 @@ export function AccountProvider({ children }) {
   const [oaGrantStatus, setOaGrantStatus] = useState(null); // { paymentStatus, checkoutUrl, ... }
   const [founderEntitlement, setFounderEntitlement] = useState(null);
 
+  function resetLoggedOutAccountState() {
+    setAccounts([]);
+    setActiveAccountId(null);
+    setIsRootOperator(false);
+    setTenantContext(null);
+    setContractorContext(null);
+    setAuthzError(null);
+    setAccountLoading(false);
+  }
+
   /* ======================
      LOAD ACCOUNTS / TENANT / CONTRACTOR CONTEXT
      ====================== */
@@ -79,14 +89,8 @@ export function AccountProvider({ children }) {
 
     // 🔒 Logged out
     if (!user) {
-      setAccounts([]);
-      setActiveAccountId(null);
-      setIsRootOperator(false);
-      setTenantContext(null);
-      setContractorContext(null);
-      setAuthzError(null);
-      setAccountLoading(false);
       localStorage.removeItem("activeAccountId");
+      window.setTimeout(resetLoggedOutAccountState, 0);
       return;
     }
 
@@ -496,7 +500,7 @@ export function AccountProvider({ children }) {
   /* Founder entitlement — load alongside OA grant status */
   useEffect(() => {
     if (!activeAccountId) {
-      setFounderEntitlement(null);
+      queueMicrotask(() => setFounderEntitlement(null));
       return;
     }
     let cancelled = false;
@@ -520,24 +524,27 @@ export function AccountProvider({ children }) {
      DERIVED
      ====================== */
 
+  const exposedAccounts = useMemo(() => (user ? accounts : []), [user, accounts]);
+  const exposedActiveAccountId = user ? activeAccountId : null;
+
   const activeAccount = useMemo(
-    () => accounts.find((a) => a.id === activeAccountId) ?? null,
-    [accounts, activeAccountId]
+    () => exposedAccounts.find((a) => a.id === exposedActiveAccountId) ?? null,
+    [exposedAccounts, exposedActiveAccountId]
   );
 
   const activeRole = useMemo(() => {
     if (activeAccount?.role) return activeAccount.role;
 
-    if (tenantContext?.account_id && tenantContext.account_id === activeAccountId) {
+    if (user && tenantContext?.account_id && tenantContext.account_id === exposedActiveAccountId) {
       return "tenant";
     }
 
-    if (contractorContext?.account_id && contractorContext.account_id === activeAccountId) {
+    if (user && contractorContext?.account_id && contractorContext.account_id === exposedActiveAccountId) {
       return "contractor";
     }
 
     return null;
-  }, [activeAccount, tenantContext, contractorContext, activeAccountId]);
+  }, [user, activeAccount, tenantContext, contractorContext, exposedActiveAccountId]);
 
   /* ======================
      OA GRANT STATUS
@@ -548,7 +555,7 @@ export function AccountProvider({ children }) {
   useEffect(() => {
     const role = String(activeRole || "").toLowerCase();
     if (!activeAccountId || isRootOperator || role === "tenant" || role === "contractor") {
-      setOaGrantStatus(null);
+      queueMicrotask(() => setOaGrantStatus(null));
       return;
     }
     let cancelled = false;
@@ -560,18 +567,31 @@ export function AccountProvider({ children }) {
 
   // Trial derived values
   const trialEndsAt = activeAccount?.trial_ends_at ?? null;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!trialEndsAt) return undefined;
+    const trialEndsAtMs = new Date(trialEndsAt).getTime();
+    if (!Number.isFinite(trialEndsAtMs)) return undefined;
+    const msUntilExpiry = Math.max(0, trialEndsAtMs - Date.now());
+    const timeoutId = window.setTimeout(() => setNow(Date.now()), Math.min(msUntilExpiry + 250, 2_147_483_647));
+    const intervalId = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
+    };
+  }, [trialEndsAt]);
   const isInTrial = useMemo(
-    () => Boolean(trialEndsAt && new Date(trialEndsAt) > new Date()),
-    [trialEndsAt],
+    () => Boolean(trialEndsAt && new Date(trialEndsAt).getTime() > now),
+    [now, trialEndsAt],
   );
   const isTrialExpired = useMemo(
-    () => Boolean(trialEndsAt && new Date(trialEndsAt) <= new Date()),
-    [trialEndsAt],
+    () => Boolean(trialEndsAt && new Date(trialEndsAt).getTime() <= now),
+    [now, trialEndsAt],
   );
   const trialDaysLeft = useMemo(() => {
     if (!isInTrial || !trialEndsAt) return 0;
-    return Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / 86_400_000);
-  }, [isInTrial, trialEndsAt]);
+    return Math.ceil((new Date(trialEndsAt).getTime() - now) / 86_400_000);
+  }, [isInTrial, now, trialEndsAt]);
 
   const activePlan = useMemo(() => {
     // Root operators are always operator_agency
@@ -653,8 +673,12 @@ export function AccountProvider({ children }) {
     [activePlan, activeFeatureFlags],
   );
   const assertEntitlement = useMemo(
-    () => (feature) => assertFeature(activePlan, feature),
-    [activePlan],
+    () => (feature) => {
+      const normalizedFeature = String(feature || "").trim().toLowerCase();
+      if (activeFeatureFlags.includes(normalizedFeature)) return true;
+      return assertFeature(activePlan, feature);
+    },
+    [activePlan, activeFeatureFlags],
   );
 
   const rootTelemetryAccessMode = useMemo(
@@ -685,10 +709,10 @@ export function AccountProvider({ children }) {
   return (
     <AccountContext.Provider
       value={{
-        accounts,
+        accounts: exposedAccounts,
         isRootOperator,
         activeAccount,
-        activeAccountId,
+        activeAccountId: exposedActiveAccountId,
         switchAccount,
         reloadAccounts,
         accountLoading,

@@ -165,7 +165,7 @@ export default function ContractorPortal() {
         })
       );
       setAllowedById(Object.fromEntries(pairs));
-    } catch (e) {
+    } catch {
       setError(t("contractor.loadError"));
       setRows([]);
       setAllowedById({});

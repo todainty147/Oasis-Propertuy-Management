@@ -106,6 +106,8 @@ The tenant portal review page lets tenants view the shared report, add general o
 
 Deposit dispute packs help landlords compile a supporting evidence bundle from existing Tenaqo records. Packs include a summary, deduction schedule, evidence index, check-in/check-out comparison, signatures/responses, photo groups and browser-printable PDF export.
 
+Deposit Vault can reference Evidence Vault reports and photos when a landlord prepares itemised Deposit Deductions Log entries or a Deposit Settlement Statement. Evidence is not auto-added; landlords select the records they want to include.
+
 ## Risk Protection Suite Cross-links
 
 Check-in reports can be linked to Compliance Safe inventory/onboarding checklist items. The link stores only the Compliance Safe evidence source fields (`inspection_report` plus the report id) and keeps the report data in Evidence Vault.
@@ -137,3 +139,4 @@ Report and pack PDFs use the disclaimer: “This report/pack is an organisationa
 - Communication ingestion
 - Invoice matching
 - AI evidence summarisation after a separate approval/security review
+- Deposit Vault evidence picker improvements

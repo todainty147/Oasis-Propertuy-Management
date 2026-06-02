@@ -1,12 +1,13 @@
 // src/pages/FinancePage.jsx
 import { useCallback, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import Finance from "./Finance";
 import AddPaymentModal from "../components/AddPaymentModal";
 import { useFinance } from "../hooks/useFinance";
 import { useAccount } from "../context/AccountContext";
 import { useProperties } from "../hooks/useProperties";
 import { useTenants } from "../hooks/useTenants";
+import { ENTITLEMENT_FEATURES } from "../lib/entitlements";
 import {
   createPayment,
   deletePayment,
@@ -15,7 +16,7 @@ import {
 } from "../services/paymentService";
 
 export default function FinancePage() {
-  const { activeAccountId, activeRole } = useAccount();
+  const { activeAccountId, activeRole, hasEntitlement } = useAccount();
   const { properties, loading: propertiesLoading } = useProperties({ enabled: true });
   const { tenants,    loading: tenantsLoading    } = useTenants({ enabled: true });
   const {
@@ -100,6 +101,20 @@ export default function FinancePage() {
 
   return (
     <>
+      {(hasEntitlement(ENTITLEMENT_FEATURES.DEPOSIT_DEDUCTIONS_LOG) || hasEntitlement(ENTITLEMENT_FEATURES.DEPOSIT_SETTLEMENT_STATEMENT)) ? (
+        <div className="mb-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold">Deposit Vault</p>
+              <p>Create itemised deposit deduction statements linked to inspection evidence, maintenance records and invoices.</p>
+            </div>
+            <Link to="/finance/deposit-vault" className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white">
+              Open Deposit Vault
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
       <Finance
         loading={loading || propertiesLoading || tenantsLoading}
         summary={summary}

@@ -150,6 +150,10 @@ security definer
 set search_path = public, pg_temp
 as $$
 begin
+  if old.acknowledgement_status is not distinct from new.acknowledgement_status then
+    return new;
+  end if;
+
   if new.acknowledgement_status = 'acknowledged' then
     update public.tenancy_compliance_items
     set status = 'acknowledged',
@@ -191,7 +195,7 @@ $$;
 
 drop trigger if exists trg_compliance_item_ack_apply_response on public.compliance_item_acknowledgements;
 create trigger trg_compliance_item_ack_apply_response
-  after update of acknowledgement_status, acknowledged_at, comment on public.compliance_item_acknowledgements
+  after update of acknowledgement_status on public.compliance_item_acknowledgements
   for each row execute function public.apply_compliance_acknowledgement_response();
 
 alter table public.compliance_item_acknowledgements enable row level security;

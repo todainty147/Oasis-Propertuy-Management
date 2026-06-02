@@ -693,7 +693,7 @@ export const blogArticles: BlogArticle[] = [
       {
         heading: "The bottom line: compliance is now a workflow",
         paragraphs: [
-          "In 2026, being a passive landlord without systems carries real operational risk.",
+          "In 2026, wanting less day-to-day chasing without reliable systems carries real operational risk.",
           "The new rules increase the importance of:",
         ],
         items: [

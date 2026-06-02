@@ -45,8 +45,6 @@ function ConfidenceBadge({ confidence }) {
 // ── Document row ─────────────────────────────────────────────────────────────
 
 function DocumentRow({ doc, onSelect, suggestion, isSuggested }) {
-  const { t } = useI18n();
-
   return (
     <button
       type="button"
@@ -114,7 +112,7 @@ export default function DocumentLinkPicker({
       .catch(() => { if (!cancelled) setError(t("evidencePack.loadDocsError")); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [accountId, propertyId, tenantId]);
+  }, [accountId, propertyId, tenantId, t]);
 
   // AI suggestions (triggered on mount for the selected item)
   useEffect(() => {

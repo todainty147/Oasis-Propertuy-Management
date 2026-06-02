@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, ClipboardList, Plus, Trash2, CheckCircle2 } from "lucide-react";
 import { useI18n } from "../../context/I18nContext";
-import { saveHandoverProtocol, confirmHandoverProtocol } from "../../services/evidencePackService";
+import { saveHandoverProtocol } from "../../services/evidencePackService";
 import { deriveHandoverStatus } from "../../utils/evidencePackUtils";
 
 // ── Condition options ────────────────────────────────────────────────────────

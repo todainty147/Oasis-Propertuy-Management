@@ -46,7 +46,7 @@ export const oasisVsLandlordStudioContent = {
       },
       {
         category: "Daily visibility",
-        oasis: "Command Center, AI operator briefing, portfolio health, and pressure signals make prioritization easier",
+        oasis: "Command Center, AI-assisted briefing, portfolio health, and pressure signals make prioritization easier",
         competitor: "Useful tracking across key landlord tasks, with less emphasis on action queues and operational triage",
       },
       {
@@ -76,7 +76,7 @@ export const oasisVsLandlordStudioContent = {
       },
       {
         title: "Action is easier to prioritize",
-        body: "Command Center queues, AI briefings, and portfolio health signals make it easier to decide what deserves attention first instead of manually reconstructing the week.",
+        body: "Command Center queues, AI-assisted briefings, and portfolio health signals make it easier to decide what deserves attention first instead of manually reconstructing the week.",
       },
       {
         title: "Control goes beyond record-keeping",

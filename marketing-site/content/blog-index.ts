@@ -46,7 +46,7 @@ export const blogIndexContentByLocale: Record<Locale, BlogIndexContent> = {
     readMoreLabel: "Read more",
     publishingTitle: "What Tenaqo publishes",
     publishingBody:
-      "We write for small and growing landlords who are trying to replace reactive admin with a better operating rhythm. Fewer generic tips and more practical guidance on rent rules, expected charges, maintenance movement, compliance readiness (Renters' Rights Act, tax deadlines, Lease Auditor, Poland), AI assistance that keeps the landlord in control, property health scoring, and when a portfolio needs more structure. Categories: Rent & Finance, Maintenance Operations, Compliance Readiness, AI for Landlords, Poland Market, Property Health, Security & Audit.",
+      "We write for small and growing landlords who are trying to replace reactive admin with a better operating rhythm. Fewer generic tips and more practical guidance on rent rules, expected charges, maintenance movement, compliance readiness (Renters' Rights Act, tax deadlines, AI-assisted clause flagging, Poland), AI assistance that keeps the landlord in control, property health scoring, and when a portfolio needs more structure. Categories: Rent & Finance, Maintenance Operations, Compliance Readiness, AI for Landlords, Poland Market, Property Health, Security & Audit.",
     finalCta: {
       title: "Try Tenaqo before we launch publicly",
       body:
@@ -74,7 +74,7 @@ export const blogIndexContentByLocale: Record<Locale, BlogIndexContent> = {
     readMoreLabel: "Czytaj dalej",
     publishingTitle: "O czym pisze Tenaqo",
     publishingBody:
-      "Piszemy dla małych i rozwijających się właścicieli nieruchomości, którzy chcą zastąpić reaktywne zarządzanie lepszym rytmem operacyjnym. Mniej ogólników, a więcej praktycznych wskazówek dotyczących reguł czynszowych, oczekiwanych opłat, obsługi napraw, gotowości prawno-podatkowej (terminy podatkowe, Lease Auditor, rynek polski), wsparcia AI zachowującego kontrolę właściciela, oceny kondycji nieruchomości oraz momentu, w którym portfel wymaga struktury. Nasze kategorie: Czynsz i finanse, Utrzymanie i naprawy, Zgodność z przepisami, AI dla właścicieli, Rynek polski, Kondycja nieruchomości, Bezpieczeństwo i audyt.",
+      "Piszemy dla małych i rozwijających się właścicieli nieruchomości, którzy chcą zastąpić reaktywne zarządzanie lepszym rytmem operacyjnym. Mniej ogólników, a więcej praktycznych wskazówek dotyczących reguł czynszowych, oczekiwanych opłat, obsługi napraw, gotowości prawno-podatkowej (terminy podatkowe, wspierane przez AI flagowanie klauzul, rynek polski), wsparcia AI zachowującego kontrolę właściciela, oceny kondycji nieruchomości oraz momentu, w którym portfel wymaga struktury. Nasze kategorie: Czynsz i finanse, Utrzymanie i naprawy, Zgodność z przepisami, AI dla właścicieli, Rynek polski, Kondycja nieruchomości, Bezpieczeństwo i audyt.",
     finalCta: {
       title: "Wypróbuj Tenaqo przed oficjalną premierą",
       body:

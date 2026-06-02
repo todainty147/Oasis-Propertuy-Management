@@ -11,7 +11,7 @@ export const rentalAccountingContent = {
     eyebrow: "Rental accounting",
     title: "See paid, due, and overdue rent before follow-up slips",
     body:
-      "Tenaqo gives landlords finance views built around follow-up: what is paid, what is due, what is overdue, and which properties are starting to show pressure.",
+      "Tenaqo gives landlords finance views built around follow-up: what is paid, what is due, what is overdue, and which properties are starting to show pressure. It does not collect rent, move money, or operate as a payment rail, and is designed for future Open Banking rent matching.",
     imageSrc: "/screenshots/portfolio-health.png",
     imageAlt: "Tenaqo Portfolio Health dashboard showing arrears aging, finance mix, and maintenance pressure.",
   },
@@ -58,6 +58,10 @@ export const rentalAccountingContent = {
       {
         title: "Keep rent tied to property pressure",
         body: "Keep payment status close to tenant and property details instead of isolating the numbers from the wider operational picture.",
+      },
+      {
+        title: "Prepare deposit settlement evidence",
+        body: "Create itemised deposit deduction statements linked to inspection evidence, maintenance records, invoices, and landlord review notes.",
       },
       {
         title: "Catch arrears pressure earlier",

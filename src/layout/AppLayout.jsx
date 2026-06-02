@@ -21,23 +21,23 @@ function useMediaQuery(query) {
   return matches;
 }
 
-export default function AppLayout({ owners, activeOwnerId, setActiveOwnerId }) {
+export default function AppLayout() {
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const location  = useLocation();
   const { user }  = useAuth();
   const { activeAccountId } = useAccount();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [title, setTitle] = useState("");
+  const [, setTitle] = useState("");
 
   // Keep sidebar open on desktop
   useEffect(() => {
-    if (isDesktop) setSidebarOpen(true);
+    if (isDesktop) queueMicrotask(() => setSidebarOpen(true));
   }, [isDesktop]);
 
   // Close sidebar on mobile navigation
   useEffect(() => {
-    if (!isDesktop) setSidebarOpen(false);
+    if (!isDesktop) queueMicrotask(() => setSidebarOpen(false));
   }, [location.pathname, isDesktop]);
 
   // The authenticated app shell owns scrolling via <main>. Keep the document

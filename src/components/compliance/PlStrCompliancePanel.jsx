@@ -62,18 +62,17 @@ function SafetyCheckItem({ itemKey, status, onChange, t }) {
 
 function PropertySelector({ accountId, onSelect, t }) {
   const [properties, setProperties] = useState([]);
-  const [loading, setLoading]       = useState(true);
+  const [loading, setLoading]       = useState(Boolean(accountId));
   const [error, setError]           = useState(null);
   const [query, setQuery]           = useState("");
 
   useEffect(() => {
     if (!accountId) return;
-    setLoading(true);
     listPropertiesForAccount(accountId)
       .then((data) => setProperties(data || []))
       .catch(() => setError(t("plAdvanced.str.loadPropertiesError")))
       .finally(() => setLoading(false));
-  }, [accountId]);
+  }, [accountId, t]);
 
   if (loading) return <p className="text-sm text-slate-400">{t("common.loading")}</p>;
   if (error)   return <p className="text-sm text-red-600 dark:text-red-400">{error}</p>;

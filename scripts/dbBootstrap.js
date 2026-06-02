@@ -488,6 +488,11 @@ const bootstrapSteps = [
     file: path.join(supabaseDir, "evidence_vault_phase2_fixes.sql"),
     onErrorStop: true,
   },
+  {
+    label: "Apply Property Risk & Deposit Controls overlay",
+    file: path.join(supabaseDir, "property_risk_deposit_controls.sql"),
+    onErrorStop: true,
+  },
 ];
 
 function resolvePsqlCommand() {

@@ -71,7 +71,7 @@ const APPLICATION_SELECT = [
 
 function isMissingBackendObject(error) {
   const message = String(error?.message || "").toLowerCase();
-  return error?.code === "PGRST404" || message.includes("relation") || message.includes("does not exist");
+  return error?.code === "42P01" || message.includes("relation") || message.includes("does not exist");
 }
 
 export async function listComplianceSafeItems(accountId, filters = {}) {
@@ -403,11 +403,15 @@ export async function markTenantComplianceAcknowledgementViewed(accountId, ackno
 export async function respondToComplianceAcknowledgement(accountId, acknowledgementId, payload = {}) {
   if (!accountId || !acknowledgementId) throw new Error("Missing acknowledgement.");
   const status = payload.disputed ? "disputed" : "acknowledged";
+  const comment = String(payload.comment || "").trim();
+  if (payload.disputed && !comment) {
+    throw new Error("Add a comment before marking this compliance document as disputed.");
+  }
   const { data, error } = await supabase
     .from("compliance_item_acknowledgements")
     .update({
       acknowledgement_status: status,
-      comment: payload.comment || null,
+      comment: comment || null,
       acknowledged_at: new Date().toISOString(),
     })
     .eq("account_id", accountId)
@@ -527,14 +531,14 @@ async function getInspectionStatusForItem(accountId, itemId) {
   };
 }
 
-async function writeInspectionAuditEvent(accountId, reportId, eventType, metadata = {}) {
+async function writeInspectionAuditEvent(accountId, reportId, eventType, metadata = {}, userId = undefined) {
   if (!accountId || !reportId || !eventType) return null;
   const { data, error } = await supabase
     .from("inspection_audit_events")
     .insert({
       account_id: accountId,
       inspection_report_id: reportId,
-      user_id: await getCurrentUserId(),
+      user_id: userId === undefined ? await getCurrentUserId() : userId,
       event_type: eventType,
       metadata,
     })
@@ -567,7 +571,7 @@ export async function createInspectionEvidenceItem(accountId, roomId, payload = 
     .select("id, item_label, condition_rating, notes, sort_order, created_at, updated_at")
     .single();
   if (error) throw error;
-  await writeInspectionAuditEvent(accountId, report.reportId, "room_created", {
+  await writeInspectionAuditEvent(accountId, report.reportId, "evidence_item_created", {
     room_name: report.roomName,
     item_label: itemLabel,
   });
@@ -622,6 +626,7 @@ export async function populateInspectionReportDefaults(accountId, reportId) {
     }));
   });
 
+  let createdItemCount = 0;
   if (itemRows.length > 0) {
     const { data: existingItems, error: itemsError } = await supabase
       .from("inspection_evidence_items")
@@ -635,12 +640,15 @@ export async function populateInspectionReportDefaults(accountId, reportId) {
     if (itemsToCreate.length > 0) {
       const { error } = await supabase.from("inspection_evidence_items").insert(itemsToCreate);
       if (error) throw error;
+      createdItemCount = itemsToCreate.length;
     }
   }
 
-  await writeInspectionAuditEvent(accountId, reportId, "room_created", {
+  await writeInspectionAuditEvent(accountId, reportId, "default_evidence_items_populated", {
     source: "default_room_template_recovery",
-    room_count: defaultRoomNames.length,
+    room_count: allRooms.length,
+    created_room_count: createdRooms.length,
+    created_item_count: createdItemCount,
   });
 
   return true;
@@ -743,11 +751,12 @@ export async function shareInspectionReportWithTenant(accountId, reportId, paylo
   if (reportError) throw reportError;
   if (!report?.tenant_id) throw new Error("Link a tenant before sharing this inspection report.");
 
+  const userId = await getCurrentUserId();
   const row = {
     account_id: accountId,
     inspection_report_id: reportId,
     tenant_id: report.tenant_id,
-    shared_by: await getCurrentUserId(),
+    shared_by: userId,
     share_status: "shared",
     message: payload.message ? String(payload.message).trim() : null,
     response_due_at: payload.response_due_at || null,
@@ -773,7 +782,7 @@ export async function shareInspectionReportWithTenant(accountId, reportId, paylo
   if (error) throw error;
   await writeInspectionAuditEvent(accountId, reportId, "report_shared_with_tenant", {
     tenant_id: report.tenant_id,
-  });
+  }, userId);
   return data;
 }
 
@@ -959,39 +968,41 @@ export async function recordTenantInspectionSignature(accountId, shareId, payloa
 export async function lockInspectionReport(id, accountId) {
   const current = await getInspectionStatusForReport(accountId, id);
   assertEditableStatus(current.status);
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("inspection_reports")
-    .update({ status: "locked", locked_at: new Date().toISOString(), locked_by: await getCurrentUserId() })
+    .update({ status: "locked", locked_at: new Date().toISOString(), locked_by: userId })
     .eq("id", id)
     .eq("account_id", accountId)
     .select(INSPECTION_SELECT)
     .single();
   if (error) throw error;
-  await writeInspectionAuditEvent(accountId, id, "report_locked", {});
+  await writeInspectionAuditEvent(accountId, id, "report_locked", {}, userId);
   return data;
 }
 
 export async function archiveInspectionReport(id, accountId) {
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("inspection_reports")
-    .update({ status: "archived", archived_at: new Date().toISOString(), archived_by: await getCurrentUserId() })
+    .update({ status: "archived", archived_at: new Date().toISOString(), archived_by: userId })
     .eq("id", id)
     .eq("account_id", accountId)
     .select(INSPECTION_SELECT)
     .single();
   if (error) throw error;
-  await writeInspectionAuditEvent(accountId, id, "report_archived", {});
+  await writeInspectionAuditEvent(accountId, id, "report_archived", {}, userId);
   return data;
 }
 
-async function writeDepositDisputePackAuditEvent(accountId, packId, eventType, metadata = {}) {
+async function writeDepositDisputePackAuditEvent(accountId, packId, eventType, metadata = {}, userId = undefined) {
   if (!accountId || !eventType) return null;
   const { data, error } = await supabase
     .from("deposit_dispute_pack_audit_events")
     .insert({
       account_id: accountId,
       dispute_pack_id: packId || null,
-      user_id: await getCurrentUserId(),
+      user_id: userId === undefined ? await getCurrentUserId() : userId,
       event_type: eventType,
       metadata,
     })
@@ -1072,6 +1083,7 @@ export async function createDepositDisputePack(accountId, payload = {}) {
   const depositAmount = parseOptionalNonNegativeAmount(payload.depositAmount, "Deposit amount");
   const proposedDeductionAmount = parseOptionalNonNegativeAmount(payload.proposedDeductionAmount, "Proposed deduction amount");
   const title = String(payload.title || "").trim() || "Deposit dispute pack";
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("deposit_dispute_packs")
     .insert({
@@ -1082,7 +1094,7 @@ export async function createDepositDisputePack(accountId, payload = {}) {
       deposit_amount: depositAmount,
       proposed_deduction_amount: proposedDeductionAmount,
       summary: payload.summary ? String(payload.summary).trim() : null,
-      created_by: await getCurrentUserId(),
+      created_by: userId,
     })
     .select(DISPUTE_PACK_SELECT)
     .single();
@@ -1090,7 +1102,7 @@ export async function createDepositDisputePack(accountId, payload = {}) {
   await writeDepositDisputePackAuditEvent(accountId, data.id, "pack_created", {
     property_id: payload.propertyId,
     tenant_id: payload.tenantId || null,
-  });
+  }, userId);
   return data;
 }
 
@@ -1227,6 +1239,7 @@ export async function recordDepositDisputePackExport(accountId, packId, payload 
   if (!packId) throw new Error("Missing dispute pack id");
   const pack = await assertDepositDisputePackOwned(accountId, packId);
   if (pack.status === "archived") throw new Error("An archived dispute pack cannot be exported.");
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("deposit_dispute_pack_exports")
     .insert({
@@ -1234,7 +1247,7 @@ export async function recordDepositDisputePackExport(accountId, packId, payload 
       dispute_pack_id: packId,
       export_type: payload.exportType || "pdf",
       status: "generated",
-      generated_by: await getCurrentUserId(),
+      generated_by: userId,
       metadata: payload.metadata || {},
     })
     .select("id, export_type, status, document_id, storage_path, generated_at, metadata")
@@ -1250,7 +1263,7 @@ export async function recordDepositDisputePackExport(accountId, packId, payload 
   }
   await writeDepositDisputePackAuditEvent(accountId, packId, "pack_exported", {
     export_type: payload.exportType || "pdf",
-  });
+  }, userId);
   return data;
 }
 
