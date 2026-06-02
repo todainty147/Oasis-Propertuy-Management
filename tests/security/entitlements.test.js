@@ -30,6 +30,21 @@ describe("entitlements", () => {
     expect(getFeatureMinimumPlan(ENTITLEMENT_FEATURES.COMMAND_CENTER)).toBe("growth");
   });
 
+  it("makes property risk controls available to growth and above, but not starter", () => {
+    [
+      ENTITLEMENT_FEATURES.DEPOSIT_DEDUCTIONS_LOG,
+      ENTITLEMENT_FEATURES.DEPOSIT_SETTLEMENT_STATEMENT,
+      ENTITLEMENT_FEATURES.ECO_UPGRADE_PLANNER,
+      ENTITLEMENT_FEATURES.PORTFOLIO_HEALTH_ECO_COMPLIANCE,
+    ].forEach((feature) => {
+      expect(hasFeature("starter", feature)).toBe(false);
+      expect(hasFeature("growth", feature)).toBe(true);
+      expect(hasFeature("pro", feature)).toBe(true);
+      expect(hasFeature("operator_agency", feature)).toBe(true);
+      expect(getFeatureMinimumPlan(feature)).toBe("growth");
+    });
+  });
+
   it("keeps pro features off growth plans", () => {
     expect(hasFeature("growth", ENTITLEMENT_FEATURES.SECURITY_AUDIT)).toBe(false);
     expect(hasFeature("growth", ENTITLEMENT_FEATURES.PORTFOLIO_HEALTH)).toBe(true);

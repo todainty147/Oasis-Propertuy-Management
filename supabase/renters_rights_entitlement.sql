@@ -46,6 +46,10 @@ as $$
     when 'rent_shield'                  then 'growth'
     when 'ai_rent_shield_explainer'     then 'growth'
     when 'renters_rights_readiness'     then 'growth'   -- England RR Act 2025
+    when 'deposit_deductions_log'       then 'growth'
+    when 'deposit_settlement_statement' then 'growth'
+    when 'eco_upgrade_planner'          then 'growth'
+    when 'portfolio_health_eco_compliance' then 'growth'
 
     -- ── Compliance & Risk Suite: Pro tier ─────────────────────────────────────
     when 'ai_lease_auditor'             then 'pro'

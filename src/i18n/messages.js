@@ -8627,6 +8627,8 @@ Object.assign(messages.en, {
   "billing.feature.taxReadiness":   "Tax Readiness Dashboard",
   "billing.feature.rentShield":     "Rent Shield",
   "billing.feature.aiRentShield":   "Rent Shield AI Explainer",
+  "billing.feature.depositVault":   "Deposit Vault",
+  "billing.feature.ecoUpgrade":     "Eco-Upgrade Planner",
   "billing.feature.aiLeaseAuditor": "AI Lease Auditor",
 });
 
@@ -8639,6 +8641,8 @@ Object.assign(messages.pl, {
   "billing.feature.taxReadiness":   "Gotowość podatkowa",
   "billing.feature.rentShield":     "Rent Shield",
   "billing.feature.aiRentShield":   "AI Explainer Rent Shield",
+  "billing.feature.depositVault":   "Deposit Vault",
+  "billing.feature.ecoUpgrade":     "Planer eco-modernizacji",
   "billing.feature.aiLeaseAuditor": "AI Audytor umów",
 });
 
@@ -8651,6 +8655,8 @@ Object.assign(messages.de, {
   "billing.feature.taxReadiness":   "Steuerbereitschaft",
   "billing.feature.rentShield":     "Rent Shield",
   "billing.feature.aiRentShield":   "KI-Erklärung Rent Shield",
+  "billing.feature.depositVault":   "Deposit Vault",
+  "billing.feature.ecoUpgrade":     "Eco-Upgrade-Planer",
   "billing.feature.aiLeaseAuditor": "KI-Mietvertrags-Auditor",
 });
 

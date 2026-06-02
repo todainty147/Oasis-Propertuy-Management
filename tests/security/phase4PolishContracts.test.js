@@ -22,10 +22,12 @@ describe("BillingPage: compliance feature matrix", () => {
     expect(billingPage).toContain('data-testid="compliance-feature-matrix"');
   });
 
-  it("renders all four compliance feature rows", () => {
+  it("renders the compliance and risk feature rows", () => {
     expect(billingPage).toContain("billing.feature.taxReadiness");
     expect(billingPage).toContain("billing.feature.rentShield");
     expect(billingPage).toContain("billing.feature.aiRentShield");
+    expect(billingPage).toContain("billing.feature.depositVault");
+    expect(billingPage).toContain("billing.feature.ecoUpgrade");
     expect(billingPage).toContain("billing.feature.aiLeaseAuditor");
   });
 
@@ -39,10 +41,10 @@ describe("BillingPage: compliance feature matrix", () => {
     expect(snippet).toContain("3");
   });
 
-  it("tax_readiness, rent_shield, ai_rent_shield have minRank 2 (growth+)", () => {
+  it("growth-tier compliance and risk rows have minRank 2 (growth+)", () => {
     const rows = billingPage.match(/\{.*?labelKey.*?minRank.*?\}/gs) || [];
     const growthRows = rows.filter((r) => r.includes("minRank: 2"));
-    expect(growthRows.length).toBeGreaterThanOrEqual(3);
+    expect(growthRows.length).toBeGreaterThanOrEqual(5);
   });
 
   it("uses Check icon for included features", () => {
@@ -117,6 +119,8 @@ describe("i18n: Phase 4 billing keys in all locales", () => {
     "billing.feature.taxReadiness",
     "billing.feature.rentShield",
     "billing.feature.aiRentShield",
+    "billing.feature.depositVault",
+    "billing.feature.ecoUpgrade",
     "billing.feature.aiLeaseAuditor",
   ];
 

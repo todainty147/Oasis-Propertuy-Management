@@ -467,6 +467,10 @@ CREATE OR REPLACE FUNCTION "public"."account_feature_required_plan"("p_feature" 
     when 'tax_readiness_dashboard'      then 'growth'
     when 'rent_shield'                  then 'growth'
     when 'ai_rent_shield_explainer'     then 'growth'
+    when 'deposit_deductions_log'       then 'growth'
+    when 'deposit_settlement_statement' then 'growth'
+    when 'eco_upgrade_planner'          then 'growth'
+    when 'portfolio_health_eco_compliance' then 'growth'
 
     -- ── Compliance & Risk Suite: Pro tier ────────────────────────────────
     when 'ai_lease_auditor'             then 'pro'

@@ -62,6 +62,10 @@ AS $$
     WHEN 'rent_shield'                  THEN 'growth'
     WHEN 'ai_rent_shield_explainer'     THEN 'growth'
     WHEN 'renters_rights_readiness'     THEN 'growth'
+    WHEN 'deposit_deductions_log'       THEN 'growth'
+    WHEN 'deposit_settlement_statement' THEN 'growth'
+    WHEN 'eco_upgrade_planner'          THEN 'growth'
+    WHEN 'portfolio_health_eco_compliance' THEN 'growth'
 
     -- ── Compliance & Risk Suite: Pro tier ─────────────────────────────────────
     WHEN 'ai_lease_auditor'             THEN 'pro'

@@ -1,14 +1,13 @@
 # Property Risk And Deposit Controls Rollout
 
-Use this checklist before enabling Deposit Vault or Eco-Upgrade Planner beyond staging/internal accounts.
+Use this checklist before enabling Deposit Vault or Eco-Upgrade Planner for broad Growth+ account use.
 
-## Feature Flags
+## Plan Availability
 
-- Confirm `deposit_deductions_log` is disabled for general accounts.
-- Confirm `deposit_settlement_statement` is disabled for general accounts.
-- Confirm `eco_upgrade_planner` is disabled for general accounts.
-- Confirm `portfolio_health_eco_compliance` is disabled for general accounts.
-- Enable only selected staging/internal accounts through the existing account feature flag path.
+- Confirm Starter accounts do not see Deposit Vault or Eco-Upgrade Planner.
+- Confirm Growth accounts can access Deposit Vault and Eco-Upgrade Planner.
+- Confirm Pro and Operator/Agency accounts inherit access.
+- Treat account-level feature flags as explicit support overrides only; plan entitlements are now the normal access path.
 
 ## Deposit Vault Smoke Test
 
@@ -31,7 +30,7 @@ Use this checklist before enabling Deposit Vault or Eco-Upgrade Planner beyond s
 
 ## Access Checks
 
-- Confirm owners/admins/staff can manage enabled records.
+- Confirm owners/admins/staff can manage Growth+ records.
 - Confirm tenants only see explicitly shared deposit settlement records.
 - Confirm contractors cannot access Deposit Vault or Eco-Upgrade Planner records.
 - Confirm contractors only see linked work-order context after landlord-controlled handoff.
