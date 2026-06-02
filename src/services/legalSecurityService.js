@@ -1117,6 +1117,7 @@ export async function addDepositDisputePackItem(accountId, packId, payload = {})
   if (!itemType) throw new Error("Choose a valid item type");
   const claimedAmount = parseOptionalNonNegativeAmount(payload.claimedAmount ?? payload.claimed_amount, "Claimed amount");
   const evidenceReferenceType = normalizeEvidenceReferenceType(payload.evidenceReferenceType || payload.evidence_reference_type);
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("deposit_dispute_pack_items")
     .insert({
@@ -1136,7 +1137,7 @@ export async function addDepositDisputePackItem(accountId, packId, payload = {})
   await writeDepositDisputePackAuditEvent(accountId, packId, itemType === "deduction" ? "deduction_added" : "evidence_added", {
     item_type: itemType,
     has_evidence_reference: Boolean(payload.evidenceReferenceId || payload.evidence_reference_id),
-  });
+  }, userId);
   return data;
 }
 
@@ -1172,6 +1173,7 @@ export async function updateDepositDisputePackItem(accountId, packId, itemId, pa
   if (Object.prototype.hasOwnProperty.call(payload, "sortOrder") || Object.prototype.hasOwnProperty.call(payload, "sort_order")) {
     patch.sort_order = Number(payload.sortOrder || payload.sort_order || 0);
   }
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("deposit_dispute_pack_items")
     .update(patch)
@@ -1183,7 +1185,7 @@ export async function updateDepositDisputePackItem(accountId, packId, itemId, pa
   if (error) throw error;
   await writeDepositDisputePackAuditEvent(accountId, packId, "pack_item_updated", {
     item_type: data.item_type,
-  });
+  }, userId);
   return data;
 }
 
@@ -1193,6 +1195,7 @@ export async function removeDepositDisputePackItem(accountId, packId, itemId) {
   if (!itemId) throw new Error("Missing dispute pack item id");
   const pack = await assertDepositDisputePackOwned(accountId, packId);
   assertDisputePackEditable(pack.status);
+  const userId = await getCurrentUserId();
   const { error } = await supabase
     .from("deposit_dispute_pack_items")
     .delete()
@@ -1202,7 +1205,7 @@ export async function removeDepositDisputePackItem(accountId, packId, itemId) {
   if (error) throw error;
   await writeDepositDisputePackAuditEvent(accountId, packId, "pack_item_removed", {
     item_id: itemId,
-  });
+  }, userId);
   return true;
 }
 
@@ -1222,6 +1225,7 @@ export async function updateDepositDisputePackStatus(accountId, packId, status) 
   const patch = { status };
   if (status === "locked") patch.locked_at = new Date().toISOString();
   if (status === "archived") patch.archived_at = new Date().toISOString();
+  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("deposit_dispute_packs")
     .update(patch)
@@ -1230,7 +1234,7 @@ export async function updateDepositDisputePackStatus(accountId, packId, status) 
     .select(DISPUTE_PACK_SELECT)
     .single();
   if (error) throw error;
-  await writeDepositDisputePackAuditEvent(accountId, packId, `pack_${status}`, {});
+  await writeDepositDisputePackAuditEvent(accountId, packId, `pack_${status}`, {}, userId);
   return data;
 }
 

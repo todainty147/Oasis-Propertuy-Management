@@ -108,6 +108,10 @@ export default function TenantComplianceDocumentsPage({ properties = [] }) {
 
   async function respond(disputed = false) {
     if (!selected) return;
+    if (disputed && !comment.trim()) {
+      setError("Add a comment before submitting a question or dispute.");
+      return;
+    }
     try {
       setSaving(true);
       setError("");

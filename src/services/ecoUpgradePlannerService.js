@@ -131,10 +131,12 @@ export async function updateEcoUpgradePlan(planId, payload = {}) {
 }
 
 export async function upsertEcoUpgradePlanItem(planId, payload = {}) {
-  const plan = await getEcoUpgradePlan(planId);
+  const accountId = payload.accountId || payload.account_id;
+  const plan = accountId ? null : await getEcoUpgradePlan(planId);
+  if (!accountId && !plan) throw new Error("Eco upgrade plan not found.");
   const row = {
     id: payload.id || undefined,
-    account_id: payload.accountId || payload.account_id || plan.account_id,
+    account_id: accountId || plan.account_id,
     plan_id: planId,
     upgrade_option_id: payload.upgradeOptionId || payload.upgrade_option_id || null,
     selected: payload.selected !== false,
@@ -152,7 +154,6 @@ export async function upsertEcoUpgradePlanItem(planId, payload = {}) {
     .select()
     .single();
   if (error) throw error;
-  await recalculateEcoUpgradePlan(planId);
   return data;
 }
 
@@ -193,17 +194,15 @@ export async function createSuggestedEcoUpgradePlan({ accountId, propertyId, pro
     estimatedEpcPointsGain: suggestion.impact.estimatedEpcPointsGain,
     estimatedResultBand: suggestion.impact.estimatedResultBand,
   });
-  for (const item of suggestion.items) {
-    await upsertEcoUpgradePlanItem(plan.id, {
+  await Promise.all(suggestion.items.map((item) => upsertEcoUpgradePlanItem(plan.id, {
       accountId,
       upgradeOptionId: item.id || null,
       selected: true,
       estimatedCost: item.estimated_cost,
       estimatedEpcPointsGain: item.estimated_epc_points_gain,
       priority: "medium",
-    });
-  }
-  return getEcoUpgradePlan(plan.id);
+    })));
+  return recalculateEcoUpgradePlan(plan.id);
 }
 
 export function summarizeEcoUpgradePortfolio({ profiles = [], plans = [] } = {}) {

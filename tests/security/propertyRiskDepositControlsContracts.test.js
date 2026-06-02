@@ -68,6 +68,44 @@ describe("Property Risk & Deposit Financial Controls contracts", () => {
     expect(sql).toContain("Eco-upgrade plan account mismatch");
   });
 
+  it("keeps deposit and eco audit events immutable and insert-only for managers", () => {
+    const sql = read("supabase/property_risk_deposit_controls.sql");
+    const managerLoop = sql.slice(
+      sql.indexOf("foreach table_name in array array["),
+      sql.indexOf("drop policy if exists \"Managers manage deposit_settlement_audit_events\""),
+    );
+
+    expect(managerLoop).not.toContain("deposit_settlement_audit_events");
+    expect(managerLoop).not.toContain("property_eco_upgrade_audit_events");
+    expect(sql).toContain("prevent_phase4b_audit_mutation");
+    expect(sql).toContain("before update or delete on public.deposit_settlement_audit_events");
+    expect(sql).toContain("before update or delete on public.property_eco_upgrade_audit_events");
+    expect(sql).toContain("for select to authenticated using (public.user_can_manage_account(account_id))");
+    expect(sql).toContain("for insert to authenticated with check (public.user_can_manage_account(account_id))");
+    expect(sql).toContain("grant select, insert on public.deposit_settlement_audit_events, public.property_eco_upgrade_audit_events to authenticated");
+    expect(sql).not.toContain("grant select, insert, update, delete on public.deposit_settlement_audit_events");
+  });
+
+  it("validates audit event types and account ownership for audit references", () => {
+    const sql = read("supabase/property_risk_deposit_controls.sql");
+
+    expect(sql).toContain("property_eco_upgrade_audit_event_type_check");
+    expect(sql).toContain("'eco_plan_created','eco_plan_updated','eco_plan_recalculated'");
+    expect(sql).toContain("enforce_deposit_settlement_audit_account");
+    expect(sql).toContain("Deposit settlement audit account mismatch");
+    expect(sql).toContain("enforce_eco_upgrade_audit_account");
+    expect(sql).toContain("Eco-upgrade audit plan account mismatch");
+    expect(sql).toContain("Eco-upgrade audit property account mismatch");
+  });
+
+  it("does not lock tenants out of locked deposit statements", () => {
+    const sql = read("supabase/property_risk_deposit_controls.sql");
+    const service = read("src/services/depositSettlementService.js");
+
+    expect(sql).toContain("or (status = 'locked' and tenant_response_status = 'not_shared')");
+    expect(service).toContain('tenant_response_status: "pending"');
+  });
+
   it("registers SQL overlays and gates app routes/sidebar entries", () => {
     const apply = read("scripts/dbApplyRepoSql.js");
     const bootstrap = read("scripts/dbBootstrap.js");
@@ -104,11 +142,57 @@ describe("Property Risk & Deposit Financial Controls contracts", () => {
     expect(page).not.toContain("Planning target: Band {band}</option>");
   });
 
+  it("saves Eco-Upgrade items in parallel and recalculates once after the batch", () => {
+    const page = read("src/pages/EcoUpgradePlannerPage.jsx");
+    const service = read("src/services/ecoUpgradePlannerService.js");
+    const upsertBlock = service.slice(
+      service.indexOf("export async function upsertEcoUpgradePlanItem"),
+      service.indexOf("export async function recalculateEcoUpgradePlan"),
+    );
+
+    expect(upsertBlock).toContain("const accountId = payload.accountId || payload.account_id;");
+    expect(upsertBlock).toContain("const plan = accountId ? null : await getEcoUpgradePlan(planId);");
+    expect(upsertBlock).toContain('if (!accountId && !plan) throw new Error("Eco upgrade plan not found.");');
+    expect(upsertBlock).not.toContain("recalculateEcoUpgradePlan(planId)");
+    expect(page).toContain("await Promise.all(items.filter((item) => item.selected).map((item) =>");
+    expect(page).toContain("await recalculateEcoUpgradePlan(plan.id);");
+    expect(service).toContain("await Promise.all(suggestion.items.map((item) => upsertEcoUpgradePlanItem");
+    expect(service).toContain("return recalculateEcoUpgradePlan(plan.id);");
+    expect(service).not.toContain("return getEcoUpgradePlan(plan.id);");
+  });
+
   it("uses current database columns for Deposit Vault joins", () => {
     const service = read("src/services/depositSettlementService.js");
 
     expect(service).toContain("properties:property_id(id,address)");
     expect(service).not.toContain("properties:property_id(id,address,name)");
+  });
+
+  it("keeps deposit settlement audit attributed and best-effort", () => {
+    const service = read("src/services/depositSettlementService.js");
+
+    expect(service).toContain("async function getCurrentUserId()");
+    expect(service).toContain("user_id: userId === undefined ? await getCurrentUserId() : userId");
+    expect(service).toContain('console.warn("[deposit-settlement] audit insert failed"');
+    expect(service).toContain("return null;");
+  });
+
+  it("throws when linking evidence cannot update deduction evidence status", () => {
+    const service = read("src/services/depositSettlementService.js");
+
+    expect(service).toContain("const { error: statusError } = await supabase");
+    expect(service).toContain('update({ evidence_status: "attached" })');
+    expect(service).toContain("if (statusError) throw statusError;");
+  });
+
+  it("can recalculate new deduction totals without re-fetching the settlement", () => {
+    const service = read("src/services/depositSettlementService.js");
+
+    expect(service).toContain("async function refreshSettlementTotals(settlementId, settlementOverride = null)");
+    expect(service).toContain("const settlement = settlementOverride || await getDepositSettlement(settlementId);");
+    expect(service).toContain("withDeductions(settlement, [...existingDeductions, data])");
+    expect(service).toContain("nextDeductions = existingDeductions.map((deduction) => deduction.id === data.id ? data : deduction)");
+    expect(service).toContain("existingDeductions.filter((deduction) => deduction.id !== deductionId)");
   });
 
   it("saves EPC profiles without depending on deployed upsert conflict metadata", () => {

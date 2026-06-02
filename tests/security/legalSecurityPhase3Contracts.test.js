@@ -63,6 +63,16 @@ describe("Phase 3 legal security contracts", () => {
     expect(sql).toContain("v_score := greatest(0, least(100, v_score))");
     expect(sql).not.toContain("p_payload->>'score'");
     expect(sql).not.toContain("p_payload->'score_reasons'");
+    expect(sql).toContain("drop function if exists public.submit_public_rental_application(text, jsonb)");
+    expect(sql).toContain("returns table(application_id uuid, status text, submitted_at timestamptz)");
+    expect(sql).toContain("idx_rental_applications_link_email_once");
+    expect(sql).toContain("v_applicant_email !~*");
+    expect(sql).toContain("Enter a valid email address");
+    expect(sql).toContain("An application has already been submitted for this email address");
+    expect(sql).toContain("Too many applications have been submitted for this link");
+    expect(sql).toContain("v_consent_text in ('true','t','1','yes','y','on','accepted')");
+    expect(sql).not.toContain("returns public.rental_applications");
+    expect(sql).not.toContain("return v_app;");
     expect(sql).toContain("right_to_rent_check");
     expect(sql).toContain("umowa_najmu_okazjonalnego");
     expect(sql).toContain("boiler_heating");
@@ -155,6 +165,14 @@ describe("Phase 3 legal security contracts", () => {
     const helperBlock = service.slice(helperStart, helperStart + 700);
     const createStart = service.indexOf("export async function createDepositDisputePack");
     const createBlock = service.slice(createStart, createStart + 1500);
+    const addItemStart = service.indexOf("export async function addDepositDisputePackItem");
+    const addItemBlock = service.slice(addItemStart, addItemStart + 1800);
+    const updateItemStart = service.indexOf("export async function updateDepositDisputePackItem");
+    const updateItemBlock = service.slice(updateItemStart, updateItemStart + 2600);
+    const removeItemStart = service.indexOf("export async function removeDepositDisputePackItem");
+    const removeItemBlock = service.slice(removeItemStart, removeItemStart + 1200);
+    const statusStart = service.indexOf("export async function updateDepositDisputePackStatus");
+    const statusBlock = service.slice(statusStart, statusStart + 1800);
     const exportStart = service.indexOf("export async function recordDepositDisputePackExport");
     const exportBlock = service.slice(exportStart, exportStart + 1400);
 
@@ -166,6 +184,10 @@ describe("Phase 3 legal security contracts", () => {
     expect(exportBlock).toContain("const userId = await getCurrentUserId();");
     expect(exportBlock).toContain("generated_by: userId");
     expect(exportBlock).toContain("}, userId);");
+    [addItemBlock, updateItemBlock, removeItemBlock, statusBlock].forEach((block) => {
+      expect(block).toContain("const userId = await getCurrentUserId();");
+      expect(block).toContain("userId");
+    });
   });
 
   it("keeps Evidence Vault builder behaviour wired to templates, audit and print routes", () => {
@@ -183,6 +205,10 @@ describe("Phase 3 legal security contracts", () => {
     expect(service).toContain("report_archived");
     expect(page).toContain("Print / save PDF");
     expect(page).toContain("This report is locked. Editing is disabled to preserve the evidence record.");
+    expect(page).toContain("const [previewState, setPreviewState] = useState");
+    expect(page).toContain("previewState.documentId === documentId");
+    expect(page).toContain("setPreviewState({ documentId, url: signedUrl, failed: false })");
+    expect(page).toContain("if (report.id === selectedReportId)");
   });
 
   it("adds tenant sharing and deposit dispute pack overlays without unsafe legal wording", () => {
@@ -232,6 +258,9 @@ describe("Phase 3 legal security contracts", () => {
     expect(service).toContain('"pack_exported"');
     expect(tenantRoutes).toContain('path="evidence-reports"');
     expect(disputePage).toContain("Deposit Dispute Packs");
+    expect(disputePage).toContain("loadSeqRef");
+    expect(disputePage).toContain("stillCurrent");
+    expect(disputePage).toContain("return () => { cancelled = true; };");
     expect(disputePrint).toContain("organisational evidence record");
     expect(disputePrint).toContain("Check-in / check-out comparison");
     expect(disputePrint).toContain("Signatures and tenant response");
@@ -244,11 +273,17 @@ describe("Phase 3 legal security contracts", () => {
     const app = read("src/App.jsx");
     const publicPage = read("src/pages/applications/PublicApplicationPage.jsx");
     const scoring = read("src/lib/applicantScoring.js");
+    const tenantEvidencePage = read("src/pages/tenant/TenantEvidenceReportsPage.jsx");
+    const tenantCompliancePage = read("src/pages/tenant/TenantComplianceDocumentsPage.jsx");
 
     expect(app).toContain('location.pathname.startsWith("/apply/")');
     expect(publicPage).toContain("consent_accepted");
     expect(publicPage).toContain("Your information will be shared");
     expect(scoring).not.toMatch(/credit score/i);
+    const viewedIndex = tenantEvidencePage.indexOf("markTenantInspectionReportViewed(activeAccountId, nextSelected.id)");
+    expect(viewedIndex).toBeGreaterThan(tenantEvidencePage.indexOf("if (cancelled) return;"));
+    expect(tenantCompliancePage).toContain('if (disputed && !comment.trim())');
+    expect(tenantCompliancePage).toContain("Add a comment before submitting a question or dispute.");
   });
 
   it("adds the marketing risk page and avoids launch-blocked legal overclaims in new surfaces", () => {
