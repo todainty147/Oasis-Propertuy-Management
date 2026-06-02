@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Download, Plus, Trash2 } from "lucide-react";
 
@@ -55,6 +55,7 @@ export default function DepositDisputePacksPage({ properties = [], tenants = [] 
   const [savingItem, setSavingItem] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
   const [error, setError] = useState("");
+  const loadSeqRef = useRef(0);
 
   const propertyById = useMemo(() => Object.fromEntries(properties.map((property) => [property.id, property])), [properties]);
   const tenantById = useMemo(() => Object.fromEntries(tenants.map((tenant) => [tenant.id, tenant])), [tenants]);
@@ -65,8 +66,10 @@ export default function DepositDisputePacksPage({ properties = [], tenants = [] 
   );
   const deductionTotal = calculateDeductionTotal(selectedItems);
 
-  const load = useCallback(async (nextPackId) => {
+  const load = useCallback(async (nextPackId, { isCurrent } = {}) => {
     if (!activeAccountId) return;
+    const seq = ++loadSeqRef.current;
+    const stillCurrent = isCurrent || (() => loadSeqRef.current === seq);
     setLoading(true);
     setError("");
     try {
@@ -76,6 +79,7 @@ export default function DepositDisputePacksPage({ properties = [], tenants = [] 
         listInspectionReports(activeAccountId),
         id ? getDepositDisputePackDetails(activeAccountId, id) : Promise.resolve(null),
       ]);
+      if (!stillCurrent()) return;
       setPacks(nextPacks);
       setReports(nextReports);
       setSelectedPack(nextSelected);
@@ -84,19 +88,22 @@ export default function DepositDisputePacksPage({ properties = [], tenants = [] 
           propertyId: nextSelected.property_id,
           tenantId: nextSelected.tenant_id || "",
         });
+        if (!stillCurrent()) return;
         setComplianceItems(nextComplianceItems);
       } else {
         setComplianceItems([]);
       }
     } catch (err) {
-      setError(err?.message || "Could not load deposit dispute packs.");
+      if (stillCurrent()) setError(err?.message || "Could not load deposit dispute packs.");
     } finally {
-      setLoading(false);
+      if (stillCurrent()) setLoading(false);
     }
   }, [activeAccountId]);
 
   useEffect(() => {
-    load(packId);
+    let cancelled = false;
+    load(packId, { isCurrent: () => !cancelled });
+    return () => { cancelled = true; };
   }, [load, packId]);
 
   async function handleCreatePack(event) {

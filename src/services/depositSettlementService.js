@@ -70,8 +70,13 @@ function assertUnlocked(settlement) {
   }
 }
 
-async function refreshSettlementTotals(settlementId) {
-  const settlement = await getDepositSettlement(settlementId);
+async function getCurrentUserId() {
+  const { data } = await supabase.auth.getUser();
+  return data?.user?.id || null;
+}
+
+async function refreshSettlementTotals(settlementId, settlementOverride = null) {
+  const settlement = settlementOverride || await getDepositSettlement(settlementId);
   const totals = calculateSettlementTotals(settlement || {});
   const { data, error } = await supabase
     .from("deposit_settlements")
@@ -84,6 +89,14 @@ async function refreshSettlementTotals(settlementId) {
     .single();
   if (error) throw error;
   return data;
+}
+
+function withDeductions(settlement, deductions) {
+  return {
+    ...(settlement || {}),
+    deductions,
+    deposit_deductions: deductions,
+  };
 }
 
 export async function listDepositSettlements({ accountId, propertyId, tenantId, status } = {}) {
@@ -148,7 +161,8 @@ export async function addDepositDeduction(settlementId, payload) {
   const row = { ...normalizeDeductionPayload(payload), settlement_id: settlementId, account_id: payload.accountId || settlement.account_id };
   const { data, error } = await supabase.from("deposit_deductions").insert(row).select().single();
   if (error) throw error;
-  await refreshSettlementTotals(settlementId);
+  const existingDeductions = settlement.deposit_deductions || settlement.deductions || [];
+  await refreshSettlementTotals(settlementId, withDeductions(settlement, [...existingDeductions, data]));
   await writeDepositSettlementAuditEvent({
     accountId: row.account_id,
     settlementId,
@@ -162,7 +176,7 @@ export async function addDepositDeduction(settlementId, payload) {
 export async function updateDepositDeduction(deductionId, payload) {
   const { data: current, error: loadError } = await supabase
     .from("deposit_deductions")
-    .select("*, deposit_settlements!inner(id, status, locked_at)")
+    .select("*, deposit_settlements!inner(id, status, locked_at, deposit_held_amount, deposit_deductions(*, deposit_deduction_evidence_links(*)))")
     .eq("id", deductionId)
     .single();
   if (loadError) throw loadError;
@@ -174,7 +188,9 @@ export async function updateDepositDeduction(deductionId, payload) {
     .select()
     .single();
   if (error) throw error;
-  await refreshSettlementTotals(data.settlement_id);
+  const existingDeductions = current.deposit_settlements?.deposit_deductions || [];
+  const nextDeductions = existingDeductions.map((deduction) => deduction.id === data.id ? data : deduction);
+  await refreshSettlementTotals(data.settlement_id, withDeductions(current.deposit_settlements, nextDeductions));
   await writeDepositSettlementAuditEvent({
     accountId: data.account_id,
     settlementId: data.settlement_id,
@@ -187,14 +203,18 @@ export async function updateDepositDeduction(deductionId, payload) {
 export async function removeDepositDeduction(deductionId) {
   const { data: current, error: loadError } = await supabase
     .from("deposit_deductions")
-    .select("*, deposit_settlements!inner(id, status, locked_at)")
+    .select("*, deposit_settlements!inner(id, status, locked_at, deposit_held_amount, deposit_deductions(*, deposit_deduction_evidence_links(*)))")
     .eq("id", deductionId)
     .single();
   if (loadError) throw loadError;
   assertUnlocked(current.deposit_settlements);
   const { error } = await supabase.from("deposit_deductions").delete().eq("id", deductionId);
   if (error) throw error;
-  await refreshSettlementTotals(current.settlement_id);
+  const existingDeductions = current.deposit_settlements?.deposit_deductions || [];
+  await refreshSettlementTotals(
+    current.settlement_id,
+    withDeductions(current.deposit_settlements, existingDeductions.filter((deduction) => deduction.id !== deductionId)),
+  );
   return true;
 }
 
@@ -219,7 +239,11 @@ export async function linkDeductionEvidence(deductionId, evidence = {}) {
     .select()
     .single();
   if (error) throw error;
-  await supabase.from("deposit_deductions").update({ evidence_status: "attached" }).eq("id", deductionId);
+  const { error: statusError } = await supabase
+    .from("deposit_deductions")
+    .update({ evidence_status: "attached" })
+    .eq("id", deductionId);
+  if (statusError) throw statusError;
   await writeDepositSettlementAuditEvent({
     accountId: deduction.account_id,
     settlementId: deduction.settlement_id,
@@ -282,7 +306,7 @@ export async function lockDepositSettlement(settlementId) {
   const settlement = await getDepositSettlement(settlementId);
   const { data, error } = await supabase
     .from("deposit_settlements")
-    .update({ status: "locked", locked_at: new Date().toISOString() })
+    .update({ status: "locked", tenant_response_status: "pending", locked_at: new Date().toISOString() })
     .eq("id", settlementId)
     .select()
     .single();
@@ -310,6 +334,7 @@ export async function writeDepositSettlementAuditEvent({
   deductionId = null,
   eventType,
   metadata = {},
+  userId = undefined,
 } = {}) {
   if (!accountId || !eventType) return null;
   const { data, error } = await supabase
@@ -318,11 +343,15 @@ export async function writeDepositSettlementAuditEvent({
       account_id: accountId,
       settlement_id: settlementId,
       deduction_id: deductionId,
+      user_id: userId === undefined ? await getCurrentUserId() : userId,
       event_type: eventType,
       metadata,
     })
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    console.warn("[deposit-settlement] audit insert failed", { accountId, settlementId, eventType, error });
+    return null;
+  }
   return data;
 }

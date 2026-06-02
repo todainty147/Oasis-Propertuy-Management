@@ -529,10 +529,15 @@ create index if not exists idx_rental_applications_link
 create index if not exists idx_rental_application_events_account_created
   on public.rental_application_events(account_id, created_at desc);
 
+create unique index if not exists idx_rental_applications_link_email_once
+  on public.rental_applications(application_link_id, lower(applicant_email))
+  where application_link_id is not null and applicant_email is not null;
+
+drop function if exists public.submit_public_rental_application(text, jsonb);
 create or replace function public.submit_public_rental_application(
   p_public_token text,
   p_payload jsonb
-) returns public.rental_applications
+) returns table(application_id uuid, status text, submitted_at timestamptz)
 language plpgsql
 security definer
 set search_path = public
@@ -551,6 +556,10 @@ declare
   v_estimated_income numeric;
   v_has_pets boolean;
   v_smokes boolean;
+  v_applicant_email text;
+  v_consent_text text;
+  v_consent_accepted boolean := false;
+  v_guarantor_available boolean := false;
 begin
   select *
   into v_link
@@ -563,12 +572,47 @@ begin
     raise exception 'Application link is not available';
   end if;
 
-  if coalesce((p_payload->>'consent_accepted')::boolean, false) is not true then
+  v_consent_text := lower(trim(coalesce(p_payload->>'consent_accepted', '')));
+  if v_consent_text in ('true','t','1','yes','y','on','accepted') then
+    v_consent_accepted := true;
+  elsif v_consent_text in ('false','f','0','no','n','off','') then
+    v_consent_accepted := false;
+  else
     raise exception 'Consent is required';
   end if;
 
+  if v_consent_accepted is not true then
+    raise exception 'Consent is required';
+  end if;
+
+  v_applicant_email := lower(nullif(trim(p_payload->>'applicant_email'), ''));
+  if v_applicant_email is null
+     or length(v_applicant_email) > 320
+     or v_applicant_email !~* '^[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}$' then
+    raise exception 'Enter a valid email address';
+  end if;
+
+  if exists (
+    select 1 from public.rental_applications ra
+    where ra.application_link_id = v_link.id
+      and lower(ra.applicant_email) = v_applicant_email
+  ) then
+    raise exception 'An application has already been submitted for this email address';
+  end if;
+
+  if (
+    select count(*)
+    from public.rental_applications ra
+    where ra.application_link_id = v_link.id
+      and ra.created_at > now() - interval '1 hour'
+  ) >= 25 then
+    raise exception 'Too many applications have been submitted for this link. Please try again later';
+  end if;
+
+  v_guarantor_available := lower(trim(coalesce(p_payload->>'guarantor_available', ''))) in ('true','t','1','yes','y','on');
+
   if nullif(trim(p_payload->>'applicant_name'), '') is not null then v_completed := v_completed + 1; end if;
-  if nullif(trim(p_payload->>'applicant_email'), '') is not null then v_completed := v_completed + 1; end if;
+  if v_applicant_email is not null then v_completed := v_completed + 1; end if;
   if nullif(trim(p_payload->>'preferred_move_in_date'), '') is not null then v_completed := v_completed + 1; end if;
   if nullif(trim(p_payload->>'occupants_count'), '') is not null then v_completed := v_completed + 1; end if;
   if nullif(trim(p_payload->>'employment_status'), '') is not null then v_completed := v_completed + 1; end if;
@@ -606,7 +650,7 @@ begin
   end if;
 
   if coalesce((v_link.preferences->>'guarantorPreferred')::boolean, false)
-     and coalesce((p_payload->>'guarantor_available')::boolean, false) then
+     and v_guarantor_available then
     v_score := v_score + 10;
     v_reasons := v_reasons || jsonb_build_array('Guarantor is available and this is marked as preferred.');
   end if;
@@ -643,7 +687,7 @@ begin
   ) values (
     v_link.account_id, v_link.property_id, v_link.id, 'new',
     nullif(trim(p_payload->>'applicant_name'), ''),
-    nullif(trim(p_payload->>'applicant_email'), ''),
+    v_applicant_email,
     nullif(trim(p_payload->>'applicant_phone'), ''),
     nullif(p_payload->>'preferred_move_in_date', '')::date,
     nullif(p_payload->>'occupants_count', '')::integer,
@@ -651,7 +695,7 @@ begin
     nullif(trim(p_payload->>'smoking_status'), ''),
     nullif(trim(p_payload->>'estimated_income_band'), ''),
     nullif(trim(p_payload->>'employment_status'), ''),
-    coalesce((p_payload->>'guarantor_available')::boolean, false),
+    v_guarantor_available,
     nullif(trim(p_payload->>'message'), ''),
     true,
     v_score,
@@ -662,7 +706,10 @@ begin
   insert into public.rental_application_events(account_id, rental_application_id, event_type, metadata)
   values (v_app.account_id, v_app.id, 'application.submitted', jsonb_build_object('source', 'public_link'));
 
-  return v_app;
+  application_id := v_app.id;
+  status := v_app.status;
+  submitted_at := v_app.created_at;
+  return next;
 end;
 $$;
 

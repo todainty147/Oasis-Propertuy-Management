@@ -15,6 +15,7 @@ import {
   getPropertyEpcProfile,
   listEcoUpgradeOptions,
   listEcoUpgradePlans,
+  recalculateEcoUpgradePlan,
   upsertEcoUpgradePlanItem,
   upsertPropertyEpcProfile,
 } from "../services/ecoUpgradePlannerService";
@@ -163,12 +164,11 @@ export default function EcoUpgradePlannerPage() {
             profile: savedProfile,
           });
       setActivePlanId(plan.id);
-      for (const item of items) {
-        if (!item.selected) continue;
+      await Promise.all(items.filter((item) => item.selected).map((item) => {
         const upgradeOptionId = Object.prototype.hasOwnProperty.call(item, "upgrade_option_id")
           ? item.upgrade_option_id
           : item.id;
-        await upsertEcoUpgradePlanItem(plan.id, {
+        return upsertEcoUpgradePlanItem(plan.id, {
           id: item.plan_item_id || (item.id && item.upgrade_option_id ? item.id : undefined),
           accountId: activeAccountId,
           upgradeOptionId,
@@ -178,7 +178,8 @@ export default function EcoUpgradePlannerPage() {
           priority: item.priority,
           notes: item.notes,
         });
-      }
+      }));
+      await recalculateEcoUpgradePlan(plan.id);
       setMessage("Eco-Upgrade Planner saved. Estimates remain indicative and should be reviewed with an EPC assessor.");
       await reload();
     } catch (err) {

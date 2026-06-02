@@ -74,17 +74,18 @@ function updateEvidenceItemInReport(report, itemId, patch = {}) {
 }
 
 function PhotoThumbnail({ photo, document, accountId, propertyId, tenantId }) {
-  const [url, setUrl] = useState("");
-  const [failed, setFailed] = useState(false);
+  const [previewState, setPreviewState] = useState({ documentId: "", url: "", failed: false });
   const previewReady = isDocumentPreviewReady(document);
+  const documentId = photo?.document_id || "";
+  const currentPreviewState = previewState.documentId === documentId ? previewState : { url: "", failed: false };
 
   useEffect(() => {
     let cancelled = false;
-    if (!photo?.document_id || !previewReady) {
+    if (!documentId || !previewReady) {
       return () => { cancelled = true; };
     }
     getDocumentPreviewUrl({
-      documentId: photo.document_id,
+      documentId,
       accountId,
       propertyId,
       tenantId,
@@ -92,18 +93,18 @@ function PhotoThumbnail({ photo, document, accountId, propertyId, tenantId }) {
       visibility: tenantId ? "tenant" : "staff",
     })
       .then((signedUrl) => {
-        if (!cancelled) setUrl(signedUrl);
+        if (!cancelled) setPreviewState({ documentId, url: signedUrl, failed: false });
       })
       .catch(() => {
-        if (!cancelled) setFailed(true);
+        if (!cancelled) setPreviewState({ documentId, url: "", failed: true });
       });
     return () => { cancelled = true; };
-  }, [accountId, photo?.document_id, previewReady, propertyId, tenantId]);
+  }, [accountId, documentId, previewReady, propertyId, tenantId]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-950">
-      {url && !failed ? (
-        <img src={url} alt={photo.caption || "Evidence photo"} className="h-24 w-full object-cover" />
+      {currentPreviewState.url && !currentPreviewState.failed ? (
+        <img src={currentPreviewState.url} alt={photo.caption || "Evidence photo"} className="h-24 w-full object-cover" />
       ) : (
         <div className="flex h-24 flex-col items-center justify-center gap-1 bg-slate-900 px-2 text-center text-slate-500">
           <Camera size={18} />
@@ -496,7 +497,9 @@ export default function EvidenceVaultPage({ properties = [], tenants = [] }) {
       setError("");
       await lockInspectionReport(report.id, activeAccountId);
       await load();
-      await loadReportDetail(report.id);
+      if (report.id === selectedReportId) {
+        await loadReportDetail(report.id);
+      }
     } catch (err) {
       setError(err?.message || "Could not lock inspection report.");
     }

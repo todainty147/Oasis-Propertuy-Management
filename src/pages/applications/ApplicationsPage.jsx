@@ -16,13 +16,18 @@ export default function ApplicationsPage({ properties = [] }) {
   const [form, setForm] = useState({ propertyId: "", title: "Rental application", monthlyRent: "", availableFrom: "" });
   const [error, setError] = useState("");
   const mountedRef = useRef(false);
+  const activeAccountIdRef = useRef(activeAccountId);
 
-  const load = useCallback(async ({ isCurrent = () => mountedRef.current } = {}) => {
-    if (!activeAccountId) return;
+  useEffect(() => {
+    activeAccountIdRef.current = activeAccountId;
+  }, [activeAccountId]);
+
+  const load = useCallback(async ({ accountId = activeAccountId, isCurrent = () => mountedRef.current } = {}) => {
+    if (!accountId) return;
     try {
       const [nextLinks, nextApplications] = await Promise.all([
-        listPropertyApplicationLinks(activeAccountId),
-        listRentalApplications(activeAccountId),
+        listPropertyApplicationLinks(accountId),
+        listRentalApplications(accountId),
       ]);
       if (!isCurrent()) return;
       setLinks(nextLinks);
@@ -35,34 +40,50 @@ export default function ApplicationsPage({ properties = [] }) {
   useEffect(() => {
     mountedRef.current = true;
     let cancelled = false;
-    Promise.resolve().then(() => load({ isCurrent: () => mountedRef.current && !cancelled }));
+    const accountId = activeAccountId;
+    Promise.resolve().then(() => load({
+      accountId,
+      isCurrent: () => mountedRef.current && !cancelled && activeAccountIdRef.current === accountId,
+    }));
     return () => { cancelled = true; mountedRef.current = false; };
-  }, [load]);
+  }, [activeAccountId, load]);
 
   async function handleCreate(event) {
     event.preventDefault();
+    const accountId = activeAccountId;
     try {
       setError("");
-      await createPropertyApplicationLink(activeAccountId, {
+      await createPropertyApplicationLink(accountId, {
         propertyId: form.propertyId,
         title: form.title,
         monthlyRent: form.monthlyRent,
         availableFrom: form.availableFrom,
         preferences: { monthlyRent: Number(form.monthlyRent) || null, availableFrom: form.availableFrom || null },
       });
-      await load();
+      await load({
+        accountId,
+        isCurrent: () => mountedRef.current && activeAccountIdRef.current === accountId,
+      });
     } catch (err) {
-      setError(err?.message || "Could not create application link.");
+      if (mountedRef.current && activeAccountIdRef.current === accountId) {
+        setError(err?.message || "Could not create application link.");
+      }
     }
   }
 
   async function setStatus(application, status) {
+    const accountId = activeAccountId;
     try {
       setError("");
-      await updateRentalApplicationStatus(activeAccountId, application.id, status);
-      await load();
+      await updateRentalApplicationStatus(accountId, application.id, status);
+      await load({
+        accountId,
+        isCurrent: () => mountedRef.current && activeAccountIdRef.current === accountId,
+      });
     } catch (err) {
-      if (mountedRef.current) setError(err?.message || "Could not update application status.");
+      if (mountedRef.current && activeAccountIdRef.current === accountId) {
+        setError(err?.message || "Could not update application status.");
+      }
     }
   }
 

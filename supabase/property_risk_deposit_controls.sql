@@ -200,6 +200,21 @@ create table if not exists public.property_eco_upgrade_audit_events (
   created_at timestamptz not null default now()
 );
 
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'property_eco_upgrade_audit_event_type_check'
+      and conrelid = 'public.property_eco_upgrade_audit_events'::regclass
+  ) then
+    alter table public.property_eco_upgrade_audit_events
+      add constraint property_eco_upgrade_audit_event_type_check check (event_type in (
+        'eco_plan_created','eco_plan_updated','eco_plan_recalculated',
+        'eco_work_order_linked','eco_plan_item_completed','eco_plan_archived'
+      ));
+  end if;
+end $$;
+
 insert into public.eco_upgrade_options
   (upgrade_key, label, description, typical_cost_low, typical_cost_high, estimated_epc_points_low, estimated_epc_points_high, category)
 values
@@ -284,6 +299,79 @@ begin
 end;
 $$;
 
+create or replace function public.enforce_deposit_settlement_audit_account()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_account_id uuid;
+begin
+  if new.settlement_id is not null then
+    select account_id into v_account_id from public.deposit_settlements where id = new.settlement_id;
+    if v_account_id is null or v_account_id <> new.account_id then
+      raise exception 'Deposit settlement audit account mismatch';
+    end if;
+  end if;
+
+  if new.deduction_id is not null then
+    select account_id into v_account_id from public.deposit_deductions where id = new.deduction_id;
+    if v_account_id is null or v_account_id <> new.account_id then
+      raise exception 'Deposit settlement audit deduction account mismatch';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+create or replace function public.enforce_eco_upgrade_audit_account()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_account_id uuid;
+  v_property_id uuid;
+begin
+  if new.plan_id is not null then
+    select account_id, property_id into v_account_id, v_property_id
+    from public.property_eco_upgrade_plans
+    where id = new.plan_id;
+
+    if v_account_id is null or v_account_id <> new.account_id then
+      raise exception 'Eco-upgrade audit plan account mismatch';
+    end if;
+
+    if new.property_id is not null and v_property_id <> new.property_id then
+      raise exception 'Eco-upgrade audit plan property mismatch';
+    end if;
+  end if;
+
+  if new.property_id is not null then
+    select account_id into v_account_id from public.properties where id = new.property_id;
+    if v_account_id is null or v_account_id <> new.account_id then
+      raise exception 'Eco-upgrade audit property account mismatch';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+create or replace function public.prevent_phase4b_audit_mutation()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+begin
+  raise exception 'Property risk audit events are immutable';
+end;
+$$;
+
 drop trigger if exists trg_deposit_settlements_updated_at on public.deposit_settlements;
 create trigger trg_deposit_settlements_updated_at before update on public.deposit_settlements
   for each row execute function public.set_phase4b_updated_at();
@@ -312,6 +400,18 @@ create trigger trg_deposit_settlement_exports_account_match before insert or upd
 drop trigger if exists trg_property_eco_upgrade_plan_items_account_match on public.property_eco_upgrade_plan_items;
 create trigger trg_property_eco_upgrade_plan_items_account_match before insert or update on public.property_eco_upgrade_plan_items
   for each row execute function public.enforce_eco_plan_child_account();
+drop trigger if exists trg_deposit_settlement_audit_account_match on public.deposit_settlement_audit_events;
+create trigger trg_deposit_settlement_audit_account_match before insert on public.deposit_settlement_audit_events
+  for each row execute function public.enforce_deposit_settlement_audit_account();
+drop trigger if exists trg_property_eco_upgrade_audit_account_match on public.property_eco_upgrade_audit_events;
+create trigger trg_property_eco_upgrade_audit_account_match before insert on public.property_eco_upgrade_audit_events
+  for each row execute function public.enforce_eco_upgrade_audit_account();
+drop trigger if exists trg_deposit_settlement_audit_immutable on public.deposit_settlement_audit_events;
+create trigger trg_deposit_settlement_audit_immutable before update or delete on public.deposit_settlement_audit_events
+  for each row execute function public.prevent_phase4b_audit_mutation();
+drop trigger if exists trg_property_eco_upgrade_audit_immutable on public.property_eco_upgrade_audit_events;
+create trigger trg_property_eco_upgrade_audit_immutable before update or delete on public.property_eco_upgrade_audit_events
+  for each row execute function public.prevent_phase4b_audit_mutation();
 
 alter table public.deposit_settlements enable row level security;
 alter table public.deposit_deductions enable row level security;
@@ -330,8 +430,8 @@ declare
 begin
   foreach table_name in array array[
     'deposit_settlements','deposit_deductions','deposit_deduction_evidence_links',
-    'deposit_settlement_exports','deposit_settlement_audit_events','property_epc_profiles',
-    'property_eco_upgrade_plans','property_eco_upgrade_plan_items','property_eco_upgrade_audit_events'
+    'deposit_settlement_exports','property_epc_profiles',
+    'property_eco_upgrade_plans','property_eco_upgrade_plan_items'
   ] loop
     execute format('drop policy if exists "Managers manage %s" on public.%I', table_name, table_name);
     execute format(
@@ -342,6 +442,22 @@ begin
   end loop;
 end $$;
 
+drop policy if exists "Managers manage deposit_settlement_audit_events" on public.deposit_settlement_audit_events;
+drop policy if exists "Managers read deposit settlement audit events" on public.deposit_settlement_audit_events;
+create policy "Managers read deposit settlement audit events" on public.deposit_settlement_audit_events
+  for select to authenticated using (public.user_can_manage_account(account_id));
+drop policy if exists "Managers insert deposit settlement audit events" on public.deposit_settlement_audit_events;
+create policy "Managers insert deposit settlement audit events" on public.deposit_settlement_audit_events
+  for insert to authenticated with check (public.user_can_manage_account(account_id));
+
+drop policy if exists "Managers manage property_eco_upgrade_audit_events" on public.property_eco_upgrade_audit_events;
+drop policy if exists "Managers read property eco upgrade audit events" on public.property_eco_upgrade_audit_events;
+create policy "Managers read property eco upgrade audit events" on public.property_eco_upgrade_audit_events
+  for select to authenticated using (public.user_can_manage_account(account_id));
+drop policy if exists "Managers insert property eco upgrade audit events" on public.property_eco_upgrade_audit_events;
+create policy "Managers insert property eco upgrade audit events" on public.property_eco_upgrade_audit_events
+  for insert to authenticated with check (public.user_can_manage_account(account_id));
+
 drop policy if exists "Managers read eco upgrade options" on public.eco_upgrade_options;
 create policy "Managers read eco upgrade options" on public.eco_upgrade_options
   for select to authenticated using (true);
@@ -350,7 +466,8 @@ drop policy if exists "Tenants read shared deposit settlements" on public.deposi
 create policy "Tenants read shared deposit settlements" on public.deposit_settlements
   for select to authenticated using (
     status in ('shared_with_tenant','tenant_accepted','tenant_disputed','statement_generated','locked')
-    and tenant_response_status in ('pending','accepted','disputed','expired')
+    and (tenant_response_status in ('pending','accepted','disputed','expired')
+      or (status = 'locked' and tenant_response_status = 'not_shared'))
     and exists (
       select 1 from public.tenants t
       where t.id = deposit_settlements.tenant_id
@@ -380,8 +497,9 @@ revoke all on public.deposit_settlements, public.deposit_deductions, public.depo
   public.property_eco_upgrade_plan_items, public.property_eco_upgrade_audit_events
 from anon, authenticated;
 grant select, insert, update, delete on public.deposit_settlements, public.deposit_deductions, public.deposit_deduction_evidence_links,
-  public.deposit_settlement_exports, public.deposit_settlement_audit_events,
+  public.deposit_settlement_exports,
   public.property_epc_profiles, public.property_eco_upgrade_plans,
-  public.property_eco_upgrade_plan_items, public.property_eco_upgrade_audit_events
+  public.property_eco_upgrade_plan_items
 to authenticated;
+grant select, insert on public.deposit_settlement_audit_events, public.property_eco_upgrade_audit_events to authenticated;
 grant select on public.eco_upgrade_options to authenticated;
