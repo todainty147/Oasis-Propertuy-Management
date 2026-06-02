@@ -121,7 +121,7 @@ export default function EcoUpgradePlannerPage() {
             }))
           : optionRows.slice(0, 6).map((option) => ({
               ...option,
-              selected: false,
+              selected: true,
               estimated_cost: Math.round((Number(option.typical_cost_low || 0) + Number(option.typical_cost_high || 0)) / 2),
               estimated_epc_points_gain: Math.round((Number(option.estimated_epc_points_low || 0) + Number(option.estimated_epc_points_high || 0)) / 2),
               priority: "medium",
@@ -227,8 +227,8 @@ export default function EcoUpgradePlannerPage() {
                 {["unknown","A","B","C","D","E","F","G"].map((band) => <option key={band} value={band}>{band}</option>)}
               </select>
               <input className={fieldClass} type="number" min="1" max="100" placeholder="Current EPC score optional" value={profile.current_epc_score} onChange={(event) => setProfile((current) => ({ ...current, current_epc_score: event.target.value }))} />
-              <select className={fieldClass} value={profile.target_epc_band} onChange={(event) => setProfile((current) => ({ ...current, target_epc_band: event.target.value }))}>
-                {["A","B","C","D","E"].map((band) => <option key={band} value={band}>Planning target: Band {band}</option>)}
+              <select aria-label="Planning target EPC band" className={fieldClass} value={profile.target_epc_band} onChange={(event) => setProfile((current) => ({ ...current, target_epc_band: event.target.value }))}>
+                {["A","B","C","D","E"].map((band) => <option key={band} value={band}>Band {band}</option>)}
               </select>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -274,7 +274,16 @@ export default function EcoUpgradePlannerPage() {
         </div>
         {error ? <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
         <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
+          <table className="min-w-[920px] table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-16" />
+              <col className="w-72" />
+              <col className="w-36" />
+              <col className="w-36" />
+              <col className="w-32" />
+              <col className="w-56" />
+              <col className="w-40" />
+            </colgroup>
             <thead className="text-xs uppercase text-slate-500">
               <tr>
                 <th className="py-2 pr-3">Selected</th>
