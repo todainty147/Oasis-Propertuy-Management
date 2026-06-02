@@ -62,6 +62,7 @@ describe("Property Risk & Deposit Financial Controls contracts", () => {
     expect(routes).toContain("ENTITLEMENT_FEATURES.ECO_UPGRADE_PLANNER");
     expect(sidebar).toContain('to="/finance/deposit-vault"');
     expect(sidebar).toContain('to="/portfolio-health/eco-upgrade-planner"');
+    expect(sidebar).toContain('to="/portfolio-health" icon={LineChart}   label={t("sidebar.portfolioHealth")} onNavigate={onNavigate} end');
     expect(sidebar).toContain("indent />");
   });
 
@@ -71,9 +72,13 @@ describe("Property Risk & Deposit Financial Controls contracts", () => {
     expect(page).toContain("static planning estimates from Tenaqo's seeded upgrade catalogue");
     expect(page).toContain("not live quotes or web-searched prices");
     expect(page).toContain("Indicative cost (editable)");
+    expect(page).toContain("EPC data needed. Add the current band or score to improve the planning estimate.");
+    expect(page).toContain('item.plan_item_id ? "Prepare handoff" : "Save plan first"');
     expect(page).not.toContain("Open Eco-Upgrade Planner</span>");
     expect(page).not.toContain("Mark upgrade completed");
     expect(page).not.toContain("Attach EPC certificate");
+    expect(page).not.toContain("Risk label: {riskLevel}");
+    expect(page).not.toContain("Create work order");
   });
 
   it("uses current database columns for Deposit Vault joins", () => {
@@ -87,6 +92,10 @@ describe("Property Risk & Deposit Financial Controls contracts", () => {
     const service = read("src/services/ecoUpgradePlannerService.js");
 
     expect(service).toContain("getPropertyEpcProfile({ accountId: row.account_id, propertyId: row.property_id })");
+    expect(service).toContain("function blankToNull");
+    expect(service).toContain("function integerOrNull");
+    expect(service).toContain("current_epc_score: integerOrNull(payload.currentEpcScore ?? payload.current_epc_score)");
+    expect(service).toContain("last_epc_date: blankToNull(payload.lastEpcDate ?? payload.last_epc_date)");
     expect(service).toContain('supabase.from("property_epc_profiles").update(row)');
     expect(service).toContain('supabase.from("property_epc_profiles").insert(row)');
     expect(service).not.toContain('onConflict: "account_id,property_id"');

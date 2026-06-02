@@ -507,7 +507,7 @@ function SidebarContent({ onNavigate }) {
                   <Item to="/maintenance-kpi" icon={BarChart3}    label={t("sidebar.maintenanceKpi")}  onNavigate={onNavigate} />
                 )}
                 {hasEntitlement(ENTITLEMENT_FEATURES.PORTFOLIO_HEALTH) && (
-                  <Item to="/portfolio-health" icon={LineChart}   label={t("sidebar.portfolioHealth")} onNavigate={onNavigate} />
+                  <Item to="/portfolio-health" icon={LineChart}   label={t("sidebar.portfolioHealth")} onNavigate={onNavigate} end />
                 )}
                 {(hasEntitlement(ENTITLEMENT_FEATURES.ECO_UPGRADE_PLANNER) || hasEntitlement(ENTITLEMENT_FEATURES.PORTFOLIO_HEALTH_ECO_COMPLIANCE)) && (
                   <Item to="/portfolio-health/eco-upgrade-planner" icon={Leaf} label="Eco-Upgrade Planner" onNavigate={onNavigate} indent />

@@ -32,6 +32,31 @@ function riskTone(level) {
   return "border-slate-200 bg-slate-50 text-slate-700";
 }
 
+function riskCopy(level) {
+  if (level === "critical") return "Below EPC E. Review urgently and check whether an exemption applies.";
+  if (level === "warning") return "At EPC E. Keep evidence visible and plan ahead for possible future standards.";
+  if (level === "planning") return "Planning opportunity. Review practical upgrades before the next EPC refresh.";
+  if (level === "good") return "Currently at or above the planning target.";
+  return "EPC data needed. Add the current band or score to improve the planning estimate.";
+}
+
+function confidenceCopy(confidence) {
+  return confidence === "medium"
+    ? "Confidence: medium, based on the EPC details and selected upgrade estimates entered here."
+    : "Confidence: low until EPC details and selected upgrades are added.";
+}
+
+function saveErrorCopy(error) {
+  const message = String(error?.message || "");
+  if (/row-level security|permission|not authorized|not authorised/i.test(message)) {
+    return "Could not save this plan. Check you have manager access for this account, then try again.";
+  }
+  if (/invalid input syntax|date\/time field|current_epc_score|last_epc_date/i.test(message)) {
+    return "Could not save this plan. Check the EPC score and certificate date fields, then try again.";
+  }
+  return "Could not save this plan. Please check the property and try again.";
+}
+
 export default function EcoUpgradePlannerPage() {
   const { activeAccountId } = useAccount();
   const { properties } = useProperties({ enabled: true });
@@ -157,7 +182,7 @@ export default function EcoUpgradePlannerPage() {
       setMessage("Eco-Upgrade Planner saved. Estimates remain indicative and should be reviewed with an EPC assessor.");
       await reload();
     } catch (err) {
-      setError(err?.message || "Could not save plan.");
+      setError(saveErrorCopy(err));
     }
   }
 
@@ -190,7 +215,7 @@ export default function EcoUpgradePlannerPage() {
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div> : null}
 
       <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-        <Card className="p-5">
+        <Card className="!p-5">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">EPC profile form</h2>
           <div className="mt-4 grid gap-3">
             <select className={fieldClass} value={effectivePropertyId} onChange={(event) => setPropertyId(event.target.value)}>
@@ -216,7 +241,7 @@ export default function EcoUpgradePlannerPage() {
           </div>
         </Card>
 
-        <Card className="p-5">
+        <Card className="!p-5">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Result panel</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 p-3"><p className="text-xs uppercase text-slate-500">Current</p><p className="font-semibold">EPC Band {impact.currentBand || "unknown"} {impact.currentScore ? `(${impact.currentScore})` : ""}</p></div>
@@ -226,24 +251,28 @@ export default function EcoUpgradePlannerPage() {
             <div className="rounded-2xl border border-slate-200 p-3"><p className="text-xs uppercase text-slate-500">Estimated cost</p><p className="font-semibold">{formatCurrencyAmount(impact.estimatedTotalCost, { currency: "GBP" })}</p></div>
             <div className="rounded-2xl border border-slate-200 p-3"><p className="text-xs uppercase text-slate-500">Target reached</p><p className="font-semibold">{impact.targetReached ? "Yes, indicative" : "Not yet"}</p></div>
           </div>
-          <div className={`mt-3 rounded-2xl border p-3 text-sm ${riskTone(riskLevel)}`}>Risk label: {riskLevel}. Confidence: {impact.confidence}.</div>
+          <div className={`mt-3 rounded-2xl border p-3 text-sm ${riskTone(riskLevel)}`}>
+            <p className="font-semibold">{riskCopy(riskLevel)}</p>
+            <p className="mt-1 text-xs">{confidenceCopy(impact.confidence)}</p>
+          </div>
           <p className="mt-3 text-xs text-slate-500">Indicative cost and EPC upgrade estimate only. Review with EPC assessor before making compliance or investment decisions.</p>
         </Card>
       </div>
 
-      <Card className="p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
+      <Card className="!p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 max-w-3xl">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Suggested upgrades</h2>
             <p className="mt-1 text-sm text-slate-500">Selected upgrades update the total cost, points gain and result band.</p>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               Indicative costs are static planning estimates from Tenaqo's seeded upgrade catalogue. They are not live quotes or web-searched prices.
             </p>
           </div>
-          <button type="button" onClick={handleSavePlan} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">
+          <button type="button" onClick={handleSavePlan} disabled={!activeAccountId || !effectivePropertyId} className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400">
             <Save size={16} /> Save plan
           </button>
         </div>
+        {error ? <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead className="text-xs uppercase text-slate-500">
@@ -267,8 +296,13 @@ export default function EcoUpgradePlannerPage() {
                   <td className="py-3 pr-3"><select className={fieldClass} value={item.priority || "medium"} onChange={(event) => updateItem(index, { priority: event.target.value })}>{["low","medium","high"].map((priority) => <option key={priority}>{priority}</option>)}</select></td>
                   <td className="py-3 pr-3"><input className={fieldClass} value={item.notes || ""} onChange={(event) => updateItem(index, { notes: event.target.value })} /></td>
                   <td className="py-3 pr-3">
-                    <button type="button" onClick={() => handleWorkOrderStub(item)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold">
-                      <Hammer size={14} /> Create work order
+                    <button
+                      type="button"
+                      onClick={() => handleWorkOrderStub(item)}
+                      disabled={!item.plan_item_id}
+                      className="inline-flex min-w-32 items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:hover:bg-slate-800"
+                    >
+                      <Hammer size={14} /> {item.plan_item_id ? "Prepare handoff" : "Save plan first"}
                     </button>
                   </td>
                 </tr>
@@ -278,7 +312,7 @@ export default function EcoUpgradePlannerPage() {
         </div>
       </Card>
 
-      <Card className="p-5">
+      <Card className="!p-5">
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Plan summary</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-2xl border border-slate-200 p-3"><p className="text-xs uppercase text-slate-500">Property</p><p className="font-semibold">{selectedProperty?.address || selectedProperty?.name || "Select a property"}</p></div>
