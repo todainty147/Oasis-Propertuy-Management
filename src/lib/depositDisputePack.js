@@ -18,6 +18,8 @@ export const DISPUTE_PACK_ITEM_TYPE_VALUES = DISPUTE_PACK_ITEM_TYPES.map((type) 
 export const DISPUTE_PACK_EVIDENCE_REFERENCE_TYPES = [
   ...DISPUTE_PACK_ITEM_TYPES,
   { value: "compliance_safe_item", label: "Compliance Safe item" },
+  { value: "deposit_settlement_statement", label: "Deposit Settlement Statement" },
+  { value: "deposit_deduction", label: "Deposit deduction" },
 ];
 export const DISPUTE_PACK_EVIDENCE_REFERENCE_TYPE_VALUES = DISPUTE_PACK_EVIDENCE_REFERENCE_TYPES.map((type) => type.value);
 const EVIDENCE_REFERENCE_LABELS = Object.fromEntries(
@@ -130,4 +132,32 @@ export function formatDisputePackMoney(value) {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return "Not recorded";
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(amount);
+}
+
+export function buildDisputePackItemsFromSettlement(settlement = {}) {
+  const deductions = settlement.deposit_deductions || settlement.deductions || [];
+  const settlementTitle = settlement.summary || "Deposit Settlement Statement";
+  const statementItem = {
+    item_type: "deduction",
+    title: settlementTitle,
+    description: "Deposit Settlement Statement imported as supporting evidence.",
+    claimed_amount: Number(settlement.proposed_deductions_total || 0),
+    evidence_reference_type: "deposit_settlement_statement",
+    evidence_reference_id: settlement.id || null,
+    sort_order: 0,
+  };
+
+  return [
+    statementItem,
+    ...deductions.map((deduction, index) => ({
+      item_type: "deduction",
+      title: deduction.title || "Deposit deduction",
+      description: deduction.description || "",
+      claimed_amount: Number(deduction.amount || 0),
+      evidence_reference_type: "deposit_deduction",
+      evidence_reference_id: deduction.id || null,
+      sort_order: index + 1,
+      evidence_links: deduction.deposit_deduction_evidence_links || deduction.evidenceLinks || [],
+    })),
+  ];
 }

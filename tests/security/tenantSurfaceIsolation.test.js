@@ -138,6 +138,33 @@ describe("tenant surface isolation contracts", () => {
     expect(rootSupportSqlSource).toContain("create policy properties_select_member");
   });
 
+  it("exposes cleared account context immediately on logout so tenant/contractor effects do not reuse stale accounts", () => {
+    const accountContextSource = readSource("src/context/AccountContext.jsx");
+    const loggedOutBlockStart = accountContextSource.indexOf("if (!user) {");
+    const loggedOutBlock = accountContextSource.slice(loggedOutBlockStart, loggedOutBlockStart + 500);
+    const resetBlockStart = accountContextSource.indexOf("function resetLoggedOutAccountState");
+    const resetBlock = accountContextSource.slice(resetBlockStart, resetBlockStart + 500);
+
+    expect(loggedOutBlock).toContain('localStorage.removeItem("activeAccountId")');
+    expect(loggedOutBlock).toContain("window.setTimeout(resetLoggedOutAccountState, 0);");
+    expect(resetBlock).toContain("setActiveAccountId(null);");
+    expect(resetBlock).toContain("setTenantContext(null);");
+    expect(loggedOutBlock).not.toContain("queueMicrotask");
+    expect(accountContextSource).toContain("const exposedAccounts = useMemo(() => (user ? accounts : []), [user, accounts]);");
+    expect(accountContextSource).toContain("const exposedActiveAccountId = user ? activeAccountId : null;");
+    expect(accountContextSource).toContain("activeAccountId: exposedActiveAccountId");
+  });
+
+  it("keeps trial expiry and flag-only entitlements live during the active session", () => {
+    const accountContextSource = readSource("src/context/AccountContext.jsx");
+
+    expect(accountContextSource).toContain("const [now, setNow] = useState(() => Date.now())");
+    expect(accountContextSource).toContain("window.setTimeout(() => setNow(Date.now())");
+    expect(accountContextSource).toContain("window.setInterval(() => setNow(Date.now()), 60_000)");
+    expect(accountContextSource).toContain("activeFeatureFlags.includes(normalizedFeature)");
+    expect(accountContextSource).toContain("return assertFeature(activePlan, feature)");
+  });
+
   it("keeps tenant details and tenant documents scoped to manager-only routes and tenant-linked docs", () => {
     const tenantDetailsSource = readSource("src/pages/TenantDetails.jsx");
     const tenantDocumentsSource = readSource("src/components/TenantDocumentsSection.jsx");

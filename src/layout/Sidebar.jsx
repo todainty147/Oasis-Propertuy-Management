@@ -30,6 +30,7 @@ import {
   FileSearch,
   ShieldCheck,
   Lock,
+  Leaf,
   Globe,
   Flag,
   CalendarClock,
@@ -455,6 +456,17 @@ function SidebarContent({ onNavigate }) {
                   onNavigate={onNavigate}
                 />
               )}
+              {canReadFinance && !isTenant && (
+                hasEntitlement(ENTITLEMENT_FEATURES.DEPOSIT_DEDUCTIONS_LOG) ||
+                hasEntitlement(ENTITLEMENT_FEATURES.DEPOSIT_SETTLEMENT_STATEMENT)
+              ) && (
+                <Item
+                  to="/finance/deposit-vault"
+                  icon={ShieldCheck}
+                  label="Deposit Vault"
+                  onNavigate={onNavigate}
+                />
+              )}
               {canReadDocuments && (
                 <Item
                   to={isTenant ? "/tenant/documents" : "/documents"}
@@ -496,6 +508,9 @@ function SidebarContent({ onNavigate }) {
                 )}
                 {hasEntitlement(ENTITLEMENT_FEATURES.PORTFOLIO_HEALTH) && (
                   <Item to="/portfolio-health" icon={LineChart}   label={t("sidebar.portfolioHealth")} onNavigate={onNavigate} />
+                )}
+                {(hasEntitlement(ENTITLEMENT_FEATURES.ECO_UPGRADE_PLANNER) || hasEntitlement(ENTITLEMENT_FEATURES.PORTFOLIO_HEALTH_ECO_COMPLIANCE)) && (
+                  <Item to="/portfolio-health/eco-upgrade-planner" icon={Leaf} label="Eco-Upgrade Planner" onNavigate={onNavigate} />
                 )}
                 {(hasEntitlement(ENTITLEMENT_FEATURES.TENANT_APPLICATION_LINKS) || hasEntitlement(ENTITLEMENT_FEATURES.APPLICANT_PRESCREENING_DASHBOARD)) ? (
                   <Item to="/applications" icon={UserPlus} label={t("sidebar.applications")} onNavigate={onNavigate} />

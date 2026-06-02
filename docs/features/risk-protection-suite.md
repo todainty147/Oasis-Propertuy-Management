@@ -17,6 +17,8 @@ Risk Protection Suite connects Compliance Safe, Photo Evidence Vault and Deposit
 - Compliance Safe tracks checklist requirements, documents, expiry dates and tenant acknowledgements.
 - Evidence Vault stores room-by-room inspection records, notes, photos, signatures and tenant responses.
 - Deposit Dispute Packs compile selected supporting evidence for deposit dispute preparation.
+- Deposit Vault prepares itemised Deposit Settlement Statements and deduction evidence for landlord review.
+- Eco-Upgrade Planner prepares indicative EPC upgrade paths for landlord review and maintenance handoff.
 
 Compliance Safe can link an Evidence Vault report as evidence without duplicating report data. Evidence Vault check-in reports can also be linked back to matching Compliance Safe inventory or onboarding items.
 
@@ -36,6 +38,7 @@ Tenants can only access records explicitly shared with their tenant profile. Lin
 - Tenants read only active report shares and acknowledgement requests assigned to their tenant record.
 - Tenants cannot edit landlord evidence, checklist content, expiry dates, condition ratings, landlord notes, landlord photos or landlord signatures.
 - Contractors cannot access Evidence Vault, Compliance Safe or Deposit Dispute Packs in the MVP.
+- Contractors cannot access Deposit Vault or Eco-Upgrade Planner records; they may only see linked work-order context intentionally shared with them.
 - Deposit Dispute Packs remain landlord-side only.
 - Cross-links are checked at the service boundary for same account and compatible property/tenant context.
 
@@ -67,3 +70,4 @@ Avoid overclaiming phrases about court certainty, guaranteed outcomes, binding l
 - Tenant-shared dispute packs are future work.
 - Browser print is the MVP export path.
 - Communication ingestion and scheme-specific exports are future enhancements.
+- Deposit Vault and Eco-Upgrade Planner remain account-flagged rollout features.

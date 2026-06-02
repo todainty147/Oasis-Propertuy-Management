@@ -147,14 +147,14 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       canonicalPath: "/",
     },
     hero: {
-      eyebrow: "Automated property management software for landlords",
+      eyebrow: "Rental operations software that keeps landlords in control",
       title: "Rental operations software that protects your portfolio",
       body:
         "Organise compliance evidence, maintenance workflows, tenant onboarding, documents, rent records and property operations in one secure workspace.",
       emphasis:
         "Compliance evidence, maintenance triage, documents, and rent records in one action queue.",
       support:
-        "No guaranteed income claims. No payment collection rail today. Just visibility, workflows, and the operational clarity that keeps a rental portfolio running without constant intervention.",
+        "No income promises. Tenaqo does not collect rent, move money, or operate as a payment rail today. Just visibility, workflows, and the operational clarity that keeps a rental portfolio easier to review.",
       highlights: [
         { label: "Compliance evidence", href: "/features/compliance" },
         { label: "Deposit dispute preparation", href: "/property-risk-protection-software" },
@@ -186,28 +186,28 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       disclaimer: "Verified partner and industry badges can be added here once approved.",
     },
     testimonials: {
-      title: "Less chasing. More control.",
-      disclaimer: "These are illustrative examples of how landlords describe their experience with Tenaqo. They are not verified published reviews.",
+      title: "What early landlord conversations keep showing us",
+      disclaimer: "These are non-quote feedback themes from early landlord conversations, not published testimonials or verified reviews.",
       items: [
         {
-          quote: "Tenaqo gave me one place to see rent, repairs, documents, and what needed action next. It feels like the admin finally has a system.",
-          name: "Private landlord",
-          context: "8-property portfolio",
+          quote: "Landlords want one place to see rent, repairs, documents, and what needs action next.",
+          name: "Theme",
+          context: "Operating visibility",
         },
         {
-          quote: "The biggest win is visibility. I no longer have to search through messages, folders, and spreadsheets to understand what is happening.",
-          name: "Portfolio landlord",
-          context: "Multi-property operator",
+          quote: "Visibility matters most when messages, folders, and spreadsheets make the current picture hard to trust.",
+          name: "Theme",
+          context: "Less manual reconstruction",
         },
         {
-          quote: "Seeing maintenance pressure, overdue rent, and document gaps in one dashboard helps me protect income and make better decisions faster.",
-          name: "Growth landlord",
-          context: "Scaling portfolio",
+          quote: "Maintenance pressure, overdue rent, and document gaps are easier to handle when they appear in one dashboard for landlord review.",
+          name: "Theme",
+          context: "Earlier follow-up",
         },
       ],
     },
     seoFeatureSection: {
-      title: "Automated Property Management Software for Landlords",
+      title: "Rental operations software that keeps landlords in control",
       body: "Tenaqo helps landlords reduce manual admin, track rental income, manage maintenance, organise documents, and keep portfolio actions visible from one dashboard.",
       features: [
         {
@@ -237,8 +237,8 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       ],
     },
     rentalYieldSection: {
-      title: "Rental Yield Optimization Starts With Better Visibility",
-      body: "Higher yield is not only about charging more rent. It is about reducing missed charges, preventing avoidable maintenance drag, and spotting overdue balances before they compound. Tenaqo brings rent status, expected charges, maintenance costs, and compliance evidence into one operating view.",
+      title: "Protect rental income with clearer operating visibility",
+      body: "Protecting rental income is not only about charging more rent. It is about reducing missed charges, preventing avoidable maintenance drag, and spotting overdue balances before they compound. Tenaqo brings rent status, expected charges, maintenance costs, and compliance evidence into one operating view.",
       bullets: [
         "Spot overdue and due-soon rent before it becomes a follow-up problem",
         "Track maintenance costs against each property to protect margins",
@@ -247,8 +247,8 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       ],
     },
     passiveLandlordSection: {
-      title: "A More Passive Landlord Workflow — Without Losing Control",
-      body: "Tenaqo supports a more passive landlord workflow by automating reminders, surfacing action queues, and giving tenants and contractors structured portals. You still control approvals, finance posting, documents, and every decision. Tenaqo is rental management software — it does not replace regulated advice or letting agency services where those are required.",
+      title: "A calmer landlord workflow — without losing control",
+      body: "Tenaqo supports a calmer landlord workflow by supporting reminders, surfacing action queues, and giving tenants and contractors structured portals. You still control approvals, finance posting, documents, and every decision. Tenaqo is rental management software — it does not replace regulated advice or letting agency services where those are required.",
       cta: { label: "See how Tenaqo works", href: siteConfig.appUrl },
     },
     appTease: {
@@ -292,7 +292,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
         },
         {
           feature: "Compliance evidence",
-          oasis: "Renters' Rights, tax deadlines, Lease Auditor, and an evidence trail tracked in the workflow",
+          oasis: "Renters' Rights, tax deadlines, AI-assisted clause flagging, and an evidence trail tracked in the workflow",
           agent: "Some agents cover compliance, others charge extra or leave it to the landlord",
         },
         {
@@ -368,10 +368,10 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
         {
           label: "Command Center",
           title: "Urgent signals, briefed and ready",
-          body: "The Command Center brings together overdue items, follow-up pressure, and an AI operator briefing so the next move is obvious.",
+          body: "The Command Center brings together overdue items, follow-up pressure, and an AI-assisted briefing so the next move is obvious.",
           points: ["portfolio-wide briefing", "attention queues", "next review targets"],
           imageSrc: "/screenshots/command-center.png",
-          imageAlt: "Tenaqo Command Center with AI operator briefing and account-wide action queues.",
+          imageAlt: "Tenaqo Command Center with AI-assisted briefing and account-wide action queues.",
         },
         {
           label: "Maintenance",

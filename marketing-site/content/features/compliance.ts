@@ -4,17 +4,17 @@ export const complianceContent = {
   seo: {
     title: "Compliance Suite for Landlords | Tenaqo",
     description:
-      "Lease clause analysis, rent-risk scoring, and tax deadline tracking — Tenaqo brings portfolio compliance into one connected workspace so nothing slips through the cracks.",
+      "AI-assisted clause flagging for landlord review, rent visibility, and tax deadline tracking — Tenaqo brings portfolio compliance into one connected workspace so nothing slips through the cracks.",
     canonical: "https://marketing.oasisrentalmgt.app/features/compliance",
   },
   hero: {
     eyebrow: "Compliance suite",
-    title: "Stay ahead of lease risk, rent exposure, and tax deadlines",
+    title: "Keep lease review, rent visibility, and tax deadlines easier to review",
     body:
-      "Compliance should not live in spreadsheets, inboxes, and last-minute reminders. Tenaqo brings lease review, rent-risk monitoring, and tax-readiness tracking into one connected workspace — helping landlords spot issues earlier, organise evidence, and act before small risks become expensive problems.",
+      "Compliance should not live in spreadsheets, inboxes, and last-minute reminders. Tenaqo brings AI-assisted lease clause flagging, rent visibility, and tax-readiness tracking into one connected workspace — helping landlords spot issues earlier, organise evidence, and act before issues become expensive problems.",
     imageSrc: "/screenshots/compliance-suite.png",
     imageAlt:
-      "Tenaqo Compliance suite showing Lease Auditor findings, Rent Shield risk scores, and Tax Readiness dashboard.",
+      "Tenaqo Compliance suite showing AI-assisted clause flags, Rent Shield risk scores, and Tax Readiness dashboard.",
   },
   problemSection: {
     eyebrow: "Why it matters",
@@ -41,18 +41,18 @@ export const complianceContent = {
     ],
   },
   leaseAuditorSection: {
-    eyebrow: "Lease Auditor",
-    title: "Review lease agreements faster — and know where to focus",
+    eyebrow: "AI-assisted clause flagging",
+    title: "AI-assisted clause flagging for landlord review",
     body:
-      "Lease agreements can hide risk in the details. Tenaqo Lease Auditor scans extracted lease text and surfaces clauses that may need closer attention — so your team spends less time searching and more time acting on what actually matters.",
+      "Lease agreements can hide clauses that deserve review. Tenaqo scans extracted lease text and flags clauses for landlord review — so your team spends less time searching and more time acting on what actually matters.",
     items: [
       {
         title: "Upload, extract, analyse",
-        body: "Upload a lease PDF through the tenant record, let Tenaqo process the document, and the Lease Auditor highlights potential areas of concern with a risk level: Low, Medium, High, or Critical.",
+        body: "Upload a lease PDF through the tenant record, let Tenaqo process the document, and review AI-assisted clause flags with suggested attention levels: Low, Medium, High, or Critical.",
       },
       {
         title: "Plain-English explanations",
-        body: "Each finding includes a clear explanation of why the clause may be worth reviewing and which category of risk it falls into.",
+        body: "Each finding includes a clear explanation of why the clause may be worth landlord review.",
       },
       {
         title: "Clause areas Tenaqo can flag",
@@ -65,10 +65,10 @@ export const complianceContent = {
     ],
     imageSrc: "/screenshots/lease-auditor.png",
     imageAlt:
-      "Tenaqo Lease Auditor showing AI-flagged clause findings with risk levels and plain-English explanations.",
+      "Tenaqo AI-assisted clause flagging showing findings with review levels and plain-English explanations.",
     imageAlign: "right" as const,
     disclaimer:
-      "Lease Auditor is AI-assisted review support. It does not provide legal advice or determine whether a lease is legally valid. Tenaqo surfaces clauses worth reviewing — your solicitor or qualified adviser makes the final call.",
+      "AI-assisted clause flagging is review support for landlords. It does not provide legal advice or determine whether a lease is legally valid. Tenaqo flags clauses worth reviewing — your solicitor or qualified adviser makes the final call.",
   },
   rentShieldSection: {
     eyebrow: "Rent Shield",

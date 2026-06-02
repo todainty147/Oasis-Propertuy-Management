@@ -70,6 +70,16 @@ export function AccountProvider({ children }) {
   const [oaGrantStatus, setOaGrantStatus] = useState(null); // { paymentStatus, checkoutUrl, ... }
   const [founderEntitlement, setFounderEntitlement] = useState(null);
 
+  function resetLoggedOutAccountState() {
+    setAccounts([]);
+    setActiveAccountId(null);
+    setIsRootOperator(false);
+    setTenantContext(null);
+    setContractorContext(null);
+    setAuthzError(null);
+    setAccountLoading(false);
+  }
+
   /* ======================
      LOAD ACCOUNTS / TENANT / CONTRACTOR CONTEXT
      ====================== */
@@ -79,16 +89,8 @@ export function AccountProvider({ children }) {
 
     // 🔒 Logged out
     if (!user) {
-      queueMicrotask(() => {
-        setAccounts([]);
-        setActiveAccountId(null);
-        setIsRootOperator(false);
-        setTenantContext(null);
-        setContractorContext(null);
-        setAuthzError(null);
-        setAccountLoading(false);
-      });
       localStorage.removeItem("activeAccountId");
+      window.setTimeout(resetLoggedOutAccountState, 0);
       return;
     }
 
@@ -522,24 +524,27 @@ export function AccountProvider({ children }) {
      DERIVED
      ====================== */
 
+  const exposedAccounts = useMemo(() => (user ? accounts : []), [user, accounts]);
+  const exposedActiveAccountId = user ? activeAccountId : null;
+
   const activeAccount = useMemo(
-    () => accounts.find((a) => a.id === activeAccountId) ?? null,
-    [accounts, activeAccountId]
+    () => exposedAccounts.find((a) => a.id === exposedActiveAccountId) ?? null,
+    [exposedAccounts, exposedActiveAccountId]
   );
 
   const activeRole = useMemo(() => {
     if (activeAccount?.role) return activeAccount.role;
 
-    if (tenantContext?.account_id && tenantContext.account_id === activeAccountId) {
+    if (user && tenantContext?.account_id && tenantContext.account_id === exposedActiveAccountId) {
       return "tenant";
     }
 
-    if (contractorContext?.account_id && contractorContext.account_id === activeAccountId) {
+    if (user && contractorContext?.account_id && contractorContext.account_id === exposedActiveAccountId) {
       return "contractor";
     }
 
     return null;
-  }, [activeAccount, tenantContext, contractorContext, activeAccountId]);
+  }, [user, activeAccount, tenantContext, contractorContext, exposedActiveAccountId]);
 
   /* ======================
      OA GRANT STATUS
@@ -562,7 +567,19 @@ export function AccountProvider({ children }) {
 
   // Trial derived values
   const trialEndsAt = activeAccount?.trial_ends_at ?? null;
-  const [now] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!trialEndsAt) return undefined;
+    const trialEndsAtMs = new Date(trialEndsAt).getTime();
+    if (!Number.isFinite(trialEndsAtMs)) return undefined;
+    const msUntilExpiry = Math.max(0, trialEndsAtMs - Date.now());
+    const timeoutId = window.setTimeout(() => setNow(Date.now()), Math.min(msUntilExpiry + 250, 2_147_483_647));
+    const intervalId = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
+    };
+  }, [trialEndsAt]);
   const isInTrial = useMemo(
     () => Boolean(trialEndsAt && new Date(trialEndsAt).getTime() > now),
     [now, trialEndsAt],
@@ -656,8 +673,12 @@ export function AccountProvider({ children }) {
     [activePlan, activeFeatureFlags],
   );
   const assertEntitlement = useMemo(
-    () => (feature) => assertFeature(activePlan, feature),
-    [activePlan],
+    () => (feature) => {
+      const normalizedFeature = String(feature || "").trim().toLowerCase();
+      if (activeFeatureFlags.includes(normalizedFeature)) return true;
+      return assertFeature(activePlan, feature);
+    },
+    [activePlan, activeFeatureFlags],
   );
 
   const rootTelemetryAccessMode = useMemo(
@@ -688,10 +709,10 @@ export function AccountProvider({ children }) {
   return (
     <AccountContext.Provider
       value={{
-        accounts,
+        accounts: exposedAccounts,
         isRootOperator,
         activeAccount,
-        activeAccountId,
+        activeAccountId: exposedActiveAccountId,
         switchAccount,
         reloadAccounts,
         accountLoading,

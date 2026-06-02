@@ -5,7 +5,7 @@ import { cityPages } from "../../content/locations";
 import { buildMetadata } from "../../lib/metadata";
 
 export const metadata: Metadata = buildMetadata({
-  title: "Tenaqo for Landlords Across the UK | Automated Property Management",
+  title: "Tenaqo for Landlords Across the UK | Rental operations software that keeps landlords in control",
   description:
     "Tenaqo helps landlords in Bristol, Manchester, London, Birmingham, Leeds and across the UK track rent, manage maintenance, and stay on top of compliance from one dashboard.",
   canonical: "/locations",
@@ -18,7 +18,7 @@ export default function LocationsIndex() {
         <div className="container">
           <span className="eyebrow">Landlords across the UK</span>
           <h1 style={{ margin: "0.75rem 0 1rem", fontSize: "clamp(1.8rem, 4vw, 2.8rem)", color: "var(--brand-strong)" }}>
-            Automated Property Management Software for UK Landlords
+            Rental operations software that keeps UK landlords in control
           </h1>
           <p className="muted" style={{ maxWidth: 640, lineHeight: 1.75 }}>
             Tenaqo helps landlords reduce manual admin, track rental income, manage maintenance, organise documents, and keep portfolio actions visible — from one rental management dashboard. Available across England and Wales.

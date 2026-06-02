@@ -57,6 +57,10 @@ export const portfolioHealthContent = {
         title: "Actionable next steps",
         body: "Stay connected to the same workflows needed to respond instead of reviewing a score in isolation.",
       },
+      {
+        title: "Eco-upgrade planning",
+        body: "Plan EPC improvements with indicative costs, suggested upgrade paths, upgrade checklists, and work-order handoff for landlord review.",
+      },
     ],
     imageSrc: "/screenshots/portfolio-health.png",
     imageAlt: "Tenaqo Portfolio Health dashboard showing pressure signals, risk visibility, and an AI explanation card.",

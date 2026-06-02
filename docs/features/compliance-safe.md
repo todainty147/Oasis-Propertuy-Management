@@ -69,6 +69,12 @@ When an Evidence Vault report is linked, the drawer shows the report title, stat
 
 The audit event for this path is `evidence_vault_report_linked`.
 
+## EPC And Eco-Upgrade Planner Context
+
+Compliance Safe continues to track EPC records as compliance evidence. When the Eco-Upgrade Planner feature flag is enabled, property and portfolio views can link landlords to the planner so they can review indicative upgrade paths and EPC profile notes.
+
+The planner is separate from Compliance Safe evidence. It does not verify statutory compliance, replace an EPC assessor or change the checklist status by itself.
+
 ## Tenant Acknowledgement
 
 Landlords request acknowledgement from the item detail drawer. Tenants respond from Tenant Portal -> Compliance Documents.
@@ -121,3 +127,4 @@ Compliance events are stored in `compliance_evidence_events`, including:
 - Automated expiry reminder delivery is not enabled in this phase.
 - Tenant acknowledgement records receipt/review only; it does not guarantee legal validity.
 - Tenaqo does not provide legal advice or guarantee compliance outcomes.
+- Eco-Upgrade Planner estimates are indicative and should be reviewed with an EPC assessor.

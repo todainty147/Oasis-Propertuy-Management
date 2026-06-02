@@ -487,6 +487,20 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
 
       <RiskProtectionSummary summary={riskSummary} complianceRating={rating.rating} />
 
+      {hasEntitlement(ENTITLEMENT_FEATURES.ECO_UPGRADE_PLANNER) ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold">EPC & Eco-Upgrade Plan</p>
+              <p>Link EPC certificate records, review EPC band signals and open the Eco-Upgrade Planner for indicative upgrade paths.</p>
+            </div>
+            <Link to="/portfolio-health/eco-upgrade-planner" className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">
+              Open Eco-Upgrade Planner
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
       <div className={`${panelClass()} grid gap-3 md:grid-cols-3`}>
         <select value={filters.propertyId} onChange={(e) => setFilters((f) => ({ ...f, propertyId: e.target.value }))} className={fieldClass}>
           <option value="">All properties</option>

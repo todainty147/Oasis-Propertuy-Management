@@ -62,7 +62,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
     intro: {
       title: "Pricing is aligned to operational maturity",
       body:
-        "Starter helps solo landlords bring the basics into one place. Growth adds Command Center, portfolio health, compliance evidence tools, and AI assistance. Pro adds security audit, playbooks, Lease Auditor, and deeper landlord-controlled governance. Operator / Agency adds bulk rent automation, Open Banking readiness, portfolio pressure forecasting, and advanced AI for multi-client operations. Founder offer: the first 20 landlords get Pro at Starter price for 12 months.",
+        "Starter helps solo landlords bring the basics into one place. Growth adds Command Center, portfolio health, compliance evidence tools, and AI assistance. Pro adds security audit, playbooks, AI-assisted clause flagging for landlord review, and deeper landlord-controlled governance. Operator / Agency adds bulk rent automation, designed for future Open Banking rent matching, planned portfolio pressure forecasting, and roadmap advanced AI for multi-client operations. Founder offer: the first 20 landlords get Pro at Starter price for 12 months.",
       imageSrc: "/screenshots/portfolio-health.png",
       imageAlt: "Tenaqo Portfolio Health dashboard showing occupancy, arrears aging, and maintenance pressure.",
     },
@@ -111,7 +111,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
           "everything in Growth",
           "security audit — event ledger, anomaly detection, investigation panel",
           "playbooks — if-then automation for routine operations",
-          "Lease Auditor — AI clause risk review",
+          "AI-assisted clause flagging for landlord review",
           "AI contractor recommendation and weekly portfolio summary",
           "advanced audit summaries and Poland advanced features",
           "3,000 AI calls / month",
@@ -126,9 +126,9 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
           "unlimited properties",
           "everything in Pro",
           "bulk rent automation across tenants and periods",
-          "AI finance insights and portfolio finance forecasting",
-          "Open Banking rent matching readiness",
-          "security copilot and natural language portfolio query",
+          "roadmap AI finance insights and planned portfolio finance forecasting",
+          "designed for future Open Banking rent matching",
+          "planned security copilot and planned natural language portfolio query",
           "cross-account anomaly detection",
           "unlimited AI usage",
         ],
@@ -151,7 +151,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       {
         question: "Which plan should I start with?",
         answer:
-          "Start with Starter if the main goal is getting off spreadsheets and disconnected trackers. Choose Growth if you already have enough rent, repair, and property activity that deciding what to do first is the harder problem. Choose Pro when you want deeper review, security audit, playbooks, and Lease Auditor. Choose Operator / Agency for multi-client portfolios, bulk rent automation, Open Banking readiness, and advanced AI.",
+          "Start with Starter if the main goal is getting off spreadsheets and disconnected trackers. Choose Growth if you already have enough rent, repair, and property activity that deciding what to do first is the harder problem. Choose Pro when you want deeper review, security audit, playbooks, and AI-assisted clause flagging for landlord review. Choose Operator / Agency for multi-client portfolios, bulk rent automation, designed for future Open Banking rent matching, and roadmap AI.",
       },
       {
         question: "Why is the Rent Plans Engine included in every plan?",
@@ -161,17 +161,17 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       {
         question: "What is the difference between Growth and Pro?",
         answer:
-          "Growth adds operational attention: Command Center, portfolio health, compliance evidence tools (Renters' Rights, Tax Readiness, Rent Shield, Poland), maintenance KPIs, preventive maintenance, and AI assistance. Pro adds deeper control: security audit, playbooks, Lease Auditor, advanced audit summaries, and evidence-heavy compliance workflows.",
+          "Growth adds operational attention: Command Center, portfolio health, compliance evidence tools (Renters' Rights, Tax Readiness, Rent Shield, Poland), maintenance KPIs, preventive maintenance, and AI assistance. Pro adds deeper control: security audit, playbooks, AI-assisted clause flagging for landlord review, advanced audit summaries, and evidence-heavy compliance workflows.",
       },
       {
         question: "What is Operator / Agency for?",
         answer:
-          "Operator / Agency is for property managers and multi-client operators who need bulk rent automation across tenants and periods, portfolio finance forecasting, Open Banking rent matching readiness, cross-account anomaly detection, and advanced AI including the security copilot and natural language portfolio query.",
+          "Operator / Agency is for property managers and multi-client operators who need bulk rent automation across tenants and periods, planned portfolio finance forecasting, designed for future Open Banking rent matching, cross-account anomaly detection, and roadmap AI including planned security copilot and planned natural language portfolio query.",
       },
       {
         question: "Does Tenaqo collect rent payments directly?",
         answer:
-          "Today Tenaqo is focused on rent visibility, expected charges, reconciliation, balances, arrears pressure, and landlord-configured payment instructions. Native tenant payment collection and Open Banking automation are handled separately from the core ledger flow and should only be described where implemented. No direct payment rail is active today.",
+          "Today Tenaqo is focused on rent visibility, expected charges, reconciliation, balances, arrears pressure, and landlord-configured payment instructions. Native tenant payment collection and Open Banking automation are handled separately from the core ledger flow and should only be described where implemented. Tenaqo does not collect rent, move money, or operate as a payment rail today.",
       },
       {
         question: "Does every plan cover the core rental workflow?",
@@ -257,7 +257,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
           "wszystko z Growth",
           "security audit i powierzchnie zaufania operacyjnego",
           "rekomendacje wykonawców AI i tygodniowe podsumowania portfela",
-          "Lease Auditor — analiza ryzyka klauzul umownych przez AI",
+          "Wspierane przez AI flagowanie klauzul do przeglądu właściciela",
           "playbooki — automatyzacja rutynowych operacji",
           "3 000 wywołań AI / miesiąc",
         ],
@@ -271,9 +271,9 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
           "nieograniczona liczba nieruchomości",
           "wszystko z Pro",
           "masowa automatyzacja czynszów dla wielu najemców i okresów",
-          "prognozowanie finansów portfela i wglądy AI",
-          "gotowość do Open Banking i dopasowywanie płatności",
-          "bezpieczeństwo AI i zapytania w języku naturalnym",
+          "planowane prognozowanie finansów portfela i roadmapowe wglądy AI",
+          "projektowane pod przyszłe dopasowywanie czynszu przez Open Banking",
+          "planowany security copilot i planowane zapytania portfelowe w języku naturalnym",
           "nieograniczone użycie AI",
         ],
       },
@@ -396,7 +396,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
           "alles aus Growth",
           "Security Audit und operative Trust-Oberflächen",
           "AI-Handwerkerempfehlungen und wöchentliche Portfolio-Zusammenfassungen",
-          "Lease Auditor — AI-Klauselrisikoanalyse",
+          "AI-unterstütztes Klausel-Flagging zur Vermieterprüfung",
           "Playbooks — Automatisierung routinemäßiger Abläufe",
           "3.000 AI-Aufrufe / Monat",
         ],
@@ -410,9 +410,9 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
           "unbegrenzte Objekte",
           "alles aus Pro",
           "Massenautomatisierung von Mieten über Mieter und Abrechnungszeiträume hinweg",
-          "Portfolio-Finanzprognose und AI-Finanzeinblicke",
-          "Open Banking Mietabgleich (Readiness)",
-          "Sicherheits-Copilot und natürlichsprachliche Portfolio-Abfragen",
+          "geplante Portfolio-Finanzprognose und roadmap AI-Finanzeinblicke",
+          "für künftigen Open-Banking-Mietabgleich konzipiert",
+          "geplanter Sicherheits-Copilot und geplante natürlichsprachliche Portfolio-Abfragen",
           "unbegrenzte AI-Nutzung",
         ],
       },

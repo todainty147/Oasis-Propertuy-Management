@@ -20,6 +20,7 @@ import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount } from "../utils/currency";
 import { isManageRole, can } from "../utils/permissions";
 import { listEntityCustomFieldValues } from "../services/customFieldService";
+import { ENTITLEMENT_FEATURES } from "../lib/entitlements";
 
 /* ======================
    SKELETON
@@ -61,7 +62,7 @@ export default function PropertyDetails({
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { setTitle } = usePageTitle();
-  const { accountLoading, activeAccountId, activeRole, activePermissionContext } = useAccount();
+  const { accountLoading, activeAccountId, activeRole, activePermissionContext, hasEntitlement } = useAccount();
   const { t } = useI18n();
   const canManageLease     = isManageRole(activeRole);
   const canUpdateProperty  = can(activePermissionContext, "properties", "update");
@@ -139,6 +140,10 @@ export default function PropertyDetails({
   const primaryTenant    = propertyTenants[0] || null;
   const propertyPayments = payments.filter((p) => String(p.propertyId) === String(property.id));
   const finance          = calculatePropertyFinance({ property, payments: propertyPayments });
+  const ecoPlannerEnabled =
+    typeof hasEntitlement === "function" &&
+    (hasEntitlement(ENTITLEMENT_FEATURES.ECO_UPGRADE_PLANNER) ||
+      hasEntitlement(ENTITLEMENT_FEATURES.PORTFOLIO_HEALTH_ECO_COMPLIANCE));
 
   /* ---------- RENDER ---------- */
   return (
@@ -254,6 +259,25 @@ export default function PropertyDetails({
                 >
                   {t("propertyDetails.healthContext.cta")}
                 </button>
+              </div>
+            </div>
+          )}
+
+          {canManageLease && ecoPlannerEnabled && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="font-semibold text-emerald-950">EPC & Eco-Upgrade Plan</p>
+                  <p className="mt-1 text-sm text-emerald-900">
+                    Track EPC profile details, indicative upgrade costs and suggested upgrade paths for landlord review.
+                  </p>
+                </div>
+                <Link
+                  to="/portfolio-health/eco-upgrade-planner"
+                  className="shrink-0 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+                >
+                  Open planner
+                </Link>
               </div>
             </div>
           )}

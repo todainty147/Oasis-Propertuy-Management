@@ -112,6 +112,9 @@ describe("Phase 3 legal security contracts", () => {
 
     expect(service).toContain("requestComplianceTenantAcknowledgement");
     expect(service).toContain("respondToComplianceAcknowledgement");
+    expect(service).toContain('if (payload.disputed && !comment)');
+    expect(service).toContain('error?.code === "42P01"');
+    expect(service).not.toContain('error?.code === "PGRST404"');
     expect(service).toContain("acknowledgement_revoked");
     expect(service).toContain("tenant clients never need direct write");
     expect(service).toContain("attachComplianceDocument");
@@ -126,6 +129,43 @@ describe("Phase 3 legal security contracts", () => {
 
     const newCopy = `${sql}\n${service}\n${page}\n${tenantPage}\n${docs}`;
     expect(newCopy).not.toMatch(/legally guaranteed|eviction guaranteed|court-proof|guaranteed compliance|guaranteed possession/i);
+  });
+
+  it("keeps Compliance Safe acknowledgement application tied to status transitions only", () => {
+    const sql = read("supabase/compliance_safe_phase2.sql");
+
+    expect(sql).toContain("old.acknowledgement_status is not distinct from new.acknowledgement_status");
+    expect(sql).toContain("after update of acknowledgement_status on public.compliance_item_acknowledgements");
+    expect(sql).not.toContain("after update of acknowledgement_status, acknowledged_at, comment");
+  });
+
+  it("keeps Evidence Vault audit events accurate for item creation and default population", () => {
+    const service = read("src/services/legalSecurityService.js");
+
+    expect(service).toContain('"evidence_item_created"');
+    expect(service).toContain('"default_evidence_items_populated"');
+    expect(service).toContain("created_item_count");
+    expect(service).not.toContain('writeInspectionAuditEvent(accountId, report.reportId, "room_created"');
+    expect(service).not.toContain('writeInspectionAuditEvent(accountId, reportId, "room_created"');
+  });
+
+  it("reuses caller user ids for dispute pack create and export audit writes", () => {
+    const service = read("src/services/legalSecurityService.js");
+    const helperStart = service.indexOf("async function writeDepositDisputePackAuditEvent");
+    const helperBlock = service.slice(helperStart, helperStart + 700);
+    const createStart = service.indexOf("export async function createDepositDisputePack");
+    const createBlock = service.slice(createStart, createStart + 1500);
+    const exportStart = service.indexOf("export async function recordDepositDisputePackExport");
+    const exportBlock = service.slice(exportStart, exportStart + 1400);
+
+    expect(helperBlock).toContain("userId = undefined");
+    expect(helperBlock).toContain("user_id: userId === undefined ? await getCurrentUserId() : userId");
+    expect(createBlock).toContain("const userId = await getCurrentUserId();");
+    expect(createBlock).toContain("created_by: userId");
+    expect(createBlock).toContain("}, userId);");
+    expect(exportBlock).toContain("const userId = await getCurrentUserId();");
+    expect(exportBlock).toContain("generated_by: userId");
+    expect(exportBlock).toContain("}, userId);");
   });
 
   it("keeps Evidence Vault builder behaviour wired to templates, audit and print routes", () => {

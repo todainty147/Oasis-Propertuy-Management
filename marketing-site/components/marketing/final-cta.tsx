@@ -24,6 +24,9 @@ export function FinalCta({
         <div className="card final-cta">
           <h2>{title}</h2>
           <p className="muted">{body}</p>
+          <p className="muted" style={{ fontSize: "0.85rem", marginTop: "0.75rem" }}>
+            Early access is for landlord feedback and onboarding conversations while selected workflows continue to mature.
+          </p>
           <div className="button-row" style={{ justifyContent: "center" }}>
             <Link
               href={getLocalizedMarketingHref(locale, primaryCta.href)}

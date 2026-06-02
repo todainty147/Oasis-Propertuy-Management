@@ -17,44 +17,27 @@ export default function ApplicationsPage({ properties = [] }) {
   const [error, setError] = useState("");
   const mountedRef = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ isCurrent = () => mountedRef.current } = {}) => {
     if (!activeAccountId) return;
     try {
       const [nextLinks, nextApplications] = await Promise.all([
         listPropertyApplicationLinks(activeAccountId),
         listRentalApplications(activeAccountId),
       ]);
-      if (!mountedRef.current) return;
+      if (!isCurrent()) return;
       setLinks(nextLinks);
       setApplications(nextApplications);
     } catch (err) {
-      if (mountedRef.current) setError(err?.message || "Could not load application links.");
-      throw err;
+      if (isCurrent()) setError(err?.message || "Could not load application links.");
     }
   }, [activeAccountId]);
 
   useEffect(() => {
     mountedRef.current = true;
     let cancelled = false;
-
-    async function loadInitial() {
-      if (!activeAccountId) return;
-      try {
-        const [nextLinks, nextApplications] = await Promise.all([
-          listPropertyApplicationLinks(activeAccountId),
-          listRentalApplications(activeAccountId),
-        ]);
-        if (cancelled || !mountedRef.current) return;
-        setLinks(nextLinks);
-        setApplications(nextApplications);
-      } catch (err) {
-        if (!cancelled && mountedRef.current) setError(err?.message || "Could not load application links.");
-      }
-    }
-
-    loadInitial();
+    Promise.resolve().then(() => load({ isCurrent: () => mountedRef.current && !cancelled }));
     return () => { cancelled = true; mountedRef.current = false; };
-  }, [activeAccountId]);
+  }, [load]);
 
   async function handleCreate(event) {
     event.preventDefault();

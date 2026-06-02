@@ -152,6 +152,7 @@ const OVERLAY_SEQUENCE = [
   "compliance_safe_phase2.sql",
   "evidence_vault_phase2.sql",
   "evidence_vault_phase2_fixes.sql",
+  "property_risk_deposit_controls.sql",
   "hmrc_mtd_phase1.sql",
   "hmrc_mtd_phase2_readonly.sql",
   "hmrc_mtd_phase3_sandbox_test_data.sql",

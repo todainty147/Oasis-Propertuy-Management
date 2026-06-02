@@ -18,7 +18,7 @@ export default function CompliancePage() {
 
       <ContentSection {...c.problemSection} />
 
-      {/* Lease Auditor */}
+      {/* AI-assisted clause flagging */}
       <ContentSection
         eyebrow={c.leaseAuditorSection.eyebrow}
         title={c.leaseAuditorSection.title}

@@ -25,6 +25,7 @@ import { formatCurrencyAmount } from "../utils/currency";
 import { getLeaseAttentionItems, getLeaseSummary } from "../services/leaseService";
 import { listPropertyOperationalHealthScores, summarizePropertyOperationalHealth } from "../services/propertyHealthScoreService";
 import { isManageRole } from "../utils/permissions";
+import { ENTITLEMENT_FEATURES } from "../lib/entitlements";
 import OnboardingHintCard from "../components/OnboardingHintCard";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 import { formatAttentionInsightTimestamp } from "../services/attentionInsightService";
@@ -404,7 +405,7 @@ function WeeklyPortfolioAiCard({ insight, loading, onRefresh, t }) {
 
 export default function PortfolioHealthDashboardPage() {
   const { setTitle } = usePageTitle();
-  const { activeRole, activeAccountId, isRootOperator } = useAccount();
+  const { activeRole, activeAccountId, isRootOperator, hasEntitlement } = useAccount();
   const { activeTenantId } = useTenant();
   const { lang, t } = useI18n();
 
@@ -684,6 +685,22 @@ export default function PortfolioHealthDashboardPage() {
       </div>
 
       <OnboardingHintCard title={t("pageHints.portfolioHealth.title")} body={t("pageHints.portfolioHealth.body")} />
+
+      {(hasEntitlement(ENTITLEMENT_FEATURES.ECO_UPGRADE_PLANNER) || hasEntitlement(ENTITLEMENT_FEATURES.PORTFOLIO_HEALTH_ECO_COMPLIANCE)) ? (
+        <Card className="p-4 border border-emerald-200 bg-emerald-50">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-emerald-900">Portfolio Health: Eco-Upgrade Compliance</p>
+              <p className="mt-1 text-sm text-emerald-800">
+                Review EPC bands, planning target gaps, indicative upgrade cost and high-priority energy-efficiency work.
+              </p>
+            </div>
+            <Link to="/portfolio-health/eco-upgrade-planner" className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">
+              Open Eco-Upgrade Planner
+            </Link>
+          </div>
+        </Card>
+      ) : null}
 
       {error && <Card className="p-4 border border-rose-200 bg-rose-50 text-rose-700 text-sm">{error}</Card>}
 

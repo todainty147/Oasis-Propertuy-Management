@@ -122,7 +122,7 @@ export const tenantPortalContent = {
       },
       {
         title: "A stronger base for future premium depth",
-        body: "The current portal is already credible today and creates a cleaner foundation for richer signing, timeline depth, and payment execution later.",
+        body: "The current portal gives landlords a practical foundation today and creates a cleaner base for richer signing, timeline depth, and future payment visibility later.",
       },
     ],
   },

@@ -118,7 +118,7 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
         {
           category: "Finance and rent collection",
           oasis:
-            "Rent visibility, arrears pressure, expected charges, reconciliation, and landlord-configured tenant payment setup. No native payment rail today.",
+            "Rent visibility, arrears pressure, expected charges, reconciliation, and landlord-configured tenant payment setup. No native payment rail today; Tenaqo does not collect rent, move money, or operate as a payment rail.",
           competitor:
             "Stronger publicly advertised accounting stack with bank feeds, reporting, and online rent collection",
         },
@@ -132,14 +132,14 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
         {
           category: "Compliance evidence",
           oasis:
-            "Renters' Rights readiness, Tax Readiness, Rent Shield, Lease Auditor (AI clause risk review), Poland Najem Okazjonalny — integrated into the weekly workflow",
+            "Renters' Rights readiness, Tax Readiness, Rent Shield, AI-assisted clause flagging for landlord review, Poland Najem Okazjonalny — integrated into the weekly workflow",
           competitor:
             "Compliance tracking useful for accounting; less emphasis on integrated workflow-level compliance evidence and evidence trails",
         },
         {
           category: "AI action queues",
           oasis:
-            "Command Center with AI briefing, maintenance triage, property health explainer, attention insights, and message drafts across Growth, Pro, and Operator tiers",
+            "Command Center with AI-assisted briefing, maintenance triage, property health explainer, attention insights, and message drafts across Growth, Pro, and Operator tiers",
           competitor:
             "Useful landlord task tracking with less emphasis on AI-assisted action prioritization",
         },
@@ -153,21 +153,21 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
         {
           category: "Contractor workflow",
           oasis:
-            "Contractor directory, ratings, contractor portal (view jobs, upload photos, mark completion), marketplace integrations (Checkatrade live), acknowledgement workflow",
+            "Contractor directory, ratings, contractor portal (view jobs, upload photos, mark completion), contractor marketplace integrations planned, with Checkatrade under discussion, acknowledgement workflow",
           competitor:
             "Contractor management tools for work orders; dedicated contractor portal depth varies",
         },
         {
           category: "Agency / operator depth",
           oasis:
-            "Operator / Agency plan: bulk rent automation, portfolio forecasting, Open Banking readiness, cross-account anomaly detection, security copilot, natural language query",
+            "Operator / Agency plan: bulk rent automation, planned portfolio forecasting, designed for future Open Banking rent matching, cross-account anomaly detection, planned security copilot, planned natural language query",
           competitor:
             "Portfolio management for growing landlords; multi-client agency operator tooling not the primary emphasis",
         },
         {
           category: "Daily visibility",
           oasis:
-            "Command Center, AI operator briefing, portfolio health scoring, and pressure signals make prioritization easier",
+            "Command Center, AI-assisted briefing, portfolio health scoring, and pressure signals make prioritization easier",
           competitor:
             "Useful tracking across key landlord tasks with less emphasis on action queues and operational triage",
         },
@@ -202,12 +202,12 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
         {
           title: "Compliance sits inside the working week",
           body:
-            "Renters' Rights readiness, Rent Shield, Lease Auditor, Tax Readiness, and Poland compliance are part of the operational workflow — not a separate seasonal scramble.",
+            "Renters' Rights readiness, Rent Shield, AI-assisted clause flagging, Tax Readiness, and Poland compliance are part of the operational workflow — not a separate seasonal scramble.",
         },
         {
           title: "Action is easier to prioritize",
           body:
-            "Command Center queues, AI briefings, and portfolio health signals make it easier to decide what deserves attention first instead of manually reconstructing the week.",
+            "Command Center queues, AI-assisted briefings, and portfolio health signals make it easier to decide what deserves attention first instead of manually reconstructing the week.",
         },
       ],
     },
@@ -329,7 +329,7 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
         {
           title: "Zgodność z przepisami wpisana w roboczy tydzień",
           body:
-            "Gotowość na zmiany prawne (Renters' Rights), ochrona czynszu (Rent Shield), audyt umów (Lease Auditor), rozliczenia podatkowe i zgodność z polskimi przepisami są częścią codziennej pracy — a nie osobnym, sezonowym zrywem.",
+            "Gotowość na zmiany prawne (Renters' Rights), ochrona czynszu (Rent Shield), wspierane przez AI flagowanie klauzul, rozliczenia podatkowe i zgodność z polskimi przepisami są częścią codziennej pracy — a nie osobnym, sezonowym zrywem.",
         },
       ],
     },
