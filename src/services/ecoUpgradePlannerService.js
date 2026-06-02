@@ -42,11 +42,15 @@ export async function upsertPropertyEpcProfile(payload = {}) {
     last_epc_date: payload.lastEpcDate || payload.last_epc_date || null,
     epc_certificate_document_id: payload.epcCertificateDocumentId || payload.epc_certificate_document_id || null,
   };
-  const { data, error } = await supabase
-    .from("property_epc_profiles")
-    .upsert(row, { onConflict: "account_id,property_id" })
-    .select()
-    .single();
+  if (!row.account_id || !row.property_id) {
+    throw new Error("Account and property are required to save an EPC profile.");
+  }
+
+  const existing = await getPropertyEpcProfile({ accountId: row.account_id, propertyId: row.property_id });
+  const query = existing?.id
+    ? supabase.from("property_epc_profiles").update(row).eq("id", existing.id).eq("account_id", row.account_id)
+    : supabase.from("property_epc_profiles").insert(row);
+  const { data, error } = await query.select().single();
   if (error) throw error;
   return data;
 }

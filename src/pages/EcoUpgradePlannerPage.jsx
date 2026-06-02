@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Hammer, Leaf, Save, Upload } from "lucide-react";
+import { Hammer, Save } from "lucide-react";
 
 import Card from "../components/Card";
 import { useAccount } from "../context/AccountContext";
@@ -236,6 +236,9 @@ export default function EcoUpgradePlannerPage() {
           <div>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Suggested upgrades</h2>
             <p className="mt-1 text-sm text-slate-500">Selected upgrades update the total cost, points gain and result band.</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Indicative costs are static planning estimates from Tenaqo's seeded upgrade catalogue. They are not live quotes or web-searched prices.
+            </p>
           </div>
           <button type="button" onClick={handleSavePlan} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">
             <Save size={16} /> Save plan
@@ -247,7 +250,7 @@ export default function EcoUpgradePlannerPage() {
               <tr>
                 <th className="py-2 pr-3">Selected</th>
                 <th className="py-2 pr-3">Upgrade</th>
-                <th className="py-2 pr-3">Indicative cost</th>
+                <th className="py-2 pr-3">Indicative cost (editable)</th>
                 <th className="py-2 pr-3">Estimated points</th>
                 <th className="py-2 pr-3">Priority</th>
                 <th className="py-2 pr-3">Notes</th>
@@ -276,17 +279,12 @@ export default function EcoUpgradePlannerPage() {
       </Card>
 
       <Card className="p-5">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Portfolio Health: Eco-Upgrade Compliance</h2>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Plan summary</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-2xl border border-slate-200 p-3"><p className="text-xs uppercase text-slate-500">Property</p><p className="font-semibold">{selectedProperty?.address || selectedProperty?.name || "Select a property"}</p></div>
           <div className="rounded-2xl border border-slate-200 p-3"><p className="text-xs uppercase text-slate-500">Selected plan cost</p><p className="font-semibold">{formatCurrencyAmount(totals.estimatedTotalCost, { currency: "GBP" })}</p></div>
           <div className="rounded-2xl border border-slate-200 p-3"><p className="text-xs uppercase text-slate-500">High priority upgrades</p><p className="font-semibold">{totals.highPriorityUpgrades}</p></div>
           <div className="rounded-2xl border border-slate-200 p-3"><p className="text-xs uppercase text-slate-500">Completed upgrades</p><p className="font-semibold">{totals.completedUpgrades}</p></div>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" onClick={handleSavePlan} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold"><CheckCircle2 size={15} /> Mark upgrade completed</button>
-          <button type="button" className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold"><Upload size={15} /> Attach EPC certificate</button>
-          <span className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800"><Leaf size={15} /> Open Eco-Upgrade Planner</span>
         </div>
       </Card>
 

@@ -57,7 +57,7 @@ import { isPolishMarket } from "../utils/complianceMarket";
    No rings, no colour shifts — just weight + fill.
 ───────────────────────────────────────────── */
 
-function Item({ to, icon, label, onNavigate, end = false }) {
+function Item({ to, icon, label, onNavigate, end = false, indent = false }) {
   const IconComponent = icon;
   return (
     <NavLink
@@ -65,14 +65,14 @@ function Item({ to, icon, label, onNavigate, end = false }) {
       end={end}
       onClick={onNavigate}
       className={({ isActive }) =>
-        `flex items-center gap-2.5 px-2.5 py-[5px] rounded-md text-[13px] leading-5 transition-colors duration-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-400/60 dark:focus-visible:ring-slate-500/70 ${
+        `flex items-center gap-2.5 ${indent ? "pl-7 pr-2.5" : "px-2.5"} py-[5px] rounded-md ${indent ? "text-[12.5px]" : "text-[13px]"} leading-5 transition-colors duration-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-400/60 dark:focus-visible:ring-slate-500/70 ${
           isActive
             ? "bg-black/[0.07] dark:bg-white/[0.09] text-slate-900 dark:text-slate-100 font-[500]"
             : "text-slate-500 dark:text-slate-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] hover:text-slate-800 dark:hover:text-slate-200"
         }`
       }
     >
-      <IconComponent size={14} strokeWidth={1.7} className="shrink-0" />
+      <IconComponent size={indent ? 13 : 14} strokeWidth={1.7} className="shrink-0" />
       <span>{label}</span>
     </NavLink>
   );
@@ -510,7 +510,7 @@ function SidebarContent({ onNavigate }) {
                   <Item to="/portfolio-health" icon={LineChart}   label={t("sidebar.portfolioHealth")} onNavigate={onNavigate} />
                 )}
                 {(hasEntitlement(ENTITLEMENT_FEATURES.ECO_UPGRADE_PLANNER) || hasEntitlement(ENTITLEMENT_FEATURES.PORTFOLIO_HEALTH_ECO_COMPLIANCE)) && (
-                  <Item to="/portfolio-health/eco-upgrade-planner" icon={Leaf} label="Eco-Upgrade Planner" onNavigate={onNavigate} />
+                  <Item to="/portfolio-health/eco-upgrade-planner" icon={Leaf} label="Eco-Upgrade Planner" onNavigate={onNavigate} indent />
                 )}
                 {(hasEntitlement(ENTITLEMENT_FEATURES.TENANT_APPLICATION_LINKS) || hasEntitlement(ENTITLEMENT_FEATURES.APPLICANT_PRESCREENING_DASHBOARD)) ? (
                   <Item to="/applications" icon={UserPlus} label={t("sidebar.applications")} onNavigate={onNavigate} />
