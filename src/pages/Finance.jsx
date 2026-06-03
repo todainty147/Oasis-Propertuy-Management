@@ -11,6 +11,7 @@ import OnboardingHintCard from "../components/OnboardingHintCard";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 import TenantPaymentCollectionSettingsCard from "../components/finance/TenantPaymentCollectionSettingsCard";
 import { getOverdueExpectedChargesSummary } from "../services/expectedChargeService";
+import { buildFinancePaymentDisplayRows, isAdjustedFinancePayment } from "../utils/financePayments";
 import {
   normalizeOccupancyStatus,
   normalizePaymentStatus,
@@ -171,8 +172,10 @@ export default function Finance({
   // component. This matches the SQL snapshots which use current_date (midnight).
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const soon = new Date(todayStart.getTime() + 8 * 24 * 3600000); // exclusive: midnight day 8
+  const propertyFinanceList = useMemo(() => propertyFinance || [], [propertyFinance]);
+  const displayPayments = buildFinancePaymentDisplayRows(payments, propertyFinanceList, { today: now });
 
-  const searchedPayments = (payments || []).filter((p) => {
+  const searchedPayments = (displayPayments || []).filter((p) => {
     const s   = normalizePaymentStatus(p.status);
     if (statusFilterValues.length > 0 && !statusFilterValues.includes(s)) return false;
     const due    = p?.dueDate ? new Date(p.dueDate) : null;
@@ -224,7 +227,6 @@ export default function Finance({
 
   // ── Pagination ────────────────────────────────────────────────────────────────
 
-  const propertyFinanceList  = useMemo(() => propertyFinance || [], [propertyFinance]);
   const propertyTotalPages   = Math.max(1, Math.ceil(propertyFinanceList.length / propertyPageSize));
   const paymentsTotalPages   = Math.max(1, Math.ceil(searchedPayments.length / paymentsPageSize));
 
@@ -599,6 +601,14 @@ export default function Finance({
                       <p className="text-xs text-slate-500 truncate">{p.propertyAddress ?? "—"}</p>
                       <p className="text-sm text-slate-700">
                         <span className="font-medium">{formatCurrency(p.amount, activeCurrency, activeCountryCode)}</span>
+                        {isAdjustedFinancePayment(p) && (
+                          <span className="ml-1 text-xs text-slate-500">
+                            ({t("tenantDetails.partialCredit", {
+                              original: formatCurrency(p.originalAmount, activeCurrency, activeCountryCode),
+                              paid: formatCurrency(p.paidAgainstRunningBalance, activeCurrency, activeCountryCode),
+                            })})
+                          </span>
+                        )}
                         <span className="mx-1.5 text-slate-300">·</span>
                         {p.paidAt ? (
                           <span className="text-slate-500">{t("payments.paidAt")}: {formatDate(p.paidAt)}</span>
@@ -608,7 +618,7 @@ export default function Finance({
                       </p>
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         {/* B-1: canUpdate gates mark-paid (update op, not delete) */}
-                        {canUpdate && !p.paidAt && normalizePaymentStatus(p.status) !== "paid" && onMarkPaid && (
+                        {canUpdate && !isAdjustedFinancePayment(p) && !p.paidAt && normalizePaymentStatus(p.status) !== "paid" && onMarkPaid && (
                           <button
                             data-testid={`mark-paid-${p.id}`}
                             disabled={mutating}
@@ -663,7 +673,17 @@ export default function Finance({
                         <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-6 py-3 font-medium text-slate-900">{p.tenantName ?? "—"}</td>
                           <td className="px-6 py-3 text-slate-600">{p.propertyAddress ?? "—"}</td>
-                          <td className="px-6 py-3 text-right font-semibold text-slate-900">{formatCurrency(p.amount, activeCurrency, activeCountryCode)}</td>
+                          <td className="px-6 py-3 text-right font-semibold text-slate-900">
+                            <div>{formatCurrency(p.amount, activeCurrency, activeCountryCode)}</div>
+                            {isAdjustedFinancePayment(p) && (
+                              <div className="text-xs font-normal text-slate-500">
+                                {t("tenantDetails.partialCredit", {
+                                  original: formatCurrency(p.originalAmount, activeCurrency, activeCountryCode),
+                                  paid: formatCurrency(p.paidAgainstRunningBalance, activeCurrency, activeCountryCode),
+                                })}
+                              </div>
+                            )}
+                          </td>
                           <td className="px-6 py-3"><StatusBadge status={p.status} t={t} /></td>
                           <td className="px-6 py-3 text-slate-600">
                             <div>{formatDate(p.dueDate)}</div>
@@ -674,7 +694,7 @@ export default function Finance({
                           <td className="px-6 py-3">
                             <div className="flex items-center justify-end gap-2">
                               {/* B-1: canUpdate governs mark-paid */}
-                              {canUpdate && !p.paidAt && normalizePaymentStatus(p.status) !== "paid" && onMarkPaid && (
+                              {canUpdate && !isAdjustedFinancePayment(p) && !p.paidAt && normalizePaymentStatus(p.status) !== "paid" && onMarkPaid && (
                                 <button
                                   data-testid={`mark-paid-${p.id}`}
                                   disabled={mutating}

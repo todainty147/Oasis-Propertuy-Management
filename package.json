@@ -42,6 +42,7 @@
     "db:bootstrap": "node scripts/with-local-node.mjs node scripts/dbBootstrap.js",
     "db:verify": "node scripts/with-local-node.mjs node scripts/dbVerify.js",
     "db:apply:repo": "node scripts/with-local-node.mjs node scripts/dbApplyRepoSql.js",
+    "hmrc:phase5:gate": "node scripts/with-local-node.mjs node scripts/hmrcPhase5ReadinessGate.mjs",
     "db:ready": "npm run db:bootstrap && npm run db:verify && npm run test:integration:seed",
     "schema:baseline:refresh": "node scripts/with-local-node.mjs node scripts/schema/refresh-baseline.mjs refresh",
     "schema:baseline:check": "node scripts/with-local-node.mjs node scripts/schema/refresh-baseline.mjs check",
