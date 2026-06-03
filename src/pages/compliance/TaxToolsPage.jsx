@@ -419,34 +419,44 @@ function ExpenseTracker({ accountId, properties, expenses, onSaved, propertyFina
                   <tr><th className="py-2">Date</th><th>Source</th><th>Category</th><th>Amount</th><th>MTD</th><th>Action</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {expenses.slice(0, 8).map((row) => (
-                    <tr key={row.id}>
-                      <td className="py-2">{row.expense_date}</td>
-                      <td>{row.source_label || (row.source_type === "property_operating_expense" ? "Property Finance" : "Manual")}</td>
-                      <td>
-                        {row.source_type === "property_operating_expense" && row.review_status !== "excluded" ? (
-                          <select value={candidateCategories[row.id] || row.category} onChange={(e) => setCandidateCategories((c) => ({ ...c, [row.id]: e.target.value }))} className={inputClass()}>
-                            {TAX_CATEGORIES.map((category) => <option key={category} value={category}>{TAX_CATEGORY_LABELS[category]}</option>)}
-                          </select>
-                        ) : TAX_CATEGORY_LABELS[row.category] || row.category}
-                      </td>
-                      <td>{formatCurrency(row.amount)}</td>
-                      <td>{row.include_in_mtd ? "Included" : row.review_status === "excluded" ? "Excluded" : row.source_type === "property_operating_expense" ? "Needs review" : row.mtd_ready ? "Ready" : "Review"}</td>
-                      <td>
-                        {row.source_type === "property_operating_expense" && row.review_status !== "excluded" ? (
-                          <div className="flex flex-wrap gap-2">
-                            <button type="button" disabled={reviewBusy} onClick={() => handleInclude(row)} className="rounded-lg border border-emerald-200 px-2 py-1 text-xs font-medium text-emerald-700 disabled:opacity-50 dark:border-emerald-900/60 dark:text-emerald-200">
-                              Confirm & include
-                            </button>
-                            <input value={excludeReasons[row.id] || ""} onChange={(e) => setExcludeReasons((r) => ({ ...r, [row.id]: e.target.value }))} placeholder="Reason if excluding" className={`${inputClass()} max-w-[160px] py-1 text-xs`} />
-                            <button type="button" disabled={reviewBusy} onClick={() => handleExclude(row)} className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium disabled:opacity-50 dark:border-slate-700">
-                              Exclude
-                            </button>
-                          </div>
-                        ) : "—"}
-                      </td>
-                    </tr>
-                  ))}
+                  {expenses.slice(0, 8).map((row) => {
+                    const isPropertyFinanceCandidate = row.source_type === "property_operating_expense";
+                    const isIncludedCandidate = isPropertyFinanceCandidate && row.include_in_mtd === true && row.review_status === "reviewed";
+                    const isExcludedCandidate = isPropertyFinanceCandidate && row.review_status === "excluded";
+                    const isReviewableCandidate = isPropertyFinanceCandidate && !isIncludedCandidate && !isExcludedCandidate;
+                    return (
+                      <tr key={row.id}>
+                        <td className="py-2">{row.expense_date}</td>
+                        <td>{row.source_label || (isPropertyFinanceCandidate ? "Property Finance" : "Manual")}</td>
+                        <td>
+                          {isReviewableCandidate ? (
+                            <select value={candidateCategories[row.id] || row.category} onChange={(e) => setCandidateCategories((c) => ({ ...c, [row.id]: e.target.value }))} className={inputClass()}>
+                              {TAX_CATEGORIES.map((category) => <option key={category} value={category}>{TAX_CATEGORY_LABELS[category]}</option>)}
+                            </select>
+                          ) : TAX_CATEGORY_LABELS[row.category] || row.category}
+                        </td>
+                        <td>{formatCurrency(row.amount)}</td>
+                        <td>{isIncludedCandidate ? "Included" : isExcludedCandidate ? "Excluded" : isPropertyFinanceCandidate ? "Needs review" : row.mtd_ready ? "Ready" : "Review"}</td>
+                        <td>
+                          {isReviewableCandidate ? (
+                            <div className="flex flex-wrap gap-2">
+                              <button type="button" disabled={reviewBusy} onClick={() => handleInclude(row)} className="rounded-lg border border-emerald-200 px-2 py-1 text-xs font-medium text-emerald-700 disabled:opacity-50 dark:border-emerald-900/60 dark:text-emerald-200">
+                                Confirm & include
+                              </button>
+                              <input value={excludeReasons[row.id] || ""} onChange={(e) => setExcludeReasons((r) => ({ ...r, [row.id]: e.target.value }))} placeholder="Reason if excluding" className={`${inputClass()} max-w-[160px] py-1 text-xs`} />
+                              <button type="button" disabled={reviewBusy} onClick={() => handleExclude(row)} className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium disabled:opacity-50 dark:border-slate-700">
+                                Exclude
+                              </button>
+                            </div>
+                          ) : isIncludedCandidate ? (
+                            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-300">Confirmed</span>
+                          ) : isExcludedCandidate ? (
+                            <span className="text-xs text-slate-500">Excluded</span>
+                          ) : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
