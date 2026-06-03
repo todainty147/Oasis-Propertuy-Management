@@ -138,6 +138,7 @@ function WorkOrderPill({ wo, t }) {
 }
 
 function Modal({ open, onClose, title, children }) {
+  const { t } = useI18n();
   if (!open) return null;
 
   return (
@@ -151,7 +152,7 @@ function Modal({ open, onClose, title, children }) {
             onClick={onClose}
             className="text-sm px-2 py-1 rounded hover:bg-slate-100"
           >
-            Zamknij
+            {t("common.close")}
           </button>
         </div>
         <div className="p-4">{children}</div>
@@ -586,7 +587,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
     setWoContractorName("");
     setWoContractorPhone("");
     setWoScheduledAt("");
-    setWoNotes(requestRow?.description ? `Zgłoszenie: ${requestRow.description}` : "");
+    setWoNotes(requestRow?.description ? `${t("maintenance.requestLabel")}: ${requestRow.description}` : "");
     setWoModalOpen(true);
   }
 
@@ -752,7 +753,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
                   <label htmlFor="maintenance-diagnostic-issue" className="text-xs text-slate-500">
-                    Issue type
+                    Possible issue category
                   </label>
                   <select
                     id="maintenance-diagnostic-issue"
@@ -761,7 +762,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
                     onChange={(e) => setDiagnosticIssueType(e.target.value)}
                     className="mt-1 w-full border rounded-lg px-3 py-2 text-sm bg-white"
                   >
-                    <option value="">Select issue type</option>
+                    <option value="">Select possible issue category</option>
                     {MAINTENANCE_DIAGNOSTIC_ISSUES.map((issue) => (
                       <option key={issue.value} value={issue.value}>
                         {issue.label}
@@ -773,7 +774,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
                 <div className="md:col-span-2">
                   <p className="text-xs font-medium text-slate-700">Basic troubleshooting questions</p>
                   <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Information gathering only. The diagnostic summary is prepared for landlord review and is not a substitute for professional advice.
+                    These answers help your landlord review the issue. Landlord review required; this is not a substitute for professional advice.
                   </p>
                 </div>
               </div>
@@ -855,6 +856,7 @@ export default function MaintenanceRequestsSection({ propertyId }) {
               {diagnosticSummary ? (
                 <div className="rounded-lg border bg-white px-3 py-2">
                   <p className="text-xs font-medium text-slate-700">Diagnostic summary before submit</p>
+                  <p className="mt-1 text-[11px] font-medium text-indigo-700">Landlord review required</p>
                   <p className="mt-1 text-xs leading-5 text-slate-600 whitespace-pre-wrap line-clamp-6">
                     {diagnosticSummary}
                   </p>

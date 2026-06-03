@@ -219,8 +219,12 @@ export async function listDiagnosticsForMaintenanceRequests({ accountId, request
   for (const session of data || []) {
     const key = session.maintenance_request_id;
     if (!key || grouped[key]) continue;
+    const completedStepsCount = (session.maintenance_diagnostic_answers || []).filter(
+      (answer) => answer.answer_label || answer.answer?.value,
+    ).length;
     grouped[key] = {
       ...session,
+      completed_steps_count: completedStepsCount,
       key_answers: (session.maintenance_diagnostic_answers || [])
         .map((answer) => ({
           stepKey: answer.maintenance_diagnostic_steps?.step_key || "",

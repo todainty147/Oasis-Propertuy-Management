@@ -67,12 +67,48 @@ describe("maintenance diagnostics", () => {
     expect(outcome.depositRelevant).toBe(true);
     expect(outcome.ecoUpgradeRelevant).toBe(true);
     expect(summary).toContain("landlord review");
+    expect(summary).toContain("possible tenant-responsibility indicator");
     expect(summary).toContain("Not a substitute for professional advice");
-    expect(summary).not.toMatch(/tenant is liable|deduct from deposit automatically|no contractor needed/i);
+    expect(summary).not.toMatch(/you are responsible|tenant is liable|deduct from deposit automatically|no contractor needed|no contractor required|this diagnosis confirms/i);
   });
 
   it("normalizes yes/no answers into safe values", () => {
     expect(normalizeDiagnosticAnswer({ answer_type: "yes_no" }, "maybe")).toEqual({ value: "not_sure" });
     expect(normalizeDiagnosticAnswer({ answer_type: "yes_no" }, "yes")).toEqual({ value: "yes" });
+  });
+
+  it("marks recurring damp and vulnerable hot-water issues for review without promising outcomes", () => {
+    const dampOutcome = calculateDiagnosticOutcome({
+      issueType: "damp_mould",
+      steps,
+      answers: { recurring_issue: { value: "yes" } },
+    });
+    expect(dampOutcome).toMatchObject({
+      outcomeCategory: "eco_upgrade_possible",
+      ecoUpgradeRelevant: true,
+    });
+
+    const complianceSteps = [
+      ...steps,
+      { step_key: "vulnerable_occupant", question: "Is a vulnerable occupant affected?", answer_type: "yes_no" },
+    ];
+    const complianceOutcome = calculateDiagnosticOutcome({
+      issueType: "no_hot_water",
+      steps: complianceSteps,
+      answers: { vulnerable_occupant: { value: "yes" } },
+    });
+    const summary = formatDiagnosticSummary({
+      issueType: "no_hot_water",
+      steps: complianceSteps,
+      answers: { vulnerable_occupant: { value: "yes" } },
+      outcome: complianceOutcome,
+    });
+
+    expect(complianceOutcome).toMatchObject({
+      urgency: "high",
+      outcomeCategory: "compliance_review_possible",
+      complianceRelevant: true,
+    });
+    expect(summary).not.toMatch(/guaranteed epc improvement|guaranteed/i);
   });
 });

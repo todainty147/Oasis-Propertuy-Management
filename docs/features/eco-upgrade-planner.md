@@ -158,12 +158,15 @@ Use:
 - Eco-Upgrade Planner
 - EPC upgrade estimate
 - indicative cost
+- Review as eco-upgrade opportunity
+- May support an upgrade review
+- Indicative planning only
 
 ## Maintenance Smart Diagnostics Link
 
 Maintenance Smart Diagnostics can flag possible upgrade opportunities for landlord review. It does not create eco-upgrade plan items automatically.
-- suggested upgrade path
-- review with EPC assessor
+
+When enabled with `maintenance_eco_upgrade_linking`, diagnostic context may be used to prepare a landlord-confirmed review. It must not promise EPC point gain from a diagnostic alone, and linked work orders must remain part of the normal maintenance workflow.
 
 Avoid claims that a plan creates a certain EPC result, property value change, legal outcome or compliance outcome.
 

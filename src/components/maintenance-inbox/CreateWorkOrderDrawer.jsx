@@ -35,11 +35,11 @@ export default function CreateWorkOrderDrawer({
     setContractorName("");
     setContractorPhone("");
     setScheduledAt("");
-    setNotes(request?.description ? `Zgłoszenie: ${request.description}` : "");
+    setNotes(request?.description ? `${t("maintenance.requestLabel")}: ${request.description}` : "");
     setRecommendation(null);
     setRecommendationError("");
     setRecommendationLoading(false);
-  }, [open, request]);
+  }, [open, request, t]);
 
   useEffect(() => {
     if (!contractorId) return;

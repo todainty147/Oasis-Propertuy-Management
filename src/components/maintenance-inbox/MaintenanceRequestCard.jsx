@@ -396,6 +396,7 @@ function MaintenanceTriageCard({ accountId, request, canManage, compact, t }) {
 
 function DiagnosticSummaryPanel({ diagnostic, compact = false }) {
   if (!diagnostic) return null;
+  const completedStepsCount = Number(diagnostic.completed_steps_count || diagnostic.key_answers?.length || 0);
 
   const flags = [
     diagnostic.emergency_flag && {
@@ -447,6 +448,15 @@ function DiagnosticSummaryPanel({ diagnostic, compact = false }) {
           ))}
         </div>
       ) : null}
+
+      <div className="grid gap-1.5 sm:grid-cols-2">
+        <p className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] text-slate-600">
+          Completed steps: {completedStepsCount}
+        </p>
+        <p className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] text-slate-600">
+          Photos: review request attachments
+        </p>
+      </div>
 
       {diagnostic.summary ? (
         <p className="text-xs leading-5 text-slate-700 whitespace-pre-wrap line-clamp-5">
