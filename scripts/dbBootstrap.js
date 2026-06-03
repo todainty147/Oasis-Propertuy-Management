@@ -493,6 +493,11 @@ const bootstrapSteps = [
     file: path.join(supabaseDir, "property_risk_deposit_controls.sql"),
     onErrorStop: true,
   },
+  {
+    label: "Apply Maintenance Smart Diagnostics overlay",
+    file: path.join(supabaseDir, "maintenance_smart_diagnostics.sql"),
+    onErrorStop: true,
+  },
 ];
 
 function resolvePsqlCommand() {

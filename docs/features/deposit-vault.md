@@ -179,6 +179,10 @@ Locked and archived settlements are read-only in the page. The service layer als
 
 Deposit Settlement Statements are organisational records for landlord review. They do not replace legal advice, do not guarantee the outcome of any deposit dispute, and do not mean Tenaqo holds funds, moves money or operates as a payment rail.
 
+## Maintenance Smart Diagnostics Link
+
+Maintenance Smart Diagnostics can flag possible deposit evidence for landlord review. It does not decide tenant liability or create deductions automatically.
+
 ## Access Model
 
 Owners/admins/staff who can manage the account can manage settlement records. Tenants can read only records explicitly shared for their tenant profile. Contractors do not receive access to the settlement or deduction log.
