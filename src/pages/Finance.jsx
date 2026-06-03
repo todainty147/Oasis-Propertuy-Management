@@ -62,6 +62,7 @@ export default function Finance({
   onEditPayment,
   onDeletePayment,
   onMarkPaid,
+  onVoidPayment,
   mutating = false,
   mutationError = null,
 }) {
@@ -79,6 +80,8 @@ export default function Finance({
   const [paymentQuery, setPaymentQuery] = useState("");
   // B-5: inline delete confirmation — stores the payment id pending confirmation
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [pendingVoidId, setPendingVoidId] = useState(null);
+  const [voidReason, setVoidReason] = useState("");
   const [overdueCharges, setOverdueCharges] = useState(null);
 
   useEffect(() => { setTitle(t("finance.title")); }, [setTitle, t]);
@@ -93,6 +96,7 @@ export default function Finance({
   const canCreate = can(activePermissionContext, "finance", "create");
   // B-1: update permission governs mark-paid (it is an update, not a delete)
   const canUpdate = isRootOperator || can(activePermissionContext, "finance", "update");
+  const canReversePayment = isRootOperator || can(activePermissionContext, "finance", "reverse_payment");
   const canDelete = can(activePermissionContext, "finance", "delete");
   const canRead   = isRootOperator || can(activePermissionContext, "finance", "read");
   const canManageCollectionSettings = isRootOperator || can(activePermissionContext, "finance", "update");
@@ -124,6 +128,8 @@ export default function Finance({
     next.set("tab", tab);
     setSearchParams(next, { replace: true });
     setPendingDeleteId(null);
+    setPendingVoidId(null);
+    setVoidReason("");
   }
 
   function setStatusFilter(status) {
@@ -250,8 +256,23 @@ export default function Finance({
         onDeletePayment(paymentId);
         return null;
       }
+      setPendingVoidId(null);
+      setVoidReason("");
       return paymentId;
     });
+  }
+
+  function handleVoidClick(paymentId) {
+    if (pendingVoidId === paymentId) {
+      onVoidPayment(paymentId, voidReason.trim());
+      setPendingVoidId(null);
+      setVoidReason("");
+      return;
+    }
+
+    setPendingDeleteId(null);
+    setVoidReason("");
+    setPendingVoidId(paymentId);
   }
 
   // ── Status pills ──────────────────────────────────────────────────────────────
@@ -593,65 +614,26 @@ export default function Finance({
                 {/* Mobile cards */}
                 <div className="md:hidden divide-y" data-testid="payments-cards">
                   {visiblePayments.map((p) => (
-                    <div key={p.id} className="px-4 py-4 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-sm font-semibold text-slate-900 break-words min-w-0">{p.tenantName ?? "—"}</span>
-                        <div className="shrink-0"><StatusBadge status={p.status} t={t} /></div>
-                      </div>
-                      <p className="text-xs text-slate-500 truncate">{p.propertyAddress ?? "—"}</p>
-                      <p className="text-sm text-slate-700">
-                        <span className="font-medium">{formatCurrency(p.amount, activeCurrency, activeCountryCode)}</span>
-                        {isAdjustedFinancePayment(p) && (
-                          <span className="ml-1 text-xs text-slate-500">
-                            ({t("tenantDetails.partialCredit", {
-                              original: formatCurrency(p.originalAmount, activeCurrency, activeCountryCode),
-                              paid: formatCurrency(p.paidAgainstRunningBalance, activeCurrency, activeCountryCode),
-                            })})
-                          </span>
-                        )}
-                        <span className="mx-1.5 text-slate-300">·</span>
-                        {p.paidAt ? (
-                          <span className="text-slate-500">{t("payments.paidAt")}: {formatDate(p.paidAt)}</span>
-                        ) : (
-                          <span className="text-slate-500">{t("payments.dueDate")}: {formatDate(p.dueDate)}</span>
-                        )}
-                      </p>
-                      <div className="grid grid-cols-2 gap-2 pt-1">
-                        {/* B-1: canUpdate gates mark-paid (update op, not delete) */}
-                        {canUpdate && !isAdjustedFinancePayment(p) && !p.paidAt && normalizePaymentStatus(p.status) !== "paid" && onMarkPaid && (
-                          <button
-                            data-testid={`mark-paid-${p.id}`}
-                            disabled={mutating}
-                            onClick={() => onMarkPaid(p.id)}
-                            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-                          >
-                            {t("payments.markPaid")}
-                          </button>
-                        )}
-                        {canUpdate && onEditPayment && (
-                          <button
-                            onClick={() => onEditPayment(p)}
-                            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                          >
-                            {t("common.edit")}
-                          </button>
-                        )}
-                        {canDelete && (
-                          // I-3: inline two-click confirmation instead of window.confirm
-                          <button
-                            disabled={mutating}
-                            onClick={() => handleDeleteClick(p.id)}
-                            className={`rounded-lg border px-3 py-2 text-xs font-medium disabled:opacity-50 ${
-                              pendingDeleteId === p.id
-                                ? "border-rose-400 bg-rose-600 text-white"
-                                : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
-                            }`}
-                          >
-                            {pendingDeleteId === p.id ? t("finance.confirmDeletePayment") : t("attachments.delete")}
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                    <PaymentCard
+                      key={p.id}
+                      payment={p}
+                      activeCurrency={activeCurrency}
+                      activeCountryCode={activeCountryCode}
+                      canDelete={canDelete}
+                      canReversePayment={canReversePayment}
+                      canUpdate={canUpdate}
+                      mutating={mutating}
+                      onEditPayment={onEditPayment}
+                      onMarkPaid={onMarkPaid}
+                      onVoidPayment={onVoidPayment}
+                      pendingDeleteId={pendingDeleteId}
+                      pendingVoidId={pendingVoidId}
+                      voidReason={voidReason}
+                      setVoidReason={setVoidReason}
+                      handleDeleteClick={handleDeleteClick}
+                      handleVoidClick={handleVoidClick}
+                      t={t}
+                    />
                   ))}
                 </div>
 
@@ -670,67 +652,26 @@ export default function Finance({
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {visiblePayments.map((p) => (
-                        <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-3 font-medium text-slate-900">{p.tenantName ?? "—"}</td>
-                          <td className="px-6 py-3 text-slate-600">{p.propertyAddress ?? "—"}</td>
-                          <td className="px-6 py-3 text-right font-semibold text-slate-900">
-                            <div>{formatCurrency(p.amount, activeCurrency, activeCountryCode)}</div>
-                            {isAdjustedFinancePayment(p) && (
-                              <div className="text-xs font-normal text-slate-500">
-                                {t("tenantDetails.partialCredit", {
-                                  original: formatCurrency(p.originalAmount, activeCurrency, activeCountryCode),
-                                  paid: formatCurrency(p.paidAgainstRunningBalance, activeCurrency, activeCountryCode),
-                                })}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-6 py-3"><StatusBadge status={p.status} t={t} /></td>
-                          <td className="px-6 py-3 text-slate-600">
-                            <div>{formatDate(p.dueDate)}</div>
-                            {p.paidAt && (
-                              <div className="text-xs text-slate-500">{t("payments.paidAt")}: {formatDate(p.paidAt)}</div>
-                            )}
-                          </td>
-                          <td className="px-6 py-3">
-                            <div className="flex items-center justify-end gap-2">
-                              {/* B-1: canUpdate governs mark-paid */}
-                              {canUpdate && !isAdjustedFinancePayment(p) && !p.paidAt && normalizePaymentStatus(p.status) !== "paid" && onMarkPaid && (
-                                <button
-                                  data-testid={`mark-paid-${p.id}`}
-                                  disabled={mutating}
-                                  onClick={() => onMarkPaid(p.id)}
-                                  className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-                                >
-                                  {t("payments.markPaid")}
-                                </button>
-                              )}
-                              {canUpdate && onEditPayment && (
-                                <button
-                                  onClick={() => onEditPayment(p)}
-                                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                                >
-                                  {t("common.edit")}
-                                </button>
-                              )}
-                              {canDelete ? (
-                                // I-3: inline two-click confirmation
-                                <button
-                                  disabled={mutating}
-                                  onClick={() => handleDeleteClick(p.id)}
-                                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium disabled:opacity-50 transition-colors ${
-                                    pendingDeleteId === p.id
-                                      ? "border-rose-400 bg-rose-600 text-white"
-                                      : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
-                                  }`}
-                                >
-                                  {pendingDeleteId === p.id ? t("finance.confirmDeletePayment") : t("attachments.delete")}
-                                </button>
-                              ) : (
-                                <span className="text-xs text-slate-400">—</span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
+                        <PaymentRow
+                          key={p.id}
+                          payment={p}
+                          activeCurrency={activeCurrency}
+                          activeCountryCode={activeCountryCode}
+                          canDelete={canDelete}
+                          canReversePayment={canReversePayment}
+                          canUpdate={canUpdate}
+                          mutating={mutating}
+                          onEditPayment={onEditPayment}
+                          onMarkPaid={onMarkPaid}
+                          onVoidPayment={onVoidPayment}
+                          pendingDeleteId={pendingDeleteId}
+                          pendingVoidId={pendingVoidId}
+                          voidReason={voidReason}
+                          setVoidReason={setVoidReason}
+                          handleDeleteClick={handleDeleteClick}
+                          handleVoidClick={handleVoidClick}
+                          t={t}
+                        />
                       ))}
                     </tbody>
                   </table>
@@ -761,6 +702,244 @@ export default function Finance({
         />
       )}
     </div>
+  );
+}
+
+function paymentIsVoid(payment) {
+  return normalizePaymentStatus(payment?.status) === "void";
+}
+
+function paymentIsPaid(payment) {
+  return !!payment?.paidAt || normalizePaymentStatus(payment?.status) === "paid";
+}
+
+function PaymentActions({
+  payment,
+  canDelete,
+  canReversePayment,
+  canUpdate,
+  mutating,
+  onEditPayment,
+  onMarkPaid,
+  onVoidPayment,
+  pendingDeleteId,
+  pendingVoidId,
+  voidReason,
+  setVoidReason,
+  handleDeleteClick,
+  handleVoidClick,
+  t,
+  compact = false,
+}) {
+  const isVoid = paymentIsVoid(payment);
+  const isPaid = paymentIsPaid(payment);
+  const canMarkPaid = canUpdate
+    && !isAdjustedFinancePayment(payment)
+    && !isVoid
+    && !isPaid
+    && onMarkPaid;
+  const canVoid = canReversePayment && isPaid && !isVoid && onVoidPayment;
+  const canEditPayment = canUpdate && !isVoid && onEditPayment;
+  const canDeletePayment = canDelete && !isPaid && !isVoid;
+  const baseClass = compact
+    ? "rounded-lg border px-3 py-2 text-xs font-medium disabled:opacity-50"
+    : "rounded-lg border px-3 py-1.5 text-xs font-medium disabled:opacity-50 transition-colors";
+
+  return (
+    <>
+      {canMarkPaid && (
+        <button
+          data-testid={`mark-paid-${payment.id}`}
+          disabled={mutating}
+          onClick={() => onMarkPaid(payment.id)}
+          className={`${baseClass} border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100`}
+        >
+          {t("payments.markPaid")}
+        </button>
+      )}
+      {canVoid && (
+        <>
+          {pendingVoidId === payment.id && (
+            <input
+              type="text"
+              value={voidReason}
+              onChange={(event) => setVoidReason(event.target.value)}
+              placeholder={t("payments.voidReasonPlaceholder")}
+              className={`${compact ? "col-span-2" : "w-48"} rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-300`}
+            />
+          )}
+          <button
+            data-testid={`void-payment-${payment.id}`}
+            disabled={mutating || (pendingVoidId === payment.id && !voidReason.trim())}
+            onClick={() => handleVoidClick(payment.id)}
+            className={`${baseClass} ${
+              pendingVoidId === payment.id
+                ? "border-amber-400 bg-amber-600 text-white"
+                : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+            }`}
+          >
+            {pendingVoidId === payment.id ? t("payments.confirmVoid") : t("payments.void")}
+          </button>
+        </>
+      )}
+      {canEditPayment && (
+        <button
+          onClick={() => onEditPayment(payment)}
+          className={`${baseClass} border-slate-200 ${compact ? "bg-slate-50" : "bg-white"} text-slate-700 hover:bg-slate-100`}
+        >
+          {t("common.edit")}
+        </button>
+      )}
+      {canDeletePayment && (
+        <button
+          disabled={mutating}
+          onClick={() => handleDeleteClick(payment.id)}
+          className={`${baseClass} ${
+            pendingDeleteId === payment.id
+              ? "border-rose-400 bg-rose-600 text-white"
+              : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+          }`}
+        >
+          {pendingDeleteId === payment.id ? t("finance.confirmDeletePayment") : t("attachments.delete")}
+        </button>
+      )}
+      {!canMarkPaid && !canVoid && !canEditPayment && !canDeletePayment && !compact && (
+        <span className="text-xs text-slate-400">—</span>
+      )}
+    </>
+  );
+}
+
+function PaymentCard({
+  payment: p,
+  activeCurrency,
+  activeCountryCode,
+  canDelete,
+  canReversePayment,
+  canUpdate,
+  mutating,
+  onEditPayment,
+  onMarkPaid,
+  onVoidPayment,
+  pendingDeleteId,
+  pendingVoidId,
+  voidReason,
+  setVoidReason,
+  handleDeleteClick,
+  handleVoidClick,
+  t,
+}) {
+  return (
+    <div className="px-4 py-4 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-sm font-semibold text-slate-900 break-words min-w-0">{p.tenantName ?? "—"}</span>
+                        <div className="shrink-0"><StatusBadge status={p.status} t={t} /></div>
+                      </div>
+                      <p className="text-xs text-slate-500 truncate">{p.propertyAddress ?? "—"}</p>
+                      <p className="text-sm text-slate-700">
+                        <span className="font-medium">{formatCurrency(p.amount, activeCurrency, activeCountryCode)}</span>
+                        {isAdjustedFinancePayment(p) && (
+                          <span className="ml-1 text-xs text-slate-500">
+                            ({t("tenantDetails.partialCredit", {
+                              original: formatCurrency(p.originalAmount, activeCurrency, activeCountryCode),
+                              paid: formatCurrency(p.paidAgainstRunningBalance, activeCurrency, activeCountryCode),
+                            })})
+                          </span>
+                        )}
+                        <span className="mx-1.5 text-slate-300">·</span>
+                        {p.paidAt ? (
+                          <span className="text-slate-500">{t("payments.paidAt")}: {formatDate(p.paidAt)}</span>
+                        ) : (
+                          <span className="text-slate-500">{t("payments.dueDate")}: {formatDate(p.dueDate)}</span>
+                        )}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <PaymentActions
+                          payment={p}
+                          canDelete={canDelete}
+                          canReversePayment={canReversePayment}
+                          canUpdate={canUpdate}
+                          mutating={mutating}
+                          onEditPayment={onEditPayment}
+                          onMarkPaid={onMarkPaid}
+                          onVoidPayment={onVoidPayment}
+                          pendingDeleteId={pendingDeleteId}
+                          pendingVoidId={pendingVoidId}
+                          voidReason={voidReason}
+                          setVoidReason={setVoidReason}
+                          handleDeleteClick={handleDeleteClick}
+                          handleVoidClick={handleVoidClick}
+                          t={t}
+                          compact
+                        />
+                      </div>
+                    </div>
+  );
+}
+
+function PaymentRow({
+  payment: p,
+  activeCurrency,
+  activeCountryCode,
+  canDelete,
+  canReversePayment,
+  canUpdate,
+  mutating,
+  onEditPayment,
+  onMarkPaid,
+  onVoidPayment,
+  pendingDeleteId,
+  pendingVoidId,
+  voidReason,
+  setVoidReason,
+  handleDeleteClick,
+  handleVoidClick,
+  t,
+}) {
+  return (
+    <tr className="hover:bg-slate-50 transition-colors">
+                          <td className="px-6 py-3 font-medium text-slate-900">{p.tenantName ?? "—"}</td>
+                          <td className="px-6 py-3 text-slate-600">{p.propertyAddress ?? "—"}</td>
+                          <td className="px-6 py-3 text-right font-semibold text-slate-900">
+                            <div>{formatCurrency(p.amount, activeCurrency, activeCountryCode)}</div>
+                            {isAdjustedFinancePayment(p) && (
+                              <div className="text-xs font-normal text-slate-500">
+                                {t("tenantDetails.partialCredit", {
+                                  original: formatCurrency(p.originalAmount, activeCurrency, activeCountryCode),
+                                  paid: formatCurrency(p.paidAgainstRunningBalance, activeCurrency, activeCountryCode),
+                                })}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-3"><StatusBadge status={p.status} t={t} /></td>
+                          <td className="px-6 py-3 text-slate-600">
+                            <div>{formatDate(p.dueDate)}</div>
+                            {p.paidAt && (
+                              <div className="text-xs text-slate-500">{t("payments.paidAt")}: {formatDate(p.paidAt)}</div>
+                            )}
+                          </td>
+                          <td className="px-6 py-3">
+                            <div className="flex items-center justify-end gap-2">
+                              <PaymentActions
+                                payment={p}
+                                canDelete={canDelete}
+                                canReversePayment={canReversePayment}
+                                canUpdate={canUpdate}
+                                mutating={mutating}
+                                onEditPayment={onEditPayment}
+                                onMarkPaid={onMarkPaid}
+                                onVoidPayment={onVoidPayment}
+                                pendingDeleteId={pendingDeleteId}
+                                pendingVoidId={pendingVoidId}
+                                voidReason={voidReason}
+                                setVoidReason={setVoidReason}
+                                handleDeleteClick={handleDeleteClick}
+                                handleVoidClick={handleVoidClick}
+                                t={t}
+                              />
+                            </div>
+                          </td>
+                        </tr>
   );
 }
 
@@ -832,6 +1011,7 @@ function StatusBadge({ status, t }) {
     normalized === "partial" ? "bg-amber-100 text-amber-700"     :
     normalized === "pending" ? "bg-blue-100 text-blue-700"       :
     normalized === "overdue" ? "bg-rose-100 text-rose-700"       :
+    normalized === "void"    ? "bg-slate-200 text-slate-700"     :
     occupancy  === "vacant"  ? "bg-slate-100 text-slate-600"     :
                                "bg-slate-100 text-slate-600";
   return (

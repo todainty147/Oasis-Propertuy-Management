@@ -13,6 +13,7 @@ import {
   deletePayment,
   markPaymentPaid,
   updatePayment,
+  voidPayment,
 } from "../services/paymentService";
 
 export default function FinancePage() {
@@ -60,6 +61,10 @@ export default function FinancePage() {
     runMutation(() =>
       markPaymentPaid(paymentId, new Date().toISOString().slice(0, 10), activeAccountId)
     );
+  }, [runMutation, activeAccountId]);
+
+  const handleVoidPayment = useCallback((paymentId, reason) => {
+    runMutation(() => voidPayment(paymentId, activeAccountId, reason));
   }, [runMutation, activeAccountId]);
 
   // B-3: edit flow — pass the existing payment into the modal
@@ -129,6 +134,7 @@ export default function FinancePage() {
         onEditPayment={handleEditPayment}
         onDeletePayment={handleDeletePayment}
         onMarkPaid={handleMarkPaid}
+        onVoidPayment={handleVoidPayment}
       />
 
       <AddPaymentModal

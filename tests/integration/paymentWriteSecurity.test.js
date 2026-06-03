@@ -235,12 +235,28 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
 
     const { data: remainingLedgerRows, error: remainingLedgerError } = await admin
       .from("ledger_entries")
-      .select("id")
-      .eq("source_table", "payments")
-      .eq("source_id", payment.id);
+      .select("source_table, source_id, external_ref, entry_type, direction, amount")
+      .or(`and(source_table.eq.payments,source_id.eq.${payment.id}),and(source_table.eq.payment_reversals,external_ref.eq.${payment.id})`);
 
     expect(remainingLedgerError).toBeNull();
-    expect(remainingLedgerRows || []).toEqual([]);
+    expect(remainingLedgerRows || []).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source_table: "payments",
+          source_id: payment.id,
+          entry_type: "payment",
+          direction: "in",
+          amount: 1650,
+        }),
+        expect.objectContaining({
+          source_table: "payment_reversals",
+          external_ref: payment.id,
+          entry_type: "refund",
+          direction: "out",
+          amount: 1650,
+        }),
+      ]),
+    );
 
     const { data: reopenedEvents, error: reopenedEventsError } = await admin
       .from("payment_events")
@@ -402,6 +418,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
 
     const voidResult = await client.rpc("void_payment", {
       p_payment_id: payment.id,
+      p_reason: "Duplicate receipt recorded during test",
     });
 
     expect(voidResult.error).toBeNull();
@@ -453,7 +470,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
       .order("created_at", { ascending: false });
 
     expect(eventsError).toBeNull();
-    expect((events || []).some((row) => row.event_type === "payment_status_changed" && row.new_status === "void")).toBe(true);
+    expect((events || []).some((row) => row.event_type === "payment_reversed" && row.new_status === "void")).toBe(true);
     expect((events || []).some((row) => row.event_type === "payment_status_changed" && row.old_status === "void" && row.new_status === "due")).toBe(true);
   });
 
@@ -475,11 +492,13 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
 
       const voidResult = await client.rpc("void_payment", {
         p_payment_id: payment.id,
+        p_reason: "Permission denial test",
       });
       expectWriteDenied(voidResult);
 
       const { error: ownerVoidError } = await ownerClient.rpc("void_payment", {
         p_payment_id: payment.id,
+        p_reason: "Owner correction for permission denial test",
       });
       expect(ownerVoidError).toBeNull();
 

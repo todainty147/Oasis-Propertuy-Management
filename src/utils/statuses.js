@@ -3,6 +3,7 @@ export const PAYMENT_STATUS = {
   PARTIAL: "partial",
   PENDING: "pending",
   OVERDUE: "overdue",
+  VOID: "void",
   OTHER: "other",
 };
 
@@ -30,6 +31,7 @@ export function normalizePaymentStatus(status) {
   if (["partial", "częściowo", "czesciowo"].includes(value)) return PAYMENT_STATUS.PARTIAL;
   if (["due", "pending", "oczekujące", "oczekujace"].includes(value)) return PAYMENT_STATUS.PENDING;
   if (["overdue", "zaległe", "zalegle"].includes(value)) return PAYMENT_STATUS.OVERDUE;
+  if (["void", "voided", "unieważnione", "uniewaznione", "storniert", "annulliert"].includes(value)) return PAYMENT_STATUS.VOID;
   return PAYMENT_STATUS.OTHER;
 }
 
@@ -39,6 +41,7 @@ export function paymentStatusLabelKey(status) {
   if (normalized === PAYMENT_STATUS.PARTIAL) return "payments.status.partial";
   if (normalized === PAYMENT_STATUS.PENDING) return "payments.status.pending";
   if (normalized === PAYMENT_STATUS.OVERDUE) return "payments.status.overdue";
+  if (normalized === PAYMENT_STATUS.VOID) return "payments.status.void";
   return null;
 }
 

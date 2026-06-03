@@ -38,6 +38,7 @@ export const ROLE_PERMISSION_OPTIONS = [
   "finance.create",
   "finance.update",
   "finance.delete",
+  "finance.reverse_payment",
   "users.invite",
   "users.role",
 ];
