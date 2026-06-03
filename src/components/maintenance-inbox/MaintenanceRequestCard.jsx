@@ -394,6 +394,83 @@ function MaintenanceTriageCard({ accountId, request, canManage, compact, t }) {
   );
 }
 
+function DiagnosticSummaryPanel({ diagnostic, compact = false }) {
+  if (!diagnostic) return null;
+
+  const flags = [
+    diagnostic.emergency_flag && {
+      label: "Emergency information",
+      className: "border-rose-200 bg-rose-50 text-rose-700",
+    },
+    diagnostic.deposit_relevant && {
+      label: "Possible deposit evidence",
+      className: "border-amber-200 bg-amber-50 text-amber-700",
+    },
+    diagnostic.eco_upgrade_relevant && {
+      label: "Possible upgrade opportunity",
+      className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    },
+    diagnostic.compliance_relevant && {
+      label: "Possible compliance review",
+      className: "border-blue-200 bg-blue-50 text-blue-700",
+    },
+  ].filter(Boolean);
+
+  if (compact) {
+    return (
+      <span className="inline-flex rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] text-indigo-700">
+        Diagnostic summary: {String(diagnostic.urgency || "normal").replaceAll("_", " ")}
+      </span>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3 space-y-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-600">
+          Diagnostic summary
+        </span>
+        <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-600">
+          {String(diagnostic.issue_type || "maintenance issue").replaceAll("_", " ")}
+        </span>
+        <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-600">
+          {String(diagnostic.outcome_category || "landlord_review").replaceAll("_", " ")}
+        </span>
+      </div>
+
+      {flags.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {flags.map((flag) => (
+            <span key={flag.label} className={`rounded-full border px-2 py-0.5 text-[11px] ${flag.className}`}>
+              {flag.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {diagnostic.summary ? (
+        <p className="text-xs leading-5 text-slate-700 whitespace-pre-wrap line-clamp-5">
+          {diagnostic.summary}
+        </p>
+      ) : null}
+
+      {diagnostic.key_answers?.length ? (
+        <div className="grid gap-1.5">
+          {diagnostic.key_answers.map((entry) => (
+            <p key={`${entry.stepKey}-${entry.question}`} className="text-xs text-slate-600">
+              <span className="font-medium text-slate-800">{entry.question}</span>: {entry.answer}
+            </p>
+          ))}
+        </div>
+      ) : null}
+
+      <p className="text-[11px] text-slate-500">
+        Basic troubleshooting questions only. Landlord review and approval required; not a substitute for professional advice.
+      </p>
+    </div>
+  );
+}
+
 // ─── main card ────────────────────────────────────────────────────────────────
 
 export default function MaintenanceRequestCard({
@@ -517,6 +594,7 @@ export default function MaintenanceRequestCard({
             t={t}
           />
         </TriageFeatureGate>
+        {!expanded && <DiagnosticSummaryPanel diagnostic={request.diagnostic_session} compact />}
         {linkedWorkOrders.length > 0 ? (
           <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] text-blue-700">
             {linkedWorkOrders.length === 1
@@ -546,6 +624,8 @@ export default function MaintenanceRequestCard({
             busy={busy}
             onCreateWorkOrder={() => onCreateWorkOrder(request)}
           />
+
+          <DiagnosticSummaryPanel diagnostic={request.diagnostic_session} />
 
           {timelineOpen && (
             <MaintenanceTimeline

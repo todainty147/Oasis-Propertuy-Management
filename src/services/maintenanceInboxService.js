@@ -6,6 +6,7 @@ import {
   parseRpcRows,
   parseWorkOrderRow,
 } from "./rpcContracts";
+import { listDiagnosticsForMaintenanceRequests } from "./maintenanceDiagnosticsService";
 
 function buildPropertyLabel(row, fallback = "Property") {
   const city = row.city ? `, ${row.city}` : "";
@@ -80,14 +81,20 @@ export async function loadMaintenanceInboxData(accountId, propertyLabelFallback 
     };
   }
 
-  const { data: workOrderRows, error: workOrderError } = await supabase
-    .from("work_orders_with_flags")
-    .select(
-      "id, account_id, property_id, maintenance_request_id, contractor_user_id, contractor_name, contractor_phone, status, created_at",
-    )
-    .eq("account_id", accountId)
-    .in("maintenance_request_id", requestIds)
-    .order("created_at", { ascending: false });
+  const [
+    { data: workOrderRows, error: workOrderError },
+    diagnosticsByRequestId,
+  ] = await Promise.all([
+    supabase
+      .from("work_orders_with_flags")
+      .select(
+        "id, account_id, property_id, maintenance_request_id, contractor_user_id, contractor_name, contractor_phone, status, created_at",
+      )
+      .eq("account_id", accountId)
+      .in("maintenance_request_id", requestIds)
+      .order("created_at", { ascending: false }),
+    listDiagnosticsForMaintenanceRequests({ accountId, requestIds }).catch(() => ({})),
+  ]);
 
   if (workOrderError) throw workOrderError;
 
@@ -105,7 +112,10 @@ export async function loadMaintenanceInboxData(accountId, propertyLabelFallback 
   }
 
   return {
-    requests,
+    requests: requests.map((request) => ({
+      ...request,
+      diagnostic_session: diagnosticsByRequestId[request.id] || null,
+    })),
     totalCount: requests.length,
     workOrdersByRequestId,
     propertyLabelById,

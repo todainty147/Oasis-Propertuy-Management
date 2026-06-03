@@ -128,3 +128,4 @@ Compliance events are stored in `compliance_evidence_events`, including:
 - Tenant acknowledgement records receipt/review only; it does not guarantee legal validity.
 - Tenaqo does not provide legal advice or guarantee compliance outcomes.
 - Eco-Upgrade Planner estimates are indicative and should be reviewed with an EPC assessor.
+- Maintenance Smart Diagnostics can flag possible compliance review needs from tenant maintenance context. It remains an information-gathering aid and does not create compliance items automatically.

@@ -65,6 +65,18 @@ describe("Property Risk & Deposit Financial Controls contracts", () => {
     expect(sql).toContain("Tenants read shared deposit settlements");
     expect(sql).toContain("Contractors only see linked work orders");
     expect(sql).toContain("Deposit settlement account mismatch");
+    expect(sql).toContain("enforce_deposit_evidence_reference_account");
+    expect(sql).toContain("Deposit evidence reference account mismatch");
+    expect(sql).toContain("Deposit evidence reference not found");
+    expect(sql).toContain("tg_op = 'UPDATE'");
+    expect(sql).toContain("old.evidence_id is not distinct from new.evidence_id");
+    expect(sql).toContain("old.evidence_type is not distinct from new.evidence_type");
+    expect(sql).toContain("to_regclass('public.inspection_reports')");
+    expect(sql).toContain("to_regclass('public.inspection_evidence_items')");
+    expect(sql).toContain("to_regclass('public.inspection_photos')");
+    expect(sql).toContain("to_regclass('public.maintenance_requests')");
+    expect(sql).toContain("to_regclass('public.work_orders')");
+    expect(sql).toContain("to_regclass('public.documents')");
     expect(sql).toContain("Eco-upgrade plan account mismatch");
   });
 
@@ -166,6 +178,28 @@ describe("Property Risk & Deposit Financial Controls contracts", () => {
 
     expect(service).toContain("properties:property_id(id,address)");
     expect(service).not.toContain("properties:property_id(id,address,name)");
+  });
+
+  it("keeps Deposit Settlement export metadata public-safe", () => {
+    const service = read("src/services/depositSettlementService.js");
+
+    expect(service).toContain("function normalizeStatementEvidenceLink");
+    expect(service).toContain('brand: "Tenaqo"');
+    expect(service).toContain("evidenceIndex");
+    expect(service).toContain("deductionNumber");
+    expect(service).not.toContain("evidence: deduction.deposit_deduction_evidence_links || deduction.evidenceLinks || []");
+  });
+
+  it("does not demote locked or archived settlements when generating statement exports", () => {
+    const service = read("src/services/depositSettlementService.js");
+    const generateBlock = service.slice(
+      service.indexOf("export async function generateDepositSettlementStatement"),
+      service.indexOf("export async function lockDepositSettlement"),
+    );
+
+    expect(generateBlock).toContain('settlement.status !== "locked"');
+    expect(generateBlock).toContain('settlement.status !== "archived"');
+    expect(generateBlock).toContain('update({ status: "statement_generated" })');
   });
 
   it("keeps deposit settlement audit attributed and best-effort", () => {

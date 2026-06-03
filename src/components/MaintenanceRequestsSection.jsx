@@ -5,7 +5,20 @@ import Card from "./Card";
 import Skeleton from "./ui/Skeleton";
 import MaintenanceRequestAttachmentsPanel from "./maintenance/MaintenanceRequestAttachmentsPanel";
 import { useAccount } from "../context/AccountContext";
+import { ENTITLEMENT_FEATURES } from "../lib/entitlements";
+import {
+  buildMaintenanceRequestDiagnosticDescription,
+  calculateDiagnosticOutcome,
+  EMERGENCY_SAFETY_COPY,
+  formatDiagnosticSummary,
+  MAINTENANCE_DIAGNOSTIC_ISSUES,
+  normalizeDiagnosticAnswer,
+} from "../lib/maintenanceDiagnostics";
 import { supabase } from "../lib/supabase";
+import {
+  createMaintenanceDiagnosticForRequest,
+  getMaintenanceDiagnosticTemplate,
+} from "../services/maintenanceDiagnosticsService";
 import {
   createMaintenanceRequest,
   listLinkedWorkOrdersForRequests,
@@ -211,7 +224,7 @@ function PaginationFooter({
 ----------------------------- */
 
 export default function MaintenanceRequestsSection({ propertyId }) {
-  const { activeAccountId, activeRole } = useAccount();
+  const { activeAccountId, activeRole, hasEntitlement } = useAccount();
   const { t } = useI18n();
   const navigate = useNavigate();
 
@@ -225,6 +238,9 @@ export default function MaintenanceRequestsSection({ propertyId }) {
   }, [activeRole]);
 
   const canCreate = canManage || isTenant;
+  const diagnosticsEnabled =
+    hasEntitlement?.(ENTITLEMENT_FEATURES.MAINTENANCE_SMART_DIAGNOSTICS) ||
+    (isTenant && hasEntitlement?.(ENTITLEMENT_FEATURES.TENANT_MAINTENANCE_DIAGNOSTICS));
 
   // -----------------------------
   // Data: requests + linked work orders
@@ -323,6 +339,69 @@ export default function MaintenanceRequestsSection({ propertyId }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("normal");
+  const [diagnosticIssueType, setDiagnosticIssueType] = useState("");
+  const [diagnosticTemplate, setDiagnosticTemplate] = useState(null);
+  const [diagnosticAnswers, setDiagnosticAnswers] = useState({});
+  const [diagnosticLoading, setDiagnosticLoading] = useState(false);
+  const diagnosticSteps = useMemo(
+    () => diagnosticTemplate?.maintenance_diagnostic_steps ?? [],
+    [diagnosticTemplate],
+  );
+  const diagnosticOutcome = useMemo(() => {
+    if (!diagnosticsEnabled || !diagnosticIssueType || diagnosticSteps.length === 0) return null;
+    return calculateDiagnosticOutcome({
+      issueType: diagnosticIssueType,
+      steps: diagnosticSteps,
+      answers: diagnosticAnswers,
+    });
+  }, [diagnosticAnswers, diagnosticIssueType, diagnosticSteps, diagnosticsEnabled]);
+  const diagnosticSummary = useMemo(() => {
+    if (!diagnosticOutcome) return "";
+    return formatDiagnosticSummary({
+      issueType: diagnosticIssueType,
+      steps: diagnosticSteps,
+      answers: diagnosticAnswers,
+      outcome: diagnosticOutcome,
+    });
+  }, [diagnosticAnswers, diagnosticIssueType, diagnosticOutcome, diagnosticSteps]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadDiagnosticTemplate() {
+      if (!diagnosticsEnabled || !diagnosticIssueType) {
+        setDiagnosticTemplate(null);
+        setDiagnosticAnswers({});
+        return;
+      }
+      setDiagnosticLoading(true);
+      try {
+        const template = await getMaintenanceDiagnosticTemplate(diagnosticIssueType);
+        if (!cancelled) {
+          setDiagnosticTemplate(template);
+          setDiagnosticAnswers({});
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.warn("Maintenance diagnostic template unavailable", e);
+          setDiagnosticTemplate(null);
+          setDiagnosticAnswers({});
+        }
+      } finally {
+        if (!cancelled) setDiagnosticLoading(false);
+      }
+    }
+    loadDiagnosticTemplate();
+    return () => {
+      cancelled = true;
+    };
+  }, [diagnosticIssueType, diagnosticsEnabled]);
+
+  function setDiagnosticAnswer(step, value) {
+    setDiagnosticAnswers((prev) => ({
+      ...prev,
+      [step.step_key]: normalizeDiagnosticAnswer(step, value),
+    }));
+  }
 
   async function handleCreate() {
     if (!activeAccountId || !propertyId) return;
@@ -343,18 +422,47 @@ export default function MaintenanceRequestsSection({ propertyId }) {
         }
       }
 
-      await createMaintenanceRequest({
+      const requestPriority =
+        diagnosticOutcome?.urgency === "urgent"
+          ? "urgent"
+          : diagnosticOutcome?.urgency === "high" && priority !== "urgent"
+            ? "high"
+            : priority;
+      const requestDescription = diagnosticSummary
+        ? buildMaintenanceRequestDiagnosticDescription(description, diagnosticSummary)
+        : description;
+
+      const createdRequest = await createMaintenanceRequest({
         accountId: activeAccountId,
         propertyId,
         reportedByTenantId,
         title,
-        description,
-        priority,
+        description: requestDescription,
+        priority: requestPriority,
       });
+
+      if (diagnosticsEnabled && diagnosticTemplate && diagnosticIssueType) {
+        try {
+          await createMaintenanceDiagnosticForRequest({
+            accountId: activeAccountId,
+            propertyId,
+            tenantId: reportedByTenantId,
+            maintenanceRequestId: createdRequest?.id,
+            issueType: diagnosticIssueType,
+            template: diagnosticTemplate,
+            answers: diagnosticAnswers,
+          });
+        } catch (diagnosticError) {
+          console.warn("Maintenance diagnostic session was not attached", diagnosticError);
+        }
+      }
 
       setTitle("");
       setDescription("");
       setPriority("normal");
+      setDiagnosticIssueType("");
+      setDiagnosticTemplate(null);
+      setDiagnosticAnswers({});
 
       // ✅ ensure newest item appears immediately
       setPage(1);
@@ -638,6 +746,122 @@ export default function MaintenanceRequestsSection({ propertyId }) {
               </select>
             </div>
           </div>
+
+          {diagnosticsEnabled && (
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label htmlFor="maintenance-diagnostic-issue" className="text-xs text-slate-500">
+                    Issue type
+                  </label>
+                  <select
+                    id="maintenance-diagnostic-issue"
+                    name="maintenance-diagnostic-issue"
+                    value={diagnosticIssueType}
+                    onChange={(e) => setDiagnosticIssueType(e.target.value)}
+                    className="mt-1 w-full border rounded-lg px-3 py-2 text-sm bg-white"
+                  >
+                    <option value="">Select issue type</option>
+                    {MAINTENANCE_DIAGNOSTIC_ISSUES.map((issue) => (
+                      <option key={issue.value} value={issue.value}>
+                        {issue.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <p className="text-xs font-medium text-slate-700">Basic troubleshooting questions</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Information gathering only. The diagnostic summary is prepared for landlord review and is not a substitute for professional advice.
+                  </p>
+                </div>
+              </div>
+
+              {diagnosticLoading ? (
+                <Skeleton className="h-16" />
+              ) : diagnosticTemplate ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {diagnosticSteps.map((step) => {
+                    const answer = diagnosticAnswers[step.step_key]?.value ?? "";
+                    if (step.answer_type === "info") {
+                      return (
+                        <div key={step.id || step.step_key} className="md:col-span-2 rounded-lg border bg-white px-3 py-2 text-sm text-slate-600">
+                          {step.question}
+                        </div>
+                      );
+                    }
+                    if (step.answer_type === "yes_no") {
+                      return (
+                        <div key={step.id || step.step_key}>
+                          <label className="text-xs text-slate-500">{step.question}</label>
+                          <select
+                            value={answer || "not_sure"}
+                            onChange={(e) => setDiagnosticAnswer(step, e.target.value)}
+                            className="mt-1 w-full border rounded-lg px-3 py-2 text-sm bg-white"
+                          >
+                            <option value="not_sure">Not sure</option>
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                          </select>
+                          {step.help_text ? <p className="mt-1 text-[11px] text-slate-500">{step.help_text}</p> : null}
+                        </div>
+                      );
+                    }
+                    if (step.answer_type === "single_choice") {
+                      const options = Array.isArray(step.options) ? step.options : [];
+                      return (
+                        <div key={step.id || step.step_key}>
+                          <label className="text-xs text-slate-500">{step.question}</label>
+                          <select
+                            value={answer}
+                            onChange={(e) => setDiagnosticAnswer(step, e.target.value)}
+                            className="mt-1 w-full border rounded-lg px-3 py-2 text-sm bg-white"
+                          >
+                            <option value="">Select answer</option>
+                            {options.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={step.id || step.step_key} className={step.answer_type === "text" ? "md:col-span-2" : ""}>
+                        <label className="text-xs text-slate-500">{step.question}</label>
+                        <input
+                          type={step.answer_type === "number" ? "number" : "text"}
+                          value={answer}
+                          onChange={(e) => setDiagnosticAnswer(step, e.target.value)}
+                          className="mt-1 w-full border rounded-lg px-3 py-2 text-sm"
+                          placeholder={step.help_text || ""}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : diagnosticIssueType ? (
+                <p className="text-xs text-slate-500">No diagnostic template is available yet for this issue type.</p>
+              ) : null}
+
+              {diagnosticOutcome?.emergencyFlag ? (
+                <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-700">
+                  {EMERGENCY_SAFETY_COPY}
+                </div>
+              ) : null}
+
+              {diagnosticSummary ? (
+                <div className="rounded-lg border bg-white px-3 py-2">
+                  <p className="text-xs font-medium text-slate-700">Diagnostic summary before submit</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-600 whitespace-pre-wrap line-clamp-6">
+                    {diagnosticSummary}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          )}
 
           <div>
             <label htmlFor="maintenance-request-description" className="text-xs text-slate-500">{t("common.description")}</label>

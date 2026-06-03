@@ -20,6 +20,24 @@ import {
 import { formatCurrencyAmount } from "../utils/currency";
 
 const fieldClass = "rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950";
+const disabledFieldClass = `${fieldClass} disabled:cursor-not-allowed disabled:opacity-60`;
+
+function isReadOnlySettlement(settlement) {
+  return settlement?.status === "locked" || settlement?.status === "archived" || Boolean(settlement?.locked_at || settlement?.archived_at);
+}
+
+function statusBadgeClass(status) {
+  if (status === "locked") return "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-100";
+  if (status === "archived") return "border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200";
+  if (status === "statement_generated") return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100";
+  return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100";
+}
+
+function evidenceBadgeClass(missingCount) {
+  return missingCount
+    ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
+    : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100";
+}
 
 function propertyName(properties, id) {
   const property = properties.find((entry) => String(entry.id) === String(id));
@@ -39,6 +57,7 @@ export default function DepositVaultPage() {
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [form, setForm] = useState({ propertyId: "", tenantId: "", depositHeldAmount: "", currency: "GBP", jurisdiction: "UK", summary: "" });
   const [deduction, setDeduction] = useState({ deductionType: "cleaning", title: "", description: "", amount: "" });
   const [evidence, setEvidence] = useState({ deductionId: "", evidenceType: "note", evidenceLabel: "", notes: "" });
@@ -49,6 +68,7 @@ export default function DepositVaultPage() {
   );
   const totals = useMemo(() => calculateSettlementTotals(selected || {}), [selected]);
   const statementPreview = useMemo(() => selected ? buildDepositSettlementStatement(selected) : null, [selected]);
+  const selectedIsReadOnly = isReadOnlySettlement(selected);
 
   const reload = useCallback(async () => {
     if (!activeAccountId) return;
@@ -73,6 +93,7 @@ export default function DepositVaultPage() {
     event.preventDefault();
     if (!form.propertyId) return;
     setError("");
+    setMessage("");
     try {
       const row = await createDepositSettlement({
         accountId: activeAccountId,
@@ -86,6 +107,7 @@ export default function DepositVaultPage() {
       setSelectedId(row.id);
       setForm({ propertyId: "", tenantId: "", depositHeldAmount: "", currency: "GBP", jurisdiction: "UK", summary: "" });
       await reload();
+      setMessage("Settlement draft created.");
     } catch (err) {
       setError(err?.message || "Could not create settlement.");
     }
@@ -93,8 +115,9 @@ export default function DepositVaultPage() {
 
   async function handleAddDeduction(event) {
     event.preventDefault();
-    if (!selected?.id || !deduction.title) return;
+    if (!selected?.id || !deduction.title || selectedIsReadOnly) return;
     setError("");
+    setMessage("");
     try {
       await addDepositDeduction(selected.id, {
         accountId: activeAccountId,
@@ -102,6 +125,7 @@ export default function DepositVaultPage() {
       });
       setDeduction({ deductionType: "cleaning", title: "", description: "", amount: "" });
       await reload();
+      setMessage("Deduction added.");
     } catch (err) {
       setError(err?.message || "Could not add deduction.");
     }
@@ -109,23 +133,27 @@ export default function DepositVaultPage() {
 
   async function handleLinkEvidence(event) {
     event.preventDefault();
-    if (!evidence.deductionId) return;
+    if (!evidence.deductionId || selectedIsReadOnly) return;
     setError("");
+    setMessage("");
     try {
       await linkDeductionEvidence(evidence.deductionId, { accountId: activeAccountId, ...evidence });
       setEvidence({ deductionId: "", evidenceType: "note", evidenceLabel: "", notes: "" });
       await reload();
+      setMessage("Evidence link saved.");
     } catch (err) {
       setError(err?.message || "Could not link evidence.");
     }
   }
 
-  async function runAction(action) {
+  async function runAction(action, successMessage) {
     if (!selected?.id) return;
     setError("");
+    setMessage("");
     try {
       await action(selected.id);
       await reload();
+      setMessage(successMessage || "Action complete.");
     } catch (err) {
       setError(err?.message || "Action failed.");
     }
@@ -145,6 +173,7 @@ export default function DepositVaultPage() {
       </div>
 
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div> : null}
+      {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">{message}</div> : null}
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <Card className="p-5">
@@ -175,11 +204,26 @@ export default function DepositVaultPage() {
                       <td className="py-3 pr-3">{formatCurrencyAmount(settlement.deposit_held_amount, { currency: settlement.currency })}</td>
                       <td className="py-3 pr-3">{formatCurrencyAmount(rowTotals.proposedDeductionsTotal, { currency: settlement.currency })}</td>
                       <td className="py-3 pr-3">{formatCurrencyAmount(rowTotals.proposedReturnAmount, { currency: settlement.currency })}</td>
-                      <td className="py-3 pr-3">{settlement.status}</td>
-                      <td className="py-3 pr-3">{rowTotals.missingEvidenceCount ? `${rowTotals.missingEvidenceCount} missing` : "attached"}</td>
+                      <td className="py-3 pr-3">
+                        <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${statusBadgeClass(settlement.status)}`}>
+                          {String(settlement.status || "draft").replace(/_/g, " ")}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${evidenceBadgeClass(rowTotals.missingEvidenceCount)}`}>
+                          {rowTotals.missingEvidenceCount ? `${rowTotals.missingEvidenceCount} missing` : "Attached"}
+                        </span>
+                      </td>
                     </tr>
                   );
                 })}
+                {!loading && settlements.length === 0 ? (
+                  <tr>
+                    <td className="py-8 text-center text-sm text-slate-500" colSpan={7}>
+                      No deposit settlements yet. Create a draft settlement to start an itemised landlord review.
+                    </td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>
@@ -217,6 +261,16 @@ export default function DepositVaultPage() {
         <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
           <Card className="p-5">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Settlement detail</h2>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${statusBadgeClass(selected.status)}`}>
+                {String(selected.status || "draft").replace(/_/g, " ")}
+              </span>
+              {selectedIsReadOnly ? (
+                <span className="inline-flex rounded-full border border-slate-300 bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  Read-only
+                </span>
+              ) : null}
+            </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {[
                 ["Deposit held", formatCurrencyAmount(totals.depositHeldAmount, { currency: selected.currency })],
@@ -235,16 +289,16 @@ export default function DepositVaultPage() {
               <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Deductions exceed the deposit held. Mark for landlord review before sharing.</p>
             ) : null}
             <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" onClick={() => runAction(generateDepositSettlementStatement)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold">
+              <button type="button" onClick={() => runAction(generateDepositSettlementStatement, "Statement export generated.")} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold">
                 <FileText size={15} /> Generate statement
               </button>
               <Link to="/documents/evidence-vault/dispute-packs" className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold">
                 <ShieldCheck size={15} /> Create dispute pack
               </Link>
-              <button type="button" onClick={() => runAction(lockDepositSettlement)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold">
+              <button type="button" disabled={selectedIsReadOnly} onClick={() => runAction(lockDepositSettlement, "Settlement locked.")} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50">
                 <Lock size={15} /> Lock settlement
               </button>
-              <button type="button" onClick={() => runAction(archiveDepositSettlement)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold">
+              <button type="button" disabled={selected?.status === "archived"} onClick={() => runAction(archiveDepositSettlement, "Settlement archived.")} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50">
                 <Archive size={15} /> Archive
               </button>
             </div>
@@ -258,7 +312,7 @@ export default function DepositVaultPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-semibold">{item.title}</p>
-                      <p className="text-xs uppercase text-slate-500">{item.deduction_type} · {item.evidence_status}</p>
+                      <p className="text-xs uppercase text-slate-500">{item.deduction_type} · {String(item.evidence_status || "missing").replace(/_/g, " ")}</p>
                     </div>
                     <p className="font-semibold">{formatCurrencyAmount(item.amount, { currency: selected.currency })}</p>
                   </div>
@@ -269,33 +323,35 @@ export default function DepositVaultPage() {
 
             <form className="mt-4 grid gap-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-800" onSubmit={handleAddDeduction}>
               <p className="text-sm font-semibold">Add deduction</p>
+              {selectedIsReadOnly ? <p className="text-sm text-slate-500">Locked or archived settlements are read-only.</p> : null}
               <div className="grid gap-3 sm:grid-cols-3">
-                <select className={fieldClass} value={deduction.deductionType} onChange={(event) => setDeduction((current) => ({ ...current, deductionType: event.target.value }))}>
+                <select disabled={selectedIsReadOnly} className={disabledFieldClass} value={deduction.deductionType} onChange={(event) => setDeduction((current) => ({ ...current, deductionType: event.target.value }))}>
                   {["cleaning","damage","missing_keys","rent_arrears","gardening","rubbish_removal","unpaid_bills","repair_invoice","replacement_item","other"].map((type) => <option key={type} value={type}>{type}</option>)}
                 </select>
-                <input className={fieldClass} placeholder="Title" value={deduction.title} onChange={(event) => setDeduction((current) => ({ ...current, title: event.target.value }))} />
-                <input className={fieldClass} placeholder="Amount" type="number" step="0.01" value={deduction.amount} onChange={(event) => setDeduction((current) => ({ ...current, amount: event.target.value }))} />
+                <input disabled={selectedIsReadOnly} className={disabledFieldClass} placeholder="Title" value={deduction.title} onChange={(event) => setDeduction((current) => ({ ...current, title: event.target.value }))} />
+                <input disabled={selectedIsReadOnly} className={disabledFieldClass} placeholder="Amount" type="number" step="0.01" value={deduction.amount} onChange={(event) => setDeduction((current) => ({ ...current, amount: event.target.value }))} />
               </div>
-              <textarea className={fieldClass} rows={2} placeholder="Explanation" value={deduction.description} onChange={(event) => setDeduction((current) => ({ ...current, description: event.target.value }))} />
-              <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white" type="submit">
+              <textarea disabled={selectedIsReadOnly} className={disabledFieldClass} rows={2} placeholder="Explanation" value={deduction.description} onChange={(event) => setDeduction((current) => ({ ...current, description: event.target.value }))} />
+              <button disabled={selectedIsReadOnly} className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50" type="submit">
                 <Plus size={15} /> Add deduction
               </button>
             </form>
 
             <form className="mt-4 grid gap-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-800" onSubmit={handleLinkEvidence}>
               <p className="text-sm font-semibold">Evidence links</p>
-              <select className={fieldClass} value={evidence.deductionId} onChange={(event) => setEvidence((current) => ({ ...current, deductionId: event.target.value }))}>
+              {selectedIsReadOnly ? <p className="text-sm text-slate-500">Evidence links are locked with the settlement.</p> : null}
+              <select disabled={selectedIsReadOnly} className={disabledFieldClass} value={evidence.deductionId} onChange={(event) => setEvidence((current) => ({ ...current, deductionId: event.target.value }))}>
                 <option value="">Select deduction</option>
                 {(selected.deposit_deductions || []).map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
               </select>
               <div className="grid gap-3 sm:grid-cols-2">
-                <select className={fieldClass} value={evidence.evidenceType} onChange={(event) => setEvidence((current) => ({ ...current, evidenceType: event.target.value }))}>
+                <select disabled={selectedIsReadOnly} className={disabledFieldClass} value={evidence.evidenceType} onChange={(event) => setEvidence((current) => ({ ...current, evidenceType: event.target.value }))}>
                   {["evidence_vault_report","evidence_vault_item","inspection_photo","maintenance_request","work_order","invoice_document","quote_document","receipt_document","tenancy_agreement","communication","note","other"].map((type) => <option key={type} value={type}>{type}</option>)}
                 </select>
-                <input className={fieldClass} placeholder="Evidence label or reference" value={evidence.evidenceLabel} onChange={(event) => setEvidence((current) => ({ ...current, evidenceLabel: event.target.value }))} />
+                <input disabled={selectedIsReadOnly} className={disabledFieldClass} placeholder="Evidence label or reference" value={evidence.evidenceLabel} onChange={(event) => setEvidence((current) => ({ ...current, evidenceLabel: event.target.value }))} />
               </div>
-              <textarea className={fieldClass} rows={2} placeholder="Notes" value={evidence.notes} onChange={(event) => setEvidence((current) => ({ ...current, notes: event.target.value }))} />
-              <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold" type="submit">
+              <textarea disabled={selectedIsReadOnly} className={disabledFieldClass} rows={2} placeholder="Notes" value={evidence.notes} onChange={(event) => setEvidence((current) => ({ ...current, notes: event.target.value }))} />
+              <button disabled={selectedIsReadOnly} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50" type="submit">
                 <Link2 size={15} /> Link evidence
               </button>
             </form>

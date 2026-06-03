@@ -16,7 +16,7 @@ Use this checklist before enabling Deposit Vault or Eco-Upgrade Planner for broa
 - Add deduction items with zero or positive amounts.
 - Link at least one inspection or document evidence reference.
 - Generate a Deposit Settlement Statement.
-- Confirm the statement shows proposed deductions, amount to return, evidence references and the safe disclaimer.
+- Confirm the statement shows proposed deductions, amount to return, public-safe evidence references and the safe disclaimer.
 - Lock the settlement and confirm further edits are blocked by the service layer.
 
 ## Eco-Upgrade Planner Smoke Test
@@ -34,6 +34,7 @@ Use this checklist before enabling Deposit Vault or Eco-Upgrade Planner for broa
 - Confirm tenants only see explicitly shared deposit settlement records.
 - Confirm contractors cannot access Deposit Vault or Eco-Upgrade Planner records.
 - Confirm contractors only see linked work-order context after landlord-controlled handoff.
+- Confirm cross-account structured evidence references are rejected for Deposit Vault links.
 
 ## Regression Checks
 

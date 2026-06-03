@@ -68,6 +68,10 @@ export const ENTITLEMENT_FEATURES = Object.freeze({
   ECO_UPGRADE_PLANNER: "eco_upgrade_planner",
   PORTFOLIO_HEALTH_ECO_COMPLIANCE: "portfolio_health_eco_compliance",
   MAINTENANCE_DIAGNOSTICS: "maintenance_diagnostics",
+  MAINTENANCE_SMART_DIAGNOSTICS: "maintenance_smart_diagnostics",
+  TENANT_MAINTENANCE_DIAGNOSTICS: "tenant_maintenance_diagnostics",
+  MAINTENANCE_DEPOSIT_EVIDENCE_LINKING: "maintenance_deposit_evidence_linking",
+  MAINTENANCE_ECO_UPGRADE_LINKING: "maintenance_eco_upgrade_linking",
   TENANT_APPLICATION_LINKS: "tenant_application_links",
   APPLICANT_PRESCREENING_DASHBOARD: "applicant_prescreening_dashboard",
 

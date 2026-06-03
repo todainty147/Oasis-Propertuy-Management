@@ -140,3 +140,4 @@ Report and pack PDFs use the disclaimer: “This report/pack is an organisationa
 - Invoice matching
 - AI evidence summarisation after a separate approval/security review
 - Deposit Vault evidence picker improvements
+- Maintenance Smart Diagnostics evidence trail links for landlord review
