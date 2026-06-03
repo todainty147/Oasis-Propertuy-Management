@@ -13,9 +13,10 @@ These flags default to disabled. Enable them only for staging/internal or select
 
 ## Tenant Fields
 
-- Issue type: selects the diagnostic template.
+- Possible issue category: selects the diagnostic template.
 - Basic troubleshooting questions: short information-gathering questions; not repair advice.
 - Emergency risk answers: surface emergency copy and can mark the request urgent for landlord review.
+- Landlord review required: visible before submission so the tenant understands Tenaqo is not deciding the outcome.
 - Description: the tenant's own request description. When diagnostics are enabled, the generated diagnostic summary is appended to the maintenance request description for visibility.
 
 Emergency copy:
@@ -29,9 +30,20 @@ Emergency copy:
 - Urgency: low, normal, high, or urgent.
 - Outcome category: landlord review, emergency review, possible deposit evidence, possible upgrade opportunity, or possible compliance review.
 - Key answers: a short list of tenant answers used to prepare the summary.
+- Completed steps: count of answered diagnostic steps.
+- Photos: landlords review request attachments; diagnostics do not move files into a public bucket.
 - Flags: possible tenant-responsibility indicator, possible deposit evidence, possible upgrade opportunity, and possible compliance review.
 
 All actions remain landlord-controlled. Diagnostics do not create deductions, upgrades, compliance items, or work orders automatically.
+
+## Integration Checklist
+
+- Work orders: landlord-confirmed only. The handoff note may include the safe diagnostic summary for contractor context.
+- Deposit Vault: diagnostic flags are “possible deposit evidence” only. Amounts stay blank or landlord-entered.
+- Eco-Upgrade Planner: use “Review as eco-upgrade opportunity”, “May support an upgrade review” and “Indicative planning only”. Diagnostics never promise EPC gain.
+- Compliance Safe: safety-related diagnostics can be reviewed by a landlord before any compliance item is created or linked.
+- Evidence Vault: request photos and notes can be reviewed as maintenance evidence, with landlord confirmation before evidence records are created or linked.
+- Contractor portal: contractors should only see diagnostic context through assigned work-order notes, not Deposit Vault, Eco-Upgrade Planner, Compliance Safe or tenant-private records.
 
 ## Backend Tables
 
@@ -48,4 +60,6 @@ Triggers enforce account consistency for answers, links, audit events, and attac
 
 Use: basic troubleshooting questions, information gathering, diagnostic summary, landlord review, possible tenant-responsibility indicator, possible deposit evidence, possible upgrade opportunity, not a substitute for professional advice.
 
-Avoid: Tenaqo diagnoses the problem, no contractor needed, guaranteed to reduce call-outs, tenant is liable, deduct from deposit automatically, repair advice.
+Avoid wording that confirms a diagnosis, removes contractor review, promises outcomes, assigns tenant liability, automates deposit deductions, or gives repair instructions.
+
+HMRC Phase 5 remains reserved for MTD live submission / production pilot.

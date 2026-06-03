@@ -183,6 +183,8 @@ Deposit Settlement Statements are organisational records for landlord review. Th
 
 Maintenance Smart Diagnostics can flag possible deposit evidence for landlord review. It does not decide tenant liability or create deductions automatically.
 
+When enabled with `maintenance_deposit_evidence_linking`, any maintenance diagnostic handoff must keep the deduction amount blank or landlord-entered, label the context as possible deposit evidence, and write the usual Deposit Vault audit events only after landlord confirmation.
+
 ## Access Model
 
 Owners/admins/staff who can manage the account can manage settlement records. Tenants can read only records explicitly shared for their tenant profile. Contractors do not receive access to the settlement or deduction log.

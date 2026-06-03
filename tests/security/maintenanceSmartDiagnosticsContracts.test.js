@@ -46,13 +46,17 @@ describe("Maintenance Smart Diagnostics contracts", () => {
     const card = read("src/components/maintenance-inbox/MaintenanceRequestCard.jsx");
 
     expect(tenantSection).toContain("ENTITLEMENT_FEATURES.TENANT_MAINTENANCE_DIAGNOSTICS");
-    expect(tenantSection).toContain("Basic troubleshooting questions");
+    expect(tenantSection).toContain("Possible issue category");
+    expect(tenantSection).toContain("These answers help your landlord review the issue.");
+    expect(tenantSection).toContain("Landlord review required");
     expect(tenantSection).toContain("createMaintenanceDiagnosticForRequest");
     expect(inboxService).toContain("listDiagnosticsForMaintenanceRequests");
     expect(card).toContain("Diagnostic summary");
+    expect(card).toContain("Completed steps");
+    expect(card).toContain("Photos: review request attachments");
     expect(card).toContain("Possible deposit evidence");
     expect(card).toContain("Possible upgrade opportunity");
-    expect(card).not.toMatch(/tenant is liable|deduct from deposit automatically|no contractor needed/i);
+    expect(card).not.toMatch(/you are responsible|tenant is liable|deduct from deposit automatically|no contractor needed|no contractor required|this diagnosis confirms/i);
   });
 
   it("keeps service creation cleanup, caching, and audit event coverage in place", () => {
@@ -66,6 +70,20 @@ describe("Maintenance Smart Diagnostics contracts", () => {
     expect(service).toContain("deposit_evidence_flagged");
     expect(service).toContain("eco_upgrade_flagged");
     expect(service).toContain("compliance_review_flagged");
+    expect(service).toContain("completed_steps_count");
     expect(card).toContain("{!expanded && <DiagnosticSummaryPanel");
+  });
+
+  it("keeps tenants limited to request links and avoids automatic landlord-only records", () => {
+    const sql = read("supabase/maintenance_smart_diagnostics.sql");
+    const service = read("src/services/maintenanceDiagnosticsService.js");
+
+    expect(sql).toContain('"Tenants attach diagnostic request links only"');
+    expect(sql).toContain("new.link_type = 'maintenance_request'");
+    expect(sql).toContain("Linked maintenance request account mismatch");
+    expect(service).toContain('link_type: "maintenance_request"');
+    expect(service).not.toContain('link_type: "deposit_deduction"');
+    expect(service).not.toContain('link_type: "eco_upgrade_plan_item"');
+    expect(service).not.toContain('link_type: "compliance_item"');
   });
 });

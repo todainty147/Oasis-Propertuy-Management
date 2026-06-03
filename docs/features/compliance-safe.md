@@ -129,3 +129,5 @@ Compliance events are stored in `compliance_evidence_events`, including:
 - Tenaqo does not provide legal advice or guarantee compliance outcomes.
 - Eco-Upgrade Planner estimates are indicative and should be reviewed with an EPC assessor.
 - Maintenance Smart Diagnostics can flag possible compliance review needs from tenant maintenance context. It remains an information-gathering aid and does not create compliance items automatically.
+- Maintenance diagnostic links require landlord confirmation before any Compliance Safe item is created or marked `needs_review`. Tenants cannot create or alter Compliance Safe records through the diagnostic flow.
+- HMRC Phase 5 remains reserved for MTD live submission / production pilot.

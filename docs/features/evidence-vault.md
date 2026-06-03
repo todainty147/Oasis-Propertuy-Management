@@ -141,3 +141,9 @@ Report and pack PDFs use the disclaimer: “This report/pack is an organisationa
 - AI evidence summarisation after a separate approval/security review
 - Deposit Vault evidence picker improvements
 - Maintenance Smart Diagnostics evidence trail links for landlord review
+
+## Maintenance Smart Diagnostics Link
+
+Maintenance diagnostics can help landlords review request photos and notes as possible maintenance evidence. Evidence Vault records or links must be created only after landlord confirmation, using the existing secure document and signed URL patterns. Contractors and tenants do not gain Evidence Vault access through a diagnostic flag.
+
+HMRC Phase 5 remains reserved for MTD live submission / production pilot.
