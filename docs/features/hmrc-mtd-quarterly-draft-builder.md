@@ -29,11 +29,13 @@ The builder stores snapshot lines with source references. It does not create ano
 Canonical source order:
 
 1. `tax_records` for income, expense, adjustment and evidence records.
-2. `tax_expense_classifications` for manual MTD Expense Tracker rows.
+2. `tax_expense_classifications` for manual MTD Expense Tracker rows and reviewed Property Finance candidates.
 3. `tax_finance_cost_summaries` as Section 24 review context only.
 4. `tax_carried_forward_finance_costs` as annual/accountant context only.
 
 Summary-only and estimate-only records are flagged for review and are not silently treated as final quarterly transactions.
+
+Property operating expenses are not read directly by Quarterly Drafts. When the `mtd_property_finance_sync` flag is enabled, those expenses first surface in the MTD Expense Tracker as candidates with `include_in_mtd = false`. Only reviewed/included tracker rows can become ordinary draft source records.
 
 Every draft line stores traceability metadata where available:
 

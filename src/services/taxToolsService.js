@@ -3,8 +3,11 @@ import { downloadCsvBlob } from "./taxRecordsService";
 
 const EXPENSE_SELECT = [
   "id", "account_id", "property_id", "source_type", "source_id",
+  "source_table", "source_label", "source_original_category", "source_metadata",
   "tax_year", "expense_date", "amount", "description", "category",
-  "mtd_ready", "confidence", "notes", "created_by", "created_at", "updated_at",
+  "mtd_ready", "confidence", "notes", "review_status", "include_in_mtd",
+  "classification_confidence", "reviewed_by", "reviewed_at", "excluded_reason",
+  "synced_at", "created_by", "created_at", "updated_at",
 ].join(", ");
 
 const FINANCE_SELECT = [
@@ -55,7 +58,11 @@ export async function createTaxExpenseClassification(accountId, payload = {}) {
     account_id: accountId,
     property_id: payload.propertyId || null,
     source_type: payload.sourceType || "manual",
+    source_table: payload.sourceTable || null,
     source_id: payload.sourceId || null,
+    source_label: payload.sourceLabel || null,
+    source_original_category: payload.sourceOriginalCategory || null,
+    source_metadata: payload.sourceMetadata || {},
     tax_year: payload.taxYear || "2026/27",
     expense_date: String(payload.expenseDate).slice(0, 10),
     amount: Number(payload.amount) || 0,
@@ -63,6 +70,10 @@ export async function createTaxExpenseClassification(accountId, payload = {}) {
     category: payload.category || "needs_review",
     mtd_ready: Boolean(payload.mtdReady),
     confidence: payload.confidence || "manual",
+    review_status: payload.reviewStatus || (payload.mtdReady ? "reviewed" : "manual"),
+    include_in_mtd: Boolean(payload.includeInMtd ?? payload.mtdReady),
+    classification_confidence: payload.classificationConfidence || (payload.mtdReady ? "landlord_confirmed" : null),
+    reviewed_at: payload.mtdReady ? new Date().toISOString() : null,
     notes: String(payload.notes || "").trim() || null,
   };
 
@@ -77,6 +88,42 @@ export async function createTaxExpenseClassification(accountId, payload = {}) {
     entityType: "tax_expense_classifications",
     entityId: data?.id,
     metadata: { taxYear: row.tax_year, category: row.category },
+  });
+  return data;
+}
+
+export async function updateTaxExpenseClassification(recordId, payload = {}) {
+  if (!recordId) throw new Error("Missing recordId");
+  const row = {};
+
+  if (payload.category != null) row.category = payload.category;
+  if (payload.mtdReady != null) row.mtd_ready = Boolean(payload.mtdReady);
+  if (payload.includeInMtd != null) row.include_in_mtd = Boolean(payload.includeInMtd);
+  if (payload.reviewStatus != null) row.review_status = payload.reviewStatus;
+  if (payload.classificationConfidence != null) row.classification_confidence = payload.classificationConfidence;
+  if (payload.excludedReason !== undefined) row.excluded_reason = String(payload.excludedReason || "").trim() || null;
+  if (payload.notes !== undefined) row.notes = String(payload.notes || "").trim() || null;
+  if (payload.markReviewed) row.reviewed_at = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("tax_expense_classifications")
+    .update(row)
+    .eq("id", recordId)
+    .select(EXPENSE_SELECT)
+    .single();
+  if (error) throw error;
+
+  await recordTaxToolAuditEvent(data?.account_id, {
+    action: "tax_expense_classification.updated",
+    entityType: "tax_expense_classifications",
+    entityId: data?.id,
+    metadata: {
+      category: data?.category,
+      include_in_mtd: data?.include_in_mtd,
+      review_status: data?.review_status,
+      source_type: data?.source_type,
+      source_id: data?.source_id,
+    },
   });
   return data;
 }

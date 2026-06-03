@@ -36,6 +36,12 @@ function taxRecordToSource(row) {
 }
 
 function expenseClassificationToSource(row) {
+  const reviewStatus = String(row.review_status || "manual").toLowerCase();
+  const explicitlyIncluded = row.include_in_mtd === true && reviewStatus === "reviewed";
+  const legacyManualReady = row.source_type === "manual" && row.mtd_ready === true && ["manual", "reviewed"].includes(reviewStatus);
+  const readyForDraft = explicitlyIncluded || legacyManualReady;
+  const possibleDuplicate = row.source_metadata?.possible_duplicate === true;
+
   return {
     sourceType: "mtd_expense_tracker",
     sourceTable: "tax_expense_classifications",
@@ -46,10 +52,14 @@ function expenseClassificationToSource(row) {
     amount: amountOrZero(row.amount),
     direction: "expense",
     tenaqoCategory: row.category || "",
-    taxTreatment: row.category === "capital_improvement" ? "capital_candidate" : (row.mtd_ready ? "likely_allowable" : "review_required"),
-    mtdReady: Boolean(row.mtd_ready),
-    evidenceStatus: row.mtd_ready ? "complete" : "partial",
-    sourceReliability: row.mtd_ready ? "manual_ready" : "needs_review",
+    taxTreatment: row.category === "capital_improvement" || row.category === "finance_cost"
+      ? "review_required"
+      : (readyForDraft ? "likely_allowable" : "review_required"),
+    mtdReady: readyForDraft,
+    evidenceStatus: readyForDraft ? "complete" : "partial",
+    sourceReliability: possibleDuplicate
+      ? "possible_duplicate"
+      : (readyForDraft ? "manual_ready" : "needs_review"),
   };
 }
 

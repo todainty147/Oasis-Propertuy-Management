@@ -33,6 +33,37 @@ create table if not exists public.tax_expense_classifications (
   updated_at timestamptz not null default now()
 );
 
+alter table public.tax_expense_classifications
+  add column if not exists source_table text,
+  add column if not exists source_label text,
+  add column if not exists source_original_category text,
+  add column if not exists source_metadata jsonb not null default '{}'::jsonb,
+  add column if not exists review_status text not null default 'manual',
+  add column if not exists include_in_mtd boolean not null default false,
+  add column if not exists classification_confidence text,
+  add column if not exists reviewed_by uuid references auth.users(id) on delete set null,
+  add column if not exists reviewed_at timestamptz,
+  add column if not exists excluded_reason text,
+  add column if not exists synced_at timestamptz;
+
+alter table public.tax_expense_classifications
+  drop constraint if exists tax_expense_classifications_source_type_check;
+alter table public.tax_expense_classifications
+  add constraint tax_expense_classifications_source_type_check
+  check (source_type is null or source_type in ('manual', 'property_operating_expense', 'imported_csv', 'system', 'migrated'));
+
+alter table public.tax_expense_classifications
+  drop constraint if exists tax_expense_classifications_review_status_check;
+alter table public.tax_expense_classifications
+  add constraint tax_expense_classifications_review_status_check
+  check (review_status in ('manual', 'candidate', 'needs_review', 'reviewed', 'excluded'));
+
+alter table public.tax_expense_classifications
+  drop constraint if exists tax_expense_classifications_confidence_check;
+alter table public.tax_expense_classifications
+  add constraint tax_expense_classifications_confidence_check
+  check (classification_confidence is null or classification_confidence in ('suggested', 'landlord_confirmed', 'accountant_review_required'));
+
 create table if not exists public.tax_finance_cost_summaries (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts(id) on delete cascade,
@@ -97,6 +128,16 @@ create index if not exists idx_tax_expense_classifications_account_year
 create index if not exists idx_tax_expense_classifications_property
   on public.tax_expense_classifications(account_id, property_id)
   where property_id is not null;
+alter table public.tax_expense_classifications
+  drop constraint if exists tax_expense_classifications_source_unique;
+alter table public.tax_expense_classifications
+  add constraint tax_expense_classifications_source_unique
+  unique(account_id, source_type, source_id);
+create unique index if not exists tax_expense_classifications_source_unique_idx
+  on public.tax_expense_classifications(account_id, source_type, source_id)
+  where source_type is not null and source_id is not null;
+create index if not exists idx_tax_expense_classifications_review
+  on public.tax_expense_classifications(account_id, tax_year, review_status, include_in_mtd);
 create index if not exists idx_tax_finance_cost_summaries_account_year
   on public.tax_finance_cost_summaries(account_id, tax_year);
 create index if not exists idx_tax_carried_forward_account_year
@@ -110,6 +151,47 @@ drop trigger if exists trg_tax_expense_classifications_updated_at on public.tax_
 create trigger trg_tax_expense_classifications_updated_at
   before update on public.tax_expense_classifications
   for each row execute function public.tax_tools_set_updated_at();
+
+create or replace function public.enforce_tax_expense_classification_source_account()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_source record;
+begin
+  if new.source_type is distinct from 'property_operating_expense' or new.source_id is null then
+    return new;
+  end if;
+
+  select account_id, property_id
+    into v_source
+  from public.property_operating_expenses
+  where id = new.source_id;
+
+  if not found then
+    raise exception 'Property operating expense source not found';
+  end if;
+
+  if v_source.account_id is distinct from new.account_id then
+    raise exception 'Property operating expense source account mismatch';
+  end if;
+
+  if new.property_id is not null and v_source.property_id is distinct from new.property_id then
+    raise exception 'Property operating expense source property mismatch';
+  end if;
+
+  new.source_table = coalesce(new.source_table, 'property_operating_expenses');
+  new.property_id = coalesce(new.property_id, v_source.property_id);
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_tax_expense_classifications_source_account on public.tax_expense_classifications;
+create trigger trg_tax_expense_classifications_source_account
+  before insert or update on public.tax_expense_classifications
+  for each row execute function public.enforce_tax_expense_classification_source_account();
 
 drop trigger if exists trg_tax_finance_cost_summaries_updated_at on public.tax_finance_cost_summaries;
 create trigger trg_tax_finance_cost_summaries_updated_at
