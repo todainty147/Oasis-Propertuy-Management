@@ -44,6 +44,7 @@ export const ENTITLEMENT_FEATURES = Object.freeze({
   RENTERS_RIGHTS_READINESS: "renters_rights_readiness",
   TAX_TOOLS_IN_APP: "tax_tools_in_app",
   MTD_EXPENSE_TRACKER: "mtd_expense_tracker",
+  MTD_PROPERTY_FINANCE_SYNC: "mtd_property_finance_sync",
   SECTION24_FINANCE_COST_TRACKER: "section24_finance_cost_tracker",
   CARRIED_FORWARD_FINANCE_COST_TRACKER: "carried_forward_finance_cost_tracker",
   HMRC_MTD_CONNECTION: "hmrc_mtd_connection",

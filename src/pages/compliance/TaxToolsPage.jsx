@@ -9,6 +9,7 @@ import {
   FileSpreadsheet,
   Plus,
   Receipt,
+  RefreshCw,
   ShieldCheck,
 } from "lucide-react";
 
@@ -38,6 +39,13 @@ import {
   upsertTaxCarriedForwardFinanceCost,
   upsertTaxFinanceCostSummary,
 } from "../../services/taxToolsService";
+import {
+  excludeMtdCandidate,
+  includeMtdCandidate,
+  markMtdCandidateReviewed,
+  previewPropertyFinanceSync,
+  syncPropertyFinanceToMtdCandidates,
+} from "../../services/mtdPropertyFinanceSyncService";
 import TaxCalendarPanel from "../../components/compliance/TaxCalendarPanel";
 import QuarterlyDraftsTab from "../../components/compliance/QuarterlyDraftsTab";
 import { listQuarterlyDrafts } from "../../services/mtdQuarterlyDraftService";
@@ -91,6 +99,8 @@ const EMPTY_READINESS = {
   ownsMoreThanOneProperty: false,
 };
 
+const UNRESOLVED_CANDIDATES_READINESS_CAP = 85;
+
 function Panel({ children, className = "" }) {
   return (
     <div className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 ${className}`}>
@@ -136,9 +146,16 @@ function LockedTabNotice() {
   );
 }
 
-function ExpenseTracker({ accountId, properties, expenses, onSaved }) {
+function ExpenseTracker({ accountId, properties, expenses, onSaved, propertyFinanceSyncEnabled = false }) {
   const [form, setForm] = useState(EMPTY_EXPENSE);
+  const [syncFilters, setSyncFilters] = useState({ propertyId: "", taxYear: DEFAULT_TAX_YEAR });
+  const [syncPreview, setSyncPreview] = useState(null);
+  const [selectedSourceIds, setSelectedSourceIds] = useState([]);
+  const [candidateCategories, setCandidateCategories] = useState({});
+  const [excludeReasons, setExcludeReasons] = useState({});
   const [busy, setBusy] = useState(false);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [reviewBusy, setReviewBusy] = useState(false);
   const [error, setError] = useState("");
 
   const totalsByCategory = useMemo(() => {
@@ -163,6 +180,85 @@ function ExpenseTracker({ accountId, properties, expenses, onSaved }) {
     }
   }
 
+  async function handlePreviewSync() {
+    try {
+      setSyncBusy(true);
+      setError("");
+      const preview = await previewPropertyFinanceSync({
+        accountId,
+        propertyId: syncFilters.propertyId || null,
+        taxYear: syncFilters.taxYear,
+      });
+      setSyncPreview(preview);
+      setSelectedSourceIds(preview.candidates.map((candidate) => candidate.id));
+      setCandidateCategories(Object.fromEntries(
+        preview.candidates.map((candidate) => [candidate.id, candidate.suggestion.suggestedCategory]),
+      ));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not preview Property Finance sync.");
+    } finally {
+      setSyncBusy(false);
+    }
+  }
+
+  async function handleSyncCandidates() {
+    try {
+      setSyncBusy(true);
+      setError("");
+      await syncPropertyFinanceToMtdCandidates({
+        accountId,
+        propertyId: syncFilters.propertyId || null,
+        taxYear: syncFilters.taxYear,
+        selectedSourceIds,
+        preview: syncPreview,
+      });
+      setSyncPreview(null);
+      setSelectedSourceIds([]);
+      await onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not sync Property Finance records.");
+    } finally {
+      setSyncBusy(false);
+    }
+  }
+
+  async function handleInclude(row) {
+    try {
+      setReviewBusy(true);
+      setError("");
+      const category = candidateCategories[row.id] || row.category;
+      if (category !== row.category) {
+        await markMtdCandidateReviewed(row.id, {
+          category,
+          reviewStatus: "reviewed",
+          includeInMtd: true,
+          mtdReady: true,
+          classificationConfidence: "landlord_confirmed",
+        });
+      } else {
+        await includeMtdCandidate(row.id);
+      }
+      await onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not include candidate.");
+    } finally {
+      setReviewBusy(false);
+    }
+  }
+
+  async function handleExclude(row) {
+    try {
+      setReviewBusy(true);
+      setError("");
+      await excludeMtdCandidate(row.id, excludeReasons[row.id] || "Excluded after landlord review");
+      await onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not exclude candidate.");
+    } finally {
+      setReviewBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <Panel>
@@ -171,9 +267,86 @@ function ExpenseTracker({ accountId, properties, expenses, onSaved }) {
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Manual expense logging</h2>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{TAX_TOOL_ADVICE_NOTICE}</p>
           </div>
-          <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-medium text-teal-700 dark:bg-teal-950/40 dark:text-teal-200">No HMRC submission</span>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {propertyFinanceSyncEnabled ? (
+              <button type="button" onClick={handlePreviewSync} disabled={syncBusy} className="inline-flex items-center gap-2 rounded-lg border border-teal-200 px-3 py-2 text-xs font-medium text-teal-700 disabled:opacity-50 dark:border-teal-900/60 dark:text-teal-200">
+                <RefreshCw size={14} /> {syncBusy ? "Checking..." : "Sync Property Finance"}
+              </button>
+            ) : null}
+            <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-medium text-teal-700 dark:bg-teal-950/40 dark:text-teal-200">No HMRC submission</span>
+          </div>
         </div>
+        {propertyFinanceSyncEnabled ? (
+          <div className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-800 dark:bg-slate-950 md:grid-cols-2">
+            <Field label="Property Finance sync property">
+              <PropertySelect properties={properties} value={syncFilters.propertyId} onChange={(propertyId) => setSyncFilters((f) => ({ ...f, propertyId }))} />
+            </Field>
+            <Field label="Property Finance sync tax year">
+              <select value={syncFilters.taxYear} onChange={(e) => setSyncFilters((f) => ({ ...f, taxYear: e.target.value }))} className={inputClass()}>
+                {TAX_YEAR_OPTIONS.map((year) => <option key={year}>{year}</option>)}
+              </select>
+            </Field>
+          </div>
+        ) : null}
         {error ? <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p> : null}
+        {syncPreview ? (
+          <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-100">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="font-semibold">Property Finance sync preview</h3>
+                <p className="mt-1">Candidates sync as Needs review with Include in MTD set to No. Quarterly Drafts will not use them until you review and include them.</p>
+              </div>
+              <button type="button" onClick={handleSyncCandidates} disabled={syncBusy || selectedSourceIds.length === 0} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white disabled:opacity-50">
+                Sync selected
+              </button>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-5">
+              {[
+                ["Found", syncPreview.totalFound],
+                ["Already synced", syncPreview.alreadySyncedCount],
+                ["New", syncPreview.newCandidateCount],
+                ["Possible duplicates", syncPreview.possibleDuplicateCount],
+                ["Skipped", syncPreview.skippedCount],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-lg border border-blue-200 bg-white/70 px-3 py-2 dark:border-blue-900/60 dark:bg-slate-950/50">
+                  <p className="text-xs uppercase">{label}</p>
+                  <p className="font-semibold">{value}</p>
+                </div>
+              ))}
+            </div>
+            {syncPreview.candidates.length ? (
+              <div className="mt-4 overflow-auto">
+                <table className="w-full min-w-[760px] text-left text-xs">
+                  <thead className="uppercase">
+                    <tr><th className="py-2">Sync</th><th>Date</th><th>Property</th><th>Original category</th><th>Description</th><th>Amount</th><th>Suggested MTD category</th><th>Warning</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-blue-200/70 dark:divide-blue-900/60">
+                    {syncPreview.candidates.map((candidate) => (
+                      <tr key={candidate.id}>
+                        <td className="py-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedSourceIds.includes(candidate.id)}
+                            onChange={(event) => setSelectedSourceIds((ids) => (
+                              event.target.checked ? [...ids, candidate.id] : ids.filter((id) => id !== candidate.id)
+                            ))}
+                          />
+                        </td>
+                        <td>{candidate.expense_date}</td>
+                        <td>{properties.find((p) => p.id === candidate.property_id)?.address || candidate.property_id}</td>
+                        <td>{candidate.category}</td>
+                        <td>{candidate.description}</td>
+                        <td>{formatCurrency(candidate.amount)}</td>
+                        <td>{TAX_CATEGORY_LABELS[candidate.suggestion.suggestedCategory] || candidate.suggestion.suggestedCategory}</td>
+                        <td>{candidate.possibleDuplicate ? "Possible duplicate" : "Needs review"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : <p className="mt-3">No new Property Finance records found for this filter.</p>}
+          </div>
+        ) : null}
         <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-3">
           <Field label="Expense date">
             <input type="date" required value={form.expenseDate} onChange={(e) => setForm((f) => ({ ...f, expenseDate: e.target.value }))} className={inputClass()} />
@@ -243,15 +416,35 @@ function ExpenseTracker({ accountId, properties, expenses, onSaved }) {
             ) : (
               <table className="w-full text-left text-sm">
                 <thead className="text-xs uppercase text-slate-500">
-                  <tr><th className="py-2">Date</th><th>Category</th><th>Amount</th><th>MTD</th></tr>
+                  <tr><th className="py-2">Date</th><th>Source</th><th>Category</th><th>Amount</th><th>MTD</th><th>Action</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {expenses.slice(0, 8).map((row) => (
                     <tr key={row.id}>
                       <td className="py-2">{row.expense_date}</td>
-                      <td>{TAX_CATEGORY_LABELS[row.category] || row.category}</td>
+                      <td>{row.source_label || (row.source_type === "property_operating_expense" ? "Property Finance" : "Manual")}</td>
+                      <td>
+                        {row.source_type === "property_operating_expense" && row.review_status !== "excluded" ? (
+                          <select value={candidateCategories[row.id] || row.category} onChange={(e) => setCandidateCategories((c) => ({ ...c, [row.id]: e.target.value }))} className={inputClass()}>
+                            {TAX_CATEGORIES.map((category) => <option key={category} value={category}>{TAX_CATEGORY_LABELS[category]}</option>)}
+                          </select>
+                        ) : TAX_CATEGORY_LABELS[row.category] || row.category}
+                      </td>
                       <td>{formatCurrency(row.amount)}</td>
-                      <td>{row.mtd_ready ? "Ready" : "Review"}</td>
+                      <td>{row.include_in_mtd ? "Included" : row.review_status === "excluded" ? "Excluded" : row.source_type === "property_operating_expense" ? "Needs review" : row.mtd_ready ? "Ready" : "Review"}</td>
+                      <td>
+                        {row.source_type === "property_operating_expense" && row.review_status !== "excluded" ? (
+                          <div className="flex flex-wrap gap-2">
+                            <button type="button" disabled={reviewBusy} onClick={() => handleInclude(row)} className="rounded-lg border border-emerald-200 px-2 py-1 text-xs font-medium text-emerald-700 disabled:opacity-50 dark:border-emerald-900/60 dark:text-emerald-200">
+                              Confirm & include
+                            </button>
+                            <input value={excludeReasons[row.id] || ""} onChange={(e) => setExcludeReasons((r) => ({ ...r, [row.id]: e.target.value }))} placeholder="Reason if excluding" className={`${inputClass()} max-w-[160px] py-1 text-xs`} />
+                            <button type="button" disabled={reviewBusy} onClick={() => handleExclude(row)} className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium disabled:opacity-50 dark:border-slate-700">
+                              Exclude
+                            </button>
+                          </div>
+                        ) : "—"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -397,7 +590,7 @@ function CarriedForwardTracker({ accountId, properties, carriedRows, onSaved }) 
   );
 }
 
-function ReadinessCheck({ quarterlyDraftsEnabled = false, quarterlyDrafts = [] }) {
+function ReadinessCheck({ quarterlyDraftsEnabled = false, quarterlyDrafts = [], expenses = [], propertyFinanceSyncEnabled = false }) {
   const [form, setForm] = useState(EMPTY_READINESS);
   const result = useMemo(() => calculateMtdReadiness(form), [form]);
   const toggle = (key) => setForm((f) => ({ ...f, [key]: !f[key] }));
@@ -412,6 +605,15 @@ function ReadinessCheck({ quarterlyDraftsEnabled = false, quarterlyDrafts = [] }
     [form.usesAccountant === true, "Accountant review is part of the process."],
     [form.ownsMoreThanOneProperty === false || form.tracksExpensesByProperty === true, "Multi-property records are separated by property."],
   ];
+  const unresolvedPropertyFinanceCandidates = expenses.filter((row) => (
+    row.source_type === "property_operating_expense"
+    && row.review_status !== "reviewed"
+    && row.review_status !== "excluded"
+  ));
+  const possibleDuplicateCandidates = expenses.filter((row) => row.source_metadata?.possible_duplicate === true && row.review_status !== "reviewed");
+  const readinessScore = propertyFinanceSyncEnabled && (unresolvedPropertyFinanceCandidates.length || possibleDuplicateCandidates.length)
+    ? Math.min(result.score, UNRESOLVED_CANDIDATES_READINESS_CAP)
+    : result.score;
 
   return (
     <Panel>
@@ -421,6 +623,11 @@ function ReadinessCheck({ quarterlyDraftsEnabled = false, quarterlyDrafts = [] }
           {sandboxSubmissionVerified
             ? "Sandbox submission tested successfully. Live HMRC submission remains disabled."
             : "Quarterly draft readiness is now part of the MTD preparation flow: create a draft for the due period, clear review issues, then export the accountant pack. Live HMRC submission remains disabled."}
+        </div>
+      ) : null}
+      {propertyFinanceSyncEnabled && unresolvedPropertyFinanceCandidates.length ? (
+        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
+          Property Finance records found. Review them in the MTD Expense Tracker before preparing a quarterly draft.
         </div>
       ) : null}
       <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -443,7 +650,7 @@ function ReadinessCheck({ quarterlyDraftsEnabled = false, quarterlyDrafts = [] }
       </div>
       <div className="mt-5 grid gap-4 md:grid-cols-[220px_1fr]">
         <div className="rounded-2xl bg-teal-50 p-5 text-center dark:bg-teal-950/30">
-          <p className="text-4xl font-semibold text-teal-700 dark:text-teal-200">{result.score}%</p>
+          <p className="text-4xl font-semibold text-teal-700 dark:text-teal-200">{readinessScore}%</p>
           <p className="text-sm text-teal-800 dark:text-teal-200">Digital-record readiness score</p>
           <p className="mt-2 text-xs text-teal-800/80 dark:text-teal-100/80">This is not full MTD compliance and does not replace tax advice.</p>
         </div>
@@ -467,6 +674,16 @@ function ReadinessCheck({ quarterlyDraftsEnabled = false, quarterlyDrafts = [] }
             <li className="flex items-start gap-2 md:col-span-2">
               <AlertTriangle size={15} className="mt-0.5 shrink-0 text-amber-500" />
               <span>Create and review a Quarterly Draft for the due period before relying on accountant-pack exports. HMRC submission remains disabled.</span>
+            </li>
+          ) : null}
+          {propertyFinanceSyncEnabled ? (
+            <li className="flex items-start gap-2 md:col-span-2">
+              <AlertTriangle size={15} className={`mt-0.5 shrink-0 ${unresolvedPropertyFinanceCandidates.length || possibleDuplicateCandidates.length ? "text-amber-500" : "text-teal-500"}`} />
+              <span>
+                {unresolvedPropertyFinanceCandidates.length || possibleDuplicateCandidates.length
+                  ? `${unresolvedPropertyFinanceCandidates.length} Property Finance candidate(s) need MTD review before draft preparation.`
+                  : "Property Finance candidates have either been reviewed or excluded with a documented reason."}
+              </span>
             </li>
           ) : null}
         </ul>
@@ -506,6 +723,7 @@ export default function TaxToolsPage({ properties = [] }) {
   const [error, setError] = useState("");
   const quarterlyDraftsEnabled = hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_QUARTERLY_DRAFT_BUILDER);
   const sandboxSubmissionEnabled = hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_SANDBOX_SUBMISSION);
+  const propertyFinanceSyncEnabled = hasEntitlement(ENTITLEMENT_FEATURES.MTD_PROPERTY_FINANCE_SYNC);
 
   const loadRecords = useCallback(async () => {
     if (!activeAccountId) return;
@@ -569,7 +787,15 @@ export default function TaxToolsPage({ properties = [] }) {
         <>
           {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p> : null}
           {loading ? <Panel><p className="text-sm text-slate-500">Loading tax tool records...</p></Panel> : !activeEnabled ? <LockedTabNotice /> : null}
-          {!loading && activeEnabled && activeTab === "expenses" ? <ExpenseTracker accountId={activeAccountId} properties={properties} expenses={expenses} onSaved={loadRecords} /> : null}
+          {!loading && activeEnabled && activeTab === "expenses" ? (
+            <ExpenseTracker
+              accountId={activeAccountId}
+              properties={properties}
+              expenses={expenses}
+              onSaved={loadRecords}
+              propertyFinanceSyncEnabled={propertyFinanceSyncEnabled}
+            />
+          ) : null}
           {!loading && activeEnabled && activeTab === "quarterlyDrafts" ? (
             <QuarterlyDraftsTab
               accountId={activeAccountId}
@@ -579,7 +805,14 @@ export default function TaxToolsPage({ properties = [] }) {
           ) : null}
           {!loading && activeEnabled && activeTab === "section24" ? <Section24Tracker accountId={activeAccountId} properties={properties} financeRows={financeRows} onSaved={loadRecords} /> : null}
           {!loading && activeEnabled && activeTab === "carried" ? <CarriedForwardTracker accountId={activeAccountId} properties={properties} carriedRows={carriedRows} onSaved={loadRecords} /> : null}
-          {!loading && activeEnabled && activeTab === "readiness" ? <ReadinessCheck quarterlyDraftsEnabled={quarterlyDraftsEnabled} quarterlyDrafts={quarterlyDrafts} /> : null}
+          {!loading && activeEnabled && activeTab === "readiness" ? (
+            <ReadinessCheck
+              quarterlyDraftsEnabled={quarterlyDraftsEnabled}
+              quarterlyDrafts={quarterlyDrafts}
+              expenses={expenses}
+              propertyFinanceSyncEnabled={propertyFinanceSyncEnabled}
+            />
+          ) : null}
           {!loading && activeEnabled && activeTab === "export" ? <ExportPack expenses={expenses} financeRows={financeRows} carriedRows={carriedRows} quarterlyDrafts={quarterlyDrafts} /> : null}
         </>
       )}

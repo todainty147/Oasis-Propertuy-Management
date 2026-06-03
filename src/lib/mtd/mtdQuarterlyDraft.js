@@ -41,7 +41,8 @@ function sanitizePreviewValue(value) {
 function shouldIncludeDraftLine(record, issueStatus) {
   const category = normalizeTenaqoTaxCategory(record.tenaqoCategory);
   if (["evidence", "adjustment"].includes(record.direction)) return false;
-  if (["source_estimate_only", "excluded"].includes(issueStatus)) return false;
+  if (["source_estimate_only", "possible_duplicate", "excluded"].includes(issueStatus)) return false;
+  if (record.sourceType === "mtd_expense_tracker" && record.mtdReady !== true) return false;
   if (REVIEW_ONLY_CATEGORIES.has(category)) return false;
   return true;
 }
@@ -55,7 +56,10 @@ export function mapRecordsToDraftLines(records = []) {
     const hasValidAmount = Number.isFinite(amount);
     const hasValidDate = isValidDateOnly(record.date);
 
-    if (record.sourceReliability === "estimate_only") {
+    if (record.sourceReliability === "possible_duplicate") {
+      issueStatus = "possible_duplicate";
+      issueReason = "This source may duplicate another MTD expense record and needs landlord review before inclusion.";
+    } else if (record.sourceReliability === "estimate_only") {
       issueStatus = "source_estimate_only";
       issueReason = "This is a summary or estimate-only source and should be reviewed before use.";
     } else if (!hasValidDate) {
