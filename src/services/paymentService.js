@@ -253,13 +253,16 @@ export async function markPaymentUnpaid(paymentId, accountId = null) {
    OWNER: VOID / REOPEN (A-9: explicit accountId)
    ====================== */
 
-export async function voidPayment(paymentId, accountId = null) {
+export async function voidPayment(paymentId, accountId = null, reason = "") {
   if (!paymentId) throw new Error("Missing paymentId");
   if (!accountId) throw new Error("Missing accountId");
+  const reversalReason = String(reason || "").trim();
+  if (!reversalReason) throw new Error("Payment reversal reason is required");
 
   const { data, error } = await supabase.rpc("void_payment", {
     p_payment_id: paymentId,
     p_account_id: accountId,
+    p_reason: reversalReason,
   });
 
   if (error) throw error;

@@ -7,7 +7,7 @@ export const ROLE_CAPABILITIES = {
     properties: ["read", "create", "update", "delete"],
     tenants: ["read", "create", "update", "delete"],
     documents: ["read", "upload", "tag", "delete"],
-    finance: ["read", "create", "update", "delete"],
+    finance: ["read", "create", "update", "delete", "reverse_payment"],
     users: ["invite", "role"],
   },
 
@@ -15,7 +15,7 @@ export const ROLE_CAPABILITIES = {
     properties: ["read", "create", "update"],
     tenants: ["read", "create", "update"],
     documents: ["read", "upload", "tag"],
-    finance: ["read", "create", "update"], // ✅ read-only delete for admin (if you want owner-only delete)
+    finance: ["read", "create", "update", "reverse_payment"], // ✅ read-only delete for admin (if you want owner-only delete)
     users: [],
   },
 
@@ -42,14 +42,14 @@ export const LEGACY_PERMISSION_KEYS_BY_ROLE = {
     "properties.read", "properties.create", "properties.update", "properties.delete",
     "tenants.read", "tenants.create", "tenants.update", "tenants.delete",
     "documents.read", "documents.upload", "documents.tag", "documents.delete",
-    "finance.read", "finance.create", "finance.update", "finance.delete",
+    "finance.read", "finance.create", "finance.update", "finance.delete", "finance.reverse_payment",
     "users.invite", "users.role",
   ],
   admin: [
     "properties.read", "properties.create", "properties.update",
     "tenants.read", "tenants.create", "tenants.update",
     "documents.read", "documents.upload", "documents.tag",
-    "finance.read", "finance.create", "finance.update",
+    "finance.read", "finance.create", "finance.update", "finance.reverse_payment",
   ],
   staff: [
     "properties.read",

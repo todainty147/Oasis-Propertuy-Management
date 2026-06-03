@@ -61,9 +61,22 @@ describe("RPC mutation contracts", () => {
           status: "PAID",
         },
         error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          id: "pay-1",
+          account_id: "account-1",
+          property_id: "property-1",
+          tenant_id: "tenant-1",
+          amount: "1200",
+          due_date: "2026-03-24",
+          paid_at: null,
+          status: "void",
+        },
+        error: null,
       });
 
-    const { createPayment, fetchMyPayments, markPaymentPaid } = await import(
+    const { createPayment, fetchMyPayments, markPaymentPaid, voidPayment } = await import(
       "../../src/services/paymentService.js"
     );
 
@@ -76,6 +89,7 @@ describe("RPC mutation contracts", () => {
       dueDate: "2026-03-24",
     });
     const paid = await markPaymentPaid("pay-1", "2026-03-25", "account-1");
+    const voided = await voidPayment("pay-1", "account-1", "Duplicate receipt");
 
     expect(myPayments[0]).toEqual({
       payment_id: "pay-tenant-1",
@@ -88,11 +102,24 @@ describe("RPC mutation contracts", () => {
     });
     expect(created.status).toBe("pending");
     expect(paid.status).toBe("paid");
-    expect(rpcMock).toHaveBeenLastCalledWith("mark_payment_paid", {
+    expect(voided.status).toBe("void");
+    expect(rpcMock).toHaveBeenNthCalledWith(3, "mark_payment_paid", {
       p_account_id: "account-1",
       p_payment_id: "pay-1",
       p_paid_at: "2026-03-25",
     });
+    expect(rpcMock).toHaveBeenLastCalledWith("void_payment", {
+      p_account_id: "account-1",
+      p_payment_id: "pay-1",
+      p_reason: "Duplicate receipt",
+    });
+  });
+
+  it("requires a reason before calling the payment reversal RPC", async () => {
+    const { voidPayment } = await import("../../src/services/paymentService.js");
+
+    await expect(voidPayment("pay-1", "account-1", " ")).rejects.toThrow("reason is required");
+    expect(rpcMock).not.toHaveBeenCalled();
   });
 
   it("returns parsed document rows from document RPC writes", async () => {

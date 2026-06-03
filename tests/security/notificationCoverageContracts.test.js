@@ -284,6 +284,6 @@ describe("Finance page mark-paid UI contract", () => {
     const path = await import("node:path");
     const repoRoot = path.resolve(import.meta.dirname, "../../");
     const financeSource = readFileSync(path.join(repoRoot, "src/pages/Finance.jsx"), "utf8");
-    expect(financeSource).toContain('data-testid={`mark-paid-${p.id}`}');
+    expect(financeSource).toMatch(/data-testid=\{`mark-paid-\$\{(?:p|payment)\.id\}`\}/);
   });
 });
