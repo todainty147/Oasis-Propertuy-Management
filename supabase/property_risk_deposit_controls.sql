@@ -282,6 +282,60 @@ begin
 end;
 $$;
 
+create or replace function public.enforce_deposit_evidence_reference_account()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_reference_table regclass;
+  v_account_id uuid;
+begin
+  if new.evidence_id is null or new.evidence_type in ('note', 'other') then
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE'
+     and old.evidence_id is not distinct from new.evidence_id
+     and old.evidence_type is not distinct from new.evidence_type then
+    return new;
+  end if;
+
+  v_reference_table := case new.evidence_type
+    when 'evidence_vault_report' then to_regclass('public.inspection_reports')
+    when 'evidence_vault_item' then to_regclass('public.inspection_evidence_items')
+    when 'inspection_photo' then to_regclass('public.inspection_photos')
+    when 'maintenance_request' then to_regclass('public.maintenance_requests')
+    when 'work_order' then to_regclass('public.work_orders')
+    when 'invoice_document' then to_regclass('public.documents')
+    when 'quote_document' then to_regclass('public.documents')
+    when 'receipt_document' then to_regclass('public.documents')
+    when 'tenancy_agreement' then to_regclass('public.documents')
+    when 'communication' then to_regclass('public.documents')
+    else null
+  end;
+
+  if v_reference_table is null then
+    return new;
+  end if;
+
+  execute format('select account_id from %s where id = $1', v_reference_table)
+    into v_account_id
+    using new.evidence_id;
+
+  if v_account_id is null then
+    raise exception 'Deposit evidence reference not found';
+  end if;
+
+  if v_account_id <> new.account_id then
+    raise exception 'Deposit evidence reference account mismatch';
+  end if;
+
+  return new;
+end;
+$$;
+
 create or replace function public.enforce_eco_plan_child_account()
 returns trigger
 language plpgsql
@@ -394,6 +448,9 @@ create trigger trg_deposit_deductions_account_match before insert or update on p
 drop trigger if exists trg_deposit_deduction_links_account_match on public.deposit_deduction_evidence_links;
 create trigger trg_deposit_deduction_links_account_match before insert or update on public.deposit_deduction_evidence_links
   for each row execute function public.enforce_deposit_child_account();
+drop trigger if exists trg_deposit_deduction_links_reference_account_match on public.deposit_deduction_evidence_links;
+create trigger trg_deposit_deduction_links_reference_account_match before insert or update on public.deposit_deduction_evidence_links
+  for each row execute function public.enforce_deposit_evidence_reference_account();
 drop trigger if exists trg_deposit_settlement_exports_account_match on public.deposit_settlement_exports;
 create trigger trg_deposit_settlement_exports_account_match before insert or update on public.deposit_settlement_exports
   for each row execute function public.enforce_deposit_child_account();

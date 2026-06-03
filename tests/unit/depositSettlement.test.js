@@ -42,11 +42,41 @@ describe("Deposit settlement helpers", () => {
       properties: { address: "10 Test Street" },
       tenants: { name: "Alex Tenant" },
       deductions: [
-        { id: "d1", title: "Cleaning", deduction_type: "cleaning", amount: 75, description: "End of tenancy cleaning", evidenceLinks: [{ evidence_type: "invoice_document" }] },
+        {
+          id: "d1",
+          title: "Cleaning",
+          deduction_type: "cleaning",
+          amount: 75,
+          description: "End of tenancy cleaning",
+          evidenceLinks: [{
+            id: "internal-link-id",
+            account_id: "account-1",
+            deduction_id: "d1",
+            evidence_type: "invoice_document",
+            evidence_id: "internal-document-id",
+            evidence_label: "Cleaning invoice",
+            notes: "Invoice received from contractor.",
+          }],
+        },
       ],
     });
+    expect(statement.brand).toBe("Tenaqo");
     expect(statement.title).toBe("Deposit Settlement Statement");
     expect(statement.deductions[0]).toMatchObject({ title: "Cleaning", amount: 75 });
+    expect(statement.deductions[0].evidence[0]).toEqual({
+      deductionNumber: 1,
+      type: "invoice_document",
+      label: "Cleaning invoice",
+      notes: "Invoice received from contractor.",
+    });
+    expect(statement.evidenceIndex[0]).toEqual({
+      number: 1,
+      deductionNumber: 1,
+      type: "invoice_document",
+      label: "Cleaning invoice",
+      notes: "Invoice received from contractor.",
+    });
+    expect(JSON.stringify(statement)).not.toMatch(/internal-link-id|internal-document-id|account-1|deduction_id/);
     expect(statement.disclaimer).toBe(DEPOSIT_STATEMENT_DISCLAIMER);
     expect(statement.disclaimer).not.toMatch(/money holding|guaranteed|court-proof/i);
   });

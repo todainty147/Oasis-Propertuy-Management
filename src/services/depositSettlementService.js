@@ -254,24 +254,44 @@ export async function linkDeductionEvidence(deductionId, evidence = {}) {
   return data;
 }
 
+function normalizeStatementEvidenceLink(link = {}, deductionNumber) {
+  return {
+    deductionNumber,
+    type: link.evidence_type || link.evidenceType || "other",
+    label: link.evidence_label || link.evidenceLabel || "Evidence reference",
+    notes: link.notes || "",
+  };
+}
+
 export function buildDepositSettlementStatement(settlement = {}) {
   const deductions = settlement.deposit_deductions || settlement.deductions || [];
   const totals = calculateSettlementTotals({ ...settlement, deductions });
+  const statementDeductions = deductions.map((deduction, index) => {
+    const deductionNumber = index + 1;
+    const evidenceLinks = deduction.deposit_deduction_evidence_links || deduction.evidenceLinks || [];
+    return {
+      number: deductionNumber,
+      title: deduction.title,
+      type: deduction.deduction_type,
+      amount: Number(deduction.amount || 0),
+      explanation: deduction.description || "",
+      evidence: evidenceLinks.map((link) => normalizeStatementEvidenceLink(link, deductionNumber)),
+    };
+  });
+  const evidenceIndex = statementDeductions
+    .flatMap((deduction) => deduction.evidence)
+    .map((evidenceLink, index) => ({ number: index + 1, ...evidenceLink }));
+
   return {
+    brand: "Tenaqo",
     title: "Deposit Settlement Statement",
     property: settlement.properties?.address || settlement.property_label || settlement.property_id || "Property not recorded",
     tenant: settlement.tenants?.name || settlement.tenant_label || settlement.tenant_id || "Tenant not recorded",
     generatedAt: new Date().toISOString(),
     jurisdiction: settlement.jurisdiction || "UK",
     summary: totals,
-    deductions: deductions.map((deduction, index) => ({
-      number: index + 1,
-      title: deduction.title,
-      type: deduction.deduction_type,
-      amount: Number(deduction.amount || 0),
-      explanation: deduction.description || "",
-      evidence: deduction.deposit_deduction_evidence_links || deduction.evidenceLinks || [],
-    })),
+    deductions: statementDeductions,
+    evidenceIndex,
     disclaimer: DEPOSIT_STATEMENT_DISCLAIMER,
   };
 }
@@ -292,7 +312,9 @@ export async function generateDepositSettlementStatement(settlementId) {
     .select()
     .single();
   if (error) throw error;
-  await supabase.from("deposit_settlements").update({ status: "statement_generated" }).eq("id", settlementId);
+  if (settlement.status !== "locked" && settlement.status !== "archived") {
+    await supabase.from("deposit_settlements").update({ status: "statement_generated" }).eq("id", settlementId);
+  }
   await writeDepositSettlementAuditEvent({
     accountId: settlement.account_id,
     settlementId,
