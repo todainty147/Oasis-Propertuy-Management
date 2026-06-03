@@ -58,7 +58,14 @@ export default function DocumentPacketsPanel({
   mode = "manager",
 }) {
   const role = permissionContext?.role;
+  const normalizedRole = normalizeRole(role);
   const canManage = mode === "manager" && isManagerRole(role);
+  const participantSubtitleKey = normalizedRole === "contractor"
+    ? "documents.packets.participantSubtitleContractor"
+    : "documents.packets.participantSubtitle";
+  const emptyParticipantKey = normalizedRole === "contractor"
+    ? "documents.packets.emptyParticipantContractor"
+    : "documents.packets.emptyParticipant";
   const [packets, setPackets] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [contractors, setContractors] = useState([]);
@@ -197,7 +204,7 @@ export default function DocumentPacketsPanel({
             {t("documents.packets.title")}
           </h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-            {canManage ? t("documents.packets.managerSubtitle") : t("documents.packets.participantSubtitle")}
+            {canManage ? t("documents.packets.managerSubtitle") : t(participantSubtitleKey)}
           </p>
         </div>
         <button
@@ -319,7 +326,7 @@ export default function DocumentPacketsPanel({
         <p className="text-sm text-slate-500 dark:text-slate-400">{t("common.loading")}</p>
       ) : packets.length === 0 ? (
         <div className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-          {canManage ? t("documents.packets.emptyManager") : t("documents.packets.emptyParticipant")}
+          {canManage ? t("documents.packets.emptyManager") : t(emptyParticipantKey)}
         </div>
       ) : (
         <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800">

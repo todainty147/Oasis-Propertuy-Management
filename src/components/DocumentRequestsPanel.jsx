@@ -46,7 +46,14 @@ export default function DocumentRequestsPanel({
   mode = "manager",
 }) {
   const role = permissionContext?.role;
+  const normalizedRole = normalizeRole(role);
   const canManage = mode === "manager" && isManagerRole(role);
+  const participantSubtitleKey = normalizedRole === "contractor"
+    ? "documents.requests.participantSubtitleContractor"
+    : "documents.requests.participantSubtitle";
+  const emptyParticipantKey = normalizedRole === "contractor"
+    ? "documents.requests.emptyParticipantContractor"
+    : "documents.requests.emptyParticipant";
   const fileInputsRef = useRef({});
   const [requests, setRequests] = useState([]);
   const [contractors, setContractors] = useState([]);
@@ -158,7 +165,7 @@ export default function DocumentRequestsPanel({
             {t("documents.requests.title")}
           </h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-            {canManage ? t("documents.requests.managerSubtitle") : t("documents.requests.participantSubtitle")}
+            {canManage ? t("documents.requests.managerSubtitle") : t(participantSubtitleKey)}
           </p>
         </div>
         <button
@@ -266,7 +273,7 @@ export default function DocumentRequestsPanel({
         <p className="text-sm text-slate-500 dark:text-slate-400">{t("common.loading")}</p>
       ) : visibleRequests.length === 0 ? (
         <div className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-          {canManage ? t("documents.requests.emptyManager") : t("documents.requests.emptyParticipant")}
+          {canManage ? t("documents.requests.emptyManager") : t(emptyParticipantKey)}
         </div>
       ) : (
         <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800">

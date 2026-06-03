@@ -2,37 +2,37 @@
 
 This script must pass before Phase 5A - Live Submission Readiness & Consent Framework begins. It does not enable live HMRC submission.
 
-1. Log in as landlord owner.
-2. Confirm HMRC connection status.
-3. Run Business Details check.
-4. Run Obligations check.
-5. Run Property Business check.
-6. Create tax records:
+1. Log in as landlord owner. Passed.
+2. Confirm HMRC connection status. Passed.
+3. Run Business Details check. Passed.
+4. Run Obligations check. Passed.
+5. Run Property Business check. Passed.
+6. Create tax records. Passed.
    - rent income
    - repairs expense
    - insurance expense
    - finance cost
    - capital improvement
    - mixed-use item
-7. Create quarterly draft.
-8. Confirm unresolved issues appear.
-9. Resolve or exclude issues.
-10. Mark draft reviewed.
-11. Lock draft.
-12. Export accountant pack.
-13. Run the HMRC sandbox submission.
-14. Confirm success and correlation ID.
-15. Confirm read-back success.
-16. Confirm repeat submit disabled.
-17. Confirm no live submission button.
-18. Log in as tenant.
-19. Confirm tenant cannot access Tax Tools.
-20. Log in as contractor.
-21. Confirm contractor cannot access Tax Tools.
-22. Confirm audit events visible to landlord/admin.
-23. Confirm no token/secrets in frontend responses/logs.
-24. Disable sandbox submission flag.
-25. Confirm sandbox submission button disappears or disables.
+7. Create quarterly draft. Passed.
+8. Confirm unresolved issues appear. Passed.
+9. Resolve or exclude issues. Passed.
+10. Mark draft reviewed. Passed.
+11. Lock draft. Passed.
+12. Export accountant pack. Passed.
+13. Run the HMRC sandbox submission. Passed.
+14. Confirm success and correlation ID. Passed.
+15. Confirm read-back success. Passed.
+16. Confirm repeat submit disabled. Passed.
+17. Confirm no live submission button. Passed.
+18. Log in as tenant. Passed.
+19. Confirm tenant cannot access Tax Tools. Passed.
+20. Log in as contractor. Passed.
+21. Confirm contractor cannot access Tax Tools. Passed.
+22. Confirm audit events visible to landlord/admin. Passed.
+23. Confirm no token/secrets in frontend responses/logs. Passed.
+24. Disable sandbox submission flag. Passed.
+25. Confirm sandbox submission button disappears or disables. Passed.
 
 ## Pass Criteria
 
