@@ -128,7 +128,10 @@ as $$
       'hmrc_mtd_sandbox_test_data',
       'hmrc_mtd_quarterly_draft_builder',
       'hmrc_mtd_sandbox_submission',
-      'hmrc_mtd_live_submission'
+      'hmrc_mtd_live_submission',
+      'hmrc_mtd_live_submission_pilot',
+      'hmrc_mtd_live_submission_allowlist',
+      'hmrc_mtd_live_submission_operator_controls'
     ) then exists (
       select 1
       from public.account_feature_flags aff, normalized n

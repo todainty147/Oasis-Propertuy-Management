@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  evaluateHmrcPhase5BReadinessGate,
   evaluateHmrcPhase5ReadinessGate,
+  HMRC_PHASE_5B_READINESS_REQUIREMENTS,
+  HMRC_PHASE_5B_READINESS_WARNING,
   HMRC_PHASE_5_READINESS_WARNING,
   HMRC_PHASE_5_READINESS_REQUIREMENTS,
 } from "../../src/lib/mtd/hmrcPhase5ReadinessGate.js";
@@ -60,5 +63,33 @@ describe("HMRC Phase 5 readiness gate", () => {
     expect(result.checks.find((check) => check.key === "readBackVerificationPasses")).toMatchObject({
       source: "manual",
     });
+  });
+
+  it("keeps Phase 5B false when pilot allowlist evidence is missing", () => {
+    const allPassing = Object.fromEntries(HMRC_PHASE_5B_READINESS_REQUIREMENTS.map((key) => [key, true]));
+    const result = evaluateHmrcPhase5BReadinessGate({ ...allPassing, livePilotAllowlistImplemented: false });
+
+    expect(result.READY_FOR_PHASE_5B).toBe(false);
+    expect(result.READY_FOR_LIVE_SUBMISSION).toBe(false);
+    expect(result.missing).toEqual(["livePilotAllowlistImplemented"]);
+  });
+
+  it("keeps Phase 5B false when pilot guard evidence is missing", () => {
+    const allPassing = Object.fromEntries(HMRC_PHASE_5B_READINESS_REQUIREMENTS.map((key) => [key, true]));
+    const result = evaluateHmrcPhase5BReadinessGate({ ...allPassing, livePilotGuardImplemented: false });
+
+    expect(result.READY_FOR_PHASE_5B).toBe(false);
+    expect(result.READY_FOR_LIVE_SUBMISSION).toBe(false);
+    expect(result.missing).toEqual(["livePilotGuardImplemented"]);
+  });
+
+  it("reports Phase 5B true only when all pilot evidence is true while live submission remains false", () => {
+    const allPassing = Object.fromEntries(HMRC_PHASE_5B_READINESS_REQUIREMENTS.map((key) => [key, true]));
+    const result = evaluateHmrcPhase5BReadinessGate(allPassing);
+
+    expect(result.READY_FOR_PHASE_5A).toBe(true);
+    expect(result.READY_FOR_PHASE_5B).toBe(true);
+    expect(result.READY_FOR_LIVE_SUBMISSION).toBe(false);
+    expect(result.warning).toBe(HMRC_PHASE_5B_READINESS_WARNING);
   });
 });

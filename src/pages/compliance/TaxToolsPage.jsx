@@ -723,7 +723,7 @@ function ExportPack({ expenses, financeRows, carriedRows, quarterlyDrafts = [] }
 }
 
 export default function TaxToolsPage({ properties = [] }) {
-  const { activeAccountId, hasEntitlement } = useAccount();
+  const { activeAccountId, activeRole, hasEntitlement } = useAccount();
   const [activeTab, setActiveTab] = useState("expenses");
   const [expenses, setExpenses] = useState([]);
   const [financeRows, setFinanceRows] = useState([]);
@@ -734,6 +734,22 @@ export default function TaxToolsPage({ properties = [] }) {
   const quarterlyDraftsEnabled = hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_QUARTERLY_DRAFT_BUILDER);
   const sandboxSubmissionEnabled = hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_SANDBOX_SUBMISSION);
   const propertyFinanceSyncEnabled = hasEntitlement(ENTITLEMENT_FEATURES.MTD_PROPERTY_FINANCE_SYNC);
+  const livePilotControlsEnabled =
+    hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_LIVE_SUBMISSION)
+    || hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_LIVE_SUBMISSION_PILOT)
+    || hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_LIVE_SUBMISSION_ALLOWLIST)
+    || hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_LIVE_SUBMISSION_OPERATOR_CONTROLS);
+  const livePilotStatus = livePilotControlsEnabled
+    ? {
+        features: {
+          hmrc_mtd_live_submission: hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_LIVE_SUBMISSION),
+          hmrc_mtd_live_submission_pilot: hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_LIVE_SUBMISSION_PILOT),
+        },
+        allowlisted: false,
+        userRole: activeRole || "",
+        supportRunbookReady: false,
+      }
+    : null;
 
   const loadRecords = useCallback(async () => {
     if (!activeAccountId) return;
@@ -811,6 +827,7 @@ export default function TaxToolsPage({ properties = [] }) {
               accountId={activeAccountId}
               properties={properties}
               sandboxSubmissionEnabled={sandboxSubmissionEnabled}
+              livePilotStatus={livePilotStatus}
             />
           ) : null}
           {!loading && activeEnabled && activeTab === "section24" ? <Section24Tracker accountId={activeAccountId} properties={properties} financeRows={financeRows} onSaved={loadRecords} /> : null}

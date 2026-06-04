@@ -13,6 +13,15 @@ export const HMRC_PHASE_5_READINESS_REQUIREMENTS = Object.freeze([
   "productionWriteEndpointBlocked",
 ]);
 
+export const HMRC_PHASE_5B_READINESS_REQUIREMENTS = Object.freeze([
+  ...HMRC_PHASE_5_READINESS_REQUIREMENTS,
+  "livePilotAllowlistImplemented",
+  "livePilotGuardImplemented",
+  "livePilotUiSafe",
+  "livePilotSupportRunbookReady",
+  "liveSubmissionEndpointStillDisabled",
+]);
+
 export const HMRC_PHASE_5_READINESS_EVIDENCE = Object.freeze({
   automatedTestsPass: {
     label: "Automated tests passed",
@@ -62,10 +71,32 @@ export const HMRC_PHASE_5_READINESS_EVIDENCE = Object.freeze({
     label: "Production write endpoint remains blocked",
     source: "automated",
   },
+  livePilotAllowlistImplemented: {
+    label: "Live pilot allowlist implemented",
+    source: "automated",
+  },
+  livePilotGuardImplemented: {
+    label: "Live pilot pre-flight guard implemented",
+    source: "automated",
+  },
+  livePilotUiSafe: {
+    label: "Live pilot UI is readiness-only",
+    source: "automated",
+  },
+  livePilotSupportRunbookReady: {
+    label: "Live pilot support runbook ready",
+    source: "automated",
+  },
+  liveSubmissionEndpointStillDisabled: {
+    label: "Live submission endpoint remains disabled",
+    source: "automated",
+  },
 });
 
 export const HMRC_PHASE_5_READINESS_WARNING =
   "READY_FOR_PHASE_5A only means ready to begin Phase 5A readiness work. It does not enable live submission.";
+export const HMRC_PHASE_5B_READINESS_WARNING =
+  "READY_FOR_PHASE_5B only means controlled pilot design controls are present. READY_FOR_LIVE_SUBMISSION remains false.";
 
 export function evaluateHmrcPhase5ReadinessGate(results = {}) {
   const checks = HMRC_PHASE_5_READINESS_REQUIREMENTS.map((key) => ({
@@ -80,5 +111,23 @@ export function evaluateHmrcPhase5ReadinessGate(results = {}) {
     checks,
     missing,
     warning: HMRC_PHASE_5_READINESS_WARNING,
+  };
+}
+
+export function evaluateHmrcPhase5BReadinessGate(results = {}) {
+  const checks = HMRC_PHASE_5B_READINESS_REQUIREMENTS.map((key) => ({
+    key,
+    label: HMRC_PHASE_5_READINESS_EVIDENCE[key]?.label || key,
+    source: HMRC_PHASE_5_READINESS_EVIDENCE[key]?.source || "manual",
+    passed: results[key] === true,
+  }));
+  const missing = checks.filter((check) => !check.passed).map((check) => check.key);
+  return {
+    READY_FOR_PHASE_5A: HMRC_PHASE_5_READINESS_REQUIREMENTS.every((key) => results[key] === true),
+    READY_FOR_PHASE_5B: missing.length === 0,
+    READY_FOR_LIVE_SUBMISSION: false,
+    checks,
+    missing,
+    warning: HMRC_PHASE_5B_READINESS_WARNING,
   };
 }
