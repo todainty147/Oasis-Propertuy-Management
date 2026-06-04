@@ -1,3 +1,29 @@
+create table if not exists public.account_feature_flags (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts(id) on delete cascade,
+  feature_key text not null,
+  enabled boolean not null default false,
+  created_by uuid,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(account_id, feature_key)
+);
+
+create index if not exists account_feature_flags_account_idx
+  on public.account_feature_flags (account_id, feature_key)
+  where enabled is true;
+
+alter table public.account_feature_flags enable row level security;
+
+drop policy if exists account_feature_flags_select_managers on public.account_feature_flags;
+create policy account_feature_flags_select_managers
+  on public.account_feature_flags
+  for select to authenticated
+  using (public.user_can_manage_account(account_id));
+
+revoke all on public.account_feature_flags from anon, authenticated;
+grant select on public.account_feature_flags to authenticated;
+
 create or replace function public.account_plan_rank(
   p_plan text
 )
@@ -130,6 +156,8 @@ as $$
       'hmrc_mtd_sandbox_submission',
       'hmrc_mtd_live_submission',
       'hmrc_mtd_live_submission_pilot',
+      'hmrc_mtd_live_submission_dry_run',
+      'hmrc_mtd_live_submission_network_enabled',
       'hmrc_mtd_live_submission_allowlist',
       'hmrc_mtd_live_submission_operator_controls'
     ) then exists (

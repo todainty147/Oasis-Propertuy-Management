@@ -22,6 +22,15 @@ export const HMRC_PHASE_5B_READINESS_REQUIREMENTS = Object.freeze([
   "liveSubmissionEndpointStillDisabled",
 ]);
 
+export const HMRC_PHASE_5C_READINESS_REQUIREMENTS = Object.freeze([
+  ...HMRC_PHASE_5B_READINESS_REQUIREMENTS,
+  "liveEndpointSkeletonExists",
+  "liveDryRunPasses",
+  "liveNetworkKillSwitchExists",
+  "duplicateLiveGuardExists",
+  "liveDryRunUiSafe",
+]);
+
 export const HMRC_PHASE_5_READINESS_EVIDENCE = Object.freeze({
   automatedTestsPass: {
     label: "Automated tests passed",
@@ -91,12 +100,40 @@ export const HMRC_PHASE_5_READINESS_EVIDENCE = Object.freeze({
     label: "Live submission endpoint remains disabled",
     source: "automated",
   },
+  liveEndpointSkeletonExists: {
+    label: "Live endpoint skeleton exists",
+    source: "automated",
+  },
+  liveDryRunPasses: {
+    label: "Live endpoint dry-run path passes",
+    source: "automated",
+  },
+  liveNetworkKillSwitchExists: {
+    label: "Live network kill switch exists",
+    source: "automated",
+  },
+  duplicateLiveGuardExists: {
+    label: "Duplicate live submission guard exists",
+    source: "automated",
+  },
+  liveDryRunUiSafe: {
+    label: "Live dry-run UI has no enabled live filing button",
+    source: "automated",
+  },
 });
 
 export const HMRC_PHASE_5_READINESS_WARNING =
   "READY_FOR_PHASE_5A only means ready to begin Phase 5A readiness work. It does not enable live submission.";
 export const HMRC_PHASE_5B_READINESS_WARNING =
-  "READY_FOR_PHASE_5B only means controlled pilot design controls are present. READY_FOR_LIVE_SUBMISSION remains false.";
+  "Phase 5B readiness does not enable live submission.";
+export const HMRC_PHASE_5B_LIVE_SUBMISSION_WARNING =
+  "READY_FOR_LIVE_SUBMISSION remains false until a later controlled live endpoint phase.";
+export const HMRC_PHASE_5C_READINESS_WARNING =
+  "Phase 5C readiness means the endpoint skeleton and dry-run controls exist.";
+export const HMRC_PHASE_5C_LIVE_SUBMISSION_WARNING =
+  "It does not mean live HMRC filing is enabled.";
+export const HMRC_PHASE_5C_LIVE_PILOT_WARNING =
+  "READY_FOR_LIVE_SUBMISSION remains false until a later explicit live network pilot approval.";
 
 export function evaluateHmrcPhase5ReadinessGate(results = {}) {
   const checks = HMRC_PHASE_5_READINESS_REQUIREMENTS.map((key) => ({
@@ -109,8 +146,11 @@ export function evaluateHmrcPhase5ReadinessGate(results = {}) {
   return {
     READY_FOR_PHASE_5A: missing.length === 0,
     checks,
+    manualEvidence: checks.filter((check) => check.source === "manual"),
+    automatedEvidence: checks.filter((check) => check.source === "automated"),
     missing,
     warning: HMRC_PHASE_5_READINESS_WARNING,
+    warnings: [HMRC_PHASE_5_READINESS_WARNING],
   };
 }
 
@@ -127,7 +167,39 @@ export function evaluateHmrcPhase5BReadinessGate(results = {}) {
     READY_FOR_PHASE_5B: missing.length === 0,
     READY_FOR_LIVE_SUBMISSION: false,
     checks,
+    manualEvidence: checks.filter((check) => check.source === "manual"),
+    automatedEvidence: checks.filter((check) => check.source === "automated"),
     missing,
     warning: HMRC_PHASE_5B_READINESS_WARNING,
+    warnings: [
+      HMRC_PHASE_5B_READINESS_WARNING,
+      HMRC_PHASE_5B_LIVE_SUBMISSION_WARNING,
+    ],
+  };
+}
+
+export function evaluateHmrcPhase5CReadinessGate(results = {}) {
+  const checks = HMRC_PHASE_5C_READINESS_REQUIREMENTS.map((key) => ({
+    key,
+    label: HMRC_PHASE_5_READINESS_EVIDENCE[key]?.label || key,
+    source: HMRC_PHASE_5_READINESS_EVIDENCE[key]?.source || "manual",
+    passed: results[key] === true,
+  }));
+  const missing = checks.filter((check) => !check.passed).map((check) => check.key);
+  return {
+    READY_FOR_PHASE_5A: HMRC_PHASE_5_READINESS_REQUIREMENTS.every((key) => results[key] === true),
+    READY_FOR_PHASE_5B: HMRC_PHASE_5B_READINESS_REQUIREMENTS.every((key) => results[key] === true),
+    READY_FOR_PHASE_5C: missing.length === 0,
+    READY_FOR_LIVE_SUBMISSION: false,
+    checks,
+    manualEvidence: checks.filter((check) => check.source === "manual"),
+    automatedEvidence: checks.filter((check) => check.source === "automated"),
+    missing,
+    warning: HMRC_PHASE_5C_READINESS_WARNING,
+    warnings: [
+      HMRC_PHASE_5C_READINESS_WARNING,
+      HMRC_PHASE_5C_LIVE_SUBMISSION_WARNING,
+      HMRC_PHASE_5C_LIVE_PILOT_WARNING,
+    ],
   };
 }

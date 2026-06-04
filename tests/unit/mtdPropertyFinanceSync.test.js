@@ -11,6 +11,7 @@ import {
   mapPropertyFinanceCategoryToMtdSuggestion,
   PROPERTY_FINANCE_SOURCE_TYPE,
 } from "../../src/services/mtdPropertyFinanceSyncService.js";
+import { expenseClassificationToSource } from "../../src/services/mtdQuarterlyDraftSourceService.js";
 import { mapRecordsToDraftLines } from "../../src/lib/mtd/mtdQuarterlyDraft.js";
 
 describe("Property Finance to MTD sync helpers", () => {
@@ -89,6 +90,27 @@ describe("Property Finance to MTD sync helpers", () => {
     expect(line.source_type).toBe("mtd_expense_tracker");
     expect(line.include_in_draft).toBe(false);
     expect(line.issue_status).toBe("possible_duplicate");
+  });
+
+  it("lets a confirmed duplicate candidate become draft-ready after landlord review", () => {
+    const source = expenseClassificationToSource({
+      id: "classification-1",
+      property_id: "property-1",
+      expense_date: "2026-06-03",
+      description: "Insurance payment from Property Finance",
+      amount: 100,
+      category: "insurance",
+      source_type: PROPERTY_FINANCE_SOURCE_TYPE,
+      review_status: "reviewed",
+      include_in_mtd: true,
+      mtd_ready: true,
+      source_metadata: { possible_duplicate: true },
+    });
+    const [line] = mapRecordsToDraftLines([source]);
+
+    expect(source.sourceReliability).toBe("manual_ready");
+    expect(line.include_in_draft).toBe(true);
+    expect(line.issue_status).toBe("ok");
   });
 
   it("documents the source type used for hard dedupe", () => {

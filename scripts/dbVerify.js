@@ -35,6 +35,11 @@ const verificationChecks = [
     sql: "select to_regclass('public.account_payment_collection_settings') is not null;",
   },
   {
+    label: "Account feature flags table",
+    why: "Confirms account-scoped feature gates exist before entitlement and HMRC overlays are evaluated.",
+    sql: "select to_regclass('public.account_feature_flags') is not null;",
+  },
+  {
     label: "Denied-event recorder RPC",
     why: "Confirms app-side durable denied logging can be invoked.",
     sql: "select to_regprocedure('public.record_security_denied_event(text,uuid,text,uuid,text,jsonb)') is not null;",
@@ -77,7 +82,12 @@ const verificationChecks = [
   {
     label: "Payment mark-paid RPC",
     why: "Confirms payment status mutation surface exists after auth hardening overlays.",
-    sql: "select to_regprocedure('public.mark_payment_paid(uuid,date)') is not null;",
+    sql: "select to_regprocedure('public.mark_payment_paid(uuid,uuid,date)') is not null;",
+  },
+  {
+    label: "Payment reversal RPC",
+    why: "Confirms append-only payment reversal support exists after ledger hardening overlays.",
+    sql: "select to_regprocedure('public.void_payment(uuid,uuid,text)') is not null;",
   },
   {
     label: "System notification RPC",
@@ -103,6 +113,36 @@ const verificationChecks = [
     label: "Documents bucket",
     why: "Confirms the checked-in private documents bucket exists for document flows.",
     sql: "select exists (select 1 from storage.buckets where id = 'documents');",
+  },
+  {
+    label: "HMRC sandbox submission attempts table",
+    why: "Confirms HMRC Phase 4 sandbox submission receipts can be stored locally.",
+    sql: "select to_regclass('public.mtd_quarterly_submission_attempts') is not null;",
+  },
+  {
+    label: "HMRC live consent table",
+    why: "Confirms HMRC Phase 5A consent scaffolding exists in the local test database.",
+    sql: "select to_regclass('public.hmrc_live_submission_consents') is not null;",
+  },
+  {
+    label: "HMRC live pilot allowlist table",
+    why: "Confirms HMRC Phase 5B controlled pilot allowlist exists in the local test database.",
+    sql: "select to_regclass('public.hmrc_live_submission_pilot_accounts') is not null;",
+  },
+  {
+    label: "HMRC live endpoint attempts table",
+    why: "Confirms HMRC Phase 5C dry-run/live endpoint skeleton storage exists locally.",
+    sql: "select to_regclass('public.hmrc_live_submission_attempts') is not null;",
+  },
+  {
+    label: "HMRC live dry-run feature flag",
+    why: "Confirms HMRC Phase 5C dry-run gating feature is seeded for local accounts.",
+    sql: "select exists (select 1 from public.account_feature_flags where feature_key = 'hmrc_mtd_live_submission_dry_run');",
+  },
+  {
+    label: "HMRC live network kill-switch feature flag",
+    why: "Confirms HMRC Phase 5C live-network kill-switch feature is seeded disabled by default.",
+    sql: "select exists (select 1 from public.account_feature_flags where feature_key = 'hmrc_mtd_live_submission_network_enabled');",
   },
 ];
 

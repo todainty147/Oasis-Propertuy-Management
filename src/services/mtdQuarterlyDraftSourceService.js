@@ -35,12 +35,12 @@ function taxRecordToSource(row) {
   };
 }
 
-function expenseClassificationToSource(row) {
+export function expenseClassificationToSource(row) {
   const reviewStatus = String(row.review_status || "manual").toLowerCase();
   const explicitlyIncluded = row.include_in_mtd === true && reviewStatus === "reviewed";
   const legacyManualReady = row.source_type === "manual" && row.mtd_ready === true && ["manual", "reviewed"].includes(reviewStatus);
   const readyForDraft = explicitlyIncluded || legacyManualReady;
-  const possibleDuplicate = row.source_metadata?.possible_duplicate === true;
+  const possibleDuplicate = row.source_metadata?.possible_duplicate === true && !readyForDraft;
 
   return {
     sourceType: "mtd_expense_tracker",

@@ -148,6 +148,78 @@ Live HMRC submission is only available through a controlled pilot when explicitl
 - Do not say: retry the same live draft.
 - Escalate when: duplicate is reported without a successful live marker.
 
+## dry run passed but no HMRC filing occurred
+
+- User sees: “Live submission dry run passed. No data was sent to HMRC.”
+- Check: `hmrc_live_submission_attempts.mode = 'dry_run'`, status `dry_run_passed`, and `hmrc_live_submission_events` for `live_dry_run_passed`.
+- Safe response: “Dry run does not send data to HMRC. The dry run validated the controlled pilot path only and does not count as filing.”
+- Do not say: the return was filed or accepted by live HMRC.
+- Escalate when: a dry-run attempt shows a network response or live HMRC correlation id.
+
+## dry run flag disabled
+
+- User sees: dry-run control unavailable or “Live HMRC dry run is disabled for this account.”
+- Check: account feature `hmrc_mtd_live_submission_dry_run`, pilot allowlist state, and Phase 5C readiness evidence.
+- Safe response: “Live HMRC submission is not enabled for general users. Dry-run access is limited to explicitly approved pilot accounts.”
+- Do not say: every account can run live dry runs.
+- Escalate when: an approved pilot account has completed consent and readiness checks but the dry-run flag remains disabled.
+
+## live network disabled
+
+- User sees: live network disabled or live pilot blocked.
+- Check: account feature `hmrc_mtd_live_submission_network_enabled`, `HMRC_LIVE_NETWORK_ENABLED`, `HMRC_ENVIRONMENT`, `HMRC_BASE_URL`, and `HMRC_LIVE_SUBMISSION_ENABLED`.
+- Safe response: “The live network path is disabled by server-side controls. Dry run may still be available for approved pilot accounts.”
+- Do not say: a plan change can enable live filing.
+- Escalate when: product/legal has approved a pilot but the operator kill switch state is unclear.
+
+## HMRC accepted but local success write failed
+
+- User sees: an error after a live-network pilot attempt, while HMRC may have accepted the request.
+- Check: HMRC correlation id, HMRC audit log, `hmrc_live_submission_attempts` rows stuck in `started`, and draft `live_submission_status`.
+- Safe response: “Do not retry this draft. Support must reconcile the HMRC response and local attempt record before any further action.”
+- Do not say: run the same live submission again.
+- Escalate when: HMRC accepted the request but `completeLiveAttempt` or draft success markers were not written locally.
+
+## consent invalid/stale
+
+- User sees: missing, invalid or stale consent.
+- Check: `hmrc_live_submission_consents`, draft hashes, draft status and latest consent audit event.
+- Safe response: “Live dry run and any future live pilot require current consent for the exact locked draft.”
+- Do not say: previous consent can be reused after edits.
+- Escalate when: consent appears current but the assertion reports stale consent.
+
+## operator kill switch disabled
+
+- User sees: live network disabled.
+- Check: `live_operator_kill_switch_checked` and `live_submission_blocked` events.
+- Safe response: “The operator kill switch is off, so no live network call can occur.”
+- Do not say: support can bypass the kill switch.
+- Escalate when: an approved operator action is blocked unexpectedly.
+
+## user asks why live submit button is missing
+
+- User sees: pilot controls, dry-run state, or no live controls.
+- Check: account allowlist, pilot flags, dry-run flag and current readiness gate output.
+- Safe response: “Live HMRC submission is not enabled for general users. There is no public live filing button. Phase 5C only supports controlled dry-run checks for approved pilot accounts.”
+- Do not say: the button is hidden because of a UI bug.
+- Escalate when: an approved pilot account cannot see the dry-run control after all readiness checks pass.
+
+## user asks whether sandbox or dry run counts as filing
+
+- User sees: sandbox success, dry-run success, or an HMRC sandbox correlation id.
+- Check: environment, attempt mode, and whether the row is a sandbox or dry-run attempt.
+- Safe response: “Sandbox submission does not affect a real HMRC account. Dry run does not send data to HMRC.”
+- Do not say: sandbox or dry-run counts as live filing.
+- Escalate when: a live-network attempt appears in records for an account that was not explicitly approved for a pilot.
+
+## user asks whether Tenaqo guarantees MTD compliance
+
+- User sees: MTD readiness, quarterly draft, export, sandbox, or dry-run result.
+- Check: draft issue list, accountant pack, consent state, and HMRC audit events.
+- Safe response: “Tenaqo helps prepare records and evidence for review. Tenaqo does not provide tax advice.”
+- Do not say: Tenaqo guarantees MTD compliance or replaces an accountant.
+- Escalate when: support copy or product copy appears to imply guaranteed compliance.
+
 ## user asks whether sandbox submission counts as filing
 
 - User sees: sandbox-only copy.

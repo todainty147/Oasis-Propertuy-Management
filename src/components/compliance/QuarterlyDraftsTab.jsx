@@ -18,7 +18,7 @@ import {
   rebuildQuarterlyDraft,
   setDraftLineIncluded,
 } from "../../services/mtdQuarterlyDraftService";
-import { getHmrcConnectionStatus, submitHmrcUkPropertyPeriodSummarySandbox } from "../../services/hmrcMtdService";
+import { getHmrcConnectionStatus, runHmrcUkPropertyPeriodSummaryLiveDryRun, submitHmrcUkPropertyPeriodSummarySandbox } from "../../services/hmrcMtdService";
 import { validateUkPropertyPeriodSummaryInput } from "../../lib/mtd/hmrcUkPropertyPeriodSummaryPayloadBuilder";
 import { evaluateHmrcLivePilotReadiness } from "../../lib/mtd/hmrcLivePilotGuard";
 
@@ -95,6 +95,7 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [submissionResult, setSubmissionResult] = useState(null);
+  const [liveDryRunResult, setLiveDryRunResult] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmSandbox, setConfirmSandbox] = useState(false);
 
@@ -176,6 +177,8 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
   }), [issueLines.length, livePilotStatus, selectedDraft, validation.issueCount]);
   const livePilotAllowlisted = livePilotStatus?.allowlisted === true;
   const livePilotConsentValid = Boolean(livePilotStatus?.consent?.consentId && livePilotStatus?.consent?.stale !== true);
+  const liveDryRunFeatureEnabled = livePilotStatus?.features?.hmrc_mtd_live_submission_dry_run === true;
+  const canRunLiveDryRun = Boolean(livePilotStatus !== null && livePilotReadiness.allowed && livePilotConsentValid && liveDryRunFeatureEnabled);
 
   async function handleCreate(event) {
     event.preventDefault();
@@ -214,6 +217,26 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
       getHmrcConnectionStatus(accountId).then(setHmrcStatus).catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not submit HMRC sandbox period summary.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleLiveDryRun() {
+    if (!selectedDraft?.id || !livePilotStatus?.consent?.consentId) return;
+    try {
+      setBusy(true);
+      setError("");
+      setLiveDryRunResult(null);
+      const result = await runHmrcUkPropertyPeriodSummaryLiveDryRun(
+        accountId,
+        selectedDraft.id,
+        livePilotStatus.consent.consentId,
+        { supportRunbookReady: livePilotStatus?.supportRunbookReady === true },
+      );
+      setLiveDryRunResult(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not run live submission dry run.");
     } finally {
       setBusy(false);
     }
@@ -544,7 +567,7 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
                   <div>
                     <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Live HMRC submission pilot</h3>
                     <p className="mt-1 text-sm text-slate-500">
-                      Live submission: Disabled / Pilot only. No live HMRC submission can be started from this screen.
+                      Live submission: Disabled / Pilot controls only. No live HMRC filing can be started from this screen.
                     </p>
                   </div>
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
@@ -553,11 +576,15 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
                 </div>
                 <div className="mt-4 grid gap-3 md:grid-cols-3">
                   {[
-                    ["Live submission", livePilotStatus?.features?.hmrc_mtd_live_submission ? "Pilot only" : "Disabled"],
+                    ["Live submission", livePilotStatus?.features?.hmrc_mtd_live_submission ? "Pilot controls only" : "Disabled"],
+                    ["Dry run feature", liveDryRunFeatureEnabled ? "Enabled" : "Disabled"],
+                    ["Dry run available", canRunLiveDryRun ? "Yes" : "No"],
                     ["Account allowlisted", livePilotAllowlisted ? "Yes" : "No"],
                     ["Draft locked", selectedDraft.status === "locked" ? "Yes" : "No"],
                     ["Consent valid", livePilotConsentValid ? "Yes" : "No"],
                     ["Unresolved issues", validation.issueCount || issueLines.length || 0],
+                    ["Live network", "Disabled"],
+                    ["READY_FOR_LIVE_SUBMISSION", "No"],
                     ["Support runbook", livePilotStatus?.supportRunbookReady ? "Ready" : "Not ready"],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
@@ -580,8 +607,18 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
                     Pilot pre-flight is blocked by {livePilotReadiness.blocked.length} readiness check(s). This panel is informational only.
                   </p>
                 ) : null}
-                <button type="button" disabled className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-500 opacity-60 dark:border-slate-700">
-                  Live submission unavailable
+                {liveDryRunResult ? (
+                  <div className="mt-4 rounded-xl border border-teal-200 bg-teal-50 p-3 text-sm text-teal-900 dark:border-teal-900/60 dark:bg-teal-950/30 dark:text-teal-100">
+                    {liveDryRunResult.message || "Live submission dry run passed. No data was sent to HMRC."}
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={busy || !canRunLiveDryRun}
+                  onClick={handleLiveDryRun}
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200"
+                >
+                  Run live submission dry run
                 </button>
               </Panel>
             ) : null}

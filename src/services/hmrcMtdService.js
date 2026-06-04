@@ -121,6 +121,24 @@ export async function submitHmrcUkPropertyPeriodSummarySandbox(accountId, draftI
   return data || null;
 }
 
+export async function runHmrcUkPropertyPeriodSummaryLiveDryRun(accountId, draftId, consentId, { supportRunbookReady = true } = {}) {
+  assertAccount(accountId);
+  if (!draftId) throw new Error("Missing quarterly draft id.");
+  if (!consentId) throw new Error("Missing live submission consent id.");
+  const { data, error } = await supabase.functions.invoke("hmrc-submit-uk-property-period-summary-live-pilot", {
+    body: {
+      account_id: accountId,
+      draft_id: draftId,
+      consent_id: consentId,
+      mode: "dry_run",
+      confirmLivePilot: true,
+      supportRunbookReady,
+    },
+  });
+  if (error) throw safeInvokeError(error, "Could not run HMRC live submission dry run.");
+  return data || null;
+}
+
 async function invokeHmrcReadOnlyCheck(accountId, functionName, fallback, body = {}) {
   assertAccount(accountId);
   const { data, error } = await supabase.functions.invoke(functionName, {

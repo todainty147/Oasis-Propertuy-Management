@@ -86,6 +86,7 @@ const OVERLAY_SEQUENCE = [
   "fn_documents_notify_uploaded_patch.sql",
   "notifications_rpc_grants.sql",
   "payment_write_authorization.sql",
+  "payment_ledger_reversal_hardening.sql",
   "root_support_account_access.sql",
   "account_sandbox_demo_seed.sql",
   "security_denied_event_stream.sql",
@@ -158,6 +159,10 @@ const OVERLAY_SEQUENCE = [
   "hmrc_mtd_phase2_readonly.sql",
   "hmrc_mtd_phase3_sandbox_test_data.sql",
   "hmrc_mtd_phase3_quarterly_drafts.sql",
+  "hmrc_mtd_phase4_sandbox_submission.sql",
+  "hmrc_mtd_phase5a_consent_scaffolding.sql",
+  "hmrc_mtd_phase5b_live_pilot.sql",
+  "hmrc_mtd_phase5c_live_endpoint_skeleton.sql",
 ];
 
 function resolvePsqlCommand() {
