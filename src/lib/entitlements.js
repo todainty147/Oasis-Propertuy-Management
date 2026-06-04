@@ -55,6 +55,8 @@ export const ENTITLEMENT_FEATURES = Object.freeze({
   HMRC_MTD_SANDBOX_SUBMISSION: "hmrc_mtd_sandbox_submission",
   HMRC_MTD_LIVE_SUBMISSION: "hmrc_mtd_live_submission",
   HMRC_MTD_LIVE_SUBMISSION_PILOT: "hmrc_mtd_live_submission_pilot",
+  HMRC_MTD_LIVE_SUBMISSION_DRY_RUN: "hmrc_mtd_live_submission_dry_run",
+  HMRC_MTD_LIVE_SUBMISSION_NETWORK_ENABLED: "hmrc_mtd_live_submission_network_enabled",
   HMRC_MTD_LIVE_SUBMISSION_ALLOWLIST: "hmrc_mtd_live_submission_allowlist",
   HMRC_MTD_LIVE_SUBMISSION_OPERATOR_CONTROLS: "hmrc_mtd_live_submission_operator_controls",
   COMPLIANCE_SAFE: "compliance_safe",

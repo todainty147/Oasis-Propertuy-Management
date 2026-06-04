@@ -36,6 +36,7 @@ Automatic inclusion is not allowed.
 Hard dedupe uses `account_id`, `source_type`, and `source_id`. Possible duplicates are flagged by matching property, close date, amount, and similar description/category.
 
 Possible duplicates can still be created as candidates, but they default to `include_in_mtd = false` and require review.
+Once a landlord confirms the category and includes a possible duplicate, Quarterly Drafts treat it as resolved; unresolved duplicate warnings stay out of draft totals.
 
 ## Audit Trail
 

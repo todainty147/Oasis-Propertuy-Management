@@ -349,6 +349,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply payment ledger reversal hardening overlay",
+    file: path.join(supabaseDir, "payment_ledger_reversal_hardening.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply account sandbox demo seed overlay",
     file: path.join(supabaseDir, "account_sandbox_demo_seed.sql"),
     onErrorStop: true,
@@ -496,6 +501,46 @@ const bootstrapSteps = [
   {
     label: "Apply Maintenance Smart Diagnostics overlay",
     file: path.join(supabaseDir, "maintenance_smart_diagnostics.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply HMRC MTD Phase 1 overlay",
+    file: path.join(supabaseDir, "hmrc_mtd_phase1.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply HMRC MTD Phase 2 read-only overlay",
+    file: path.join(supabaseDir, "hmrc_mtd_phase2_readonly.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply HMRC MTD Phase 3 sandbox test-data overlay",
+    file: path.join(supabaseDir, "hmrc_mtd_phase3_sandbox_test_data.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply HMRC MTD Phase 3 quarterly drafts overlay",
+    file: path.join(supabaseDir, "hmrc_mtd_phase3_quarterly_drafts.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply HMRC MTD Phase 4 sandbox submission overlay",
+    file: path.join(supabaseDir, "hmrc_mtd_phase4_sandbox_submission.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply HMRC MTD Phase 5A consent scaffolding overlay",
+    file: path.join(supabaseDir, "hmrc_mtd_phase5a_consent_scaffolding.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply HMRC MTD Phase 5B live pilot overlay",
+    file: path.join(supabaseDir, "hmrc_mtd_phase5b_live_pilot.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply HMRC MTD Phase 5C live endpoint skeleton overlay",
+    file: path.join(supabaseDir, "hmrc_mtd_phase5c_live_endpoint_skeleton.sql"),
     onErrorStop: true,
   },
 ];

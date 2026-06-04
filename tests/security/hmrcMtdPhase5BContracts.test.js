@@ -138,13 +138,13 @@ describe("HMRC Phase 5B controlled live pilot contracts", () => {
 
     expect(component).toContain("Live HMRC submission pilot");
     expect(component).toContain("livePilotStatus !== null");
-    expect(component).toContain("Live submission: Disabled / Pilot only");
+    expect(component).toContain("Live submission: Disabled / Pilot controls only");
     expect(component).toContain("Live HMRC submission is not available for this account.");
     expect(component).toContain("This account is eligible for a controlled pilot, but live submission is not enabled from this screen yet.");
-    expect(component).toContain("Live submission unavailable");
-    expect(component).toContain("disabled className");
+    expect(component).toContain("Run live submission dry run");
+    expect(component).toContain("[\"Live network\", \"Disabled\"]");
     expect(component).not.toContain("Submit to live HMRC");
-    expect(component).not.toMatch(/onClick=\{[^}]*live/i);
+    expect(component).not.toContain("mode: \"live_network\"");
     expect(component).not.toMatch(/fully MTD compliant|guaranteed compliant|HMRC recognised/i);
     expect(page).toContain("livePilotControlsEnabled");
     expect(page).toContain("livePilotStatus={livePilotStatus}");
@@ -159,8 +159,8 @@ describe("HMRC Phase 5B controlled live pilot contracts", () => {
     [service, component, pilotHelper].forEach((surface) => {
       expect(surface).not.toMatch(/Submit live|File with HMRC|Live filed|Fully MTD compliant|HMRC-recognised|HMRC recognised|Tax advice/i);
     });
-    expect(service).not.toMatch(/hmrc-submit-.*live|live.*period.*summary/i);
-    expect(component).not.toMatch(/onClick=\{[^}]*live/i);
+    expect(service).not.toContain("mode: \"live_network\"");
+    expect(component).not.toContain("mode: \"live_network\"");
     expect(pilotHelper).not.toMatch(/fetch\s*\(|period-summary.*POST|submit.*live/i);
     expect(sandboxFunction).toContain("HMRC_BASE_URL !== \"https://test-api.service.hmrc.gov.uk\"");
   });

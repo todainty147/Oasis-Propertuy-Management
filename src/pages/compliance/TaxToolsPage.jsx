@@ -737,6 +737,8 @@ export default function TaxToolsPage({ properties = [] }) {
   const livePilotControlsEnabled =
     hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_LIVE_SUBMISSION)
     || hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_LIVE_SUBMISSION_PILOT)
+    || hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_LIVE_SUBMISSION_DRY_RUN)
+    || hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_LIVE_SUBMISSION_NETWORK_ENABLED)
     || hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_LIVE_SUBMISSION_ALLOWLIST)
     || hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_LIVE_SUBMISSION_OPERATOR_CONTROLS);
   const livePilotStatus = livePilotControlsEnabled
@@ -744,6 +746,8 @@ export default function TaxToolsPage({ properties = [] }) {
         features: {
           hmrc_mtd_live_submission: hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_LIVE_SUBMISSION),
           hmrc_mtd_live_submission_pilot: hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_LIVE_SUBMISSION_PILOT),
+          hmrc_mtd_live_submission_dry_run: hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_LIVE_SUBMISSION_DRY_RUN),
+          hmrc_mtd_live_submission_network_enabled: hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_LIVE_SUBMISSION_NETWORK_ENABLED),
         },
         allowlisted: false,
         userRole: activeRole || "",

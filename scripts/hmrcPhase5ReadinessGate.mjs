@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 import {
   evaluateHmrcPhase5BReadinessGate,
+  evaluateHmrcPhase5CReadinessGate,
   evaluateHmrcPhase5ReadinessGate,
   HMRC_PHASE_5_READINESS_EVIDENCE,
   HMRC_PHASE_5B_READINESS_REQUIREMENTS,
   HMRC_PHASE_5B_LIVE_SUBMISSION_WARNING,
+  HMRC_PHASE_5C_READINESS_REQUIREMENTS,
+  HMRC_PHASE_5C_LIVE_PILOT_WARNING,
+  HMRC_PHASE_5C_LIVE_SUBMISSION_WARNING,
   HMRC_PHASE_5_READINESS_REQUIREMENTS,
   HMRC_PHASE_5_READINESS_WARNING,
 } from "../src/lib/mtd/hmrcPhase5ReadinessGate.js";
@@ -13,13 +17,14 @@ import { execFileSync } from "node:child_process";
 
 const evidenceFile = process.argv.find((arg) => arg.startsWith("--evidence-file="))?.split("=").slice(1).join("=");
 const fileEvidence = evidenceFile ? readEvidenceFile(evidenceFile) : {};
-const allRequirementKeys = [...new Set([...HMRC_PHASE_5_READINESS_REQUIREMENTS, ...HMRC_PHASE_5B_READINESS_REQUIREMENTS])];
+const allRequirementKeys = [...new Set([...HMRC_PHASE_5_READINESS_REQUIREMENTS, ...HMRC_PHASE_5B_READINESS_REQUIREMENTS, ...HMRC_PHASE_5C_READINESS_REQUIREMENTS])];
 const explicitResults = Object.fromEntries(allRequirementKeys.map((key) => [
   key,
   fileEvidence[key] === true || process.env[key] === "true",
 ]));
 const result = evaluateHmrcPhase5ReadinessGate(explicitResults);
 const phase5b = evaluateHmrcPhase5BReadinessGate(explicitResults);
+const phase5c = evaluateHmrcPhase5CReadinessGate(explicitResults);
 
 console.log(`HMRC Phase 5 readiness gate`);
 console.log(`Timestamp: ${new Date().toISOString()}`);
@@ -28,19 +33,23 @@ console.log(`Evidence source: ${evidenceFile ? `file + env override (${evidenceF
 console.log(HMRC_PHASE_5_READINESS_WARNING);
 console.log(phase5b.warning);
 console.log(HMRC_PHASE_5B_LIVE_SUBMISSION_WARNING);
+console.log(phase5c.warning);
+console.log(HMRC_PHASE_5C_LIVE_SUBMISSION_WARNING);
+console.log(HMRC_PHASE_5C_LIVE_PILOT_WARNING);
 console.log(`READY_FOR_PHASE_5A = ${result.READY_FOR_PHASE_5A ? "true" : "false"}`);
 console.log(`READY_FOR_PHASE_5B = ${phase5b.READY_FOR_PHASE_5B ? "true" : "false"}`);
-console.log(`READY_FOR_LIVE_SUBMISSION = ${phase5b.READY_FOR_LIVE_SUBMISSION ? "true" : "false"}`);
+console.log(`READY_FOR_PHASE_5C = ${phase5c.READY_FOR_PHASE_5C ? "true" : "false"}`);
+console.log(`READY_FOR_LIVE_SUBMISSION = ${phase5c.READY_FOR_LIVE_SUBMISSION ? "true" : "false"}`);
 console.log(`Manual evidence:`);
-printChecks(phase5b.manualEvidence);
+printChecks(phase5c.manualEvidence);
 console.log(`Automated evidence:`);
-printChecks(phase5b.automatedEvidence);
+printChecks(phase5c.automatedEvidence);
 
-if (phase5b.missing.length) {
-  console.log(`Missing evidence: ${phase5b.missing.join(", ")}`);
+if (phase5c.missing.length) {
+  console.log(`Missing evidence: ${phase5c.missing.join(", ")}`);
 }
 
-if (!result.READY_FOR_PHASE_5A || !phase5b.READY_FOR_PHASE_5B) {
+if (!result.READY_FOR_PHASE_5A || !phase5b.READY_FOR_PHASE_5B || !phase5c.READY_FOR_PHASE_5C) {
   process.exitCode = 1;
 }
 
