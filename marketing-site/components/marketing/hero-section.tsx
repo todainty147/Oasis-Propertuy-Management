@@ -1,8 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
 
 import type { Locale } from "../../lib/i18n";
 import { getLocalizedMarketingHref } from "../../lib/i18n";
+import { CommandCenterTeaser, ProductWalkthroughModal } from "./product-teaser";
 
 type HeroProps = {
   locale?: Locale;
@@ -13,8 +13,6 @@ type HeroProps = {
   support: string;
   highlights?: Array<string | { label: string; href?: string }>;
   microcopy?: string[];
-  imageSrc: string;
-  imageAlt: string;
   primaryCta: { label: string; href: string };
   secondaryCta: { label: string; href: string };
 };
@@ -56,6 +54,7 @@ export function HeroSection(props: HeroProps) {
             >
               {props.secondaryCta.label}
             </Link>
+            <ProductWalkthroughModal label="Watch product preview" />
           </div>
           {props.highlights?.length ? (
             <div
@@ -126,15 +125,7 @@ export function HeroSection(props: HeroProps) {
           </p>
         </div>
         <div className="hero__panel">
-          <div className="hero__shot card">
-            <Image
-              src={props.imageSrc}
-              alt={props.imageAlt}
-              className="hero__shot-image"
-              width={1600}
-              height={1000}
-            />
-          </div>
+          <CommandCenterTeaser />
         </div>
       </div>
     </section>

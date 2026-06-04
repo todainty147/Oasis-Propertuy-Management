@@ -9,6 +9,7 @@ import { FeatureGrid } from "./feature-grid";
 import { FinalCta } from "./final-cta";
 import { HeroSection } from "./hero-section";
 import { ProductPreview } from "./product-preview";
+import { PortfolioHealthTeaser, ProductWalkthroughModal } from "./product-teaser";
 import { SeoFeatureSection } from "./seo-feature-section";
 import { TestimonialCards } from "./testimonial-cards";
 import { TrustBar } from "./trust-bar";
@@ -36,10 +37,28 @@ export function MarketingHomePage({ locale }: { locale: Locale }) {
       {/* 6 — App Tease: animated mini-dashboard */}
       {c.appTease && <AppTease {...c.appTease} />}
 
-      {/* 7 — Product surface cards (compressed to 4 strongest) */}
+      {/* 7 — Portfolio Health product teaser */}
+      <section className="section product-teaser-section">
+        <div className="container product-teaser-section__layout">
+          <div className="product-teaser-section__copy">
+            <span className="eyebrow">Portfolio Health</span>
+            <h2>Know where the portfolio needs attention next</h2>
+            <p className="muted">
+              Tenaqo brings rent visibility, maintenance pressure, document readiness, and
+              compliance gaps into a review surface that keeps landlord oversight in control.
+            </p>
+            <div className="button-row">
+              <ProductWalkthroughModal label="See Tenaqo in action" />
+            </div>
+          </div>
+          <PortfolioHealthTeaser />
+        </div>
+      </section>
+
+      {/* 8 — Product surface cards (compressed to 4 strongest) */}
       <ProductPreview {...c.productPreview} />
 
-      {/* 8 — SEO feature section + yield + passive workflow sections */}
+      {/* 9 — SEO feature section + yield + passive workflow sections */}
       {c.seoFeatureSection && (
         <SeoFeatureSection
           {...c.seoFeatureSection}
@@ -50,10 +69,10 @@ export function MarketingHomePage({ locale }: { locale: Locale }) {
 
       <LandlordToolsCta locale={locale} />
 
-      {/* 9 — Tenaqo vs High-Street Agents */}
+      {/* 10 — Tenaqo vs High-Street Agents */}
       {c.agentComparison && <AgentComparison {...c.agentComparison} />}
 
-      {/* 10 — Final CTA */}
+      {/* 11 — Final CTA */}
       <FinalCta {...c.finalCta} locale={locale} />
     </main>
   );
