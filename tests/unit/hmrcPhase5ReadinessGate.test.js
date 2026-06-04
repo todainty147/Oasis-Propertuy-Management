@@ -3,6 +3,7 @@ import {
   evaluateHmrcPhase5BReadinessGate,
   evaluateHmrcPhase5ReadinessGate,
   HMRC_PHASE_5B_READINESS_REQUIREMENTS,
+  HMRC_PHASE_5B_LIVE_SUBMISSION_WARNING,
   HMRC_PHASE_5B_READINESS_WARNING,
   HMRC_PHASE_5_READINESS_WARNING,
   HMRC_PHASE_5_READINESS_REQUIREMENTS,
@@ -56,6 +57,9 @@ describe("HMRC Phase 5 readiness gate", () => {
     const result = evaluateHmrcPhase5ReadinessGate({});
 
     expect(result.warning).toBe(HMRC_PHASE_5_READINESS_WARNING);
+    expect(result.warnings).toEqual([HMRC_PHASE_5_READINESS_WARNING]);
+    expect(result.manualEvidence.every((check) => check.source === "manual")).toBe(true);
+    expect(result.automatedEvidence.every((check) => check.source === "automated")).toBe(true);
     expect(result.checks.find((check) => check.key === "consentScaffoldingPresent")).toMatchObject({
       label: "Consent scaffolding tests passed",
       source: "automated",
@@ -91,5 +95,11 @@ describe("HMRC Phase 5 readiness gate", () => {
     expect(result.READY_FOR_PHASE_5B).toBe(true);
     expect(result.READY_FOR_LIVE_SUBMISSION).toBe(false);
     expect(result.warning).toBe(HMRC_PHASE_5B_READINESS_WARNING);
+    expect(result.warnings).toEqual([
+      HMRC_PHASE_5B_READINESS_WARNING,
+      HMRC_PHASE_5B_LIVE_SUBMISSION_WARNING,
+    ]);
+    expect(result.manualEvidence.every((check) => check.source === "manual")).toBe(true);
+    expect(result.automatedEvidence.every((check) => check.source === "automated")).toBe(true);
   });
 });

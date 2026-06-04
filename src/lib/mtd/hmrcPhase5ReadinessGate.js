@@ -96,7 +96,9 @@ export const HMRC_PHASE_5_READINESS_EVIDENCE = Object.freeze({
 export const HMRC_PHASE_5_READINESS_WARNING =
   "READY_FOR_PHASE_5A only means ready to begin Phase 5A readiness work. It does not enable live submission.";
 export const HMRC_PHASE_5B_READINESS_WARNING =
-  "READY_FOR_PHASE_5B only means controlled pilot design controls are present. READY_FOR_LIVE_SUBMISSION remains false.";
+  "Phase 5B readiness does not enable live submission.";
+export const HMRC_PHASE_5B_LIVE_SUBMISSION_WARNING =
+  "READY_FOR_LIVE_SUBMISSION remains false until a later controlled live endpoint phase.";
 
 export function evaluateHmrcPhase5ReadinessGate(results = {}) {
   const checks = HMRC_PHASE_5_READINESS_REQUIREMENTS.map((key) => ({
@@ -109,8 +111,11 @@ export function evaluateHmrcPhase5ReadinessGate(results = {}) {
   return {
     READY_FOR_PHASE_5A: missing.length === 0,
     checks,
+    manualEvidence: checks.filter((check) => check.source === "manual"),
+    automatedEvidence: checks.filter((check) => check.source === "automated"),
     missing,
     warning: HMRC_PHASE_5_READINESS_WARNING,
+    warnings: [HMRC_PHASE_5_READINESS_WARNING],
   };
 }
 
@@ -127,7 +132,13 @@ export function evaluateHmrcPhase5BReadinessGate(results = {}) {
     READY_FOR_PHASE_5B: missing.length === 0,
     READY_FOR_LIVE_SUBMISSION: false,
     checks,
+    manualEvidence: checks.filter((check) => check.source === "manual"),
+    automatedEvidence: checks.filter((check) => check.source === "automated"),
     missing,
     warning: HMRC_PHASE_5B_READINESS_WARNING,
+    warnings: [
+      HMRC_PHASE_5B_READINESS_WARNING,
+      HMRC_PHASE_5B_LIVE_SUBMISSION_WARNING,
+    ],
   };
 }

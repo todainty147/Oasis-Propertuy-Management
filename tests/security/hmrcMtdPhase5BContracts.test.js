@@ -51,6 +51,8 @@ describe("HMRC Phase 5B controlled live pilot contracts", () => {
     expect(sql).toContain("live_pilot_enabled");
     expect(sql).toContain("live_pilot_disabled");
     expect(sql).toContain("hmrc_api_audit_log");
+    expect(sql).toContain("jsonb_build_object('reason', nullif(trim(coalesce(p_reason, '')), ''))");
+    expect(sql).toContain("jsonb_build_object('enabled', p_enabled)");
     expect(sql).not.toMatch(/grant\s+(insert|update|delete).*hmrc_live_submission_pilot_accounts.*authenticated/i);
   });
 
@@ -63,12 +65,32 @@ describe("HMRC Phase 5B controlled live pilot contracts", () => {
     expect(sql).toContain("if auth.uid() is not null and not public.user_can_manage_account(p_account_id) then");
     expect(sql).toContain("grant select on public.hmrc_live_submission_pilot_accounts to authenticated");
     expect(sql).toContain("grant execute on function public.set_hmrc_live_submission_pilot_account(uuid, boolean, text) to authenticated");
+    expect(sql).not.toMatch(/create\s+policy[\s\S]+for\s+(insert|update|delete)[\s\S]+hmrc_live_submission_pilot_accounts/i);
   });
 
   it("implements a server-side pilot guard without making a live network submission", () => {
     const helper = read("supabase/functions/_shared/hmrcLiveSubmissionPilot.ts");
 
     expect(helper).toContain("assertHmrcLiveSubmissionPilotAllowed");
+    [
+      "Missing account id.",
+      "Missing quarterly draft id.",
+      "Missing authenticated user id.",
+      "Explicit landlord consent is required before live HMRC submission.",
+      "owner_or_admin_required",
+      "live_feature_disabled",
+      "live_pilot_feature_disabled",
+      "account_not_allowlisted",
+      "sandbox_environment",
+      "production_base_url_not_configured",
+      "duplicate_successful_live_submission",
+      "draft_not_reviewed_and_locked",
+      "draft_has_unresolved_issues",
+      "consent_user_mismatch",
+      "live_connection_missing",
+      "live_token_not_refreshable",
+      "support_runbook_not_ready",
+    ].forEach((block) => expect(helper).toContain(block));
     expect(helper).toContain("hmrc_mtd_live_submission");
     expect(helper).toContain("hmrc_mtd_live_submission_pilot");
     expect(helper).toContain("checkFeature");
@@ -79,6 +101,7 @@ describe("HMRC Phase 5B controlled live pilot contracts", () => {
     expect(helper).toContain("draft.status !== \"locked\"");
     expect(helper).toContain("countUnresolvedIssues");
     expect(helper).toContain("assertHmrcLiveSubmissionConsent");
+    expect(helper).toContain("assertHmrcLiveSubmissionConsent({ accountId, draftId, userId, consentId })");
     expect(helper).toContain("consent_user_mismatch");
     expect(helper).toContain("environment\", \"live");
     expect(helper).toContain("HMRC_BASE_URL === HMRC_SANDBOX_API_BASE_URL");
@@ -92,6 +115,21 @@ describe("HMRC Phase 5B controlled live pilot contracts", () => {
     expect(helper).toContain("live_pilot_checked");
     expect(helper).toContain("live_pilot_blocked");
     expect(helper).not.toMatch(/fetch\s*\(|submit.*live|period-summary.*POST/i);
+  });
+
+  it("documents Phase 5B consent and pilot interactions without bypassing Phase 5A", () => {
+    const helper = read("supabase/functions/_shared/hmrcLiveSubmissionPilot.ts");
+    const consentHelper = read("supabase/functions/_shared/hmrcLiveSubmissionConsent.ts");
+
+    expect(helper.indexOf("const allowlist = await getAllowlist(accountId)")).toBeLessThan(helper.indexOf("const consent = await assertHmrcLiveSubmissionConsent"));
+    expect(helper.indexOf("draft.status !== \"locked\"")).toBeLessThan(helper.indexOf("const consent = await assertHmrcLiveSubmissionConsent"));
+    expect(helper).toContain("countUnresolvedIssues(draft) > 0");
+    expect(helper).toContain("consent_user_mismatch");
+    expect(consentHelper).toContain("stale_user_consent");
+    expect(consentHelper).toContain("consent_draft_mismatch");
+    expect(consentHelper).toContain("p_account_id");
+    expect(consentHelper).toContain("p_draft_id");
+    expect(consentHelper).toContain("consentedBy: string");
   });
 
   it("renders a readiness-only UI panel with no enabled live submit button", () => {
@@ -112,6 +150,21 @@ describe("HMRC Phase 5B controlled live pilot contracts", () => {
     expect(page).toContain("livePilotStatus={livePilotStatus}");
   });
 
+  it("contains no callable live HMRC submission endpoint or unsafe live filing copy", () => {
+    const service = read("src/services/hmrcMtdService.js");
+    const component = read("src/components/compliance/QuarterlyDraftsTab.jsx");
+    const pilotHelper = read("supabase/functions/_shared/hmrcLiveSubmissionPilot.ts");
+    const sandboxFunction = read("supabase/functions/hmrc-submit-uk-property-period-summary-sandbox/index.ts");
+
+    [service, component, pilotHelper].forEach((surface) => {
+      expect(surface).not.toMatch(/Submit live|File with HMRC|Live filed|Fully MTD compliant|HMRC-recognised|HMRC recognised|Tax advice/i);
+    });
+    expect(service).not.toMatch(/hmrc-submit-.*live|live.*period.*summary/i);
+    expect(component).not.toMatch(/onClick=\{[^}]*live/i);
+    expect(pilotHelper).not.toMatch(/fetch\s*\(|period-summary.*POST|submit.*live/i);
+    expect(sandboxFunction).toContain("HMRC_BASE_URL !== \"https://test-api.service.hmrc.gov.uk\"");
+  });
+
   it("extends the readiness gate while keeping READY_FOR_LIVE_SUBMISSION false", () => {
     const helper = read("src/lib/mtd/hmrcPhase5ReadinessGate.js");
     const script = read("scripts/hmrcPhase5ReadinessGate.mjs");
@@ -127,9 +180,17 @@ describe("HMRC Phase 5B controlled live pilot contracts", () => {
     });
     expect(helper).toContain("READY_FOR_PHASE_5B");
     expect(helper).toContain("READY_FOR_LIVE_SUBMISSION: false");
+    expect(helper).toContain("Phase 5B readiness does not enable live submission.");
+    expect(helper).toContain("READY_FOR_LIVE_SUBMISSION remains false until a later controlled live endpoint phase.");
     expect(script).toContain("HMRC_PHASE_5B_READINESS_REQUIREMENTS");
     expect(script).toContain("READY_FOR_PHASE_5B");
     expect(script).toContain("READY_FOR_LIVE_SUBMISSION");
+    expect(script).toContain("Timestamp:");
+    expect(script).toContain("Git commit:");
+    expect(script).toContain("Evidence source:");
+    expect(script).toContain("Manual evidence:");
+    expect(script).toContain("Automated evidence:");
+    expect(script).toContain("Missing evidence:");
   });
 
   it("updates support and release docs with required pilot-safe wording", () => {
