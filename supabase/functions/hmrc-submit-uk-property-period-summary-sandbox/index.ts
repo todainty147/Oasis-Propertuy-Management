@@ -291,6 +291,12 @@ async function loadDraft(accountId: string, draftId: string) {
   if (Number(validation.issueCount || 0) > 0) {
     throw new HttpError("Resolve quarterly draft issues before sandbox submission.", 400);
   }
+  if (
+    String(draft.sandbox_submission_status || "").toLowerCase() === "success"
+    || Boolean(draft.sandbox_submitted_at)
+  ) {
+    throw new HttpError("already_submitted: Create a new draft or amendment flow before submitting again.", 409);
+  }
   const { data: lines, error: lineError } = await admin
     .from("mtd_quarterly_update_draft_lines")
     .select(LINE_SELECT)

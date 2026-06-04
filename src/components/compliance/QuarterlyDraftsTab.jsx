@@ -251,6 +251,7 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
         </div>
         <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-100">
           This screen prepares draft totals and can send reviewed drafts to HMRC sandbox only when enabled. Live HMRC submission remains disabled.
+          Consent framework ready. Live submission is not enabled. Future live submission will require explicit consent.
         </div>
       </Panel>
 

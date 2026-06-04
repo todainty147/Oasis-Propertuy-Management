@@ -8,6 +8,7 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "u
 describe("HMRC MTD Phase 1 security contracts", () => {
   it("adds HMRC account-level flags without adding live submission to plan entitlements", () => {
     const entitlements = read("src/lib/entitlements.js");
+    const entitlementSql = read("supabase/account_entitlements.sql");
     [
       "hmrc_mtd_connection",
       "hmrc_mtd_sandbox",
@@ -25,6 +26,9 @@ describe("HMRC MTD Phase 1 security contracts", () => {
     expect(planSection).not.toContain("ENTITLEMENT_FEATURES.HMRC_MTD_QUARTERLY_DRAFT_BUILDER");
     expect(planSection).not.toContain("ENTITLEMENT_FEATURES.HMRC_MTD_SANDBOX_SUBMISSION");
     expect(planSection).not.toContain("ENTITLEMENT_FEATURES.HMRC_MTD_LIVE_SUBMISSION");
+    expect(entitlementSql).toContain("'hmrc_mtd_live_submission'");
+    expect(entitlementSql).toContain("and aff.enabled is true");
+    expect(entitlementSql).toContain("HMRC MTD flags are account-flag only and disabled by default");
   });
 
   it("creates isolated HMRC tables and avoids browser token access", () => {
