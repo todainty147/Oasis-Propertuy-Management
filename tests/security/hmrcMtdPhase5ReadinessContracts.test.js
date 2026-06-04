@@ -53,15 +53,17 @@ describe("HMRC MTD Phase 5A readiness contracts", () => {
     const component = read("src/components/compliance/QuarterlyDraftsTab.jsx");
     const draftService = read("src/services/mtdQuarterlyDraftService.js");
     const readinessDocs = read("docs/release/hmrc-phase-5-readiness-smoke-test.md");
+    const sandboxFunction = read("supabase/functions/hmrc-submit-uk-property-period-summary-sandbox/index.ts");
 
     expect(component).toContain("hasSuccessfulSandboxAttempt");
     expect(component).toContain("disabled={busy || !canSubmitSandbox || hasSuccessfulSandboxAttempt}");
     expect(component).toContain("Create a new draft or amendment flow to test another submission.");
+    expect(sandboxFunction).toContain("already_submitted");
+    expect(sandboxFunction).toContain("draft.sandbox_submission_status");
+    expect(sandboxFunction).toContain("draft.sandbox_submitted_at");
     expect(draftService).toContain(".order(\"submitted_at\", { ascending: false })");
     expect(readinessDocs).toContain("Confirm repeat submit disabled.");
   });
-
-  it.todo("adds a server-side already_submitted guard before Phase 5A can be marked ready");
 
   it("maps HMRC failure modes to safe support-ready summaries without exposing secrets", () => {
     const sandboxFunction = read("supabase/functions/hmrc-submit-uk-property-period-summary-sandbox/index.ts");
@@ -153,18 +155,171 @@ describe("HMRC MTD Phase 5A readiness contracts", () => {
 
     expect(packageJson).toContain("hmrc:phase5:gate");
     expect(gateScript).toContain("READY_FOR_PHASE_5A");
+    expect(gateScript).toContain("Timestamp:");
+    expect(gateScript).toContain("Git commit:");
+    expect(gateScript).toContain("--evidence-file=");
+    expect(gateScript).toContain("Missing evidence:");
     expect(gateHelper).toContain("READY_FOR_PHASE_5A");
+    expect(gateHelper).toContain("READY_FOR_PHASE_5A only means ready to begin Phase 5A readiness work. It does not enable live submission.");
     expect(smoke).toContain("Log in as landlord owner.");
     expect(smoke).toContain("Confirm no live submission button.");
     expect(runbook).toContain("user wants live submission enabled");
   });
 });
 
-describe("HMRC Phase 5A consent framework TODO contracts", () => {
-  it.todo("blocks simulated live submission with missing_user_consent");
-  it.todo("requires checkbox_confirmed=true before live submission can proceed");
-  it.todo("blocks consent recorded for a different quarterly draft");
-  it.todo("blocks stale consent recorded before the final reviewed and locked draft");
-  it.todo("stores consent_text_version and consent_text_snapshot");
-  it.todo("writes hmrc_live_submission_consent_recorded audit events");
+describe("HMRC Phase 5A consent framework contracts", () => {
+  it("blocks simulated live submission with missing_user_consent", () => {
+    const helper = read("supabase/functions/_shared/hmrcLiveSubmissionConsent.ts");
+    const sql = read("supabase/hmrc_mtd_phase5a_consent_scaffolding.sql");
+
+    expect(helper).toContain("assertHmrcLiveSubmissionConsent");
+    expect(helper).toContain("missing_user_consent");
+    expect(helper).toContain("Explicit landlord consent is required before live HMRC submission.");
+    expect(sql).toContain("assert_hmrc_live_submission_consent");
+    expect(sql).toContain("raise exception 'missing_user_consent'");
+  });
+
+  it("requires checkbox_confirmed=true before live submission can proceed", () => {
+    const helper = read("supabase/functions/_shared/hmrcLiveSubmissionConsent.ts");
+    const sql = read("supabase/hmrc_mtd_phase5a_consent_scaffolding.sql");
+
+    expect(sql).toContain("checkbox_confirmed boolean not null");
+    expect(sql).toContain("checkbox_confirmed is true");
+    expect(sql).toContain("p_checkbox_confirmed is distinct from true");
+    expect(sql).toContain("raise exception 'checkbox_confirmed_required'");
+    expect(helper).toContain("checkbox_confirmed_required");
+  });
+
+  it("blocks consent recorded for a different quarterly draft", () => {
+    const sql = read("supabase/hmrc_mtd_phase5a_consent_scaffolding.sql");
+
+    expect(sql).toContain("enforce_hmrc_live_submission_consent_account");
+    expect(sql).toContain("HMRC live submission consent draft account mismatch");
+    expect(sql).toContain("v_consent.account_id <> p_account_id or v_consent.draft_id <> p_draft_id");
+    expect(sql).toContain("raise exception 'consent_draft_mismatch'");
+  });
+
+  it("blocks stale consent recorded before the final reviewed and locked draft", () => {
+    const sql = read("supabase/hmrc_mtd_phase5a_consent_scaffolding.sql");
+    const helper = read("supabase/functions/_shared/hmrcLiveSubmissionConsent.ts");
+
+    expect(sql).toContain("draft_status_at_consent = 'locked'");
+    expect(sql).toContain("v_draft.status <> 'locked'");
+    expect(sql).toContain("draft_review_and_lock_required_for_live_consent");
+    expect(sql).toContain("v_consent.draft_updated_at_at_consent is distinct from v_draft.updated_at");
+    expect(sql).toContain("v_consent.draft_lines_hash is distinct from public.hmrc_quarterly_draft_lines_snapshot_hash");
+    expect(sql).toContain("v_consent.category_totals_hash is distinct from md5");
+    expect(sql).toContain("v_consent.validation_summary_hash is distinct from md5");
+    expect(sql).toContain("v_consent.payload_preview_hash is distinct from md5");
+    expect(sql).toContain("raise exception 'stale_user_consent'");
+    expect(helper).toContain("The quarterly draft changed after consent was recorded.");
+  });
+
+  it("stores independent draft snapshot hashes for lines, totals, validation and payload", () => {
+    const sql = read("supabase/hmrc_mtd_phase5a_consent_scaffolding.sql");
+
+    expect(sql).toContain("hmrc_quarterly_draft_lines_snapshot_hash");
+    expect(sql).toContain("v_lines_hash text");
+    expect(sql).toContain("v_lines_hash := public.hmrc_quarterly_draft_lines_snapshot_hash");
+    expect(sql).toContain("draft_lines_hash text not null");
+    expect(sql).toContain("category_totals_hash text not null");
+    expect(sql).toContain("validation_summary_hash text not null");
+    expect(sql).toContain("payload_preview_hash text");
+    expect(sql).toContain("payload_preview_hash = coalesce(payload_preview_hash, md5(''))");
+    expect(sql).toContain("'draftLinesHash'");
+    expect(sql).toContain("'categoryTotalsHash'");
+    expect(sql).toContain("'validationSummaryHash'");
+    expect(sql).toContain("'payloadPreviewHash'");
+  });
+
+  it("keeps old stale consent auditable while allowing a later consent to be asserted", () => {
+    const sql = read("supabase/hmrc_mtd_phase5a_consent_scaffolding.sql");
+
+    expect(sql).toContain("created_at timestamptz not null default now()");
+    expect(sql).toContain("idx_hmrc_live_submission_consents_draft");
+    expect(sql).toContain("order by l.transaction_date, l.id");
+    expect(sql).not.toMatch(/unique\s*\(\s*account_id\s*,\s*draft_id/i);
+    expect(sql).toContain("before update or delete on public.hmrc_live_submission_consents");
+  });
+
+  it("stores consent_text_version and consent_text_snapshot", () => {
+    const sql = read("supabase/hmrc_mtd_phase5a_consent_scaffolding.sql");
+
+    expect(sql).toContain("consent_text_version text not null");
+    expect(sql).toContain("consent_text_snapshot text not null");
+    expect(sql).toContain("consent_text_version_required");
+    expect(sql).toContain("consent_text_snapshot_required");
+    expect(sql).toContain("trim(p_consent_text_version)");
+    expect(sql).toContain("trim(p_consent_text_snapshot)");
+  });
+
+  it("writes hmrc_live_submission_consent_recorded audit events", () => {
+    const sql = read("supabase/hmrc_mtd_phase5a_consent_scaffolding.sql");
+
+    expect(sql).toContain("mtd_quarterly_update_audit_events");
+    expect(sql).toContain("hmrc_live_submission_consent_recorded");
+    expect(sql).toContain("'consentId', v_consent_id");
+    expect(sql).toContain("'consentTextVersion', trim(p_consent_text_version)");
+    expect(sql).toContain("'accountId', p_account_id");
+    expect(sql).toContain("'draftId', p_draft_id");
+    expect(sql).toContain("'userId', auth.uid()");
+    expect(sql).toContain("'confirmedAt', now()");
+    expect(sql).not.toMatch(/access_token|refresh_token|client_secret/i);
+  });
+
+  it("keeps consent rows append-only and manager-scoped", () => {
+    const sql = read("supabase/hmrc_mtd_phase5a_consent_scaffolding.sql");
+
+    expect(sql).toContain("alter table public.hmrc_live_submission_consents enable row level security");
+    expect(sql).toContain("revoke all on public.hmrc_live_submission_consents from anon, authenticated");
+    expect(sql).toContain("grant select on public.hmrc_live_submission_consents to authenticated");
+    expect(sql).toContain("before update or delete on public.hmrc_live_submission_consents");
+    expect(sql).toContain("revoke execute on function public.assert_hmrc_live_submission_consent(uuid, uuid, uuid) from authenticated");
+    expect(sql).toContain("grant execute on function public.assert_hmrc_live_submission_consent(uuid, uuid, uuid) to service_role");
+    expect(sql).toContain("public.user_can_manage_account(account_id)");
+    expect(sql).toContain("public.account_has_feature(account_id, 'hmrc_mtd_quarterly_draft_builder')");
+    expect(sql).not.toMatch(/grant\s+(insert|update|delete).*hmrc_live_submission_consents.*authenticated/i);
+  });
+
+  it("prevents tenant, contractor and cross-account consent access through manager/account checks", () => {
+    const sql = read("supabase/hmrc_mtd_phase5a_consent_scaffolding.sql");
+
+    expect(sql).toContain("if not public.user_can_manage_account(p_account_id) then");
+    expect(sql).toContain("raise exception 'not_permitted'");
+    expect(sql).toContain("where d.id = p_draft_id");
+    expect(sql).toContain("and d.account_id = p_account_id");
+    expect(sql).toContain("HMRC live submission consent draft account mismatch");
+    expect(sql).toContain("v_consent.account_id <> p_account_id or v_consent.draft_id <> p_draft_id");
+  });
+
+  it("keeps the Edge helper strict and safe", () => {
+    const helper = read("supabase/functions/_shared/hmrcLiveSubmissionConsent.ts");
+
+    expect(helper).toContain("accountId: string");
+    expect(helper).toContain("draftId: string");
+    expect(helper).toContain("userId: string");
+    expect(helper).toContain("Missing authenticated user id.");
+    expect(helper).toContain("assert_hmrc_live_submission_consent");
+    expect(helper).toContain("consent_draft_mismatch");
+    expect(helper).toContain("stale_user_consent");
+    expect(helper).toContain("not_permitted");
+    expect(helper).toContain("You do not have permission to submit for this account.");
+    expect(helper).toContain("quarterly_draft_not_found");
+    expect(helper).toContain("The quarterly draft was not found. It may have been deleted.");
+    expect(helper).toContain("consentTextVersion");
+    expect(helper).not.toContain("consent_text_snapshot");
+    expect(helper).not.toMatch(/access_token|refresh_token|client_secret/i);
+  });
+
+  it("keeps consent readiness copy away from live-filing claims", () => {
+    const docs = read("docs/release/hmrc-phase5a-consent-scaffolding.md");
+    const component = read("src/components/compliance/QuarterlyDraftsTab.jsx");
+
+    for (const surface of [docs, component]) {
+      expect(surface).toContain("Live submission is not enabled");
+      expect(surface).toContain("Future live submission will require explicit consent");
+      expect(surface).toContain("Consent framework ready");
+      expect(surface).not.toMatch(/Submit live|File with HMRC|MTD compliant|HMRC recognised|Tax advice/i);
+    }
+  });
 });
