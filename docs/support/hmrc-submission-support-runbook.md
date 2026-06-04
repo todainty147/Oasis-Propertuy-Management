@@ -2,6 +2,8 @@
 
 Live HMRC submission is not available. Support should describe current HMRC tools as readiness, sandbox testing and accountant review only.
 
+Live HMRC submission is only available through a controlled pilot when explicitly enabled. Sandbox submissions do not affect a real HMRC account.
+
 ## 400 validation error
 
 - User sees: safe validation failure copy asking them to review the draft issues.
@@ -82,13 +84,85 @@ Live HMRC submission is not available. Support should describe current HMRC tool
 - Do not say: HMRC live record was changed.
 - Escalate when: source records or period were incorrect because of an app bug.
 
-## user wants live submission enabled
+## user wants live submission enabled / user asks to enable live submission
 
 - User sees: live submission disabled.
-- Check: feature flags and readiness gate evidence.
-- Safe response: “Live submission is not available. Phase 5A requires explicit consent, audit and readiness controls before any pilot.”
+- Check: feature flags, `hmrc_live_submission_pilot_accounts`, readiness gate evidence and product/legal approval.
+- Safe response: “Live HMRC submission is only available through a controlled pilot when explicitly enabled. Sandbox submissions do not affect a real HMRC account.”
 - Do not say: support can turn on live HMRC submission.
 - Escalate when: a pilot request is approved by product/legal leadership.
+
+## account not allowlisted
+
+- User sees: “Live HMRC submission is not available for this account.”
+- Check: `hmrc_live_submission_pilot_accounts`, `enabled`, `enabled_at`, `enabled_by`, and `reason`.
+- Safe response: “This account is not allowlisted for the controlled live HMRC pilot.”
+- Do not say: a landlord can self-enable pilot access.
+- Escalate when: an approved pilot account is missing from the allowlist.
+
+## pilot disabled
+
+- User sees: pilot readiness checks blocked or disabled.
+- Check: `hmrc_mtd_live_submission`, `hmrc_mtd_live_submission_pilot`, `hmrc_mtd_live_submission_allowlist`, and `hmrc_mtd_live_submission_operator_controls`.
+- Safe response: “The controlled live HMRC pilot is disabled for this account or environment.”
+- Do not say: the sandbox submission flag enables live filing.
+- Escalate when: all approved flags are enabled but pre-flight still reports disabled pilot.
+
+## stale consent
+
+- User sees: consent invalid or stale.
+- Check: `hmrc_live_submission_consents`, draft `updated_at`, lines hash, category totals hash, validation summary hash and payload preview hash.
+- Safe response: “The draft changed after consent was recorded. Review, lock and consent again before any future pilot pre-flight.”
+- Do not say: old consent can be reused after draft edits.
+- Escalate when: stale consent appears without a draft snapshot change.
+
+## draft changed after consent
+
+- User sees: stale consent or pilot pre-flight blocked.
+- Check: latest `hmrc_live_submission_consent_recorded` audit event against the current locked draft.
+- Safe response: “Consent is tied to the exact reviewed and locked draft snapshot.”
+- Do not say: consent applies to later changes automatically.
+- Escalate when: the app lets users change a locked draft silently.
+
+## live token expired
+
+- User sees: live pilot connection/token blocked.
+- Check: live `hmrc_connections` row for `connection_status`, `access_token_expires_at`, `refresh_token_expires_at`, and safe refresh audit events.
+- Safe response: “Reconnect or refresh the live HMRC connection before pilot pre-flight can continue.”
+- Do not say: token values or secrets.
+- Escalate when: token refresh fails repeatedly for an approved pilot account.
+
+## live HMRC connection missing
+
+- User sees: live connection required.
+- Check: `hmrc_connections` for `environment = 'live'` and connected status.
+- Safe response: “A live HMRC connection is required before controlled pilot pre-flight.”
+- Do not say: the sandbox connection is enough for live submission.
+- Escalate when: a connected live row exists but the guard reports missing connection.
+
+## duplicate live submission blocked
+
+- User sees: duplicate successful live submission blocked.
+- Check: draft `live_submission_status`, `live_submitted_at`, and any future live submission attempt table.
+- Safe response: “This draft already has a successful live submission marker. A later amendment flow must be used instead.”
+- Do not say: retry the same live draft.
+- Escalate when: duplicate is reported without a successful live marker.
+
+## user asks whether sandbox submission counts as filing
+
+- User sees: sandbox-only copy.
+- Check: sandbox attempt receipt and HMRC environment.
+- Safe response: “Sandbox submissions do not affect a real HMRC account and do not count as filing.”
+- Do not say: sandbox acceptance means the return was filed.
+- Escalate when: UI copy implies sandbox submission is a real filing.
+
+## user asks whether Tenaqo guarantees compliance
+
+- User sees: readiness, draft and accountant-review language.
+- Check: public copy and draft export wording.
+- Safe response: “Tenaqo supports record preparation and review workflows. It does not guarantee compliance or replace tax advice.”
+- Do not say: Tenaqo certifies MTD compliance.
+- Escalate when: product copy overclaims accuracy, compliance or HMRC recognition.
 
 ## user cannot consent because draft is not locked
 

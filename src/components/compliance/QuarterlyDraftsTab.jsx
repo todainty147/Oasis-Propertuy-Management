@@ -20,6 +20,7 @@ import {
 } from "../../services/mtdQuarterlyDraftService";
 import { getHmrcConnectionStatus, submitHmrcUkPropertyPeriodSummarySandbox } from "../../services/hmrcMtdService";
 import { validateUkPropertyPeriodSummaryInput } from "../../lib/mtd/hmrcUkPropertyPeriodSummaryPayloadBuilder";
+import { evaluateHmrcLivePilotReadiness } from "../../lib/mtd/hmrcLivePilotGuard";
 
 const EMPTY_FORM = {
   taxYear: DEFAULT_TAX_YEAR,
@@ -84,7 +85,7 @@ function formatTableLabel(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-export default function QuarterlyDraftsTab({ accountId, properties = [], sandboxSubmissionEnabled = false }) {
+export default function QuarterlyDraftsTab({ accountId, properties = [], sandboxSubmissionEnabled = false, livePilotStatus = null }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [drafts, setDrafts] = useState([]);
   const [selectedDraftId, setSelectedDraftId] = useState("");
@@ -158,6 +159,23 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
       && connectionStatus === "connected"
       && frontendPayloadIssues.length === 0,
   );
+  const livePilotReadiness = useMemo(() => evaluateHmrcLivePilotReadiness({
+    features: livePilotStatus?.features || {},
+    allowlisted: livePilotStatus?.allowlisted === true,
+    userRole: livePilotStatus?.userRole || "",
+    draft: {
+      ...selectedDraft,
+      live_submission_status: livePilotStatus?.liveSubmissionStatus,
+      live_submitted_at: livePilotStatus?.liveSubmittedAt,
+    },
+    unresolvedIssueCount: validation.issueCount || issueLines.length,
+    consent: livePilotStatus?.consent || {},
+    connection: livePilotStatus?.connection || {},
+    hmrcBaseUrl: livePilotStatus?.hmrcBaseUrl || "",
+    supportRunbookReady: livePilotStatus?.supportRunbookReady === true,
+  }), [issueLines.length, livePilotStatus, selectedDraft, validation.issueCount]);
+  const livePilotAllowlisted = livePilotStatus?.allowlisted === true;
+  const livePilotConsentValid = Boolean(livePilotStatus?.consent?.consentId && livePilotStatus?.consent?.stale !== true);
 
   async function handleCreate(event) {
     event.preventDefault();
@@ -520,6 +538,53 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
               </button>
               {!sandboxSubmissionEnabled ? <p className="mt-2 text-xs text-slate-500">Sandbox submission is disabled for this account.</p> : null}
             </Panel>
+            {livePilotStatus !== null ? (
+              <Panel>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Live HMRC submission pilot</h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Live submission: Disabled / Pilot only. No live HMRC submission can be started from this screen.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                    Pilot only
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  {[
+                    ["Live submission", livePilotStatus?.features?.hmrc_mtd_live_submission ? "Pilot only" : "Disabled"],
+                    ["Account allowlisted", livePilotAllowlisted ? "Yes" : "No"],
+                    ["Draft locked", selectedDraft.status === "locked" ? "Yes" : "No"],
+                    ["Consent valid", livePilotConsentValid ? "Yes" : "No"],
+                    ["Unresolved issues", validation.issueCount || issueLines.length || 0],
+                    ["Support runbook", livePilotStatus?.supportRunbookReady ? "Ready" : "Not ready"],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+                      <p className="text-xs uppercase text-slate-500">{label}</p>
+                      <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{value}</p>
+                    </div>
+                  ))}
+                </div>
+                {!livePilotAllowlisted ? (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
+                    Live HMRC submission is not available for this account.
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100">
+                    This account is eligible for a controlled pilot, but live submission is not enabled from this screen yet.
+                  </div>
+                )}
+                {livePilotReadiness.blocked.length ? (
+                  <p className="mt-3 text-xs text-slate-500">
+                    Pilot pre-flight is blocked by {livePilotReadiness.blocked.length} readiness check(s). This panel is informational only.
+                  </p>
+                ) : null}
+                <button type="button" disabled className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-500 opacity-60 dark:border-slate-700">
+                  Live submission unavailable
+                </button>
+              </Panel>
+            ) : null}
           </div>
         )}
       </div>
