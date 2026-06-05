@@ -19,8 +19,6 @@ type HomePageContent = {
     body: string;
     emphasis: string;
     support: string;
-    highlights: Array<{ label: string; href?: string }>;
-    microcopy: string[];
     imageSrc: string;
     imageAlt: string;
     primaryCta: { label: string; href: string };
@@ -155,18 +153,6 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
         "Compliance evidence, maintenance triage, documents, and rent records in one action queue.",
       support:
         "No income promises. Tenaqo does not collect rent, move money, or operate as a payment rail today. Just visibility, workflows, and the operational clarity that keeps a rental portfolio easier to review.",
-      highlights: [
-        { label: "Compliance evidence", href: "/features/compliance" },
-        { label: "Deposit dispute preparation", href: "/property-risk-protection-software" },
-        { label: "Maintenance triage", href: "/features/maintenance-management" },
-        { label: "Tenant onboarding", href: "/features/tenant-management" },
-        { label: "Property records", href: "/features/security-audit" },
-      ],
-      microcopy: [
-        "See rent, arrears, maintenance, and documents in one dashboard.",
-        "Let tenants report issues without endless WhatsApp threads.",
-        "Know what needs action before small problems become expensive.",
-      ],
       imageSrc: "/screenshots/command-center.png",
       imageAlt:
         "Tenaqo landlord dashboard showing rent status, maintenance workflows, and portfolio action queue",
@@ -528,18 +514,6 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
         "Czynsze, naprawy, dokumenty i compliance w jednej kolejce zadań.",
       support:
         "Żadnych obietnic gwarantowanego dochodu. Żadnej bramki do pobierania płatności na ten moment. Tylko widoczność, zorganizowane procesy i przejrzystość operacyjna, która utrzymuje portfel wynajmu w ruchu bez ciągłej interwencji.",
-      highlights: [
-        { label: "Czynsz i oczekiwane opłaty", href: "/features/rental-accounting" },
-        { label: "Command Center", href: "/features/command-center" },
-        { label: "Naprawy i zlecenia robocze", href: "/features/maintenance-management" },
-        { label: "Gotowość compliance", href: "/features/compliance" },
-        { label: "Bezpieczeństwo i ścieżka audytu", href: "/features/security-audit" },
-      ],
-      microcopy: [
-        "Zobacz czynsze, zaległości, naprawy i dokumenty w jednym panelu.",
-        "Pozwól najemcom zgłaszać problemy bez ciągnących się w nieskończoność wątków na WhatsAppie.",
-        "Wiedz, co wymaga działania, zanim małe problemy staną się kosztowne.",
-      ],
       imageSrc: "/screenshots/command-center.png",
       imageAlt:
         "Panel właściciela Tenaqo pokazujący status czynszów, obiegi napraw i kolejkę zadań dla portfela",
@@ -769,18 +743,6 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
         "Eine Plattform, auf der Sie Handlungsbedarf sehen, Arbeit voranbringen und den Ablauf Mieter → Vermieter → Handwerker unter Kontrolle halten.",
       support:
         "Entwickelt für Vermieter, die nicht nur verwalten, sondern Zuständigkeiten, Nachverfolgung und operative Klarheit sauber steuern wollen.",
-      highlights: [
-        { label: "Operatives Priorisierungs-Dashboard", href: "/features/command-center" },
-        { label: "Instandhaltung und Arbeitsaufträge", href: "/features/maintenance-management" },
-        { label: "Immobilienzustand", href: "/features/portfolio-health" },
-        { label: "Compliance-Suite", href: "/features/compliance" },
-        { label: "Sicherheit und Audit Trail", href: "/features/security-audit" },
-      ],
-      microcopy: [
-        "Für aktive Vermieter, nicht für passive Datenspeicherung.",
-        "Ablauf, Kontrolle und Mietererlebnis in wenigen Minuten erfassen.",
-        "Entwickelt, damit Mieter, Vermieter und Handwerker in einem sauberen Ablauf arbeiten.",
-      ],
       imageSrc: "/screenshots/command-center.png",
       imageAlt:
         "Tenaqo Command Center mit AI-Briefing, dringenden Aufgaben und operativen Warteschlangen im Portfolio.",
