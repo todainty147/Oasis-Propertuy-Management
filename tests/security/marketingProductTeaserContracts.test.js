@@ -32,6 +32,7 @@ describe("marketing product teaser contracts", () => {
       "CommandCenterTeaser.tsx",
       "PortfolioHealthTeaser.tsx",
       "ProductWalkthroughModal.tsx",
+      "TenantPortalTeaser.tsx",
       "demoTeaserData.ts",
     ]
       .map((file) => read(`${teaserDir}/${file}`))
@@ -40,17 +41,21 @@ describe("marketing product teaser contracts", () => {
     expect(combined).toContain("Bishopston House");
     expect(combined).toContain("Flat 4, Clifton");
     expect(combined).toContain("Daily AI summary");
+    expect(combined).toContain("Issue timeline updated");
     expect(combined).not.toMatch(/supabase|useAuth|AuthContext|AccountContext|fetch\(/i);
   });
 
   it("wires the refined seven-section homepage flow", () => {
     const hero = read("marketing-site/components/marketing/hero-section.tsx");
     const home = read("marketing-site/components/marketing/home-page.tsx");
+    const homepageContent = read("marketing-site/content/homepage.ts");
     const layout = read("marketing-site/app/layout.tsx");
 
+    expect(homepageContent).toContain("The operating layer for independent landlords.");
+    expect(homepageContent).toContain("one calm workspace for rent visibility");
     expect(hero).toContain("CommandCenterTeaser");
     expect(hero).toContain("props.productTeaser");
-    expect(hero).toContain("Watch product preview");
+    expect(hero).toContain("See how Tenaqo works");
     expect(home).toContain("productTeaser");
     expect(home).toContain('data-home-section="pain"');
     expect(home).toContain('data-home-section="portfolio-health"');
@@ -58,7 +63,8 @@ describe("marketing product teaser contracts", () => {
     expect(home).toContain('data-home-section="founder-offer"');
     expect(home).toContain('data-home-section="trust"');
     expect(home).toContain("PortfolioHealthTeaser");
-    expect(home).toContain("See Tenaqo in action");
+    expect(home).toContain("See the Tenant Portal in action");
+    expect(home).toContain('initialScene="tenant-portal"');
     expect(layout).toContain("<SiteFooter");
   });
 
@@ -81,6 +87,9 @@ describe("marketing product teaser contracts", () => {
     expect(tenantPortal).not.toContain("Command Center");
     expect(data).toContain('key: "tenant-portal"');
     expect(data).toContain('eyebrow: "Tenant Portal"');
+    expect(data).toContain("My home, repair updates, rent status, and shared documents");
+    expect(data).toContain("Property details");
+    expect(data).not.toMatch(/tenant-portal[\s\S]{0,900}(Command Center|Owner approval|Portfolio queue|AI operator briefing|landlord-controlled queue|Manager dashboard)/i);
   });
 
   it("keeps the walkthrough modal accessible and keyboard dismissible", () => {
@@ -95,6 +104,38 @@ describe("marketing product teaser contracts", () => {
     expect(modal).toContain("event.target === event.currentTarget");
     expect(modal).toContain("Play");
     expect(modal).toContain("Pause");
+    expect(modal).toContain("initialScene");
+    expect(modal).toContain("findIndex");
+  });
+
+  it("adds founder trust chips and partner-like boundary wording", () => {
+    const home = read("marketing-site/components/marketing/home-page.tsx");
+
+    expect(home).toContain("Account-scoped access");
+    expect(home).toContain("Tenant and contractor role separation");
+    expect(home).toContain("Document audit history");
+    expect(home).toContain("AI assists - landlord approves");
+    expect(home).toContain("Tenaqo is designed to support your existing legal, tax and property advice workflows");
+    expect(home).toContain("Tenaqo does not collect rent, move money, or operate as a payment rail today.");
+  });
+
+  it("adds the tenant portal persona toggle and the compare calculator surfaces", () => {
+    const tenantPage = read("marketing-site/app/features/tenant-portal/page.tsx");
+    const personaToggle = read("marketing-site/components/marketing/tenant-portal-persona-toggle.tsx");
+    const comparisonPage = read("marketing-site/components/marketing/comparison-page.tsx");
+    const calculator = read("marketing-site/components/marketing/agency-fee-calculator.tsx");
+
+    expect(tenantPage).toContain("TenantPortalPersonaToggle");
+    expect(personaToggle).toContain("For Landlords");
+    expect(personaToggle).toContain("For Tenants");
+    expect(personaToggle).toContain("For Contractors");
+    expect(personaToggle).not.toMatch(/supabase|useAuth|AuthContext|AccountContext|fetch\(/i);
+    expect(comparisonPage).toContain("AgencyFeeCalculator");
+    expect(calculator).toContain("Estimated agency fee exposure");
+    expect(calculator).toContain("Estimated monthly agency fees");
+    expect(calculator).toContain("Estimated annual agency fees");
+    expect(calculator).toContain("Actual fees vary by agent and service level");
+    expect(calculator).not.toMatch(/guaranteed savings|financial advice|anti-agent/i);
   });
 
   it("does not require dead screenshot props on the hero component contract", () => {

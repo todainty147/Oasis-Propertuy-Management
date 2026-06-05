@@ -4,6 +4,7 @@ import { BenefitGrid } from "../../../components/marketing/benefit-grid";
 import { ContentSection } from "../../../components/marketing/content-section";
 import { FinalCta } from "../../../components/marketing/final-cta";
 import { PageHero } from "../../../components/marketing/page-hero";
+import { TenantPortalPersonaToggle } from "../../../components/marketing/tenant-portal-persona-toggle";
 import { tenantPortalContent } from "../../../content/features/tenant-portal";
 import { buildMetadata } from "../../../lib/metadata";
 
@@ -13,6 +14,7 @@ export default function TenantPortalPage() {
   return (
     <>
       <PageHero {...tenantPortalContent.hero} />
+      <TenantPortalPersonaToggle />
       <ContentSection {...tenantPortalContent.visibilitySection} />
       <ContentSection {...tenantPortalContent.documentsSection} />
       <ContentSection {...tenantPortalContent.paymentsSection} />

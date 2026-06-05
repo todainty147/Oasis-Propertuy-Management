@@ -51,7 +51,7 @@ export function HeroSection(props: HeroProps) {
               {props.primaryCta.label}
             </Link>
             {props.productTeaser ? (
-              <ProductWalkthroughModal label="Watch product preview" />
+              <ProductWalkthroughModal label="See how Tenaqo works" />
             ) : props.secondaryCta ? (
               <Link
                 href={getLocalizedMarketingHref(locale, props.secondaryCta.href)}

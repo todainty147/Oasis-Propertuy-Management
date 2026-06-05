@@ -8,13 +8,23 @@ import { TeaserMetricCard } from "./TeaserMetricCard";
 import { TeaserQueueItem } from "./TeaserQueueItem";
 import { useTeaserSequence } from "./useTeaserSequence";
 
-export function ProductWalkthroughModal({ label = "Watch product preview" }: { label?: string }) {
+export function ProductWalkthroughModal({
+  label = "Watch product preview",
+  initialScene = "command-center",
+}: {
+  label?: string;
+  initialScene?: string;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const sequence = useTeaserSequence(walkthroughScenes.length, 4200);
   const activeScene = walkthroughScenes[sequence.activeIndex];
+  const initialSceneIndex = Math.max(
+    walkthroughScenes.findIndex((scene) => scene.key === initialScene),
+    0,
+  );
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -64,7 +74,7 @@ export function ProductWalkthroughModal({ label = "Watch product preview" }: { l
         type="button"
         className="button button-secondary product-walkthrough__trigger"
         onClick={() => {
-          sequence.setActiveIndex(0);
+          sequence.setActiveIndex(initialSceneIndex);
           setIsOpen(true);
         }}
       >

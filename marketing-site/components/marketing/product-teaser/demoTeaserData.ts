@@ -84,27 +84,34 @@ export const portfolioHealthQueue: TeaserQueueItem[] = [
 
 export const tenantPortalMetrics: TeaserMetric[] = [
   { label: "Rent status", value: "Up to date", tone: "good", detail: "next due 1 July" },
-  { label: "Open issue", value: "1", tone: "warn", detail: "contractor update" },
+  { label: "Repair updates", value: "1", tone: "warn", detail: "visit scheduled" },
   { label: "Shared docs", value: "6", tone: "neutral", detail: "available to view" },
+  { label: "Property details", value: "Flat 4", tone: "neutral", detail: "home information" },
 ];
 
 export const tenantPortalQueue: TeaserQueueItem[] = [
   {
-    title: "Boiler repair update",
-    meta: "Contractor visit booked for Tuesday morning",
+    title: "Issue timeline updated",
+    meta: "Repair request received, visit window added, next update due Tuesday",
     status: "Scheduled",
     tone: "warn",
   },
   {
-    title: "Rent payment visible",
+    title: "Rent status visible",
     meta: "June rent marked received by the property team",
     status: "Seen",
     tone: "good",
   },
   {
-    title: "Gas safety certificate",
-    meta: "Shared document available in the tenant portal",
+    title: "Shared documents",
+    meta: "Gas safety certificate and agreement packet available to view",
     status: "Document",
+    tone: "neutral",
+  },
+  {
+    title: "Message from property team",
+    meta: "Thanks for the photos — we will update the repair timeline after the visit",
+    status: "Update",
     tone: "neutral",
   },
 ];
@@ -131,9 +138,9 @@ export const walkthroughScenes: WalkthroughScene[] = [
   {
     key: "tenant-portal",
     eyebrow: "Tenant Portal",
-    title: "A calmer tenant-facing space",
+    title: "My home, repair updates, rent status, and shared documents",
     body:
-      "Tenants can follow repairs, check payment visibility, and access shared documents in a simpler property-facing view.",
+      "Tenants can follow an issue timeline, check rent/payment visibility where available, review property details, and access shared documents in one tenant-facing view.",
     metrics: tenantPortalMetrics,
     queue: tenantPortalQueue,
   },

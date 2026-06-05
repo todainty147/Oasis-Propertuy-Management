@@ -104,4 +104,37 @@ describe("finance payment display rows", () => {
     expect(isAdjustedFinancePayment({ amount: 1000 })).toBe(false);
     expect(isAdjustedFinancePayment({ amount: 1000, originalAmount: null })).toBe(false);
   });
+
+  it("leaves voided duplicate payments out of running-balance allocation", () => {
+    const displayRows = buildFinancePaymentDisplayRows(
+      [
+        {
+          id: "voided-duplicate",
+          propertyId: "property-36",
+          amount: 2000,
+          status: "void",
+          dueDate: "2026-05-12",
+        },
+        {
+          id: "may-expected",
+          propertyId: "property-36",
+          amount: 2000,
+          status: "pending",
+          dueDate: "2026-05-12",
+        },
+      ],
+      [{ propertyId: "property-36", remaining: 1500 }],
+      { today: new Date("2026-06-03T12:00:00Z") },
+    );
+
+    expect(displayRows.find((row) => row.id === "voided-duplicate")).toMatchObject({
+      amount: 2000,
+      status: "void",
+    });
+    expect(displayRows.find((row) => row.id === "may-expected")).toMatchObject({
+      amount: 1500,
+      originalAmount: 2000,
+      status: "overdue",
+    });
+  });
 });

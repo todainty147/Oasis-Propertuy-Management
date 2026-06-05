@@ -194,6 +194,21 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply rent engine tables overlay",
+    file: path.join(supabaseDir, "rent_engine_tables.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply advanced rent models overlay",
+    file: path.join(supabaseDir, "advanced_rent_models.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply rent reminders RPC overlay",
+    file: path.join(supabaseDir, "rent_reminders_rpc.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply portfolio health snapshot overlay",
     file: path.join(supabaseDir, "portfolio_health_snapshot.sql"),
     onErrorStop: true,
