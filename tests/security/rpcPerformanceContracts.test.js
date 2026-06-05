@@ -4,6 +4,10 @@ function readSql(relativePath) {
   return readFileSync(new URL(`../../${relativePath}`, import.meta.url), "utf8");
 }
 
+function normalizeSqlForContract(sql) {
+  return sql.replace(/"([^"]+)"/g, "$1");
+}
+
 describe("RPC performance contracts", () => {
   it("keeps the highest-fan-in feed RPCs behind hard item caps", () => {
     const commandCenterSql = readSql("supabase/command_center_items.sql");
@@ -60,7 +64,7 @@ describe("RPC performance contracts", () => {
   });
 
   it("retains the current supporting index definitions for the hottest account-scoped feed domains", () => {
-    const baselineSchemaSql = readSql("supabase/baseline_schema.sql");
+    const baselineSchemaSql = normalizeSqlForContract(readSql("supabase/baseline_schema.sql"));
     const performanceIndexSql = readSql("supabase/performance_rpc_indexes.sql");
 
     expect(baselineSchemaSql).toContain("CREATE INDEX payments_account_tenant_due_idx ON public.payments USING btree (account_id, tenant_id, due_date DESC);");

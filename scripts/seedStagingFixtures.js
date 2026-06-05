@@ -233,12 +233,16 @@ async function main() {
       name: isolationFixtures.accounts.accountA.name,
       created_by: usersByKey.ownerA.id,
       is_root: false,
+      subscription_status: "active",
+      subscription_plan: "pro",
     },
     {
       id: isolationFixtures.accounts.accountB.id,
       name: isolationFixtures.accounts.accountB.name,
       created_by: usersByKey.ownerB.id,
       is_root: false,
+      subscription_status: "active",
+      subscription_plan: "pro",
     },
   ]);
 
