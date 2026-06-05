@@ -30,7 +30,7 @@ export const commandCenterMetrics: TeaserMetric[] = [
 export const commandCenterQueue: TeaserQueueItem[] = [
   {
     title: "Approve contractor quote",
-    meta: "36 Ashton Rd - bathroom repair - evidence attached",
+    meta: "Bishopston House - bathroom repair - evidence attached",
     status: "Approval",
     tone: "warn",
   },
@@ -63,21 +63,48 @@ export const portfolioHealthMetrics: TeaserMetric[] = [
 
 export const portfolioHealthQueue: TeaserQueueItem[] = [
   {
-    title: "36 Ashton Rd",
+    title: "Bishopston House",
     meta: "Arrears follow-up and bathroom repair need owner review",
     status: "Action",
     tone: "warn",
   },
   {
-    title: "18 Brook Lane",
+    title: "Harbourside Apartment",
     meta: "Documents complete, no maintenance pressure this week",
     status: "Healthy",
     tone: "good",
   },
   {
-    title: "9 Maple Court",
+    title: "Flat 4, Clifton",
     meta: "Insurance renewal evidence due in 14 days",
     status: "Upcoming",
+    tone: "neutral",
+  },
+];
+
+export const tenantPortalMetrics: TeaserMetric[] = [
+  { label: "Rent status", value: "Up to date", tone: "good", detail: "next due 1 July" },
+  { label: "Open issue", value: "1", tone: "warn", detail: "contractor update" },
+  { label: "Shared docs", value: "6", tone: "neutral", detail: "available to view" },
+];
+
+export const tenantPortalQueue: TeaserQueueItem[] = [
+  {
+    title: "Boiler repair update",
+    meta: "Contractor visit booked for Tuesday morning",
+    status: "Scheduled",
+    tone: "warn",
+  },
+  {
+    title: "Rent payment visible",
+    meta: "June rent marked received by the property team",
+    status: "Seen",
+    tone: "good",
+  },
+  {
+    title: "Gas safety certificate",
+    meta: "Shared document available in the tenant portal",
+    status: "Document",
     tone: "neutral",
   },
 ];
@@ -93,32 +120,6 @@ export const walkthroughScenes: WalkthroughScene[] = [
     queue: commandCenterQueue.slice(0, 3),
   },
   {
-    key: "maintenance",
-    eyebrow: "Maintenance",
-    title: "Requests move with evidence",
-    body:
-      "Tenant reports, contractor updates, photos, quotes, and work-order notes stay connected so follow-up is easier to review.",
-    metrics: [
-      { label: "Open requests", value: "4", tone: "warn", detail: "2 assigned" },
-      { label: "Contractor updates", value: "3", tone: "good", detail: "this week" },
-      { label: "Evidence attached", value: "9", tone: "neutral", detail: "photos and files" },
-    ],
-    queue: [
-      {
-        title: "Leak under kitchen sink",
-        meta: "Tenant photos attached - plumber quote awaiting review",
-        status: "Quote",
-        tone: "warn",
-      },
-      {
-        title: "Boiler service complete",
-        meta: "Contractor invoice and certificate stored",
-        status: "Done",
-        tone: "good",
-      },
-    ],
-  },
-  {
     key: "portfolio-health",
     eyebrow: "Portfolio Health",
     title: "See pressure before it spreads",
@@ -126,6 +127,15 @@ export const walkthroughScenes: WalkthroughScene[] = [
       "Portfolio Health brings arrears, maintenance load, compliance gaps, and document readiness into a calmer review surface.",
     metrics: portfolioHealthMetrics,
     queue: portfolioHealthQueue,
+  },
+  {
+    key: "tenant-portal",
+    eyebrow: "Tenant Portal",
+    title: "A calmer tenant-facing space",
+    body:
+      "Tenants can follow repairs, check payment visibility, and access shared documents in a simpler property-facing view.",
+    metrics: tenantPortalMetrics,
+    queue: tenantPortalQueue,
   },
   {
     key: "documents",

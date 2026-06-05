@@ -14,6 +14,7 @@ describe("marketing product teaser contracts", () => {
       "CommandCenterTeaser.tsx",
       "PortfolioHealthTeaser.tsx",
       "ProductWalkthroughModal.tsx",
+      "TenantPortalTeaser.tsx",
       "TeaserMetricCard.tsx",
       "TeaserQueueItem.tsx",
       "TeaserBrowserChrome.tsx",
@@ -36,19 +37,50 @@ describe("marketing product teaser contracts", () => {
       .map((file) => read(`${teaserDir}/${file}`))
       .join("\n");
 
-    expect(combined).toContain("36 Ashton Rd");
+    expect(combined).toContain("Bishopston House");
+    expect(combined).toContain("Flat 4, Clifton");
     expect(combined).toContain("Daily AI summary");
     expect(combined).not.toMatch(/supabase|useAuth|AuthContext|AccountContext|fetch\(/i);
   });
 
-  it("wires the Command Center teaser into the hero and Portfolio Health into the homepage", () => {
+  it("wires the refined seven-section homepage flow", () => {
     const hero = read("marketing-site/components/marketing/hero-section.tsx");
     const home = read("marketing-site/components/marketing/home-page.tsx");
+    const layout = read("marketing-site/app/layout.tsx");
 
     expect(hero).toContain("CommandCenterTeaser");
+    expect(hero).toContain("props.productTeaser");
     expect(hero).toContain("Watch product preview");
+    expect(home).toContain("productTeaser");
+    expect(home).toContain('data-home-section="pain"');
+    expect(home).toContain('data-home-section="portfolio-health"');
+    expect(home).toContain('data-home-section="workflows"');
+    expect(home).toContain('data-home-section="founder-offer"');
+    expect(home).toContain('data-home-section="trust"');
     expect(home).toContain("PortfolioHealthTeaser");
     expect(home).toContain("See Tenaqo in action");
+    expect(layout).toContain("<SiteFooter");
+  });
+
+  it("does not render the removed repetitive homepage sections", () => {
+    const home = read("marketing-site/components/marketing/home-page.tsx");
+
+    expect(home).not.toContain("TrustBar");
+    expect(home).not.toContain("TestimonialCards");
+    expect(home).not.toContain("FeatureGrid");
+    expect(home).not.toContain("ProductPreview");
+    expect(home).not.toContain("AgentComparison");
+  });
+
+  it("uses a true tenant-facing portal mockup without Command Center labels", () => {
+    const tenantPortal = read(`${teaserDir}/TenantPortalTeaser.tsx`);
+    const data = read(`${teaserDir}/demoTeaserData.ts`);
+
+    expect(tenantPortal).toContain("Tenant Portal");
+    expect(tenantPortal).toContain("Repair updates");
+    expect(tenantPortal).not.toContain("Command Center");
+    expect(data).toContain('key: "tenant-portal"');
+    expect(data).toContain('eyebrow: "Tenant Portal"');
   });
 
   it("keeps the walkthrough modal accessible and keyboard dismissible", () => {
@@ -70,6 +102,15 @@ describe("marketing product teaser contracts", () => {
 
     expect(hero).not.toMatch(/imageSrc:\s*string/);
     expect(hero).not.toMatch(/imageAlt:\s*string/);
+  });
+
+  it("removes unused homepage hero clutter fields from the content contract", () => {
+    const homepageContent = read("marketing-site/content/homepage.ts");
+
+    expect(homepageContent).not.toMatch(/highlights:\s*Array/);
+    expect(homepageContent).not.toMatch(/microcopy:\s*string\[\]/);
+    expect(homepageContent).not.toMatch(/\n\s*highlights:\s*\[/);
+    expect(homepageContent).not.toMatch(/\n\s*microcopy:\s*\[/);
   });
 
   it("includes reduced-motion handling for teaser animations", () => {
