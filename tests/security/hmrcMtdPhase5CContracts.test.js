@@ -141,8 +141,8 @@ describe("HMRC Phase 5C controlled live endpoint skeleton contracts", () => {
     expect(checkpoint).toContain("This is deliberately preserved as a hard DB failure.");
     expect(checkpoint).toContain("Catch-path event writes now use `safeWriteLiveEvent`.");
     expect(checkpoint).toContain("Phase 5C now uses the shared `HMRC_LIVE_SUBMISSION_ENABLED` name.");
-    expect(roadmap).toContain("Phase 5C live endpoint skeleton/dry run - current");
-    expect(roadmap).toContain("Phase 5D one-account live network pilot - future");
+    expect(roadmap).toContain("Phase 5C live endpoint skeleton/dry run - complete");
+    expect(roadmap).toContain("Phase 5D one-account live network pilot - current");
     expect(runbook).toContain("dry run passed but no HMRC filing occurred");
     expect(runbook).toContain("dry run flag disabled");
     expect(runbook).toContain("operator kill switch disabled");

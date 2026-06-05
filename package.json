@@ -7,6 +7,8 @@
     "dev": "node scripts/with-local-node.mjs vite",
     "build": "node scripts/with-local-node.mjs vite build",
     "lint": "node scripts/with-local-node.mjs eslint .",
+    "check:edge-functions": "node scripts/with-local-node.mjs node scripts/checkEdgeFunctions.mjs --scope=hmrc",
+    "check:edge-functions:all": "node scripts/with-local-node.mjs node scripts/checkEdgeFunctions.mjs --scope=all",
     "preview": "node scripts/with-local-node.mjs vite preview",
     "test:e2e": "node scripts/with-local-node.mjs node scripts/runPlaywright.mjs test",
     "test:e2e:headed": "node scripts/with-local-node.mjs node scripts/runPlaywright.mjs test --headed",

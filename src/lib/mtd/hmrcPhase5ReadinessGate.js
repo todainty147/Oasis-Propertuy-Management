@@ -31,6 +31,27 @@ export const HMRC_PHASE_5C_READINESS_REQUIREMENTS = Object.freeze([
   "liveDryRunUiSafe",
 ]);
 
+export const HMRC_PHASE_5D_PILOT_READINESS_REQUIREMENTS = Object.freeze([
+  ...HMRC_PHASE_5C_READINESS_REQUIREMENTS,
+  "fullSuitePassed",
+  "focusedHmrcTestsPassed",
+  "buildPassed",
+  "lintPassed",
+  "pilotDryRunEvidencePassed",
+  "pilotAllowlistConfigured",
+  "supportRunbookReviewed",
+  "rollbackVerified",
+  "networkKillSwitchConfigured",
+]);
+
+export const HMRC_REAL_LIVE_NETWORK_ATTEMPT_REQUIREMENTS = Object.freeze([
+  ...HMRC_PHASE_5D_PILOT_READINESS_REQUIREMENTS,
+  "e2eTriageComplete",
+  "denoTypeCheckPassed",
+  "operatorDryRunSmokePassed",
+  "productionSecretsVerified",
+]);
+
 export const HMRC_PHASE_5_READINESS_EVIDENCE = Object.freeze({
   automatedTestsPass: {
     label: "Automated tests passed",
@@ -120,6 +141,58 @@ export const HMRC_PHASE_5_READINESS_EVIDENCE = Object.freeze({
     label: "Live dry-run UI has no enabled live filing button",
     source: "automated",
   },
+  fullSuitePassed: {
+    label: "Full broad suite passed",
+    source: "manual",
+  },
+  focusedHmrcTestsPassed: {
+    label: "Focused HMRC Phase 5A/5B/5C tests passed",
+    source: "manual",
+  },
+  buildPassed: {
+    label: "Production build passed",
+    source: "manual",
+  },
+  lintPassed: {
+    label: "Lint passed with existing warnings only",
+    source: "manual",
+  },
+  pilotDryRunEvidencePassed: {
+    label: "Pilot dry-run evidence is passed",
+    source: "manual",
+  },
+  pilotAllowlistConfigured: {
+    label: "Exactly one pilot account is allowlisted",
+    source: "manual",
+  },
+  supportRunbookReviewed: {
+    label: "Support runbook reviewed for the pilot",
+    source: "manual",
+  },
+  rollbackVerified: {
+    label: "Rollback and kill-switch procedure verified",
+    source: "manual",
+  },
+  networkKillSwitchConfigured: {
+    label: "Live network kill switch configured explicitly",
+    source: "manual",
+  },
+  e2eTriageComplete: {
+    label: "E2E failures triaged and blocking failures fixed or formally waived",
+    source: "manual",
+  },
+  denoTypeCheckPassed: {
+    label: "Live pilot Edge Function Deno/type check passed",
+    source: "manual",
+  },
+  operatorDryRunSmokePassed: {
+    label: "Operator dry-run smoke test passed without a live HMRC network call",
+    source: "manual",
+  },
+  productionSecretsVerified: {
+    label: "Production live-network secrets and kill switches verified server-side",
+    source: "manual",
+  },
 });
 
 export const HMRC_PHASE_5_READINESS_WARNING =
@@ -134,6 +207,16 @@ export const HMRC_PHASE_5C_LIVE_SUBMISSION_WARNING =
   "It does not mean live HMRC filing is enabled.";
 export const HMRC_PHASE_5C_LIVE_PILOT_WARNING =
   "READY_FOR_LIVE_SUBMISSION remains false until a later explicit live network pilot approval.";
+export const HMRC_PHASE_5D_PILOT_READINESS_WARNING =
+  "Phase 5D pilot readiness is not general live submission readiness.";
+export const HMRC_PHASE_5D_ONE_ACCOUNT_WARNING =
+  "Only one allowlisted pilot account may be used.";
+export const HMRC_PHASE_5D_LIMITATION_WARNING =
+  "Annual update and final declaration are not implemented.";
+export const HMRC_GENERAL_LIVE_SUBMISSION_WARNING =
+  "General live submission remains disabled.";
+export const HMRC_REAL_LIVE_NETWORK_ATTEMPT_WARNING =
+  "READY_FOR_REAL_LIVE_NETWORK_ATTEMPT is only for the one-account pilot and does not enable general live submission.";
 
 export function evaluateHmrcPhase5ReadinessGate(results = {}) {
   const checks = HMRC_PHASE_5_READINESS_REQUIREMENTS.map((key) => ({
@@ -200,6 +283,39 @@ export function evaluateHmrcPhase5CReadinessGate(results = {}) {
       HMRC_PHASE_5C_READINESS_WARNING,
       HMRC_PHASE_5C_LIVE_SUBMISSION_WARNING,
       HMRC_PHASE_5C_LIVE_PILOT_WARNING,
+    ],
+  };
+}
+
+export function evaluateHmrcPhase5DReadinessGate(results = {}) {
+  const checks = HMRC_REAL_LIVE_NETWORK_ATTEMPT_REQUIREMENTS.map((key) => ({
+    key,
+    label: HMRC_PHASE_5_READINESS_EVIDENCE[key]?.label || key,
+    source: HMRC_PHASE_5_READINESS_EVIDENCE[key]?.source || "manual",
+    passed: results[key] === true,
+  }));
+  const phase5dMissing = HMRC_PHASE_5D_PILOT_READINESS_REQUIREMENTS.filter((key) => results[key] !== true);
+  const realLiveMissing = checks.filter((check) => !check.passed).map((check) => check.key);
+  return {
+    READY_FOR_PHASE_5A: HMRC_PHASE_5_READINESS_REQUIREMENTS.every((key) => results[key] === true),
+    READY_FOR_PHASE_5B: HMRC_PHASE_5B_READINESS_REQUIREMENTS.every((key) => results[key] === true),
+    READY_FOR_PHASE_5C: HMRC_PHASE_5C_READINESS_REQUIREMENTS.every((key) => results[key] === true),
+    READY_FOR_PHASE_5D_PILOT: phase5dMissing.length === 0,
+    READY_FOR_REAL_LIVE_NETWORK_ATTEMPT: realLiveMissing.length === 0,
+    READY_FOR_GENERAL_LIVE_SUBMISSION: false,
+    READY_FOR_LIVE_SUBMISSION: false,
+    checks,
+    manualEvidence: checks.filter((check) => check.source === "manual"),
+    automatedEvidence: checks.filter((check) => check.source === "automated"),
+    missing: phase5dMissing,
+    realLiveMissing,
+    warning: HMRC_PHASE_5D_PILOT_READINESS_WARNING,
+    warnings: [
+      HMRC_PHASE_5D_PILOT_READINESS_WARNING,
+      HMRC_REAL_LIVE_NETWORK_ATTEMPT_WARNING,
+      HMRC_PHASE_5D_ONE_ACCOUNT_WARNING,
+      HMRC_PHASE_5D_LIMITATION_WARNING,
+      HMRC_GENERAL_LIVE_SUBMISSION_WARNING,
     ],
   };
 }

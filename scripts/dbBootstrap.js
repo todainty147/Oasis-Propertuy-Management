@@ -558,6 +558,11 @@ const bootstrapSteps = [
     file: path.join(supabaseDir, "hmrc_mtd_phase5c_live_endpoint_skeleton.sql"),
     onErrorStop: true,
   },
+  {
+    label: "Apply HMRC MTD Phase 5D one-account live pilot overlay",
+    file: path.join(supabaseDir, "hmrc_mtd_phase5d_one_account_live_pilot.sql"),
+    onErrorStop: true,
+  },
 ];
 
 function resolvePsqlCommand() {

@@ -2,9 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   evaluateHmrcPhase5BReadinessGate,
   evaluateHmrcPhase5CReadinessGate,
+  evaluateHmrcPhase5DReadinessGate,
   evaluateHmrcPhase5ReadinessGate,
   HMRC_PHASE_5B_READINESS_REQUIREMENTS,
   HMRC_PHASE_5C_READINESS_REQUIREMENTS,
+  HMRC_PHASE_5D_PILOT_READINESS_REQUIREMENTS,
+  HMRC_PHASE_5D_PILOT_READINESS_WARNING,
+  HMRC_PHASE_5D_ONE_ACCOUNT_WARNING,
+  HMRC_PHASE_5D_LIMITATION_WARNING,
+  HMRC_GENERAL_LIVE_SUBMISSION_WARNING,
+  HMRC_REAL_LIVE_NETWORK_ATTEMPT_REQUIREMENTS,
+  HMRC_REAL_LIVE_NETWORK_ATTEMPT_WARNING,
   HMRC_PHASE_5C_READINESS_WARNING,
   HMRC_PHASE_5C_LIVE_PILOT_WARNING,
   HMRC_PHASE_5C_LIVE_SUBMISSION_WARNING,
@@ -158,5 +166,92 @@ describe("HMRC Phase 5 readiness gate", () => {
       HMRC_PHASE_5C_LIVE_SUBMISSION_WARNING,
       HMRC_PHASE_5C_LIVE_PILOT_WARNING,
     ]);
+  });
+
+  it("keeps Phase 5D pilot false without full-suite evidence", () => {
+    const allPassing = Object.fromEntries(HMRC_PHASE_5D_PILOT_READINESS_REQUIREMENTS.map((key) => [key, true]));
+    const result = evaluateHmrcPhase5DReadinessGate({ ...allPassing, fullSuitePassed: false });
+
+    expect(result.READY_FOR_PHASE_5D_PILOT).toBe(false);
+    expect(result.READY_FOR_GENERAL_LIVE_SUBMISSION).toBe(false);
+    expect(result.READY_FOR_LIVE_SUBMISSION).toBe(false);
+    expect(result.missing).toEqual(["fullSuitePassed"]);
+  });
+
+  it("keeps Phase 5D pilot false without dry-run evidence", () => {
+    const allPassing = Object.fromEntries(HMRC_PHASE_5D_PILOT_READINESS_REQUIREMENTS.map((key) => [key, true]));
+    const result = evaluateHmrcPhase5DReadinessGate({ ...allPassing, pilotDryRunEvidencePassed: false });
+
+    expect(result.READY_FOR_PHASE_5D_PILOT).toBe(false);
+    expect(result.READY_FOR_GENERAL_LIVE_SUBMISSION).toBe(false);
+    expect(result.missing).toEqual(["pilotDryRunEvidencePassed"]);
+  });
+
+  it("keeps Phase 5D pilot false without support evidence", () => {
+    const allPassing = Object.fromEntries(HMRC_PHASE_5D_PILOT_READINESS_REQUIREMENTS.map((key) => [key, true]));
+    const result = evaluateHmrcPhase5DReadinessGate({ ...allPassing, supportRunbookReviewed: false });
+
+    expect(result.READY_FOR_PHASE_5D_PILOT).toBe(false);
+    expect(result.READY_FOR_GENERAL_LIVE_SUBMISSION).toBe(false);
+    expect(result.missing).toEqual(["supportRunbookReviewed"]);
+  });
+
+  it("keeps Phase 5D pilot false without rollback evidence", () => {
+    const allPassing = Object.fromEntries(HMRC_PHASE_5D_PILOT_READINESS_REQUIREMENTS.map((key) => [key, true]));
+    const result = evaluateHmrcPhase5DReadinessGate({ ...allPassing, rollbackVerified: false });
+
+    expect(result.READY_FOR_PHASE_5D_PILOT).toBe(false);
+    expect(result.READY_FOR_GENERAL_LIVE_SUBMISSION).toBe(false);
+    expect(result.missing).toEqual(["rollbackVerified"]);
+  });
+
+  it("reports Phase 5D pilot true only with all pilot evidence while general live readiness remains false", () => {
+    const allPassing = Object.fromEntries(HMRC_PHASE_5D_PILOT_READINESS_REQUIREMENTS.map((key) => [key, true]));
+    const result = evaluateHmrcPhase5DReadinessGate(allPassing);
+
+    expect(result.READY_FOR_PHASE_5A).toBe(true);
+    expect(result.READY_FOR_PHASE_5B).toBe(true);
+    expect(result.READY_FOR_PHASE_5C).toBe(true);
+    expect(result.READY_FOR_PHASE_5D_PILOT).toBe(true);
+    expect(result.READY_FOR_REAL_LIVE_NETWORK_ATTEMPT).toBe(false);
+    expect(result.realLiveMissing).toEqual([
+      "e2eTriageComplete",
+      "denoTypeCheckPassed",
+      "operatorDryRunSmokePassed",
+      "productionSecretsVerified",
+    ]);
+    expect(result.READY_FOR_GENERAL_LIVE_SUBMISSION).toBe(false);
+    expect(result.READY_FOR_LIVE_SUBMISSION).toBe(false);
+    expect(result.warning).toBe(HMRC_PHASE_5D_PILOT_READINESS_WARNING);
+    expect(result.warnings).toEqual([
+      HMRC_PHASE_5D_PILOT_READINESS_WARNING,
+      HMRC_REAL_LIVE_NETWORK_ATTEMPT_WARNING,
+      HMRC_PHASE_5D_ONE_ACCOUNT_WARNING,
+      HMRC_PHASE_5D_LIMITATION_WARNING,
+      HMRC_GENERAL_LIVE_SUBMISSION_WARNING,
+    ]);
+  });
+
+  it("keeps real live-network attempt false until Deno, E2E, dry-run smoke and secret evidence pass", () => {
+    const allPassing = Object.fromEntries(HMRC_REAL_LIVE_NETWORK_ATTEMPT_REQUIREMENTS.map((key) => [key, true]));
+    const result = evaluateHmrcPhase5DReadinessGate({ ...allPassing, denoTypeCheckPassed: false });
+
+    expect(result.READY_FOR_PHASE_5D_PILOT).toBe(true);
+    expect(result.READY_FOR_REAL_LIVE_NETWORK_ATTEMPT).toBe(false);
+    expect(result.realLiveMissing).toEqual(["denoTypeCheckPassed"]);
+    expect(result.READY_FOR_GENERAL_LIVE_SUBMISSION).toBe(false);
+    expect(result.READY_FOR_LIVE_SUBMISSION).toBe(false);
+  });
+
+  it("can report a one-account real live-network attempt ready while general live remains false", () => {
+    const allPassing = Object.fromEntries(HMRC_REAL_LIVE_NETWORK_ATTEMPT_REQUIREMENTS.map((key) => [key, true]));
+    const result = evaluateHmrcPhase5DReadinessGate(allPassing);
+
+    expect(result.READY_FOR_PHASE_5D_PILOT).toBe(true);
+    expect(result.READY_FOR_REAL_LIVE_NETWORK_ATTEMPT).toBe(true);
+    expect(result.READY_FOR_GENERAL_LIVE_SUBMISSION).toBe(false);
+    expect(result.READY_FOR_LIVE_SUBMISSION).toBe(false);
+    expect(result.missing).toEqual([]);
+    expect(result.realLiveMissing).toEqual([]);
   });
 });

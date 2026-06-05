@@ -52,7 +52,9 @@ Deno.serve(async (req) => {
       action: "hmrc.read_business_details",
       userId: user.id,
     });
-    const businessSummary = business.ok ? summarizeBusinessDetails(business.body) : { safe_code: business.normalized?.safeCode || "hmrc_error" };
+    const businessSummary: Record<string, unknown> = business.ok
+      ? summarizeBusinessDetails(business.body)
+      : { safe_code: business.normalized?.safeCode || "hmrc_error" };
     if (business.ok && businessSummary.firstIncomeSourceId) {
       await persistDiscoveredIncomeSourceId(connection, String(businessSummary.firstIncomeSourceId), accountId);
     }
@@ -92,7 +94,9 @@ Deno.serve(async (req) => {
       },
       testScenario: null,
     });
-    const obligationsSummary = obligations.ok ? summarizeObligations(obligations.body) : { safe_code: obligations.normalized?.safeCode || "hmrc_error" };
+    const obligationsSummary: Record<string, unknown> = obligations.ok
+      ? summarizeObligations(obligations.body)
+      : { safe_code: obligations.normalized?.safeCode || "hmrc_error" };
     const obligationsStatus = obligations.ok && Number(obligationsSummary.obligationCount || 0) === 0 ? "no_data" : obligations.ok ? "success" : obligations.status === 404 ? "no_data" : "failed";
     await writeHmrcReadinessCheck({
       accountId,

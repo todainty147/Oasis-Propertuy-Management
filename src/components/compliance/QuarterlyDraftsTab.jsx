@@ -567,7 +567,7 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
                   <div>
                     <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Live HMRC submission pilot</h3>
                     <p className="mt-1 text-sm text-slate-500">
-                      Live submission: Disabled / Pilot controls only. No live HMRC filing can be started from this screen.
+                      Live submission is not self-service. Pilot submission, when approved, is completed by the Tenaqo pilot process.
                     </p>
                   </div>
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
@@ -599,7 +599,7 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
                   </div>
                 ) : (
                   <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100">
-                    This account is eligible for a controlled pilot, but live submission is not enabled from this screen yet.
+                    Live pilot submission can only be completed by the Tenaqo pilot process. This screen can run dry-run checks, but it cannot send a live quarterly update.
                   </div>
                 )}
                 {livePilotReadiness.blocked.length ? (

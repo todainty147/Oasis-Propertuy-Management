@@ -59,8 +59,8 @@ describe("HMRC MTD Phase 5A readiness contracts", () => {
     expect(component).toContain("disabled={busy || !canSubmitSandbox || hasSuccessfulSandboxAttempt}");
     expect(component).toContain("Create a new draft or amendment flow to test another submission.");
     expect(sandboxFunction).toContain("already_submitted");
-    expect(sandboxFunction).toContain("draft.sandbox_submission_status");
-    expect(sandboxFunction).toContain("draft.sandbox_submitted_at");
+    expect(sandboxFunction).toContain("draftRecord.sandbox_submission_status");
+    expect(sandboxFunction).toContain("draftRecord.sandbox_submitted_at");
     expect(draftService).toContain(".order(\"submitted_at\", { ascending: false })");
     expect(readinessDocs).toContain("Confirm repeat submit disabled.");
   });
