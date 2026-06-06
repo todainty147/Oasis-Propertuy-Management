@@ -32,10 +32,13 @@ const allRequirementKeys = [...new Set([
   ...HMRC_PHASE_5D_PILOT_READINESS_REQUIREMENTS,
   ...HMRC_REAL_LIVE_NETWORK_ATTEMPT_REQUIREMENTS,
 ])];
-const explicitResults = Object.fromEntries(allRequirementKeys.map((key) => [
-  key,
-  fileEvidence[key] === true || process.env[key] === "true",
-]));
+const explicitResults = {
+  ...fileEvidence,
+  ...Object.fromEntries(allRequirementKeys.map((key) => [
+    key,
+    fileEvidence[key] === true || process.env[key] === "true",
+  ])),
+};
 const result = evaluateHmrcPhase5ReadinessGate(explicitResults);
 const phase5b = evaluateHmrcPhase5BReadinessGate(explicitResults);
 const phase5c = evaluateHmrcPhase5CReadinessGate(explicitResults);

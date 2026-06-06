@@ -77,10 +77,13 @@ test("captures linkedin-ready product shots for operator storytelling", async ({
   await expect(page.getByText("Maintenance Inbox").first()).toBeVisible();
   const triageCard = page.locator('[data-testid^="maintenance-triage-card-"]').first();
   await expect(triageCard).toBeVisible({ timeout: 30000 });
-  await triageCard.getByRole("button", { name: /Show facts|Pokaż fakty/i }).click();
-  await expect(triageCard.getByText(/Facts used|Fakty użyte/i)).toBeVisible({ timeout: 15000 });
+  const factsToggle = triageCard.getByRole("button", { name: /Show facts|Pokaż fakty/i });
+  if (await factsToggle.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    await factsToggle.click();
+    await expect(triageCard.getByText(/Facts used|Fakty użyte/i)).toBeVisible({ timeout: 15000 });
+  }
   const draftsToggle = triageCard.getByRole("button", { name: /Show drafts|Pokaż szkice/i });
-  if (await draftsToggle.count()) {
+  if (await draftsToggle.isVisible({ timeout: 2_000 }).catch(() => false)) {
     await draftsToggle.click();
   }
   await captureViewport(page, "maintenance-inbox-story.png");

@@ -70,17 +70,24 @@ export default function NotificationsBell({ limit = 20 }) {
         onClick={() => setOpen((v) => !v)}
         className="relative inline-flex items-center justify-center w-10 h-10 rounded-lg hover:bg-slate-50 transition-colors dark:hover:bg-slate-800"
         aria-label={t("notifications.label")}
+        data-testid="notifications-bell-button"
       >
         <Bell className="w-5 h-5 text-slate-700 dark:text-slate-200" />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-600 text-white text-[11px] leading-[18px] text-center">
+          <span
+            className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-600 text-white text-[11px] leading-[18px] text-center"
+            data-testid="notifications-unread-badge"
+          >
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-[360px] max-w-[90vw] bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden z-50 dark:border-slate-700 dark:bg-slate-900">
+        <div
+          className="absolute right-0 mt-2 w-[360px] max-w-[90vw] bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden z-50 dark:border-slate-700 dark:bg-slate-900"
+          data-testid="notifications-menu"
+        >
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-2">
               <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -130,6 +137,7 @@ export default function NotificationsBell({ limit = 20 }) {
                     <button
                       type="button"
                       onClick={() => handleClickNotification(n)}
+                      data-testid={`notification-item-${n.id}`}
                       className={`w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors ${
                         n.is_read ? "dark:hover:bg-slate-800" : "bg-blue-50/40 dark:bg-blue-500/10 dark:hover:bg-blue-500/15"
                       }`}
@@ -163,7 +171,10 @@ export default function NotificationsBell({ limit = 20 }) {
                         </div>
 
                         {!n.is_read && (
-                          <span className="mt-1 w-2 h-2 rounded-full bg-blue-600 flex-shrink-0" />
+                          <span
+                            className="mt-1 w-2 h-2 rounded-full bg-blue-600 flex-shrink-0"
+                            data-testid={`notification-unread-dot-${n.id}`}
+                          />
                         )}
                       </div>
                     </button>

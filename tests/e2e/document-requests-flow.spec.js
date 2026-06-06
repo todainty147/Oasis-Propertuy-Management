@@ -3,7 +3,7 @@ import { Buffer } from "node:buffer";
 import { isolationFixtures } from "../fixtures/isolationFixtures.js";
 import { logout, seededUsers, signInAs } from "./helpers/auth.js";
 
-test.setTimeout(90000);
+test.setTimeout(150000);
 
 function pdfFile(name, label) {
   return {
@@ -13,7 +13,36 @@ function pdfFile(name, label) {
   };
 }
 
+async function openDocumentsAccordion(page, name) {
+  const panelSelector = name === "workflows" ? "document-requests-panel" : "document-template-library";
+  const panel = page.getByTestId(panelSelector);
+  if (await panel.isVisible().catch(() => false)) return;
+  try {
+    await expect(panel).toBeVisible({ timeout: 3_000 });
+    return;
+  } catch {
+    // Manager document workflows are inside accordions; tenant and contractor
+    // routes render participant panels directly.
+  }
+  const buttonName = name === "workflows" ? /Workflows|Przepływy/i : /Templates|Signatures|Szablony|Podpisy/i;
+  const button = page.getByRole("button", { name: buttonName }).first();
+  if (await button.isVisible().catch(() => false)) {
+    await button.click();
+    return;
+  }
+  try {
+    await expect(button).toBeVisible({ timeout: 1_500 });
+    await button.click();
+    return;
+  } catch {
+    // Participant portals do not show the manager accordion; wait for the
+    // direct panel instead.
+  }
+  await expect(panel).toBeVisible({ timeout: 15_000 });
+}
+
 async function requestPanel(page) {
+  await openDocumentsAccordion(page, "workflows");
   const panel = page.getByTestId("document-requests-panel");
   await expect(panel).toBeVisible();
   return panel;

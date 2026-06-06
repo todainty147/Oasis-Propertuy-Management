@@ -214,7 +214,7 @@ export default function Topbar({ onMenuClick }) {
       <p
         className={`flex-1 min-w-0 truncate ${
           title
-            ? "text-[14px] font-semibold text-slate-700 dark:text-slate-200 lg:text-[13px] lg:font-medium lg:text-slate-400 lg:dark:text-slate-500"
+            ? "text-[14px] font-semibold text-slate-700 dark:text-slate-200 lg:text-[13px] lg:font-medium lg:text-slate-600 lg:dark:text-slate-300"
             : ""
         }`}
       >

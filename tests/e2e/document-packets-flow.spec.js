@@ -9,7 +9,22 @@ const cleanup = {
   signatureSettingAccountIds: new Set(),
 };
 
+async function openWorkflows(page) {
+  const panel = page.getByTestId("document-packets-panel");
+  if (await panel.isVisible().catch(() => false)) return;
+  try {
+    await expect(panel).toBeVisible({ timeout: 3_000 });
+    return;
+  } catch {
+    // Manager workflows are accordion-wrapped; tenant packet panels are direct.
+  }
+  const button = page.getByRole("button", { name: /Workflows|Przepływy/i }).first();
+  await expect(button).toBeVisible({ timeout: 15_000 });
+  await button.click();
+}
+
 async function packetPanel(page) {
+  await openWorkflows(page);
   const panel = page.getByTestId("document-packets-panel");
   await expect(panel).toBeVisible();
   return panel;
@@ -81,8 +96,8 @@ async function createAndSendTenantPacket(page, templateName, packetTitle) {
 
 async function completeTenantPacket(page, packetTitle) {
   await page.goto("/tenant/documents");
-  const panel = await packetPanel(page);
-  const row = panel.getByTestId("document-packet-card").filter({ hasText: packetTitle });
+  await expect(page.getByRole("heading", { name: "Review packets" })).toBeVisible({ timeout: 15_000 });
+  const row = page.getByTestId("document-packet-card").filter({ hasText: packetTitle });
   await expect(row).toBeVisible();
   await expect(row).toContainText("Sent");
   await expect(row.getByRole("link", { name: "Open signature" })).toBeVisible();

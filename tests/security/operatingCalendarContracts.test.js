@@ -16,6 +16,7 @@ const page    = readFileSync(path.join(root, "src/pages/OperatingCalendarPage.js
 const sidebar = readFileSync(path.join(root, "src/layout/Sidebar.jsx"), "utf8");
 const routes  = readFileSync(path.join(root, "src/routes/ManagerRoutes.jsx"), "utf8");
 const dbApply = readFileSync(path.join(root, "scripts/dbApplyRepoSql.js"), "utf8");
+const dbBootstrap = readFileSync(path.join(root, "scripts/dbBootstrap.js"), "utf8");
 
 // ─── SQL: custom calendar items table ─────────────────────────────────────────
 
@@ -448,6 +449,10 @@ describe("OperatingCalendarPage — sidebar registration", () => {
 describe("operating_calendar.sql — dbApplyRepoSql registration", () => {
   it("is listed in OVERLAY_SEQUENCE", () => {
     expect(dbApply).toContain('"operating_calendar.sql"');
+  });
+
+  it("is listed in the Docker bootstrap overlay sequence", () => {
+    expect(dbBootstrap).toContain("operating_calendar.sql");
   });
 
   it("appears after the Poland compliance files in OVERLAY_SEQUENCE", () => {

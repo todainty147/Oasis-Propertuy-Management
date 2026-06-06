@@ -113,18 +113,9 @@ test.describe("Two-surface app shell", () => {
     await signInAs(page, seededUsers.ownerA);
     await page.goto("/properties");
 
-    // The main element should scroll, not the body
-    const isMainScrollable = await page.evaluate(() => {
-      const main = document.querySelector("main");
-      return main ? main.scrollHeight > main.clientHeight || main.style.overflowY !== "" : false;
-    });
-
-    // Properties page typically has enough content to scroll, or is at least scrollable
-    const mainOverflow = await page.evaluate(() => {
-      const main = document.querySelector("main");
-      return main ? window.getComputedStyle(main).overflowY : "";
-    });
-    expect(["auto", "scroll"]).toContain(mainOverflow);
+    const shellMain = page.getByTestId("app-shell-main");
+    await expect(shellMain).toBeVisible();
+    await expect(shellMain).toHaveClass(/overflow-y-auto/);
   });
 });
 

@@ -171,7 +171,7 @@ as $$
     join public.accounts a on a.id = am.account_id
     where am.user_id = p_user_id
       and coalesce(a.is_root, false) = true
-      and lower(coalesce(am.role, '')) in ('owner', 'admin', 'staff', 'root')
+      and lower(coalesce(am.role::text, '')) in ('owner', 'admin', 'staff', 'root')
   );
 $$;
 

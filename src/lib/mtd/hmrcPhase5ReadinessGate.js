@@ -33,10 +33,13 @@ export const HMRC_PHASE_5C_READINESS_REQUIREMENTS = Object.freeze([
 
 export const HMRC_PHASE_5D_PILOT_READINESS_REQUIREMENTS = Object.freeze([
   ...HMRC_PHASE_5C_READINESS_REQUIREMENTS,
-  "fullSuitePassed",
+  "edgeFunctionChecksPassed",
   "focusedHmrcTestsPassed",
+  "automatedTestSuitePassed",
   "buildPassed",
   "lintPassed",
+  "phase5dPilotE2ePassed",
+  "dependencyPathE2ePassed",
   "pilotDryRunEvidencePassed",
   "pilotAllowlistConfigured",
   "supportRunbookReviewed",
@@ -46,10 +49,55 @@ export const HMRC_PHASE_5D_PILOT_READINESS_REQUIREMENTS = Object.freeze([
 
 export const HMRC_REAL_LIVE_NETWORK_ATTEMPT_REQUIREMENTS = Object.freeze([
   ...HMRC_PHASE_5D_PILOT_READINESS_REQUIREMENTS,
+  "waiverMatrixAccepted",
+  "backlogTicketsScheduled",
   "e2eTriageComplete",
   "denoTypeCheckPassed",
   "operatorDryRunSmokePassed",
   "productionSecretsVerified",
+  "validConsentExists",
+  "operatorPreRunChecklistComplete",
+]);
+
+
+export const HMRC_PHASE_5D_WAIVED_E2E_GROUPS = Object.freeze([
+  "aiSurfaceExpectations",
+  "screenshotCaptureFlows",
+  "localizationSelectorDrift",
+  "degradedPathUx",
+  "documentPacketRequestTemplateFlows",
+  "genericAccessibilityShellSelectorDrift",
+  "maintenanceWorkflowDrift",
+  "notificationFlows",
+  "operatingCalendarSchemaDrift",
+  "polandComplianceEvidenceDrift",
+  "selfServeSignupDrift",
+]);
+
+export const HMRC_PHASE_5D_PRE_RUN_CHECKLIST_ITEMS = Object.freeze([
+  "pilotAccountSelected",
+  "pilotAccountNotGeneralProductionUser",
+  "pilotAccountAllowlistedByRootOperator",
+  "allowlistReasonRecorded",
+  "draftSelected",
+  "draftReviewed",
+  "draftLocked",
+  "noUnresolvedIssues",
+  "consentRecordedAfterDraftLock",
+  "consentHashesValid",
+  "phase5bPilotGuardPasses",
+  "phase5cDryRunPassedForSameAccountDraftConsent",
+  "supportRunbookReviewed",
+  "rollbackKillSwitchTested",
+  "hmrcLiveCredentialsServerSideOnly",
+  "productionBaseUrlPilotOnly",
+  "hmrcLiveNetworkEnabledFalseUntilApproval",
+  "noFrontendLiveNetworkCall",
+  "noLandlordFacingLiveSubmitButton",
+  "operatorTypedConfirmationVerified",
+  "duplicateLiveSubmissionGuardVerified",
+  "receiptAuditStorageVerified",
+  "noRealHmrcLiveNetworkCallOccurred",
 ]);
 
 export const HMRC_PHASE_5_READINESS_EVIDENCE = Object.freeze({
@@ -141,21 +189,33 @@ export const HMRC_PHASE_5_READINESS_EVIDENCE = Object.freeze({
     label: "Live dry-run UI has no enabled live filing button",
     source: "automated",
   },
-  fullSuitePassed: {
-    label: "Full broad suite passed",
-    source: "manual",
+  edgeFunctionChecksPassed: {
+    label: "HMRC Edge Function checks passed",
+    source: "automated",
+  },
+  automatedTestSuitePassed: {
+    label: "npm run test passed",
+    source: "automated",
   },
   focusedHmrcTestsPassed: {
     label: "Focused HMRC Phase 5A/5B/5C tests passed",
-    source: "manual",
+    source: "automated",
   },
   buildPassed: {
     label: "Production build passed",
-    source: "manual",
+    source: "automated",
   },
   lintPassed: {
     label: "Lint passed with existing warnings only",
-    source: "manual",
+    source: "automated",
+  },
+  phase5dPilotE2ePassed: {
+    label: "Phase 5D pilot E2E passed",
+    source: "automated",
+  },
+  dependencyPathE2ePassed: {
+    label: "HMRC Phase 5D dependency-path E2E passed",
+    source: "automated",
   },
   pilotDryRunEvidencePassed: {
     label: "Pilot dry-run evidence is passed",
@@ -177,6 +237,14 @@ export const HMRC_PHASE_5_READINESS_EVIDENCE = Object.freeze({
     label: "Live network kill switch configured explicitly",
     source: "manual",
   },
+  waiverMatrixAccepted: {
+    label: "Release owner accepted the one-account waiver matrix",
+    source: "manual",
+  },
+  backlogTicketsScheduled: {
+    label: "Backlog tickets scheduled for waived broad E2E groups",
+    source: "manual",
+  },
   e2eTriageComplete: {
     label: "E2E failures triaged and blocking failures fixed or formally waived",
     source: "manual",
@@ -191,6 +259,14 @@ export const HMRC_PHASE_5_READINESS_EVIDENCE = Object.freeze({
   },
   productionSecretsVerified: {
     label: "Production live-network secrets and kill switches verified server-side",
+    source: "manual",
+  },
+  validConsentExists: {
+    label: "Valid Phase 5A consent exists for the selected locked draft",
+    source: "manual",
+  },
+  operatorPreRunChecklistComplete: {
+    label: "Operator pre-run checklist complete",
     source: "manual",
   },
 });
@@ -217,6 +293,52 @@ export const HMRC_GENERAL_LIVE_SUBMISSION_WARNING =
   "General live submission remains disabled.";
 export const HMRC_REAL_LIVE_NETWORK_ATTEMPT_WARNING =
   "READY_FOR_REAL_LIVE_NETWORK_ATTEMPT is only for the one-account pilot and does not enable general live submission.";
+
+
+function presentManualValue(value) {
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 && !normalized.startsWith("pending") && normalized !== "tbd";
+}
+
+function getWaiverAcceptanceEvidence(results) {
+  return results.waiverAcceptance || results.waiver || {};
+}
+
+function hasAcceptedWaiverMatrix(results) {
+  if (results.waiverMatrixAccepted !== true) return false;
+  const acceptance = getWaiverAcceptanceEvidence(results);
+  const acceptedBy = acceptance.acceptedBy || acceptance.accepted_by || results.acceptedBy || results.accepted_by;
+  const acceptedAt = acceptance.acceptedAt || acceptance.accepted_at || results.acceptedAt || results.accepted_at;
+  return presentManualValue(acceptedBy) && presentManualValue(acceptedAt);
+}
+
+function getBacklogReferences(results) {
+  return results.backlogReferences || results.waivedGroupBacklogReferences || {};
+}
+
+function hasScheduledBacklogTickets(results) {
+  if (results.backlogTicketsScheduled !== true) return false;
+  const references = getBacklogReferences(results);
+  return HMRC_PHASE_5D_WAIVED_E2E_GROUPS.every((group) => presentManualValue(references[group]));
+}
+
+function getPreRunChecklist(results) {
+  return results.preRunChecklist || results.operatorPreRunChecklist || {};
+}
+
+function hasCompletePreRunChecklist(results) {
+  if (results.operatorPreRunChecklistComplete !== true) return false;
+  const checklist = getPreRunChecklist(results);
+  return HMRC_PHASE_5D_PRE_RUN_CHECKLIST_ITEMS.every((item) => checklist[item] === true);
+}
+
+function manualEvidencePassed(key, results) {
+  if (key === "waiverMatrixAccepted") return hasAcceptedWaiverMatrix(results);
+  if (key === "backlogTicketsScheduled") return hasScheduledBacklogTickets(results);
+  if (key === "operatorPreRunChecklistComplete") return hasCompletePreRunChecklist(results);
+  return results[key] === true;
+}
 
 export function evaluateHmrcPhase5ReadinessGate(results = {}) {
   const checks = HMRC_PHASE_5_READINESS_REQUIREMENTS.map((key) => ({
@@ -292,7 +414,7 @@ export function evaluateHmrcPhase5DReadinessGate(results = {}) {
     key,
     label: HMRC_PHASE_5_READINESS_EVIDENCE[key]?.label || key,
     source: HMRC_PHASE_5_READINESS_EVIDENCE[key]?.source || "manual",
-    passed: results[key] === true,
+    passed: manualEvidencePassed(key, results),
   }));
   const phase5dMissing = HMRC_PHASE_5D_PILOT_READINESS_REQUIREMENTS.filter((key) => results[key] !== true);
   const realLiveMissing = checks.filter((check) => !check.passed).map((check) => check.key);

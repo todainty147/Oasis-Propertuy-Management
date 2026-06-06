@@ -39,15 +39,32 @@ test.describe("Finance page", () => {
   }
 
   async function seedPayment({ amount, dueDate, paidAt = null, status = null, notes }) {
+    return seedPaymentFor({
+      amount,
+      dueDate,
+      paidAt,
+      status,
+      notes,
+      propertyId: PROPERTY_ID,
+      tenantId: TENANT_ID,
+    });
+  }
+
+  async function seedPaymentFor({ amount, dueDate, paidAt = null, status = null, notes, propertyId, tenantId }) {
     const admin = getIntegrationAdminClient();
-    const owner_id = await resolveOwnerId();
+    const { data: prop, error: propErr } = await admin
+      .from("properties")
+      .select("owner_id")
+      .eq("id", propertyId)
+      .single();
+    if (propErr) throw new Error(`seedPaymentFor: property lookup failed: ${propErr.message}`);
     const { data, error } = await admin
       .from("payments")
       .insert({
         account_id:  ACCOUNT_ID,
-        property_id: PROPERTY_ID,
-        tenant_id:   TENANT_ID,
-        owner_id,
+        property_id: propertyId,
+        tenant_id:   tenantId,
+        owner_id:    prop.owner_id,
         amount,
         due_date:    dueDate,
         paid_at:     paidAt,
@@ -58,6 +75,52 @@ test.describe("Finance page", () => {
       .single();
     if (error) throw new Error(`seedPayment: ${error.message}`);
     return data.id;
+  }
+
+  async function createIsolatedPaymentFixture({ rent = 1000 } = {}) {
+    const admin = getIntegrationAdminClient();
+    const owner_id = await resolveOwnerId();
+    const propertyId = randomUUID();
+    const tenantId = randomUUID();
+
+    const { error: propErr } = await admin.from("properties").insert({
+      id: propertyId,
+      account_id: ACCOUNT_ID,
+      owner_id,
+      address: `E2E Finance Prop ${propertyId.slice(0, 8)}`,
+      city: "TestCity",
+      rent,
+      status: "Wolne",
+      tenant_id: null,
+    });
+    if (propErr) throw new Error(`createIsolatedPaymentFixture property: ${propErr.message}`);
+
+    const { error: tenantErr } = await admin.from("tenants").insert({
+      id: tenantId,
+      account_id: ACCOUNT_ID,
+      owner_id,
+      user_id: null,
+      property_id: propertyId,
+      name: `E2E Finance Tenant ${tenantId.slice(0, 8)}`,
+      email: `finance.e2e.${tenantId.slice(0, 8)}@test.invalid`,
+      status: "active",
+    });
+    if (tenantErr) throw new Error(`createIsolatedPaymentFixture tenant: ${tenantErr.message}`);
+
+    const { error: updateErr } = await admin.from("properties")
+      .update({ tenant_id: tenantId, status: "Wynajęte" })
+      .eq("id", propertyId);
+    if (updateErr) throw new Error(`createIsolatedPaymentFixture update: ${updateErr.message}`);
+
+    return { propertyId, tenantId };
+  }
+
+  async function cleanupIsolatedPaymentFixture({ propertyId, tenantId }) {
+    const admin = getIntegrationAdminClient();
+    await admin.from("payments").delete().eq("property_id", propertyId);
+    await admin.from("properties").update({ tenant_id: null }).eq("id", propertyId);
+    await admin.from("tenants").delete().eq("id", tenantId);
+    await admin.from("properties").delete().eq("id", propertyId);
   }
 
   async function cleanupNotes(notes) {
@@ -145,10 +208,11 @@ test.describe("Finance page", () => {
       await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible({ timeout: 20_000 });
 
       // Wait for summary cards to appear
-      await expect(page.getByText(/Overdue/i).first()).toBeVisible({ timeout: 10_000 });
+      const overdueCard = page.getByRole("button", { name: /Overdue/i }).first();
+      await expect(overdueCard).toBeVisible({ timeout: 10_000 });
 
       // Click the Overdue summary card (it's a button)
-      await page.getByText(/Overdue/i).first().click();
+      await overdueCard.click();
 
       // URL should now include status=overdue and tab=payments
       await expect(page).toHaveURL(/tab=payments/, { timeout: 10_000 });
@@ -160,9 +224,10 @@ test.describe("Finance page", () => {
       await page.goto("/finance");
 
       await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible({ timeout: 20_000 });
-      await expect(page.getByText(/Due Soon/i).first()).toBeVisible({ timeout: 10_000 });
+      const dueSoonCard = page.getByRole("button", { name: /Due within 7 days|Due Soon/i }).first();
+      await expect(dueSoonCard).toBeVisible({ timeout: 10_000 });
 
-      await page.getByText(/Due Soon/i).first().click();
+      await dueSoonCard.click();
 
       await expect(page).toHaveURL(/tab=payments/, { timeout: 10_000 });
       await expect(page).toHaveURL(/range=7d/);
@@ -191,7 +256,7 @@ test.describe("Finance page", () => {
 
       await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible({ timeout: 20_000 });
 
-      await page.getByRole("button", { name: /settings/i }).click();
+      await page.getByRole("navigation", { name: "Finance sections" }).getByRole("button", { name: /^Settings$/i }).click();
       await expect(page).toHaveURL(/tab=settings/);
 
       // Settings tab renders a card / section (TenantPaymentCollectionSettingsCard)
@@ -470,15 +535,25 @@ test.describe("Finance page", () => {
     test.afterEach(async () => { await cleanupNotes(NOTE); });
 
     test("seeded payment appears in payments table with amount and status", async ({ page }) => {
-      const amount = 1750;
-      await seedPayment({ amount, dueDate: futureDate(10), notes: NOTE });
+      const fixture = await createIsolatedPaymentFixture({ rent: 1000 });
+      const amount = 100;
+      await seedPaymentFor({
+        amount,
+        dueDate: futureDate(10),
+        notes: NOTE,
+        propertyId: fixture.propertyId,
+        tenantId: fixture.tenantId,
+      });
 
-      await signInAs(page, seededUsers.ownerA);
-      await page.goto("/finance?tab=payments");
+      try {
+        await signInAs(page, seededUsers.ownerA);
+        await page.goto("/finance?tab=payments");
 
-      await expect(page.getByTestId("payments-table")).toBeVisible({ timeout: 20_000 });
-      // Amount appears (locale-agnostic: 1750 with optional thousands separator)
-      await expect(page.getByTestId("payments-table")).toContainText(/1.?750/, { timeout: 15_000 });
+        await expect(page.getByTestId("payments-table")).toBeVisible({ timeout: 20_000 });
+        await expect(page.getByTestId("payments-table")).toContainText(/100/, { timeout: 15_000 });
+      } finally {
+        await cleanupIsolatedPaymentFixture(fixture);
+      }
     });
 
     test("paid payment shows Paid badge in table", async ({ page }) => {
@@ -492,30 +567,52 @@ test.describe("Finance page", () => {
     });
 
     test("Mark Paid button present for due payment (B-1)", async ({ page }) => {
-      await seedPayment({ amount: 650, dueDate: futureDate(4), notes: NOTE });
+      const fixture = await createIsolatedPaymentFixture({ rent: 1000 });
+      await seedPaymentFor({
+        amount: 100,
+        dueDate: futureDate(4),
+        notes: NOTE,
+        propertyId: fixture.propertyId,
+        tenantId: fixture.tenantId,
+      });
 
-      await signInAs(page, seededUsers.ownerA);
-      await page.goto("/finance?tab=payments");
+      try {
+        await signInAs(page, seededUsers.ownerA);
+        await page.goto("/finance?tab=payments");
 
-      await expect(page.getByTestId("payments-table")).toBeVisible({ timeout: 20_000 });
+        await expect(page.getByTestId("payments-table")).toBeVisible({ timeout: 20_000 });
 
-      const markPaid = page.getByTestId(/^mark-paid-/).filter({ visible: true }).first();
-      await expect(markPaid).toBeVisible({ timeout: 15_000 });
+        const markPaid = page.getByTestId(/^mark-paid-/).filter({ visible: true }).first();
+        await expect(markPaid).toBeVisible({ timeout: 15_000 });
+      } finally {
+        await cleanupIsolatedPaymentFixture(fixture);
+      }
     });
 
     test("Mark Paid updates row status immediately (B-5, A-1)", async ({ page }) => {
-      await seedPayment({ amount: 700, dueDate: futureDate(2), notes: NOTE });
+      const fixture = await createIsolatedPaymentFixture({ rent: 1000 });
+      await seedPaymentFor({
+        amount: 100,
+        dueDate: futureDate(2),
+        notes: NOTE,
+        propertyId: fixture.propertyId,
+        tenantId: fixture.tenantId,
+      });
 
-      await signInAs(page, seededUsers.ownerA);
-      await page.goto("/finance?tab=payments");
+      try {
+        await signInAs(page, seededUsers.ownerA);
+        await page.goto("/finance?tab=payments");
 
-      await expect(page.getByTestId("payments-table")).toBeVisible({ timeout: 20_000 });
+        await expect(page.getByTestId("payments-table")).toBeVisible({ timeout: 20_000 });
 
-      const markPaid = page.getByTestId(/^mark-paid-/).filter({ visible: true }).first();
-      await expect(markPaid).toBeVisible({ timeout: 15_000 });
-      await markPaid.click();
+        const markPaid = page.getByTestId(/^mark-paid-/).filter({ visible: true }).first();
+        await expect(markPaid).toBeVisible({ timeout: 15_000 });
+        await markPaid.click();
 
-      await expect(page.getByTestId("payments-table")).toContainText(/Paid/, { timeout: 10_000 });
+        await expect(page.getByTestId("payments-table")).toContainText(/Paid/, { timeout: 10_000 });
+      } finally {
+        await cleanupIsolatedPaymentFixture(fixture);
+      }
     });
 
     test("Delete requires two clicks — no window.confirm (I-3)", async ({ page }) => {

@@ -15,6 +15,8 @@ import { seededUsers, signInAs } from "./helpers/auth.js";
 
 const { accountA } = isolationFixtures.accounts;
 
+test.describe.configure({ mode: "serial" });
+
 // ── Helper: set account plan and restore in try/finally ───────────────────────
 
 async function upgradeToPro(admin) {
@@ -344,8 +346,9 @@ test.describe("RolesManagementPage — password highlight mode", () => {
 
     await expect(page.locator("h1").filter({ hasText: "Roles" })).toBeVisible({ timeout: 20_000 });
     // Wait for both member rows to appear
-    await expect(page.getByText("admin.a@oasis.test")).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText("owner.a@oasis.test")).toBeVisible({ timeout: 10_000 });
+    const main = page.getByRole("main");
+    await expect(main.getByText("admin.a@oasis.test")).toBeVisible({ timeout: 20_000 });
+    await expect(main.getByText("owner.a@oasis.test")).toBeVisible({ timeout: 10_000 });
 
     // Exactly one badge should appear (admin.a = legacy_weak, owner.a = strong → no badge)
     await expect(page.getByText(/Legacy password|Reset required|Unknown/i)).toHaveCount(1);
@@ -419,14 +422,21 @@ test.describe("Regression — touched surfaces still load correctly", () => {
   test.skip(!isIntegrationHarnessConfigured(), "requires local Supabase harness");
 
   test("app shell loads and shows sign-in page", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible({ timeout: 20_000 });
+    await page.context().clearCookies();
+    await page.goto("/login");
+    await page.evaluate(() => {
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+    });
+    await page.goto("/login");
+    await expect(page.getByRole("heading", { name: "Welcome to Tenaqo" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
   });
 
   test("dashboard loads for authenticated owner", async ({ page }) => {
     await signInAs(page, seededUsers.ownerA);
     await page.goto("/dashboard");
-    await expect(page.getByRole("heading", { name: "Operations Hub" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator("h1").filter({ hasText: "Operations Hub" })).toBeVisible({ timeout: 20_000 });
   });
 
   test("/settings/roles loads correctly without highlight param", async ({ page }) => {

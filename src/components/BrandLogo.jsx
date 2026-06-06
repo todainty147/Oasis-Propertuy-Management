@@ -22,11 +22,12 @@ export default function BrandLogo({
   const subtitle = accountName ? "" : BRAND.tagline;
   const shouldShowText = !iconOnly && (!compact || variant !== "sidebar");
   const shouldShowSubtitle = shouldShowText && showSubtitle && !compact && Boolean(subtitle);
-  const accessibleLabel = shouldShowSubtitle ? `${displayName} ${subtitle}` : displayName;
   const iconSrc = accountLogo || LOGO_ICON_SRC;
 
   return (
     <div
+      role={iconOnly ? "img" : undefined}
+      aria-label={iconOnly ? displayName : undefined}
       className={cx(
         "brand-logo",
         `brand-logo--${variant}`,
@@ -34,7 +35,6 @@ export default function BrandLogo({
         iconOnly && "brand-logo--icon-only",
         className,
       )}
-      aria-label={accessibleLabel}
     >
       <span className={cx("brand-logo__tile", resolvedUseTile && "brand-logo__tile--framed")}>
         <img

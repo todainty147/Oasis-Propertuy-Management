@@ -44,7 +44,14 @@ test("maintenance request becomes a contractor-completed linked work order", asy
 
     await expect(drawer).toBeHidden({ timeout: 20_000 });
     await expect(requestCard).toBeVisible({ timeout: 20_000 });
-    await expect(requestCard).toContainText("Status: In progress");
+    await expect.poll(async () => {
+      const { data } = await admin
+        .from("maintenance_requests")
+        .select("status")
+        .eq("id", requestId)
+        .single();
+      return data?.status || null;
+    }, { timeout: 20_000 }).toBe("in_progress");
     await expect(requestCard).toContainText("Work order: assigned");
 
     await page.goto("/maintenance-inbox?woStatus=assigned");

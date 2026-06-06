@@ -11,6 +11,10 @@ function read(rel) {
 // ─── Source files under test ──────────────────────────────────────────────────
 
 const aiCostControlsSql = read("supabase/ai_cost_controls.sql");
+const propertyHealthSql = read("supabase/ai_property_health_explainer.sql");
+const maintenanceTriageSql = read("supabase/ai_maintenance_triage.sql");
+const contractorRecommendationSql = read("supabase/ai_contractor_recommendation.sql");
+const weeklyPortfolioSummarySql = read("supabase/ai_weekly_portfolio_summary.sql");
 // L-001: canonical function definitions moved to account_entitlements.sql
 const entitlementsSql   = read("supabase/account_entitlements.sql");
 const aiSafety = read("supabase/functions/_shared/aiSafety.ts");
@@ -51,6 +55,29 @@ describe("Epic A1 – operator_agency plan tier", () => {
 });
 
 // ─── Epic A2: AI feature keys registered ─────────────────────────────────────
+
+describe("AI insight type constraints remain re-runnable", () => {
+  it("AI overlays that redefine type constraints keep the shipped AI type set", () => {
+    const knownTypes = [
+      "attention_briefing",
+      "property_health_explainer",
+      "maintenance_triage_suggestion",
+      "contractor_recommendation",
+      "weekly_portfolio_summary_ai",
+    ];
+    const overlays = [
+      propertyHealthSql,
+      maintenanceTriageSql,
+      contractorRecommendationSql,
+      weeklyPortfolioSummarySql,
+    ];
+    for (const sql of overlays) {
+      for (const type of knownTypes) {
+        expect(sql).toContain("'" + type + "'");
+      }
+    }
+  });
+});
 
 describe("Epic A2 – AI feature keys in account_feature_required_plan", () => {
   const growthFeatures = [

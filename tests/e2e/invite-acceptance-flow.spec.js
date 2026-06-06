@@ -60,7 +60,9 @@ test("invited staff member accepts invite and lands in the scoped account", asyn
     await page.goto("/tenants");
     await expect(page.getByRole("heading", { name: "Tenants", exact: true })).toBeVisible();
     await page.getByRole("textbox", { name: /Search tenants/i }).fill("Tenant A1");
-    await expect(page.getByRole("link", { name: "Tenant A1" })).toBeVisible();
+    await expect(page.locator("a").filter({
+      has: page.getByRole("heading", { name: "Tenant A1", exact: true }),
+    })).toBeVisible();
     await expect(page.getByText("SaaS accounts (root)")).toHaveCount(0);
   } finally {
     await admin.from("account_members").delete().eq("user_id", userId);

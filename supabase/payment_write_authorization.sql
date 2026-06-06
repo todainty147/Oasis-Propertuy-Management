@@ -367,3 +367,84 @@ grant execute on function public.update_payment(uuid, uuid, numeric, date, text)
 grant execute on function public.delete_payment(uuid, uuid) to authenticated;
 grant execute on function public.mark_payment_paid(uuid, uuid, date) to authenticated;
 grant execute on function public.mark_payment_unpaid(uuid, uuid) to authenticated;
+
+create or replace function public.tg_payments_notify_tenant()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_tenant_user_id uuid;
+  v_type text;
+  v_title text;
+begin
+  if new.account_id is null or new.tenant_id is null then
+    return new;
+  end if;
+
+  if tg_op = 'INSERT' then
+    if new.paid_at is not null or lower(coalesce(new.status, '')) = 'paid' then
+      v_type := 'payment_received';
+      v_title := 'Your payment has been received';
+    else
+      v_type := 'payment_due';
+      v_title := 'New payment recorded';
+    end if;
+  elsif tg_op = 'UPDATE'
+    and old.paid_at is null
+    and new.paid_at is not null then
+    v_type := 'payment_received';
+    v_title := 'Your payment has been received';
+  else
+    return new;
+  end if;
+
+  select t.user_id
+    into v_tenant_user_id
+  from public.tenants t
+  where t.id = new.tenant_id
+    and t.account_id = new.account_id
+  limit 1;
+
+  if v_tenant_user_id is null then
+    return new;
+  end if;
+
+  if public.should_throttle_notification(
+    new.account_id,
+    v_tenant_user_id,
+    v_type,
+    'payment',
+    new.id,
+    60
+  ) then
+    return new;
+  end if;
+
+  perform public.create_notifications_system(
+    new.account_id,
+    array[v_tenant_user_id],
+    v_type,
+    v_title,
+    null,
+    'payment',
+    new.id,
+    '/tenant/payments',
+    jsonb_build_object(
+      'payment_id', new.id,
+      'amount', new.amount,
+      'due_date', new.due_date,
+      'paid_at', new.paid_at
+    )
+  );
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_payments_notify_tenant on public.payments;
+create trigger trg_payments_notify_tenant
+  after insert or update on public.payments
+  for each row
+  execute function public.tg_payments_notify_tenant();

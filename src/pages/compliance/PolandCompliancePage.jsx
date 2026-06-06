@@ -118,12 +118,12 @@ function SummaryBar({ summary, t }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
       {[
-        { label: t("polandCompliance.summaryTotal"),   value: summary.total,    accent: "border-slate-200" },
-        { label: t("polandCompliance.summaryComplete"), value: summary.complete, accent: "border-green-200 bg-green-50 dark:bg-green-950/20" },
-        { label: t("polandCompliance.summaryPending"),  value: summary.pending,  accent: "border-blue-200 bg-blue-50 dark:bg-blue-950/20" },
-        { label: t("polandCompliance.summaryOverdue"),  value: summary.overdue,  accent: "border-red-200 bg-red-50 dark:bg-red-950/20" },
-      ].map(({ label, value, accent }) => (
-        <div key={label} className={`rounded-xl border p-3 ${accent}`}>
+        { key: "total", label: t("polandCompliance.summaryTotal"),   value: summary.total,    accent: "border-slate-200" },
+        { key: "complete", label: t("polandCompliance.summaryComplete"), value: summary.complete, accent: "border-green-200 bg-green-50 dark:bg-green-950/20" },
+        { key: "pending", label: t("polandCompliance.summaryPending"),  value: summary.pending,  accent: "border-blue-200 bg-blue-50 dark:bg-blue-950/20" },
+        { key: "overdue", label: t("polandCompliance.summaryOverdue"),  value: summary.overdue,  accent: "border-red-200 bg-red-50 dark:bg-red-950/20" },
+      ].map(({ key, label, value, accent }) => (
+        <div key={key} data-testid={`poland-summary-${key}`} className={`rounded-xl border p-3 ${accent}`}>
           <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
           <p className="mt-0.5 text-xl font-semibold text-slate-900 dark:text-slate-100">{value}</p>
         </div>

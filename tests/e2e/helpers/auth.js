@@ -46,13 +46,26 @@ export async function openUserMenu(page) {
 
 export async function logout(page) {
   // TenantPortalLayout exposes a direct Logout button; AppLayout hides it in UserMenu
-  const directLogout = page.getByRole("button", { name: "Logout" }).first();
-  if (await directLogout.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await directLogout.click();
-  } else {
-    await openUserMenu(page);
-    await page.getByRole("button", { name: "Logout" }).click();
+  if (page.url().includes("/tenant")) {
+    const tenantLogout = page.getByRole("button", { name: "Logout" }).first();
+    await tenantLogout.click({ timeout: 10_000 });
+    await page.waitForURL(/\/login/, { timeout: 10_000 });
+    return;
   }
+
+  const directLogoutButtons = page.getByRole("button", { name: "Logout" });
+  const directCount = await directLogoutButtons.count().catch(() => 0);
+  for (let index = 0; index < directCount; index += 1) {
+    const button = directLogoutButtons.nth(index);
+    if (await button.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await button.click();
+      await page.waitForURL(/\/login/, { timeout: 10_000 });
+      return;
+    }
+  }
+
+  await openUserMenu(page);
+  await page.getByRole("button", { name: "Logout" }).click();
   await page.waitForURL(/\/login/, { timeout: 10_000 });
 }
 

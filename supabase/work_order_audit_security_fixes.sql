@@ -203,3 +203,84 @@ begin
   return new;
 end;
 $$;
+
+CREATE OR REPLACE FUNCTION public.work_order_cancellation_decision_notify_trg_fn() RETURNS trigger
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = public
+AS $$
+declare
+  v_tenant_user_id uuid;
+  v_type text;
+  v_title text;
+  v_body text;
+begin
+  if new.action not in ('tenant_cancellation_approved', 'tenant_cancellation_denied') then
+    return new;
+  end if;
+
+  select t.user_id
+    into v_tenant_user_id
+  from public.work_orders wo
+  join public.maintenance_requests mr
+    on mr.id = wo.maintenance_request_id
+  join public.tenants t
+    on t.id = mr.reported_by_tenant_id
+   and t.account_id = wo.account_id
+  where wo.id = new.work_order_id
+    and wo.account_id = new.account_id
+  limit 1;
+
+  if v_tenant_user_id is null then
+    return new;
+  end if;
+
+  v_type := case
+    when new.action = 'tenant_cancellation_approved' then 'cancellation_approved'
+    else 'cancellation_denied'
+  end;
+  v_title := case
+    when new.action = 'tenant_cancellation_approved' then 'Cancellation request approved'
+    else 'Cancellation request denied'
+  end;
+  v_body := case
+    when new.action = 'tenant_cancellation_denied' then nullif(new.new_value->>'reason', '')
+    else null
+  end;
+
+  if public.should_throttle_notification(
+    new.account_id,
+    v_tenant_user_id,
+    v_type,
+    'work_order',
+    new.work_order_id,
+    60
+  ) then
+    return new;
+  end if;
+
+  perform public.create_notifications_system(
+    new.account_id,
+    array[v_tenant_user_id],
+    v_type,
+    v_title,
+    v_body,
+    'work_order',
+    new.work_order_id,
+    '/tenant/maintenance',
+    jsonb_build_object(
+      'work_order_id', new.work_order_id,
+      'approved', new.action = 'tenant_cancellation_approved',
+      'reason', nullif(new.new_value->>'reason', '')
+    )
+  );
+
+  return new;
+end;
+$$;
+
+DROP TRIGGER IF EXISTS trg_work_order_cancellation_decision_notify ON public.work_order_audit_log;
+CREATE TRIGGER trg_work_order_cancellation_decision_notify
+  AFTER INSERT ON public.work_order_audit_log
+  FOR EACH ROW
+  EXECUTE FUNCTION public.work_order_cancellation_decision_notify_trg_fn();

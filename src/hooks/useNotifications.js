@@ -12,6 +12,7 @@ import { getAlertTaxonomy } from "../utils/alertTaxonomy";
  */
 export function useNotifications({ limit = 20, accountId = null } = {}) {
   const [items, setItems] = useState([]);
+  const [unreadTotal, setUnreadTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -33,10 +34,7 @@ export function useNotifications({ limit = 20, accountId = null } = {}) {
   // Keep the fetch function in a ref so effects don't depend on it
   const fetchNotificationsRef = useRef(null);
 
-  const unreadCount = useMemo(
-    () => items.reduce((acc, n) => acc + (n.is_read ? 0 : 1), 0),
-    [items]
-  );
+  const unreadCount = useMemo(() => unreadTotal, [unreadTotal]);
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
@@ -54,13 +52,20 @@ export function useNotifications({ limit = 20, accountId = null } = {}) {
       // Optional scoping (useful when switching accounts)
       if (accountId) q = q.eq("account_id", accountId);
 
-      const { data, error: e } = await q;
+      let countQuery = supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("is_read", false);
+      if (accountId) countQuery = countQuery.eq("account_id", accountId);
+
+      const [{ data, error: e }, { count, error: countError }] = await Promise.all([q, countQuery]);
 
       if (!mountedRef.current) return;
 
-      if (e) {
-        setError(e);
+      if (e || countError) {
+        setError(e || countError);
         setItems([]);
+        setUnreadTotal(0);
       } else {
         setItems(
           (data ?? []).map((row) => {
@@ -72,6 +77,7 @@ export function useNotifications({ limit = 20, accountId = null } = {}) {
             };
           }),
         );
+        setUnreadTotal(Number.isFinite(count) ? count : 0);
       }
     } finally {
       if (mountedRef.current) setLoading(false);
@@ -92,11 +98,21 @@ export function useNotifications({ limit = 20, accountId = null } = {}) {
       setItems((prev) =>
         prev.map((n) => (n.id === id ? { ...n, is_read: true, read_at: nowIso } : n))
       );
+      setUnreadTotal((prev) => Math.max(0, prev - 1));
 
-      const { error: e } = await supabase
-        .from("notifications")
-        .update({ is_read: true, read_at: nowIso })
-        .eq("id", id);
+      const { data: rpcRows, error: rpcError } = await supabase.rpc("notifications_mark_read", {
+        p_notification_id: id,
+      });
+
+      const rpcMissing = rpcError && ["42883", "PGRST202"].includes(rpcError.code);
+      const rpcMatchedNoRows = !rpcError && Number(rpcRows || 0) === 0;
+      const { error: e } = rpcMissing
+        || rpcMatchedNoRows
+        ? await supabase
+            .from("notifications")
+            .update({ is_read: true, read_at: nowIso })
+            .eq("id", id)
+        : { error: rpcError };
 
       if (e) {
         // rollback
@@ -115,6 +131,7 @@ export function useNotifications({ limit = 20, accountId = null } = {}) {
 
     // Optimistic update
     setItems((prev) => prev.map((n) => ({ ...n, is_read: true, read_at: nowIso })));
+    setUnreadTotal(0);
 
     // Fast path: single UPDATE with IN (...)
     const { error: e } = await supabase

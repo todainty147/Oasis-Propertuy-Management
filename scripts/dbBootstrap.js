@@ -209,6 +209,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply operating calendar overlay",
+    file: path.join(supabaseDir, "operating_calendar.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply portfolio health snapshot overlay",
     file: path.join(supabaseDir, "portfolio_health_snapshot.sql"),
     onErrorStop: true,

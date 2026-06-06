@@ -155,13 +155,17 @@ export async function createPayment({
   if (error) throw error;
   if (!data) throw new Error("create_payment returned no data");
   const parsed = parsePaymentRow(data);
-  await notifyTenantPaymentDue({
-    paymentId: parsed.id,
-    amount: parsed.amount,
-    dueDate: parsed.due_date,
-    tenantId,
-    accountId,
-  });
+  if (parsed.paid_at) {
+    await notifyTenantPaymentReceived({ payment: parsed, accountId });
+  } else {
+    await notifyTenantPaymentDue({
+      paymentId: parsed.id,
+      amount: parsed.amount,
+      dueDate: parsed.due_date,
+      tenantId,
+      accountId,
+    });
+  }
   return parsed;
 }
 

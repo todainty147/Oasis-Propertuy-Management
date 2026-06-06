@@ -17,27 +17,13 @@ import { seededUsers, signInAs } from "./helpers/auth.js";
 const ACCOUNT_A  = isolationFixtures.accounts.accountA.id;
 const PROPERTY_A = "44444444-4444-4444-4444-444444444441";
 const TENANT_A   = "44444444-4444-4444-4444-444444444481";
+const SEEDED_TENANT_A = isolationFixtures.users.tenantA1.tenantId;
 const LEASE_A    = "55555555-5555-5555-5555-555555555521";
 
 test.describe.configure({ mode: "serial" });
 test.setTimeout(60_000);
 
 // ── Shared mock data ────────────────────────────────────────────────────────
-
-const MOCK_PROPERTIES = [
-  { id: PROPERTY_A, address: "ul. Testowa 1", city: "Warszawa", market: "pl" },
-];
-
-const MOCK_TENANTS = [
-  { id: TENANT_A, name: "Jan Kowalski", property_id: PROPERTY_A },
-];
-
-const MOCK_LEASE = {
-  id: LEASE_A,
-  lease_start_date: "2026-05-01",
-  lease_end_date:   "2027-05-01",
-  lease_type:       null,
-};
 
 function makeItem(key, overrides = {}) {
   return {
@@ -187,6 +173,15 @@ async function installEvidenceMocks(page, {
   });
 }
 
+async function selectFixturePropertyAndTenant(page) {
+  const selects = page.getByRole("main").locator("select");
+  await expect(selects.first()).toBeVisible({ timeout: 10_000 });
+  await selects.first().selectOption(PROPERTY_A);
+  const tenantSelect = selects.nth(1);
+  await expect(tenantSelect).toBeEnabled({ timeout: 10_000 });
+  await tenantSelect.selectOption(SEEDED_TENANT_A);
+}
+
 // ── Test suite ──────────────────────────────────────────────────────────────
 
 test.describe("Poland Evidence Pack UI", () => {
@@ -210,16 +205,10 @@ test.describe("Poland Evidence Pack UI", () => {
     await installEvidenceMocks(page);
     await signInAs(page, seededUsers.ownerA);
     await page.goto("/compliance/poland");
-    await page.waitForSelector("[data-testid='property-select'], select", { timeout: 10_000 }).catch(() => {});
-
-    // Select property/tenant if dropdowns exist
-    const propSelect = page.locator("select").first();
-    if (await propSelect.count() > 0) {
-      await propSelect.selectOption({ index: 0 }).catch(() => {});
-    }
+    await selectFixturePropertyAndTenant(page);
 
     // EvidencePack section should be visible
-    await expect(page.getByText("Evidence Pack").or(page.getByText("Pakiet Dowodowy"))).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByRole("main").getByText(/Evidence Pack|Pakiet dowodów/i).first()).toBeVisible({ timeout: 8_000 });
   });
 
   test("EvidencePack summary pills show done, pending review, missing counts", async ({ page }) => {

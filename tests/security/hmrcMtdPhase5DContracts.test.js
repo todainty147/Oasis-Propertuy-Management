@@ -30,6 +30,8 @@ describe("HMRC MTD Phase 5D one-account live pilot contracts", () => {
     expect(sql).toContain("revoke all on public.hmrc_live_pilot_evidence from anon, authenticated");
     expect(sql).toContain("Root operators can manage HMRC live pilot evidence");
     expect(sql).toContain("public.user_is_root_operator()");
+    expect(sql).toContain("lower(coalesce(am.role::text, ''))");
+    expect(sql).not.toContain("lower(coalesce(am.role, ''))");
     expect(sql).toContain("Account managers can read HMRC live pilot evidence summaries");
     expect(sql).toContain("public.user_can_manage_account(account_id)");
     expect(sql).not.toMatch(/tenant.*hmrc_live_pilot_evidence/i);

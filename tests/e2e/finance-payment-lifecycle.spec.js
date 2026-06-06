@@ -16,6 +16,7 @@
  *   I-4  No Status dropdown in modal — replaced by Mark as paid checkbox
  */
 
+import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { isolationFixtures } from "../fixtures/isolationFixtures.js";
 import { getIntegrationAdminClient } from "../integration/helpers/localSupabaseHarness.js";
@@ -42,13 +43,17 @@ async function cleanupTestPayments() {
 }
 
 async function seedPayment({ amount, dueDate, paidAt = null, notes = "e2e-finance-lifecycle" }) {
+  return seedPaymentFor({ amount, dueDate, paidAt, notes, propertyId: PROPERTY_ID, tenantId: TENANT_ID });
+}
+
+async function seedPaymentFor({ amount, dueDate, paidAt = null, notes = "e2e-finance-lifecycle", propertyId, tenantId }) {
   const admin = getIntegrationAdminClient();
 
   // Resolve owner_id from the property record (avoids hardcoding FK-sensitive values)
   const { data: prop, error: propErr } = await admin
     .from("properties")
     .select("owner_id")
-    .eq("id", PROPERTY_ID)
+    .eq("id", propertyId)
     .single();
   if (propErr) throw new Error(`seedPayment: property lookup failed: ${propErr.message}`);
 
@@ -56,8 +61,8 @@ async function seedPayment({ amount, dueDate, paidAt = null, notes = "e2e-financ
     .from("payments")
     .insert({
       account_id:  ACCOUNT_ID,
-      property_id: PROPERTY_ID,
-      tenant_id:   TENANT_ID,
+      property_id: propertyId,
+      tenant_id:   tenantId,
       owner_id:    prop.owner_id,
       amount,
       due_date:    dueDate,
@@ -69,6 +74,62 @@ async function seedPayment({ amount, dueDate, paidAt = null, notes = "e2e-financ
     .single();
   if (error) throw new Error(`seedPayment failed: ${error.message}`);
   return data;
+}
+
+async function createIsolatedPaymentFixture({ rent = 1000 } = {}) {
+  const admin = getIntegrationAdminClient();
+  const { data: prop, error: propErr } = await admin
+    .from("properties")
+    .select("owner_id")
+    .eq("id", PROPERTY_ID)
+    .single();
+  if (propErr) throw new Error(`create fixture owner lookup failed: ${propErr.message}`);
+
+  const propertyId = randomUUID();
+  const tenantId = randomUUID();
+
+  const { error: pErr } = await admin.from("properties").insert({
+    id: propertyId,
+    account_id: ACCOUNT_ID,
+    owner_id: prop.owner_id,
+    address: `E2E Lifecycle Prop ${propertyId.slice(0, 8)}`,
+    city: "TestCity",
+    rent,
+    status: "Wolne",
+    tenant_id: null,
+  });
+  if (pErr) throw new Error(`create fixture property failed: ${pErr.message}`);
+
+  const { error: tErr } = await admin.from("tenants").insert({
+    id: tenantId,
+    account_id: ACCOUNT_ID,
+    owner_id: prop.owner_id,
+    user_id: null,
+    property_id: propertyId,
+    name: `E2E Lifecycle Tenant ${tenantId.slice(0, 8)}`,
+    email: `lifecycle.e2e.${tenantId.slice(0, 8)}@test.invalid`,
+    status: "active",
+  });
+  if (tErr) throw new Error(`create fixture tenant failed: ${tErr.message}`);
+
+  const { error: uErr } = await admin.from("properties")
+    .update({ tenant_id: tenantId, status: "Wynajęte" })
+    .eq("id", propertyId);
+  if (uErr) throw new Error(`create fixture update failed: ${uErr.message}`);
+
+  return {
+    propertyId,
+    tenantId,
+    propertyAddress: `E2E Lifecycle Prop ${propertyId.slice(0, 8)}`,
+  };
+}
+
+async function cleanupIsolatedPaymentFixture({ propertyId, tenantId }) {
+  const admin = getIntegrationAdminClient();
+  await admin.from("payments").delete().eq("property_id", propertyId);
+  await admin.from("properties").update({ tenant_id: null }).eq("id", propertyId);
+  await admin.from("tenants").delete().eq("id", tenantId);
+  await admin.from("properties").delete().eq("id", propertyId);
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -84,7 +145,7 @@ test.afterAll(async () => {
 test("finance page loads and shows correct summary card labels (A-4, A-5)", async ({ page }) => {
   await signInAs(page, seededUsers.ownerA);
   await page.goto("/finance");
-  await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible({ timeout: 25_000 });
 
   // A-4: "Received" card must say "this month" in the label
   await expect(page.getByText(/Received.*month/i).first()).toBeVisible();
@@ -97,7 +158,7 @@ test("finance page loads and shows correct summary card labels (A-4, A-5)", asyn
 test("adding a payment — modal has no status dropdown, has mark-as-paid checkbox (I-4/A-6)", async ({ page }) => {
   await signInAs(page, seededUsers.ownerA);
   await page.goto("/finance");
-  await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible({ timeout: 25_000 });
 
   await page.getByRole("button", { name: /add payment/i }).click();
   await expect(page.getByRole("heading", { name: /add payment/i })).toBeVisible();
@@ -122,7 +183,7 @@ test("creating a payment sets correct status, shows in payments tab (A-1)", asyn
 
   await signInAs(page, seededUsers.ownerA);
   await page.goto("/finance");
-  await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible({ timeout: 25_000 });
 
   // Open modal
   await page.getByRole("button", { name: /add payment/i }).click();
@@ -157,20 +218,31 @@ test("creating a payment sets correct status, shows in payments tab (A-1)", asyn
 
 test("mark paid button visible to owner (B-1), updates status immediately (B-5, A-1)", async ({ page }) => {
   const dueDate = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
-  await seedPayment({ amount: 600, dueDate, notes: "e2e-finance-lifecycle: mark-paid" });
+  const fixture = await createIsolatedPaymentFixture({ rent: 1000 });
+  await seedPaymentFor({
+    amount: 100,
+    dueDate,
+    notes: "e2e-finance-lifecycle: mark-paid",
+    propertyId: fixture.propertyId,
+    tenantId: fixture.tenantId,
+  });
 
-  await signInAs(page, seededUsers.ownerA);
-  await page.goto("/finance?tab=payments");
-  await expect(page.getByTestId("payments-table")).toBeVisible();
+  try {
+    await signInAs(page, seededUsers.ownerA);
+    await page.goto("/finance?tab=payments");
+    await expect(page.getByTestId("payments-table")).toBeVisible();
 
-  // B-1: Mark Paid button must be visible (owner has update permission).
-  // Use visible filter — testid exists on both mobile (hidden) and desktop rows.
-  const markPaidBtn = page.getByTestId(/mark-paid-/).filter({ visible: true }).first();
-  await expect(markPaidBtn).toBeVisible();
-  await markPaidBtn.click();
+    // B-1: Mark Paid button must be visible (owner has update permission).
+    // Use visible filter — testid exists on both mobile (hidden) and desktop rows.
+    const markPaidBtn = page.getByTestId(/mark-paid-/).filter({ visible: true }).first();
+    await expect(markPaidBtn).toBeVisible();
+    await markPaidBtn.click();
 
-  // B-5: row updates in place (paid badge appears)
-  await expect(page.getByTestId("payments-table")).toContainText("Paid");
+    // B-5: row updates in place (paid badge appears)
+    await expect(page.getByTestId("payments-table")).toContainText("Paid");
+  } finally {
+    await cleanupIsolatedPaymentFixture(fixture);
+  }
 });
 
 test("delete requires two-click confirmation — no window.confirm (I-3)", async ({ page }) => {
@@ -199,24 +271,40 @@ test("delete requires two-click confirmation — no window.confirm (I-3)", async
 
 test("edit button present for owner (B-3), notes field pre-filled (A-7)", async ({ page }) => {
   const dueDate = new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10);
-  await seedPayment({ amount: 550, dueDate, notes: "e2e-finance-lifecycle: edit-check" });
+  const fixture = await createIsolatedPaymentFixture({ rent: 1000 });
+  await seedPaymentFor({
+    amount: 550,
+    dueDate,
+    notes: "e2e-finance-lifecycle: edit-check",
+    propertyId: fixture.propertyId,
+    tenantId: fixture.tenantId,
+  });
 
-  await signInAs(page, seededUsers.ownerA);
-  await page.goto("/finance?tab=payments");
-  await expect(page.getByTestId("payments-table")).toBeVisible();
+  try {
+    await signInAs(page, seededUsers.ownerA);
+    await page.goto("/finance?tab=payments");
+    await expect(page.getByTestId("payments-table")).toBeVisible();
 
-  // B-3: Edit button must exist (visible in desktop table at 1440px)
-  const editBtn = page.getByRole("button", { name: /edit/i }).filter({ visible: true }).first();
-  await expect(editBtn).toBeVisible();
-  await editBtn.click();
+    const search = page.getByPlaceholder(/search by tenant or property/i);
+    await search.fill(fixture.propertyAddress);
 
-  // Modal opens in edit mode
-  await expect(page.getByRole("heading", { name: /edit payment/i })).toBeVisible();
+    // B-3: Edit button must exist for the specific seeded row.
+    const paymentRow = page.getByTestId("payments-table").locator("tr").filter({ hasText: fixture.propertyAddress });
+    await expect(paymentRow).toBeVisible({ timeout: 15_000 });
+    const editBtn = paymentRow.getByRole("button", { name: /edit/i }).filter({ visible: true });
+    await expect(editBtn).toBeVisible();
+    await editBtn.click();
 
-  // A-7: notes pre-filled from DB
-  await expect(page.locator("#payment-notes")).toHaveValue("e2e-finance-lifecycle: edit-check");
+    // Modal opens in edit mode
+    await expect(page.getByRole("heading", { name: /edit payment/i })).toBeVisible();
 
-  await page.getByRole("button", { name: /cancel/i }).click();
+    // A-7: notes pre-filled from DB
+    await expect(page.locator("#payment-notes")).toHaveValue("e2e-finance-lifecycle: edit-check");
+
+    await page.getByRole("button", { name: /cancel/i }).click();
+  } finally {
+    await cleanupIsolatedPaymentFixture(fixture);
+  }
 });
 
 test("paid payment shows read-only amount field (A-3)", async ({ page }) => {

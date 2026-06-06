@@ -91,9 +91,11 @@ test("captures marketing product screenshots", async ({ page }) => {
 
   await page.goto("/finance");
   await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible();
+  await page.getByRole("main").getByRole("button", { name: "Settings" }).click();
+  await expect(page.getByLabel("Collection method")).toBeVisible({ timeout: 10_000 });
   await page.getByLabel("Collection method").selectOption("external_portal");
-  await page.getByLabel("Bank transfer").check();
-  await page.getByLabel("Card via external portal").check();
+  await page.getByRole("checkbox", { name: "Bank transfer" }).check();
+  await page.getByRole("checkbox", { name: "Card via external portal" }).check();
   await page.getByLabel("External payment portal URL").fill("https://payments.example.test/pay");
   await page.getByLabel("Tenant instructions").fill("Use your tenancy reference for bank transfer or open the external portal for card payments.");
   await page.getByLabel("Billing / support email").fill("billing@example.test");
@@ -105,8 +107,10 @@ test("captures marketing product screenshots", async ({ page }) => {
 
   await page.goto("/documents");
   await expect(page.getByText("Documents").first()).toBeVisible();
+  await page.getByRole("button", { name: /Workflows|Przepływy/i }).first().click();
   const requestPanel = page.getByTestId("document-requests-panel");
   await expect(requestPanel).toBeVisible();
+  await requestPanel.getByLabel("Target role").selectOption("tenant");
   await requestPanel.getByLabel("Request tenant").selectOption(isolationFixtures.users.tenantA1.tenantId);
   await requestPanel.getByLabel("Request type").selectOption("bank_payment_receipt");
   await requestPanel.getByPlaceholder("Request title, e.g. Proof of ID").fill(requestTitle);
@@ -118,6 +122,7 @@ test("captures marketing product screenshots", async ({ page }) => {
   await expect(packetPanel).toBeVisible();
   await packetPanel.getByRole("button", { name: "Refresh" }).click();
   await packetPanel.getByLabel("Template").selectOption({ label: templateName });
+  await packetPanel.getByLabel("Target role").selectOption("tenant");
   await packetPanel.getByLabel("Packet tenant").selectOption(isolationFixtures.users.tenantA1.tenantId);
   await packetPanel.getByLabel("Packet type").selectOption("agreement");
   await packetPanel.getByPlaceholder("Packet title, e.g. Tenancy agreement 2026").fill(packetTitle);
@@ -143,8 +148,8 @@ test("captures marketing product screenshots", async ({ page }) => {
   await expect(page.getByText("Rent Shield").first()).toBeVisible();
   await captureViewport(page, "rent-shield.png");
 
-  await page.goto("/compliance/tax");
-  await expect(page.getByText("Tax Readiness").first()).toBeVisible();
+  await page.goto("/compliance/tax-tools");
+  await expect(page.getByText("Tax Tools").first()).toBeVisible();
   await captureViewport(page, "tax-readiness.png");
 
   // Combined overview: scroll Lease Auditor to show the full suite context
@@ -154,9 +159,11 @@ test("captures marketing product screenshots", async ({ page }) => {
 
   await page.goto(propertyDetailPath);
   await expect(page.getByRole("heading", { name: "11 Starlight Avenue" })).toBeVisible();
-  await expect(page.getByText("Property performance")).toBeVisible();
+  await expect(page.getByText("Operational health score")).toBeVisible();
   await captureViewport(page, "property-performance.png");
 
+  await page.getByRole("button", { name: "Maintenance" }).click();
+  await expect(page.getByText("Issues / Requests")).toBeVisible();
   await page.getByText("Issues / Requests").scrollIntoViewIfNeeded();
   await expect(page.getByText("Issues / Requests")).toBeVisible();
   await captureViewport(page, "property-requests.png");
@@ -166,7 +173,7 @@ test("captures marketing product screenshots", async ({ page }) => {
 
   await page.goto("/tenant/home");
   await expect(page.getByRole("heading", { name: "Your tenancy space" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Your home overview" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welcome to your tenant portal" })).toBeVisible();
   await captureViewport(page, "tenant-home.png");
 
   await page.goto("/tenant/documents");

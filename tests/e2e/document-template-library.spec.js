@@ -23,6 +23,12 @@ test("template library uploads a manager template and shows it in the repository
   await signInAs(page, seededUsers.ownerA);
   await page.goto("/documents");
 
+  if (!(await page.getByTestId("document-template-library").isVisible().catch(() => false))) {
+    const resources = page.getByRole("button", { name: /Templates|Signatures|Szablony|Podpisy/i }).first();
+    await expect(resources).toBeVisible({ timeout: 15_000 });
+    await resources.click();
+  }
+
   const panel = page.getByTestId("document-template-library");
   await expect(panel).toBeVisible();
 

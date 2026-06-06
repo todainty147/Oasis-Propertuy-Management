@@ -71,6 +71,7 @@ describe("database security hardening contracts", () => {
   it("serializes rate-limit attempts and caps notification fan-out", () => {
     const rateLimitSql = readSource("supabase/api_rate_limits.sql");
     const notificationsSql = readSource("supabase/create_notifications.sql");
+    const devicePushSql = readSource("supabase/device_push_tokens.sql");
 
     expect(rateLimitSql).toContain("pg_advisory_xact_lock");
     expect(rateLimitSql).toContain("coalesce(p_account_id::text, 'global')");
@@ -78,6 +79,7 @@ describe("database security hardening contracts", () => {
     expect(notificationsSql).toContain("tenants_account_user_id_idx");
     expect(notificationsSql).toContain("if v_recipient_count > 250 then");
     expect(notificationsSql).toContain("'recipient_count_exceeded'");
+    expect(devicePushSql).toContain("drop policy if exists \"device_push_tokens: user manages own\"");
   });
 
   it("keeps SQL denied-event scrubbing aligned with app-side PII fields", () => {

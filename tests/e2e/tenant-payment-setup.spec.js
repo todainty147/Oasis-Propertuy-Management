@@ -4,7 +4,7 @@ import { logout, seededUsers, signInAs } from "./helpers/auth.js";
 test("owner-configured payment setup appears in the standalone tenant portal", async ({ page }) => {
   await signInAs(page, seededUsers.ownerA);
 
-  await page.goto("/finance");
+  await page.goto("/finance?tab=settings");
 
   const settingsCard = page.getByTestId("payment-collection-settings-card");
   const readinessCard = page.getByTestId("payment-collection-readiness-card");

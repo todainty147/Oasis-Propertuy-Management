@@ -294,6 +294,7 @@ function MaintenanceTriageCard({ accountId, request, canManage, compact, t }) {
           type="button"
           onClick={() => loadInsight(true)}
           disabled={loading}
+          data-testid={`maintenance-triage-refresh-${request.id}`}
           className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
         >
           {t("maintenance.ai.refresh")}

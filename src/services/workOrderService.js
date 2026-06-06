@@ -508,7 +508,7 @@ export async function createWorkOrder({
   assertMaxLength(contractorName, 200, "Contractor name is too long");
   assertMaxLength(notes, 5000, "Notes are too long");
 
-  const { data: workOrderId, error: rpcError } = await supabase.rpc(
+  const { data: rpcResult, error: rpcError } = await supabase.rpc(
     "work_order_create",
     {
       p_account_id: accountId,
@@ -524,6 +524,13 @@ export async function createWorkOrder({
   );
 
   if (rpcError) throw friendlyError(rpcError, "Nie udało się utworzyć zlecenia");
+
+  if (rpcResult && typeof rpcResult === "object" && !Array.isArray(rpcResult)) {
+    return parseWorkOrderRow(rpcResult);
+  }
+
+  const workOrderId = typeof rpcResult === "string" ? rpcResult : rpcResult?.id;
+  if (!workOrderId) return rpcResult || null;
 
   // Optional read-back for immediate UI refresh.
   // Use maybeSingle so RLS/view timing returning 0 rows doesn't throw.

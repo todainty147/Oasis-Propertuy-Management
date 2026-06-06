@@ -54,9 +54,9 @@ test("captures compliance suite screenshots", async ({ page }) => {
   await expect(page.getByText("Rent Shield").first()).toBeVisible();
   await shot(page, "rent-shield.png");
 
-  // Tax Readiness
-  await page.goto("/compliance/tax");
-  await expect(page.getByText("Tax Readiness").first()).toBeVisible();
+  // Tax Tools
+  await page.goto("/compliance/tax-tools");
+  await expect(page.getByText("Tax Tools").first()).toBeVisible();
   await shot(page, "tax-readiness.png");
 
   // Compliance suite overview (Lease Auditor with full page context)
