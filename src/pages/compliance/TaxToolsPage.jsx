@@ -135,6 +135,13 @@ function PropertySelect({ properties, value, onChange }) {
   );
 }
 
+function isMtdIncludedExpense(row) {
+  if (!row || row.review_status === "excluded") return false;
+  if (row.include_in_mtd === true) return true;
+  if (row.include_in_mtd === false) return false;
+  return row.mtd_ready === true;
+}
+
 function LockedTabNotice() {
   return (
     <Panel>
@@ -160,6 +167,7 @@ function ExpenseTracker({ accountId, properties, expenses, onSaved, propertyFina
 
   const totalsByCategory = useMemo(() => {
     return expenses.reduce((acc, row) => {
+      if (!isMtdIncludedExpense(row)) return acc;
       acc[row.category] = (acc[row.category] || 0) + Number(row.amount || 0);
       return acc;
     }, {});
@@ -391,10 +399,10 @@ function ExpenseTracker({ accountId, properties, expenses, onSaved, propertyFina
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1.3fr]">
         <Panel>
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Totals by category</h3>
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">MTD-included totals by category</h3>
           <div className="mt-3 space-y-2">
             {Object.keys(totalsByCategory).length === 0 ? (
-              <p className="text-sm text-slate-500">No expense records yet.</p>
+              <p className="text-sm text-slate-500">No included expense records yet.</p>
             ) : Object.entries(totalsByCategory).map(([category, total]) => (
               <div key={category} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800">
                 <span>{TAX_CATEGORY_LABELS[category] || category}</span>
@@ -419,7 +427,7 @@ function ExpenseTracker({ accountId, properties, expenses, onSaved, propertyFina
                   <tr><th className="py-2">Date</th><th>Source</th><th>Category</th><th>Amount</th><th>MTD</th><th>Action</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {expenses.slice(0, 8).map((row) => {
+                  {expenses.map((row) => {
                     const isPropertyFinanceCandidate = row.source_type === "property_operating_expense";
                     const isIncludedCandidate = isPropertyFinanceCandidate && row.include_in_mtd === true && row.review_status === "reviewed";
                     const isExcludedCandidate = isPropertyFinanceCandidate && row.review_status === "excluded";
