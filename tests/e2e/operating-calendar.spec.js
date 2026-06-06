@@ -282,7 +282,7 @@ test.describe("Operating Calendar — agenda content", () => {
     await expect(page.getByRole("heading", { name: "Operating Calendar" })).toBeVisible({ timeout: 20_000 });
 
     // The harness seeds a payment for account A — title starts with "Rent:"
-    await expect(page.getByText(/^Rent:/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/^Rent:/).first()).toBeVisible({ timeout: 20_000 });
   });
 
   test("seeded maintenance request from account A appears in agenda", async ({ page }) => {
@@ -397,7 +397,7 @@ test.describe("Operating Calendar — agenda content", () => {
     // Custom item should disappear
     await expect(page.getByText(title)).toBeHidden({ timeout: 10_000 });
     // Rent items should still be visible
-    await expect(page.getByText(/^Rent:/)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/^Rent:/).first()).toBeVisible({ timeout: 10_000 });
   });
 
   test("summary bar shows status chip counts above the agenda", async ({ page }) => {

@@ -1197,6 +1197,25 @@ a {
   box-shadow: 0 24px 64px rgba(15, 23, 42, 0.16);
 }
 
+.homepage-founder__trust {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin: -0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.homepage-founder__trust li {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid rgba(189, 246, 236, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #d9f7f3;
+  font: 800 0.72rem/1.2 var(--font-sans);
+}
+
 .homepage-founder .eyebrow {
   background: rgba(234, 245, 241, 0.1);
   border: 1px solid rgba(234, 245, 241, 0.2);
@@ -1330,6 +1349,130 @@ a {
 
 .product-walkthrough__steps button.is-active {
   background: #21d6b7;
+}
+
+.tenant-personas,
+.agency-fee-calculator {
+  background: var(--bg);
+}
+
+.tenant-personas__panel,
+.agency-fee-calculator__panel {
+  padding: 1.5rem;
+}
+
+.tenant-personas__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-bottom: 1.25rem;
+}
+
+.tenant-personas__tabs button {
+  min-height: 42px;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--brand-strong);
+  font: 800 0.84rem/1 var(--font-sans);
+  cursor: pointer;
+}
+
+.tenant-personas__tabs button.is-active {
+  border-color: rgba(20, 184, 166, 0.44);
+  background: var(--accent-soft);
+}
+
+.tenant-personas__content,
+.agency-fee-calculator__panel {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.tenant-personas__content h3,
+.agency-fee-calculator__copy h2 {
+  margin: 0;
+  color: var(--brand-strong);
+  font-size: clamp(1.35rem, 2.4vw, 2rem);
+  line-height: 1.12;
+}
+
+.tenant-personas__content p,
+.agency-fee-calculator__copy p,
+.agency-fee-calculator__results p {
+  color: var(--muted);
+  font: 500 0.96rem/1.7 var(--font-sans);
+}
+
+.tenant-personas__content ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tenant-personas__content li {
+  padding: 0.85rem;
+  border: 1px solid rgba(20, 184, 166, 0.22);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--brand-strong);
+  font: 800 0.86rem/1.35 var(--font-sans);
+}
+
+.agency-fee-calculator__form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.agency-fee-calculator__form label {
+  display: grid;
+  gap: 0.4rem;
+  color: var(--brand-strong);
+  font: 800 0.82rem/1.2 var(--font-sans);
+}
+
+.agency-fee-calculator__form input {
+  min-height: 46px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.75rem 0.85rem;
+  color: var(--ink);
+  background: #ffffff;
+  font: 650 0.95rem/1.2 var(--font-sans);
+}
+
+.agency-fee-calculator__results {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.agency-fee-calculator__results article {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 94px;
+  padding: 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.agency-fee-calculator__results span {
+  color: var(--muted);
+  font: 800 0.76rem/1.2 var(--font-sans);
+  text-transform: uppercase;
+}
+
+.agency-fee-calculator__results strong {
+  color: var(--brand-strong);
+  font-size: 1.65rem;
+  line-height: 1;
 }
 
 @keyframes portfolio-score {
@@ -2027,7 +2170,9 @@ a {
   .homepage-card-grid--three,
   .homepage-workflow-grid,
   .homepage-founder__inner,
-  .homepage-trust__layout {
+  .homepage-trust__layout,
+  .tenant-personas__content,
+  .agency-fee-calculator__panel {
     grid-template-columns: 1fr;
   }
 
@@ -2114,7 +2259,8 @@ a {
   .command-teaser__metrics,
   .portfolio-teaser__metrics,
   .product-walkthrough__metrics,
-  .tenant-portal-teaser__metrics {
+  .tenant-portal-teaser__metrics,
+  .tenant-personas__content ul {
     grid-template-columns: 1fr;
   }
 

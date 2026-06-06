@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { isolationFixtures } from "../fixtures/isolationFixtures.js";
-import { logout, seededUsers, signInAs } from "./helpers/auth.js";
+import { seededUsers, signInAs } from "./helpers/auth.js";
 
 const MANAGER_ROLES = [
   { role: "owner", email: seededUsers.ownerA },
@@ -141,6 +141,12 @@ async function expectHiddenActionPatterns(page, patterns = []) {
   }
 }
 
+function tenantCardLink(page, tenantName) {
+  return page.locator("a").filter({
+    has: page.getByRole("heading", { name: tenantName, exact: true }),
+  });
+}
+
 test.describe("role navigation and permission matrix", () => {
   for (const row of ROLE_MATRIX) {
     test(`${row.role} sees only allowed navigation`, async ({ page }) => {
@@ -193,7 +199,7 @@ test.describe("role navigation and permission matrix", () => {
 
       await page.goto("/tenants");
       await page.getByRole("textbox", { name: /Search tenants/i }).fill("Tenant A1");
-      await expect(page.getByRole("link", { name: "Tenant A1" })).toBeVisible();
+      await expect(tenantCardLink(page, "Tenant A1")).toBeVisible();
 
       await page.goto("/properties");
       await expect(page.getByRole("link", { name: /11 Starlight Avenue/i })).toBeVisible();
@@ -210,7 +216,7 @@ test.describe("role navigation and permission matrix", () => {
     await expectVisibleNav(page, ["Dashboard", "Properties", "Tenants", "Finance", "Documents", "Maintenance Inbox", "Invitations"]);
     await page.goto("/tenants");
     await page.getByRole("textbox", { name: /Search tenants/i }).fill("Tenant A1");
-    await expect(page.getByRole("link", { name: "Tenant A1" })).toBeVisible();
+    await expect(tenantCardLink(page, "Tenant A1")).toBeVisible();
     await expect(page.getByLabel("Account").first()).toBeVisible();
   });
 
@@ -218,7 +224,11 @@ test.describe("role navigation and permission matrix", () => {
     for (const row of ROLE_MATRIX) {
       await signInAs(page, row.email);
       await expect(page.getByLabel("Account")).toHaveCount(0);
-      await logout(page);
+      await page.context().clearCookies();
+      await page.evaluate(() => {
+        window.localStorage.clear();
+        window.sessionStorage.clear();
+      });
     }
   });
 });

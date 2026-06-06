@@ -76,6 +76,8 @@ describe("Phase 3 legal security contracts", () => {
     expect(sql).toContain("right_to_rent_check");
     expect(sql).toContain("umowa_najmu_okazjonalnego");
     expect(sql).toContain("boiler_heating");
+    expect(sql).not.toContain("'boolean'");
+    expect(sql).toContain("'yes_no'");
     [
       "no_hot_water",
       "damp_mould",

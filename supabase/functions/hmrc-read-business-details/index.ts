@@ -51,7 +51,9 @@ Deno.serve(async (req) => {
       userId: user.id,
     });
 
-    const summary = response.ok ? summarizeBusinessDetails(response.body) : { safe_code: response.normalized?.safeCode || "hmrc_error" };
+    const summary: Record<string, unknown> = response.ok
+      ? summarizeBusinessDetails(response.body)
+      : { safe_code: response.normalized?.safeCode || "hmrc_error" };
     if (response.ok && summary.firstIncomeSourceId) {
       await persistDiscoveredIncomeSourceId(connection, String(summary.firstIncomeSourceId), accountId);
     }

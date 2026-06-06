@@ -63,7 +63,9 @@ Deno.serve(async (req) => {
       testScenario: null,
     });
 
-    const summary = response.ok ? summarizeObligations(response.body) : { safe_code: response.normalized?.safeCode || "hmrc_error" };
+    const summary: Record<string, unknown> = response.ok
+      ? summarizeObligations(response.body)
+      : { safe_code: response.normalized?.safeCode || "hmrc_error" };
     const status = response.ok && Number(summary.obligationCount || 0) === 0 ? "no_data" : response.ok ? "success" : response.status === 404 ? "no_data" : "failed";
     await writeHmrcReadinessCheck({
       accountId,

@@ -313,6 +313,7 @@ function AttentionInsightCard({ insight, loading, expanded, onToggle, onRefresh,
             <button
               type="button"
               onClick={onRefresh}
+              data-testid="attention-insight-refresh"
               className="shrink-0 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
               {t("commandCenter.ai.refresh")}

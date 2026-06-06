@@ -205,8 +205,8 @@ test.describe("Rent Plans — create form", () => {
     // Scope selects to the form (it has a distinctive blue border class).
     // Using page-level select.first() would hit sidebar language/theme selects first.
     const form           = page.locator('[class*="border-blue-200"]').first();
-    const marketSelect   = form.locator('select').first();
-    const currencySelect = form.locator('select').nth(1);
+    const marketSelect   = form.locator('select').nth(2);
+    const currencySelect = form.locator('select').nth(3);
 
     // Change to Poland → PLN
     await marketSelect.selectOption("pl");

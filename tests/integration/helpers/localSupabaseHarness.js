@@ -635,3 +635,28 @@ export async function signInAsFixtureUser(fixtureUserKey) {
     fixture,
   };
 }
+
+export async function signInAsUser(email) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const fixtureEntry = Object.entries(isolationFixtures.users).find(
+    ([, fixture]) => String(fixture.email || "").toLowerCase() === normalizedEmail,
+  );
+
+  if (fixtureEntry) {
+    const { client } = await signInAsFixtureUser(fixtureEntry[0]);
+    return client;
+  }
+
+  await ensureIsolationHarnessSeed();
+
+  const env = getIntegrationEnv();
+  const client = createAnonClient();
+  const { error } = await client.auth.signInWithPassword({
+    email,
+    password: env.userPassword,
+  });
+
+  if (error) throw error;
+
+  return client;
+}

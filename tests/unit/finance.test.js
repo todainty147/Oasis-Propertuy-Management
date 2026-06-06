@@ -38,6 +38,16 @@ const overduePayment = (amount, dueDateStr) => ({
   paidAt: null,
 });
 
+const voidPayment = (amount, dueDateStr) => ({
+  id: `pay-${Math.random()}`,
+  propertyId: "prop-1",
+  tenantId: "tenant-1",
+  amount,
+  status: "void",
+  dueDate: dueDateStr,
+  paidAt: null,
+});
+
 // Reference date: 12 May 2026 (what the user sees)
 const MAY_12_2026 = new Date("2026-05-12");
 
@@ -123,6 +133,22 @@ describe("calculatePropertyFinance — overpayment", () => {
 
     // 2 months expected = £20,000; collected £15,000 → £5,000 remaining
     expect(result.remaining).toBe(5_000);
+    expect(result.paymentStatus).toBe("overdue");
+  });
+
+  it("excludes a voided duplicate from the 36 Ashton running balance", () => {
+    const result = calculatePropertyFinance({
+      property: property(2000),
+      payments: [
+        paidPayment(500, "2026-05-03", "2026-05-02"),
+        paidPayment(2000, "2026-06-03", "2026-06-03"),
+        voidPayment(2000, "2026-06-03"),
+      ],
+      date: new Date("2026-06-03"),
+    });
+
+    expect(result.paid).toBe(2500);
+    expect(result.remaining).toBe(1500);
     expect(result.paymentStatus).toBe("overdue");
   });
 });

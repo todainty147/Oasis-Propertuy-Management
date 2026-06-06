@@ -59,6 +59,9 @@ Deno.serve(async (req) => {
     if (body.confirmLivePilot !== true) {
       throw new HttpError("Confirm this is a controlled live pilot dry run before continuing.", 400);
     }
+    if (mode === "live_network") {
+      assertLiveNetworkOperatorConfirmation(body);
+    }
 
     await assertHmrcLiveSubmissionPilotAllowed({
       accountId,
@@ -69,6 +72,11 @@ Deno.serve(async (req) => {
     });
     if (mode === "dry_run") {
       await assertDryRunFeatureEnabled(accountId);
+    }
+    if (mode === "live_network") {
+      await assertLiveNetworkOperator(accountId, draftId, userId, consentId);
+      await assertNoExistingLiveAttempt(accountId, draftId);
+      await assertPhase5DLivePilotEvidence(accountId, draftId, consentId);
     }
 
     const { draft, lines } = await loadDraft(accountId, draftId);
@@ -136,6 +144,11 @@ Deno.serve(async (req) => {
         status: "dry_run_passed",
         responseSummary: safeSummary,
       });
+      await recordPilotEvidencePassed(accountId, draftId, userId, "dry_run_passed", {
+        attemptId,
+        consentId,
+        networkCallMade: false,
+      });
       await writeLiveEvent(accountId, {
         draftId,
         attemptId,
@@ -200,30 +213,73 @@ Deno.serve(async (req) => {
       }, response.status >= 400 && response.status < 500 ? 400 : 502);
     }
 
-    const safeSummary = {
-      accepted: true,
-      responseKeys: Object.keys(response.body || {}).slice(0, 10),
-    };
-    await completeLiveAttempt(attemptId, accountId, {
-      status: "success",
-      responseSummary: safeSummary,
-      httpStatus: response.status,
-      correlationId: response.correlationId,
-    });
-    await markDraftLiveSubmitted(accountId, draftId, attemptId);
-    await safeWriteLiveEvent(accountId, {
+    const readBack = await safeReadBackAfterLiveAccepted({
+      accountId,
+      connection,
+      endpointPath,
+      userId,
       draftId,
       attemptId,
       consentId,
-      userId,
-      eventType: "live_network_submission_success",
-      metadata: safeSummary,
     });
+    const safeSummary = {
+      accepted: true,
+      message: "HMRC accepted this update. No submission ID was returned by this endpoint.",
+      responseKeys: Object.keys(response.body || {}).slice(0, 10),
+      noSubmissionIdReturned: true,
+      readBack: readBack.status,
+    };
+    try {
+      await completeLiveAttempt(attemptId, accountId, {
+        status: "success",
+        responseSummary: safeSummary,
+        httpStatus: response.status,
+        correlationId: response.correlationId,
+      });
+      await markDraftLiveSubmitted(accountId, draftId, attemptId);
+      await safeWriteLiveEvent(accountId, {
+        draftId,
+        attemptId,
+        consentId,
+        userId,
+        eventType: "live_network_submission_success",
+        metadata: safeSummary,
+      });
+    } catch (localWriteError) {
+      const localWriteSummary = {
+        ...safeSummary,
+        localSuccessWriteFailed: true,
+        operatorRecoveryRequired: true,
+        recoveryMessage: "HMRC accepted the update, but Tenaqo could not finish the local success write. Do not retry blindly.",
+      };
+      await safeWriteLiveEvent(accountId, {
+        draftId,
+        attemptId,
+        consentId,
+        userId,
+        eventType: "live_network_local_write_failed",
+        metadata: {
+          ...localWriteSummary,
+          message: localWriteError instanceof Error ? localWriteError.message : "Local success write failed",
+        },
+      });
+      return json(req, {
+        status: "accepted_local_write_failed",
+        attemptId,
+        hmrcCorrelationId: response.correlationId,
+        hmrcHttpStatus: response.status,
+        message: localWriteSummary.recoveryMessage,
+        safeSummary: localWriteSummary,
+      }, 202);
+    }
     return json(req, {
       status: "success",
       attemptId,
       hmrcCorrelationId: response.correlationId,
       hmrcHttpStatus: response.status,
+      message: readBack.status === "succeeded"
+        ? "Live pilot quarterly update was accepted by HMRC and read-back verification succeeded."
+        : "Live pilot quarterly update was accepted by HMRC. Read-back verification did not complete.",
       safeSummary,
     });
   } catch (error) {
@@ -324,6 +380,97 @@ function normalizeMode(value: unknown) {
   return mode;
 }
 
+function assertLiveNetworkOperatorConfirmation(body: Record<string, unknown>) {
+  if (String(body.typedConfirmation || "").trim() !== "LIVE PILOT") {
+    throw new HttpError("Type LIVE PILOT to confirm the one-account live network pilot.", 400);
+  }
+  if (body.confirmLiveNetworkSubmission !== true) {
+    throw new HttpError("Confirm that this sends a live MTD quarterly update to HMRC for the pilot account.", 400);
+  }
+}
+
+async function assertLiveNetworkOperator(accountId: string, draftId: string, userId: string, consentId: string) {
+  const { data, error } = await admin.rpc("hmrc_user_is_root_operator", {
+    p_user_id: userId,
+  });
+  if (error) throw error;
+  if (data !== true) {
+    await safeWriteLiveEvent(accountId, {
+      draftId,
+      consentId,
+      userId,
+      eventType: "live_submission_blocked",
+      metadata: { reason: "root_operator_required" },
+    });
+    throw new HttpError("Only a Tenaqo root operator can trigger the one-account live network pilot.", 403);
+  }
+}
+
+async function assertNoExistingLiveAttempt(accountId: string, draftId: string) {
+  const { data: draft, error: draftError } = await admin
+    .from("mtd_quarterly_update_drafts")
+    .select("live_submission_status, live_submitted_at")
+    .eq("id", draftId)
+    .eq("account_id", accountId)
+    .maybeSingle();
+  if (draftError) throw draftError;
+  if (draft?.live_submitted_at || draft?.live_submission_status === "success") {
+    throw new HttpError("duplicate_live_submission", 409);
+  }
+
+  const { data, error } = await admin
+    .from("hmrc_live_submission_attempts")
+    .select("id, status")
+    .eq("account_id", accountId)
+    .eq("draft_id", draftId)
+    .eq("mode", "live_network")
+    .in("status", ["started", "success"])
+    .limit(1);
+  if (error) throw error;
+  if ((data || []).length > 0) {
+    throw new HttpError("duplicate_live_submission", 409);
+  }
+}
+
+async function assertPhase5DLivePilotEvidence(accountId: string, draftId: string, consentId: string) {
+  await assertDryRunPassedForDraftConsent(accountId, draftId, consentId);
+  await assertPilotEvidencePassed(accountId, draftId, "dry_run_passed");
+  await assertPilotEvidencePassed(accountId, draftId, "support_runbook_reviewed");
+  await assertPilotEvidencePassed(accountId, draftId, "rollback_verified");
+  await assertPilotEvidencePassed(accountId, draftId, "operator_approval");
+}
+
+async function assertDryRunPassedForDraftConsent(accountId: string, draftId: string, consentId: string) {
+  const { data, error } = await admin
+    .from("hmrc_live_submission_attempts")
+    .select("id")
+    .eq("account_id", accountId)
+    .eq("draft_id", draftId)
+    .eq("consent_id", consentId)
+    .eq("mode", "dry_run")
+    .eq("status", "dry_run_passed")
+    .limit(1);
+  if (error) throw error;
+  if ((data || []).length === 0) {
+    throw new HttpError("A passed dry-run for this draft and consent is required before live network submission.", 403);
+  }
+}
+
+async function assertPilotEvidencePassed(accountId: string, draftId: string, evidenceType: string) {
+  const { data, error } = await admin
+    .from("hmrc_live_pilot_evidence")
+    .select("id, draft_id, evidence_status")
+    .eq("account_id", accountId)
+    .eq("evidence_type", evidenceType)
+    .eq("evidence_status", "passed")
+    .or(`draft_id.is.null,draft_id.eq.${draftId}`)
+    .limit(1);
+  if (error) throw error;
+  if ((data || []).length === 0) {
+    throw new HttpError(`Required live pilot evidence is missing: ${evidenceType}.`, 403);
+  }
+}
+
 async function loadDraft(accountId: string, draftId: string) {
   const { data: draft, error } = await admin
     .from("mtd_quarterly_update_drafts")
@@ -340,7 +487,10 @@ async function loadDraft(accountId: string, draftId: string) {
     .eq("account_id", accountId)
     .order("transaction_date", { ascending: true });
   if (lineError) throw lineError;
-  return { draft: draft as Record<string, unknown>, lines: (lines || []) as Record<string, unknown>[] };
+  return {
+    draft: draft as unknown as Record<string, unknown>,
+    lines: (lines || []) as unknown as Record<string, unknown>[],
+  };
 }
 
 async function loadLiveConnection(accountId: string) {
@@ -452,6 +602,33 @@ async function completeLiveAttempt(attemptId: string, accountId: string, {
   if (error) throw error;
 }
 
+async function recordPilotEvidencePassed(
+  accountId: string,
+  draftId: string,
+  userId: string,
+  evidenceType: string,
+  evidenceSummary: Record<string, unknown>,
+) {
+  const { error } = await admin
+    .from("hmrc_live_pilot_evidence")
+    .insert({
+      account_id: accountId,
+      draft_id: draftId,
+      evidence_type: evidenceType,
+      evidence_status: "passed",
+      evidence_summary: evidenceSummary,
+      recorded_by: userId || null,
+    });
+  if (error) {
+    console.warn("[hmrc-live-pilot] evidence insert failed", {
+      accountId,
+      draftId,
+      evidenceType,
+      message: error.message,
+    });
+  }
+}
+
 async function assertLiveNetworkDuplicateClear(accountId: string, draftId: string, attemptId: string, userId: string, consentId: string) {
   const { data: draft, error: draftError } = await admin
     .from("mtd_quarterly_update_drafts")
@@ -480,6 +657,55 @@ async function assertLiveNetworkDuplicateClear(accountId: string, draftId: strin
       metadata: { reason: "duplicate_live_submission" },
     });
     throw new HttpError("duplicate_live_submission", 409);
+  }
+}
+
+async function safeReadBackAfterLiveAccepted({
+  accountId,
+  connection,
+  endpointPath,
+  userId,
+  draftId,
+  attemptId,
+  consentId,
+}: {
+  accountId: string;
+  connection: Record<string, unknown>;
+  endpointPath: string;
+  userId: string;
+  draftId: string;
+  attemptId: string;
+  consentId: string;
+}) {
+  try {
+    const accessToken = await decryptConnectionAccessToken(connection);
+    const response = await fetch(`${HMRC_BASE_URL}${endpointPath}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: HMRC_ACCEPT_HEADERS.propertyBusiness,
+      },
+    });
+    if (response.ok) return { status: "succeeded" };
+    await safeWriteLiveEvent(accountId, {
+      draftId,
+      attemptId,
+      consentId,
+      userId,
+      eventType: "live_network_readback_failed",
+      metadata: { httpStatus: response.status },
+    });
+    return { status: "failed" };
+  } catch (error) {
+    await safeWriteLiveEvent(accountId, {
+      draftId,
+      attemptId,
+      consentId,
+      userId,
+      eventType: "live_network_readback_failed",
+      metadata: { message: error instanceof Error ? error.message : "Read-back failed" },
+    });
+    return { status: "failed" };
   }
 }
 

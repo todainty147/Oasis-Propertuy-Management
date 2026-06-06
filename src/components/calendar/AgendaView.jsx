@@ -51,7 +51,7 @@ export function AgendaView({ items }) {
             <h2
               className={`text-sm font-semibold ${
                 isPast(dateStr)
-                  ? "text-slate-400 dark:text-slate-500"
+                  ? "text-slate-600 dark:text-slate-400"
                   : "text-slate-700 dark:text-slate-200"
               }`}
             >

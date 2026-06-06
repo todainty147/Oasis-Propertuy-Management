@@ -68,7 +68,7 @@ function Item({ to, icon, label, onNavigate, end = false, indent = false }) {
         `flex items-center gap-2.5 ${indent ? "pl-7 pr-2.5" : "px-2.5"} py-[5px] rounded-md ${indent ? "text-[12.5px]" : "text-[13px]"} leading-5 transition-colors duration-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-400/60 dark:focus-visible:ring-slate-500/70 ${
           isActive
             ? "bg-black/[0.07] dark:bg-white/[0.09] text-slate-900 dark:text-slate-100 font-[500]"
-            : "text-slate-500 dark:text-slate-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] hover:text-slate-800 dark:hover:text-slate-200"
+            : "text-slate-600 dark:text-slate-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-slate-100"
         }`
       }
     >
@@ -128,7 +128,7 @@ function FooterLanguagePicker({ lang, setLang, t }) {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex h-7 w-full min-w-0 items-center gap-1.5 rounded-lg bg-black/[0.04] px-2 text-left text-[11px] text-slate-500 transition-colors hover:bg-black/[0.07] hover:text-slate-700 focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-400/60 dark:bg-white/[0.05] dark:text-slate-400 dark:hover:bg-white/[0.08] dark:hover:text-slate-200 dark:focus-visible:ring-slate-500/70"
+        className="flex h-7 w-full min-w-0 items-center gap-1.5 rounded-lg bg-black/[0.04] px-2 text-left text-[11px] text-slate-700 transition-colors hover:bg-black/[0.07] hover:text-slate-900 focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-400/60 dark:bg-white/[0.05] dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-slate-100 dark:focus-visible:ring-slate-500/70"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={t("topbar.language")}
@@ -222,7 +222,7 @@ function FooterThemeSegment({ theme, setTheme, t }) {
 
 function Section({ label, sectionIcon: SectionIcon, collapsible = false, open = true, onToggle, children }) {
   const headingClass =
-    "flex items-center gap-1 px-2.5 pt-5 pb-[5px] text-[10px] font-semibold uppercase tracking-widest text-slate-400/80 dark:text-slate-500";
+    "flex items-center gap-1 px-2.5 pt-5 pb-[5px] text-[10px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-300";
 
   return (
     <div>
@@ -377,7 +377,7 @@ function SidebarContent({ onNavigate }) {
       )}
 
       {/* ── Navigation ── */}
-      <nav className="flex-1 overflow-y-auto px-2.5 pb-2">
+      <nav className="flex-1 overflow-y-auto px-2.5 pb-2" aria-label="Main navigation">
 
         {/* ── Contractor view ── */}
         {isContractor ? (
@@ -623,7 +623,7 @@ function SidebarContent({ onNavigate }) {
           <FooterThemeSegment theme={theme} setTheme={setTheme} t={t} />
         </div>
         {user?.email && (
-          <p className="mt-1.5 text-[10px] text-slate-400/70 dark:text-slate-500 truncate leading-4">
+          <p className="mt-1.5 text-[10px] text-slate-600 dark:text-slate-300 truncate leading-4">
             {user.email}
           </p>
         )}

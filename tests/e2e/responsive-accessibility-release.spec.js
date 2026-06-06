@@ -11,7 +11,7 @@ const ownerSurfaces = [
     name: "dashboard",
     path: "/dashboard",
     ready: async (page) => {
-      await expect(page.getByRole("heading", { name: "Operations Hub" })).toBeVisible();
+      await expect(page.locator("main").getByRole("heading", { name: "Operations Hub" }).first()).toBeVisible();
     },
   },
   {

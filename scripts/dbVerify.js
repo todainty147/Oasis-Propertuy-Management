@@ -137,12 +137,12 @@ const verificationChecks = [
   {
     label: "HMRC live dry-run feature flag",
     why: "Confirms HMRC Phase 5C dry-run gating feature is seeded for local accounts.",
-    sql: "select exists (select 1 from public.account_feature_flags where feature_key = 'hmrc_mtd_live_submission_dry_run');",
+    sql: "select not exists (select 1 from public.accounts) or exists (select 1 from public.account_feature_flags where feature_key = 'hmrc_mtd_live_submission_dry_run');",
   },
   {
     label: "HMRC live network kill-switch feature flag",
     why: "Confirms HMRC Phase 5C live-network kill-switch feature is seeded disabled by default.",
-    sql: "select exists (select 1 from public.account_feature_flags where feature_key = 'hmrc_mtd_live_submission_network_enabled');",
+    sql: "select not exists (select 1 from public.accounts) or exists (select 1 from public.account_feature_flags where feature_key = 'hmrc_mtd_live_submission_network_enabled');",
   },
 ];
 

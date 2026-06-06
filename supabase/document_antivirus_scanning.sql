@@ -177,7 +177,16 @@ begin
       and d.upload_status = 'stub'
       and d.storage_path_quarantine = p_storage_path
       and d.storage_path = p_storage_path
-      and public.account_member_has_permission(d.account_id, 'documents.upload', auth.uid())
+      and (
+        public.account_member_has_permission(d.account_id, 'documents.upload', auth.uid())
+        or exists (
+          select 1
+          from public.document_request_uploads dru
+          join public.document_requests dr on dr.id = dru.request_id
+          where dru.document_id = d.id
+            and public.is_document_request_target(dr.id, auth.uid())
+        )
+      )
   );
 end;
 $$;

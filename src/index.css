@@ -32,10 +32,10 @@ body {
   --surface-3: #eef5f7;
   --border-soft: rgba(11, 29, 58, 0.08);
   --border-strong: rgba(11, 29, 58, 0.14);
-  --focus-border: #148ba6;
+  --focus-border: #0f6f82;
   --text-primary: #0b1d3a;
   --text-secondary: #475569;
-  --text-muted: #64748b;
+  --text-muted: #526174;
   --text-inverse: #ffffff;
   --status-success-bg: rgba(34, 197, 94, 0.1);
   --status-success-text: #047857;
@@ -59,7 +59,7 @@ body {
   --section-gap: clamp(1rem, 2vw, 1.5rem);
   --grid-gap: clamp(0.875rem, 1.6vw, 1.25rem);
   --brand-logo-wordmark: #0b1d3a;
-  --brand-logo-subtitle: #148ba6;
+  --brand-logo-subtitle: #0f6f82;
   --brand-logo-tile-bg: #ffffff;
   --brand-logo-tile-border: #d9e7ec;
   --brand-logo-tile-shadow: 0 1px 2px rgba(11, 29, 58, 0.08);

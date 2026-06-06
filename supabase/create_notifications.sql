@@ -156,6 +156,59 @@ revoke all on function public.create_notifications(uuid, uuid[], text, text, tex
 grant execute on function public.create_notifications(uuid, uuid[], text, text, text, text, uuid, text, jsonb) to authenticated;
 grant execute on function public.create_notifications(uuid, uuid[], text, text, text, text, uuid, text, jsonb) to service_role;
 
+create or replace function public.notifications_mark_read(
+  p_notification_id uuid
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_count integer := 0;
+  v_uid uuid := auth.uid();
+begin
+  if p_notification_id is null then
+    return 0;
+  end if;
+
+  if v_uid is null then
+    begin
+      v_uid := nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+    exception when others then
+      v_uid := null;
+    end;
+  end if;
+
+  if v_uid is null then
+    begin
+      v_uid := nullif(current_setting('request.jwt.claims', true), '')::jsonb->>'sub';
+    exception when others then
+      v_uid := null;
+    end;
+  end if;
+
+  if v_uid is null then
+    return 0;
+  end if;
+
+  update public.notifications n
+  set is_read = true,
+      read_at = coalesce(n.read_at, now())
+  where n.id = p_notification_id
+    and n.recipient_user_id = v_uid
+    and n.is_read = false;
+
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
+
+revoke all on function public.notifications_mark_read(uuid) from public;
+revoke all on function public.notifications_mark_read(uuid) from anon;
+grant execute on function public.notifications_mark_read(uuid) to authenticated;
+grant execute on function public.notifications_mark_read(uuid) to service_role;
+
 create or replace function public.create_notifications_system(
   p_account_id uuid,
   p_recipient_user_ids uuid[],
@@ -241,3 +294,64 @@ revoke all on function public.create_notifications_system(uuid, uuid[], text, te
 revoke all on function public.create_notifications_system(uuid, uuid[], text, text, text, text, uuid, text, jsonb) from anon;
 revoke all on function public.create_notifications_system(uuid, uuid[], text, text, text, text, uuid, text, jsonb) from authenticated;
 grant execute on function public.create_notifications_system(uuid, uuid[], text, text, text, text, uuid, text, jsonb) to service_role;
+
+create or replace function public.tg_maintenance_request_notify_managers()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_tenant_user_id uuid;
+  v_recipient_user_ids uuid[];
+begin
+  if new.reported_by_tenant_id is null then
+    return new;
+  end if;
+
+  select t.user_id
+    into v_tenant_user_id
+  from public.tenants t
+  where t.id = new.reported_by_tenant_id
+    and t.account_id = new.account_id
+  limit 1;
+
+  select coalesce(array_agg(distinct am.user_id) filter (where am.user_id is not null), '{}'::uuid[])
+    into v_recipient_user_ids
+  from public.account_members am
+  where am.account_id = new.account_id
+    and lower(coalesce(am.role::text, '')) not in ('tenant', 'contractor')
+    and (v_tenant_user_id is null or am.user_id <> v_tenant_user_id);
+
+  if coalesce(array_length(v_recipient_user_ids, 1), 0) = 0 then
+    return new;
+  end if;
+
+  perform public.create_notifications_system(
+    new.account_id,
+    v_recipient_user_ids,
+    'maintenance_request_created',
+    'Nowe zgłoszenie serwisowe',
+    case
+      when nullif(new.title, '') is not null then 'Zgłoszenie: ' || new.title
+      else 'Utworzono nowe zgłoszenie'
+    end,
+    'maintenance_request',
+    new.id,
+    '/maintenance-inbox',
+    jsonb_build_object(
+      'maintenance_request_id', new.id,
+      'property_id', new.property_id,
+      'created_by_tenant', true
+    )
+  );
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_maintenance_request_notify_managers on public.maintenance_requests;
+create trigger trg_maintenance_request_notify_managers
+  after insert on public.maintenance_requests
+  for each row
+  execute function public.tg_maintenance_request_notify_managers();

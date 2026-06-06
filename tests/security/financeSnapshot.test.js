@@ -4,6 +4,7 @@ import {
   financeAmountForProperty,
   getFinanceOverdueAmount,
   getFinancePropertyBalanceMap,
+  getPropertyOverdueRemaining,
 } from "../../src/utils/financeSnapshot";
 
 describe("finance snapshot helpers", () => {
@@ -23,7 +24,7 @@ describe("finance snapshot helpers", () => {
     expect(getFinanceOverdueAmount(snapshot)).toBe(1500);
   });
 
-  it("keeps the larger aggregate when it exceeds property-level overdue rows", () => {
+  it("uses property remaining balances instead of a stale larger aggregate", () => {
     const snapshot = {
       overdue_income: 2000,
       property_finance: [
@@ -31,7 +32,41 @@ describe("finance snapshot helpers", () => {
       ],
     };
 
-    expect(getFinanceOverdueAmount(snapshot)).toBe(2000);
+    expect(getFinanceOverdueAmount(snapshot)).toBe(1500);
+  });
+
+  it("keeps the aggregate as a fallback when a legacy snapshot has no property rows", () => {
+    expect(getFinanceOverdueAmount({
+      overdue_income: 2000,
+      property_finance: [],
+    })).toBe(2000);
+  });
+
+  it("matches the reported 35/36 Ashton running-balance regression", () => {
+    const snapshot = {
+      overdue_income: 2000,
+      property_finance: [
+        {
+          propertyId: "35-ashton",
+          address: "35 Ashton Rd",
+          rent: 1000,
+          paid: 2000,
+          remaining: 0,
+          paymentStatus: "paid",
+        },
+        {
+          propertyId: "36-ashton",
+          address: "36 Ashton Rd",
+          rent: 2000,
+          paid: 2500,
+          remaining: 1500,
+          paymentStatus: "overdue",
+        },
+      ],
+    };
+
+    expect(getPropertyOverdueRemaining(snapshot)).toBe(1500);
+    expect(getFinanceOverdueAmount(snapshot)).toBe(1500);
   });
 
   it("returns finance remaining amount for overdue property items only", () => {

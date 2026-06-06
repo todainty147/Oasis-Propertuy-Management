@@ -158,7 +158,7 @@ export default function AccountLocalizationPage() {
           </div>
 
           {error   && <p className="text-sm text-rose-600">{error}</p>}
-          {message && <p className="text-sm text-emerald-700">{message}</p>}
+          {message && <p className="text-sm text-emerald-700" role="status" data-testid="localization-save-status">{message}</p>}
         </div>
 
         <div className="mt-5">

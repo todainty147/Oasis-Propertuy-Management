@@ -1,5 +1,6 @@
 import type { Locale } from "../../lib/i18n";
 import { oasisVsLandlordStudioContentByLocale } from "../../content/comparisons/oasis-vs-landlordstudio-localized";
+import { AgencyFeeCalculator } from "./agency-fee-calculator";
 import { BenefitGrid } from "./benefit-grid";
 import { ComparisonTable } from "./comparison-table";
 import { ContentSection } from "./content-section";
@@ -14,6 +15,7 @@ export function MarketingComparisonPage({ locale }: { locale: Locale }) {
       <PageHero locale={locale} {...content.hero} />
       <ContentSection locale={locale} {...content.summary} />
       <ComparisonTable {...content.comparisonTable} />
+      <AgencyFeeCalculator />
       <ContentSection locale={locale} {...content.differences} />
       <BenefitGrid {...content.fit} />
       <FinalCta locale={locale} {...content.finalCta} />

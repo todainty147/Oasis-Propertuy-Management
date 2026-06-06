@@ -2,6 +2,7 @@
 import {
   evaluateHmrcPhase5BReadinessGate,
   evaluateHmrcPhase5CReadinessGate,
+  evaluateHmrcPhase5DReadinessGate,
   evaluateHmrcPhase5ReadinessGate,
   HMRC_PHASE_5_READINESS_EVIDENCE,
   HMRC_PHASE_5B_READINESS_REQUIREMENTS,
@@ -9,6 +10,13 @@ import {
   HMRC_PHASE_5C_READINESS_REQUIREMENTS,
   HMRC_PHASE_5C_LIVE_PILOT_WARNING,
   HMRC_PHASE_5C_LIVE_SUBMISSION_WARNING,
+  HMRC_PHASE_5D_PILOT_READINESS_REQUIREMENTS,
+  HMRC_PHASE_5D_PILOT_READINESS_WARNING,
+  HMRC_PHASE_5D_ONE_ACCOUNT_WARNING,
+  HMRC_PHASE_5D_LIMITATION_WARNING,
+  HMRC_GENERAL_LIVE_SUBMISSION_WARNING,
+  HMRC_REAL_LIVE_NETWORK_ATTEMPT_REQUIREMENTS,
+  HMRC_REAL_LIVE_NETWORK_ATTEMPT_WARNING,
   HMRC_PHASE_5_READINESS_REQUIREMENTS,
   HMRC_PHASE_5_READINESS_WARNING,
 } from "../src/lib/mtd/hmrcPhase5ReadinessGate.js";
@@ -17,14 +25,24 @@ import { execFileSync } from "node:child_process";
 
 const evidenceFile = process.argv.find((arg) => arg.startsWith("--evidence-file="))?.split("=").slice(1).join("=");
 const fileEvidence = evidenceFile ? readEvidenceFile(evidenceFile) : {};
-const allRequirementKeys = [...new Set([...HMRC_PHASE_5_READINESS_REQUIREMENTS, ...HMRC_PHASE_5B_READINESS_REQUIREMENTS, ...HMRC_PHASE_5C_READINESS_REQUIREMENTS])];
-const explicitResults = Object.fromEntries(allRequirementKeys.map((key) => [
-  key,
-  fileEvidence[key] === true || process.env[key] === "true",
-]));
+const allRequirementKeys = [...new Set([
+  ...HMRC_PHASE_5_READINESS_REQUIREMENTS,
+  ...HMRC_PHASE_5B_READINESS_REQUIREMENTS,
+  ...HMRC_PHASE_5C_READINESS_REQUIREMENTS,
+  ...HMRC_PHASE_5D_PILOT_READINESS_REQUIREMENTS,
+  ...HMRC_REAL_LIVE_NETWORK_ATTEMPT_REQUIREMENTS,
+])];
+const explicitResults = {
+  ...fileEvidence,
+  ...Object.fromEntries(allRequirementKeys.map((key) => [
+    key,
+    fileEvidence[key] === true || process.env[key] === "true",
+  ])),
+};
 const result = evaluateHmrcPhase5ReadinessGate(explicitResults);
 const phase5b = evaluateHmrcPhase5BReadinessGate(explicitResults);
 const phase5c = evaluateHmrcPhase5CReadinessGate(explicitResults);
+const phase5d = evaluateHmrcPhase5DReadinessGate(explicitResults);
 
 console.log(`HMRC Phase 5 readiness gate`);
 console.log(`Timestamp: ${new Date().toISOString()}`);
@@ -36,20 +54,39 @@ console.log(HMRC_PHASE_5B_LIVE_SUBMISSION_WARNING);
 console.log(phase5c.warning);
 console.log(HMRC_PHASE_5C_LIVE_SUBMISSION_WARNING);
 console.log(HMRC_PHASE_5C_LIVE_PILOT_WARNING);
+console.log(HMRC_PHASE_5D_PILOT_READINESS_WARNING);
+console.log(HMRC_REAL_LIVE_NETWORK_ATTEMPT_WARNING);
+console.log(HMRC_PHASE_5D_ONE_ACCOUNT_WARNING);
+console.log(HMRC_PHASE_5D_LIMITATION_WARNING);
+console.log(HMRC_GENERAL_LIVE_SUBMISSION_WARNING);
 console.log(`READY_FOR_PHASE_5A = ${result.READY_FOR_PHASE_5A ? "true" : "false"}`);
 console.log(`READY_FOR_PHASE_5B = ${phase5b.READY_FOR_PHASE_5B ? "true" : "false"}`);
 console.log(`READY_FOR_PHASE_5C = ${phase5c.READY_FOR_PHASE_5C ? "true" : "false"}`);
-console.log(`READY_FOR_LIVE_SUBMISSION = ${phase5c.READY_FOR_LIVE_SUBMISSION ? "true" : "false"}`);
+console.log(`READY_FOR_PHASE_5D_PILOT = ${phase5d.READY_FOR_PHASE_5D_PILOT ? "true" : "false"}`);
+console.log(`READY_FOR_REAL_LIVE_NETWORK_ATTEMPT = ${phase5d.READY_FOR_REAL_LIVE_NETWORK_ATTEMPT ? "true" : "false"}`);
+console.log(`READY_FOR_GENERAL_LIVE_SUBMISSION = ${phase5d.READY_FOR_GENERAL_LIVE_SUBMISSION ? "true" : "false"}`);
+console.log(`READY_FOR_LIVE_SUBMISSION = ${phase5d.READY_FOR_LIVE_SUBMISSION ? "true" : "false"}`);
 console.log(`Manual evidence:`);
-printChecks(phase5c.manualEvidence);
+printChecks(phase5d.manualEvidence);
 console.log(`Automated evidence:`);
-printChecks(phase5c.automatedEvidence);
+printChecks(phase5d.automatedEvidence);
 
-if (phase5c.missing.length) {
-  console.log(`Missing evidence: ${phase5c.missing.join(", ")}`);
+if (phase5d.missing.length) {
+  console.log(`Missing evidence: ${phase5d.missing.join(", ")}`);
+  console.log(`Missing Phase 5D pilot evidence: ${phase5d.missing.join(", ")}`);
 }
 
-if (!result.READY_FOR_PHASE_5A || !phase5b.READY_FOR_PHASE_5B || !phase5c.READY_FOR_PHASE_5C) {
+if (phase5d.realLiveMissing.length) {
+  console.log(`Missing real live-network attempt evidence: ${phase5d.realLiveMissing.join(", ")}`);
+}
+
+if (
+  !result.READY_FOR_PHASE_5A ||
+  !phase5b.READY_FOR_PHASE_5B ||
+  !phase5c.READY_FOR_PHASE_5C ||
+  !phase5d.READY_FOR_PHASE_5D_PILOT ||
+  !phase5d.READY_FOR_REAL_LIVE_NETWORK_ATTEMPT
+) {
   process.exitCode = 1;
 }
 

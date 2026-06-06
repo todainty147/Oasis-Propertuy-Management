@@ -45,10 +45,17 @@ const workflowCards = [
   },
 ];
 
+const founderTrustChips = [
+  "Account-scoped access",
+  "Tenant and contractor role separation",
+  "Document audit history",
+  "AI assists - landlord approves",
+];
+
 const trustPoints = [
   "Account-scoped access and role separation keep tenant, contractor, and landlord surfaces distinct.",
   "AI assists review and summaries; landlord approval and oversight remain in control.",
-  "Tenaqo helps organise evidence, documents, rent visibility, and operating queues.",
+  "Tenaqo is designed to support your existing legal, tax and property advice workflows - not replace regulated professional judgement where it is required.",
   "Tenaqo does not collect rent, move money, or operate as a payment rail today.",
   "Tenaqo does not replace legal, tax, or regulated property advice.",
   "Audit history and document records support follow-up without promising automated compliance outcomes.",
@@ -113,7 +120,15 @@ export function MarketingHomePage({ locale }: { locale: Locale }) {
                   <h3>{card.title}</h3>
                   <p>{card.body}</p>
                 </div>
-                {card.visual === "tenant" ? <TenantPortalTeaser compact /> : null}
+                {card.visual === "tenant" ? (
+                  <>
+                    <TenantPortalTeaser compact />
+                    <ProductWalkthroughModal
+                      label="See the Tenant Portal in action"
+                      initialScene="tenant-portal"
+                    />
+                  </>
+                ) : null}
               </article>
             ))}
           </div>
@@ -138,6 +153,11 @@ export function MarketingHomePage({ locale }: { locale: Locale }) {
               View pricing
             </Link>
           </div>
+          <ul className="homepage-founder__trust" aria-label="Founder offer reassurance">
+            {founderTrustChips.map((chip) => (
+              <li key={chip}>{chip}</li>
+            ))}
+          </ul>
         </div>
       </section>
 

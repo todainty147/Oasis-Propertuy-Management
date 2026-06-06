@@ -16,7 +16,8 @@ test("self-serve landlord signup provisions an owner account and lands on the da
   await page.getByRole("button", { name: "Create account" }).click();
 
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByText(accountName)).toBeVisible();
+  await expect(page.getByText(email)).toBeVisible();
+  await expect(page.locator("h1").filter({ hasText: "Operations Hub" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
 });
 

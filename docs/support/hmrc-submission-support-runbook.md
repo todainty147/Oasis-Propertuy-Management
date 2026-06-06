@@ -291,3 +291,67 @@ Live HMRC submission is only available through a controlled pilot when explicitl
 - Safe response: “Consent records are append-only for audit. Because live submission is not enabled, no live HMRC action can occur from that consent.”
 - Do not say: support will delete audit records.
 - Escalate when: product/legal requires a future consent-superseded status flow.
+
+## Phase 5D live pilot accepted
+
+- User sees: live pilot submitted, accepted, or a correlation ID.
+- Check: `hmrc_live_submission_attempts.mode = 'live_network'`, `status = 'success'`, `hmrc_http_status`, `hmrc_correlation_id`, draft period, tax year, and `live_network_submission_success` event.
+- Safe response: “This pilot submits a quarterly update only. It is not a final declaration and it does not complete the customer’s tax return.”
+- Do not say: the customer's annual tax return is complete.
+- Escalate when: the accepted attempt lacks a correlation ID or safe receipt summary.
+
+## Phase 5D live pilot failed
+
+- User sees: safe live pilot error or failed attempt.
+- Check: `hmrc_live_submission_attempts.status = 'failed'`, safe HMRC error code/message, `hmrc_correlation_id`, and `live_network_submission_failed` event.
+- Safe response: “The live pilot quarterly update was not accepted. Support must review the safe HMRC response and pilot evidence before any retry decision.”
+- Do not say: retry immediately.
+- Escalate when: HMRC returned a 5xx, token refresh failed, or the safe reason is unclear.
+
+## Phase 5D live pilot duplicate blocked
+
+- User sees: duplicate live submission blocked.
+- Check: existing successful or started `hmrc_live_submission_attempts` rows, draft `live_submission_status`, `live_submitted_at`, and `live_duplicate_blocked` events.
+- Safe response: “A live quarterly update already exists or is in progress for this draft. The system blocks repeated live submissions.”
+- Do not say: support can submit the same draft again.
+- Escalate when: a started attempt appears stuck and no HMRC response is recorded.
+
+## Phase 5D local DB success write failed after HMRC accepted
+
+- User sees: accepted local write failure or recovery required.
+- Check: HMRC HTTP status, `hmrc_correlation_id`, `live_network_local_write_failed` event, draft `live_submission_status`, and attempt status.
+- Safe response: “HMRC accepted the update, but Tenaqo could not finish the local success write. Do not retry blindly; support must reconcile the HMRC receipt and local records.”
+- Do not say: the failed local write means HMRC rejected the update.
+- Escalate when: the attempt row is missing or the draft was not marked after an accepted HMRC response.
+
+## Phase 5D read-back failed after accepted response
+
+- User sees: accepted submission with read-back not completed.
+- Check: `live_network_readback_failed` event, HMRC correlation ID, and whether the accepted attempt is otherwise successful.
+- Safe response: “Submission was accepted, but read-back verification did not complete.”
+- Do not say: the submission failed only because read-back failed.
+- Escalate when: read-back repeatedly fails after an accepted response.
+
+## user says figures are wrong after live pilot
+
+- User sees: accepted live pilot but disputes figures.
+- Check: locked draft lines, consent snapshot hashes, accountant export, and source records used in the submitted draft.
+- Safe response: “The submitted pilot was based on the reviewed and locked quarterly draft. We can help trace source records, but amendment handling is future work.”
+- Do not say: Tenaqo can amend the live submission in Phase 5D.
+- Escalate when: source records do not match the locked draft snapshot.
+
+## user asks whether final declaration is done
+
+- User sees: accepted live pilot, sandbox success, or dry-run success.
+- Check: attempt mode and status.
+- Safe response: “This pilot submits a quarterly update only. It is not a final declaration and it does not complete the customer’s tax return.”
+- Do not say: final declaration or annual update is complete.
+- Escalate when: product copy implies final declaration is included.
+
+## user asks if they can amend
+
+- User sees: live pilot accepted and wants changes.
+- Check: whether the request concerns the same quarterly period and whether any post-submission records changed.
+- Safe response: “Amendment flow is not implemented in Phase 5D. Support can capture the case for future amendment handling.”
+- Do not say: support can directly amend through Tenaqo.
+- Escalate when: legal/product must decide an out-of-band HMRC correction process.

@@ -218,16 +218,16 @@ export default function DocumentExtractionPanel({ accountId, documentId, mimeTyp
         <span className="text-slate-500 font-medium">Text extraction:</span>
 
         {isLoading ? (
-          <span className="text-slate-400">Loading…</span>
+          <span className="text-slate-600 dark:text-slate-400">Loading…</span>
         ) : displayStatus ? (
           <ExtractionStatusBadge status={displayStatus} />
         ) : (
-          <span className="text-slate-400">Not extracted</span>
+          <span className="text-slate-600 dark:text-slate-400">Not extracted</span>
         )}
 
         {/* Extractor label when completed */}
         {extStatus === "completed" && extraction?.extractor && (
-          <span className="text-slate-400">
+          <span className="text-slate-600 dark:text-slate-400">
             via {EXTRACTOR_LABELS[extraction.extractor] || extraction.extractor}
           </span>
         )}

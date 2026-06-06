@@ -122,14 +122,19 @@ test("saving localization settings shows success message and persists to DB", as
     await form.getByLabel(/country/i).selectOption("GB");
     // Currency should auto-suggest GBP
     await expect(form.getByLabel(/currency/i)).toHaveValue("GBP");
+    await form.getByLabel(/interface language/i).selectOption("en");
 
     await form.getByRole("button", { name: /save/i }).click();
-    await expect(form.getByText(/saved/i)).toBeVisible();
+    await expect.poll(async () => {
+      const saved = await getAccountLocalization();
+      return `${saved.country_code}:${saved.currency}:${saved.language}`;
+    }).toBe("GB:GBP:en");
 
     // Verify persisted in DB
     const saved = await getAccountLocalization();
     expect(saved.country_code).toBe("GB");
     expect(saved.currency).toBe("GBP");
+    expect(saved.language).toBe("en");
   } finally {
     // Always restore original settings
     await resetAccountLocalization(original.country_code, original.currency, original.language);

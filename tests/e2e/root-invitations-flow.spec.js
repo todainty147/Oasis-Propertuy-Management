@@ -7,7 +7,7 @@ test("root can open the invitations admin view and see scoped SaaS accounts", as
 
   await page.goto("/invitations");
   await expect(page).toHaveURL(/\/invitations$/);
-  await expect(page.getByText("User invitations")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "User invitations" })).toBeVisible();
   await expect(page.getByText("SaaS accounts (root)")).toBeVisible();
   await expect(
     page.locator("div.rounded-lg.border.border-slate-200").filter({ hasText: "Starlight Properties" }).first(),

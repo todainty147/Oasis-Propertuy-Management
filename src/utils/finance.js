@@ -2,6 +2,7 @@ import {
   PAYMENT_STATUS,
   isOverdueStatus,
   isPaidStatus,
+  isVoidOrDeletedPaymentStatus,
 } from "./statuses";
 
 /* ======================================================
@@ -23,6 +24,10 @@ function isPaid(p) {
   if (!p) return false;
   if (p.paidAt) return true;
   return isPaidStatus(p.status);
+}
+
+function isExcludedFromBalanceCycle(p) {
+  return isVoidOrDeletedPaymentStatus(p?.status);
 }
 
 /**
@@ -67,6 +72,7 @@ export function buildPaymentCycles(payments = [], { rentByPropertyId = {}, horiz
 
   payments.forEach((payment, index) => {
     if (!payment) return;
+    if (isExcludedFromBalanceCycle(payment)) return;
 
     const propertyId = String(payment.propertyId || "unknown-property");
     const tenantId = String(payment.tenantId || "unknown-tenant");
@@ -194,6 +200,7 @@ export function calculatePropertyFinance({
 
   // Collect every reference date from payment records (prefer due date, fall back to paid_at).
   const refDates = payments
+    .filter((p) => !isExcludedFromBalanceCycle(p))
     .map((p) => toDate(p.dueDate) ?? toDate(p.paidAt))
     .filter(Boolean);
 
@@ -202,9 +209,9 @@ export function calculatePropertyFinance({
   // No rent configured or no payment history — fall back to per-record totals.
   if (!rent || !refDates.length) {
     const remaining = payments
-      .filter((p) => !isPaid(p))
+      .filter((p) => !isPaid(p) && !isExcludedFromBalanceCycle(p))
       .reduce((s, p) => s + Number(p.amount || 0), 0);
-    const hasExplicitOverdue = payments.some((p) => !isPaid(p) && isOverdue(p));
+    const hasExplicitOverdue = payments.some((p) => !isPaid(p) && !isExcludedFromBalanceCycle(p) && isOverdue(p));
     let paymentStatus = PAYMENT_STATUS.PENDING;
     if (remaining <= 0 && collected > 0) paymentStatus = PAYMENT_STATUS.PAID;
     else if (hasExplicitOverdue)         paymentStatus = PAYMENT_STATUS.OVERDUE;

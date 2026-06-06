@@ -74,11 +74,12 @@ test.describe("Epic 5 – AI Surface Robustness", () => {
     try {
       await page.route(TRIAGE_URL, async (route) => {
         const postData = route.request().postData();
-        if (postData) capturedRequests.push(JSON.parse(postData));
+        const body = postData ? JSON.parse(postData) : {};
+        if (body.requestId === requestId) capturedRequests.push(body);
         await route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify(makeMockTriageInsight(requestId, title)),
+          body: JSON.stringify(makeMockTriageInsight(body.requestId || requestId, title)),
         });
       });
 
@@ -87,12 +88,13 @@ test.describe("Epic 5 – AI Surface Robustness", () => {
 
       const requestCard = page.getByTestId(`maintenance-request-card-${requestId}`);
       await expect(requestCard).toBeVisible({ timeout: 30_000 });
+      await requestCard.getByRole("button").first().click();
 
       const triageCard = requestCard.locator('[data-testid^="maintenance-triage-card-"]').first();
       await expect(triageCard).toBeVisible({ timeout: 30_000 });
 
-      if (capturedRequests.length > 0) {
-        const body = capturedRequests[0];
+      await expect.poll(() => capturedRequests.length, { timeout: 30_000 }).toBeGreaterThan(0);
+      for (const body of capturedRequests) {
         const bodyStr = JSON.stringify(body);
         // Verify no raw email address in the request body
         expect(bodyStr).not.toMatch(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
@@ -204,10 +206,16 @@ test.describe("Epic 5 – AI Surface Robustness", () => {
 
     try {
       await page.route(TRIAGE_URL, async (route) => {
+        const postData = route.request().postData();
+        const body = postData ? JSON.parse(postData) : {};
         await route.fulfill({
-          status: 429,
+          status: body.requestId === requestId ? 429 : 200,
           contentType: "application/json",
-          body: JSON.stringify({ error: "Daily AI generation limit reached" }),
+          body: JSON.stringify(
+            body.requestId === requestId
+              ? { error: "Daily AI generation limit reached" }
+              : makeMockTriageInsight(body.requestId || requestId, title)
+          ),
         });
       });
 
@@ -216,6 +224,7 @@ test.describe("Epic 5 – AI Surface Robustness", () => {
 
       const requestCard = page.getByTestId(`maintenance-request-card-${requestId}`);
       await expect(requestCard).toBeVisible({ timeout: 30_000 });
+      await requestCard.getByRole("button").first().click();
 
       const triageCard = requestCard.locator('[data-testid^="maintenance-triage-card-"]').first();
       await expect(triageCard).toBeVisible({ timeout: 30_000 });
@@ -280,6 +289,7 @@ test.describe("Epic 5 – AI Surface Robustness", () => {
 
       const requestCard = page.getByTestId(`maintenance-request-card-${requestId}`);
       await expect(requestCard).toBeVisible({ timeout: 30_000 });
+      await requestCard.getByRole("button").first().click();
 
       const triageCard = requestCard.locator('[data-testid^="maintenance-triage-card-"]').first();
       await expect(triageCard).toBeVisible({ timeout: 30_000 });

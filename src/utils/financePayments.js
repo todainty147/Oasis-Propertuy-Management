@@ -1,14 +1,17 @@
+import { PAYMENT_STATUS, isVoidOrDeletedPaymentStatus, normalizePaymentStatus } from "./statuses";
+
 function safeNumber(value) {
   const next = Number(value ?? 0);
   return Number.isFinite(next) ? next : 0;
 }
 
-function normalize(value) {
-  return String(value || "").trim().toLowerCase();
+function isPaidPayment(row) {
+  return Boolean(row?.paidAt || row?.paid_at || normalizePaymentStatus(row?.status) === PAYMENT_STATUS.PAID);
 }
 
-function isPaidPayment(row) {
-  return Boolean(row?.paidAt || row?.paid_at || ["paid", "opłacone", "oplacone"].includes(normalize(row?.status)));
+function isExcludedFromRunningBalanceAllocation(row) {
+  const status = normalizePaymentStatus(row?.status);
+  return status === PAYMENT_STATUS.PAID || isVoidOrDeletedPaymentStatus(row?.status);
 }
 
 function parseDate(value) {
@@ -46,7 +49,7 @@ export function buildFinancePaymentDisplayRows(payments = [], propertyFinance = 
   const adjustedRows = new Map();
   const openRows = rows
     .map((row, index) => ({ row, index }))
-    .filter(({ row }) => !isPaidPayment(row))
+    .filter(({ row }) => !isExcludedFromRunningBalanceAllocation(row))
     .sort((a, b) => {
       const dateDelta = paymentSortValue(a.row) - paymentSortValue(b.row);
       if (dateDelta !== 0) return dateDelta;

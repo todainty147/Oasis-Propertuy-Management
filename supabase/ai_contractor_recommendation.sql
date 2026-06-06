@@ -15,7 +15,8 @@ alter table public.ai_insights
       'attention_briefing',
       'property_health_explainer',
       'maintenance_triage_suggestion',
-      'contractor_recommendation'
+      'contractor_recommendation',
+      'weekly_portfolio_summary_ai'
     )
   );
 
@@ -29,7 +30,8 @@ alter table public.ai_prompt_runs
       'attention_briefing',
       'property_health_explainer',
       'maintenance_triage_suggestion',
-      'contractor_recommendation'
+      'contractor_recommendation',
+      'weekly_portfolio_summary_ai'
     )
   );
 

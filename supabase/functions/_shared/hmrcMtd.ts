@@ -100,7 +100,11 @@ export async function decryptToken(ciphertext: string, keyMaterial: string): Pro
     : await deriveAesKey(keyMaterial);
   const iv = base64UrlDecode(parts[1]);
   const encrypted = base64UrlDecode(parts[2]);
-  const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, encrypted);
+  const plaintext = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: iv as BufferSource },
+    key,
+    encrypted as BufferSource,
+  );
   return new TextDecoder().decode(plaintext);
 }
 

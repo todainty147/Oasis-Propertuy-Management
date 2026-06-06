@@ -29,6 +29,7 @@ const ACCOUNT_ID = isolationFixtures.accounts.accountA.id;
 
 test.use({ viewport: { width: 1280, height: 900 } });
 test.setTimeout(120_000);
+test.describe.configure({ mode: "serial" });
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
@@ -61,6 +62,12 @@ function numRegex(n) {
   return new RegExp(grouped);
 }
 
+function firstAmountFromText(text) {
+  const raw = text?.match(/\d[\d\s,.]*/)?.[0]?.replace(/\s/g, "") ?? "0";
+  if (raw.includes(",") && !raw.includes(".")) return Number(raw.replace(",", "."));
+  return Number(raw.replace(/,/g, ""));
+}
+
 // ── Admin client helpers ──────────────────────────────────────────────────────
 
 function admin() { return getIntegrationAdminClient(); }
@@ -78,13 +85,15 @@ async function createIsolatedProperty(ownerUserId, { rent = 1000 } = {}) {
   const a = admin();
   const propId = randomUUID();
   const tenantId = randomUUID();
+  const propertyName = `E2E Calc Prop ${propId.slice(0, 8)}`;
+  const tenantName = `E2E Calc Tenant ${tenantId.slice(0, 8)}`;
 
   // Property first (without tenant_id) to satisfy FK order.
   const { error: pErr } = await a.from("properties").insert({
     id: propId,
     owner_id: ownerUserId,
     account_id: ACCOUNT_ID,
-    address: `E2E Calc Prop ${propId.slice(0, 8)}`,
+    address: propertyName,
     city: "TestCity",
     rent,
     status: "Wolne",
@@ -98,7 +107,7 @@ async function createIsolatedProperty(ownerUserId, { rent = 1000 } = {}) {
     account_id: ACCOUNT_ID,
     user_id: null,
     property_id: propId,
-    name: `E2E Calc Tenant ${tenantId.slice(0, 8)}`,
+    name: tenantName,
     email: `calc.e2e.${tenantId.slice(0, 8)}@test.invalid`,
     phone: "+447700000000",
     status: "active",
@@ -111,7 +120,7 @@ async function createIsolatedProperty(ownerUserId, { rent = 1000 } = {}) {
   }).eq("id", propId);
   if (uErr) throw new Error(`update property: ${uErr.message}`);
 
-  return { propId, tenantId };
+  return { propId, tenantId, propertyName, tenantName };
 }
 
 async function cleanupProperty(propId, tenantId) {
@@ -120,6 +129,30 @@ async function cleanupProperty(propId, tenantId) {
   await a.from("payments").delete().eq("property_id", propId);
   await a.from("tenants").delete().eq("id", tenantId);
   await a.from("properties").delete().eq("id", propId);
+}
+
+async function cleanupStaleCalcFixtures() {
+  const a = admin();
+  const { data: props } = await a
+    .from("properties")
+    .select("id")
+    .eq("account_id", ACCOUNT_ID)
+    .ilike("address", "E2E Calc Prop%");
+  const propIds = (props ?? []).map((p) => p.id);
+  if (propIds.length === 0) return;
+
+  const { data: tenants } = await a
+    .from("tenants")
+    .select("id")
+    .eq("account_id", ACCOUNT_ID)
+    .ilike("name", "E2E Calc Tenant%");
+  const tenantIds = (tenants ?? []).map((t) => t.id);
+
+  await a.from("leases").delete().in("property_id", propIds);
+  await a.from("payments").delete().in("property_id", propIds);
+  await a.from("properties").update({ tenant_id: null }).in("id", propIds);
+  if (tenantIds.length > 0) await a.from("tenants").delete().in("id", tenantIds);
+  await a.from("properties").delete().in("id", propIds);
 }
 
 async function seedPayments(ownerUserId, propId, tenantId, rows) {
@@ -140,12 +173,61 @@ async function waitForFinancePage(page) {
   await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible({ timeout: 25_000 });
   // Wait for summary cards to render (not skeleton)
   await page.waitForTimeout(800);
+
+  const perPage = page.getByRole("combobox", { name: /per page/i }).first();
+  if (await perPage.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await perPage.selectOption("50").catch(() => null);
+    await page.waitForTimeout(300);
+  }
+}
+
+async function filterByTenant(page, tenantName) {
+  const tenantSelect = page.locator("aside select").first();
+  if (await tenantSelect.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await tenantSelect.selectOption({ label: tenantName });
+    await page.waitForTimeout(800);
+  }
+}
+
+async function selectAllTenants(page) {
+  const tenantSelect = page.locator("aside select").first();
+  if (await tenantSelect.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await tenantSelect.selectOption({ label: "All tenants" });
+    await page.waitForTimeout(800);
+  }
+}
+
+async function findPropertyRow(page, propId) {
+  const propTable = page.getByTestId("property-finance-table");
+  await expect(propTable).toBeVisible({ timeout: 15_000 });
+  const row = propTable.locator("tr").filter({ hasText: `E2E Calc Prop ${propId.slice(0, 8)}` });
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    if (await row.isVisible({ timeout: 500 }).catch(() => false)) return row;
+
+    const next = page.getByRole("button", { name: /next/i }).last();
+    if (!(await next.isVisible({ timeout: 500 }).catch(() => false)) || await next.isDisabled()) break;
+    await next.click();
+    await page.waitForTimeout(300);
+  }
+
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  return row;
+}
+
+async function searchPaymentsByProperty(page, propId) {
+  const search = page.getByPlaceholder(/search by tenant or property/i);
+  if (await search.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await search.fill(`E2E Calc Prop ${propId.slice(0, 8)}`);
+    await page.waitForTimeout(300);
+  }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 test.describe("Finance calculation display", () => {
   test.skip(!isIntegrationHarnessConfigured(), "requires local Supabase harness");
+  test.beforeAll(cleanupStaleCalcFixtures);
 
   // ── 1. Received (MTD) ─────────────────────────────────────────────────────
 
@@ -180,10 +262,10 @@ test.describe("Finance calculation display", () => {
 
   test("Received card does NOT count status=paid without paid_at in MTD", async ({ page }) => {
     const ownerUserId = await resolveOwnerUserId();
-    const { propId, tenantId } = await createIsolatedProperty(ownerUserId, { rent: 800 });
+    const { propId, tenantId, propertyName } = await createIsolatedProperty(ownerUserId, { rent: 800 });
 
     try {
-      // status=paid but no paid_at → is_paid=true but NOT counted in MTD total_income
+      // status=paid but no paid_at is not a completed receipt and should not count in MTD total_income.
       await seedPayments(ownerUserId, propId, tenantId, [
         { amount: 800, status: "paid", paid_at: null, due_date: today() },
       ]);
@@ -192,13 +274,13 @@ test.describe("Finance calculation display", () => {
       await page.goto("/finance?tab=payments");
       await waitForFinancePage(page);
 
-      // The payment should appear in the table (it's a paid payment)
       await expect(page.getByTestId("payments-table")).toBeVisible({ timeout: 15_000 });
-      await expect(page.getByTestId("payments-table")).toContainText(/Paid/, { timeout: 15_000 });
-      // But the Received summary card shows 0 for this property's contribution
-      // (We can't isolate the card value since other payments exist, so we verify
-      //  the payment row is present and labelled correctly)
-      await expect(page.getByTestId("payments-table")).toContainText(numRegex(800), { timeout: 15_000 });
+      await searchPaymentsByProperty(page, propId);
+
+      const row = page.getByTestId("payments-table").locator("tr").filter({ hasText: propertyName });
+      await expect(row).toContainText(numRegex(800), { timeout: 15_000 });
+      await expect(row).toContainText(/Pending/i, { timeout: 15_000 });
+      await expect(row).not.toContainText(/Paid at:/i);
     } finally {
       await cleanupProperty(propId, tenantId);
     }
@@ -208,7 +290,7 @@ test.describe("Finance calculation display", () => {
 
   test("property with 3+ months elapsed and zero payments shows 'overdue' status", async ({ page }) => {
     const ownerUserId = await resolveOwnerUserId();
-    const { propId, tenantId } = await createIsolatedProperty(ownerUserId, { rent: 1000 });
+    const { propId, tenantId, tenantName } = await createIsolatedProperty(ownerUserId, { rent: 1000 });
 
     try {
       // Earliest due_date 3 months ago → months_elapsed >= 4 → prior debt exists
@@ -219,13 +301,10 @@ test.describe("Finance calculation display", () => {
       await signInAs(page, seededUsers.ownerA);
       await page.goto("/finance");
       await waitForFinancePage(page);
+      await filterByTenant(page, tenantName);
 
       // Property Finance table — find our test property row
-      const propTable = page.getByTestId("property-finance-table");
-      await expect(propTable).toBeVisible({ timeout: 15_000 });
-
-      const testRow = propTable.locator("tr").filter({ hasText: `E2E Calc Prop ${propId.slice(0, 8)}` });
-      await expect(testRow).toBeVisible({ timeout: 15_000 });
+      const testRow = await findPropertyRow(page, propId);
       // Status badge should say "Overdue" or similar
       await expect(testRow).toContainText(/overdue/i);
     } finally {
@@ -240,8 +319,6 @@ test.describe("Finance calculation display", () => {
 
     try {
       const startDate = monthStart(3);
-      const n = monthsElapsed(startDate);
-      const expectedOverdue = (n - 1) * RENT; // pre-current-month arrears with 0 paid
 
       await seedPayments(ownerUserId, propId, tenantId, [
         { amount: RENT, status: "due", due_date: startDate },
@@ -320,7 +397,7 @@ test.describe("Finance calculation display", () => {
   test("property table shows correct Remaining for multi-month arrears", async ({ page }) => {
     const ownerUserId = await resolveOwnerUserId();
     const RENT = 1000;
-    const { propId, tenantId } = await createIsolatedProperty(ownerUserId, { rent: RENT });
+    const { propId, tenantId, tenantName } = await createIsolatedProperty(ownerUserId, { rent: RENT });
 
     try {
       const startDate = monthStart(2);
@@ -336,11 +413,9 @@ test.describe("Finance calculation display", () => {
       await signInAs(page, seededUsers.ownerA);
       await page.goto("/finance");
       await waitForFinancePage(page);
+      await filterByTenant(page, tenantName);
 
-      const propTable = page.getByTestId("property-finance-table");
-      await expect(propTable).toBeVisible({ timeout: 15_000 });
-      const testRow = propTable.locator("tr").filter({ hasText: `E2E Calc Prop ${propId.slice(0, 8)}` });
-      await expect(testRow).toBeVisible({ timeout: 15_000 });
+      const testRow = await findPropertyRow(page, propId);
 
       // Remaining column shows the accumulated debt
       await expect(testRow).toContainText(numRegex(expectedRemaining));
@@ -356,17 +431,15 @@ test.describe("Finance calculation display", () => {
   test("property row shows paid=0 and remaining=rent when no payments made", async ({ page }) => {
     const ownerUserId = await resolveOwnerUserId();
     const RENT = 850;
-    const { propId, tenantId } = await createIsolatedProperty(ownerUserId, { rent: RENT });
+    const { propId, tenantId, tenantName } = await createIsolatedProperty(ownerUserId, { rent: RENT });
 
     try {
       await signInAs(page, seededUsers.ownerA);
       await page.goto("/finance");
       await waitForFinancePage(page);
+      await filterByTenant(page, tenantName);
 
-      const propTable = page.getByTestId("property-finance-table");
-      await expect(propTable).toBeVisible({ timeout: 15_000 });
-      const testRow = propTable.locator("tr").filter({ hasText: `E2E Calc Prop ${propId.slice(0, 8)}` });
-      await expect(testRow).toBeVisible({ timeout: 15_000 });
+      const testRow = await findPropertyRow(page, propId);
 
       // Rent column = 850
       await expect(testRow).toContainText(numRegex(RENT));
@@ -380,7 +453,7 @@ test.describe("Finance calculation display", () => {
   test("property row shows 'paid' status badge when fully paid this month", async ({ page }) => {
     const ownerUserId = await resolveOwnerUserId();
     const RENT = 1000;
-    const { propId, tenantId } = await createIsolatedProperty(ownerUserId, { rent: RENT });
+    const { propId, tenantId, tenantName } = await createIsolatedProperty(ownerUserId, { rent: RENT });
 
     try {
       // Pay exactly 1 month's rent (months_elapsed=1) → remaining=0
@@ -391,11 +464,9 @@ test.describe("Finance calculation display", () => {
       await signInAs(page, seededUsers.ownerA);
       await page.goto("/finance");
       await waitForFinancePage(page);
+      await filterByTenant(page, tenantName);
 
-      const propTable = page.getByTestId("property-finance-table");
-      await expect(propTable).toBeVisible({ timeout: 15_000 });
-      const testRow = propTable.locator("tr").filter({ hasText: `E2E Calc Prop ${propId.slice(0, 8)}` });
-      await expect(testRow).toBeVisible({ timeout: 15_000 });
+      const testRow = await findPropertyRow(page, propId);
       await expect(testRow).toContainText(/paid/i);
     } finally {
       await cleanupProperty(propId, tenantId);
@@ -407,7 +478,7 @@ test.describe("Finance calculation display", () => {
   test("property with 5-month lease shows accumulated arrears in Remaining column", async ({ page }) => {
     const ownerUserId = await resolveOwnerUserId();
     const RENT = 1000;
-    const { propId, tenantId } = await createIsolatedProperty(ownerUserId, { rent: RENT });
+    const { propId, tenantId, tenantName } = await createIsolatedProperty(ownerUserId, { rent: RENT });
 
     try {
       const leaseStart = monthStart(5);
@@ -434,11 +505,9 @@ test.describe("Finance calculation display", () => {
       await signInAs(page, seededUsers.ownerA);
       await page.goto("/finance");
       await waitForFinancePage(page);
+      await filterByTenant(page, tenantName);
 
-      const propTable = page.getByTestId("property-finance-table");
-      await expect(propTable).toBeVisible({ timeout: 15_000 });
-      const testRow = propTable.locator("tr").filter({ hasText: `E2E Calc Prop ${propId.slice(0, 8)}` });
-      await expect(testRow).toBeVisible({ timeout: 15_000 });
+      const testRow = await findPropertyRow(page, propId);
 
       // Remaining should reflect the full accumulated debt
       await expect(testRow).toContainText(numRegex(expectedRemaining));
@@ -454,7 +523,7 @@ test.describe("Finance calculation display", () => {
   test("property with overpayment shows 'paid' status and remaining=0", async ({ page }) => {
     const ownerUserId = await resolveOwnerUserId();
     const RENT = 500;
-    const { propId, tenantId } = await createIsolatedProperty(ownerUserId, { rent: RENT });
+    const { propId, tenantId, tenantName } = await createIsolatedProperty(ownerUserId, { rent: RENT });
 
     try {
       // Pay 3× the monthly rent in a single month
@@ -465,11 +534,9 @@ test.describe("Finance calculation display", () => {
       await signInAs(page, seededUsers.ownerA);
       await page.goto("/finance");
       await waitForFinancePage(page);
+      await filterByTenant(page, tenantName);
 
-      const propTable = page.getByTestId("property-finance-table");
-      await expect(propTable).toBeVisible({ timeout: 15_000 });
-      const testRow = propTable.locator("tr").filter({ hasText: `E2E Calc Prop ${propId.slice(0, 8)}` });
-      await expect(testRow).toBeVisible({ timeout: 15_000 });
+      const testRow = await findPropertyRow(page, propId);
 
       // Status = paid (remaining clamped to 0)
       await expect(testRow).toContainText(/paid/i);
@@ -477,6 +544,86 @@ test.describe("Finance calculation display", () => {
       await expect(testRow).toContainText(numRegex(1500));
     } finally {
       await cleanupProperty(propId, tenantId);
+    }
+  });
+
+  test("voided duplicate receipt does not clear a tenant running balance", async ({ page }) => {
+    const ownerUserId = await resolveOwnerUserId();
+    const { propId: property35Id, tenantId: tenant35Id } = await createIsolatedProperty(ownerUserId, { rent: 1000 });
+    const { propId: property36Id, tenantId: tenant36Id } = await createIsolatedProperty(ownerUserId, { rent: 2000 });
+    const leaseStart = monthStart(1);
+
+    try {
+      const { error: leaseError } = await admin().from("leases").insert([
+        {
+          id: randomUUID(),
+          account_id: ACCOUNT_ID,
+          property_id: property35Id,
+          tenant_id: tenant35Id,
+          lease_start_date: leaseStart,
+          renewal_status: "active",
+        },
+        {
+          id: randomUUID(),
+          account_id: ACCOUNT_ID,
+          property_id: property36Id,
+          tenant_id: tenant36Id,
+          lease_start_date: leaseStart,
+          renewal_status: "active",
+        },
+      ]);
+      expect(leaseError).toBeNull();
+
+      await seedPayments(ownerUserId, property35Id, tenant35Id, [
+        { amount: 2000, status: "paid", paid_at: today(), due_date: today() },
+      ]);
+      await seedPayments(ownerUserId, property36Id, tenant36Id, [
+        { amount: 2000, status: "overdue", due_date: monthStart(1) },
+        { amount: 500, status: "paid", paid_at: monthStart(1), due_date: monthStart(1) },
+        { amount: 2000, status: "paid", paid_at: today(), due_date: today() },
+        { amount: 2000, status: "void", paid_at: null, due_date: today() },
+      ]);
+
+      await signInAs(page, seededUsers.ownerA);
+      await page.goto("/finance");
+      await waitForFinancePage(page);
+      await selectAllTenants(page);
+
+      const property35Row = await findPropertyRow(page, property35Id);
+      await expect(property35Row).toContainText(numRegex(2000));
+      await expect(property35Row).toContainText(/paid/i);
+
+      await selectAllTenants(page);
+      const property36Row = await findPropertyRow(page, property36Id);
+      await expect(property36Row).toContainText(numRegex(2500));
+      await expect(property36Row).toContainText(numRegex(1500));
+      await expect(property36Row).toContainText(/overdue/i);
+
+      const overdueCard = page.locator("button").filter({ hasText: /Overdue/i }).first();
+      const overdueText = await overdueCard.textContent();
+      expect(firstAmountFromText(overdueText)).toBeGreaterThanOrEqual(1500);
+
+      await page.goto("/finance?tab=payments&status=overdue");
+      await expect(page.getByTestId("payments-table")).toBeVisible({ timeout: 15_000 });
+      await searchPaymentsByProperty(page, property36Id);
+      const adjustedChargeRow = page.getByTestId("payments-table").locator("tr")
+        .filter({ hasText: `E2E Calc Prop ${property36Id.slice(0, 8)}` })
+        .filter({ hasText: /overdue/i });
+      await expect(adjustedChargeRow).toBeVisible({ timeout: 15_000 });
+      await expect(adjustedChargeRow).toContainText(numRegex(1500));
+      await expect(adjustedChargeRow.getByRole("button", { name: /mark paid/i })).toHaveCount(0);
+
+      await page.goto("/finance?tab=payments");
+      await expect(page.getByTestId("payments-table")).toBeVisible({ timeout: 15_000 });
+      await searchPaymentsByProperty(page, property36Id);
+      const voidedDuplicateRow = page.getByTestId("payments-table").locator("tr")
+        .filter({ hasText: `E2E Calc Prop ${property36Id.slice(0, 8)}` })
+        .filter({ hasText: /Voided/ });
+      await expect(voidedDuplicateRow).toBeVisible({ timeout: 15_000 });
+      await expect(voidedDuplicateRow).toContainText(numRegex(2000));
+    } finally {
+      await cleanupProperty(property35Id, tenant35Id);
+      await cleanupProperty(property36Id, tenant36Id);
     }
   });
 

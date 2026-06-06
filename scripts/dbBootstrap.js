@@ -194,6 +194,26 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply rent engine tables overlay",
+    file: path.join(supabaseDir, "rent_engine_tables.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply advanced rent models overlay",
+    file: path.join(supabaseDir, "advanced_rent_models.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply rent reminders RPC overlay",
+    file: path.join(supabaseDir, "rent_reminders_rpc.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply operating calendar overlay",
+    file: path.join(supabaseDir, "operating_calendar.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply portfolio health snapshot overlay",
     file: path.join(supabaseDir, "portfolio_health_snapshot.sql"),
     onErrorStop: true,
@@ -541,6 +561,11 @@ const bootstrapSteps = [
   {
     label: "Apply HMRC MTD Phase 5C live endpoint skeleton overlay",
     file: path.join(supabaseDir, "hmrc_mtd_phase5c_live_endpoint_skeleton.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply HMRC MTD Phase 5D one-account live pilot overlay",
+    file: path.join(supabaseDir, "hmrc_mtd_phase5d_one_account_live_pilot.sql"),
     onErrorStop: true,
   },
 ];

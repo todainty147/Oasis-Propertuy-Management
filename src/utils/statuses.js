@@ -73,6 +73,11 @@ export function isPaidStatus(status) {
   return normalizePaymentStatus(status) === PAYMENT_STATUS.PAID;
 }
 
+export function isVoidOrDeletedPaymentStatus(status) {
+  const rawStatus = normalize(status);
+  return normalizePaymentStatus(status) === PAYMENT_STATUS.VOID || rawStatus === "deleted";
+}
+
 export function isPendingLikeStatus(status) {
   const normalized = normalizePaymentStatus(status);
   return normalized === PAYMENT_STATUS.PENDING || normalized === PAYMENT_STATUS.PARTIAL;

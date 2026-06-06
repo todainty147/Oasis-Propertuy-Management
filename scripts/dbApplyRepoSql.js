@@ -163,6 +163,7 @@ const OVERLAY_SEQUENCE = [
   "hmrc_mtd_phase5a_consent_scaffolding.sql",
   "hmrc_mtd_phase5b_live_pilot.sql",
   "hmrc_mtd_phase5c_live_endpoint_skeleton.sql",
+  "hmrc_mtd_phase5d_one_account_live_pilot.sql",
 ];
 
 function resolvePsqlCommand() {

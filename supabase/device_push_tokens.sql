@@ -41,6 +41,7 @@ create index if not exists idx_device_push_tokens_user_id
 alter table public.device_push_tokens enable row level security;
 
 -- Users can upsert their own tokens
+drop policy if exists "device_push_tokens: user manages own" on public.device_push_tokens;
 create policy "device_push_tokens: user manages own" on public.device_push_tokens
   for all
   using  (user_id = auth.uid())

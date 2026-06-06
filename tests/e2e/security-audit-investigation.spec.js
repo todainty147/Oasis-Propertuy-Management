@@ -15,11 +15,11 @@ test.describe("Epic 6 – Security Audit Investigation Panel", () => {
     await signInAs(page, seededUsers.ownerA);
     await page.goto("/settings/security-audit");
 
-    await expect(page.getByText("Security Audit")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: "Security Audit", exact: true })).toBeVisible({ timeout: 20_000 });
 
     // All three main content cards should be present in some form
-    await expect(page.getByText("Open anomaly alerts")).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText("Hosted Observability Events")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: "Open anomaly alerts" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: "Hosted Observability Events" })).toBeVisible({ timeout: 15_000 });
   });
 
   test("investigation context strip appears when URL contains hosted event id", async ({ page }) => {
@@ -61,12 +61,14 @@ test.describe("Epic 6 – Security Audit Investigation Panel", () => {
     const eventId = randomUUID();
     const stamp = Date.now();
 
-    // Insert a synthetic security audit event directly
+    const { data: ownerAuth } = await admin.auth.admin.getUserById(isolationFixtures.users.ownerA.id);
+
+    // Insert a synthetic security audit event directly.
     const { error: insertErr } = await admin.from("security_audit_ledger").insert({
       id: eventId,
       account_id: accountA.id,
       action: "e2e_test_action",
-      actor_user_id: isolationFixtures.users.ownerA.id,
+      actor_user_id: ownerAuth?.user?.id || null,
       entity_type: "property",
       entity_id: isolationFixtures.users.tenantA1.propertyId,
       metadata: { e2e_stamp: stamp, note: "epic-6-e2e-test" },

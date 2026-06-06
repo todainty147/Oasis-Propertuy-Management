@@ -72,10 +72,11 @@ test("owner can move from AI triage guidance into contractor recommendation", as
     await page.goto("/maintenance-inbox");
     const requestCard = page.getByTestId(`maintenance-request-card-${requestId}`);
     await expect(requestCard).toBeVisible({ timeout: 30000 });
+    await requestCard.getByRole("button").first().click();
 
     const triageCard = requestCard.locator('[data-testid^="maintenance-triage-card-"]').first();
     await expect(triageCard).toBeVisible({ timeout: 30000 });
-    await expect(triageCard.getByRole("button", { name: /Refresh suggestion|Odśwież sugestię|Empfehlung aktualisieren/i })).toBeEnabled({ timeout: 30000 });
+    await expect(triageCard.getByTestId(`maintenance-triage-refresh-${requestId}`)).toBeEnabled({ timeout: 30000 });
     await expect(triageCard.getByText(/Triage suggestion|Sugestia triage|Triage-Empfehlung/i)).toBeVisible();
     await expect
       .poll(async () => {

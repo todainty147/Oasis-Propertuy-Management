@@ -282,18 +282,19 @@ async function loadDraft(accountId: string, draftId: string) {
     .maybeSingle();
   if (error) throw error;
   if (!draft) throw new HttpError("Quarterly draft not found.", 404);
-  const validation = draft.validation_summary && typeof draft.validation_summary === "object"
-    ? draft.validation_summary as Record<string, unknown>
+  const draftRecord = draft as unknown as Record<string, unknown>;
+  const validation = draftRecord.validation_summary && typeof draftRecord.validation_summary === "object"
+    ? draftRecord.validation_summary as Record<string, unknown>
     : {};
-  if (!["reviewed", "locked"].includes(String(draft.status || ""))) {
+  if (!["reviewed", "locked"].includes(String(draftRecord.status || ""))) {
     throw new HttpError("Only reviewed or locked quarterly drafts can be submitted to HMRC sandbox.", 400);
   }
   if (Number(validation.issueCount || 0) > 0) {
     throw new HttpError("Resolve quarterly draft issues before sandbox submission.", 400);
   }
   if (
-    String(draft.sandbox_submission_status || "").toLowerCase() === "success"
-    || Boolean(draft.sandbox_submitted_at)
+    String(draftRecord.sandbox_submission_status || "").toLowerCase() === "success"
+    || Boolean(draftRecord.sandbox_submitted_at)
   ) {
     throw new HttpError("already_submitted: Create a new draft or amendment flow before submitting again.", 409);
   }
@@ -304,7 +305,7 @@ async function loadDraft(accountId: string, draftId: string) {
     .eq("account_id", accountId)
     .order("transaction_date", { ascending: true });
   if (lineError) throw lineError;
-  return { draft: draft as Record<string, unknown>, lines: (lines || []) as Record<string, unknown>[] };
+  return { draft: draftRecord, lines: (lines || []) as unknown as Record<string, unknown>[] };
 }
 
 async function ensureFreshConnection(accountId: string, userId: string) {

@@ -17,7 +17,6 @@ import { seededUsers, signInAs } from "./helpers/auth.js";
 
 const ACCOUNT_A  = isolationFixtures.accounts.accountA.id;
 const PROPERTY_A = "44444444-4444-4444-4444-444444444441"; // from isolationFixtures tenantA1.propertyId
-const TENANT_A   = isolationFixtures.users.tenantA1.email; // used for identifying tenant
 
 test.describe.configure({ mode: "serial" });
 test.setTimeout(60_000);
@@ -26,21 +25,6 @@ test.setTimeout(60_000);
 const MOCK_PROPERTY_ID = PROPERTY_A;
 const MOCK_TENANT_ID   = "44444444-4444-4444-4444-444444444481";
 const MOCK_LEASE_ID    = "55555555-5555-5555-5555-555555555521";
-
-const MOCK_PROPERTIES = [
-  { id: MOCK_PROPERTY_ID, address: "ul. Testowa 1", city: "Warszawa", market: "pl" },
-];
-
-const MOCK_TENANTS = [
-  { id: MOCK_TENANT_ID, name: "Jan Kowalski", property_id: MOCK_PROPERTY_ID },
-];
-
-const MOCK_LEASE = {
-  id: MOCK_LEASE_ID,
-  lease_start_date: "2026-05-01",
-  lease_end_date:   "2027-05-01",
-  lease_type:       null,
-};
 
 function makeChecklistItem(key, overrides = {}) {
   return {
@@ -148,6 +132,15 @@ async function installPlMocks(page, checklistItems = MOCK_CHECKLIST_ITEMS) {
   });
 }
 
+async function selectMainPropertyAndTenant(page) {
+  const selects = page.getByRole("main").locator("select");
+  const propSelect = selects.nth(0);
+  const tenantSelect = selects.nth(1);
+  await propSelect.selectOption({ index: 1 });
+  await expect(tenantSelect).not.toBeDisabled({ timeout: 5_000 });
+  await tenantSelect.selectOption({ index: 1 });
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────
 
 test.describe("Poland Compliance page — navigation and access control", () => {
@@ -243,8 +236,9 @@ test.describe("Poland Compliance page — filter UI", () => {
     await expect(page.getByRole("heading", { name: /Poland Compliance|Zgodność/i })).toBeVisible({ timeout: 10_000 });
 
     // Both selectors should be present
-    const propSelect  = page.locator("select").first();
-    const leaseSelect = page.locator("select").nth(2); // third select is lease type
+    const mainSelects = page.getByRole("main").locator("select");
+    const propSelect = mainSelects.nth(0);
+    const leaseSelect = mainSelects.nth(2); // third select is lease type
     await expect(propSelect).toBeVisible();
     await expect(leaseSelect).toBeVisible();
   });
@@ -269,7 +263,7 @@ test.describe("Poland Compliance page — filter UI", () => {
     await page.goto("/compliance/poland");
     await expect(page.getByRole("heading", { name: /Poland Compliance|Zgodność/i })).toBeVisible({ timeout: 10_000 });
 
-    const leaseTypeSelect = page.locator("select").nth(2);
+    const leaseTypeSelect = page.getByRole("main").locator("select").nth(2);
     await expect(leaseTypeSelect).toHaveValue("najem_okazjonalny");
   });
 });
@@ -300,14 +294,7 @@ test.describe("Poland Compliance page — checklist setup flow", () => {
     await page.goto("/compliance/poland");
     await expect(page.getByRole("heading", { name: /Poland Compliance|Zgodność/i })).toBeVisible({ timeout: 10_000 });
 
-    // Select first property from the dropdown
-    const propSelect = page.locator("select").first();
-    await propSelect.selectOption({ index: 1 }); // index 0 is placeholder
-
-    // Tenant selector becomes enabled
-    const tenantSelect = page.locator("select").nth(1);
-    await expect(tenantSelect).not.toBeDisabled({ timeout: 5_000 });
-    await tenantSelect.selectOption({ index: 1 });
+    await selectMainPropertyAndTenant(page);
 
     // 'Set up checklist' button should appear
     await expect(
@@ -352,9 +339,7 @@ test.describe("Poland Compliance page — checklist setup flow", () => {
     await page.goto("/compliance/poland");
     await expect(page.getByRole("heading", { name: /Poland Compliance|Zgodność/i })).toBeVisible({ timeout: 10_000 });
 
-    // Select property and tenant
-    await page.locator("select").first().selectOption({ index: 1 });
-    await page.locator("select").nth(1).selectOption({ index: 1 });
+    await selectMainPropertyAndTenant(page);
 
     // Click setup button
     const setupBtn = page.getByRole("button", { name: /Set up checklist|Utwórz listę/i });
@@ -366,8 +351,7 @@ test.describe("Poland Compliance page — checklist setup flow", () => {
       page.getByText(/Najem Okazjonalny checklist|Lista kontrolna/i).first(),
     ).toBeVisible({ timeout: 10_000 });
 
-    // Summary totals should show 10 items
-    await expect(page.getByText("10").first()).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId("poland-summary-total").getByText("10")).toBeVisible({ timeout: 5_000 });
   });
 
   test("checklist items show correct titles", async ({ page }) => {
@@ -377,8 +361,7 @@ test.describe("Poland Compliance page — checklist setup flow", () => {
     await page.goto("/compliance/poland");
     await expect(page.getByRole("heading", { name: /Poland Compliance|Zgodność/i })).toBeVisible({ timeout: 10_000 });
 
-    await page.locator("select").first().selectOption({ index: 1 });
-    await page.locator("select").nth(1).selectOption({ index: 1 });
+    await selectMainPropertyAndTenant(page);
 
     // Key checklist items should be visible
     await expect(page.getByText("Umowa najmu okazjonalnego").first()).toBeVisible({ timeout: 10_000 });
@@ -413,8 +396,7 @@ test.describe("Poland Compliance page — status transitions", () => {
     await page.goto("/compliance/poland");
     await expect(page.getByRole("heading", { name: /Poland Compliance|Zgodność/i })).toBeVisible({ timeout: 10_000 });
 
-    await page.locator("select").first().selectOption({ index: 1 });
-    await page.locator("select").nth(1).selectOption({ index: 1 });
+    await selectMainPropertyAndTenant(page);
 
     // At least one 'Mark complete' button should be visible
     const markCompleteBtn = page.getByRole("button", { name: /Mark complete|Wykonane/i }).first();
@@ -428,8 +410,7 @@ test.describe("Poland Compliance page — status transitions", () => {
     await page.goto("/compliance/poland");
     await expect(page.getByRole("heading", { name: /Poland Compliance|Zgodność/i })).toBeVisible({ timeout: 10_000 });
 
-    await page.locator("select").first().selectOption({ index: 1 });
-    await page.locator("select").nth(1).selectOption({ index: 1 });
+    await selectMainPropertyAndTenant(page);
 
     const naBtn = page.getByRole("button", { name: /Not applicable|Nie dotyczy/i }).first();
     await expect(naBtn).toBeVisible({ timeout: 10_000 });
@@ -447,8 +428,7 @@ test.describe("Poland Compliance page — status transitions", () => {
     await page.goto("/compliance/poland");
     await expect(page.getByRole("heading", { name: /Poland Compliance|Zgodność/i })).toBeVisible({ timeout: 10_000 });
 
-    await page.locator("select").first().selectOption({ index: 1 });
-    await page.locator("select").nth(1).selectOption({ index: 1 });
+    await selectMainPropertyAndTenant(page);
 
     // Overdue badge should appear
     await expect(
@@ -468,8 +448,7 @@ test.describe("Poland Compliance page — status transitions", () => {
     await page.goto("/compliance/poland");
     await expect(page.getByRole("heading", { name: /Poland Compliance|Zgodność/i })).toBeVisible({ timeout: 10_000 });
 
-    await page.locator("select").first().selectOption({ index: 1 });
-    await page.locator("select").nth(1).selectOption({ index: 1 });
+    await selectMainPropertyAndTenant(page);
 
     // 'Undo'/'Cofnij' buttons for completed items
     const undoBtn = page.getByRole("button", { name: /Undo|Cofnij/i }).first();
@@ -512,13 +491,10 @@ test.describe("Poland Compliance page — summary bar", () => {
     await page.goto("/compliance/poland");
     await expect(page.getByRole("heading", { name: /Poland Compliance|Zgodność/i })).toBeVisible({ timeout: 10_000 });
 
-    await page.locator("select").first().selectOption({ index: 1 });
-    await page.locator("select").nth(1).selectOption({ index: 1 });
+    await selectMainPropertyAndTenant(page);
 
-    // Total = 10
-    await expect(page.getByText("10").first()).toBeVisible({ timeout: 10_000 });
-    // Complete = 3
-    await expect(page.getByText("3").first()).toBeVisible();
+    await expect(page.getByTestId("poland-summary-total").getByText("10")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId("poland-summary-complete").getByText("3")).toBeVisible();
   });
 });
 
@@ -574,8 +550,7 @@ test.describe("Poland Compliance page — mobile layout", () => {
     await page.goto("/compliance/poland");
     await expect(page.getByRole("heading", { name: /Poland Compliance|Zgodność/i })).toBeVisible({ timeout: 10_000 });
 
-    await page.locator("select").first().selectOption({ index: 1 });
-    await page.locator("select").nth(1).selectOption({ index: 1 });
+    await selectMainPropertyAndTenant(page);
 
     await expect(page.getByText("Umowa najmu okazjonalnego").first()).toBeVisible({ timeout: 10_000 });
   });
@@ -607,7 +582,7 @@ test.describe("Poland Compliance — sidebar nav visibility", () => {
     await expect(page.getByRole("main")).toBeVisible({ timeout: 10_000 });
 
     // Nav link to /compliance/poland should be visible (PL country_code account)
-    const navItem = page.getByRole("link", { name: /Poland Compliance|Zgodność PL/i });
+    const navItem = page.locator('a[href="/compliance/poland"]');
     await expect(navItem).toBeVisible({ timeout: 5_000 });
   });
 
@@ -621,7 +596,7 @@ test.describe("Poland Compliance — sidebar nav visibility", () => {
       await page.goto("/dashboard");
       await expect(page.getByRole("main")).toBeVisible({ timeout: 10_000 });
 
-      const navItem = page.getByRole("link", { name: /Poland Compliance|Zgodność PL/i });
+      const navItem = page.locator('a[href="/compliance/poland"]');
       await expect(navItem).not.toBeVisible();
     } finally {
       // Restore PL country_code
@@ -629,7 +604,7 @@ test.describe("Poland Compliance — sidebar nav visibility", () => {
     }
   });
 
-  test("existing compliance nav items (Tax Readiness, Rent Shield) remain visible for Growth account", async ({ page }) => {
+  test("existing compliance nav items (Tax Tools, Rent Shield) remain visible for Growth account", async ({ page }) => {
     await setAccountPlan(admin, "growth");
     await signInAs(page, seededUsers.ownerA);
 
@@ -637,7 +612,7 @@ test.describe("Poland Compliance — sidebar nav visibility", () => {
     await expect(page.getByRole("main")).toBeVisible({ timeout: 10_000 });
 
     // Existing compliance items must still be present (regression guard)
-    await expect(page.getByRole("link", { name: /Tax Readiness|Gotowość podatkowa/i })).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('a[href="/compliance/tax-tools"]')).toBeVisible({ timeout: 5_000 });
     await expect(page.getByRole("link", { name: /Rent Shield/i })).toBeVisible();
   });
 

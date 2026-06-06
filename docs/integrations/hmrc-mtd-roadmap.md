@@ -8,9 +8,10 @@
 4. Phase 4 sandbox UK property period summary submission - complete.
 5. Phase 5A consent framework - complete.
 6. Phase 5B live pilot cage - complete.
-7. Phase 5C live endpoint skeleton/dry run - current.
-8. Phase 5D one-account live network pilot - future.
-9. Phase 6 annual/final declaration - future.
+7. Phase 5C live endpoint skeleton/dry run - complete.
+8. Phase 5D one-account live network pilot - current.
+9. Phase 5E live pilot hardening/limited beta - future.
+10. Phase 6 annual update/final declaration - future.
 
 ## Guardrails
 
@@ -46,11 +47,12 @@ It does not call HMRC submission endpoints.
 | Sandbox UK property period summary submission | Complete |
 | Consent framework | Complete |
 | Live pilot cage | Complete |
-| Live endpoint skeleton / dry run | Current |
-| One-account live network pilot | Future |
+| Live endpoint skeleton / dry run | Complete |
+| One-account live network pilot | Current |
+| Live pilot hardening / limited beta | Future |
 | Live quarterly submission | Not generally implemented |
-| Final declaration | Not implemented |
+| Annual update / final declaration | Not implemented |
 
 ## Next Phase
 
-The current phase is a live endpoint skeleton and dry-run control. The next phase is a one-account live network pilot, which must remain behind root/operator approval, server-side kill switches and support readiness. `READY_FOR_LIVE_SUBMISSION` remains false until a later explicit live network pilot approval.
+The current phase is a one-account live network pilot. It remains behind root/operator approval, Phase 5A consent, Phase 5B pilot allowlisting, Phase 5C dry-run evidence, server-side kill switches and support readiness. `READY_FOR_GENERAL_LIVE_SUBMISSION` remains false, and `READY_FOR_LIVE_SUBMISSION` remains false for general rollout.

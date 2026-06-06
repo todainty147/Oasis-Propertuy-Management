@@ -146,9 +146,9 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
     },
     hero: {
       eyebrow: "Rental operations software that keeps landlords in control",
-      title: "Rental operations software that protects your portfolio",
+      title: "The operating layer for independent landlords.",
       body:
-        "Organise compliance evidence, maintenance workflows, tenant onboarding, documents, rent records and property operations in one secure workspace.",
+        "Tenaqo gives landlords one calm workspace for rent visibility, maintenance follow-up, tenant updates, documents, contractors and compliance evidence.",
       emphasis:
         "Compliance evidence, maintenance triage, documents, and rent records in one action queue.",
       support:

@@ -78,3 +78,74 @@ Use this before Phase 5D:
 ```text
 Implement the pre-Phase-5D broad-suite fix pass. Start with the blocking groups in docs/release/full-suite-failure-triage-before-phase5d.md. Fix, do not skip, the staging security smoke failure, rent/advanced rent RLS and fixture failures, custom role SQL contract failures, and RPC performance index contract failure. Preserve HMRC Phase 5A/5B/5C guards, keep READY_FOR_LIVE_SUBMISSION=false, and do not implement Phase 5D or enable live HMRC network submission. Run focused HMRC tests, npm run build, npm run lint, and npm run test. Report any remaining failures with blocking/non-blocking classification.
 ```
+
+## After Fix Pass
+
+Date: 2026-06-05
+
+Full-suite reproduction artifact:
+
+```bash
+npm run test -- --reporter=json --outputFile=tmp/hmrc-phase5d-full-suite-results-after-start.json
+```
+
+Initial reproduced result: failed. The same four broad-suite blocker groups remained present before this pass: staging security smoke, advanced rent/rent engine fixture and RLS contracts, custom role SQL contracts, and RPC performance index contracts.
+
+Final full-suite command:
+
+```bash
+npm run test
+```
+
+Final result:
+
+- Test files: 164 passed
+- Tests: 2952 passed
+- Remaining failures: 0
+- HMRC Phase 5D implementation: not started
+- Live HMRC network submission: not enabled
+- `READY_FOR_LIVE_SUBMISSION=true` source check: no matches
+
+### Fixed Blocking Groups
+
+| Test file | Test name/group | Module area | Failure message before fix | Root cause | Fix applied or waiver reason | Phase 5D blocking status after fix | Verification command |
+|---|---|---|---|---|---|---|---|
+| `tests/staging/securitySmoke.test.js` | `allows in-account staff to read only their own account command center items` | staging/security smoke | `Feature command_center requires growth plan or higher` / `expected ... to be null` | The staging fixture accounts were seeded without active paid-plan fields, so command-center access was correctly denied as starter-level access. | Updated `scripts/seedStagingFixtures.js` to seed smoke accounts with `subscription_status: "active"` and `subscription_plan: "pro"`, then reseeded the local staging fixture. | Resolved. Not blocking. | `npm run test:unit:run -- tests/staging/securitySmoke.test.js tests/security/advancedRentContracts.test.js tests/security/rentEngineContracts.test.js tests/security/customRolesSqlContracts.test.js tests/security/rpcPerformanceContracts.test.js` |
+| `tests/security/advancedRentContracts.test.js` | advanced rent RLS contracts | rent/RLS | `signInAsUser is not a function`; `Cannot read properties of null (reading 'id')` | Older rent contracts still used an email-based auth helper name that had drifted from the current local Supabase harness API, preventing fixture users from signing in and causing downstream null fixture reads. | Added a compatibility `signInAsUser(email)` helper in `tests/integration/helpers/localSupabaseHarness.js` that maps fixture emails to the existing fixture sign-in path while preserving direct email fallback behavior. | Resolved. Not blocking. | `npm run test:unit:run -- tests/security/advancedRentContracts.test.js tests/security/rentEngineContracts.test.js` |
+| `tests/security/rentEngineContracts.test.js` | rent engine RLS and ledger contracts | rent/RLS/ledger | `signInAsUser is not a function`; `expected undefined to be truthy`; `Cannot read properties of null (reading 'id')` | Same harness API drift prevented fixture sign-in, which made account-isolation and ledger contract setup fail before the policy behavior could be evaluated. | Reused the `signInAsUser(email)` compatibility helper. The focused rent contracts now exercise the intended RLS and ledger behavior successfully. | Resolved. Not blocking. | `npm run test:unit:run -- tests/security/advancedRentContracts.test.js tests/security/rentEngineContracts.test.js` |
+| `tests/security/customRolesSqlContracts.test.js` | custom role SQL policy and helper contracts | custom roles/RLS | Missing policy/helper substrings in `baseline_schema.sql` | The baseline schema is pg_dump-style SQL with quoted identifiers and `select ... into` function calls, while the contract expected unquoted identifier text and assignment-style helper calls. The schema behavior was present, but the text matcher was brittle. | Normalized quoted identifiers in the contract reads and adjusted the security-anomaly helper assertions to match the actual safe `select public.account_member_effective_role(...) into ...` SQL shape. No RLS policy was weakened. | Resolved. Not blocking. | `npm run test:unit:run -- tests/security/customRolesSqlContracts.test.js tests/security/rpcPerformanceContracts.test.js` |
+| `tests/security/rpcPerformanceContracts.test.js` | supporting index definitions for hot account-scoped feed domains | RPC performance/database contracts | Missing index substrings in `baseline_schema.sql` | Same pg_dump quoted-identifier mismatch made existing index definitions invisible to the contract matcher. | Normalized quoted identifiers before index assertions so the contract validates the existing index semantics. | Resolved. Not blocking. | `npm run test:unit:run -- tests/security/customRolesSqlContracts.test.js tests/security/rpcPerformanceContracts.test.js` |
+
+### Verification
+
+```bash
+npm run test:unit:run -- tests/staging/securitySmoke.test.js tests/security/advancedRentContracts.test.js tests/security/rentEngineContracts.test.js tests/security/customRolesSqlContracts.test.js tests/security/rpcPerformanceContracts.test.js
+npm run test:unit:run -- tests/security/hmrcMtdPhase5BContracts.test.js tests/security/hmrcMtdPhase5CContracts.test.js tests/unit/hmrcPhase5ReadinessGate.test.js
+npm run build
+npm run lint
+npm run test
+rg -n "READY_FOR_LIVE_SUBMISSION\\s*[:=]\\s*true|READY_FOR_LIVE_SUBMISSION.*true" src tests supabase docs
+```
+
+Results:
+
+- Broad blocking groups: passed, 5 files / 57 tests.
+- HMRC focused guard suites: passed, 3 files / 33 tests.
+- Build: passed. Existing Vite warning remains for a chunk larger than 800 kB.
+- Lint: passed with existing warnings and no errors.
+- Full suite: passed, 164 files / 2952 tests.
+- `READY_FOR_LIVE_SUBMISSION=true` search: no matches.
+
+## Before Phase 5D Checklist After Fix Pass
+
+- [x] Focused HMRC Phase 5B/5C/readiness tests pass.
+- [x] Full suite passes, or every remaining failure is formally documented as non-blocking.
+- [x] No unresolved permission or RLS failures.
+- [x] No unresolved rent or income failures affecting MTD records.
+- [x] No unresolved export/accountant pack failures.
+- [x] No unresolved staging deploy smoke failures.
+- [x] No unresolved RPC performance failures that could affect HMRC flows.
+- [x] Build passes.
+- [x] Lint has no new errors.
+- [x] Phase 5C checkpoint docs created.
+- [x] READY_FOR_LIVE_SUBMISSION remains false.

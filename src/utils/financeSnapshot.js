@@ -11,22 +11,35 @@ function propertyIdOf(row) {
   return row?.propertyId ?? row?.property_id ?? null;
 }
 
-export function getFinanceOverdueAmount(snapshot = {}) {
-  const snapshotOverdue = safeNumber(snapshot?.overdue_income);
-  const overdueFromProperties = Array.isArray(snapshot?.property_finance)
-    ? snapshot.property_finance.reduce((sum, row) => {
-      const status = normalize(row?.paymentStatus ?? row?.payment_status);
-      return status === "overdue" ? sum + safeNumber(row?.remaining) : sum;
-    }, 0)
-    : 0;
+function getPropertyFinanceRows(snapshot = {}) {
+  return Array.isArray(snapshot?.property_finance) ? snapshot.property_finance : [];
+}
 
-  // Finance page treats property-level overdue balances as the fallback source of truth
-  // because older aggregate snapshots can under-report current-cycle arrears.
-  return Math.max(snapshotOverdue, overdueFromProperties);
+export function getPropertyOverdueRemaining(snapshot = {}) {
+  return getPropertyFinanceRows(snapshot).reduce((sum, row) => {
+    const status = normalize(row?.paymentStatus ?? row?.payment_status);
+    const remaining = safeNumber(row?.remaining);
+    return status === "overdue" && remaining > 0 ? sum + remaining : sum;
+  }, 0);
+}
+
+export function getFinanceOverdueAmount(snapshot = {}) {
+  const rows = getPropertyFinanceRows(snapshot);
+  if (rows.length > 0) {
+    // Prefer the property-level running balances because they are the source of
+    // truth for Finance UI allocation. If a future snapshot returns only a
+    // partial property_finance list, this intentionally reports only those rows
+    // instead of taking a stale-high aggregate.
+    return getPropertyOverdueRemaining(snapshot);
+  }
+
+  // Keep the aggregate only as a legacy fallback for older snapshots that do
+  // not include per-property running balances.
+  return safeNumber(snapshot?.overdue_income);
 }
 
 export function getFinancePropertyBalanceMap(snapshot = {}) {
-  const rows = Array.isArray(snapshot?.property_finance) ? snapshot.property_finance : [];
+  const rows = getPropertyFinanceRows(snapshot);
   const byProperty = new Map();
 
   for (const row of rows) {

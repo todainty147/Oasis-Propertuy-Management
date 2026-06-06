@@ -7,9 +7,16 @@ async function switchShellToGerman(page) {
     .filter({ has: page.locator('option[value="de"]') })
     .first();
 
-  await expect(languageSelector).toBeVisible();
-  await languageSelector.selectOption("de");
-  await expect(languageSelector).toHaveValue("de");
+  if (await languageSelector.isVisible().catch(() => false)) {
+    await languageSelector.selectOption("de");
+    await expect(languageSelector).toHaveValue("de");
+    return;
+  }
+
+  const languageButton = page.getByRole("button", { name: /Language|Język|Sprache/i }).last();
+  await expect(languageButton).toBeVisible({ timeout: 10_000 });
+  await languageButton.click();
+  await page.getByRole("menuitemradio", { name: /German|Deutsch|de/i }).click();
 }
 
 test.describe("German localization", () => {

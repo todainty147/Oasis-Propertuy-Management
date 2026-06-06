@@ -28,7 +28,7 @@ export default function AppLayout() {
   const { activeAccountId } = useAccount();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [, setTitle] = useState("");
+  const [title, setTitle] = useState("");
 
   // Keep sidebar open on desktop
   useEffect(() => {
@@ -56,7 +56,7 @@ export default function AppLayout() {
   }, []);
 
   return (
-    <PageTitleContext.Provider value={{ setTitle }}>
+    <PageTitleContext.Provider value={{ title, setTitle }}>
       {/*
         Two-surface shell:
           · Sidebar tint  bg-[#F5F5F7]  (macOS sidebar gray)
@@ -84,7 +84,11 @@ export default function AppLayout() {
               px-6 gives a consistent 24px gutter on both sides.
               pb-[72px] clears the mobile bottom nav bar.
               No pt — topbar occupies its own row in the flex column. */}
-          <main className="flex-1 overflow-y-auto px-4 pb-[72px] sm:px-6 lg:pb-0">
+          <main
+            className="flex-1 overflow-y-auto px-4 pb-[72px] sm:px-6 lg:pb-0"
+            data-testid="app-shell-main"
+            style={{ overflowY: "auto" }}
+          >
             <div className="max-w-7xl mx-auto w-full pb-8 space-y-6">
               <PasswordUpgradeNotice userId={user?.id} accountId={activeAccountId} />
               <Outlet />

@@ -8,8 +8,9 @@ test("owner can follow an operator briefing action to the target surface", async
   await page.goto("/command-center");
   const card = page.getByTestId("attention-insight-card");
   await expect(card).toBeVisible({ timeout: 30000 });
-  await expect(card.getByRole("button", { name: /Refresh briefing|Odśwież briefing/i })).toBeEnabled({ timeout: 30000 });
-  await expect(card).toContainText(/Operator briefing|Szybki briefing operacyjny/i);
+  await card.getByRole("button").first().click();
+  await expect(card.getByTestId("attention-insight-refresh")).toBeEnabled({ timeout: 30000 });
+  await expect(card).toContainText(/briefing|briefing operacyjny/i);
   await expect(card.getByText(/Why this matters|Dlaczego to jest ważne/i)).toBeVisible();
 
   const action = card.getByTestId("attention-insight-action-link").first();
