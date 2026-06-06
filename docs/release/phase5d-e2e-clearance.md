@@ -40,6 +40,33 @@ Updated on 2026-06-06 after the residual broad E2E cleanup pass 2.
   - `READY_FOR_GENERAL_LIVE_SUBMISSION` remains false.
   - The one-account pilot remains bounded by the existing operator controls and evidence gates.
 
+## Broad Harness Stabilisation
+
+Updated on 2026-06-06 after the broad E2E harness stabilisation pass.
+
+- Broad-suite clearance rule: a broad JSON run classified as `INFRASTRUCTURE_INVALID` is not valid product-clearance evidence.
+- Infrastructure-invalid reasons now include dev-server unavailable, browser/page crash, app-unavailable timeout, screenshot artifact failure, and fixture collision.
+- Product assertions without infrastructure failures are classified separately as `PRODUCT_REGRESSION`.
+- Grouped E2E commands now produce JSON and classification artifacts under `tmp/`.
+- Mutable fixture groups are run with `--workers=1` by default: notifications, Poland compliance/security, screenshot flows, and signup flows.
+- HMRC focused harness check: `npm run e2e:hmrc` passed with 13 tests and classification `PASSED`.
+- HMRC focused artifact: `tmp/e2e-hmrc.json`.
+- HMRC focused classification artifact: `tmp/e2e-hmrc-classification.json`.
+- Phase 5D safety posture remains unchanged: no real HMRC live-network call was made, no general live submission endpoint was enabled, and no landlord-facing live submission control was added.
+
+Available grouped commands:
+
+- `npm run e2e:hmrc`
+- `npm run e2e:core-shell`
+- `npm run e2e:finance`
+- `npm run e2e:documents`
+- `npm run e2e:notifications`
+- `npm run e2e:maintenance`
+- `npm run e2e:poland`
+- `npm run e2e:screenshots`
+- `npm run e2e:ai`
+- `npm run e2e:signup`
+
 ## Targeted Blocker Evidence
 
 The following focused checks passed after the blocker fixes:

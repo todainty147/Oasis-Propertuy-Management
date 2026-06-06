@@ -1550,6 +1550,16 @@ a {
   color: var(--brand-strong);
 }
 
+.pricing-trial-note {
+  display: inline-flex;
+  margin: 0 0 1rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  background: rgba(14, 116, 144, 0.08);
+  color: var(--brand-strong);
+  font: 700 0.82rem/1.2 var(--font-sans);
+}
+
 /* ── Testimonials ────────────────────────────────────────────────────────── */
 
 .testimonials {

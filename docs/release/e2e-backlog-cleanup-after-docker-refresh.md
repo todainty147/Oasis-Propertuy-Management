@@ -257,3 +257,54 @@ Remaining follow-up:
 
 - Full-suite broad mode still needs harness work before it can be used as a reliable product-clearance signal: either single-worker partitioning by mutable fixture group, stronger per-test fixture isolation, or a more resilient dev-server lifecycle.
 - The current focused residual groups are clear.
+
+## Broad Harness Stabilisation Pass
+
+Date: 2026-06-06
+
+This pass added a grouped E2E runner and failure classifier so broad-suite instability is reported as harness infrastructure instead of hundreds of unrelated product regressions.
+
+Harness updates:
+
+- Playwright now runs an E2E global setup health check against the configured `baseURL` before tests start.
+- If the local app server is unavailable, the run fails with a clear `E2E_INFRA_DEV_SERVER_UNAVAILABLE` setup error.
+- `scripts/runPlaywright.mjs` now classifies JSON reporter output when `PLAYWRIGHT_JSON_OUTPUT_NAME` is set.
+- `scripts/classifyPlaywrightJson.mjs` writes a machine-readable classification artifact.
+- `scripts/runE2EGroup.mjs` provides grouped runners with stable JSON artifact names under `tmp/`.
+
+Grouped commands:
+
+- `npm run e2e:hmrc` -> `tmp/e2e-hmrc.json`, `tmp/e2e-hmrc-classification.json`
+- `npm run e2e:core-shell` -> `tmp/e2e-core-shell.json`, `tmp/e2e-core-shell-classification.json`
+- `npm run e2e:finance` -> `tmp/e2e-finance.json`, `tmp/e2e-finance-classification.json`
+- `npm run e2e:documents` -> `tmp/e2e-documents.json`, `tmp/e2e-documents-classification.json`
+- `npm run e2e:notifications` -> `tmp/e2e-notifications.json`, `tmp/e2e-notifications-classification.json`
+- `npm run e2e:maintenance` -> `tmp/e2e-maintenance.json`, `tmp/e2e-maintenance-classification.json`
+- `npm run e2e:poland` -> `tmp/e2e-poland.json`, `tmp/e2e-poland-classification.json`
+- `npm run e2e:screenshots` -> `tmp/e2e-screenshots.json`, `tmp/e2e-screenshots-classification.json`
+- `npm run e2e:ai` -> `tmp/e2e-ai.json`, `tmp/e2e-ai-classification.json`
+- `npm run e2e:signup` -> `tmp/e2e-signup.json`, `tmp/e2e-signup-classification.json`
+
+Mutable groups forced to single worker:
+
+- `e2e:notifications`
+- `e2e:poland`
+- `e2e:screenshots`
+- `e2e:signup`
+
+Classification rules:
+
+- Dev-server unavailable, browser/page crash, app-unavailable timeout, screenshot artifact failure, or fixture collision -> `INFRASTRUCTURE_INVALID`.
+- Product assertion failures without infrastructure failures -> `PRODUCT_REGRESSION`.
+- Zero failures -> `PASSED`.
+
+Rule for clearance:
+
+- Broad E2E JSON artifacts cannot be used as Phase 5D clearance evidence while the run is classified as `INFRASTRUCTURE_INVALID`.
+- Focused group results may be used as scoped evidence only when their classification artifact is `PASSED`.
+
+Focused harness verification:
+
+- `npm run e2e:hmrc` passed: 13 passed, 0 failed.
+- Artifact: `tmp/e2e-hmrc.json`
+- Classification artifact: `tmp/e2e-hmrc-classification.json`

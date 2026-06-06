@@ -13,6 +13,33 @@ function resolveSafeTempDir() {
 const tempDir = resolveSafeTempDir();
 const args = process.argv.slice(2);
 const cliPath = resolve(process.cwd(), "node_modules", "playwright", "cli.js");
+const jsonOutputPath = process.env.PLAYWRIGHT_JSON_OUTPUT_NAME;
+const classificationOutputPath = process.env.PLAYWRIGHT_CLASSIFICATION_OUTPUT || "tmp/e2e-last-classification.json";
+
+function runClassifier() {
+  if (!jsonOutputPath) return Promise.resolve();
+
+  const classifierPath = resolve(process.cwd(), "scripts", "classifyPlaywrightJson.mjs");
+  return new Promise((resolvePromise) => {
+    const classifier = spawn(process.execPath, [classifierPath, jsonOutputPath, classificationOutputPath], {
+      cwd: process.cwd(),
+      stdio: "inherit",
+      shell: false,
+      env: {
+        ...process.env,
+        TMPDIR: tempDir,
+        TEMP: tempDir,
+        TMP: tempDir,
+      },
+    });
+
+    classifier.on("error", (error) => {
+      console.error(`[e2e-classifier] ${error?.message || error}`);
+      resolvePromise();
+    });
+    classifier.on("close", () => resolvePromise());
+  });
+}
 
 const child = spawn(process.execPath, [cliPath, ...args], {
   cwd: process.cwd(),
@@ -31,6 +58,7 @@ child.on("error", (error) => {
   process.exitCode = 1;
 });
 
-child.on("close", (code) => {
+child.on("close", async (code) => {
+  await runClassifier();
   process.exitCode = code ?? 1;
 });

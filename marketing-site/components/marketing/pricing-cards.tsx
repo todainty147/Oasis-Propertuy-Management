@@ -5,6 +5,7 @@ import { siteConfig } from "../../content/site";
 type Plan = {
   name: string;
   price: string;
+  trialNote: string;
   description: string;
   bullets: string[];
   highlight?: boolean;
@@ -30,6 +31,7 @@ export function PricingCards({
               {plan.tag ? <span className="pricing-tag">{plan.tag}</span> : null}
               <h3>{plan.name}</h3>
               <p className="price">{plan.price}</p>
+              <p className="pricing-trial-note">{plan.trialNote}</p>
               <p className="muted">{plan.description}</p>
               <ul className="feature-list">
                 {plan.bullets.map((bullet) => (
