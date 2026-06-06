@@ -24,6 +24,7 @@ type PricingPageContent = {
   plans: Array<{
     name: string;
     price: string;
+    trialNote: string;
     description: string;
     bullets: string[];
     highlight?: boolean;
@@ -70,6 +71,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       {
         name: "Starter",
         price: "Move off spreadsheets",
+        trialNote: "Includes a 14-day trial",
         description:
           "For solo landlords with 1–10 properties who need rent, tenants, documents, and maintenance in one place before admin, arrears, and repairs spread across folders and message threads.",
         bullets: [
@@ -86,6 +88,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       {
         name: "Growth",
         price: "Control a busier portfolio",
+        trialNote: "Includes a 14-day trial",
         description:
           "For landlords with 10–50 properties where deciding what to do next is becoming the harder problem.",
         bullets: [
@@ -104,6 +107,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       {
         name: "Pro",
         price: "Operate with audit, compliance, and review depth",
+        trialNote: "Includes a 14-day trial",
         description:
           "For large or compliance-heavy landlords who need stronger governance, lease review, audit trails, and automation.",
         bullets: [
@@ -120,6 +124,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       {
         name: "Operator / Agency",
         price: "Run multi-client portfolios with automation and intelligence",
+        trialNote: "Includes a 14-day trial",
         description:
           "For property management companies and agency operators managing large portfolios or multiple landlord accounts.",
         bullets: [
@@ -222,6 +227,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       {
         name: "Starter",
         price: "Wyjdź ze spreadsheetów",
+        trialNote: "Obejmuje 14-dniowy okres próbny",
         description:
           "Dla właścicieli, którzy chcą zebrać podstawowy workflow najmu w jednym miejscu, zanim administracja, zaległości i naprawy rozjadą się po folderach i wiadomościach.",
         bullets: [
@@ -234,6 +240,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       {
         name: "Growth",
         price: "Przejmij kontrolę nad bardziej zajętym portfelem",
+        trialNote: "Obejmuje 14-dniowy okres próbny",
         description:
           "Dla właścicieli, których praca wyszła już poza zwykłą ewidencję i wymaga aktywnego follow-upu wokół płatności, napraw i presji na nieruchomościach.",
         bullets: [
@@ -250,6 +257,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       {
         name: "Pro",
         price: "Prowadź operacje z głębszym nadzorem",
+        trialNote: "Obejmuje 14-dniowy okres próbny",
         description:
           "Dla poważnych operatorów, którzy chcą mocniejszego nadzoru, cykli przeglądu i większej dyscypliny wraz ze wzrostem portfela.",
         bullets: [
@@ -265,6 +273,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       {
         name: "Operator / Agency",
         price: "Zarządzaj portfelami wielu klientów z automatyzacją i inteligencją",
+        trialNote: "Obejmuje 14-dniowy okres próbny",
         description:
           "Dla firm zarządzających nieruchomościami obsługujących duże portfele lub wiele kont właścicielskich.",
         bullets: [
@@ -361,6 +370,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       {
         name: "Starter",
         price: "Raus aus Tabellen",
+        trialNote: "Enthält eine 14-tägige Testphase",
         description:
           "Für Vermieter, die den grundlegenden Mietworkflow an einem Ort bündeln wollen, bevor Verwaltung, Rückstände und Reparaturen sich über Ordner und Nachrichten verteilen.",
         bullets: [
@@ -373,6 +383,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       {
         name: "Growth",
         price: "Ein aktiveres Portfolio im Griff behalten",
+        trialNote: "Enthält eine 14-tägige Testphase",
         description:
           "Für Vermieter, deren Arbeit über reine Datenerfassung hinausgeht und aktive Nachverfolgung rund um Zahlungen, Reparaturen und Objektdruck braucht.",
         bullets: [
@@ -389,6 +400,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       {
         name: "Pro",
         price: "Mit tieferer Nachverfolgung operieren",
+        trialNote: "Enthält eine 14-tägige Testphase",
         description:
           "Für ernsthafte Betreiber, die mit wachsender Portfoliokomplexität stärkere Übersicht, Review-Routinen und operative Disziplin wollen.",
         bullets: [
@@ -404,6 +416,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       {
         name: "Operator / Agency",
         price: "Mehrere Kundoportfolios mit Automatisierung und Intelligenz steuern",
+        trialNote: "Enthält eine 14-tägige Testphase",
         description:
           "Für Immobilienverwaltungen und Agenturen, die große Portfolios oder mehrere Vermieterkonten betreuen.",
         bullets: [

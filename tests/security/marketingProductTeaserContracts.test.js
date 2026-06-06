@@ -154,6 +154,19 @@ describe("marketing product teaser contracts", () => {
     expect(homepageContent).not.toMatch(/\n\s*microcopy:\s*\[/);
   });
 
+  it("exposes the 14-day trial on marketing pricing cards", () => {
+    const pricingContent = read("marketing-site/content/pricing.ts");
+    const pricingCards = read("marketing-site/components/marketing/pricing-cards.tsx");
+    const trialSecurity = read("tests/security/trialEnforcementSecurity.test.js");
+
+    expect(trialSecurity).toContain("now() + 14 days");
+    expect(pricingCards).toContain("pricing-trial-note");
+    expect(pricingCards).toContain("plan.trialNote");
+    expect(pricingContent.match(/Includes a 14-day trial/g)).toHaveLength(4);
+    expect(pricingContent.match(/14-dniowy okres próbny/g)).toHaveLength(4);
+    expect(pricingContent.match(/14-tägige Testphase/g)).toHaveLength(4);
+  });
+
   it("includes reduced-motion handling for teaser animations", () => {
     const css = read("marketing-site/app/globals.css");
 
