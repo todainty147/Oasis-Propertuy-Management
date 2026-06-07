@@ -327,6 +327,9 @@ export function parseRootAccountRow(row) {
     is_disabled: toBooleanOr(value.is_disabled),
     disabled_at: toNullableString(value.disabled_at),
     created_at: toNullableString(value.created_at),
+    country_code: toNullableString(value.country_code),
+    currency: toNullableString(value.currency),
+    language: toNullableString(value.language),
   };
 }
 

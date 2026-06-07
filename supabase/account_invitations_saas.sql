@@ -604,7 +604,10 @@ returns table (
   is_root boolean,
   is_disabled boolean,
   disabled_at timestamptz,
-  created_at timestamptz
+  created_at timestamptz,
+  country_code text,
+  currency text,
+  language text
 )
 language plpgsql
 security definer
@@ -647,7 +650,10 @@ begin
     coalesce(a.is_root, false) as is_root,
     coalesce(a.is_disabled, false) as is_disabled,
     a.disabled_at,
-    a.created_at
+    a.created_at,
+    a.country_code,
+    a.currency,
+    a.language
   from public.accounts a
   order by a.created_at desc nulls last, a.id;
 end;

@@ -215,6 +215,9 @@ describe("rpc contracts", () => {
       name: "Root",
       is_root: "true",
       is_disabled: "false",
+      country_code: "GB",
+      currency: "GBP",
+      language: "en",
     });
     const rootMutation = parseRootAccountMutationRow({
       ok: "true",
@@ -264,6 +267,9 @@ describe("rpc contracts", () => {
     });
 
     expect(rootAccount.is_root).toBe(true);
+    expect(rootAccount.country_code).toBe("GB");
+    expect(rootAccount.currency).toBe("GBP");
+    expect(rootAccount.language).toBe("en");
     expect(rootMutation.is_disabled).toBe(true);
     expect(memberRole.old_role).toBe("staff");
     expect(memberRole.role).toBe("admin");
