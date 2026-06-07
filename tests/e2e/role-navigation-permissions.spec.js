@@ -217,6 +217,11 @@ test.describe("role navigation and permission matrix", () => {
     await page.goto("/tenants");
     await page.getByRole("textbox", { name: /Search tenants/i }).fill("Tenant A1");
     await expect(tenantCardLink(page, "Tenant A1")).toBeVisible();
+
+    await page.goto("/finance?tab=payments");
+    await expect(page.getByTestId("payments-table")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("payments-table")).toContainText("Tenant A1");
+    await expect(page.getByText("No payments for this account.")).toHaveCount(0);
     await expect(page.getByLabel("Account").first()).toBeVisible();
   });
 
