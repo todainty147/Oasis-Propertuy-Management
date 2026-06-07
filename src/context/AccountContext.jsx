@@ -262,10 +262,10 @@ export function AccountProvider({ children }) {
                 language:     r.language     || existing?.language     || DEFAULT_LANGUAGE,
                 // Keep root support switching distinct from normal landlord roles.
                 // Dedicated root/support surfaces still key off isRootOperator, while
-                // ordinary CRUD screens should reflect the target account's real role.
+                // ordinary CRUD screens should preserve full support capability.
                 role: existing?.role || "root_support",
                 role_id: existing?.role_id || null,
-                permissionKeys: existing?.permissionKeys || [],
+                permissionKeys: existing?.permissionKeys || getPermissionKeysForRole("owner"),
               };
             });
           } catch (e) {
