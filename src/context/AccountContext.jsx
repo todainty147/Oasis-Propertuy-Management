@@ -9,6 +9,7 @@ import { getPermissionKeysForRole } from "../utils/permissions";
 import { assertFeature, hasFeature, normalizePlan } from "../lib/entitlements";
 import { getMyOaGrantStatus } from "../services/operatorAgencyService";
 import { getAccountActiveEntitlement } from "../services/founderOfferService";
+import { DEFAULT_COUNTRY_CODE, DEFAULT_CURRENCY, DEFAULT_LANGUAGE } from "../utils/currency";
 
 const AccountContext = createContext(null);
 
@@ -226,9 +227,9 @@ export function AccountProvider({ children }) {
             billing_locked_at: m.accounts.billing_locked_at || null,
             trial_ends_at: m.accounts.trial_ends_at || null,
             trial_source: m.accounts.trial_source || null,
-            country_code: m.accounts.country_code || "PL",
-            currency:     m.accounts.currency     || "PLN",
-            language:     m.accounts.language     || "pl",
+            country_code: m.accounts.country_code || DEFAULT_COUNTRY_CODE,
+            currency:     m.accounts.currency     || DEFAULT_CURRENCY,
+            language:     m.accounts.language     || DEFAULT_LANGUAGE,
             role: m.role, // 🔐 SINGLE SOURCE OF TRUTH
             role_id: m.role_id || null,
             permissionKeys: permissionKeysByAccountId.get(m.accounts.id) || getPermissionKeysForRole(m.role),
@@ -256,9 +257,9 @@ export function AccountProvider({ children }) {
                 billing_locked_at: existing?.billing_locked_at || null,
                 trial_ends_at: existing?.trial_ends_at || null,
                 trial_source: existing?.trial_source || null,
-                country_code: existing?.country_code || "PL",
-                currency:     existing?.currency     || "PLN",
-                language:     existing?.language     || "pl",
+                country_code: r.country_code || existing?.country_code || DEFAULT_COUNTRY_CODE,
+                currency:     r.currency     || existing?.currency     || DEFAULT_CURRENCY,
+                language:     r.language     || existing?.language     || DEFAULT_LANGUAGE,
                 // Keep root support switching distinct from normal landlord roles.
                 // Dedicated root/support surfaces still key off isRootOperator, while
                 // ordinary CRUD screens should reflect the target account's real role.
@@ -641,9 +642,9 @@ export function AccountProvider({ children }) {
   const isBillingLocked = Boolean(activeAccount?.billing_locked_at);
 
   // Currency / localisation — derived from account settings, fall back to safe defaults
-  const activeCurrency    = activeAccount?.currency     || "PLN";
-  const activeCountryCode = activeAccount?.country_code || "PL";
-  const activeLanguage    = activeAccount?.language     || "pl";
+  const activeCurrency    = activeAccount?.currency     || DEFAULT_CURRENCY;
+  const activeCountryCode = activeAccount?.country_code || DEFAULT_COUNTRY_CODE;
+  const activeLanguage    = activeAccount?.language     || DEFAULT_LANGUAGE;
   const activePermissionKeys = useMemo(() => {
     if (Array.isArray(activeAccount?.permissionKeys)) return activeAccount.permissionKeys;
     return getPermissionKeysForRole(activeRole);

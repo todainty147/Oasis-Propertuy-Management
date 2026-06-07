@@ -34,6 +34,20 @@ describe("database security hardening contracts", () => {
     expect(invitationSql).toContain("grant execute on function public.check_account_invitation_eligibility");
   });
 
+  it("exposes target account localization to root account switching", () => {
+    const invitationSql = readSource("supabase/account_invitations_saas.sql");
+    const baselineSql = readSource("supabase/baseline_schema.sql");
+
+    for (const sql of [invitationSql, baselineSql]) {
+      expect(sql).toContain("country_code");
+      expect(sql).toContain("currency");
+      expect(sql).toContain("language");
+      expect(sql).toContain("a.country_code");
+      expect(sql).toContain("a.currency");
+      expect(sql).toContain("a.language");
+    }
+  });
+
   it("removes anonymous execution from self-service account creation", () => {
     const signupSql = readSource("supabase/self_serve_landlord_signup.sql");
 

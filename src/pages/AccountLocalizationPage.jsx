@@ -7,6 +7,9 @@ import { supabase } from "../lib/supabase";
 import {
   SUPPORTED_COUNTRIES,
   SUPPORTED_CURRENCIES,
+  DEFAULT_COUNTRY_CODE,
+  DEFAULT_CURRENCY,
+  DEFAULT_LANGUAGE,
   getDefaultCurrencyForCountry,
 } from "../utils/currency";
 
@@ -26,9 +29,9 @@ export default function AccountLocalizationPage() {
   const canEdit = isRootOperator || String(activeRole || "").toLowerCase() === "owner";
 
   const [form, setForm] = useState({
-    country_code: activeCountryCode || "PL",
-    currency:     activeCurrency    || "PLN",
-    language:     activeLanguage    || "pl",
+    country_code: activeCountryCode || DEFAULT_COUNTRY_CODE,
+    currency:     activeCurrency    || DEFAULT_CURRENCY,
+    language:     activeLanguage    || DEFAULT_LANGUAGE,
   });
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
@@ -39,9 +42,9 @@ export default function AccountLocalizationPage() {
   // Keep form in sync when account switches
   useEffect(() => {
     setForm({
-      country_code: activeCountryCode || "PL",
-      currency:     activeCurrency    || "PLN",
-      language:     activeLanguage    || "pl",
+      country_code: activeCountryCode || DEFAULT_COUNTRY_CODE,
+      currency:     activeCurrency    || DEFAULT_CURRENCY,
+      language:     activeLanguage    || DEFAULT_LANGUAGE,
     });
   }, [activeCountryCode, activeCurrency, activeLanguage]);
 

@@ -6,7 +6,12 @@ import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import { can } from "../utils/permissions";
 import { useI18n } from "../context/I18nContext";
-import { formatCurrencyAmount, getLocaleForCountry } from "../utils/currency";
+import {
+  DEFAULT_COUNTRY_CODE,
+  DEFAULT_CURRENCY,
+  formatCurrencyAmount,
+  getLocaleForCountry,
+} from "../utils/currency";
 import OnboardingHintCard from "../components/OnboardingHintCard";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 import TenantPaymentCollectionSettingsCard from "../components/finance/TenantPaymentCollectionSettingsCard";
@@ -1023,8 +1028,8 @@ function StatusBadge({ status, t }) {
 
 function formatCurrency(value = 0, currency, countryCode) {
   return formatCurrencyAmount(value, {
-    currency: currency || "PLN",
-    locale:   getLocaleForCountry(countryCode || "PL"),
+    currency: currency || DEFAULT_CURRENCY,
+    locale:   getLocaleForCountry(countryCode || DEFAULT_COUNTRY_CODE),
   });
 }
 

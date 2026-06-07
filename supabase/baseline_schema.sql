@@ -14934,7 +14934,7 @@ $$;
 ALTER FUNCTION "public"."root_delete_account"("p_root_account_id" "uuid", "p_target_account_id" "uuid") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."root_list_accounts"("p_root_account_id" "uuid") RETURNS TABLE("id" "uuid", "name" "text", "is_root" boolean, "is_disabled" boolean, "disabled_at" timestamp with time zone, "created_at" timestamp with time zone)
+CREATE OR REPLACE FUNCTION "public"."root_list_accounts"("p_root_account_id" "uuid") RETURNS TABLE("id" "uuid", "name" "text", "is_root" boolean, "is_disabled" boolean, "disabled_at" timestamp with time zone, "created_at" timestamp with time zone, "country_code" "text", "currency" "text", "language" "text")
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
     AS $$
@@ -14975,7 +14975,10 @@ begin
     coalesce(a.is_root, false) as is_root,
     coalesce(a.is_disabled, false) as is_disabled,
     a.disabled_at,
-    a.created_at
+    a.created_at,
+    a.country_code,
+    a.currency,
+    a.language
   from public.accounts a
   order by a.created_at desc nulls last, a.id;
 end;

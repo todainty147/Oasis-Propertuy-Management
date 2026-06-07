@@ -43,6 +43,10 @@ export const SUPPORTED_COUNTRIES = [
   { code: "AU", label: "Australia",       currency: "AUD" },
 ];
 
+export const DEFAULT_COUNTRY_CODE = "GB";
+export const DEFAULT_CURRENCY = "GBP";
+export const DEFAULT_LANGUAGE = "en";
+
 // Maps an ISO 3166-1 alpha-2 country code to a BCP 47 locale suitable for
 // Intl.NumberFormat so financial amounts are formatted in local conventions.
 const COUNTRY_LOCALE_MAP = {
@@ -72,7 +76,7 @@ export function getDefaultCurrencyForCountry(countryCode) {
   const country = SUPPORTED_COUNTRIES.find(
     (c) => c.code === String(countryCode || "").toUpperCase()
   );
-  return country?.currency || "PLN";
+  return country?.currency || DEFAULT_CURRENCY;
 }
 
 const EURO_REGIONS = new Set([
@@ -124,7 +128,7 @@ function getLocaleRegion(locale) {
 export function getDefaultCurrency(locale = getUserLocale()) {
   const region = getLocaleRegion(locale);
   if (EURO_REGIONS.has(region)) return "EUR";
-  return REGION_CURRENCY_MAP[region] || "USD";
+  return REGION_CURRENCY_MAP[region] || DEFAULT_CURRENCY;
 }
 
 export function formatCurrencyAmount(
