@@ -31,10 +31,22 @@ const FEEDBACK_STATUSES = [
   ["do_not_contact", "Do not contact"],
 ];
 
+const FOLLOW_UP_PRIORITIES = [
+  ["", "All priorities"],
+  ["high_priority", "High priority"],
+  ["needs_help", "Needs help"],
+  ["warm_lead", "Warm lead"],
+  ["do_not_contact", "Do not contact"],
+];
+
 function formatDate(value) {
   if (!value) return "—";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString();
+}
+
+function priorityLabel(priority) {
+  return String(priority || "not_ready").replaceAll("_", " ");
 }
 
 function statusClass(status) {
@@ -43,6 +55,15 @@ function statusClass(status) {
   if (value === "contacted") return "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200";
   if (value === "declined" || value === "do_not_contact") return "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-200";
   return "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-200";
+}
+
+function priorityClass(priority) {
+  const value = String(priority || "").toLowerCase();
+  if (value === "high_priority") return "bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-950/40 dark:text-fuchsia-200";
+  if (value === "needs_help") return "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-200";
+  if (value === "warm_lead") return "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200";
+  if (value === "do_not_contact") return "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-200";
+  return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
 }
 
 function SummaryCard({ icon: Icon, label, value, detail }) {
@@ -67,6 +88,7 @@ export default function EarlyUsersPage() {
   const [rows, setRows] = useState([]);
   const [signupType, setSignupType] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState("");
+  const [followUpPriority, setFollowUpPriority] = useState("");
   const [founderOnly, setFounderOnly] = useState(false);
   const [selected, setSelected] = useState(null);
   const [selectedDetail, setSelectedDetail] = useState(null);
@@ -90,28 +112,33 @@ export default function EarlyUsersPage() {
     });
     setRows(data);
     if (selected?.userId) {
-      const next = data.find((row) => row.userId === selected.userId) || null;
+      const next = data.find((row) => row.userId === selected.userId && row.accountId === selected.accountId) || null;
       setSelected(next);
     }
-  }, [feedbackStatus, founderOnly, selected?.userId, signupType]);
+  }, [feedbackStatus, founderOnly, selected?.accountId, selected?.userId, signupType]);
 
   useEffect(() => {
     refresh().catch((err) => setError(err.message || "Failed to load early users"));
   }, [refresh]);
 
+  const visibleRows = useMemo(() => {
+    if (!followUpPriority) return rows;
+    return rows.filter((row) => row.followUpPriority === followUpPriority);
+  }, [followUpPriority, rows]);
+
   const summary = useMemo(() => {
-    const founderCount = rows.filter((row) => row.founderOfferStatus).length;
-    const activated = rows.filter((row) => row.activationScore > 0).length;
-    const feedbackOptIn = rows.filter((row) => row.feedbackOptIn).length;
-    const notContacted = rows.filter((row) => row.feedbackStatus === "not_contacted").length;
+    const founderCount = visibleRows.filter((row) => row.founderOfferStatus).length;
+    const activated = visibleRows.filter((row) => row.activationScore > 0).length;
+    const feedbackOptIn = visibleRows.filter((row) => row.feedbackOptIn).length;
+    const notContacted = visibleRows.filter((row) => row.feedbackStatus === "not_contacted").length;
     return {
-      total: rows.length,
+      total: visibleRows.length,
       founderCount,
       activated,
       feedbackOptIn,
       notContacted,
     };
-  }, [rows]);
+  }, [visibleRows]);
 
   async function selectRow(row) {
     setSelected(row);
@@ -185,7 +212,7 @@ export default function EarlyUsersPage() {
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+        <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
           <select
             value={signupType}
             onChange={(e) => setSignupType(e.target.value)}
@@ -200,6 +227,13 @@ export default function EarlyUsersPage() {
           >
             {FEEDBACK_STATUSES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
+          <select
+            value={followUpPriority}
+            onChange={(e) => setFollowUpPriority(e.target.value)}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+          >
+            {FOLLOW_UP_PRIORITIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
           <label className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700">
             <input
               type="checkbox"
@@ -210,6 +244,9 @@ export default function EarlyUsersPage() {
             Founder only
           </label>
         </div>
+        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+          Priority is based on consent, founder status, signup age, and activation milestones.
+        </p>
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
@@ -221,13 +258,14 @@ export default function EarlyUsersPage() {
                   <th className="px-4 py-3">User</th>
                   <th className="px-4 py-3">Source</th>
                   <th className="px-4 py-3">Founder</th>
+                  <th className="px-4 py-3">Priority</th>
                   <th className="px-4 py-3">Activation</th>
                   <th className="px-4 py-3">Feedback</th>
                   <th className="px-4 py-3">Signed up</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                {rows.map((row) => (
+                {visibleRows.map((row) => (
                   <tr
                     key={row.signupId}
                     onClick={() => selectRow(row)}
@@ -242,6 +280,11 @@ export default function EarlyUsersPage() {
                       <p className="text-xs text-slate-500">{row.utmCampaign || row.utmSource || row.referrer || "No campaign"}</p>
                     </td>
                     <td className="px-4 py-3">{row.founderOfferStatus || "—"}</td>
+                    <td className="px-4 py-3">
+                      <span className={`rounded-full px-2 py-1 text-xs font-medium capitalize ${priorityClass(row.followUpPriority)}`}>
+                        {priorityLabel(row.followUpPriority)}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">{row.activationScore}</td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2 py-1 text-xs font-medium ${statusClass(row.feedbackStatus)}`}>
@@ -251,9 +294,9 @@ export default function EarlyUsersPage() {
                     <td className="px-4 py-3 text-slate-500">{formatDate(row.signedUpAt)}</td>
                   </tr>
                 ))}
-                {rows.length === 0 && (
+                {visibleRows.length === 0 && (
                   <tr>
-                    <td colSpan="6" className="px-4 py-8 text-center text-slate-500">No early users match these filters.</td>
+                    <td colSpan="7" className="px-4 py-8 text-center text-slate-500">No early users match these filters.</td>
                   </tr>
                 )}
               </tbody>
@@ -281,6 +324,10 @@ export default function EarlyUsersPage() {
                 <div>
                   <dt className="text-xs text-slate-500">Activation</dt>
                   <dd>{selected.activationScore}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-slate-500">Priority</dt>
+                  <dd className="capitalize">{priorityLabel(selected.followUpPriority)}</dd>
                 </div>
                 <div>
                   <dt className="text-xs text-slate-500">Feedback opt-in</dt>

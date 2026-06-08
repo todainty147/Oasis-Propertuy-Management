@@ -85,7 +85,10 @@ describe("early users and feedback contracts", () => {
     expect(sidebar).toContain('to="/root/early-users"');
     expect(page).toContain("listEarlyUsers");
     expect(page).toContain("updateFeedbackStatus");
+    expect(page).toContain("Priority is based on consent, founder status, signup age, and activation milestones.");
+    expect(page).toContain("FOLLOW_UP_PRIORITIES");
     expect(service).toContain('supabase.rpc("early_users_admin_list"');
     expect(service).toContain('supabase.rpc("update_feedback_status"');
+    expect(service).toContain("classifyFollowUpPriority");
   });
 });
