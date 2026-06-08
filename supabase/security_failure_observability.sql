@@ -286,6 +286,18 @@ begin
       hint = 'Only submitted quotes can be approved.';
   end if;
 
+  update public.work_orders wo
+     set contractor_id = c.id,
+         contractor_user_id = c.user_id,
+         contractor_name = coalesce(c.name, wo.contractor_name),
+         contractor_phone = coalesce(c.phone, wo.contractor_phone),
+         updated_at = now()
+  from public.contractors c
+  where wo.id = p_work_order_id
+    and c.account_id = wo.account_id
+    and c.user_id = v_row.quote_submitted_by
+    and coalesce(c.active, true) = true;
+
   return v_row;
 end;
 $$;

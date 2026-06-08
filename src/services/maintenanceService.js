@@ -174,7 +174,7 @@ export async function getTenantMaintenanceDashboardData({
     const { data, error } = await supabase
       .from("work_orders_with_flags")
       .select(
-        "id, account_id, property_id, maintenance_request_id, contractor_user_id, contractor_name, contractor_phone, status, scheduled_at, notes, quote_amount, invoice_amount, created_by, created_at, updated_at, pending_cancel_request, last_cancel_request_at, last_cancel_request_by, last_cancel_resolution_at, last_cancel_resolution_action, last_cancel_resolution_by",
+        "id, account_id, property_id, maintenance_request_id, contractor_id, contractor_user_id, contractor_name, contractor_phone, status, scheduled_at, notes, quote_amount, invoice_amount, created_by, created_at, updated_at, pending_cancel_request, last_cancel_request_at, last_cancel_request_by, last_cancel_resolution_at, last_cancel_resolution_action, last_cancel_resolution_by",
       )
       .in("id", latestWorkOrderIds)
       .order("created_at", { ascending: false });
@@ -195,6 +195,7 @@ export async function getTenantMaintenanceDashboardData({
         account_id: row.account_id,
         property_id: row.property_id,
         maintenance_request_id: row.maintenance_request_id,
+        contractor_id: null,
         contractor_user_id: null,
         contractor_name: "",
         contractor_phone: "",

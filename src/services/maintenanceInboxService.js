@@ -88,7 +88,7 @@ export async function loadMaintenanceInboxData(accountId, propertyLabelFallback 
     supabase
       .from("work_orders_with_flags")
       .select(
-        "id, account_id, property_id, maintenance_request_id, contractor_user_id, contractor_name, contractor_phone, status, created_at",
+        "id, account_id, property_id, maintenance_request_id, contractor_id, contractor_user_id, contractor_name, contractor_phone, status, created_at",
       )
       .eq("account_id", accountId)
       .in("maintenance_request_id", requestIds)

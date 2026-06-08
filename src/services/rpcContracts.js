@@ -579,6 +579,7 @@ export function parseWorkOrderRow(row) {
     account_id: toNullableString(value.account_id),
     property_id: toNullableString(value.property_id),
     maintenance_request_id: toNullableString(value.maintenance_request_id),
+    contractor_id: toNullableString(value.contractor_id),
     contractor_user_id: toNullableString(value.contractor_user_id),
     contractor_name: toStringOr(value.contractor_name),
     contractor_phone: toStringOr(value.contractor_phone),

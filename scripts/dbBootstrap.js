@@ -154,6 +154,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply work-order contractor identity overlay",
+    file: path.join(supabaseDir, "work_order_contractor_identity.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply work-order assignment authorization overlay",
     file: path.join(supabaseDir, "work_order_assignment_authorization.sql"),
     onErrorStop: true,

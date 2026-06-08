@@ -559,6 +559,7 @@ export async function getMaintenanceSlaAnalytics(accountId) {
         id,
         property_id,
         maintenance_request_id,
+        contractor_id,
         contractor_user_id,
         contractor_name,
         status,

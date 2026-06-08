@@ -61,5 +61,28 @@ export async function upsertContractorRating({
     .single();
 
   if (error) throw friendly(error, "Nie udało się zapisać oceny wykonawcy");
-  return parseContractorRatingRow(data);
+  const parsed = parseContractorRatingRow(data);
+  const createdAt = data?.created_at ? new Date(data.created_at).getTime() : null;
+  const updatedAt = data?.updated_at ? new Date(data.updated_at).getTime() : null;
+  const action = createdAt && updatedAt && updatedAt > createdAt + 1000
+    ? "contractor_rating_updated"
+    : "contractor_rating_submitted";
+
+  supabase.rpc("log_security_event", {
+    p_account_id: accountId,
+    p_action: action,
+    p_entity_type: "contractor_rating",
+    p_entity_id: data?.id || null,
+    p_metadata: {
+      work_order_id: workOrderId,
+      contractor_user_id: contractorUserId || null,
+      rating: parsed.rating,
+    },
+  }).then(({ error: auditError }) => {
+    if (auditError) console.warn("[contractor-ratings] audit log failed", auditError);
+  }).catch((auditError) => {
+    console.warn("[contractor-ratings] audit log failed", auditError);
+  });
+
+  return parsed;
 }

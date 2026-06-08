@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useI18n } from "../../context/I18nContext";
 import { getContractorRecommendation } from "../../services/contractorRecommendationService";
+import { contractorBadgeLabels, listRecommendedContractors } from "../../services/contractorDirectoryService";
 import { formatAttentionInsightTimestamp } from "../../services/attentionInsightService";
 
 function toIsoOrNull(v) {
@@ -28,6 +29,7 @@ export default function CreateWorkOrderDrawer({
   const [recommendationLoading, setRecommendationLoading] = useState(false);
   const [recommendationError, setRecommendationError] = useState("");
   const [recommendation, setRecommendation] = useState(null);
+  const [supplierRecommendations, setSupplierRecommendations] = useState([]);
 
   useEffect(() => {
     if (!open) return;
@@ -37,6 +39,7 @@ export default function CreateWorkOrderDrawer({
     setScheduledAt("");
     setNotes(request?.description ? `${t("maintenance.requestLabel")}: ${request.description}` : "");
     setRecommendation(null);
+    setSupplierRecommendations([]);
     setRecommendationError("");
     setRecommendationLoading(false);
   }, [open, request, t]);
@@ -77,6 +80,30 @@ export default function CreateWorkOrderDrawer({
       dead = true;
     };
   }, [open, accountId, request?.id, t]);
+
+  useEffect(() => {
+    let dead = false;
+
+    async function loadSupplierRecommendations() {
+      if (!open || !accountId) return;
+      try {
+        const rows = await listRecommendedContractors({
+          accountId,
+          propertyId: request?.property_id || null,
+          limit: 6,
+        });
+        if (!dead) setSupplierRecommendations(rows);
+      } catch {
+        if (!dead) setSupplierRecommendations([]);
+      }
+    }
+
+    loadSupplierRecommendations();
+
+    return () => {
+      dead = true;
+    };
+  }, [open, accountId, request?.property_id]);
 
   if (!open || !request) return null;
 
@@ -245,6 +272,28 @@ export default function CreateWorkOrderDrawer({
 
           <div>
             <label className="text-xs text-slate-500">{t("maintenance.drawer.contractorFromList")}</label>
+            {supplierRecommendations.length > 0 ? (
+              <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Recommended from this account
+                </p>
+                <div className="mt-2 grid gap-2">
+                  {supplierRecommendations.map((contractor) => (
+                    <button
+                      key={contractor.id}
+                      type="button"
+                      onClick={() => setContractorId(contractor.id)}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-left text-xs hover:bg-slate-50"
+                    >
+                      <span className="font-medium text-slate-900">{contractor.name}</span>
+                      <span className="ml-2 text-slate-500">
+                        {contractorBadgeLabels(contractor).join(" • ") || "Active contractor"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <select
               value={contractorId}
               onChange={(e) => setContractorId(e.target.value)}
@@ -255,6 +304,8 @@ export default function CreateWorkOrderDrawer({
               {(contractors || []).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
+                  {c.preferred ? " • Preferred" : ""}
+                  {Number(c.averageRating || 0) >= 4 ? ` • ${Number(c.averageRating).toFixed(1)}★` : ""}
                 </option>
               ))}
             </select>
