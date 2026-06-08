@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { assertFiles, assertUuid } from "../utils/validation";
 import { parseDocumentRow, parseRpcRows } from "./rpcContracts";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
+import { recordActivationEventBestEffort } from "./earlyUsersService";
 
 /* ======================
    CONFIG
@@ -262,7 +263,19 @@ export async function uploadDocument({
     throw friendlyError(finalizeError, "Nie udało się sfinalizować uploadu");
   }
 
-  return parseDocumentRow(finalized);
+  const parsed = parseDocumentRow(finalized);
+  recordActivationEventBestEffort({
+    accountId,
+    eventKey: "first_document_uploaded",
+    metadata: {
+      document_id: parsed.id,
+      property_id: propertyId || null,
+      tenant_id: tenantId || null,
+      scope,
+    },
+  });
+
+  return parsed;
 }
 
 /* ======================

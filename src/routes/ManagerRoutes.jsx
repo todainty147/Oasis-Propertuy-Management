@@ -55,6 +55,7 @@ const SecurityAuditPage           = lazy(() => import("../pages/SecurityAuditPag
 const RootTelemetryPage           = lazy(() => import("../pages/RootTelemetryPage"));
 const RootAccountsPage            = lazy(() => import("../pages/admin/RootAccountsPage"));
 const RootDataRequestsPage        = lazy(() => import("../pages/admin/RootDataRequestsPage"));
+const EarlyUsersPage              = lazy(() => import("../pages/admin/EarlyUsersPage"));
 // TaxReadinessPage legacy contract: pages/compliance/TaxReadinessPage
 const TaxToolsPage                = lazy(() => import("../pages/compliance/TaxToolsPage"));
 const HmrcConnectionPage          = lazy(() => import("../pages/compliance/HmrcConnectionPage"));
@@ -504,6 +505,14 @@ export default function ManagerRoutes() {
         element={
           <EntitledRoute feature={ENTITLEMENT_FEATURES.ROOT_TELEMETRY}>
             <RootDataRequestsPage />
+          </EntitledRoute>
+        }
+      />
+      <Route
+        path="root/early-users"
+        element={
+          <EntitledRoute feature={ENTITLEMENT_FEATURES.ROOT_TELEMETRY}>
+            <EarlyUsersPage />
           </EntitledRoute>
         }
       />

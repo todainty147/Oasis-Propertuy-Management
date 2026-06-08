@@ -35,6 +35,7 @@ import {
   Flag,
   CalendarClock,
   Monitor,
+  MessageSquareText,
   Moon,
   Sun,
 } from "lucide-react";
@@ -598,6 +599,7 @@ function SidebarContent({ onNavigate }) {
                     <Item to="/settings/root-telemetry" icon={Activity}    label={t("sidebar.rootTelemetry")} onNavigate={onNavigate} />
                     <Item to="/root/accounts"            icon={Users}       label={t("sidebar.rootAccounts")}  onNavigate={onNavigate} />
                     <Item to="/root/data-requests"       icon={DatabaseZap} label="Data Requests"               onNavigate={onNavigate} />
+                    <Item to="/root/early-users"         icon={MessageSquareText} label="Early Users"          onNavigate={onNavigate} />
                   </>
                 )}
                 <Item to="/settings/data-privacy" icon={ShieldCheck} label="Data & Privacy" onNavigate={onNavigate} />

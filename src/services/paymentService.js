@@ -2,6 +2,7 @@
 import { supabase } from "../lib/supabase";
 import { parseMyPaymentRow, parsePaymentRow, parseRpcRows } from "./rpcContracts";
 import { createNotifications } from "./notificationService";
+import { recordActivationEventBestEffort } from "./earlyUsersService";
 
 async function notifyTenantPaymentDue({ paymentId, amount, dueDate, tenantId, accountId }) {
   if (!tenantId || !accountId) return;
@@ -166,6 +167,16 @@ export async function createPayment({
       accountId,
     });
   }
+  recordActivationEventBestEffort({
+    accountId,
+    eventKey: "first_rent_record_added",
+    metadata: {
+      payment_id: parsed.id,
+      property_id: propertyId,
+      tenant_id: tenantId,
+      status: parsed.status,
+    },
+  });
   return parsed;
 }
 

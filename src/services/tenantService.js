@@ -8,6 +8,7 @@ import {
   normalizeText,
 } from "../utils/validation";
 import { OCCUPANCY_STATUS } from "../utils/statuses";
+import { recordActivationEventBestEffort } from "./earlyUsersService";
 
 export async function listAccountTenants(accountId) {
   if (!accountId) return [];
@@ -73,7 +74,14 @@ export async function createTenant({
       .eq("account_id", accountId);
   }
 
-  return parseTenantRow(tenant);
+  const parsed = parseTenantRow(tenant);
+  recordActivationEventBestEffort({
+    accountId,
+    eventKey: "first_tenant_created",
+    metadata: { tenant_id: parsed.id, property_id: propertyId || null },
+  });
+
+  return parsed;
 }
 
 /* ======================

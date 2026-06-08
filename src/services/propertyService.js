@@ -6,6 +6,7 @@ import {
   assertRequiredText,
   normalizeText,
 } from "../utils/validation";
+import { recordActivationEventBestEffort } from "./earlyUsersService";
 
 function logPropertyServiceError(event, error) {
   console.error(`[property-service] ${event}`, {
@@ -82,6 +83,12 @@ export async function createProperty({
     accountId,
     propertyId: data.id,
     nextTenantId: tenantId,
+  });
+
+  recordActivationEventBestEffort({
+    accountId,
+    eventKey: "first_property_created",
+    metadata: { property_id: data.id },
   });
 
   return data;

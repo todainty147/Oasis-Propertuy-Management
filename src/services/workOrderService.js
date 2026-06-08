@@ -19,6 +19,7 @@ import {
 import { listActiveContractors } from "./contractorDirectoryService";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 import { createNotifications } from "./notificationService";
+import { recordActivationEventBestEffort } from "./earlyUsersService";
 
 function friendlyError(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -526,7 +527,13 @@ export async function createWorkOrder({
   if (rpcError) throw friendlyError(rpcError, "Nie udało się utworzyć zlecenia");
 
   if (rpcResult && typeof rpcResult === "object" && !Array.isArray(rpcResult)) {
-    return parseWorkOrderRow(rpcResult);
+    const parsed = parseWorkOrderRow(rpcResult);
+    recordActivationEventBestEffort({
+      accountId,
+      eventKey: "first_work_order_created",
+      metadata: { work_order_id: parsed.id, property_id: propertyId },
+    });
+    return parsed;
   }
 
   const workOrderId = typeof rpcResult === "string" ? rpcResult : rpcResult?.id;
@@ -568,6 +575,12 @@ export async function createWorkOrder({
   if (signal) read = read.abortSignal(signal);
 
   const { data: row, error: readErr } = await read;
+
+  recordActivationEventBestEffort({
+    accountId,
+    eventKey: "first_work_order_created",
+    metadata: { work_order_id: workOrderId, property_id: propertyId },
+  });
 
   if (readErr || !row) return { id: workOrderId };
   return parseWorkOrderRow(row);
