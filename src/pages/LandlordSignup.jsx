@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useI18n } from "../context/I18nContext";
@@ -9,6 +9,15 @@ import { logSecurityRelevantFailure } from "../services/securityFailureLogger";
 import { recordStrongPassword } from "../services/passwordSecurityService";
 import { recordAuthRateLimitAttempt, formatRetryAfter } from "../services/authRateLimitService";
 import { applyFounderOffer } from "../services/founderOfferService";
+import {
+  recordActivationEventBestEffort,
+  recordSignupIntelligence,
+} from "../services/earlyUsersService";
+import {
+  captureSignupAttribution,
+  clearSignupAttribution,
+  getSignupAttribution,
+} from "../utils/signupAttribution";
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 import BrandLogo from "../components/BrandLogo";
 
@@ -24,6 +33,8 @@ export default function LandlordSignup() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [founderNotice, setFounderNotice] = useState("");
+  const [feedbackContactOptIn, setFeedbackContactOptIn] = useState(false);
+  const [productUpdatesOptIn, setProductUpdatesOptIn] = useState(false);
 
   const passwordContext = useMemo(
     () => ({ email: email.trim().toLowerCase(), accountName: accountName.trim() }),
@@ -33,6 +44,10 @@ export default function LandlordSignup() {
     () => validatePasswordStrength(password, passwordContext),
     [password, passwordContext],
   );
+
+  useEffect(() => {
+    captureSignupAttribution();
+  }, []);
 
   async function clearLocalAuthState() {
     try {
@@ -112,6 +127,33 @@ export default function LandlordSignup() {
           localStorage.setItem("activeAccountId", accountId);
           await recordStrongPassword(accountId);
         }
+        if (accountId && session.user) {
+          const attribution = getSignupAttribution();
+          try {
+            await recordSignupIntelligence({
+              userId: session.user.id,
+              accountId,
+              signupType: "landlord_self_serve",
+              email: cleanEmail,
+              fullName: null,
+              signupSource: attribution.signupSource || "app_landlord_signup",
+              utmSource: attribution.utmSource || null,
+              utmMedium: attribution.utmMedium || null,
+              utmCampaign: attribution.utmCampaign || null,
+              referrer: attribution.referrer || null,
+              landingPath: attribution.landingPath || window.location.pathname,
+              locale: lang || navigator.language || null,
+              feedbackOptIn: feedbackContactOptIn,
+              productUpdatesOptIn,
+              marketingConsent: false,
+            });
+            clearSignupAttribution();
+          } catch (captureErr) {
+            console.warn("[early-users] signup intelligence capture failed", {
+              code: captureErr?.code || "unknown",
+            });
+          }
+        }
         // Apply founder offer on first account creation — non-blocking
         if (row?.created && accountId && session.user) {
           const signupSource = new URLSearchParams(window.location.search).get("source") || "app_landlord_signup";
@@ -122,6 +164,14 @@ export default function LandlordSignup() {
             signupSource,
           });
           if (offerResult.qualified) {
+            recordActivationEventBestEffort({
+              accountId,
+              eventKey: "founder_offer_applied",
+              metadata: {
+                founder_offer_status: offerResult.status || "qualified",
+                founder_offer_position: offerResult.position ?? null,
+              },
+            });
             setFounderNotice(t("founderOffer.applied"));
             await new Promise((r) => setTimeout(r, 1500));
           }
@@ -227,6 +277,33 @@ export default function LandlordSignup() {
               <span className="block text-xs leading-5 text-blue-100">{t("signup.sandboxModeHint")}</span>
             </span>
           </label>
+
+          <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={feedbackContactOptIn}
+                onChange={(e) => setFeedbackContactOptIn(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 accent-blue-600"
+              />
+              <span>
+                <span className="block font-medium text-slate-900">I am happy for the founder team to contact me for product feedback.</span>
+                <span className="block text-xs leading-5 text-slate-500">This is optional and you can still create your account without it.</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={productUpdatesOptIn}
+                onChange={(e) => setProductUpdatesOptIn(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 accent-blue-600"
+              />
+              <span>
+                <span className="block font-medium text-slate-900">Send me occasional product updates for early users.</span>
+                <span className="block text-xs leading-5 text-slate-500">No marketing consent is assumed from these checkboxes.</span>
+              </span>
+            </label>
+          </div>
 
           <button
             type="submit"

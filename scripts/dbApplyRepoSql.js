@@ -138,6 +138,7 @@ const OVERLAY_SEQUENCE = [
   "account_subscription_plan_hardened.sql",
   "reserve_ai_call_checked.sql",
   "founder_launch_offer.sql",
+  "early_users_feedback.sql",
   "account_subscription_plan_founder.sql",
   "reserve_ai_call_checked_founder.sql",
   "lease_clause_audit_ai.sql",

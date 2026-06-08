@@ -15,6 +15,7 @@ import {
   parseWorkOrderRow,
 } from "./rpcContracts";
 import { fetchWorkOrders } from "./workOrderService";
+import { recordActivationEventBestEffort } from "./earlyUsersService";
 
 function friendlyError(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -398,6 +399,12 @@ export async function createMaintenanceRequest({
       console.warn("[automation] maintenance_triage log failed", automationErr);
     }
   }
+
+  recordActivationEventBestEffort({
+    accountId,
+    eventKey: "first_maintenance_request_created",
+    metadata: { maintenance_request_id: data?.id || null, property_id: propertyId },
+  });
 
   return data;
 }
