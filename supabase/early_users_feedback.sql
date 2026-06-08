@@ -369,6 +369,7 @@ returns table (
   founder_status text,
   founder_position integer,
   activation_score integer,
+  activation_events jsonb,
   last_activation_at timestamptz,
   feedback_contact_opt_in boolean,
   product_updates_opt_in boolean,
@@ -398,6 +399,7 @@ begin
       uae.user_id,
       uae.account_id,
       count(distinct uae.event_key)::integer as activation_score,
+      jsonb_object_agg(uae.event_key, true) as activation_events,
       max(uae.created_at) as last_activation_at
     from public.user_activation_events uae
     group by uae.user_id, uae.account_id
@@ -426,6 +428,7 @@ begin
     coalesce(f.founder_status, 'none') as founder_status,
     f.founder_position,
     coalesce(act.activation_score, 0) as activation_score,
+    coalesce(act.activation_events, '{}'::jsonb) as activation_events,
     act.last_activation_at,
     coalesce(ucp.feedback_contact_opt_in, false) as feedback_contact_opt_in,
     coalesce(ucp.product_updates_opt_in, false) as product_updates_opt_in,

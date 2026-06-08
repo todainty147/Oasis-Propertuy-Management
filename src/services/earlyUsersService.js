@@ -11,8 +11,72 @@ function safeLimit(value) {
   return Math.min(Math.max(Number(value) || DEFAULT_LIMIT, 1), 500);
 }
 
+const SIGNUP_ONLY_EVENTS = new Set([
+  "landlord_signup_completed",
+  "tenant_invite_accepted",
+  "contractor_invite_accepted",
+]);
+
+const WARM_LEAD_COMPANION_EVENTS = new Set([
+  "first_tenant_created",
+  "first_document_uploaded",
+  "first_maintenance_request_created",
+  "first_rent_record_added",
+]);
+
+function parseDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function eventKeys(value = {}) {
+  if (!value || typeof value !== "object") return [];
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => String(entry?.event_key || entry?.eventKey || entry || "").trim())
+      .filter(Boolean);
+  }
+  return Object.entries(value)
+    .filter(([, enabled]) => Boolean(enabled))
+    .map(([key]) => key);
+}
+
+export function classifyFollowUpPriority(row = {}, { now = new Date() } = {}) {
+  const feedbackStatus = String(row.feedbackStatus || row.feedback_status || "").toLowerCase();
+  const feedbackOptIn = Boolean(row.feedbackOptIn ?? row.feedback_contact_opt_in);
+  if (feedbackStatus === "do_not_contact" || !feedbackOptIn) return "do_not_contact";
+
+  const signedUpAt = parseDate(row.signedUpAt || row.signed_up_at || row.created_at);
+  const currentTime = parseDate(now) || new Date();
+  const ageMs = signedUpAt ? currentTime.getTime() - signedUpAt.getTime() : null;
+  const founderStatus = String(row.founderOfferStatus || row.founder_status || "").toLowerCase();
+  const isFounder = Boolean(founderStatus && founderStatus !== "none");
+  if (isFounder && ageMs !== null && ageMs >= 0 && ageMs <= 14 * 24 * 60 * 60 * 1000) {
+    return "high_priority";
+  }
+
+  const keys = eventKeys(row.activationEvents || row.activation_events);
+  const hasProperty = keys.includes("first_property_created");
+  const hasCompanionEvent = keys.some((key) => WARM_LEAD_COMPANION_EVENTS.has(key));
+  if (hasProperty && hasCompanionEvent) return "warm_lead";
+
+  const signupType = String(row.signupType || row.signup_type || "").toLowerCase();
+  const hasActivationBeyondSignup = keys.some((key) => !SIGNUP_ONLY_EVENTS.has(key));
+  if (
+    signupType === "landlord_self_serve" &&
+    !hasActivationBeyondSignup &&
+    ageMs !== null &&
+    ageMs >= 24 * 60 * 60 * 1000
+  ) {
+    return "needs_help";
+  }
+
+  return "not_ready";
+}
+
 function normalizeEarlyUserRow(row = {}) {
-  return {
+  const normalized = {
     signupId: row.signup_id || `${row.user_id || "user"}:${row.account_id || "account"}`,
     userId: row.user_id,
     accountId: row.account_id,
@@ -43,6 +107,10 @@ function normalizeEarlyUserRow(row = {}) {
     activationEvents: row.activation_events || {},
     firstActivatedAt: row.first_activated_at || "",
     lastActivatedAt: row.last_activated_at || "",
+  };
+  return {
+    ...normalized,
+    followUpPriority: classifyFollowUpPriority(normalized),
   };
 }
 
