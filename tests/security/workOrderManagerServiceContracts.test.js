@@ -64,7 +64,18 @@ describe("work order manager service contracts", () => {
       .mockResolvedValueOnce({ error: null })
       .mockResolvedValueOnce({ error: null })
       .mockResolvedValueOnce({ error: null })
+      .mockResolvedValueOnce({ error: null })
       .mockResolvedValueOnce({ error: null });
+    fromMock.mockReturnValue(
+      createThenableQuery({
+        data: {
+          account_id: "account-1",
+          contractor_id: "contractor-1",
+          contractor_user_id: "contractor-user-1",
+        },
+        error: null,
+      }),
+    );
 
     const {
       approveWorkOrderTenantCancellation,
@@ -113,7 +124,8 @@ describe("work order manager service contracts", () => {
           account_id: "account-1",
           property_id: "property-1",
           maintenance_request_id: "req-1",
-          contractor_user_id: "contractor-1",
+          contractor_id: "contractor-row-1",
+          contractor_user_id: "contractor-user-1",
           contractor_name: "Contractor A1",
           contractor_phone: "+447700900101",
           status: "ASSIGNED",
@@ -133,6 +145,8 @@ describe("work order manager service contracts", () => {
     expect(row).toMatchObject({
       id: "wo-1",
       status: "assigned",
+      contractor_id: "contractor-row-1",
+      contractor_user_id: "contractor-user-1",
       acknowledgement_status: "pending",
       maintenance_requests: { id: "req-1", title: "Tap" },
     });

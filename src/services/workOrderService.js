@@ -16,7 +16,7 @@ import {
   parseWorkOrderStatusDefinitionRow,
   parseWorkOrderRow,
 } from "./rpcContracts";
-import { listActiveContractors } from "./contractorDirectoryService";
+import { listContractorPerformanceSummary } from "./contractorDirectoryService";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 import { createNotifications } from "./notificationService";
 import { recordActivationEventBestEffort } from "./earlyUsersService";
@@ -77,6 +77,7 @@ export async function fetchWorkOrders({
     account_id,
     property_id,
     maintenance_request_id,
+    contractor_id,
     contractor_user_id,
     contractor_name,
     contractor_phone,
@@ -148,6 +149,7 @@ export async function fetchWorkOrderById(id, { signal } = {}) {
       account_id,
       property_id,
       maintenance_request_id,
+      contractor_id,
       contractor_user_id,
       contractor_name,
       contractor_phone,
@@ -238,7 +240,8 @@ export async function listPendingCancellationWorkOrders({
 }
 
 export async function listAssignableContractors(accountId) {
-  return listActiveContractors(accountId);
+  const rows = await listContractorPerformanceSummary({ accountId });
+  return rows.filter((contractor) => contractor.active !== false);
 }
 
 export async function getWorkOrderAllowedActions(workOrderId, context = {}) {
@@ -330,7 +333,7 @@ export async function assignWorkOrderContractor(
   try {
     let assignedQuery = supabase
       .from("work_orders")
-      .select("account_id, contractor_user_id")
+      .select("account_id, contractor_id, contractor_user_id")
       .eq("id", workOrderId);
 
     if (context?.accountId) assignedQuery = assignedQuery.eq("account_id", context.accountId);
@@ -549,6 +552,7 @@ export async function createWorkOrder({
       account_id,
       property_id,
       maintenance_request_id,
+      contractor_id,
       contractor_user_id,
       contractor_name,
       contractor_phone,
@@ -624,7 +628,7 @@ export async function updateWorkOrder(id, patch = {}, { signal, accountId } = {}
     .update(nextPatch)
     .eq("id", id)
     .eq("account_id", accountId)
-    .select("id, account_id, property_id, contractor_user_id, status, scheduled_at, updated_at")
+    .select("id, account_id, property_id, contractor_id, contractor_user_id, status, scheduled_at, updated_at")
     .single();
 
   if (signal) q = q.abortSignal(signal);

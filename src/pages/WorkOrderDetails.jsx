@@ -9,6 +9,11 @@ import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
 import { getContractorRatingByWorkOrder, upsertContractorRating } from "../services/contractorRatingService";
 import {
+  contractorBadgeLabels,
+  listRecommendedContractors,
+  setContractorPreferredSupplier,
+} from "../services/contractorDirectoryService";
+import {
   approveInvoice,
   approveQuote,
   getWorkOrderFinancials,
@@ -246,6 +251,20 @@ function hasInvoice(financials) {
       (financials.invoice_amount != null ||
         financials.invoice_due_at ||
         financials.invoice_issued_at)
+  );
+}
+
+function ContractorBadges({ contractor }) {
+  const labels = contractorBadgeLabels(contractor);
+  if (labels.length === 0) return null;
+  return (
+    <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">
+      {labels.map((label) => (
+        <span key={label} className="rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+          {label}
+        </span>
+      ))}
+    </span>
   );
 }
 
@@ -589,6 +608,7 @@ export default function WorkOrderDetails() {
   const [contractors, setContractors] = useState([]);
   const [contractorsLoading, setContractorsLoading] = useState(false);
   const [assignContractorId, setAssignContractorId] = useState("");
+  const [recommendedContractors, setRecommendedContractors] = useState([]);
   const [busy, setBusy] = useState(false);
   const [ratingLoading, setRatingLoading] = useState(false);
   const [ratingSaving, setRatingSaving] = useState(false);
@@ -596,6 +616,8 @@ export default function WorkOrderDetails() {
   const [ratingRow, setRatingRow] = useState(null);
   const [ratingValue, setRatingValue] = useState("");
   const [ratingComment, setRatingComment] = useState("");
+  const [ratingNotice, setRatingNotice] = useState("");
+  const [preferredSuggestion, setPreferredSuggestion] = useState(null);
   const slaState = useMemo(() => workOrderSlaState(wo), [wo]);
   const workflowSummary = useMemo(() => getWorkflowSummary(wo, t), [wo, t]);
 
@@ -666,6 +688,7 @@ export default function WorkOrderDetails() {
   async function loadContractors() {
     if (!activeAccountId || !canManage) {
       setContractors([]);
+      setRecommendedContractors([]);
       return;
     }
     setContractorsLoading(true);
@@ -677,6 +700,24 @@ export default function WorkOrderDetails() {
       setContractors([]);
     } finally {
       setContractorsLoading(false);
+    }
+  }
+
+  async function loadRecommendedContractors(propertyId = null) {
+    if (!activeAccountId || !canManage) {
+      setRecommendedContractors([]);
+      return;
+    }
+    try {
+      const recommendations = await listRecommendedContractors({
+        accountId: activeAccountId,
+        propertyId: propertyId || null,
+        limit: 8,
+      });
+      setRecommendedContractors(recommendations);
+    } catch (e) {
+      console.error(e);
+      setRecommendedContractors([]);
     }
   }
 
@@ -696,6 +737,12 @@ export default function WorkOrderDetails() {
     const statusLabel = translateWorkOrderStatus(labels?.[normalizeWorkOrderStatus(wo.status)] ?? wo.status, t);
     setTitle(`${t("workOrder.shortLabel")} • ${statusLabel}`);
   }, [wo, labels, setTitle, t]);
+
+  useEffect(() => {
+    if (!wo?.property_id) return;
+    loadRecommendedContractors(wo.property_id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wo?.property_id, activeAccountId, canManage]);
 
   // -----------------------------
   // Actions
@@ -753,6 +800,8 @@ export default function WorkOrderDetails() {
     if (!id || !canManage) return;
     setRatingLoading(true);
     setRatingUnavailable(false);
+    setRatingNotice("");
+    setPreferredSuggestion(null);
     try {
       const row = await getContractorRatingByWorkOrder(id);
       setRatingRow(row);
@@ -777,6 +826,7 @@ export default function WorkOrderDetails() {
       loadAudit(),
       loadAllowedActions(),
       loadContractors(),
+      loadRecommendedContractors(wo?.property_id || null),
       loadRating(),
     ]);
   }
@@ -812,7 +862,15 @@ export default function WorkOrderDetails() {
         comment: ratingComment || null,
       });
       setRatingRow(row);
-      alert(t("ratings.saved"));
+      const matchingContractor = contractors.find((contractor) =>
+        contractor.id === wo.contractor_id || contractor.user_id === wo.contractor_user_id
+      );
+      if (matchingContractor && (Number(ratingValue) >= 4) && !matchingContractor.preferred) {
+        setPreferredSuggestion(matchingContractor);
+      } else {
+        setPreferredSuggestion(null);
+      }
+      setRatingNotice(t("ratings.saved"));
     } catch (e) {
       if (isRatingsUnavailableError(e)) {
         setRatingUnavailable(true);
@@ -820,6 +878,29 @@ export default function WorkOrderDetails() {
         return;
       }
       alert(e?.message ?? t("ratings.saveError"));
+    } finally {
+      setRatingSaving(false);
+    }
+  }
+
+  async function markSuggestedPreferred() {
+    if (!preferredSuggestion || !activeAccountId) return;
+    setRatingSaving(true);
+    try {
+      await setContractorPreferredSupplier({
+        accountId: wo?.account_id || activeAccountId,
+        contractorId: preferredSuggestion.id,
+        preferred: true,
+        reason: "High rating after completed work order",
+      });
+      setPreferredSuggestion(null);
+      setRatingNotice("Preferred supplier saved.");
+      await Promise.all([
+        loadContractors(),
+        loadRecommendedContractors(wo?.property_id || null),
+      ]);
+    } catch (e) {
+      alert(e?.message ?? "Could not mark preferred supplier");
     } finally {
       setRatingSaving(false);
     }
@@ -1094,6 +1175,24 @@ export default function WorkOrderDetails() {
           {/* Assign contractor */}
           <div className="pt-2 border-t">
             <p className="text-xs text-slate-500 mb-2">{t("workOrder.assignContractor")}</p>
+            {recommendedContractors.length > 0 ? (
+              <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recommended contractors</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {recommendedContractors.map((contractor) => (
+                    <button
+                      key={contractor.id}
+                      type="button"
+                      onClick={() => setAssignContractorId(contractor.id)}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-left text-xs hover:bg-slate-50"
+                    >
+                      <span className="font-medium text-slate-900">{contractor.name}</span>
+                      <ContractorBadges contractor={contractor} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <div className="flex flex-wrap items-center gap-2">
 	              <select
@@ -1107,6 +1206,8 @@ export default function WorkOrderDetails() {
 	                  <option key={c.id} value={c.id}>
 	                    {c.name}
 	                    {c.phone ? ` • ${c.phone}` : ""}
+                      {c.preferred ? " • Preferred" : ""}
+                      {Number(c.averageRating || 0) >= 4 ? ` • ${Number(c.averageRating).toFixed(1)}★` : ""}
 	                  </option>
                 ))}
               </select>
@@ -1206,6 +1307,43 @@ export default function WorkOrderDetails() {
                 placeholder={t("ratings.commentOptional")}
                 disabled={ratingSaving}
               />
+              {ratingNotice ? (
+                <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                  {ratingNotice}
+                </p>
+              ) : null}
+              {preferredSuggestion ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-amber-900">
+                        Mark {preferredSuggestion.name} as a preferred supplier?
+                      </p>
+                      <p className="mt-1 text-xs text-amber-800">
+                        This is private to this account and helps future work-order recommendations.
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPreferredSuggestion(null)}
+                        className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-50"
+                        disabled={ratingSaving}
+                      >
+                        Dismiss
+                      </button>
+                      <button
+                        type="button"
+                        onClick={markSuggestedPreferred}
+                        className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-medium text-white hover:bg-amber-700 disabled:bg-slate-400"
+                        disabled={ratingSaving}
+                      >
+                        Mark preferred
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               <div className="flex justify-end">
                 <button
                   type="button"

@@ -39,12 +39,13 @@ begin
     and c.account_id = v_account_id
     and coalesce(c.active, true) = true;
 
-  if v_contractor_user_id is null then
+  if not found then
     raise exception 'Contractor not found/active for this account';
   end if;
 
   update public.work_orders wo
-     set contractor_user_id = v_contractor_user_id,
+     set contractor_id      = p_contractor_id,
+         contractor_user_id = v_contractor_user_id,
          contractor_name    = coalesce(v_name, wo.contractor_name),
          contractor_phone   = coalesce(v_phone, wo.contractor_phone),
          updated_at         = now()
@@ -53,4 +54,4 @@ end;
 $$;
 
 comment on function public.work_order_assign_contractor(uuid, uuid) is
-  'Assigns an active in-account contractor to a work order after enforcing manager/root account access.';
+  'Assigns an active in-account contractor directory row to a work order; contractor_id is the supplier identity and contractor_user_id remains the portal identity when present.';
