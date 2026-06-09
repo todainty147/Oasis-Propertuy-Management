@@ -7,6 +7,7 @@ import {
 import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
+import { isLiveStripeBillingEnabled } from "../config/pilotBillingMode";
 import {
   canWriteForBilling,
   getBillingSubscription,
@@ -188,9 +189,9 @@ function OaCard({ t, isOaPending, oaCheckoutUrl, oaGrantStatus, activePlan }) {
 
 // ── Trial Banner ──────────────────────────────────────────────────────────────
 
-function TrialBanner({ t, trialDaysLeft, trialEndsAt }) {
+function TrialBanner({ t, trialDaysLeft, trialEndsAt, isInTrial }) {
   if (!trialEndsAt || trialDaysLeft > 7) return null;
-  const urgent = trialDaysLeft <= 2;
+  const urgent = !isInTrial || trialDaysLeft <= 2;
   return (
     <div
       className={`rounded-xl border px-4 py-3 text-sm ${
@@ -200,9 +201,13 @@ function TrialBanner({ t, trialDaysLeft, trialEndsAt }) {
       }`}
     >
       <span className="font-medium">
-        {t("billing.trialBanner", { days: trialDaysLeft })}
+        {isInTrial
+          ? t("billing.trialBanner", { days: trialDaysLeft })
+          : t("billing.trialExpiredManual")}
       </span>{" "}
-      {t("billing.trialBannerSub")} <strong>{formatDate(trialEndsAt)}</strong>.
+      {isInTrial
+        ? <>{t("billing.trialBannerSub")} <strong>{formatDate(trialEndsAt)}</strong>.</>
+        : t("billing.pilotContactToContinue")}
     </div>
   );
 }
@@ -222,6 +227,7 @@ export default function BillingPage() {
   const [loading, setLoading]           = useState(true);
   const [busy, setBusy]                 = useState("");
   const [error, setError]               = useState("");
+  const liveStripeBillingEnabled = isLiveStripeBillingEnabled();
 
   const canManageBilling = useMemo(
     () => isRootOperator || isManageRole(activeRole),
@@ -270,6 +276,10 @@ export default function BillingPage() {
   });
 
   async function handleCheckout(planKey) {
+    if (!liveStripeBillingEnabled) {
+      setError(t("billing.liveBillingUnavailable"));
+      return;
+    }
     try {
       setBusy(planKey);
       const { url } = await startCheckout({ accountId: activeAccountId, planKey });
@@ -282,6 +292,10 @@ export default function BillingPage() {
   }
 
   async function handlePortal() {
+    if (!liveStripeBillingEnabled) {
+      setError(t("billing.liveBillingUnavailable"));
+      return;
+    }
     try {
       setBusy("portal");
       const { url } = await openCustomerPortal({ accountId: activeAccountId });
@@ -308,12 +322,13 @@ export default function BillingPage() {
 
   const currentStatus = subscription?.status || "inactive";
   const stripeTrialEnd = subscription?.trial_end || null;
+  const billingEmail = t("billing.oa.salesEmail");
 
   return (
     <div className="space-y-6">
-      {/* Trial banner — shown when trial ends within 7 days */}
-      {isInTrial && !isRootOperator && (
-        <TrialBanner t={t} trialDaysLeft={trialDaysLeft} trialEndsAt={trialEndsAt} />
+      {/* Trial banner — shown when trial ends within 7 days, or after expiry */}
+      {trialEndsAt && !isRootOperator && (
+        <TrialBanner t={t} trialDaysLeft={trialDaysLeft} trialEndsAt={trialEndsAt} isInTrial={isInTrial} />
       )}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
@@ -328,9 +343,19 @@ export default function BillingPage() {
           </div>
           <div className="inline-flex items-center gap-2 self-start rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
             <CreditCard size={16} />
-            <span>{t("billing.accountScoped")}</span>
+            <span>{liveStripeBillingEnabled ? t("billing.accountScoped") : t("billing.pilotModeBadge")}</span>
           </div>
         </div>
+
+        {!liveStripeBillingEnabled && (
+          <div
+            className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200"
+            data-testid="pilot-billing-mode-banner"
+          >
+            <p className="font-medium">{t("billing.pilotNoAutoCharge")}</p>
+            <p className="mt-1">{t("billing.pilotManualBilling")}</p>
+          </div>
+        )}
 
         {error ? (
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
@@ -342,8 +367,8 @@ export default function BillingPage() {
         {trialEndsAt && !isRootOperator && (
           <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200">
             {isInTrial
-              ? <>{t("billing.oasisTrialActive")} <strong>{formatDate(trialEndsAt)}</strong>.</>
-              : <>{t("billing.oasisTrialExpired")} <strong>{formatDate(trialEndsAt)}</strong>. {t("billing.oasisTrialUpgrade")}</>}
+              ? <>{t("billing.oasisTrialActive")} <strong>{formatDate(trialEndsAt)}</strong>. {t("billing.pilotNoAutoCharge")}</>
+              : <>{t("billing.oasisTrialExpired")} <strong>{formatDate(trialEndsAt)}</strong>. {t("billing.trialExpiredManual")}</>}
           </div>
         )}
 
@@ -399,15 +424,25 @@ export default function BillingPage() {
         )}
 
         <div className="mt-5 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={handlePortal}
-            disabled={busy === "portal" || !subscription}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
-          >
-            <ExternalLink size={16} />
-            {busy === "portal" ? t("billing.portalOpening") : t("billing.manageBilling")}
-          </button>
+          {liveStripeBillingEnabled ? (
+            <button
+              type="button"
+              onClick={handlePortal}
+              disabled={busy === "portal" || !subscription}
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+            >
+              <ExternalLink size={16} />
+              {busy === "portal" ? t("billing.portalOpening") : t("billing.manageBilling")}
+            </button>
+          ) : (
+            <a
+              href={`mailto:${billingEmail}`}
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+            >
+              <Mail size={16} />
+              {t("billing.manageManual")}
+            </a>
+          )}
         </div>
       </div>
 
@@ -442,16 +477,26 @@ export default function BillingPage() {
               {t(plan.limitKey)}
             </p>
             <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-              {t("billing.trialIncluded")}
+              {liveStripeBillingEnabled ? t("billing.trialIncluded") : t("billing.pilotManualBilling")}
             </p>
-            <button
-              type="button"
-              onClick={() => handleCheckout(plan.key)}
-              disabled={busy === plan.key}
-              className="mt-4 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {busy === plan.key ? t("billing.redirecting") : t("billing.choosePlan")}
-            </button>
+            {liveStripeBillingEnabled ? (
+              <button
+                type="button"
+                onClick={() => handleCheckout(plan.key)}
+                disabled={busy === plan.key}
+                className="mt-4 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {busy === plan.key ? t("billing.redirecting") : t("billing.choosePlan")}
+              </button>
+            ) : (
+              <a
+                href={`mailto:${billingEmail}`}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+              >
+                <Mail size={15} />
+                {t("billing.contactToActivate")}
+              </a>
+            )}
           </div>
         ))}
 
