@@ -36,7 +36,15 @@ import {
   upsertInvoice,
 } from "../services/workOrderFinancialsService";
 import { getContractorRatingByWorkOrder, upsertContractorRating } from "../services/contractorRatingService";
-import { contractorBadgeLabels, setContractorPreferredSupplier } from "../services/contractorDirectoryService";
+import {
+  PREFERRED_SUPPLIER_RATING_PROMPT,
+  RECOMMENDED_CONTRACTORS_HELPER_COPY,
+  TRUSTED_CONTRACTORS_INTRO_COPY,
+  contractorBadgeLabels,
+  contractorHistoryState,
+  contractorPerformanceLines,
+  setContractorPreferredSupplier,
+} from "../services/contractorDirectoryService";
 import { useI18n } from "../context/I18nContext";
 import { formatCurrencyAmount, getCurrencyOptions, getDefaultCurrency } from "../utils/currency";
 import { isManageRole } from "../utils/permissions";
@@ -68,6 +76,17 @@ function formatBytes(bytes) {
 
 function formatMoney(val, currency = getDefaultCurrency()) {
   return formatCurrencyAmount(val, { currency });
+}
+
+function ContractorHistoryText({ contractor }) {
+  const lines = contractorPerformanceLines(contractor).slice(0, 3);
+  const state = contractorHistoryState(contractor);
+  return (
+    <span className="mt-1 block text-[11px] leading-4 text-slate-500">
+      {lines.length > 0 ? lines.join(" • ") : state}
+      {lines.length > 0 && state ? ` • ${state}` : ""}
+    </span>
+  );
 }
 
 function translateWorkOrderStatus(status, t) {
@@ -467,6 +486,7 @@ export default function WorkOrdersSection({ propertyId }) {
   const [ratingComment, setRatingComment] = useState("");
   const [ratingNotice, setRatingNotice] = useState("");
   const [preferredSuggestion, setPreferredSuggestion] = useState(null);
+  const [dismissedPreferredSuggestionFor, setDismissedPreferredSuggestionFor] = useState("");
 
   function syncFinInputs(row) {
     const qAmt = row?.quote_amount;
@@ -657,7 +677,12 @@ export default function WorkOrdersSection({ propertyId }) {
       const matchingContractor = contractors.find((contractor) =>
         contractor.id === selectedWO?.contractor_id || contractor.user_id === selectedWO?.contractor_user_id
       );
-      if (matchingContractor && Number(ratingValue) >= 4 && !matchingContractor.preferred) {
+      if (
+        matchingContractor &&
+        Number(ratingValue) >= 4 &&
+        !matchingContractor.preferred &&
+        dismissedPreferredSuggestionFor !== workOrderId
+      ) {
         setPreferredSuggestion(matchingContractor);
       } else {
         setPreferredSuggestion(null);
@@ -1225,10 +1250,14 @@ export default function WorkOrdersSection({ propertyId }) {
 
             <div>
               <label className="text-xs text-slate-500">{t("workOrders.contractorOptional")}</label>
+              <p className="mt-1 text-xs leading-5 text-slate-500">{TRUSTED_CONTRACTORS_INTRO_COPY}</p>
               {recommendedContractors.length > 0 ? (
                 <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                     Recommended contractors
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">
+                    {RECOMMENDED_CONTRACTORS_HELPER_COPY}
                   </p>
                   <div className="mt-2 grid gap-2">
                     {recommendedContractors.map((contractor) => (
@@ -1238,15 +1267,24 @@ export default function WorkOrdersSection({ propertyId }) {
                         onClick={() => onSelectContractor(contractor.id)}
                         className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-left text-xs hover:bg-slate-50"
                       >
-                        <span className="font-medium text-slate-900">{contractor.name}</span>
-                        <span className="ml-2 text-slate-500">
-                          {contractorBadgeLabels(contractor).join(" • ") || "Active contractor"}
+                        <span className="block font-medium text-slate-900">{contractor.name}</span>
+                        <span className="mt-1 flex flex-wrap gap-1">
+                          {(contractorBadgeLabels(contractor).length > 0 ? contractorBadgeLabels(contractor) : ["Active contractor"]).map((label) => (
+                            <span key={label} className="rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                              {label}
+                            </span>
+                          ))}
                         </span>
+                        <ContractorHistoryText contractor={contractor} />
                       </button>
                     ))}
                   </div>
                 </div>
-              ) : null}
+              ) : (
+                <p className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
+                  No recommended contractors yet. Choose from active contractors below; history-based recommendations will appear after completed work and ratings.
+                </p>
+              )}
               <select
                 value={selectedContractorId}
                 onChange={(e) => onSelectContractor(e.target.value)}
@@ -1889,20 +1927,23 @@ export default function WorkOrdersSection({ propertyId }) {
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <p className="text-sm font-medium text-amber-900">
-                              Mark {preferredSuggestion.name} as a preferred supplier?
+                              {PREFERRED_SUPPLIER_RATING_PROMPT}
                             </p>
                             <p className="mt-1 text-xs text-amber-800">
-                              This is private to this account and helps future work-order recommendations.
+                              This is private to this account.
                             </p>
                           </div>
                           <div className="flex shrink-0 gap-2">
                             <button
                               type="button"
-                              onClick={() => setPreferredSuggestion(null)}
+                              onClick={() => {
+                                setDismissedPreferredSuggestionFor(selectedWO?.id || "");
+                                setPreferredSuggestion(null);
+                              }}
                               className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-50"
                               disabled={ratingSaving}
                             >
-                              Dismiss
+                              Not now
                             </button>
                             <button
                               type="button"
@@ -1910,7 +1951,7 @@ export default function WorkOrdersSection({ propertyId }) {
                               className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-medium text-white hover:bg-amber-700 disabled:bg-slate-400"
                               disabled={ratingSaving}
                             >
-                              Mark preferred
+                              Mark as preferred
                             </button>
                           </div>
                         </div>

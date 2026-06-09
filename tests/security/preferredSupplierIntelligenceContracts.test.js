@@ -1,6 +1,11 @@
 import fs from "fs";
 import path from "path";
 import { describe, expect, it } from "vitest";
+import {
+  contractorBadgeLabels,
+  contractorHistoryState,
+  contractorPerformanceLines,
+} from "../../src/services/contractorDirectoryService.js";
 
 const repoRoot = process.cwd();
 
@@ -9,6 +14,28 @@ function read(relativePath) {
 }
 
 describe("preferred supplier intelligence contracts", () => {
+  it("keeps contractor history copy meaningful for new and preferred contractors", () => {
+    expect(contractorPerformanceLines({
+      jobsCompleted: 0,
+      quotesSubmitted: 0,
+      quotesApproved: 0,
+    })).toEqual([]);
+    expect(contractorHistoryState({ jobsCompleted: 0 })).toContain("No completed jobs yet");
+
+    const preferredContractor = {
+      preferred: true,
+      jobsCompleted: 2,
+      quotesSubmitted: 1,
+      quotesApproved: 1,
+    };
+    expect(contractorBadgeLabels(preferredContractor)).toContain("Preferred");
+    expect(contractorPerformanceLines(preferredContractor)).toEqual([
+      "2 jobs completed",
+      "1 quotes submitted",
+      "1 quotes approved",
+    ]);
+  });
+
   it("ships a private account-scoped preferred supplier schema and audited RPC surface", () => {
     const sql = read("supabase/contractor_preferred_supplier_intelligence.sql");
 
@@ -101,6 +128,9 @@ describe("preferred supplier intelligence contracts", () => {
     const detailsPage = read("src/pages/WorkOrderDetails.jsx");
     const drawer = read("src/components/maintenance-inbox/CreateWorkOrderDrawer.jsx");
     const workOrdersSection = read("src/components/WorkOrdersSection.jsx");
+    const maintenanceInbox = read("src/pages/MaintenanceInboxPage.jsx");
+    const marketingFeature = read("marketing-site/content/features/maintenance-management.ts");
+    const marketingHub = read("marketing-site/content/features-page.ts");
 
     expect(directoryService).toContain("listContractorPerformanceSummary");
     expect(directoryService).toContain('supabase.rpc("contractor_performance_summary"');
@@ -113,6 +143,11 @@ describe("preferred supplier intelligence contracts", () => {
     expect(directoryService).toContain("180 * 24 * 60 * 60 * 1000");
     expect(directoryService).toContain('labels.push("Recently used")');
     expect(directoryService).toContain('labels.push("Used at this property")');
+    expect(directoryService).toContain("Keep track of the contractors you trust.");
+    expect(directoryService).toContain("Recommendations are based only on your account's contractor history, ratings, and completed work.");
+    expect(directoryService).toContain("Looks like this contractor did a good job.");
+    expect(directoryService).toContain("No completed jobs yet. This contractor's performance history will appear here after they complete work orders.");
+    expect(directoryService).toContain("Limited history available. This contractor may have been added manually before portal tracking was available.");
 
     expect(workOrderService).toContain("listContractorPerformanceSummary");
     expect(workOrderService).toContain("return rows.filter((contractor) => contractor.active !== false);");
@@ -121,20 +156,40 @@ describe("preferred supplier intelligence contracts", () => {
       expect(source).toContain("Recommended contractors");
       expect(source).toContain("Preferred");
       expect(source).toContain("averageRating");
+      expect(source).toContain("RECOMMENDED_CONTRACTORS_HELPER_COPY");
+      expect(source).toContain("TRUSTED_CONTRACTORS_INTRO_COPY");
+      expect(source).toContain("PREFERRED_SUPPLIER_RATING_PROMPT");
+      expect(source).toContain("dismissedPreferredSuggestionFor");
+      expect(source).toContain("Number(ratingValue) >= 4");
+      expect(source).toContain("!matchingContractor.preferred");
+      expect(source).not.toContain("window.confirm");
+      expect(source).not.toContain("best match");
+      expect(source).not.toContain("category match");
+      expect(source).not.toContain("plumbing specialist");
     });
 
     expect(detailsPage).toContain("listRecommendedContractors");
     expect(detailsPage).toContain("setContractorPreferredSupplier");
-    expect(detailsPage).toContain("preferredSuggestion.name");
-    expect(detailsPage).toContain("Mark preferred");
-    expect(detailsPage).not.toContain("window.confirm");
+    expect(detailsPage).toContain("Mark as preferred");
+    expect(detailsPage).toContain("Not now");
+    expect(detailsPage).toContain("No recommended contractors yet.");
     expect(drawer).toContain("listRecommendedContractors");
-    expect(drawer).toContain("Recommended from this account");
+    expect(drawer).toContain("Recommended contractors");
     expect(drawer).toContain("Preferred");
     expect(drawer).toContain("averageRating");
+    expect(drawer).toContain("RECOMMENDED_CONTRACTORS_HELPER_COPY");
+    expect(drawer).toContain("No recommended contractors yet.");
     expect(workOrdersSection).toContain("setContractorPreferredSupplier");
-    expect(workOrdersSection).toContain("preferredSuggestion.name");
-    expect(workOrdersSection).toContain("Mark preferred");
-    expect(workOrdersSection).not.toContain("window.confirm");
+    expect(workOrdersSection).toContain("Mark as preferred");
+    expect(workOrdersSection).toContain("Not now");
+    expect(workOrdersSection).toContain("No recommended contractors yet.");
+
+    expect(maintenanceInbox).toContain("PREFERRED_SUPPLIERS_LAUNCH_CARD");
+    expect(maintenanceInbox).toContain("tenaqo:preferred-suppliers-launch-card-dismissed");
+    expect(maintenanceInbox).toContain("to=\"/invitations\"");
+    expect(marketingFeature).toContain("Build your trusted contractor list");
+    expect(marketingFeature).toContain("Invite your own contractors, request quotes, track work orders, and rate completed jobs.");
+    expect(marketingHub).toContain("Invite contractors into a secure portal.");
+    expect(marketingHub).toContain("Keep contractor intelligence private to your account.");
   });
 });

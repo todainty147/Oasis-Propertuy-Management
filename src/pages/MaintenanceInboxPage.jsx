@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { useAccount } from "../context/AccountContext";
 import Skeleton from "../components/ui/Skeleton";
@@ -11,9 +11,11 @@ import { createWorkOrder } from "../services/workOrderService";
 import { useI18n } from "../context/I18nContext";
 import { isManageRole } from "../utils/permissions";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
+import { PREFERRED_SUPPLIERS_LAUNCH_CARD } from "../services/contractorDirectoryService";
 
 const STATUS_ORDER = ["open", "in_progress", "waiting", "resolved", "closed"];
 const AGE_BUCKETS = new Set(["0_24", "24_48", "48_72", "72_plus"]);
+const PREFERRED_SUPPLIERS_LAUNCH_DISMISSED_KEY = "tenaqo:preferred-suppliers-launch-card-dismissed";
 
 function timestampForNote() {
   return new Date().toLocaleString();
@@ -57,6 +59,10 @@ export default function MaintenanceInboxPage() {
   const [waitingRequest, setWaitingRequest] = useState(null);
   const [waitingReason, setWaitingReason] = useState("");
   const [waitingSaving, setWaitingSaving] = useState(false);
+  const [showPreferredSuppliersLaunch, setShowPreferredSuppliersLaunch] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem(PREFERRED_SUPPLIERS_LAUNCH_DISMISSED_KEY) !== "true";
+  });
 
   const statusFilterValues = useMemo(() => {
     const raw = String(searchParams.get("status") || "").toLowerCase().trim();
@@ -179,6 +185,13 @@ export default function MaintenanceInboxPage() {
   useEffect(() => {
     setPage(1);
   }, [activeAccountId]);
+
+  function dismissPreferredSuppliersLaunch() {
+    setShowPreferredSuppliersLaunch(false);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(PREFERRED_SUPPLIERS_LAUNCH_DISMISSED_KEY, "true");
+    }
+  }
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -348,6 +361,32 @@ export default function MaintenanceInboxPage() {
   return (
     <div className="space-y-3">
       <DashboardBreadcrumbs items={[{ label: t("maintenance.inbox.title") }]} />
+
+      {showPreferredSuppliersLaunch ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-emerald-950">{PREFERRED_SUPPLIERS_LAUNCH_CARD.title}</h3>
+              <p className="mt-1 text-xs leading-5 text-emerald-900">{PREFERRED_SUPPLIERS_LAUNCH_CARD.body}</p>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <Link
+                to="/invitations"
+                className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-800"
+              >
+                {PREFERRED_SUPPLIERS_LAUNCH_CARD.cta}
+              </Link>
+              <button
+                type="button"
+                onClick={dismissPreferredSuppliersLaunch}
+                className="rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs font-medium text-emerald-800 hover:bg-emerald-100"
+              >
+                Not now
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* ── Compact toolbar header ── */}
       <div className="rounded-xl border bg-white px-4 py-3">

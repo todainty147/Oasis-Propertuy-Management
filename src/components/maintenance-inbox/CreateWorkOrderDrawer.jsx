@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { useI18n } from "../../context/I18nContext";
 import { getContractorRecommendation } from "../../services/contractorRecommendationService";
-import { contractorBadgeLabels, listRecommendedContractors } from "../../services/contractorDirectoryService";
+import {
+  RECOMMENDED_CONTRACTORS_HELPER_COPY,
+  TRUSTED_CONTRACTORS_INTRO_COPY,
+  contractorBadgeLabels,
+  contractorHistoryState,
+  contractorPerformanceLines,
+  listRecommendedContractors,
+} from "../../services/contractorDirectoryService";
 import { formatAttentionInsightTimestamp } from "../../services/attentionInsightService";
 
 function toIsoOrNull(v) {
@@ -272,10 +279,14 @@ export default function CreateWorkOrderDrawer({
 
           <div>
             <label className="text-xs text-slate-500">{t("maintenance.drawer.contractorFromList")}</label>
+            <p className="mt-1 text-xs leading-5 text-slate-500">{TRUSTED_CONTRACTORS_INTRO_COPY}</p>
             {supplierRecommendations.length > 0 ? (
               <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Recommended from this account
+                  Recommended contractors
+                </p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">
+                  {RECOMMENDED_CONTRACTORS_HELPER_COPY}
                 </p>
                 <div className="mt-2 grid gap-2">
                   {supplierRecommendations.map((contractor) => (
@@ -285,15 +296,26 @@ export default function CreateWorkOrderDrawer({
                       onClick={() => setContractorId(contractor.id)}
                       className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-left text-xs hover:bg-slate-50"
                     >
-                      <span className="font-medium text-slate-900">{contractor.name}</span>
-                      <span className="ml-2 text-slate-500">
-                        {contractorBadgeLabels(contractor).join(" • ") || "Active contractor"}
+                      <span className="block font-medium text-slate-900">{contractor.name}</span>
+                      <span className="mt-1 flex flex-wrap gap-1">
+                        {(contractorBadgeLabels(contractor).length > 0 ? contractorBadgeLabels(contractor) : ["Active contractor"]).map((label) => (
+                          <span key={label} className="rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                            {label}
+                          </span>
+                        ))}
+                      </span>
+                      <span className="mt-1 block text-[11px] leading-4 text-slate-500">
+                        {contractorPerformanceLines(contractor).slice(0, 3).join(" • ") || contractorHistoryState(contractor)}
                       </span>
                     </button>
                   ))}
                 </div>
               </div>
-            ) : null}
+            ) : (
+              <p className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
+                No recommended contractors yet. Active contractors are still available below, and recommendations will appear after completed jobs and ratings.
+              </p>
+            )}
             <select
               value={contractorId}
               onChange={(e) => setContractorId(e.target.value)}

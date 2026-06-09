@@ -60,6 +60,10 @@ export const maintenanceManagementContent = {
         body: "When a contractor submits the next step, landlords can review and approve it with the job context already in front of them.",
       },
       {
+        title: "Build your trusted contractor list",
+        body: "Invite your own contractors, request quotes, track work orders, and rate completed jobs. Tenaqo helps you surface preferred suppliers when new maintenance issues come in, so you can act faster with people you already trust.",
+      },
+      {
         title: "See bottlenecks early",
         body: "Spot overdue actions, unassigned work, stalled repairs, and slow response loops before they become bigger tenant issues.",
       },
@@ -103,7 +107,7 @@ export const maintenanceManagementContent = {
       },
       {
         title: "Clearer contractor coordination",
-        body: "Keep assignments, timelines, updates, and quote decisions easier to follow across each repair.",
+        body: "Keep assignments, timelines, updates, quote decisions, and preferred suppliers easier to follow across each repair.",
       },
       {
         title: "Fewer overlooked issues",
