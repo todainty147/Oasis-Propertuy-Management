@@ -3754,7 +3754,7 @@ export const messages = {
     "maintenance.drawer.ai.title": "Contractor recommendation",
     "maintenance.drawer.ai.subtitle": "This suggestion is grounded in active contractors and the account's work-order history.",
     "maintenance.drawer.ai.summary": "Best fit",
-    "maintenance.drawer.ai.facts": "Facts used for the recommendation",
+    "maintenance.drawer.ai.facts": "What this is based on",
     "maintenance.drawer.ai.alternatives": "Alternatives",
     "maintenance.drawer.ai.refresh": "Refresh recommendation",
     "maintenance.drawer.ai.source.openai": "AI",

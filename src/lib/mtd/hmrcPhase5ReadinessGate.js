@@ -87,6 +87,7 @@ export const HMRC_PHASE_5D_PRE_RUN_CHECKLIST_ITEMS = Object.freeze([
   "consentHashesValid",
   "phase5bPilotGuardPasses",
   "phase5cDryRunPassedForSameAccountDraftConsent",
+  "pilotHmrcAccountMfaReady",
   "supportRunbookReviewed",
   "rollbackKillSwitchTested",
   "hmrcLiveCredentialsServerSideOnly",

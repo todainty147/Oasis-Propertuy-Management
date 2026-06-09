@@ -204,9 +204,8 @@ export function buildContractorRecommendationPrompt(input: ContractorRecommendat
         alias: aliasForId("contractor", contractor.id || contractor.userId || contractor.name || contractor.email),
       })),
       contractorHistory: (input.history || []).slice(0, 80).map((row) => ({
-        contractorUserId: row.contractorUserId || null,
-        contractorAlias: row.contractorName ? aliasForId("contractor", row.contractorUserId || row.contractorName) : null,
-        propertyId: row.propertyId || null,
+        contractorAlias: aliasForId("contractor", row.contractorUserId || row.contractorName || "contractor"),
+        propertyAlias: aliasForId("property", row.propertyId || input.request?.propertyId || "property"),
         status: row.status || "",
         quoteAmount: Number(row.quoteAmount || 0),
         invoiceAmount: Number(row.invoiceAmount || 0),

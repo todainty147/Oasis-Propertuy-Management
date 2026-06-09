@@ -103,7 +103,7 @@ test("owner can move from AI triage guidance into contractor recommendation", as
     const recommendation = drawer.getByTestId("contractor-recommendation-card");
     await expect(recommendation).toBeVisible({ timeout: 30000 });
     await expect(recommendation).toContainText(/Contractor recommendation|Rekomendacja wykonawcy|Dienstleisterempfehlung/i);
-    await expect(recommendation.getByText(/Facts used for the recommendation|Fakty użyte do rekomendacji|Datengrundlage für die Empfehlung/i)).toBeVisible();
+    await expect(recommendation.getByText(/What this is based on|Fakty użyte do rekomendacji|Datengrundlage für die Empfehlung/i)).toBeVisible();
   } finally {
     await admin.from("work_orders").delete().eq("maintenance_request_id", requestId);
     await admin.from("maintenance_requests").delete().eq("id", requestId);

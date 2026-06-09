@@ -321,6 +321,17 @@ describe("HMRC Phase 5 readiness gate", () => {
     expect(result.realLiveMissing).toEqual(["operatorPreRunChecklistComplete"]);
   });
 
+  it("keeps real live-network attempt false until the pilot HMRC account can complete agent MFA", () => {
+    const allPassing = completeOneAccountLiveEvidence({
+      preRunChecklist: completePreRunChecklist({ pilotHmrcAccountMfaReady: false }),
+    });
+    const result = evaluateHmrcPhase5DReadinessGate(allPassing);
+
+    expect(HMRC_PHASE_5D_PRE_RUN_CHECKLIST_ITEMS).toContain("pilotHmrcAccountMfaReady");
+    expect(result.READY_FOR_REAL_LIVE_NETWORK_ATTEMPT).toBe(false);
+    expect(result.realLiveMissing).toEqual(["operatorPreRunChecklistComplete"]);
+  });
+
   it("keeps real live-network attempt false when waiver matrix is not accepted", () => {
     const allPassing = completeOneAccountLiveEvidence();
     const result = evaluateHmrcPhase5DReadinessGate({ ...allPassing, waiverMatrixAccepted: false });

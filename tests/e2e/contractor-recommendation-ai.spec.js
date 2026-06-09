@@ -35,5 +35,5 @@ test("owner sees contractor recommendation guidance in the create work order dra
   await expect(card).toBeVisible();
   await expect(card).toContainText(/Contractor recommendation|Rekomendacja wykonawcy|Dienstleisterempfehlung/i);
   await expect(card.getByRole("button", { name: /Refresh recommendation|Odśwież rekomendację|Empfehlung aktualisieren/i })).toBeVisible();
-  await expect(card.getByText(/Facts used for the recommendation|Fakty użyte do rekomendacji|Datengrundlage für die Empfehlung/i)).toBeVisible();
+  await expect(card.getByText(/What this is based on|Fakty użyte do rekomendacji|Datengrundlage für die Empfehlung/i)).toBeVisible();
 });

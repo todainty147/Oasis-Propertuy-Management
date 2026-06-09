@@ -132,6 +132,14 @@ Live HMRC submission is only available through a controlled pilot when explicitl
 - Do not say: token values or secrets.
 - Escalate when: token refresh fails repeatedly for an approved pilot account.
 
+## agent MFA required during reconnect/sign-in
+
+- User sees: HMRC Government Gateway asks for a one-time access code during reconnect, refresh, or pilot sign-in preparation.
+- Check: whether the HMRC account is an agent services account or HMRC online services for agents account, whether MFA has already been activated, and whether the pilot operator/account holder can receive the code by authenticator app, SMS, or voice call.
+- Safe response: “HMRC may require agent accounts to complete multi-factor authentication during sign-in. Complete the HMRC MFA step in the browser, then return to Tenaqo to continue reconnect or pilot preparation.”
+- Do not say: Tenaqo can bypass HMRC MFA, receive the one-time code, or change the HMRC 18-month authorisation journey.
+- Escalate when: an approved live pilot account cannot complete MFA before dry run or live-network approval.
+
 ## live HMRC connection missing
 
 - User sees: live connection required.
