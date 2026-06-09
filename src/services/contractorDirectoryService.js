@@ -1,6 +1,37 @@
 import { supabase } from "../lib/supabase";
 import { parseContractorDirectoryRow, parseRpcRows } from "./rpcContracts";
 
+export const TRUSTED_CONTRACTORS_INTRO_COPY =
+  "Keep track of the contractors you trust. Invite contractors, request quotes, rate completed work, and mark your preferred suppliers for faster assignment next time.";
+
+export const RECOMMENDED_CONTRACTORS_HELPER_COPY =
+  "Recommendations are based only on your account's contractor history, ratings, and completed work.";
+
+export const PREFERRED_SUPPLIER_RATING_PROMPT =
+  "Looks like this contractor did a good job. Mark them as a preferred supplier so they are easier to find next time?";
+
+export const PREFERRED_SUPPLIERS_LAUNCH_CARD = {
+  title: "New: Preferred Suppliers",
+  body:
+    "Tenaqo now helps you build a trusted contractor list from completed jobs, ratings, and work history. Mark reliable contractors as preferred and see them first when assigning future work.",
+  cta: "View contractors",
+};
+
+export const TRUSTED_CONTRACTORS_MARKETING_COPY = {
+  title: "Build your trusted contractor list",
+  body:
+    "Invite your own contractors, request quotes, track work orders, and rate completed jobs. Tenaqo helps you surface preferred suppliers when new maintenance issues come in, so you can act faster with people you already trust.",
+  bullets: [
+    "Invite contractors into a secure portal",
+    "Request and compare quotes",
+    "Track work from assignment to completion",
+    "Rate completed jobs",
+    "Mark reliable contractors as preferred",
+    "See trusted contractors first when assigning future work",
+    "Keep contractor intelligence private to your account",
+  ],
+};
+
 function normalizePerformanceRow(row = {}) {
   return {
     id: row.contractor_id || row.id,
@@ -40,6 +71,43 @@ export function contractorBadgeLabels(contractor = {}) {
   if (Number.isFinite(lastUsedAt) && lastUsedAt >= recentCutoff) labels.push("Recently used");
   if (contractor.usedAtProperty) labels.push("Used at this property");
   return labels;
+}
+
+export function contractorHistoryState(contractor = {}) {
+  if (Number(contractor.jobsCompleted || 0) <= 0) {
+    return "No completed jobs yet. This contractor's performance history will appear here after they complete work orders.";
+  }
+  if (!contractor.user_id && Number(contractor.jobsAssigned || 0) > 0) {
+    return "Limited history available. This contractor may have been added manually before portal tracking was available.";
+  }
+  return "";
+}
+
+export function contractorPerformanceLines(contractor = {}) {
+  const lines = [
+    Number(contractor.jobsCompleted || 0) > 0
+      ? `${Number(contractor.jobsCompleted || 0)} jobs completed`
+      : null,
+    Number(contractor.quotesSubmitted || 0) > 0
+      ? `${Number(contractor.quotesSubmitted || 0)} quotes submitted`
+      : null,
+    Number(contractor.quotesApproved || 0) > 0
+      ? `${Number(contractor.quotesApproved || 0)} quotes approved`
+      : null,
+  ].filter(Boolean);
+
+  if (contractor.averageRating != null) {
+    lines.push(`${Number(contractor.averageRating).toFixed(1)} average rating`);
+  }
+  if (contractor.lastUsedAt) {
+    const date = new Date(contractor.lastUsedAt);
+    if (!Number.isNaN(date.getTime())) lines.push(`Last used ${date.toLocaleDateString()}`);
+  }
+  if (contractor.wouldUseAgainScore != null) {
+    lines.push(`${Math.round(Number(contractor.wouldUseAgainScore || 0) * 100)}% would use again`);
+  }
+
+  return lines;
 }
 
 export async function listActiveContractors(accountId) {
