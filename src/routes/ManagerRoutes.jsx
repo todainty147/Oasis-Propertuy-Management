@@ -68,6 +68,7 @@ const PlAdvancedPage              = lazy(() => import("../pages/compliance/PlAdv
 const RentPlansPage               = lazy(() => import("../pages/RentPlansPage"));
 const AddPropertyModal            = lazy(() => import("../components/AddPropertyModal"));
 const OperatingCalendarPage       = lazy(() => import("../pages/OperatingCalendarPage"));
+const ContractorsPage             = lazy(() => import("../pages/ContractorsPage"));
 const ContractorPortal            = lazy(() => import("../pages/ContractorPortal"));
 const ContractorJobDetails        = lazy(() => import("../pages/ContractorJobDetails"));
 const WorkOrderDetails            = lazy(() => import("../pages/WorkOrderDetails"));
@@ -397,6 +398,10 @@ export default function ManagerRoutes() {
       />
 
       <Route path="maintenance-inbox" element={<MaintenanceInboxPage />} />
+      <Route
+        path="contractors"
+        element={contractorRole ? <Navigate to="/contractor" replace /> : <ContractorsPage />}
+      />
 
       <Route
         path="applications"

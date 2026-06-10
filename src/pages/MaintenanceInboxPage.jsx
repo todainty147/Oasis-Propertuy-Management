@@ -193,6 +193,8 @@ export default function MaintenanceInboxPage() {
     }
   }
 
+  const preferredSuppliersCtaPath = contractors.length > 0 ? "/contractors" : "/invitations";
+
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
@@ -371,7 +373,7 @@ export default function MaintenanceInboxPage() {
             </div>
             <div className="flex shrink-0 flex-wrap gap-2">
               <Link
-                to="/invitations"
+                to={preferredSuppliersCtaPath}
                 className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-800"
               >
                 {PREFERRED_SUPPLIERS_LAUNCH_CARD.cta}
