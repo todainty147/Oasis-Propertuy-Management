@@ -100,9 +100,13 @@ describe("HMRC MTD Phase 5D one-account live pilot contracts", () => {
   it("updates the readiness gate while keeping general live submission false", () => {
     const gate = read("src/lib/mtd/hmrcPhase5ReadinessGate.js");
     const cli = read("scripts/hmrcPhase5ReadinessGate.mjs");
+    const operatorRunbook = read("docs/release/hmrc-phase5d-operator-live-pilot-runbook.md");
+    const preRunChecklist = read("docs/release/hmrc-phase5d-live-pilot-pre-run-checklist.md");
+    const supportRunbook = read("docs/support/hmrc-submission-support-runbook.md");
 
     expect(gate).toContain("HMRC_PHASE_5D_PILOT_READINESS_REQUIREMENTS");
     expect(gate).toContain("HMRC_REAL_LIVE_NETWORK_ATTEMPT_REQUIREMENTS");
+    expect(gate).toContain("pilotHmrcAccountMfaReady");
     expect(gate).toContain("READY_FOR_PHASE_5D_PILOT");
     expect(gate).toContain("READY_FOR_REAL_LIVE_NETWORK_ATTEMPT");
     expect(gate).toContain("READY_FOR_GENERAL_LIVE_SUBMISSION: false");
@@ -111,5 +115,9 @@ describe("HMRC MTD Phase 5D one-account live pilot contracts", () => {
     expect(cli).toContain("READY_FOR_PHASE_5D_PILOT");
     expect(cli).toContain("READY_FOR_REAL_LIVE_NETWORK_ATTEMPT");
     expect(cli).toContain("READY_FOR_GENERAL_LIVE_SUBMISSION");
+    expect(operatorRunbook).toContain("Pilot HMRC account can complete agent MFA");
+    expect(preRunChecklist).toContain("Pilot HMRC account can complete agent MFA");
+    expect(supportRunbook).toContain("agent MFA required during reconnect/sign-in");
+    expect(supportRunbook).toContain("Tenaqo can bypass HMRC MFA");
   });
 });

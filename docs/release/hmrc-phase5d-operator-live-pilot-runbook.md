@@ -42,6 +42,7 @@ Complete every item before enabling any live-network flag.
 - [ ] Consent belongs to the same account, draft, and user.
 - [ ] Phase 5B pilot guard passes.
 - [ ] Phase 5C dry-run passed for the same account, draft, and consent.
+- [ ] Pilot HMRC account can complete agent MFA, if HMRC prompts for a one-time access code during reconnect or sign-in.
 - [ ] Duplicate live submission guard returns clear.
 - [ ] Support runbook reviewed.
 - [ ] Rollback/kill switch procedure verified.

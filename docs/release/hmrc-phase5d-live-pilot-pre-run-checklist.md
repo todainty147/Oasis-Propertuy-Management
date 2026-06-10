@@ -16,6 +16,7 @@ This checklist is for the one-account Phase 5D live network pilot only. It does 
 - [x] Consent hashes valid.
 - [x] Phase 5B pilot guard passes.
 - [x] Phase 5C dry-run passed for same account/draft/consent.
+- [x] Pilot HMRC account can complete agent MFA if HMRC prompts for a one-time access code.
 - [x] Support runbook reviewed.
 - [x] Rollback/kill switch tested.
 - [x] HMRC live credentials verified server-side only.
