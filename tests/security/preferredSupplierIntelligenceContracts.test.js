@@ -191,6 +191,8 @@ describe("preferred supplier intelligence contracts", () => {
     expect(maintenanceInbox).toContain('contractors.length > 0 ? "/contractors" : "/invitations"');
     expect(maintenanceInbox).toContain("to={preferredSuppliersCtaPath}");
     expect(managerRoutes).toContain('path="contractors"');
+    expect(read("src/layout/Sidebar.jsx")).toContain('to="/contractors"');
+    expect(read("src/layout/Sidebar.jsx")).toContain('label={t("sidebar.contractors")}');
     expect(contractorsPage).toContain("listContractorPerformanceSummary");
     expect(contractorsPage).toContain("TRUSTED_CONTRACTORS_INTRO_COPY");
     expect(contractorsPage).toContain("Active contractors");
