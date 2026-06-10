@@ -129,6 +129,8 @@ describe("preferred supplier intelligence contracts", () => {
     const drawer = read("src/components/maintenance-inbox/CreateWorkOrderDrawer.jsx");
     const workOrdersSection = read("src/components/WorkOrdersSection.jsx");
     const maintenanceInbox = read("src/pages/MaintenanceInboxPage.jsx");
+    const contractorsPage = read("src/pages/ContractorsPage.jsx");
+    const managerRoutes = read("src/routes/ManagerRoutes.jsx");
     const marketingFeature = read("marketing-site/content/features/maintenance-management.ts");
     const marketingHub = read("marketing-site/content/features-page.ts");
 
@@ -186,7 +188,14 @@ describe("preferred supplier intelligence contracts", () => {
 
     expect(maintenanceInbox).toContain("PREFERRED_SUPPLIERS_LAUNCH_CARD");
     expect(maintenanceInbox).toContain("tenaqo:preferred-suppliers-launch-card-dismissed");
-    expect(maintenanceInbox).toContain("to=\"/invitations\"");
+    expect(maintenanceInbox).toContain('contractors.length > 0 ? "/contractors" : "/invitations"');
+    expect(maintenanceInbox).toContain("to={preferredSuppliersCtaPath}");
+    expect(managerRoutes).toContain('path="contractors"');
+    expect(contractorsPage).toContain("listContractorPerformanceSummary");
+    expect(contractorsPage).toContain("TRUSTED_CONTRACTORS_INTRO_COPY");
+    expect(contractorsPage).toContain("Active contractors");
+    expect(contractorsPage).toContain("Preferred suppliers");
+    expect(contractorsPage).toContain("Invite contractor");
     expect(marketingFeature).toContain("Build your trusted contractor list");
     expect(marketingFeature).toContain("Invite your own contractors, request quotes, track work orders, and rate completed jobs.");
     expect(marketingHub).toContain("Invite contractors into a secure portal.");
