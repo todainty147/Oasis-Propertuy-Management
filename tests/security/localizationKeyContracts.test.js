@@ -110,6 +110,7 @@ const CRITICAL_KEYS = [
   "sidebar.finance",
   "sidebar.documents",
   "sidebar.maintenanceInbox",
+  "sidebar.contractors",
   "sidebar.billing",
   // Finance tabs
   "finance.tab.overview",

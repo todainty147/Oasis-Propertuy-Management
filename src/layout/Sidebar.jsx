@@ -500,6 +500,7 @@ function SidebarContent({ onNavigate }) {
                 onToggle={() => setOperationsOpen((v) => !v)}
               >
                 <Item to="/maintenance-inbox" icon={Wrench}       label={t("sidebar.maintenanceInbox")} onNavigate={onNavigate} />
+                <Item to="/contractors"       icon={Users}        label={t("sidebar.contractors")}      onNavigate={onNavigate} />
                 <Item to="/operating-calendar" icon={CalendarDays} label="Operating Calendar"            onNavigate={onNavigate} />
                 {hasEntitlement(ENTITLEMENT_FEATURES.COMMAND_CENTER) && (
                   <Item to="/command-center"  icon={AlertCircle}  label={t("sidebar.commandCenter")}   onNavigate={onNavigate} />
