@@ -95,7 +95,8 @@ describe("HMRC MTD Phase 5A readiness contracts", () => {
     const sandboxFunction = read("supabase/functions/hmrc-submit-uk-property-period-summary-sandbox/index.ts");
 
     expect(phase3).toContain("mtd_quarterly_update_audit_events");
-    expect(phase3).toContain("using (public.user_can_manage_account(account_id) and public.account_has_feature(account_id, 'hmrc_mtd_quarterly_draft_builder'))");
+    expect(phase3).toContain("using (public.user_can_manage_account(account_id))");
+    expect(phase3).not.toContain("public.user_can_manage_account(account_id) and public.account_has_feature(account_id, 'hmrc_mtd_quarterly_draft_builder')");
     expect(phase4).toContain("mtd_quarterly_submission_events");
     expect(phase4).toContain("revoke all on public.mtd_quarterly_submission_events from anon, authenticated");
     expect(phase4).toContain("grant select on public.mtd_quarterly_submission_events to authenticated");
@@ -277,7 +278,8 @@ describe("HMRC Phase 5A consent framework contracts", () => {
     expect(sql).toContain("revoke execute on function public.assert_hmrc_live_submission_consent(uuid, uuid, uuid) from authenticated");
     expect(sql).toContain("grant execute on function public.assert_hmrc_live_submission_consent(uuid, uuid, uuid) to service_role");
     expect(sql).toContain("public.user_can_manage_account(account_id)");
-    expect(sql).toContain("public.account_has_feature(account_id, 'hmrc_mtd_quarterly_draft_builder')");
+    expect(sql).toContain("public.user_can_manage_account(account_id)");
+    expect(sql).not.toContain("public.account_has_feature(account_id, 'hmrc_mtd_quarterly_draft_builder')");
     expect(sql).not.toMatch(/grant\s+(insert|update|delete).*hmrc_live_submission_consents.*authenticated/i);
   });
 

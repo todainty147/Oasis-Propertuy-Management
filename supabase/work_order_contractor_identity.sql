@@ -39,7 +39,10 @@ where wo.contractor_id is null
 drop view if exists public.work_orders_pending_cancellation;
 drop view if exists public.work_orders_with_flags;
 
-create view public.work_orders_with_flags as
+-- Browser-facing work-order views must execute as the querying role so the
+-- underlying work_orders and audit-log RLS policies remain effective.
+create view public.work_orders_with_flags
+with (security_invoker = true) as
 with last_req as (
   select distinct on (al.work_order_id)
     al.work_order_id,
@@ -97,11 +100,13 @@ left join last_req lr on lr.work_order_id = wo.id
 left join last_res ls on ls.work_order_id = wo.id;
 
 alter view public.work_orders_with_flags owner to postgres;
-grant select on public.work_orders_with_flags to anon;
+alter view public.work_orders_with_flags set (security_invoker = true);
+revoke all on public.work_orders_with_flags from anon;
 grant select on public.work_orders_with_flags to authenticated;
 grant all on public.work_orders_with_flags to service_role;
 
-create view public.work_orders_pending_cancellation as
+create view public.work_orders_pending_cancellation
+with (security_invoker = true) as
 select
   id,
   account_id,
@@ -129,7 +134,8 @@ from public.work_orders_with_flags
 where pending_cancel_request = true;
 
 alter view public.work_orders_pending_cancellation owner to postgres;
-grant select on public.work_orders_pending_cancellation to anon;
+alter view public.work_orders_pending_cancellation set (security_invoker = true);
+revoke all on public.work_orders_pending_cancellation from anon;
 grant select on public.work_orders_pending_cancellation to authenticated;
 grant all on public.work_orders_pending_cancellation to service_role;
 

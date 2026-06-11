@@ -71,7 +71,6 @@ Deno.serve(async (req) => {
       "hmrc_mtd_connection",
       "hmrc_mtd_sandbox",
       "hmrc_mtd_read_only",
-      "hmrc_mtd_quarterly_draft_builder",
       "hmrc_mtd_sandbox_submission",
     ]);
     await assertLiveSubmissionFlagOff(accountId);

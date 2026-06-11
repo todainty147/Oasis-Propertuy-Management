@@ -147,10 +147,6 @@ begin
     raise exception 'not_permitted';
   end if;
 
-  if not public.account_has_feature(p_account_id, 'hmrc_mtd_quarterly_draft_builder') then
-    raise exception 'hmrc_quarterly_drafts_not_enabled';
-  end if;
-
   if p_checkbox_confirmed is distinct from true then
     raise exception 'checkbox_confirmed_required';
   end if;
@@ -329,7 +325,6 @@ create policy "Managers can read HMRC live submission consents"
   to authenticated
   using (
     public.user_can_manage_account(account_id)
-    and public.account_has_feature(account_id, 'hmrc_mtd_quarterly_draft_builder')
   );
 
 grant select on public.hmrc_live_submission_consents to authenticated;
