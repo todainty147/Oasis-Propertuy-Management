@@ -12,10 +12,8 @@ import {
   X,
 } from "lucide-react";
 
-import RiskProtectionSummary from "../../components/risk/RiskProtectionSummary";
 import { useAccount } from "../../context/AccountContext";
 import { ENTITLEMENT_FEATURES } from "../../lib/entitlements";
-import { getRiskProtectionSummary } from "../../lib/riskProtectionSummary";
 import {
   calculateComplianceRating,
   COMPLIANCE_SAFE_STATUS_LABELS,
@@ -297,7 +295,6 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
   const [checklistForm, setChecklistForm] = useState({ propertyId: "", tenantId: "", templateId: "" });
   const [documents, setDocuments] = useState([]);
   const [reports, setReports] = useState([]);
-  const [summaryReports, setSummaryReports] = useState([]);
   const [selectedItemId, setSelectedItemId] = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedItemLoading, setSelectedItemLoading] = useState(false);
@@ -314,15 +311,11 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
     try {
       setLoading(true);
       setError("");
-      const [nextItems, nextReports] = await Promise.all([
-        listComplianceSafeItems(activeAccountId, {
-          propertyId: filters.propertyId,
-          tenantId: filters.tenantId,
-        }),
-        listInspectionReports(activeAccountId),
-      ]);
+      const nextItems = await listComplianceSafeItems(activeAccountId, {
+        propertyId: filters.propertyId,
+        tenantId: filters.tenantId,
+      });
       setItems(nextItems);
-      setSummaryReports(nextReports);
     } catch (err) {
       setError(err?.message || "Could not load Compliance Safe records.");
     } finally {
@@ -398,10 +391,6 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
     [filters.status, items],
   );
   const rating = useMemo(() => calculateComplianceRating(items), [items]);
-  const riskSummary = useMemo(
-    () => getRiskProtectionSummary({ complianceItems: items, evidenceReports: summaryReports }),
-    [items, summaryReports],
-  );
 
   async function refreshAfterAction(itemId = selectedItemId) {
     await load();
@@ -484,8 +473,6 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
         <div className={panelClass()}><p className="text-xs uppercase text-slate-500">Expired</p><p className="mt-2 text-2xl font-semibold">{rating.counts.expired}</p></div>
         <div className={panelClass()}><p className="text-xs uppercase text-slate-500">Needs review</p><p className="mt-2 text-2xl font-semibold">{rating.counts.needs_review}</p></div>
       </div>
-
-      <RiskProtectionSummary summary={riskSummary} complianceRating={rating.rating} />
 
       {hasEntitlement(ENTITLEMENT_FEATURES.ECO_UPGRADE_PLANNER) ? (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">

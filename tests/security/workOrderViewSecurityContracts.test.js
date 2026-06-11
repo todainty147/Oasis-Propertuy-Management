@@ -39,6 +39,19 @@ function grantsSelectToAnon(sql, viewName) {
 }
 
 describe("work-order view security contracts", () => {
+  it("projects contractor identity columns through every work-order view recreation", () => {
+    const sqlFiles = [
+      readSource("supabase/work_order_contractor_identity.sql"),
+      readSource("supabase/migrations/20260526000000_work_orders_with_flags_add_assignment_columns.sql"),
+      readSource("supabase/migrations/20260611002000_restore_work_order_view_contractor_id.sql"),
+    ].map(normalized);
+
+    for (const sql of sqlFiles) {
+      expect(sql).toContain("wo.contractor_id");
+      expect(sql).toContain("contractor_id, contractor_user_id");
+    }
+  });
+
   it("creates work-order browser-facing views with security_invoker in repo SQL", () => {
     const sql = readSource("supabase/work_order_contractor_identity.sql");
 
@@ -51,12 +64,15 @@ describe("work-order view security contracts", () => {
   it("does not recreate work-order views insecurely in timestamped migrations", () => {
     const migrationSql = readSource("supabase/migrations/20260526000000_work_orders_with_flags_add_assignment_columns.sql");
     const hardeningSql = readSource("supabase/migrations/20260611000000_security_harden_work_order_views.sql");
+    const repairSql = readSource("supabase/migrations/20260611002000_restore_work_order_view_contractor_id.sql");
 
     for (const viewName of SENSITIVE_WORK_ORDER_VIEWS) {
       expect(hasSecurityInvoker(migrationSql, viewName), `${viewName} recreate migration must harden immediately`).toBe(true);
       expect(grantsSelectToAnon(migrationSql, viewName), `${viewName} recreate migration must revoke anon`).toBe(false);
       expect(hasSecurityInvoker(hardeningSql, viewName), `${viewName} canonical hardening migration must harden`).toBe(true);
       expect(grantsSelectToAnon(hardeningSql, viewName), `${viewName} canonical hardening migration must not grant anon`).toBe(false);
+      expect(hasSecurityInvoker(repairSql, viewName), `${viewName} repair migration must harden immediately`).toBe(true);
+      expect(grantsSelectToAnon(repairSql, viewName), `${viewName} repair migration must revoke anon`).toBe(false);
     }
   });
 

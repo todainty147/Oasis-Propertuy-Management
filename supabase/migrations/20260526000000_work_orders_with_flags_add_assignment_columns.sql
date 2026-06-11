@@ -31,6 +31,9 @@ BEGIN
     RETURN;
   END IF;
 
+  ALTER TABLE public.work_orders
+    ADD COLUMN IF NOT EXISTS contractor_id uuid;
+
   EXECUTE $view$
     CREATE VIEW public.work_orders_with_flags
     WITH (security_invoker = true) AS
@@ -61,6 +64,7 @@ BEGIN
       wo.account_id,
       wo.property_id,
       wo.maintenance_request_id,
+      wo.contractor_id,
       wo.contractor_user_id,
       wo.contractor_name,
       wo.contractor_phone,
@@ -105,6 +109,7 @@ BEGIN
       account_id,
       property_id,
       maintenance_request_id,
+      contractor_id,
       contractor_user_id,
       contractor_name,
       contractor_phone,
