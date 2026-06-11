@@ -150,7 +150,6 @@ const OVERLAY_SEQUENCE = [
   "rent_reminders_rpc.sql",
   "operating_calendar.sql",
   "data_retention_privacy.sql",
-  "supabase_linter_security_hardening.sql",
   "tax_tools_phase2.sql",
   "legal_security_phase3.sql",
   "compliance_safe_phase2.sql",
@@ -167,6 +166,7 @@ const OVERLAY_SEQUENCE = [
   "hmrc_mtd_phase5b_live_pilot.sql",
   "hmrc_mtd_phase5c_live_endpoint_skeleton.sql",
   "hmrc_mtd_phase5d_one_account_live_pilot.sql",
+  "supabase_linter_security_hardening.sql",
 ];
 
 function resolvePsqlCommand() {

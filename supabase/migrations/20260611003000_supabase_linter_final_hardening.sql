@@ -1,60 +1,23 @@
--- Supabase linter security hardening
+-- Final Supabase linter hardening pass.
 --
--- Addresses the database linter findings that can be remediated safely without
--- changing application RPC contracts:
---   - 0010 security_definer_view
---   - 0011 function_search_path_mutable
---   - 0014 extension_in_public
---   - 0028 accidental anonymous SECURITY DEFINER execution
---   - 0029 direct execution of trigger-only/internal SECURITY DEFINER helpers
+-- This migration is intentionally timestamped after the current feature and
+-- repair migrations so hosted databases receive the same security posture as
+-- the repo overlay in supabase_linter_security_hardening.sql.
 --
--- The 0029 authenticated SECURITY DEFINER warnings need per-RPC review because
--- many client workflows intentionally call authenticated SECURITY DEFINER RPCs
--- that perform their own authorization checks before mutating protected tables.
+-- It remediates:
+--   - function_search_path_mutable
+--   - accidental anon/public execution of SECURITY DEFINER RPCs
+--   - direct browser execution of trigger-only and service-only helpers
+--
+-- It does not blindly revoke authenticated execution from all SECURITY DEFINER
+-- RPCs because many app workflows intentionally use authenticated RPCs with
+-- internal account/role checks.
 
 begin;
 
--- Older hosted databases may still have pg_net in public. The current repo
--- baseline installs it in extensions; relocate only when the installed pg_net
--- extension supports SET SCHEMA so production drift cannot abort the migration.
-create schema if not exists extensions;
-
-do $$
-declare
-  pg_net_can_relocate boolean;
-begin
-  select e.extrelocatable
-    into pg_net_can_relocate
-    from pg_extension e
-    join pg_namespace n on n.oid = e.extnamespace
-    where e.extname = 'pg_net'
-      and n.nspname = 'public';
-
-  if coalesce(pg_net_can_relocate, false) then
-    execute 'alter extension pg_net set schema extensions';
-  elsif pg_net_can_relocate is false then
-    raise notice 'pg_net is installed in public but does not support SET SCHEMA; leaving it in place for a separate production-safe remediation.';
-  end if;
-end;
-$$;
-
--- SECURITY DEFINER views bypass caller RLS. Keep these views in public, but make
--- them execute as the querying role so table policies still apply.
-alter view if exists public.work_orders_pending_cancellation set (security_invoker = true);
-alter view if exists public.tenant_my_issues set (security_invoker = true);
-alter view if exists public.security_definer_audit_view set (security_invoker = true);
-alter view if exists public.work_orders_with_flags set (security_invoker = true);
-
--- The audit view exposes privileged function metadata and is useful for service
--- audits, not for browser-facing clients.
-revoke all on table public.security_definer_audit_view from anon;
-revoke all on table public.security_definer_audit_view from authenticated;
-grant select on table public.security_definer_audit_view to service_role;
-
--- Make function name resolution deterministic for every public function that did
--- not already declare its own search_path. The auth and extensions schemas are
--- kept because existing functions intentionally call auth.uid(), auth.jwt(),
--- gen_random_uuid(), and similar helpers without schema churn.
+-- Make name resolution deterministic for public functions that do not already
+-- pin a search_path. Keep auth/extensions because many helpers intentionally
+-- call auth.uid(), auth.jwt(), gen_random_uuid(), and extension functions.
 do $$
 declare
   fn record;
@@ -78,10 +41,9 @@ begin
 end;
 $$;
 
--- PostgreSQL grants EXECUTE on functions to PUBLIC by default. For SECURITY
--- DEFINER functions that means anon can inherit callable elevated RPCs unless
--- each function revokes it explicitly. Revoke public/anon broadly, then restore
--- only the documented pre-auth rate-limit helper.
+-- PostgreSQL grants EXECUTE on functions to PUBLIC by default. SECURITY DEFINER
+-- functions should not be callable by anonymous users unless explicitly listed
+-- below as public product surfaces.
 do $$
 declare
   fn record;
@@ -99,7 +61,7 @@ begin
 end;
 $$;
 
--- Keep intentionally anonymous RPCs available:
+-- Intentional anonymous RPCs. Keep this list small and documented:
 --   - auth throttling must be callable before sign-in
 --   - public rental application submission is token-gated by p_public_token
 do $$
@@ -116,9 +78,8 @@ begin
 end;
 $$;
 
--- Trigger-only SECURITY DEFINER functions should never be directly callable via
--- /rest/v1/rpc. Revoking direct authenticated execution does not affect trigger
--- firing, but it removes noisy and risky RPC exposure.
+-- Trigger-only helpers are invoked by PostgreSQL triggers, not direct RPC calls.
+-- Revoking browser EXECUTE does not affect trigger firing.
 do $$
 declare
   fn record;
@@ -128,8 +89,6 @@ begin
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
-      and p.prosecdef
-      and p.pronargs = 0
       and (
         p.proname like 'tg\_%' escape '\'
         or p.proname like 'trg\_%' escape '\'
@@ -168,13 +127,16 @@ begin
         )
       )
   loop
+    execute format('revoke execute on function %s from public', fn.signature);
+    execute format('revoke execute on function %s from anon', fn.signature);
     execute format('revoke execute on function %s from authenticated', fn.signature);
   end loop;
 end;
 $$;
 
--- Service/Edge-only helpers should not be callable by browser roles. Edge
--- functions use the service role and triggers do not rely on EXECUTE grants.
+-- Service/Edge-only helpers should stay off browser roles. Root/admin browser
+-- RPCs are intentionally not included here; they keep authenticated EXECUTE and
+-- rely on their own root/account authorization checks.
 do $$
 declare
   fn record;
@@ -184,7 +146,6 @@ begin
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
-      and p.prosecdef
       and p.proname in (
         'cleanup_security_observability_events',
         'cleanup_stale_push_tokens',
@@ -197,6 +158,8 @@ begin
         'sandbox_exec_if_relation_exists'
       )
   loop
+    execute format('revoke execute on function %s from public', fn.signature);
+    execute format('revoke execute on function %s from anon', fn.signature);
     execute format('revoke execute on function %s from authenticated', fn.signature);
     execute format('grant execute on function %s to service_role', fn.signature);
   end loop;
