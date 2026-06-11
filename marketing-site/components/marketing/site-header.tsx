@@ -126,7 +126,6 @@ export function SiteHeader() {
                   className={`language-switcher__option ${
                     targetLocale === locale ? "language-switcher__option--active" : ""
                   }`}
-                  hrefLang={targetLocale}
                   lang={targetLocale}
                   onClick={closeNav}
                 >

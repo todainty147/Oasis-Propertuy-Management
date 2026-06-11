@@ -5,7 +5,7 @@ export const securityAuditContent = {
     title: "Security Audit Trail for Landlords | Tenaqo",
     description:
       "Review permissions, workflow-sensitive actions, and account-scoped audit trails in Tenaqo.",
-    canonical: "https://marketing.oasisrentalmgt.app/features/security-audit",
+    canonical: `${siteConfig.url}/features/security-audit`,
   },
   hero: {
     eyebrow: "Security and audit",

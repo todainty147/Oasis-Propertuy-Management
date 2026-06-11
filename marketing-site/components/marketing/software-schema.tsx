@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 
+import { siteConfig } from "../../content/site";
 import { getLocaleFromPathname } from "../../lib/i18n";
 
 const descriptions = {
@@ -13,7 +14,7 @@ const descriptions = {
 export function SoftwareSchema() {
   const pathname = usePathname() || "/";
   const locale = getLocaleFromPathname(pathname);
-  const siteUrl = "https://marketing.oasisrentalmgt.app";
+  const siteUrl = siteConfig.url;
 
   const softwareApp = {
     "@context": "https://schema.org",

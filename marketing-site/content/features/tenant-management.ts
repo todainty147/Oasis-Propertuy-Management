@@ -5,7 +5,7 @@ export const tenantManagementContent = {
     title: "Tenant Management and Tenant Portal Software | Tenaqo",
     description:
       "Keep tenant records, tenant portal activity, documents, and rent context organized with Tenaqo tenant management software for landlords.",
-    canonical: "https://marketing.oasisrentalmgt.app/features/tenant-management",
+    canonical: `${siteConfig.url}/features/tenant-management`,
   },
   hero: {
     eyebrow: "Tenant management",

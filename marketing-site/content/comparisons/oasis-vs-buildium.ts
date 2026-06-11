@@ -5,7 +5,7 @@ export const oasisVsBuildiumContent = {
     title: "Tenaqo vs Buildium | Which Is Better for Landlords?",
     description:
       "Compare Tenaqo vs Buildium for landlords choosing between a heavier platform and faster property operations control.",
-    canonical: "https://marketing.oasisrentalmgt.app/compare/oasis-vs-buildium",
+    canonical: `${siteConfig.url}/compare/oasis-vs-buildium`,
   },
   hero: {
     eyebrow: "Comparison",

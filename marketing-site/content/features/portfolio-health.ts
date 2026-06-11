@@ -5,7 +5,7 @@ export const portfolioHealthContent = {
     title: "Portfolio Health Scoring for Landlords | Tenaqo",
     description:
       "Spot arrears pressure, maintenance strain, and property risk earlier with portfolio health scoring in Tenaqo.",
-    canonical: "https://marketing.oasisrentalmgt.app/features/portfolio-health",
+    canonical: `${siteConfig.url}/features/portfolio-health`,
   },
   hero: {
     eyebrow: "Portfolio health",
