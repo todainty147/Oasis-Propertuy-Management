@@ -122,29 +122,29 @@ drop policy if exists "Managers can manage MTD quarterly drafts" on public.mtd_q
 create policy "Managers can manage MTD quarterly drafts"
   on public.mtd_quarterly_update_drafts
   to authenticated
-  using (public.user_can_manage_account(account_id) and public.account_has_feature(account_id, 'hmrc_mtd_quarterly_draft_builder'))
-  with check (public.user_can_manage_account(account_id) and public.account_has_feature(account_id, 'hmrc_mtd_quarterly_draft_builder'));
+  using (public.user_can_manage_account(account_id))
+  with check (public.user_can_manage_account(account_id));
 
 drop policy if exists "Managers can manage MTD quarterly draft lines" on public.mtd_quarterly_update_draft_lines;
 create policy "Managers can manage MTD quarterly draft lines"
   on public.mtd_quarterly_update_draft_lines
   to authenticated
-  using (public.user_can_manage_account(account_id) and public.account_has_feature(account_id, 'hmrc_mtd_quarterly_draft_builder'))
-  with check (public.user_can_manage_account(account_id) and public.account_has_feature(account_id, 'hmrc_mtd_quarterly_draft_builder'));
+  using (public.user_can_manage_account(account_id))
+  with check (public.user_can_manage_account(account_id));
 
 drop policy if exists "Managers can read MTD quarterly draft audit" on public.mtd_quarterly_update_audit_events;
 create policy "Managers can read MTD quarterly draft audit"
   on public.mtd_quarterly_update_audit_events
   for select
   to authenticated
-  using (public.user_can_manage_account(account_id) and public.account_has_feature(account_id, 'hmrc_mtd_quarterly_draft_builder'));
+  using (public.user_can_manage_account(account_id));
 
 drop policy if exists "Managers can insert MTD quarterly draft audit" on public.mtd_quarterly_update_audit_events;
 create policy "Managers can insert MTD quarterly draft audit"
   on public.mtd_quarterly_update_audit_events
   for insert
   to authenticated
-  with check (public.user_can_manage_account(account_id) and public.account_has_feature(account_id, 'hmrc_mtd_quarterly_draft_builder'));
+  with check (public.user_can_manage_account(account_id));
 
 grant select, insert, update, delete on public.mtd_quarterly_update_drafts to authenticated;
 grant select, insert, update, delete on public.mtd_quarterly_update_draft_lines to authenticated;
@@ -169,7 +169,6 @@ as $$
       'hmrc_mtd_sandbox',
       'hmrc_mtd_read_only',
       'hmrc_mtd_sandbox_test_data',
-      'hmrc_mtd_quarterly_draft_builder',
       'hmrc_mtd_sandbox_submission',
       'hmrc_mtd_live_submission'
     ) then exists (
@@ -201,7 +200,6 @@ insert into public.account_feature_flags (account_id, feature_key, enabled, crea
 select a.id, flag.feature_key, false, null
 from public.accounts a
 cross join (values
-  ('hmrc_mtd_quarterly_draft_builder'),
   ('hmrc_mtd_sandbox_submission'),
   ('hmrc_mtd_live_submission')
 ) as flag(feature_key)

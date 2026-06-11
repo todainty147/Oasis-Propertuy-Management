@@ -185,7 +185,6 @@ create policy "Managers can read MTD sandbox submission attempts"
   to authenticated
   using (
     public.user_can_manage_account(account_id)
-    and public.account_has_feature(account_id, 'hmrc_mtd_quarterly_draft_builder')
   );
 
 drop policy if exists "Managers can read MTD sandbox submission events" on public.mtd_quarterly_submission_events;
@@ -195,7 +194,6 @@ create policy "Managers can read MTD sandbox submission events"
   to authenticated
   using (
     public.user_can_manage_account(account_id)
-    and public.account_has_feature(account_id, 'hmrc_mtd_quarterly_draft_builder')
   );
 
 grant select on public.mtd_quarterly_submission_attempts to authenticated;

@@ -21,6 +21,10 @@ CREATE TABLE IF NOT EXISTS public.work_order_audit_log (
   account_id uuid
 );
 
+-- If this fallback table creation path runs in a drifted environment, keep the
+-- audit log protected until the canonical audit policies are applied.
+ALTER TABLE public.work_order_audit_log ENABLE ROW LEVEL SECURITY;
+
 DO $$
 BEGIN
   IF to_regclass('public.work_orders') IS NULL THEN
@@ -28,7 +32,8 @@ BEGIN
   END IF;
 
   EXECUTE $view$
-    CREATE VIEW public.work_orders_with_flags AS
+    CREATE VIEW public.work_orders_with_flags
+    WITH (security_invoker = true) AS
     WITH last_req AS (
       SELECT DISTINCT ON (al.work_order_id)
         al.work_order_id,
@@ -86,13 +91,15 @@ BEGIN
   $view$;
 
   ALTER VIEW public.work_orders_with_flags OWNER TO postgres;
+  ALTER VIEW public.work_orders_with_flags SET (security_invoker = true);
 
-  GRANT SELECT ON public.work_orders_with_flags TO anon;
+  REVOKE ALL ON public.work_orders_with_flags FROM anon;
   GRANT SELECT ON public.work_orders_with_flags TO authenticated;
   GRANT ALL   ON public.work_orders_with_flags TO service_role;
 
   EXECUTE $view$
-    CREATE VIEW public.work_orders_pending_cancellation AS
+    CREATE VIEW public.work_orders_pending_cancellation
+    WITH (security_invoker = true) AS
     SELECT
       id,
       account_id,
@@ -120,8 +127,9 @@ BEGIN
   $view$;
 
   ALTER VIEW public.work_orders_pending_cancellation OWNER TO postgres;
+  ALTER VIEW public.work_orders_pending_cancellation SET (security_invoker = true);
 
-  GRANT SELECT ON public.work_orders_pending_cancellation TO anon;
+  REVOKE ALL ON public.work_orders_pending_cancellation FROM anon;
   GRANT SELECT ON public.work_orders_pending_cancellation TO authenticated;
   GRANT ALL   ON public.work_orders_pending_cancellation TO service_role;
 END;

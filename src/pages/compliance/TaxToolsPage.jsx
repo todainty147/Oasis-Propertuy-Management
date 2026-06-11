@@ -53,7 +53,7 @@ import { listQuarterlyDrafts } from "../../services/mtdQuarterlyDraftService";
 const TABS = [
   { id: "calendar", label: "Tax Calendar", feature: ENTITLEMENT_FEATURES.TAX_READINESS_DASHBOARD, icon: CalendarDays },
   { id: "expenses", label: "MTD Expense Tracker", feature: ENTITLEMENT_FEATURES.MTD_EXPENSE_TRACKER, icon: Receipt },
-  { id: "quarterlyDrafts", label: "Quarterly Drafts", feature: ENTITLEMENT_FEATURES.HMRC_MTD_QUARTERLY_DRAFT_BUILDER, icon: FileCheck2 },
+  { id: "quarterlyDrafts", label: "Quarterly Drafts", icon: FileCheck2 },
   { id: "section24", label: "Section 24 Finance Cost Tracker", feature: ENTITLEMENT_FEATURES.SECTION24_FINANCE_COST_TRACKER, icon: Calculator },
   { id: "carried", label: "Carried-Forward Finance Costs", feature: ENTITLEMENT_FEATURES.CARRIED_FORWARD_FINANCE_COST_TRACKER, icon: FileSpreadsheet },
   { id: "readiness", label: "Digital Record Readiness", feature: ENTITLEMENT_FEATURES.TAX_TOOLS_IN_APP, icon: ShieldCheck },
@@ -739,7 +739,7 @@ export default function TaxToolsPage({ properties = [] }) {
   const [quarterlyDrafts, setQuarterlyDrafts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const quarterlyDraftsEnabled = hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_QUARTERLY_DRAFT_BUILDER);
+  const quarterlyDraftsEnabled = true;
   const sandboxSubmissionEnabled = hasEntitlement(ENTITLEMENT_FEATURES.HMRC_MTD_SANDBOX_SUBMISSION);
   const propertyFinanceSyncEnabled = hasEntitlement(ENTITLEMENT_FEATURES.MTD_PROPERTY_FINANCE_SYNC);
   const livePilotControlsEnabled =
@@ -772,9 +772,7 @@ export default function TaxToolsPage({ properties = [] }) {
         listTaxExpenseClassifications(activeAccountId),
         listTaxFinanceCostSummaries(activeAccountId),
         listTaxCarriedForwardFinanceCosts(activeAccountId),
-        quarterlyDraftsEnabled
-          ? listQuarterlyDrafts({ accountId: activeAccountId })
-          : Promise.resolve([]),
+        listQuarterlyDrafts({ accountId: activeAccountId }),
       ]);
       setExpenses(expenseRows);
       setFinanceRows(financeCostRows);
@@ -785,12 +783,12 @@ export default function TaxToolsPage({ properties = [] }) {
     } finally {
       setLoading(false);
     }
-  }, [activeAccountId, quarterlyDraftsEnabled]);
+  }, [activeAccountId]);
 
   useEffect(() => { loadRecords(); }, [loadRecords]);
 
   const activeMeta = TABS.find((tab) => tab.id === activeTab) || TABS[0];
-  const activeEnabled = hasEntitlement(activeMeta.feature);
+  const activeEnabled = activeMeta.feature ? hasEntitlement(activeMeta.feature) : true;
 
   return (
     <div className="space-y-6">

@@ -7,6 +7,7 @@
     "dev": "node scripts/with-local-node.mjs vite",
     "build": "node scripts/with-local-node.mjs vite build",
     "lint": "node scripts/with-local-node.mjs eslint .",
+    "security:secrets": "node scripts/checkSecrets.mjs",
     "check:edge-functions": "node scripts/with-local-node.mjs node scripts/checkEdgeFunctions.mjs --scope=hmrc",
     "check:edge-functions:all": "node scripts/with-local-node.mjs node scripts/checkEdgeFunctions.mjs --scope=all",
     "preview": "node scripts/with-local-node.mjs vite preview",

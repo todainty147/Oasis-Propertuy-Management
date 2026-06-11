@@ -22772,7 +22772,7 @@ COMMENT ON TABLE "public"."work_order_status_transitions" IS 'Canonical definiti
 
 
 
-CREATE OR REPLACE VIEW "public"."work_orders_with_flags" AS
+CREATE OR REPLACE VIEW "public"."work_orders_with_flags" WITH (security_invoker='true') AS
  WITH "last_req" AS (
          SELECT DISTINCT ON ("al"."work_order_id") "al"."work_order_id",
             "al"."created_at" AS "last_cancel_request_at",
@@ -22822,7 +22822,7 @@ CREATE OR REPLACE VIEW "public"."work_orders_with_flags" AS
 ALTER VIEW "public"."work_orders_with_flags" OWNER TO "postgres";
 
 
-CREATE OR REPLACE VIEW "public"."work_orders_pending_cancellation" AS
+CREATE OR REPLACE VIEW "public"."work_orders_pending_cancellation" WITH (security_invoker='true') AS
  SELECT "id",
     "account_id",
     "property_id",
@@ -29953,14 +29953,12 @@ GRANT ALL ON TABLE "public"."work_order_status_transitions" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."work_orders_with_flags" TO "anon";
-GRANT ALL ON TABLE "public"."work_orders_with_flags" TO "authenticated";
+GRANT SELECT ON TABLE "public"."work_orders_with_flags" TO "authenticated";
 GRANT ALL ON TABLE "public"."work_orders_with_flags" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."work_orders_pending_cancellation" TO "anon";
-GRANT ALL ON TABLE "public"."work_orders_pending_cancellation" TO "authenticated";
+GRANT SELECT ON TABLE "public"."work_orders_pending_cancellation" TO "authenticated";
 GRANT ALL ON TABLE "public"."work_orders_pending_cancellation" TO "service_role";
 
 
