@@ -5,7 +5,7 @@ export const oasisVsTenantCloudContent = {
     title: "Tenaqo vs TenantCloud | Which Is Better for Landlords?",
     description:
       "Compare Tenaqo vs TenantCloud for landlords deciding between a general tool and a more operations-focused workflow.",
-    canonical: "https://marketing.oasisrentalmgt.app/compare/oasis-vs-tenantcloud",
+    canonical: `${siteConfig.url}/compare/oasis-vs-tenantcloud`,
   },
   hero: {
     eyebrow: "Comparison",

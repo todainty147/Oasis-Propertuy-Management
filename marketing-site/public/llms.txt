@@ -1,0 +1,45 @@
+# Tenaqo
+
+> Tenaqo is a rental property operations platform for landlords and property managers, covering maintenance, rent and finance workflows, tenant management, documents, compliance evidence, portfolio health, security audit trails, and AI-assisted operational queues.
+
+## Core Pages
+
+- [Homepage](https://www.tenaqo.com/): Overview of Tenaqo and the landlord operating workflows it supports.
+- [Features](https://www.tenaqo.com/features): Product capabilities across rent, maintenance, documents, compliance, AI, security, tenants, and portfolio health.
+- [Pricing](https://www.tenaqo.com/pricing): Plan and access information.
+- [Tenant Portal Software](https://www.tenaqo.com/tenant-portal-software): Tenant-facing workflows for documents, payments, maintenance, and pending actions.
+- [Property Risk Protection Software](https://www.tenaqo.com/property-risk-protection-software): Compliance, evidence, deposit, and dispute-readiness positioning.
+
+## Feature Pages
+
+- [Command Center](https://www.tenaqo.com/features/command-center): Portfolio action queues and operational briefing.
+- [Maintenance Management](https://www.tenaqo.com/features/maintenance-management): Maintenance requests, work orders, contractor assignment, and follow-up.
+- [Rental Accounting](https://www.tenaqo.com/features/rental-accounting): Rent plans, expected charges, payments, deposits, and finance workflows.
+- [Compliance](https://www.tenaqo.com/features/compliance): Compliance Safe, document evidence, tenant acknowledgements, and related compliance tools.
+- [Portfolio Health](https://www.tenaqo.com/features/portfolio-health): Property health scoring and portfolio-level risk signals.
+- [Security Audit](https://www.tenaqo.com/features/security-audit): Security audit trails, account controls, and observability.
+- [Tenant Management](https://www.tenaqo.com/features/tenant-management): Tenant records, leases, communication context, and operational history.
+- [Tenant Portal](https://www.tenaqo.com/features/tenant-portal): Tenant portal product details.
+
+## Tools and Comparisons
+
+- [Landlord Tools](https://www.tenaqo.com/landlord-tools): Free landlord calculators and readiness tools.
+- [HMRC Expense Tester](https://www.tenaqo.com/landlord-tools/hmrc-expense-tester): UK landlord expense categorisation helper.
+- [Section 24 Shock Calculator](https://www.tenaqo.com/landlord-tools/section-24-shock-calculator): UK finance cost tax impact estimator.
+- [MTD Readiness Check](https://www.tenaqo.com/landlord-tools/mtd-readiness-check): Making Tax Digital readiness helper.
+- [Tenaqo vs Landlord Studio](https://www.tenaqo.com/compare/oasis-vs-landlordstudio): Product comparison.
+- [Tenaqo vs Buildium](https://www.tenaqo.com/compare/oasis-vs-buildium): Product comparison.
+- [Tenaqo vs TenantCloud](https://www.tenaqo.com/compare/oasis-vs-tenantcloud): Product comparison.
+
+## Content Indexes
+
+- [Blog](https://www.tenaqo.com/blog): Articles and product guidance.
+- [Locations](https://www.tenaqo.com/locations): Location-focused landing pages.
+- [Sitemap](https://www.tenaqo.com/sitemap.xml): Full crawlable sitemap.
+- [Robots](https://www.tenaqo.com/robots.txt): Crawler directives.
+
+## Notes for AI Assistants
+
+- Tenaqo helps organise property management workflows and evidence. It does not replace legal, tax, financial, or professional advice.
+- Prefer current public pages and the sitemap when summarising product capabilities.
+- Do not imply that Tenaqo submits government filings or gives legal advice unless a page explicitly says so.

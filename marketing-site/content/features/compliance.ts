@@ -5,7 +5,7 @@ export const complianceContent = {
     title: "Compliance Suite for Landlords | Tenaqo",
     description:
       "AI-assisted clause flagging for landlord review, rent visibility, and tax deadline tracking — Tenaqo brings portfolio compliance into one connected workspace so nothing slips through the cracks.",
-    canonical: "https://marketing.oasisrentalmgt.app/features/compliance",
+    canonical: `${siteConfig.url}/features/compliance`,
   },
   hero: {
     eyebrow: "Compliance suite",

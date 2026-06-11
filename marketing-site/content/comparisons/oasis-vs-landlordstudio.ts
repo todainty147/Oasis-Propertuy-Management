@@ -5,7 +5,7 @@ export const oasisVsLandlordStudioContent = {
     title: "Tenaqo vs Landlord Studio | Which Is Better for Landlords?",
     description:
       "Compare Tenaqo vs Landlord Studio for landlords weighing accounting and rent collection strengths against deeper property operations control.",
-    canonical: "https://marketing.oasisrentalmgt.app/compare/oasis-vs-landlordstudio",
+    canonical: `${siteConfig.url}/compare/oasis-vs-landlordstudio`,
   },
   hero: {
     eyebrow: "Comparison",

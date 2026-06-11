@@ -5,7 +5,7 @@ export const maintenanceManagementContent = {
     title: "Maintenance Management Software for Landlords | Tenaqo",
     description:
       "Move repair requests into tracked work orders, clear ownership, and cleaner follow-through with Tenaqo.",
-    canonical: "https://marketing.oasisrentalmgt.app/features/maintenance-management",
+    canonical: `${siteConfig.url}/features/maintenance-management`,
   },
   hero: {
     eyebrow: "Maintenance management",

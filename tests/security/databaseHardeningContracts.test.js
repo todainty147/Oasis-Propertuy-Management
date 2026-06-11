@@ -62,8 +62,10 @@ describe("database security hardening contracts", () => {
   it("keeps Supabase linter security remediations wired into repo SQL apply", () => {
     const applyScript = readSource("scripts/dbApplyRepoSql.js");
     const hardeningSql = readSource("supabase/supabase_linter_security_hardening.sql");
+    const finalHardeningMigration = readSource("supabase/migrations/20260611003000_supabase_linter_final_hardening.sql");
 
     expect(applyScript).toContain('"supabase_linter_security_hardening.sql"');
+    expect(applyScript).toContain('"hmrc_mtd_phase5d_one_account_live_pilot.sql",\n  "supabase_linter_security_hardening.sql"');
     expect(hardeningSql).toContain(
       "alter view if exists public.work_orders_pending_cancellation set (security_invoker = true);",
     );
@@ -80,6 +82,23 @@ describe("database security hardening contracts", () => {
     expect(hardeningSql).toContain(
       "grant execute on function public.record_auth_rate_limit_attempt(text, text) to anon;",
     );
+    expect(hardeningSql).toContain(
+      "grant execute on function public.submit_public_rental_application(text, jsonb) to anon;",
+    );
+    expect(hardeningSql).toContain("'edge_store_marketplace_job_trades'");
+    expect(hardeningSql).toContain("'record_document_scan_result'");
+    expect(finalHardeningMigration).toContain("alter function %s set search_path to public, auth, extensions");
+    expect(finalHardeningMigration).toContain("revoke execute on function %s from public");
+    expect(finalHardeningMigration).toContain("revoke execute on function %s from anon");
+    expect(finalHardeningMigration).toContain(
+      "grant execute on function public.record_auth_rate_limit_attempt(text, text) to anon;",
+    );
+    expect(finalHardeningMigration).toContain(
+      "grant execute on function public.submit_public_rental_application(text, jsonb) to anon;",
+    );
+    expect(finalHardeningMigration).toContain("'edge_store_marketplace_job_trades'");
+    expect(finalHardeningMigration).toContain("'record_document_scan_result'");
+    expect(finalHardeningMigration).toContain("grant execute on function %s to service_role");
   });
 
   it("serializes rate-limit attempts and caps notification fan-out", () => {

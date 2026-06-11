@@ -4,7 +4,7 @@ const isProduction = process.env.NODE_ENV === "production";
 
 export const siteConfig = {
   name: "Tenaqo",
-  url: "https://marketing.oasisrentalmgt.app",
+  url: process.env.NEXT_PUBLIC_SITE_URL || "https://www.tenaqo.com",
   appUrl:
     process.env.NEXT_PUBLIC_APP_URL ||
     (isProduction ? "https://oasisrentalmgt.app" : "http://localhost:5173"),

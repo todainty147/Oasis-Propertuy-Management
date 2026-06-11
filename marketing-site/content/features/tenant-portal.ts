@@ -5,7 +5,7 @@ export const tenantPortalContent = {
     title: "Tenant Portal Software for Landlords | Tenaqo",
     description:
       "Give tenants a clearer way to follow payments, maintenance activity, documents, and agreement review through a modern portal experience.",
-    canonical: "https://marketing.oasisrentalmgt.app/features/tenant-portal",
+    canonical: `${siteConfig.url}/features/tenant-portal`,
   },
   hero: {
     eyebrow: "Tenant portal",
