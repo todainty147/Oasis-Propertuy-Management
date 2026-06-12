@@ -37,7 +37,7 @@ type FeaturesPageContent = {
 export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = {
   en: {
     seo: {
-      title: "Tenaqo Features | Rent, Maintenance, Documents, Compliance and AI",
+      title: "Tenaqo Features | Rent, Repairs, Documents and AI",
       description:
         "Every workflow landlords check, chase, and worry about — connected. Rent Plans Engine, maintenance, documents, compliance, AI-assisted action queues, and audit trails in one platform.",
       canonicalPath: "/features",
@@ -47,7 +47,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
       title: "Every workflow landlords check, chase, and worry about — connected.",
       body:
         "Tenaqo connects rent, tenants, properties, maintenance, documents, compliance, AI, security, and finance into one landlord operating system for residential rentals. Not a generic module list — a platform built around the outcomes that keep a rental portfolio running.",
-      cta: { label: "See how Tenaqo works", href: siteConfig.appUrl },
+      cta: { label: "Open the Tenaqo app", href: siteConfig.appUrl },
       imageSrc: "/screenshots/command-center.png",
       imageAlt: "Tenaqo Command Center showing urgent queues, overdue balances, and action items.",
     },
@@ -176,7 +176,7 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
       title: "Choose the part of the operation that needs control first",
       body:
         "Start with maintenance, property pressure, tenant workflow, or portfolio attention. Tenaqo keeps the work close enough to act before the week turns into catch-up.",
-      primaryCta: { label: "See how Tenaqo works", href: siteConfig.appUrl },
+      primaryCta: { label: "Open the Tenaqo app", href: siteConfig.appUrl },
       secondaryCta: { label: "Compare plans", href: "/pricing" },
     },
   },
@@ -268,6 +268,19 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
         ],
         href: "/features/tenant-portal",
         cta: "Poznaj obieg procesów najemców",
+      },
+      {
+        eyebrow: "Zarządzanie najemcami",
+        title: "Dane najemcy, portal i dokumenty w jednym kontekście",
+        why:
+          "Tenaqo pomaga właścicielom trzymać dane najemcy, powiązanie z nieruchomością, aktywność w portalu, dokumenty i status umów na tyle blisko siebie, aby można było działać bez odtwarzania historii z kilku narzędzi.",
+        bullets: [
+          "Łączysz profil najemcy z właściwą nieruchomością, dokumentami, płatnościami i zgłoszeniami.",
+          "Najemca ma czytelne miejsce na dokumenty, status spraw i prośby o uzupełnienie informacji.",
+          "Śledzisz pakiety umów, przesłane dowody i gotowość do podpisu bez gubienia ścieżki przeglądu.",
+        ],
+        href: "/features/tenant-management",
+        cta: "Poznaj zarządzanie najemcami",
       },
       {
         eyebrow: "Dokumenty i porozumienia",

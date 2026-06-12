@@ -54,7 +54,7 @@ export function WorkflowShowcase({
                     href={getLocalizedMarketingHref(locale, item.href)}
                     className="button button-secondary"
                   >
-                    {itemCtaLabel}
+                    {itemCtaLabel === "Explore this workflow" ? `Explore ${item.title}` : itemCtaLabel}
                   </Link>
                 </div>
               </div>

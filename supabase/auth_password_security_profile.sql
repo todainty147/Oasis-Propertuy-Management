@@ -180,6 +180,24 @@ begin
   order by created_at
   limit 1;
 
+  if v_account_id is null then
+    select account_id into v_account_id
+    from public.contractors
+    where user_id = v_user_id
+      and active = true
+    order by created_at
+    limit 1;
+  end if;
+
+  if v_account_id is null then
+    select account_id into v_account_id
+    from public.tenants
+    where user_id = v_user_id
+      and archived_at is null
+    order by created_at
+    limit 1;
+  end if;
+
   insert into public.user_security_profile (
     user_id, account_id,
     password_policy_version, password_strength_status,
@@ -192,6 +210,7 @@ begin
   )
   on conflict (user_id) do update
   set
+    account_id                = coalesce(excluded.account_id, public.user_security_profile.account_id),
     password_policy_version  = 1,
     password_strength_status = 'strong',
     password_last_set_at     = now(),

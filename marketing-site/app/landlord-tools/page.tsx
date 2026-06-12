@@ -41,6 +41,15 @@ export default function LandlordToolsPage() {
           <p className="muted" style={{ maxWidth: 760, marginTop: "0.75rem" }}>
             Built for UK landlords using simple English-language guidance.
           </p>
+          <p className="muted" style={{ maxWidth: 820, marginTop: "0.75rem" }}>
+            These tools are designed for early checks before you update records, speak to an adviser, or decide what to review next. They keep the questions narrow: what kind of expense might this be, how might finance-cost restrictions change the picture, and whether your records look ready for Making Tax Digital thresholds.
+          </p>
+          <p className="muted" style={{ maxWidth: 820, marginTop: "0.75rem" }}>
+            Use the results as a prompt to organise evidence, invoices, income records, and notes. Tenaqo keeps that operational context close to rent, maintenance, documents, and compliance work so tax-time preparation is less detached from the rest of the portfolio.
+          </p>
+          <p className="muted" style={{ maxWidth: 820, marginTop: "0.75rem" }}>
+            These calculators are intentionally narrow. They are a starting point for better records, not a filing decision or replacement for professional tax advice.
+          </p>
         </div>
       </section>
       <section className="section section-tight-top">
@@ -50,7 +59,7 @@ export default function LandlordToolsPage() {
               <h2>{tool.title}</h2>
               <p className="muted">{tool.body}</p>
               <Link className="button button-secondary" href={tool.href}>
-                Open tool
+                Open {tool.title}
               </Link>
             </article>
           ))}

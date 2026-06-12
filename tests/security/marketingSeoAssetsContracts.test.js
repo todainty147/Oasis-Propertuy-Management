@@ -57,4 +57,31 @@ describe("marketing SEO assets", () => {
       expect(source).not.toContain("marketing.oasisrentalmgt.app");
     }
   });
+
+  it("keeps localized feature pages, titles, and anchors crawl-friendly", () => {
+    const featuresPage = read("marketing-site/content/features-page.ts");
+    const blogIndex = read("marketing-site/content/blog-index.ts");
+    const blogIndexPage = read("marketing-site/components/marketing/blog-index-page.tsx");
+    const landlordTools = read("marketing-site/app/landlord-tools/page.tsx");
+    const locationsPage = read("marketing-site/app/locations/page.tsx");
+    const riskProtectionPage = read("marketing-site/app/property-risk-protection-software/page.tsx");
+    const workflowShowcase = read("marketing-site/components/marketing/workflow-showcase.tsx");
+
+    expect(featuresPage).toContain('href: "/features/tenant-management"');
+    expect(featuresPage).toContain("Poznaj zarządzanie najemcami");
+    expect(blogIndex).not.toContain('readMoreLabel: "Read more"');
+    expect(blogIndexPage).toContain("`Read: ${article.title}`");
+    expect(landlordTools).toContain("Open {tool.title}");
+    expect(workflowShowcase).toContain("`Explore ${item.title}`");
+
+    const longTitleSources = [featuresPage, blogIndex, locationsPage, riskProtectionPage];
+    for (const source of longTitleSources) {
+      const titleMatches = source.matchAll(/title:\s*"([^"]+)"/g);
+      for (const [, title] of titleMatches) {
+        if (title.includes("| Tenaqo") || title.startsWith("Tenaqo ")) {
+          expect(title.length, title).toBeLessThanOrEqual(65);
+        }
+      }
+    }
+  });
 });

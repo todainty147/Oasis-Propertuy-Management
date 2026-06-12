@@ -28,7 +28,9 @@ export function MarketingBlogIndexPage({ locale }: { locale: Locale }) {
                 <p className="muted">{article.summary}</p>
                 <div className="button-row">
                   <Link href={`/blog/${article.slug}`} className="button button-secondary">
-                    {content.readMoreLabel}
+                    {content.readMoreLabel === "Read the guide"
+                      ? `Read: ${article.title}`
+                      : content.readMoreLabel}
                   </Link>
                 </div>
               </article>

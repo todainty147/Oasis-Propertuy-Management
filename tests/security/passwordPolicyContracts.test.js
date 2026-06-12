@@ -302,4 +302,10 @@ describe("auth flow regression — all password-creation pages use the shared va
     const src = readSource("src/pages/Login.jsx");
     expect(src).not.toContain("validatePasswordStrength");
   });
+
+  it("delayed self-serve signup bootstrap records the validated password as strong", () => {
+    const src = readSource("src/context/AccountContext.jsx");
+    expect(src).toContain("recordStrongPassword");
+    expect(src).toMatch(/finalizeSelfServeLandlordAccount[\s\S]*await recordStrongPassword\(newId\)/);
+  });
 });

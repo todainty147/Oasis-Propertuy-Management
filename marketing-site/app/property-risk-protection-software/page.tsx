@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { buildMetadata } from "../../lib/metadata";
 
 export const metadata: Metadata = buildMetadata({
-  title: "Property Risk Protection Software for Landlords | Risk Protection Suite | Tenaqo",
+  title: "Property Risk Protection Software | Tenaqo",
   description:
     "Protect your rental operations with organised compliance evidence, inspection records, tenant acknowledgements and deposit dispute packs.",
   canonical: "/property-risk-protection-software",
