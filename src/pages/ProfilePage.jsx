@@ -145,7 +145,10 @@ export default function ProfilePage() {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
 
-      await recordStrongPassword(activeAccountId);
+      const recorded = await recordStrongPassword(activeAccountId);
+      if (!recorded) {
+        throw new Error(t("profile.passwordSecurityUpdateError"));
+      }
       markLocalStrongPassword(user?.id);
       window.dispatchEvent(new Event(PASSWORD_SECURITY_REFRESH_EVENT));
 

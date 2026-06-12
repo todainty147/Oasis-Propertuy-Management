@@ -141,7 +141,10 @@ export default function ResetPassword() {
         const result = await acceptAccountInvite(inviteToken);
         if (result?.account_id) {
           localStorage.setItem("activeAccountId", result.account_id);
-          await recordStrongPassword(result.account_id);
+          const recorded = await recordStrongPassword(result.account_id);
+          if (!recorded) {
+            throw new Error(t("profile.passwordSecurityUpdateError"));
+          }
         }
         setMessage(t("reset.success"));
         setTimeout(() => navigate("/dashboard", { replace: true }), 800);
@@ -150,7 +153,10 @@ export default function ResetPassword() {
 
       // For standalone resets, record against the user's current active account
       const activeAccountId = localStorage.getItem("activeAccountId");
-      await recordStrongPassword(activeAccountId);
+      const recorded = await recordStrongPassword(activeAccountId);
+      if (!recorded) {
+        throw new Error(t("profile.passwordSecurityUpdateError"));
+      }
 
       setMessage(t("reset.success"));
       setTimeout(() => navigate("/login", { replace: true }), 800);

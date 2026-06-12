@@ -45,9 +45,11 @@ export default function PasswordUpgradeNotice({ userId, accountId = null, profil
 
     async function refresh() {
       if (hasRecentLocalStrongPassword(userId)) {
-        await syncRecentLocalStrongPassword(userId, accountId);
-        if (!cancelled) setVisible(false);
-        return;
+        const synced = await syncRecentLocalStrongPassword(userId, accountId);
+        if (synced) {
+          if (!cancelled) setVisible(false);
+          return;
+        }
       }
 
       const profile = await getOwnSecurityProfile();
