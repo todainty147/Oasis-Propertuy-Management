@@ -308,4 +308,18 @@ describe("auth flow regression — all password-creation pages use the shared va
     expect(src).toContain("recordStrongPassword");
     expect(src).toMatch(/finalizeSelfServeLandlordAccount[\s\S]*await recordStrongPassword\(newId\)/);
   });
+
+  it("profile and reset flows do not hide password warnings unless posture persistence succeeds", () => {
+    const profile = readSource("src/pages/ProfilePage.jsx");
+    const reset = readSource("src/pages/ResetPassword.jsx");
+    const notice = readSource("src/components/security/PasswordUpgradeNotice.jsx");
+    const messages = readSource("src/i18n/messages.js");
+
+    expect(profile).toContain("const recorded = await recordStrongPassword(activeAccountId)");
+    expect(profile).toContain('throw new Error(t("profile.passwordSecurityUpdateError"))');
+    expect(reset).toContain('throw new Error(t("profile.passwordSecurityUpdateError"))');
+    expect(notice).toContain("const synced = await syncRecentLocalStrongPassword(userId, accountId)");
+    expect(notice).toMatch(/if \(synced\) \{[\s\S]*setVisible\(false\)/);
+    expect(messages).toContain("profile.passwordSecurityUpdateError");
+  });
 });
