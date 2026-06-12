@@ -47,7 +47,7 @@ type PricingPageContent = {
 export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
   en: {
     seo: {
-      title: "Tenaqo Pricing | Plans for Landlords, Portfolios and Property Operators",
+      title: "Tenaqo Pricing | Plans for Landlords and Portfolios",
       description:
         "Start simple and add control as your portfolio grows. Starter, Growth, Pro, and Operator / Agency plans for landlords, compliance-heavy operators, and property management companies.",
       canonicalPath: "/pricing",
@@ -139,7 +139,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
         ],
       },
     ],
-    planCtaLabel: "See how Tenaqo works",
+    planCtaLabel: "Open the Tenaqo app",
     included: {
       title: "Every plan includes the core rental workflow",
       bullets: [
@@ -198,7 +198,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       title: "Try Tenaqo before we launch publicly",
       body:
         "Get early access, test the workflows, and help shape how Tenaqo supports landlords as it evolves.",
-      primaryCta: { label: "See how Tenaqo works", href: siteConfig.appUrl },
+      primaryCta: { label: "Open the Tenaqo app", href: siteConfig.appUrl },
     },
   },
   pl: {

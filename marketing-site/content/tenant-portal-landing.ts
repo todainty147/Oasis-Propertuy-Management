@@ -68,7 +68,7 @@ type TenantPortalLandingContent = {
 export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLandingContent> = {
   en: {
     seo: {
-      title: "Tenant portal software for landlords | Clearer self-service in Tenaqo",
+      title: "Tenant Portal Software for Landlords | Tenaqo",
       description:
         "Reduce tenant confusion with a clearer portal for payments visibility, maintenance updates, document handoff, and agreement review.",
       canonicalPath: "/tenant-portal-software",
@@ -95,7 +95,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
       ],
       imageSrc: "/screenshots/tenant-home.png",
       imageAlt: "Tenaqo tenant portal dashboard showing summary cards, maintenance items, and payment visibility.",
-      primaryCta: { label: "See how Tenaqo works", href: siteConfig.appUrl },
+      primaryCta: { label: "Open the Tenaqo app", href: siteConfig.appUrl },
       secondaryCta: { label: "See the tenant portal", href: "/features/tenant-portal" },
     },
     problemSection: {
@@ -148,7 +148,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
       title: "What the tenant-facing workflow feels like",
       body:
         "This is the win: tenants get a calmer, clearer path while the landlord team keeps the operational controls.",
-      itemCtaLabel: "Explore this workflow",
+      itemCtaLabel: "Explore the tenant portal workflow",
       items: [
         {
           label: "Step 1",
@@ -205,7 +205,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
       title: "Turn tenant confusion into a clearer self-service experience",
       body:
         "If the current pain is repeated payment questions, vague maintenance follow-up, or document chaos, Tenaqo gives you a stronger tenant-facing experience without losing control of the operation.",
-      primaryCta: { label: "See how Tenaqo works", href: siteConfig.appUrl },
+      primaryCta: { label: "Open the Tenaqo app", href: siteConfig.appUrl },
       secondaryCta: { label: "Explore the tenant portal", href: "/features/tenant-portal" },
     },
   },
@@ -354,7 +354,7 @@ export const tenantPortalLandingContentByLocale: Record<Locale, TenantPortalLand
   },
   de: {
     seo: {
-      title: "Mieterportal-Software für Vermieter | Klarerer Self-Service mit Tenaqo",
+      title: "Mieterportal-Software für Vermieter | Tenaqo",
       description:
         "Weniger Verwirrung für Mieter durch ein klares Portal für Zahlungsübersicht, Instandhaltungsstatus, Dokumente und Vertragsprüfung.",
       canonicalPath: "/de/tenant-portal-software",

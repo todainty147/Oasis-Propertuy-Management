@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
 import { rootListAccounts } from "../services/rootAccountService";
 import { finalizeSelfServeLandlordAccount } from "../services/selfServeSignupService";
+import { recordStrongPassword } from "../services/passwordSecurityService";
 import { getRootTelemetryAccessMode } from "../utils/telemetryAccess";
 import { getPermissionKeysForRole } from "../utils/permissions";
 import { assertFeature, hasFeature, normalizePlan } from "../lib/entitlements";
@@ -404,6 +405,7 @@ export function AccountProvider({ children }) {
           const newId = row?.account_id || null;
           const newName = row?.account_name || user?.user_metadata?.signup_account_name || user?.email || "My Account";
           if (newId) {
+            await recordStrongPassword(newId);
             setAccounts([{
               id: newId,
               name: newName,

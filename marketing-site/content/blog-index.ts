@@ -29,7 +29,7 @@ type BlogIndexContent = {
 export const blogIndexContentByLocale: Record<Locale, BlogIndexContent> = {
   en: {
     seo: {
-      title: "Tenaqo Blog | Rental Operations, Landlord Compliance and Property Workflows",
+      title: "Tenaqo Blog | Rental Operations for Landlords",
       description:
         "Practical landlord guides on rent calculation, expected charges, maintenance workflow, compliance readiness, AI tools for landlords, property health, and operating rentals with more control.",
       canonicalPath: "/blog",
@@ -43,7 +43,7 @@ export const blogIndexContentByLocale: Record<Locale, BlogIndexContent> = {
     launchListTitle: "Launch reading list",
     launchListBody:
       "These first guides set the editorial direction for Tenaqo: practical, landlord-focused, and close to the weekly work of rent calculation, repairs, records, compliance, and follow-up. Topics include: why rent calculation should be a rules engine, expected charges vs payments, how to reduce maintenance drag, Najem Okazjonalny for Polish landlords, property health vs dashboards, and how AI should support landlords without making decisions for them.",
-    readMoreLabel: "Read more",
+    readMoreLabel: "Read the guide",
     publishingTitle: "What Tenaqo publishes",
     publishingBody:
       "We write for small and growing landlords who are trying to replace reactive admin with a better operating rhythm. Fewer generic tips and more practical guidance on rent rules, expected charges, maintenance movement, compliance readiness (Renters' Rights Act, tax deadlines, AI-assisted clause flagging, Poland), AI assistance that keeps the landlord in control, property health scoring, and when a portfolio needs more structure. Categories: Rent & Finance, Maintenance Operations, Compliance Readiness, AI for Landlords, Poland Market, Property Health, Security & Audit.",
@@ -57,7 +57,7 @@ export const blogIndexContentByLocale: Record<Locale, BlogIndexContent> = {
   },
   pl: {
     seo: {
-      title: "Blog Tenaqo | Zarządzanie najmem, zgodność z przepisami i procesy operacyjne",
+      title: "Blog Tenaqo | Zarządzanie najmem i compliance",
       description:
         "Praktyczne poradniki dla właścicieli na temat naliczania czynszu, oczekiwanych opłat, obsługi zgłoszeń, zgodności z przepisami, narzędzi AI, kondycji nieruchomości i zarządzania najmem z większą kontrolą.",
       canonicalPath: "/pl/blog",

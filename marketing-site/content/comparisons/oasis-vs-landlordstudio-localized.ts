@@ -241,7 +241,7 @@ export const oasisVsLandlordStudioContentByLocale: Record<Locale, ComparisonCont
   },
   pl: {
     seo: {
-      title: "Tenaqo vs Landlord Studio | Co sprawdzi się lepiej dla właściciela nieruchomości?",
+      title: "Tenaqo vs Landlord Studio | Porównanie dla właścicieli",
       description:
         "Porównaj Tenaqo i Landlord Studio, jeśli wybierasz między oprogramowaniem skupionym na księgowości a głębszą kontrolą nad operacyjnym zarządzaniem nieruchomościami.",
       canonicalPath: "/pl/compare/oasis-vs-landlordstudio",

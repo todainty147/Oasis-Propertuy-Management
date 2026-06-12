@@ -513,6 +513,21 @@ const detailCopyByLocale: Record<
   },
 };
 
+const localizedDetailSupportCopy: Record<Exclude<Locale, "en">, { first: string; second: string }> = {
+  pl: {
+    first:
+      "Ta strona opisuje, jak dany obszar działa w codziennej pracy właściciela: gdzie zaczyna się sygnał, jakie informacje są potrzebne do decyzji i jak Tenaqo utrzymuje kontekst przy właściwej nieruchomości, najemcy lub zadaniu.",
+    second:
+      "Najważniejsze jest zachowanie kontroli. Tenaqo porządkuje kolejkę działań, dokumenty, aktualizacje i ślad audytowy, ale decyzje nadal pozostają po stronie właściciela lub jego zespołu.",
+  },
+  de: {
+    first:
+      "Diese Seite zeigt, wie der jeweilige Bereich im Alltag eines Vermieters funktioniert: wo ein Signal entsteht, welche Informationen für die nächste Entscheidung nötig sind und wie Tenaqo den Kontext am richtigen Objekt, Mieter oder Vorgang hält. So wird aus verstreuter Verwaltungsarbeit ein nachvollziehbarer Ablauf.",
+    second:
+      "Entscheidend ist Kontrolle. Tenaqo ordnet Aufgaben, Dokumente, Aktualisierungen und den Audit-Trail, aber Entscheidungen bleiben beim Vermieter oder beim zuständigen Team. Das hilft besonders, wenn mehrere Personen, Mieter oder Handwerker an einem Vorgang beteiligt sind und später nachvollzogen werden muss, warum eine Entscheidung getroffen wurde.",
+  },
+};
+
 function isLocalizedFeatureSlug(slug: string): slug is (typeof localizedFeatureSlugs)[number] {
   return localizedFeatureSlugs.includes(slug as (typeof localizedFeatureSlugs)[number]);
 }
@@ -588,6 +603,8 @@ export default async function LocalizedFeatureDetailPage({ params }: { params: P
           <div className="card content-block">
             <span className="eyebrow">{copy.overviewEyebrow}</span>
             <h2>{copy.overviewTitle}</h2>
+            <p className="muted">{localizedDetailSupportCopy[localizedLocale].first}</p>
+            <p className="muted">{localizedDetailSupportCopy[localizedLocale].second}</p>
             <ul className="feature-list" style={{ marginTop: "1.5rem" }}>
               {section.bullets.map((bullet) => (
                 <li key={bullet}>{bullet}</li>

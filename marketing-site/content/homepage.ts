@@ -235,7 +235,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
     passiveLandlordSection: {
       title: "A calmer landlord workflow — without losing control",
       body: "Tenaqo supports a calmer landlord workflow by supporting reminders, surfacing action queues, and giving tenants and contractors structured portals. You still control approvals, finance posting, documents, and every decision. Tenaqo is rental management software — it does not replace regulated advice or letting agency services where those are required.",
-      cta: { label: "See how Tenaqo works", href: siteConfig.appUrl },
+      cta: { label: "Open the Tenaqo app", href: siteConfig.appUrl },
     },
     appTease: {
       eyebrow: "What Tenaqo looks like in practice",
@@ -288,7 +288,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
         },
       ],
       disclaimer: "Tenaqo is rental management software. It does not replace regulated letting, legal, tax, or property management services where those are required.",
-      cta: { label: "See how Tenaqo works", href: siteConfig.appUrl },
+      cta: { label: "Open the Tenaqo app", href: siteConfig.appUrl },
     },
     problemSection: {
       eyebrow: "Why landlords switch",
@@ -433,7 +433,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       title: "How the workflow moves forward",
       body:
         "Tenaqo is built around the real path from tenant request to landlord decision to contractor execution and completed follow-up.",
-      itemCtaLabel: "Explore this workflow",
+      itemCtaLabel: "Explore the maintenance workflow",
       items: [
         {
           label: "Step 1",
@@ -495,7 +495,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       body:
         "If your real problem is keeping maintenance, documents, payments visibility, and follow-up moving together, Tenaqo is built for that stage.",
       primaryCta: { label: "Claim Founder Access", href: siteConfig.appUrl },
-      secondaryCta: { label: "See how Tenaqo works", href: "/features" },
+      secondaryCta: { label: "Explore Tenaqo features", href: "/features" },
     },
   },
   pl: {

@@ -150,6 +150,7 @@ export const blogArticles: BlogArticle[] = [
   {
     slug: "how-organised-landlords-stay-on-top-of-everything",
     category: "Operations",
+    pageTitle: "How Organised Landlords Stay on Top | Tenaqo Blog",
     title: "How Organised Landlords Actually Stay on Top of Everything",
     summary:
       "Organised landlords are not relying on memory. They use simple systems that make rent, repairs, records, and follow-up easier to see.",
@@ -334,7 +335,7 @@ export const blogArticles: BlogArticle[] = [
       heading: "Want rent to stop living in spreadsheets?",
       body: "Tenaqo helps landlords create rent plans, preview expected charges, track balances, and keep finance actions under landlord control.",
       primaryCta: { label: "Claim Founder Access", href: siteConfig.appUrl },
-      secondaryCta: { label: "See how Tenaqo works", href: "/features/rental-accounting" },
+      secondaryCta: { label: "Explore rent workflows", href: "/features/rental-accounting" },
     },
     sections: [
       {
@@ -460,7 +461,7 @@ export const blogArticles: BlogArticle[] = [
     category: "Compliance Readiness",
     date: "2026-05-13",
     readingTime: "7 min read",
-    pageTitle: "The 2026 UK Landlord Survival Guide | Renters' Rights Act Changes",
+    pageTitle: "2026 UK Landlord Survival Guide | Tenaqo Blog",
     title: "The 2026 UK Landlord Survival Guide: 5 Rules That Changed on May 1st",
     summary:
       "Section 21, bidding wars, rent increases, pets, discrimination rules, and the new Information Sheet have changed the operating rhythm for landlords. Here are five rules every UK landlord should understand in 2026.",
@@ -472,7 +473,7 @@ export const blogArticles: BlogArticle[] = [
     ctaOverride: {
       heading: "Ready for the new landlord operating reality?",
       body: "Tenaqo helps landlords track rent, documents, notices, maintenance, compliance readiness, and audit trails from one operating dashboard.",
-      primaryCta: { label: "See how Tenaqo works", href: siteConfig.appUrl },
+      primaryCta: { label: "Open the Tenaqo app", href: siteConfig.appUrl },
       secondaryCta: { label: "Explore Renters' Rights readiness", href: "/features/compliance" },
     },
     sections: [
@@ -713,7 +714,7 @@ export const blogArticles: BlogArticle[] = [
         ],
         sectionLinks: [
           { label: "Explore Renters' Rights readiness →", href: "/features/compliance" },
-          { label: "See how Tenaqo works →", href: "/features" },
+          { label: "Explore Tenaqo features →", href: "/features" },
         ],
       },
     ],
@@ -721,40 +722,145 @@ export const blogArticles: BlogArticle[] = [
   {
     slug: "documents-landlords-should-keep-before-tenancy-starts",
     category: "Compliance",
+    pageTitle: "Tenancy Documents Landlords Should Keep | Tenaqo Blog",
     title: "What Documents Should Landlords Keep Before a Tenancy Starts?",
     summary: "A practical overview of tenancy records landlords may want to organise before move-in.",
     metaDescription: "Learn what tenancy documents landlords should organise before a tenancy starts, from agreements and safety records to deposit evidence.",
     disclaimer: "This article is general information only and is not legal advice.",
     cta: "Organise tenancy records with Tenaqo",
-    sections: [{ paragraphs: ["Before move-in, landlords benefit from keeping tenancy agreements, safety certificates, deposit evidence, onboarding acknowledgements and inventory records close to the property and tenant timeline. Tenaqo helps organise those records for review."] }],
+    sections: [
+      {
+        paragraphs: [
+          "Before move-in, landlords benefit from keeping tenancy agreements, safety certificates, deposit evidence, onboarding acknowledgements and inventory records close to the property and tenant timeline. Tenaqo helps organise those records for review.",
+          "The risk is rarely one missing file in isolation. It is the moment when the agreement sits in one folder, the inventory in another, the deposit note in an email thread, and the tenant acknowledgement cannot be found when a question appears months later.",
+        ],
+      },
+      {
+        heading: "Records worth organising before handover",
+        paragraphs: [
+          "A practical move-in pack usually starts with the tenancy agreement, prescribed information or local deposit records where relevant, safety certificates, inventory evidence, appliance notes, key handover details, and any tenant-facing acknowledgements.",
+        ],
+        items: [
+          "Signed or draft agreement records and version history.",
+          "Safety, compliance, and inspection documents linked to the property.",
+          "Deposit evidence, payment references, and deduction rules where relevant.",
+          "Check-in photos, meter readings, key records, and room notes.",
+          "Tenant acknowledgements, uploaded files, and document request history.",
+        ],
+      },
+      {
+        heading: "How Tenaqo helps",
+        paragraphs: [
+          "Tenaqo keeps these records close to the property and tenant workflow, so the landlord is not rebuilding the tenancy story from scattered tools. The point is not to replace legal advice; it is to make the operational evidence easier to find, review, and hand over when needed.",
+        ],
+      },
+    ],
   },
   {
     slug: "check-in-inventory-protects-deposit-claim",
     category: "Evidence",
+    pageTitle: "Check-in Inventory for Deposit Review | Tenaqo Blog",
     title: "How to Create a Check-in Inventory That Supports Deposit Review",
     summary: "How structured photos, room notes and signatures can make move-in evidence easier to review.",
     metaDescription: "Create a clearer check-in inventory with room-by-room notes, photos and acknowledgements to support deposit review.",
     disclaimer: "This article is general information only and is not legal advice.",
     cta: "Build better inspection records with Tenaqo",
-    sections: [{ paragraphs: ["A useful check-in inventory records room condition, fixtures, meters, keys, appliances, photos and acknowledgement notes. The goal is not to determine an outcome, but to make evidence easier to find and review."] }],
+    sections: [
+      {
+        paragraphs: [
+          "A useful check-in inventory records room condition, fixtures, meters, keys, appliances, photos and acknowledgement notes. The goal is not to determine an outcome, but to make evidence easier to find and review.",
+          "Deposit questions often become difficult because evidence is vague, late, or disconnected from the tenancy timeline. A structured inventory gives the landlord, tenant, and reviewer a clearer starting point.",
+        ],
+      },
+      {
+        heading: "What makes an inventory easier to review",
+        paragraphs: [
+          "Good evidence is specific. Instead of a single note saying the property is in good condition, landlords should capture each room, important fixtures, appliances, meters, keys, and existing marks or wear.",
+        ],
+        items: [
+          "Room-by-room notes with photos taken at the same stage of the tenancy.",
+          "Meter readings, appliance condition, key counts, and access notes.",
+          "Clear acknowledgement that the tenant had a chance to review the record.",
+          "Links to later maintenance work, invoices, or check-out observations.",
+        ],
+      },
+      {
+        heading: "Where Tenaqo fits",
+        paragraphs: [
+          "Tenaqo is designed to keep inspection records, photos, documents, and tenant responses attached to the right property and tenancy. That makes later review calmer because the evidence is already organised before anyone needs to argue over it.",
+        ],
+      },
+    ],
   },
   {
     slug: "reduce-unnecessary-maintenance-call-outs",
     category: "Maintenance",
+    pageTitle: "Reduce Maintenance Call-outs | Tenaqo Blog",
     title: "How Landlords Can Reduce Unnecessary Maintenance Call-outs",
     summary: "Use structured issue questions to understand tenant maintenance requests before dispatching a contractor.",
     metaDescription: "Learn how landlords can collect better maintenance information before approving a contractor call-out.",
     cta: "Triage maintenance requests with Tenaqo",
-    sections: [{ paragraphs: ["Basic diagnostics can collect issue type, urgency, photos and key answers before a request reaches the landlord. They should not replace emergency handling, professional advice or qualified repair work."] }],
+    sections: [
+      {
+        paragraphs: [
+          "Basic diagnostics can collect issue type, urgency, photos and key answers before a request reaches the landlord. They should not replace emergency handling, professional advice or qualified repair work.",
+          "The goal is to avoid sending a contractor into a vague situation. A clearer first report helps the landlord decide whether the issue is urgent, whether more information is needed, and which contractor is most appropriate.",
+        ],
+      },
+      {
+        heading: "Information that reduces wasted call-outs",
+        paragraphs: [
+          "Every maintenance category needs slightly different context, but the same principle applies: collect enough structured information to make the next step obvious.",
+        ],
+        items: [
+          "Issue type, location, urgency, access notes, and tenant availability.",
+          "Photos or short descriptions that show the problem before dispatch.",
+          "Basic safety or emergency signals that should bypass normal triage.",
+          "Previous work-order history so repeated problems are not treated as isolated events.",
+        ],
+      },
+      {
+        heading: "How Tenaqo helps",
+        paragraphs: [
+          "Tenaqo brings tenant intake, landlord triage, work orders, contractor assignment, and completion records into one lane. That does not replace professional diagnosis, but it does reduce the amount of guesswork before the right person is asked to act.",
+        ],
+      },
+    ],
   },
   {
     slug: "pre-screen-tenants-without-drowning-in-messages",
     category: "Tenant onboarding",
+    pageTitle: "Pre-screen Tenants Without Message Chaos | Tenaqo Blog",
     title: "How to Pre-screen Tenants Without Drowning in Messages",
     summary: "Application links can keep enquiries structured while helping landlords review applicants consistently.",
     metaDescription: "Use tenant application links to collect consistent rental enquiry information without relying on message threads.",
     cta: "Create tenant application workflows with Tenaqo",
-    sections: [{ paragraphs: ["A structured application link can collect move-in date, occupants, contact details, consent and landlord preferences in one place. Landlords should use this information consistently and fairly."] }],
+    sections: [
+      {
+        paragraphs: [
+          "A structured application link can collect move-in date, occupants, contact details, consent and landlord preferences in one place. Landlords should use this information consistently and fairly.",
+          "The inbox problem starts when every enquiry arrives in a different format. Some tenants send useful detail, some send almost nothing, and the landlord ends up asking the same qualifying questions repeatedly.",
+        ],
+      },
+      {
+        heading: "What a better pre-screening flow collects",
+        paragraphs: [
+          "The first step is not to make a final decision. It is to collect consistent information so the landlord can review enquiries without losing context or treating applicants inconsistently.",
+        ],
+        items: [
+          "Move-in timing, household size, contact details, and viewing availability.",
+          "Property-specific questions that help determine whether the enquiry is relevant.",
+          "Consent and acknowledgement records for the information being submitted.",
+          "A review trail showing why an application moved forward or did not.",
+        ],
+      },
+      {
+        heading: "How Tenaqo helps",
+        paragraphs: [
+          "Tenaqo application links are intended to keep tenant interest structured from the first contact. Landlords still control the decision, but the operational record starts cleaner and is easier to connect to later onboarding, documents, and tenancy setup.",
+        ],
+      },
+    ],
   },
   {
     slug: "najem-okazjonalny-checklist-polish-landlords",
@@ -764,17 +870,69 @@ export const blogArticles: BlogArticle[] = [
     metaDescription: "A practical Najem Okazjonalny checklist for organising tenancy security documents and evidence records.",
     disclaimer: "This article is general information only and is not legal advice.",
     cta: "Track Poland compliance records with Tenaqo",
-    sections: [{ paragraphs: ["Polish landlords using Najem Okazjonalny often need to keep related tenancy security evidence organised, including the agreement, notarial act evidence, alternative address declaration, owner consent and kaucja record. Always review with a qualified adviser."] }],
+    sections: [
+      {
+        paragraphs: [
+          "Polish landlords using Najem Okazjonalny often need to keep related tenancy security evidence organised, including the agreement, notarial act evidence, alternative address declaration, owner consent and kaucja record. Always review with a qualified adviser.",
+          "The practical issue is document control. If the tenancy file is incomplete or scattered, it becomes harder to see what has been received, what still needs review, and which version applies to the current tenancy.",
+        ],
+      },
+      {
+        heading: "Records to keep close to the tenancy",
+        paragraphs: [
+          "A useful checklist should focus on the operational record as well as the legal document itself. The landlord needs to know not only that a file exists, but when it was requested, uploaded, reviewed, and acknowledged.",
+        ],
+        items: [
+          "Agreement record and any signed or reviewed versions.",
+          "Notarial act evidence and alternative address declaration where applicable.",
+          "Owner consent or supporting address evidence where applicable.",
+          "Kaucja record, payment notes, and later deduction evidence.",
+          "Tenant acknowledgements and review history for requested documents.",
+        ],
+      },
+      {
+        heading: "How Tenaqo helps",
+        paragraphs: [
+          "Tenaqo helps keep Polish tenancy records, kaucja evidence, tenant uploads, and review tasks connected to the right property. It is still general operational software, not legal advice, but it gives landlords a more reliable place to manage the evidence trail.",
+        ],
+      },
+    ],
   },
   {
     slug: "kaucja-deductions-poland-evidence",
     category: "Poland",
+    pageTitle: "Kaucja Deduction Evidence for Landlords | Tenaqo Blog",
     title: "Kaucja Deductions in Poland: What Evidence Should Landlords Keep?",
     summary: "A practical look at records that can support kaucja deduction review.",
     metaDescription: "Understand what evidence Polish landlords may want to keep when reviewing kaucja deductions.",
     disclaimer: "This article is general information only and is not legal advice.",
     cta: "Organise deposit evidence with Tenaqo",
-    sections: [{ paragraphs: ["Kaucja deduction review is easier when check-in records, check-out records, photos, invoices, notes and tenant acknowledgements are stored alongside the tenancy. Tenaqo helps keep that evidence organised."] }],
+    sections: [
+      {
+        paragraphs: [
+          "Kaucja deduction review is easier when check-in records, check-out records, photos, invoices, notes and tenant acknowledgements are stored alongside the tenancy. Tenaqo helps keep that evidence organised.",
+          "The evidence matters because deductions are easier to review when the landlord can show the condition before, the condition after, the work required, and the records that support the amount being considered.",
+        ],
+      },
+      {
+        heading: "Evidence that supports a clearer review",
+        paragraphs: [
+          "A stronger evidence file connects condition, timing, cost, and communication. It should be easy to understand without hunting through old messages.",
+        ],
+        items: [
+          "Check-in and check-out records with dated photos and room notes.",
+          "Invoices, quotes, or repair notes connected to the claimed issue.",
+          "Tenant acknowledgements, responses, and any agreed deductions.",
+          "Deposit payment records and the final deduction statement.",
+        ],
+      },
+      {
+        heading: "How Tenaqo helps",
+        paragraphs: [
+          "Tenaqo keeps evidence, documents, maintenance history, and tenant responses closer together. That makes kaucja review more organised and gives landlords a clearer operational trail before they seek professional advice or make a final decision.",
+        ],
+      },
+    ],
   },
 ];
 
