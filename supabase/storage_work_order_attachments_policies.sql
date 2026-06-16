@@ -1,7 +1,8 @@
 -- =========================================================
 -- STORAGE POLICIES: work-order-attachments
 -- Purpose: allow read/sign for assigned contractors + account members,
--- and upload/delete for assigned contractors + account members.
+-- upload for assigned contractors + account managers, and delete only for
+-- account managers.
 -- Path format expected:
 --   account/<account_id>/work_orders/<work_order_id>/<file>
 -- =========================================================
@@ -52,17 +53,19 @@ as $$
     from public.work_orders wo
     where wo.id = p_work_order_id
       and wo.account_id = p_account_id
-      and (
-        exists (
-          select 1
-          from public.account_members am
-          where am.account_id = wo.account_id
-            and am.user_id = auth.uid()
-        )
-        or wo.contractor_user_id = auth.uid()
-      )
+      and public.user_can_manage_account(wo.account_id)
   );
 $$;
+
+revoke all on function public.can_view_work_order_attachment(uuid, uuid) from public;
+revoke all on function public.can_manage_work_order_attachment(uuid, uuid) from public;
+revoke all on function public.safe_uuid(text) from public;
+revoke execute on function public.can_view_work_order_attachment(uuid, uuid) from anon;
+revoke execute on function public.can_manage_work_order_attachment(uuid, uuid) from anon;
+revoke execute on function public.safe_uuid(text) from anon;
+grant execute on function public.can_view_work_order_attachment(uuid, uuid) to authenticated, service_role;
+grant execute on function public.can_manage_work_order_attachment(uuid, uuid) to authenticated, service_role;
+grant execute on function public.safe_uuid(text) to authenticated, service_role;
 
 drop policy if exists "wo_attach_select_members_or_assigned_contractor" on storage.objects;
 drop policy if exists "wo_attach_insert_members_or_assigned_contractor" on storage.objects;
@@ -94,7 +97,7 @@ with check (
   and split_part(name, '/', 3) = 'work_orders'
   and public.safe_uuid(split_part(name, '/', 2)) is not null
   and public.safe_uuid(split_part(name, '/', 4)) is not null
-  and public.can_manage_work_order_attachment(
+  and public.can_view_work_order_attachment(
     public.safe_uuid(split_part(name, '/', 2)),
     public.safe_uuid(split_part(name, '/', 4))
   )

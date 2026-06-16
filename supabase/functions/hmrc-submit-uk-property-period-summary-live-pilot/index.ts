@@ -19,6 +19,7 @@ import { buildUkPropertyPeriodSummaryPayload } from "../_shared/hmrcUkPropertyPe
 const HMRC_PRODUCTION_API_BASE_URL = "https://api.service.hmrc.gov.uk";
 const HMRC_LIVE_NETWORK_ENABLED = Deno.env.get("HMRC_LIVE_NETWORK_ENABLED") || "false";
 const HMRC_LIVE_SUBMISSION_ENABLED = Deno.env.get("HMRC_LIVE_SUBMISSION_ENABLED") || HMRC_LIVE_SUBMISSION_ENV;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const DRAFT_SELECT = [
   "id", "account_id", "tax_year", "period_label", "period_start", "period_end",
@@ -457,6 +458,10 @@ async function assertDryRunPassedForDraftConsent(accountId: string, draftId: str
 }
 
 async function assertPilotEvidencePassed(accountId: string, draftId: string, evidenceType: string) {
+  if (!UUID_RE.test(draftId)) {
+    throw new HttpError("Invalid quarterly draft id.", 400);
+  }
+
   const { data, error } = await admin
     .from("hmrc_live_pilot_evidence")
     .select("id, draft_id, evidence_status")

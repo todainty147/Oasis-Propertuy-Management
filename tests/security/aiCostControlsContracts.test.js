@@ -33,8 +33,6 @@ const weeklyFn = read("supabase/functions/generate-weekly-portfolio-summary/inde
 const attentionFn = read("supabase/functions/generate-attention-insight/index.ts");
 const propertyHealthFn = read("supabase/functions/generate-property-health-explainer/index.ts");
 
-const ALL_FIVE = [triageFn, contractorFn, weeklyFn, attentionFn, propertyHealthFn];
-
 // ─── Epic A1: operator_agency plan tier ──────────────────────────────────────
 
 describe("Epic A1 – operator_agency plan tier", () => {
@@ -208,22 +206,17 @@ describe("Epics B1+B2 – per-plan daily and monthly limit SQL functions", () =>
     expect(aiCostControlsSql).toContain("when 'growth'          then 500");
   });
 
-  it("aiSafety.ts exports assertAiMonthlyLimit", () => {
-    expect(aiSafety).toContain("export async function assertAiMonthlyLimit");
+  it("aiSafety.ts no longer exports deprecated check-then-call quota helpers", () => {
+    expect(aiSafety).not.toContain("export async function assertAiDailyLimit");
+    expect(aiSafety).not.toContain("export async function assertAiMonthlyLimit");
+    expect(aiSafety).not.toContain("getDailyAiCallLimit");
   });
 
-  it("aiSafety.ts exports getMonthlyAiPeriodKey returning YYYY-MM slice", () => {
-    expect(aiSafety).toContain("export function getMonthlyAiPeriodKey");
-    expect(aiSafety).toContain(".slice(0, 7)");
-  });
-
-  it("assertAiDailyLimit is now plan-aware via getDailyAiCallLimit RPC", () => {
-    expect(aiSafety).toContain("getDailyAiCallLimit");
-    expect(aiSafety).toContain("ai_daily_call_limit_for_plan");
-  });
-
-  it("assertAiMonthlyLimit calls ai_monthly_call_limit_for_plan", () => {
-    expect(aiSafety).toContain("ai_monthly_call_limit_for_plan");
+  it("quota enforcement is centralized in the atomic reserve_ai_call_checked RPC", () => {
+    expect(aiSafety).toContain("export async function checkAndReserveAiCall");
+    expect(aiSafety).toContain("reserve_ai_call_checked");
+    expect(aiSafety).toContain("daily_limit_reached");
+    expect(aiSafety).toContain("monthly_limit_reached");
   });
 
   it("frontend AI_DAILY_LIMITS and AI_MONTHLY_LIMITS match SQL values", () => {
@@ -240,8 +233,8 @@ describe("Epics B1+B2 – per-plan daily and monthly limit SQL functions", () =>
 // ─── Epic B3: atomic check+reserve in all 5 edge functions ──────────────────
 
 describe("Epic B3 – atomic quota check + reservation in all 5 edge functions", () => {
-  // The old 3-step pattern (assertAiDailyLimit + assertAiMonthlyLimit +
-  // reserveAiCall called outside the OPENAI_API_KEY guard) has been replaced by:
+  // The old 3-step pattern (deprecated assert helpers + reserveAiCall called
+  // outside the OPENAI_API_KEY guard) has been replaced by:
   //   checkAndReserveAiCall — single atomic SQL RPC (reserve_ai_call_checked)
   //     that uses pg_advisory_xact_lock to close the check-then-call race.
   //   recordAiTokens        — fire-and-forget daily token increment post-call.
@@ -279,6 +272,7 @@ describe("Epic B3 – atomic quota check + reservation in all 5 edge functions",
 
     it(`${label} function does not call assertAiMonthlyLimit directly`, () => {
       // Limit enforcement is now inside the SQL RPC, not in TS
+      expect(src).not.toContain("assertAiDailyLimit");
       expect(src).not.toContain("assertAiMonthlyLimit");
     });
   }
@@ -318,11 +312,13 @@ describe("Epic B3 – atomic quota check + reservation in all 5 edge functions",
     expect(snippet.split("increment_ai_usage_meter").length - 1).toBe(1);
   });
 
-  it("aiSafety.ts monthly limit query lower bound starts at first day of month", () => {
-    // gte lower bound must be monthKey + "-01" to exclude legacy YYYY-MM aggregate rows
-    expect(aiSafety).toContain(".gte(\"period_key\", monthKey + \"-01\")");
-    expect(aiSafety).toContain(".lt(\"period_key\"");
-    expect(aiSafety).not.toContain(".filter((r) => String(r.period_key");
+  it("reserve_ai_call_checked.sql monthly limit query uses bounded daily rows", () => {
+    const sql = read("supabase/reserve_ai_call_checked.sql");
+    expect(sql).toContain("v_month_start");
+    expect(sql).toContain("v_next_month");
+    expect(sql).toContain("period_key >= v_month_start");
+    expect(sql).toContain("period_key <  v_next_month");
+    expect(sql).not.toContain(".filter((r) => String(r.period_key");
   });
 
   it("reserve_ai_call_checked.sql uses pg_advisory_xact_lock for serialisation", () => {

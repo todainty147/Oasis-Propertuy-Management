@@ -293,6 +293,9 @@ describe("RPC service isolation contracts", () => {
             is_disabled: false,
             disabled_at: null,
             created_at: "2026-03-24T11:00:00Z",
+            country_code: "GB",
+            currency: "GBP",
+            language: "en",
           },
         ],
         error: null,
@@ -351,6 +354,9 @@ describe("RPC service isolation contracts", () => {
       is_disabled: false,
       disabled_at: null,
       created_at: "2026-03-24T11:00:00Z",
+      country_code: "GB",
+      currency: "GBP",
+      language: "en",
     });
     expect(disableResult).toEqual({
       ok: true,
@@ -374,6 +380,11 @@ describe("RPC service isolation contracts", () => {
       sandbox_mode: "production",
       sandbox_lifecycle_status: "active",
       demo_expires_at: null,
+      subscription_plan: null,
+      subscription_status: null,
+      trial_ends_at: null,
+      trial_source: null,
+      billing_locked_at: null,
     });
   });
 });

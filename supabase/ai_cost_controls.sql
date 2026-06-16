@@ -3,7 +3,7 @@
 -- Epic A1: operator_agency plan tier
 -- Epic A2: AI feature keys in account_feature_required_plan
 -- Epic B1: per-plan daily limit function
--- Epic B2: monthly period key + assertAiMonthlyLimit helper function
+-- Epic B2: monthly AI quota limit function
 -- Epic E1: get_account_ai_usage_summary RPC
 -- =========================================================
 

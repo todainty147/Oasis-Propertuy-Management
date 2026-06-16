@@ -698,6 +698,9 @@ revoke all on function public.finalize_document_request_upload(uuid, integer, te
 revoke all on function public.review_document_request_upload(uuid, text, text, uuid) from public;
 revoke all on function public.cancel_document_request(uuid, uuid) from public;
 revoke all on function public.can_insert_document_request_upload_storage(uuid, uuid, uuid) from public;
+revoke all on function public.can_access_document_storage(uuid, uuid) from public;
+revoke execute on function public.can_insert_document_request_upload_storage(uuid, uuid, uuid) from anon;
+revoke execute on function public.can_access_document_storage(uuid, uuid) from anon;
 
 grant execute on function public.can_manage_document_requests(uuid, uuid) to authenticated, service_role;
 grant execute on function public.is_document_request_target(uuid, uuid) to authenticated, service_role;
@@ -707,6 +710,7 @@ grant execute on function public.finalize_document_request_upload(uuid, integer,
 grant execute on function public.review_document_request_upload(uuid, text, text, uuid) to authenticated, service_role;
 grant execute on function public.cancel_document_request(uuid, uuid) to authenticated, service_role;
 grant execute on function public.can_insert_document_request_upload_storage(uuid, uuid, uuid) to authenticated, service_role;
+grant execute on function public.can_access_document_storage(uuid, uuid) to authenticated, service_role;
 
 grant select on public.document_requests to authenticated;
 grant select on public.document_request_uploads to authenticated;

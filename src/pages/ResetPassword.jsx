@@ -22,6 +22,7 @@ export default function ResetPassword() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isRecovery, setIsRecovery] = useState(false);
+  const [recoveryIntent, setRecoveryIntent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -46,15 +47,20 @@ export default function ResetPassword() {
       const tokenHash = search.get("token_hash") || hashParams.get("token_hash");
       const code = search.get("code");
       const hasImplicitToken = Boolean(hashParams.get("access_token"));
+      const hasRecoveryMarker = flow === "recovery" || type === "recovery" || Boolean(tokenHash) || hasImplicitToken;
+      let recoverySessionEstablished = false;
 
-      if (flow === "recovery" || type === "recovery" || tokenHash || hasImplicitToken) {
-        if (!cancelled) setIsRecovery(true);
+      if (hasRecoveryMarker && !cancelled) {
+        setRecoveryIntent(true);
       }
 
       // PKCE recovery links can include ?code=...
       if (code) {
         const { error: codeErr } = await supabase.auth.exchangeCodeForSession(code);
-        if (!codeErr && !cancelled) setIsRecovery(true);
+        if (!codeErr && !cancelled) {
+          recoverySessionEstablished = true;
+          setIsRecovery(true);
+        }
       }
 
       // OTP recovery links can include token_hash + type=recovery
@@ -63,16 +69,24 @@ export default function ResetPassword() {
           type: "recovery",
           token_hash: tokenHash,
         });
-        if (!otpErr && !cancelled) setIsRecovery(true);
+        if (!otpErr && !cancelled) {
+          recoverySessionEstablished = true;
+          setIsRecovery(true);
+        }
       }
 
-      // Fallback: if Supabase already consumed URL tokens and session exists on this page,
-      // keep reset form visible when flow marker is present.
+      // Forced password resets are for already-authenticated sessions. URL
+      // recovery markers alone must never reveal the password update form.
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (session?.user && flow === "recovery" && !cancelled) {
+      if (session?.user && forcedReset && !cancelled) {
+        recoverySessionEstablished = true;
         setIsRecovery(true);
+      }
+
+      if (hasRecoveryMarker && !recoverySessionEstablished && !cancelled) {
+        setError(t("reset.invalidOrExpired"));
       }
     }
 
@@ -90,7 +104,7 @@ export default function ResetPassword() {
       cancelled = true;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [forcedReset, t]);
 
   async function requestReset(e) {
     e.preventDefault();
@@ -182,6 +196,11 @@ export default function ResetPassword() {
             {t("auth.resetRequired")}
           </p>
         ) : null}
+        {recoveryIntent && !isRecovery ? (
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            {t("reset.invalidOrExpired")}
+          </p>
+        ) : null}
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
 
@@ -236,7 +255,10 @@ export default function ResetPassword() {
         {!isRecovery ? (
           <button
             type="button"
-            onClick={() => setIsRecovery(true)}
+            onClick={() => {
+              setRecoveryIntent(true);
+              setError(t("reset.invalidOrExpired"));
+            }}
             className="w-full text-xs text-slate-500 hover:text-slate-700 hover:underline"
           >
             {t("reset.haveLink")}

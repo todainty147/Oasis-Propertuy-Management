@@ -194,6 +194,8 @@ $$;
 comment on function public.work_order_assign_contractor(uuid, uuid) is
   'Assigns an active in-account contractor directory row to a work order; contractor_id is the supplier identity and contractor_user_id remains the portal identity when present.';
 
+grant execute on function public.work_order_assign_contractor(uuid, uuid) to authenticated;
+
 create or replace function public.work_order_create(
   p_account_id uuid,
   p_property_id uuid,
@@ -221,6 +223,10 @@ begin
   v_user_id := auth.uid();
   if v_user_id is null then
     raise exception 'Not authenticated';
+  end if;
+
+  if not public.user_can_manage_account(p_account_id) then
+    raise exception 'Access denied' using errcode = '42501';
   end if;
 
   if p_contractor_id is not null then
@@ -271,5 +277,7 @@ begin
   return v_row;
 end;
 $$;
+
+grant execute on function public.work_order_create(uuid, uuid, uuid, uuid, text, text, timestamptz, text) to authenticated;
 
 commit;

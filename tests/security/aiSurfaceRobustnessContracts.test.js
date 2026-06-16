@@ -92,10 +92,13 @@ describe("aiSafety.ts shared utilities", () => {
     expect(aiSafetySource).toContain("ai_payload_too_large");
   });
 
-  it("assertAiDailyLimit enforces per-account per-feature limit", () => {
-    expect(aiSafetySource).toContain("ai_usage_meter");
+  it("uses atomic quota reservation instead of deprecated check-then-call helpers", () => {
+    expect(aiSafetySource).toContain("export async function checkAndReserveAiCall");
+    expect(aiSafetySource).toContain("reserve_ai_call_checked");
     expect(aiSafetySource).toContain("Daily AI generation limit reached");
     expect(aiSafetySource).toContain("429");
+    expect(aiSafetySource).not.toContain("export async function assertAiDailyLimit");
+    expect(aiSafetySource).not.toContain("export async function assertAiMonthlyLimit");
   });
 });
 

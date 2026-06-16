@@ -51,6 +51,9 @@ as $$
 $$;
 
 -- Back-compat helper for RLS predicates and SECURITY DEFINER access guards.
+-- Root operators intentionally have cross-account management capability for
+-- support/admin actions, gated by user_is_root_operator(). Follow-up:
+-- add root cross-account access audit events for account support actions.
 create or replace function public.user_can_manage_account(p_account_id uuid)
 returns boolean
 language sql

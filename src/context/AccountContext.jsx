@@ -49,6 +49,32 @@ async function loadAccountFeatureFlags(accountIds = []) {
   }
 }
 
+async function loadSelfServeAccountSnapshot(accountId, userId) {
+  if (!accountId || !userId) return null;
+
+  const fieldSets = [
+    "id,name,is_root,is_disabled,subscription_plan,subscription_status,billing_locked_at,trial_ends_at,trial_source,country_code,currency,language",
+    "id,name,is_root,is_disabled,subscription_plan,subscription_status,billing_locked_at,trial_ends_at,trial_source",
+    "id,name,is_root,is_disabled,subscription_plan,subscription_status,billing_locked_at",
+    "id,name,is_root,is_disabled",
+    "id,name",
+  ];
+
+  for (const fields of fieldSets) {
+    const { data, error } = await supabase
+      .from("account_members")
+      .select(`role, role_id, accounts (${fields})`)
+      .eq("user_id", userId)
+      .eq("account_id", accountId)
+      .maybeSingle();
+
+    if (!error) return data;
+    if (error.code !== "42703") throw error;
+  }
+
+  return null;
+}
+
 /* ======================
    PROVIDER
    ====================== */
@@ -315,11 +341,10 @@ export function AccountProvider({ children }) {
           .maybeSingle(),
         supabase
           .from("work_orders")
-          .select("id, account_id")
+          .select("id, account_id, created_at")
           .eq("contractor_user_id", user.id)
           .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
+          .limit(25),
       ]);
 
       if (cancelled) return;
@@ -327,9 +352,10 @@ export function AccountProvider({ children }) {
       const tenantRow = tenantRes.status === "fulfilled" && !tenantRes.value.error
         ? tenantRes.value.data
         : null;
-      const contractorRow = contractorRes.status === "fulfilled" && !contractorRes.value.error
-        ? contractorRes.value.data
+      const contractorRows = contractorRes.status === "fulfilled" && !contractorRes.value.error
+        ? (contractorRes.value.data || [])
         : null;
+      const contractorRow = contractorRows?.[0] || null;
 
       const tenantErr = tenantRes.status === "rejected"
         ? tenantRes.reason
@@ -371,14 +397,22 @@ export function AccountProvider({ children }) {
 
       // ✅ Contractor found -> allow contractor portal
       if (contractorRow?.account_id) {
+        const contractorAccountIds = Array.from(
+          new Set((contractorRows || []).map((row) => row.account_id).filter(Boolean)),
+        );
+        // Contractor account context is a navigation hint only. All contractor
+        // data access remains enforced by RLS/RPC checks against assigned work
+        // orders, so this must not be treated as an authorization grant.
         setContractorContext({
           account_id: contractorRow.account_id,
+          account_ids: contractorAccountIds,
+          has_multiple_accounts: contractorAccountIds.length > 1,
         });
 
         setAccounts([]);
 
         const stored = localStorage.getItem("activeAccountId");
-        const useStored = stored && stored === contractorRow.account_id;
+        const useStored = stored && contractorAccountIds.includes(stored);
         const nextId = useStored ? stored : contractorRow.account_id;
         setActiveAccountId(nextId);
         localStorage.setItem("activeAccountId", nextId);
@@ -406,16 +440,34 @@ export function AccountProvider({ children }) {
           const newName = row?.account_name || user?.user_metadata?.signup_account_name || user?.email || "My Account";
           if (newId) {
             await recordStrongPassword(newId);
+            let accountSnapshot = null;
+            try {
+              accountSnapshot = await loadSelfServeAccountSnapshot(newId, user.id);
+            } catch (snapshotError) {
+              console.warn("Self-serve account snapshot refetch failed; using RPC return fallback.", {
+                code: snapshotError?.code || "unknown",
+              });
+            }
+            const accountRow = accountSnapshot?.accounts || {};
             setAccounts([{
               id: newId,
-              name: newName,
-              is_root: false,
-              is_disabled: false,
-              subscription_plan: "starter",
-              subscription_status: "trialing",
-              billing_locked_at: null,
-              role: "owner",
+              name: accountRow.name || newName,
+              is_root: Boolean(accountRow.is_root),
+              is_disabled: Boolean(accountRow.is_disabled),
+              subscription_plan: accountRow.subscription_plan || row?.subscription_plan || null,
+              subscription_status: accountRow.subscription_status || row?.subscription_status || null,
+              billing_locked_at: accountRow.billing_locked_at || row?.billing_locked_at || null,
+              trial_ends_at: accountRow.trial_ends_at || row?.trial_ends_at || null,
+              trial_source: accountRow.trial_source || row?.trial_source || null,
+              country_code: accountRow.country_code || DEFAULT_COUNTRY_CODE,
+              currency: accountRow.currency || DEFAULT_CURRENCY,
+              language: accountRow.language || DEFAULT_LANGUAGE,
+              role: accountSnapshot?.role || row?.role || "owner",
+              role_id: accountSnapshot?.role_id || null,
+              permissionKeys: getPermissionKeysForRole(accountSnapshot?.role || row?.role || "owner"),
               sandbox_mode: row?.sandbox_mode || "production",
+              sandbox_lifecycle_status: row?.sandbox_lifecycle_status || "active",
+              demo_expires_at: row?.demo_expires_at || null,
             }]);
             setActiveAccountId(newId);
             localStorage.setItem("activeAccountId", newId);
