@@ -55,3 +55,5 @@ $$;
 
 comment on function public.work_order_assign_contractor(uuid, uuid) is
   'Assigns an active in-account contractor directory row to a work order; contractor_id is the supplier identity and contractor_user_id remains the portal identity when present.';
+
+grant execute on function public.work_order_assign_contractor(uuid, uuid) to authenticated;

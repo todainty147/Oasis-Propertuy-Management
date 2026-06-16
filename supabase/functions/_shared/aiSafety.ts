@@ -1,6 +1,5 @@
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const FALLBACK_DAILY_AI_CALL_LIMIT = 50; // used only when plan lookup fails
 const MAX_AI_STRING_LENGTH = 1_200;
 const MAX_AI_ARRAY_LENGTH = 24;
 const MAX_AI_OBJECT_KEYS = 64;
@@ -9,21 +8,8 @@ const MAX_AI_PAYLOAD_BYTES = 32_000;
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type RpcResult = { data?: unknown; error?: unknown };
-type QueryResult<T = Record<string, unknown>> = Promise<{ data?: T[] | T | null; error?: unknown }>;
-
-type SupabaseQueryBuilder = {
-  select: (columns: string) => SupabaseQueryBuilder;
-  eq: (column: string, value: string) => SupabaseQueryBuilder;
-  maybeSingle: () => QueryResult<Record<string, unknown>>;
-  upsert: (row: Record<string, unknown>) => Promise<RpcResult>;
-  then: <TResult1 = { data?: Record<string, unknown>[] | null; error?: unknown }, TResult2 = never>(
-    onfulfilled?: ((value: { data?: Record<string, unknown>[] | null; error?: unknown }) => TResult1 | PromiseLike<TResult1>) | null,
-    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
-  ) => Promise<TResult1 | TResult2>;
-};
 
 type SupabaseLikeClient = {
-  from: (table: string) => SupabaseQueryBuilder;
   rpc: (fn: string, params: Record<string, unknown>) => Promise<RpcResult>;
 };
 
@@ -34,47 +20,6 @@ export function getDailyAiPeriodKey(date = new Date()): string {
   return date.toISOString().slice(0, 10);
 }
 
-/** Monthly period key: YYYY-MM */
-export function getMonthlyAiPeriodKey(date = new Date()): string {
-  return date.toISOString().slice(0, 7);
-}
-
-// ─── Plan-aware daily limit ───────────────────────────────────────────────────
-
-/**
- * Resolves the per-account per-day AI call ceiling from the database.
- * Falls back to FALLBACK_DAILY_AI_CALL_LIMIT if the RPC is unavailable.
- * Returns null for unlimited (operator_agency plan).
- */
-export async function getDailyAiCallLimit(
-  client: SupabaseLikeClient,
-  accountId: string,
-  featureKey: string,
-): Promise<number | null> {
-  try {
-    const result = await client.rpc("ai_daily_call_limit_for_plan", {
-      p_plan: await getAccountPlan(client, accountId),
-      p_feature: featureKey,
-    });
-    if (result.error || result.data === undefined || result.data === null) {
-      // null from DB means unlimited
-      return result.data === null ? null : FALLBACK_DAILY_AI_CALL_LIMIT;
-    }
-    return result.data as number;
-  } catch {
-    return FALLBACK_DAILY_AI_CALL_LIMIT;
-  }
-}
-
-async function getAccountPlan(client: SupabaseLikeClient, accountId: string): Promise<string> {
-  try {
-    const result = await client.rpc("account_subscription_plan", { p_account_id: accountId });
-    return String(result.data || "starter");
-  } catch {
-    return "starter";
-  }
-}
-
 // ─── Limit checks ─────────────────────────────────────────────────────────────
 
 function buildLimitError(message: string, status: number, code: string): Error {
@@ -82,109 +27,6 @@ function buildLimitError(message: string, status: number, code: string): Error {
   (error as Error & { status?: number; code?: string }).status = status;
   (error as Error & { status?: number; code?: string }).code = code;
   return error;
-}
-
-/**
- * @deprecated Use checkAndReserveAiCall instead. This read-only check has a
- * race window (check-then-call) and enforces monthly limits per-feature rather
- * than account-wide. Retained only for external callers not yet migrated.
- * Will be removed once no callers remain.
- *
- * Throws 429 if the account has exceeded its plan-based daily AI call limit.
- */
-export async function assertAiDailyLimit(
-  client: SupabaseLikeClient,
-  {
-    accountId,
-    featureKey,
-  }: {
-    accountId: string;
-    featureKey: string;
-    limit?: number; // ignored — kept for backward-compat call sites; plan-aware now
-  },
-): Promise<void> {
-  const limit = await getDailyAiCallLimit(client, accountId, featureKey);
-  if (limit === null) return; // unlimited plan
-
-  const periodKey = getDailyAiPeriodKey();
-  const { data } = await client
-    .from("ai_usage_meter")
-    .select("prompt_runs")
-    .eq("account_id", accountId)
-    .eq("period_key", periodKey)
-    .eq("feature_key", featureKey)
-    .maybeSingle();
-
-  const currentRuns = Number((data as Record<string, unknown> | null)?.prompt_runs || 0);
-  if (currentRuns >= limit) {
-    throw buildLimitError("Daily AI generation limit reached", 429, "ai_daily_limit_reached");
-  }
-}
-
-/**
- * @deprecated Use checkAndReserveAiCall instead. This read-only check has a
- * race window (check-then-call) and enforces the monthly limit per-feature
- * rather than account-wide. Retained only for external callers not yet migrated.
- * Will be removed once no callers remain.
- *
- * Throws 429 if the account has exceeded its plan-based monthly AI call limit.
- * Sums daily rows for the current month — no separate monthly aggregate needed.
- */
-export async function assertAiMonthlyLimit(
-  client: SupabaseLikeClient,
-  {
-    accountId,
-    featureKey,
-  }: {
-    accountId: string;
-    featureKey: string;
-  },
-): Promise<void> {
-  const plan = await getAccountPlan(client, accountId);
-
-  let monthlyLimit: number | null;
-  try {
-    const result = await client.rpc("ai_monthly_call_limit_for_plan", { p_plan: plan });
-    monthlyLimit = result.data === null ? null : Number(result.data ?? 0);
-  } catch {
-    return; // fail open on RPC errors — daily limit is the primary guard
-  }
-
-  if (monthlyLimit === null) return; // unlimited
-  if (monthlyLimit === 0) {
-    throw buildLimitError("Monthly AI generation limit reached", 429, "ai_monthly_limit_reached");
-  }
-
-  const monthKey = getMonthlyAiPeriodKey();
-
-  // Sum only daily rows (YYYY-MM-DD) for the current month.
-  // Lower bound starts at the first calendar day to exclude any legacy YYYY-MM
-  // aggregate rows that might exist from before the double-counting fix.
-  const nextMonthKey = (() => {
-    const [y, m] = monthKey.split("-").map(Number);
-    const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
-    return next;
-  })();
-
-  const { data: rows } = await (client
-    .from("ai_usage_meter")
-    .select("prompt_runs")
-    .eq("account_id", accountId)
-    .eq("feature_key", featureKey) as unknown as SupabaseQueryBuilder & {
-      gte: (col: string, val: string) => SupabaseQueryBuilder;
-      lt:  (col: string, val: string) => SupabaseQueryBuilder;
-    })
-    .gte("period_key", monthKey + "-01")
-    .lt("period_key", nextMonthKey);
-
-  // Fall back if the client doesn't support this query shape
-  if (!Array.isArray(rows)) return;
-
-  const total = rows.reduce((sum, r) => sum + Number(r.prompt_runs || 0), 0);
-
-  if (total >= monthlyLimit) {
-    throw buildLimitError("Monthly AI generation limit reached", 429, "ai_monthly_limit_reached");
-  }
 }
 
 // ─── Atomic AI usage meter helpers ───────────────────────────────────────────
@@ -203,8 +45,7 @@ export async function assertAiMonthlyLimit(
 //
 // Only daily rows (period_key YYYY-MM-DD) are written to ai_usage_meter.
 // Monthly usage is derived at query time by summing daily rows for the month;
-// there are no separate YYYY-MM aggregate rows (removing those fixed ~2x
-// over-reporting in the old reserveAiCall + assertAiMonthlyLimit pattern).
+// there are no separate YYYY-MM aggregate rows, avoiding legacy double counting.
 
 /**
  * Atomically checks daily and monthly AI call quotas then increments the daily

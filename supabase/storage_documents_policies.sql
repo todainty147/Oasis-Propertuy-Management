@@ -71,6 +71,10 @@ begin
 end;
 $$;
 
+revoke all on function public.can_access_document_storage(uuid, uuid) from public;
+revoke execute on function public.can_access_document_storage(uuid, uuid) from anon;
+grant execute on function public.can_access_document_storage(uuid, uuid) to authenticated, service_role;
+
 drop policy if exists "documents_storage_select_scoped" on storage.objects;
 drop policy if exists "documents_storage_insert_member_stub" on storage.objects;
 drop policy if exists "documents_storage_delete_owner_admin" on storage.objects;

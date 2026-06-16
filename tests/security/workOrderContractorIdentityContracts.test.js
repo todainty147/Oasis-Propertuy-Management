@@ -8,6 +8,29 @@ function read(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
 }
 
+function normalized(sql) {
+  return sql.replace(/\s+/g, " ").toLowerCase();
+}
+
+function functionBody(sql, functionName) {
+  const text = normalized(sql);
+  const start = text.indexOf(`create or replace function public.${functionName}(`);
+  expect(start, `${functionName} must be defined`).toBeGreaterThanOrEqual(0);
+  const bodyStart = text.indexOf("as $$", start);
+  const bodyEnd = text.indexOf("$$;", bodyStart);
+  expect(bodyStart, `${functionName} must use a dollar-quoted body`).toBeGreaterThanOrEqual(0);
+  expect(bodyEnd, `${functionName} body must be terminated`).toBeGreaterThan(bodyStart);
+  return text.slice(start, bodyEnd);
+}
+
+function grantsExecuteToAuthenticated(sql, signature) {
+  return new RegExp(`grant execute on function public\\.${signature}\\s+to authenticated`, "i").test(normalized(sql));
+}
+
+function grantsExecuteToAnon(sql, signature) {
+  return new RegExp(`grant execute on function public\\.${signature}\\s+to anon`, "i").test(normalized(sql));
+}
+
 describe("work order contractor identity contracts", () => {
   it("adds nullable contractor_id with account-scoped indexes and idempotent user-id backfill", () => {
     const sql = read("supabase/work_order_contractor_identity.sql");
@@ -65,6 +88,73 @@ describe("work order contractor identity contracts", () => {
     expect(sql).toContain("contractor_user_id,");
     expect(sql).toContain("p_contractor_id,");
     expect(sql).toContain("v_contractor_user_id,");
+  });
+
+  it("authorizes work_order_create against the requested account before insert", () => {
+    const repoSql = read("supabase/work_order_contractor_identity.sql");
+    const migrationSql = read("supabase/migrations/20260616000000_harden_work_order_create_and_attachments.sql");
+
+    for (const sql of [repoSql, migrationSql]) {
+      const body = functionBody(sql, "work_order_create");
+      const authCheck = body.indexOf("if v_user_id is null then");
+      const manageCheck = body.indexOf("if not public.user_can_manage_account(p_account_id) then");
+      const insert = body.indexOf("insert into public.work_orders");
+
+      expect(manageCheck, "work_order_create must check p_account_id management access").toBeGreaterThan(authCheck);
+      expect(manageCheck, "work_order_create must authorize before insert").toBeLessThan(insert);
+      expect(body).toContain("raise exception 'access denied' using errcode = '42501'");
+    }
+  });
+
+  it("keeps browser-callable work-order SECURITY DEFINER RPCs explicitly granted only to authenticated", () => {
+    const sources = [
+      read("supabase/work_order_contractor_identity.sql"),
+      read("supabase/migrations/20260616000000_harden_work_order_create_and_attachments.sql"),
+    ];
+
+    const signatures = [
+      "work_order_create\\(uuid, uuid, uuid, uuid, text, text, timestamptz, text\\)",
+      "work_order_assign_contractor\\(uuid, uuid\\)",
+    ];
+
+    for (const sql of sources) {
+      for (const signature of signatures) {
+        expect(grantsExecuteToAuthenticated(sql, signature), `${signature} needs explicit authenticated EXECUTE`).toBe(true);
+        expect(grantsExecuteToAnon(sql, signature), `${signature} must not be granted to anon`).toBe(false);
+      }
+    }
+  });
+
+  it("keeps hardening compatible with allowlisted browser-callable work-order RPCs", () => {
+    const hardening = read("supabase/migrations/20260611003000_supabase_linter_final_hardening.sql");
+    const repair = read("supabase/migrations/20260616000000_harden_work_order_create_and_attachments.sql");
+    const repairTimestamp = Number("20260616000000");
+
+    expect(hardening).toContain("revoke execute on function %s from public");
+    expect(hardening).toContain("revoke execute on function %s from anon");
+    expect(repair).toContain("grant execute on function public.work_order_create(uuid, uuid, uuid, uuid, text, text, timestamptz, text) to authenticated");
+    expect(repair).toContain("grant execute on function public.work_order_assign_contractor(uuid, uuid) to authenticated");
+    expect(repairTimestamp).toBeGreaterThan(20260611003000);
+  });
+
+  it("separates work-order attachment view from manage/delete permission", () => {
+    const storageSql = read("supabase/storage_work_order_attachments_policies.sql");
+    const migrationSql = read("supabase/migrations/20260616000000_harden_work_order_create_and_attachments.sql");
+    const normalizedStorage = normalized(storageSql);
+    const normalizedMigration = normalized(migrationSql);
+
+    const viewBody = functionBody(storageSql, "can_view_work_order_attachment");
+    const manageBody = functionBody(storageSql, "can_manage_work_order_attachment");
+    const migratedManageBody = functionBody(migrationSql, "can_manage_work_order_attachment");
+
+    expect(viewBody).toContain("or wo.contractor_user_id = auth.uid()");
+    expect(manageBody).toContain("public.user_can_manage_account(wo.account_id)");
+    expect(manageBody).not.toContain("or wo.contractor_user_id = auth.uid()");
+    expect(migratedManageBody).toContain("public.user_can_manage_account(wo.account_id)");
+    expect(migratedManageBody).not.toContain("or wo.contractor_user_id = auth.uid()");
+    expect(normalizedStorage).toMatch(/for insert to authenticated with check \([^;]*public\.can_view_work_order_attachment/);
+    expect(normalizedStorage).toMatch(/for delete to authenticated using \([^;]*public\.can_manage_work_order_attachment/);
+    expect(normalizedMigration).toMatch(/for insert to authenticated with check \([^;]*public\.can_view_work_order_attachment/);
   });
 
   it("syncs approved quote assignment to the submitting contractor directory row", () => {

@@ -1,9 +1,8 @@
 -- =============================================================================
 -- Atomic AI quota check + reservation RPC
 -- =============================================================================
--- Replaces the read-check → assertAiDailyLimit + assertAiMonthlyLimit →
--- reserveAiCall three-step pattern in every Edge Function with a single
--- serialised SQL call.
+-- Replaces the legacy read-check-then-reserve pattern in every Edge Function
+-- with a single serialised SQL call.
 --
 -- Quota semantics (deliberate product decisions):
 --

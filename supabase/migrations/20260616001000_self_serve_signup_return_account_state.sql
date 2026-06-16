@@ -1,9 +1,7 @@
--- Self-serve landlord signup:
--- Allows authenticated users to create exactly one owner account for themselves.
--- Invite-only roles (tenant/contractor/admin/staff) remain invitation-based.
+-- Return real account subscription/trial state from self-serve signup.
 
-drop function if exists public.create_self_serve_landlord_account(text);
-drop function if exists public.create_self_serve_landlord_account(text, boolean);
+begin;
+
 create or replace function public.create_self_serve_landlord_account(
   p_account_name text default null,
   p_sandbox_mode boolean default false
@@ -50,7 +48,6 @@ begin
     raise exception 'Authenticated email not found';
   end if;
 
-  -- If the user is already owner somewhere, return existing (idempotent).
   select a.id, a.name, a.subscription_plan, a.subscription_status, a.billing_locked_at, a.trial_ends_at, a.trial_source
   into v_existing_owner_account_id, v_existing_owner_account_name,
        v_existing_subscription_plan, v_existing_subscription_status, v_existing_billing_locked_at,
@@ -63,10 +60,7 @@ begin
   limit 1;
 
   if v_existing_owner_account_id is not null then
-    select
-      coalesce(asp.mode, 'production'),
-      coalesce(asp.lifecycle_status, 'active'),
-      asp.demo_expires_at
+    select coalesce(asp.mode, 'production'), coalesce(asp.lifecycle_status, 'active'), asp.demo_expires_at
     into v_sandbox_mode, v_sandbox_lifecycle_status, v_demo_expires_at
     from (select v_existing_owner_account_id as account_id) scope
     left join public.account_sandbox_profiles asp on asp.account_id = scope.account_id;
@@ -88,7 +82,6 @@ begin
     );
   end if;
 
-  -- Guard: users already invited as non-owner cannot self-escalate to owner.
   select exists (
     select 1
     from public.account_members am
@@ -101,7 +94,6 @@ begin
     raise exception 'This user already belongs to an invited account; landlord self-signup is not allowed';
   end if;
 
-  -- Guard: one landlord(owner) account per email across platform.
   select am.user_id
   into v_existing_other_owner_user
   from public.account_members am
@@ -154,7 +146,6 @@ begin
       perform public.seed_demo_account_fixtures(v_new_account_id, false);
     exception
       when others then
-        -- Keep account creation successful even if demo seeding needs a retry from onboarding.
         update public.account_sandbox_profiles
         set lifecycle_status = 'active',
             updated_by = v_uid
@@ -162,10 +153,7 @@ begin
     end;
   end if;
 
-  select
-    coalesce(asp.mode, 'production'),
-    coalesce(asp.lifecycle_status, 'active'),
-    asp.demo_expires_at
+  select coalesce(asp.mode, 'production'), coalesce(asp.lifecycle_status, 'active'), asp.demo_expires_at
   into v_sandbox_mode, v_sandbox_lifecycle_status, v_demo_expires_at
   from (select v_new_account_id as account_id) scope
   left join public.account_sandbox_profiles asp on asp.account_id = scope.account_id;
@@ -190,3 +178,5 @@ $$;
 
 revoke execute on function public.create_self_serve_landlord_account(text, boolean) from anon;
 grant execute on function public.create_self_serve_landlord_account(text, boolean) to authenticated;
+
+commit;

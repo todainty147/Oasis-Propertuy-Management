@@ -83,6 +83,13 @@ as $$
   );
 $$;
 
+revoke all on function public.can_view_maintenance_request_attachment(uuid, uuid) from public;
+revoke all on function public.can_manage_maintenance_request_attachment(uuid, uuid) from public;
+revoke execute on function public.can_view_maintenance_request_attachment(uuid, uuid) from anon;
+revoke execute on function public.can_manage_maintenance_request_attachment(uuid, uuid) from anon;
+grant execute on function public.can_view_maintenance_request_attachment(uuid, uuid) to authenticated, service_role;
+grant execute on function public.can_manage_maintenance_request_attachment(uuid, uuid) to authenticated, service_role;
+
 DROP POLICY IF EXISTS "mr_attach_select_access" ON storage.objects;
 DROP POLICY IF EXISTS "mr_attach_insert_tenant_or_member" ON storage.objects;
 DROP POLICY IF EXISTS "mr_attach_delete_tenant_or_member" ON storage.objects;
@@ -122,7 +129,7 @@ WITH CHECK (
     FROM maintenance_requests mr
     WHERE mr.id = public.safe_uuid(split_part(name, '/', 4))
       AND mr.account_id = public.safe_uuid(split_part(name, '/', 2))
-      AND lower(coalesce(mr.status, '')) <> 'closed'
+      AND lower(coalesce(mr.status, '')) IN ('open', 'in_progress', 'waiting')
   )
 );
 
