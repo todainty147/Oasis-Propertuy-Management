@@ -57,6 +57,9 @@ export function validateUkPropertyPeriodSummaryInput({ draft, lines = [], nino, 
     if (!["income", "expense"].includes(String(line.direction || "").toLowerCase())) {
       issues.push(`Included line has an unsupported direction: ${line.description || line.id || "source record"}.`);
     }
+    if (!String(line.source_type || "").trim() || !String(line.source_table || "").trim() || !String(line.source_id || "").trim()) {
+      issues.push(`Included line has no digital source provenance: ${line.description || line.id || "source record"}.`);
+    }
   });
 
   return [...new Set(issues)];
@@ -105,7 +108,9 @@ export function buildUkPropertyPeriodSummaryPayload({
   const payloadSummary = {
     previewOnly: false,
     submissionMode: "sandbox",
-    submissionType: "uk_property_period_summary",
+    submissionType: draft?.draft_type === "amendment"
+      ? "uk_property_quarterly_amendment"
+      : "uk_property_period_summary",
     tax_year: draft?.tax_year || null,
     period_start: draft?.period_start || null,
     period_end: draft?.period_end || null,

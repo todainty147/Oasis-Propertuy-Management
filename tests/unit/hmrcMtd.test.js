@@ -18,6 +18,7 @@ import {
   HMRC_ACCEPT_HEADERS,
   maskNino,
   normalizeHmrcError,
+  normalizeHmrcNetworkError,
   normalizeSandboxNino,
   normalizeTestBusinessType,
   safeTaxYear,
@@ -26,7 +27,13 @@ import {
   summarizeObligations,
   summarizePropertyBusiness,
   taxYearAccountingPeriod,
+  normalizeAccountingType,
 } from "../../supabase/functions/_shared/hmrcMtdReadOnlyHelpers.ts";
+import {
+  buildHmrcFraudPreventionHeaders,
+  safeHmrcFraudHeaderEvidence,
+  sanitizeHmrcDiagnosticValue,
+} from "../../supabase/functions/_shared/hmrcFraudPreventionHeaders.ts";
 
 describe("HMRC MTD sandbox helpers", () => {
   it("generates OAuth state tokens and expiry windows", () => {
@@ -101,6 +108,10 @@ describe("HMRC MTD sandbox helpers", () => {
     expect(normalizeHmrcError(401, {}).safeCode).toBe("token_expired");
     expect(normalizeHmrcError(403, {}).safeCode).toBe("insufficient_scope");
     expect(normalizeHmrcError(404, { code: "MATCHING_RESOURCE_NOT_FOUND" }).safeCode).toBe("connected_but_no_data");
+    expect(normalizeHmrcError(409, {}).safeCode).toBe("already_submitted");
+    expect(normalizeHmrcError(422, {}).safeCode).toBe("business_rule_failed");
+    expect(normalizeHmrcError(429, {}).safeCode).toBe("rate_limited");
+    expect(normalizeHmrcNetworkError(new Error("request timed out")).safeCode).toBe("network_timeout");
   });
 
   it("formats sandbox identifiers and safe readiness summaries", () => {
@@ -112,6 +123,8 @@ describe("HMRC MTD sandbox helpers", () => {
       hasForeignProperty: false,
       discoveredIncomeSourceIdsCount: 1,
       firstIncomeSourceId: "X123",
+      accountingTypes: [{ businessId: "X123", accountingType: null }],
+      firstUkPropertyAccountingType: null,
     });
     expect(summarizeBusinessDetails({ businesses: [{ businessId: "Y456", typeOfBusiness: "FOREIGN_PROPERTY" }] }).hasForeignProperty).toBe(true);
     expect(summarizeBusinessDetails({ businesses: [{ businessId: "Z789", typeOfBusiness: "SELF_EMPLOYMENT", tradingName: "Property Lane Ltd" }] }).hasUkProperty).toBe(false);
@@ -132,6 +145,50 @@ describe("HMRC MTD sandbox helpers", () => {
       foreignPropertyFound: false,
       endpointMode: "cumulative",
     });
+  });
+
+  it("parses Business Details accounting type safely", () => {
+    expect(normalizeAccountingType("cash")).toBe("CASH");
+    expect(normalizeAccountingType("traditional")).toBe("ACCRUALS");
+    expect(normalizeAccountingType("unexpected-new-value")).toBe("UNKNOWN");
+    expect(summarizeBusinessDetails({
+      businesses: [{ businessId: "X123", typeOfBusiness: "uk-property", accountingType: "CASH" }],
+    }).firstUkPropertyAccountingType).toBe("CASH");
+  });
+
+  it("builds safe fraud-prevention headers and records names rather than values", () => {
+    const result = buildHmrcFraudPreventionHeaders({
+      accountId: "account-1",
+      userId: "user-1",
+      publicIp: "203.0.113.10",
+      publicIpTimestamp: "2026-06-20T10:00:00Z",
+      productVersion: "1.2.3",
+    });
+    expect(result.headers["Gov-Client-Connection-Method"]).toBe("OTHER_DIRECT");
+    expect(result.headers["Gov-Client-User-IDs"]).toContain("user-1");
+    expect(result.headers["Gov-Vendor-Version"]).toContain("1.2.3");
+    const evidence = safeHmrcFraudHeaderEvidence(result.headers, result.missingContext);
+    expect(evidence.presentHeaders).toContain("Gov-Client-Public-IP");
+    expect(evidence.valuesRecorded).toBe(false);
+    expect(JSON.stringify(evidence)).not.toContain("203.0.113.10");
+  });
+
+  it("handles missing fraud context and strips sensitive diagnostic fields", () => {
+    const result = buildHmrcFraudPreventionHeaders();
+    expect(result.missingContext).toEqual(expect.arrayContaining(["accountId", "userId", "publicIp"]));
+    expect(sanitizeHmrcDiagnosticValue({
+      status: "failed",
+      access_token: "secret",
+      nested: { payload: { income: 1 }, safeCode: "bad_request" },
+    })).toEqual({ status: "failed", nested: { safeCode: "bad_request" } });
+  });
+
+  it("uses a deterministic sanitized account fallback for device id without exposing it in evidence", () => {
+    const first = buildHmrcFraudPreventionHeaders({ accountId: " account-123\r\n", userId: "user-1" });
+    const second = buildHmrcFraudPreventionHeaders({ accountId: "account-123", userId: "user-1" });
+    expect(first.headers["Gov-Client-Device-ID"]).toBe("account-123");
+    expect(second.headers["Gov-Client-Device-ID"]).toBe(first.headers["Gov-Client-Device-ID"]);
+    expect(JSON.stringify(safeHmrcFraudHeaderEvidence(first.headers))).not.toContain("account-123");
   });
 
   it("normalizes HMRC sandbox test-data inputs", () => {

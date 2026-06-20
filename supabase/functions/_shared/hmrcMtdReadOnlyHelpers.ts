@@ -33,8 +33,19 @@ export function normalizeHmrcError(status: number, body: Record<string, unknown>
   if (status === 401) return { safeCode: "token_expired", hmrcCode: code || "UNAUTHORIZED", message: "The HMRC sandbox token is expired or invalid. Refresh or reconnect HMRC." };
   if (status === 403) return { safeCode: "insufficient_scope", hmrcCode: code || "FORBIDDEN", message: "The OAuth token does not include the required scope or API authorisation for this read-only check." };
   if (status === 404) return { safeCode: "connected_but_no_data", hmrcCode: code || "MATCHING_RESOURCE_NOT_FOUND", message: "HMRC responded successfully but no matching sandbox data was found." };
+  if (status === 409) return { safeCode: "already_submitted", hmrcCode: code || "CONFLICT", message: "HMRC reports this quarterly update was already submitted. Tenaqo will not retry automatically." };
+  if (status === 422) return { safeCode: "business_rule_failed", hmrcCode: code || "BUSINESS_RULE_FAILED", message: "HMRC could not accept this quarterly update because a business rule was not met. Review the period and source records." };
+  if (status === 429) return { safeCode: "rate_limited", hmrcCode: code || "TOO_MANY_REQUESTS", message: "HMRC is rate limiting requests. Wait before trying again." };
   if (status >= 500) return { safeCode: "hmrc_unavailable", hmrcCode: code || "HMRC_UNAVAILABLE", message: "HMRC sandbox is unavailable or returned an upstream error." };
   return { safeCode: "hmrc_error", hmrcCode: code || "HMRC_ERROR", message: message || "HMRC returned an error for this read-only check." };
+}
+
+export function normalizeHmrcNetworkError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  const timedOut = /timeout|timed out|abort/i.test(message);
+  return timedOut
+    ? { safeCode: "network_timeout", hmrcCode: "NETWORK_TIMEOUT", message: "The HMRC request timed out. Tenaqo will preserve the attempt so support can rule out acceptance before retrying." }
+    : { safeCode: "network_error", hmrcCode: "NETWORK_ERROR", message: "Tenaqo could not reach HMRC. Check service availability before retrying." };
 }
 
 export function summarizeBusinessDetails(body: Record<string, unknown>) {
@@ -56,13 +67,34 @@ export function summarizeBusinessDetails(body: Record<string, unknown>) {
       return String(row.businessId || row.incomeSourceId || "").trim();
     })
     .filter(Boolean);
+  const accountingTypes = businesses
+    .map((business) => {
+      if (!business || typeof business !== "object") return null;
+      const row = business as Record<string, unknown>;
+      const businessId = String(row.businessId || row.incomeSourceId || "").trim();
+      const raw = String(row.accountingType || row.accountingMethod || "").trim().toUpperCase();
+      return businessId ? { businessId, accountingType: normalizeAccountingType(raw) } : null;
+    })
+    .filter(Boolean);
+  const firstUkProperty = ukProperty[0] && typeof ukProperty[0] === "object"
+    ? ukProperty[0] as Record<string, unknown>
+    : null;
   return {
     businessCount: businesses.length,
     hasUkProperty: ukProperty.length > 0,
     hasForeignProperty: foreignProperty.length > 0,
     discoveredIncomeSourceIdsCount: incomeSourceIds.length,
     firstIncomeSourceId: incomeSourceIds[0] || "",
+    accountingTypes,
+    firstUkPropertyAccountingType: normalizeAccountingType(firstUkProperty?.accountingType || firstUkProperty?.accountingMethod),
   };
+}
+
+export function normalizeAccountingType(value: unknown) {
+  const normalized = String(value || "").trim().replace(/[-\s]+/g, "_").toUpperCase();
+  if (["CASH", "CASH_BASIS"].includes(normalized)) return "CASH";
+  if (["ACCRUALS", "ACCRUAL", "TRADITIONAL"].includes(normalized)) return "ACCRUALS";
+  return normalized ? "UNKNOWN" : null;
 }
 
 function businessType(business: unknown) {

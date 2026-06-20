@@ -121,7 +121,8 @@ describe("HMRC Phase 5C controlled live endpoint skeleton contracts", () => {
     expect(component).toContain("Live submission dry run passed. No data was sent to HMRC.");
     expect(component).toContain("READY_FOR_LIVE_SUBMISSION");
     expect(component).toContain("[\"Live network\", \"Disabled\"]");
-    expect(component).not.toMatch(/Submit live|File with HMRC|Submit to HMRC live|Fully MTD compliant|HMRC-recognised|HMRC recognised|Tax advice/i);
+    expect(component).not.toMatch(/Submit live|File with HMRC|Submit to HMRC live|Fully MTD compliant|HMRC-recognised|HMRC recognised/i);
+    expect(component).toContain("Tenaqo does not provide tax advice");
     expect(component).not.toContain("mode: \"live_network\"");
   });
 

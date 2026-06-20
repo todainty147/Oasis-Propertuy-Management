@@ -15,6 +15,11 @@ import {
 import { assertHmrcLiveSubmissionPilotAllowed } from "../_shared/hmrcLiveSubmissionPilot.ts";
 import { buildPropertyBusinessReadPath, HMRC_ACCEPT_HEADERS, maskNino, safeTaxYear } from "../_shared/hmrcMtdReadOnly.ts";
 import { buildUkPropertyPeriodSummaryPayload } from "../_shared/hmrcUkPropertyPeriodSummaryPayloadBuilder.ts";
+import {
+  buildHmrcFraudPreventionHeaders,
+  safeHmrcFraudHeaderEvidence,
+} from "../_shared/hmrcFraudPreventionHeaders.ts";
+import { performHmrcLiveNetworkRequest } from "../_shared/hmrcLiveNetworkTransport.ts";
 
 const HMRC_PRODUCTION_API_BASE_URL = "https://api.service.hmrc.gov.uk";
 const HMRC_LIVE_NETWORK_ENABLED = Deno.env.get("HMRC_LIVE_NETWORK_ENABLED") || "false";
@@ -25,6 +30,7 @@ const DRAFT_SELECT = [
   "id", "account_id", "tax_year", "period_label", "period_start", "period_end",
   "property_business_id", "income_source_id", "hmrc_connection_id", "status",
   "source_summary", "category_totals", "validation_summary", "payload_preview",
+  "draft_type", "original_draft_id", "amendment_reason", "accounting_type_snapshot", "accounting_type_review_required",
   "live_submission_status", "live_submitted_at", "live_submission_attempt_id", "updated_at",
 ].join(", ");
 
@@ -126,6 +132,14 @@ Deno.serve(async (req) => {
     }
 
     if (mode === "dry_run") {
+      const dryRunFraud = buildHmrcFraudPreventionHeaders({
+        accountId,
+        userId,
+        publicIp: Deno.env.get("HMRC_SERVER_PUBLIC_IP") || "",
+        publicPort: Deno.env.get("HMRC_SERVER_PUBLIC_PORT") || "443",
+        licenseId: Deno.env.get("HMRC_VENDOR_LICENSE_ID") || accountId,
+        productVersion: Deno.env.get("HMRC_VENDOR_VERSION") || "web",
+      });
       await writeLiveEvent(accountId, {
         draftId,
         attemptId,
@@ -140,6 +154,7 @@ Deno.serve(async (req) => {
         payloadReady: true,
         includedLineCount: payloadResult.payloadSummary.included_line_count,
         issueCount: payloadResult.payloadSummary.issue_count,
+        fraudPreventionHeaders: safeHmrcFraudHeaderEvidence(dryRunFraud.headers, dryRunFraud.missingContext),
       };
       await completeLiveAttempt(attemptId, accountId, {
         status: "dry_run_passed",
@@ -185,6 +200,7 @@ Deno.serve(async (req) => {
       connection,
       endpointPath,
       payload: payloadResult.payload,
+      userId,
     });
 
     if (!response.ok) {
@@ -206,12 +222,17 @@ Deno.serve(async (req) => {
         metadata: summary,
       });
       return json(req, {
-        status: "failed",
+        status: response.outcome,
         attemptId,
+        message: response.message,
         hmrcCorrelationId: response.correlationId,
         hmrcHttpStatus: response.status,
         safeSummary: summary,
-      }, response.status >= 400 && response.status < 500 ? 400 : 502);
+      }, response.outcome === "timeout"
+        ? 504
+        : response.status >= 400 && response.status < 500
+          ? 400
+          : 502);
     }
 
     const readBack = await safeReadBackAfterLiveAccepted({
@@ -274,7 +295,7 @@ Deno.serve(async (req) => {
       }, 202);
     }
     return json(req, {
-      status: "success",
+      status: "accepted",
       attemptId,
       hmrcCorrelationId: response.correlationId,
       hmrcHttpStatus: response.status,
@@ -558,7 +579,9 @@ async function createLiveAttempt({
       hmrc_connection_id: connection.id || null,
       environment: "live",
       mode,
-      submission_type: "uk_property_period_summary",
+      submission_type: draft.draft_type === "amendment"
+        ? "uk_property_quarterly_amendment"
+        : "uk_property_period_summary",
       status,
       nino_masked: identifiers.nino ? maskNino(identifiers.nino) : null,
       business_id: identifiers.businessId || null,
@@ -684,11 +707,20 @@ async function safeReadBackAfterLiveAccepted({
 }) {
   try {
     const accessToken = await decryptConnectionAccessToken(connection);
+    const fraud = buildHmrcFraudPreventionHeaders({
+      accountId,
+      userId,
+      publicIp: Deno.env.get("HMRC_SERVER_PUBLIC_IP") || "",
+      publicPort: Deno.env.get("HMRC_SERVER_PUBLIC_PORT") || "443",
+      licenseId: Deno.env.get("HMRC_VENDOR_LICENSE_ID") || accountId,
+      productVersion: Deno.env.get("HMRC_VENDOR_VERSION") || "web",
+    });
     const response = await fetch(`${HMRC_BASE_URL}${endpointPath}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${accessToken}`,
         Accept: HMRC_ACCEPT_HEADERS.propertyBusiness,
+        ...fraud.headers,
       },
     });
     if (response.ok) return { status: "succeeded" };
@@ -715,42 +747,60 @@ async function safeReadBackAfterLiveAccepted({
 }
 
 async function performLiveNetworkSubmission({
+  accountId,
   connection,
   endpointPath,
   payload,
+  userId,
 }: {
   accountId: string;
   connection: Record<string, unknown>;
   endpointPath: string;
   payload: Record<string, unknown>;
+  userId: string;
 }) {
-  const accessToken = await decryptConnectionAccessToken(connection);
-  const response = await fetch(`${HMRC_BASE_URL}${endpointPath}`, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: HMRC_ACCEPT_HEADERS.propertyBusiness,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
+  let accessToken = "";
+  try {
+    accessToken = await decryptConnectionAccessToken(connection);
+  } catch {
+    const fraud = buildHmrcFraudPreventionHeaders({
+      accountId,
+      userId,
+      licenseId: Deno.env.get("HMRC_VENDOR_LICENSE_ID") || accountId,
+      productVersion: Deno.env.get("HMRC_VENDOR_VERSION") || "web",
+    });
+    return {
+      ok: false,
+      outcome: "network_error" as const,
+      status: 0,
+      body: {},
+      correlationId: null,
+      errorCode: "LIVE_REQUEST_SETUP_FAILED",
+      message: "Tenaqo could not prepare the HMRC request. The attempt was closed safely.",
+      acceptanceState: "not_sent" as const,
+      fraudPreventionHeaders: safeHmrcFraudHeaderEvidence(fraud.headers, fraud.missingContext),
+    };
+  }
+  return performHmrcLiveNetworkRequest({
+    url: `${HMRC_BASE_URL}${endpointPath}`,
+    accessToken,
+    accept: HMRC_ACCEPT_HEADERS.propertyBusiness,
+    payload,
+    accountId,
+    userId,
+    timeoutMs: Number(Deno.env.get("HMRC_LIVE_NETWORK_TIMEOUT_MS") || 30_000),
   });
-  const body = await response.json().catch(() => ({}));
-  return {
-    ok: response.ok,
-    status: response.status,
-    body,
-    correlationId: response.headers.get("x-correlation-id") || response.headers.get("X-Correlation-ID") || null,
-    errorCode: typeof body?.code === "string" ? body.code : null,
-    message: typeof body?.message === "string" ? body.message : response.ok ? "Accepted" : "HMRC live request failed.",
-  };
 }
 
 function safeLiveFailureSummary(response: Awaited<ReturnType<typeof performLiveNetworkSubmission>>) {
   return {
     ok: false,
+    outcome: response.outcome,
+    acceptanceState: response.acceptanceState,
     httpStatus: response.status,
     hmrcCode: response.errorCode,
     message: response.message,
+    fraudPreventionHeaders: response.fraudPreventionHeaders,
   };
 }
 

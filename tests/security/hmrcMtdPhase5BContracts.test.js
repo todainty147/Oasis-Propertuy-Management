@@ -157,8 +157,9 @@ describe("HMRC Phase 5B controlled live pilot contracts", () => {
     const sandboxFunction = read("supabase/functions/hmrc-submit-uk-property-period-summary-sandbox/index.ts");
 
     [service, component, pilotHelper].forEach((surface) => {
-      expect(surface).not.toMatch(/Submit live|File with HMRC|Live filed|Fully MTD compliant|HMRC-recognised|HMRC recognised|Tax advice/i);
+      expect(surface).not.toMatch(/Submit live|File with HMRC|Live filed|Fully MTD compliant|HMRC-recognised|HMRC recognised/i);
     });
+    expect(component).toContain("Tenaqo does not provide tax advice");
     expect(service).not.toContain("mode: \"live_network\"");
     expect(component).not.toContain("mode: \"live_network\"");
     expect(pilotHelper).not.toMatch(/fetch\s*\(|period-summary.*POST|submit.*live/i);

@@ -53,6 +53,9 @@ export function validateUkPropertyPeriodSummaryInput({
     if (REVIEW_BLOCKING_STATUSES.has(issueStatus)) issues.push(`Included line needs review: ${lineLabel(line)}.`);
     if (!Number.isFinite(amount) || amount < 0) issues.push(`Included line has an invalid amount: ${lineLabel(line)}.`);
     if (!["income", "expense"].includes(direction)) issues.push(`Included line has an unsupported direction: ${lineLabel(line)}.`);
+    if (!String(line.source_type || "").trim() || !String(line.source_table || "").trim() || !String(line.source_id || "").trim()) {
+      issues.push(`Included line has no digital source provenance: ${lineLabel(line)}.`);
+    }
   });
 
   return [...new Set(issues)];
@@ -108,7 +111,9 @@ export function buildUkPropertyPeriodSummaryPayload({
     payloadSummary: {
       previewOnly: false,
       submissionMode: "sandbox",
-      submissionType: "uk_property_period_summary",
+      submissionType: draft?.draft_type === "amendment"
+        ? "uk_property_quarterly_amendment"
+        : "uk_property_period_summary",
       tax_year: draft?.tax_year || null,
       period_start: draft?.period_start || null,
       period_end: draft?.period_end || null,

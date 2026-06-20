@@ -573,6 +573,11 @@ const bootstrapSteps = [
     file: path.join(supabaseDir, "hmrc_mtd_phase5d_one_account_live_pilot.sql"),
     onErrorStop: true,
   },
+  {
+    label: "Apply HMRC E1 UK Property compliance overlay",
+    file: path.join(supabaseDir, "hmrc_mtd_e1_uk_property_compliance.sql"),
+    onErrorStop: true,
+  },
 ];
 
 function resolvePsqlCommand() {

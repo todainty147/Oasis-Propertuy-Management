@@ -11,7 +11,7 @@ import {
   getSandboxProfile,
   HMRC_ACCEPT_HEADERS,
   hmrcRequest,
-  persistDiscoveredIncomeSourceId,
+  persistDiscoveredBusinessMetadata,
   requireConnectedHmrcConnection,
   summarizeBusinessDetails,
   writeHmrcReadinessCheck,
@@ -54,8 +54,12 @@ Deno.serve(async (req) => {
     const summary: Record<string, unknown> = response.ok
       ? summarizeBusinessDetails(response.body)
       : { safe_code: response.normalized?.safeCode || "hmrc_error" };
-    if (response.ok && summary.firstIncomeSourceId) {
-      await persistDiscoveredIncomeSourceId(connection, String(summary.firstIncomeSourceId), accountId);
+    if (response.ok) {
+      await persistDiscoveredBusinessMetadata(connection, {
+        incomeSourceId: String(summary.firstIncomeSourceId || ""),
+        accountingType: String(summary.firstUkPropertyAccountingType || "") || null,
+        accountingTypeBusinessId: String(summary.firstIncomeSourceId || "") || null,
+      }, accountId, user.id);
     }
     const status = response.ok ? "success" : response.status === 404 ? "no_data" : "failed";
     await writeHmrcReadinessCheck({
@@ -96,6 +100,8 @@ function businessDetailsResult(status: string, message: string, summary: Record<
       hasUkProperty: Boolean(summary.hasUkProperty),
       hasForeignProperty: Boolean(summary.hasForeignProperty),
       discoveredIncomeSourceIdsCount: Number(summary.discoveredIncomeSourceIdsCount || 0),
+      accountingType: summary.firstUkPropertyAccountingType || null,
+      accountingTypeKnown: ["CASH", "ACCRUALS"].includes(String(summary.firstUkPropertyAccountingType || "")),
       safeCode: summary.safe_code || null,
     },
   };

@@ -174,6 +174,11 @@ describe("MTD quarterly draft lines", () => {
 });
 
 describe("HMRC sandbox UK property period summary payload builder", () => {
+  const source = {
+    source_type: "tax_record",
+    source_table: "tax_records",
+    source_id: "00000000-0000-0000-0000-000000000001",
+  };
   const draft = {
     status: "reviewed",
     tax_year: "2026-27",
@@ -187,8 +192,8 @@ describe("HMRC sandbox UK property period summary payload builder", () => {
       nino: "QQ123456C",
       businessId: "XAIS12345678910",
       lines: [
-        { include_in_draft: true, direction: "income", amount: 1200, issue_status: "ok", hmrc_category_key: "rent_income" },
-        { include_in_draft: true, direction: "expense", amount: 100.235, issue_status: "ok", hmrc_category_key: "repairs_and_maintenance" },
+        { ...source, include_in_draft: true, direction: "income", amount: 1200, issue_status: "ok", hmrc_category_key: "rent_income" },
+        { ...source, source_id: "00000000-0000-0000-0000-000000000002", include_in_draft: true, direction: "expense", amount: 100.235, issue_status: "ok", hmrc_category_key: "repairs_and_maintenance" },
       ],
     });
 
@@ -206,7 +211,7 @@ describe("HMRC sandbox UK property period summary payload builder", () => {
       nino: "QQ123456C",
       businessId: "XAIS12345678910",
       lines: [
-        { include_in_draft: true, direction: "income", amount: 200, issue_status: "ok", hmrc_category_key: "other_property_income" },
+        { ...source, include_in_draft: true, direction: "income", amount: 200, issue_status: "ok", hmrc_category_key: "other_property_income" },
         { include_in_draft: false, direction: "income", amount: 999, issue_status: "excluded", hmrc_category_key: "rent_income" },
       ],
     });
@@ -222,7 +227,7 @@ describe("HMRC sandbox UK property period summary payload builder", () => {
       nino: "",
       businessId: "",
       lines: [
-        { include_in_draft: true, direction: "expense", amount: 500, issue_status: "needs_review", description: "Capital improvement" },
+        { ...source, include_in_draft: true, direction: "expense", amount: 500, issue_status: "needs_review", description: "Capital improvement" },
       ],
     });
 
@@ -236,12 +241,22 @@ describe("HMRC sandbox UK property period summary payload builder", () => {
       draft,
       nino: "QQ123456C",
       businessId: "XAIS12345678910",
-      lines: [{ include_in_draft: true, direction: "income", amount: 100, issue_status: "ok", hmrc_category_key: "rent_income" }],
+      lines: [{ ...source, include_in_draft: true, direction: "income", amount: 100, issue_status: "ok", hmrc_category_key: "rent_income" }],
     });
 
     const summaryText = JSON.stringify(result.payloadSummary);
     expect(summaryText).not.toMatch(/token|secret|client/i);
     expect(result.payloadSummary.issue_count).toBe(0);
+  });
+
+  it("refuses arbitrary totals without digital source provenance", () => {
+    const result = buildUkPropertyPeriodSummaryPayload({
+      draft,
+      nino: "QQ123456C",
+      businessId: "XAIS12345678910",
+      lines: [{ include_in_draft: true, direction: "income", amount: 100, issue_status: "ok", hmrc_category_key: "rent_income" }],
+    });
+    expect(result.validationIssues.join(" ")).toMatch(/digital source provenance/i);
   });
 
   it("formats a successful 204 sandbox receipt without treating the missing submission id as an error", () => {

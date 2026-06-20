@@ -261,6 +261,11 @@ export default function HmrcConnectionPage() {
             <InfoTile label="Last refreshed" value={formatDateTime(connection?.last_refreshed_at)} />
             <InfoTile label="Display label" value={connection?.hmrc_display_label || "Not connected"} />
             <InfoTile label="Scopes granted" value={grantedScopes.length ? grantedScopes.join(", ") : "None"} />
+            <InfoTile
+              label="UK property accounting type"
+              value={sandboxProfile?.accountingTypeKnown ? sandboxProfile.accountingType : "Not returned by HMRC"}
+            />
+            <InfoTile label="Accounting type refreshed" value={formatDateTime(sandboxProfile?.accountingTypeRefreshedAt)} />
           </div>
 
           <div className="mt-5 flex flex-wrap gap-3">
