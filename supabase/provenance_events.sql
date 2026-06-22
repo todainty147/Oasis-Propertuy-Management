@@ -511,7 +511,8 @@ begin
 end;
 $$;
 
-create or replace function public.verify_provenance_chain(
+-- Internal verifier with no auth check — callable only from SECURITY DEFINER wrappers.
+create or replace function public._verify_provenance_chain_internal(
   p_account_id uuid,
   out is_valid boolean,
   out checked_count bigint,
@@ -524,8 +525,6 @@ security definer
 set search_path = public
 as $$
 declare
-  v_actor_id uuid := auth.uid();
-  v_role text;
   v_event public.provenance_events%rowtype;
   v_expected_prev text;
   v_expected_seq bigint := 1;
@@ -535,16 +534,6 @@ declare
   v_counter_head text;
   v_counter_next bigint;
 begin
-  if v_actor_id is null then
-    raise exception 'authentication required';
-  end if;
-
-  v_role := public.account_member_effective_role(p_account_id, v_actor_id);
-  if not public.user_is_root_operator()
-     and coalesce(v_role, '') <> all (array['owner', 'admin']) then
-    raise exception 'account owner or admin role required';
-  end if;
-
   is_valid := true;
   v_expected_prev := provenance_genesis_sentinel();
 
@@ -656,6 +645,39 @@ begin
 end;
 $$;
 
+-- Public wrapper with auth checks — delegates to internal verifier.
+create or replace function public.verify_provenance_chain(
+  p_account_id uuid,
+  out is_valid boolean,
+  out checked_count bigint,
+  out first_broken_sequence bigint,
+  out first_broken_reason text
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_actor_id uuid := auth.uid();
+  v_role text;
+begin
+  if v_actor_id is null then
+    raise exception 'authentication required';
+  end if;
+
+  v_role := public.account_member_effective_role(p_account_id, v_actor_id);
+  if not public.user_is_root_operator()
+     and coalesce(v_role, '') <> all (array['owner', 'admin']) then
+    raise exception 'account owner or admin role required';
+  end if;
+
+  select vi.is_valid, vi.checked_count, vi.first_broken_sequence, vi.first_broken_reason
+  into is_valid, checked_count, first_broken_sequence, first_broken_reason
+  from public._verify_provenance_chain_internal(p_account_id) vi;
+end;
+$$;
+
 revoke all on table public.provenance_event_counters from public, anon, authenticated;
 revoke all on table public.provenance_events from public, anon, authenticated;
 grant select on table public.provenance_events to authenticated;
@@ -675,6 +697,7 @@ revoke all on function public.provenance_canonical_payload_v0(public.provenance_
 revoke all on function public.provenance_compute_hash_before_insert() from public, anon, authenticated;
 revoke all on function public.provenance_advance_head_hash_after_insert() from public, anon, authenticated;
 
+revoke all on function public._verify_provenance_chain_internal(uuid) from public, anon, authenticated;
 revoke all on function public.verify_provenance_chain(uuid) from public, anon, authenticated;
 grant execute on function public.verify_provenance_chain(uuid) to authenticated;
 

@@ -168,6 +168,7 @@ const OVERLAY_SEQUENCE = [
   "hmrc_mtd_phase5d_one_account_live_pilot.sql",
   "hmrc_mtd_e1_uk_property_compliance.sql",
   "provenance_events.sql",
+  "migrations/20260622000000_provenance_hash_chain_backfill.sql",
   "provenance_finance_cutover.sql",
   "provenance_explain_balance.sql",
   "supabase_linter_security_hardening.sql",

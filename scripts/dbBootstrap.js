@@ -584,6 +584,15 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Backfill and verify provenance hash chains",
+    file: path.join(
+      supabaseDir,
+      "migrations",
+      "20260622000000_provenance_hash_chain_backfill.sql",
+    ),
+    onErrorStop: true,
+  },
+  {
     label: "Apply provenance finance cutover overlay",
     file: path.join(supabaseDir, "provenance_finance_cutover.sql"),
     onErrorStop: true,

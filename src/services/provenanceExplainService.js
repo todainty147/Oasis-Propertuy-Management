@@ -7,3 +7,11 @@ export async function explainPropertyBalance(propertyId) {
   if (error) throw error;
   return data;
 }
+
+export async function activateProvenanceCutover(accountId) {
+  const { data, error } = await supabase.rpc("activate_provenance_cutover", {
+    p_account_id: accountId,
+  });
+  if (error) throw error;
+  return data;
+}

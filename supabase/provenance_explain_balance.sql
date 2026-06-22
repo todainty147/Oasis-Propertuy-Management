@@ -401,7 +401,8 @@ begin
           'visibility', e.visibility,
           'summary', e.summary,
           'reason', e.reason,
-          'reconstructed', coalesce(e.metadata ->> 'reconstructed', 'false') = 'true'
+          'reconstructed', coalesce(e.metadata ->> 'reconstructed', 'false') = 'true',
+          'metadata', e.metadata
         )
         order by e.sequence_number
       ) as event_list
@@ -429,6 +430,10 @@ grant execute on function public.provenance_balance_projection(uuid, uuid) to au
 --
 -- Now calls provenance_accrue_rent_charges before comparing (on-read catch-up)
 -- and adds post_cutover_rent_change divergence category.
+
+-- The Sprint 2A definition has one fewer OUT column, so it must be dropped
+-- before installing this expanded Sprint 2B row shape.
+drop function if exists public.provenance_reconciliation_gate(uuid);
 
 create or replace function public.provenance_reconciliation_gate(
   p_account_id uuid
@@ -516,6 +521,7 @@ begin
     c.curr as currency,
     case
       when c.l_curr is not null and c.p_curr is not null and c.l_curr <> c.p_curr then 'cannot_compare'
+      when c.p_curr is null then 'cannot_compare'
       when c.leg_balance = 0 and c.prov_bal = 0 then 'matched'
       when c.leg_balance = c.prov_bal then 'matched'
       when c.leg_balance = 0 and c.prov_bal < 0 then 'explained_divergence'
@@ -527,6 +533,7 @@ begin
     end as status,
     case
       when c.l_curr is not null and c.p_curr is not null and c.l_curr <> c.p_curr then 'currency_mismatch'
+      when c.p_curr is null then 'not_yet_cut_over'
       when c.leg_balance = c.prov_bal then null
       when c.leg_balance = 0 and c.prov_bal < 0 then 'overpayment_credit_clamp'
       when c.snap_rent_minor is not null
@@ -538,6 +545,7 @@ begin
     end as divergence_reason,
     case
       when c.l_curr is not null and c.p_curr is not null and c.l_curr <> c.p_curr then 'investigate currency configuration'
+      when c.p_curr is null then 'This property has not been cut over to provenance tracking yet. No comparison is possible until cutover is activated.'
       when c.leg_balance = c.prov_bal then null
       when c.leg_balance = 0 and c.prov_bal < 0 then 'expected: provenance shows tenant credit that legacy clamps to zero'
       when c.snap_rent_minor is not null
@@ -548,6 +556,7 @@ begin
     end as recommended_action,
     case
       when c.l_curr is not null and c.p_curr is not null and c.l_curr <> c.p_curr then null
+      when c.p_curr is null then 'legacy_compatible'
       when c.leg_balance = c.prov_bal then 'provenance'
       when c.leg_balance = 0 and c.prov_bal < 0 then 'legacy_compatible'
       when c.snap_rent_minor is not null
@@ -566,6 +575,143 @@ comment on function public.provenance_reconciliation_gate(uuid) is
 revoke all on function public.provenance_reconciliation_gate(uuid)
   from public, anon, authenticated;
 grant execute on function public.provenance_reconciliation_gate(uuid) to authenticated;
+
+-- ─── Part 2. Chain verification status cache ────────────────────────────────
+--
+-- Mutable per-account cache of the latest verify_provenance_chain result.
+-- Intentionally NOT append-only — upserted on every verify.
+
+create table if not exists public.provenance_chain_status (
+  account_id uuid primary key references public.accounts(id) on delete cascade,
+  verified boolean not null,
+  last_verified_at timestamptz not null,
+  head_sequence bigint,
+  head_hash text,
+  event_count bigint,
+  first_broken_sequence bigint null,
+  first_broken_reason text null,
+  updated_at timestamptz not null default now()
+);
+
+comment on table public.provenance_chain_status is
+  'Mutable per-account cache of the latest chain verification result. Upserted by verify_and_persist_chain_status. NOT append-only — intentionally updatable by the verify path.';
+
+alter table public.provenance_chain_status enable row level security;
+
+drop policy if exists provenance_chain_status_select_operators
+  on public.provenance_chain_status;
+create policy provenance_chain_status_select_operators
+on public.provenance_chain_status
+for select to authenticated
+using (
+  public.user_is_root_operator()
+  or public.account_member_effective_role(account_id, auth.uid())
+    = any (array['owner', 'admin', 'staff'])
+);
+
+revoke all on table public.provenance_chain_status from public, anon, authenticated;
+grant select on table public.provenance_chain_status to authenticated;
+
+-- ─── Head reader helper ─────────────────────────────────────────────────────
+
+create or replace function public.get_provenance_chain_head(
+  p_account_id uuid,
+  out head_sequence bigint,
+  out head_hash text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(c.next_sequence - 1, 0), c.head_hash
+  from public.provenance_event_counters c
+  where c.account_id = p_account_id;
+$$;
+
+revoke all on function public.get_provenance_chain_head(uuid)
+  from public, anon, authenticated;
+
+-- ─── Verify-and-persist wrapper ─────────────────────────────────────────────
+--
+-- Calls verify_provenance_chain and upserts the result into
+-- provenance_chain_status. Returns the same shape as verify_provenance_chain.
+
+create or replace function public.verify_and_persist_chain_status(
+  p_account_id uuid,
+  out is_valid boolean,
+  out checked_count bigint,
+  out first_broken_sequence bigint,
+  out first_broken_reason text,
+  out last_verified_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_actor_id uuid := auth.uid();
+  v_role text;
+  v_head_before record;
+  v_head_after record;
+begin
+  if v_actor_id is null then
+    raise exception 'authentication required';
+  end if;
+
+  v_role := public.account_member_effective_role(p_account_id, v_actor_id);
+  if not public.user_is_root_operator()
+     and coalesce(v_role, '') <> all (array['owner', 'admin', 'staff']) then
+    raise exception 'account operator role required';
+  end if;
+
+  -- Same advisory lock as ledger writers to prevent concurrent appends.
+  perform pg_advisory_xact_lock(hashtext('provenance:' || p_account_id::text), 0);
+
+  select h.head_sequence, h.head_hash into v_head_before
+  from public.get_provenance_chain_head(p_account_id) h;
+
+  select vc.is_valid, vc.checked_count, vc.first_broken_sequence, vc.first_broken_reason
+  into is_valid, checked_count, first_broken_sequence, first_broken_reason
+  from public._verify_provenance_chain_internal(p_account_id) vc;
+
+  select h.head_sequence, h.head_hash into v_head_after
+  from public.get_provenance_chain_head(p_account_id) h;
+
+  if v_head_before.head_sequence is distinct from v_head_after.head_sequence
+     or v_head_before.head_hash is distinct from v_head_after.head_hash then
+    raise exception 'chain head changed during verification, retry';
+  end if;
+
+  last_verified_at := now();
+
+  insert into public.provenance_chain_status (
+    account_id, verified, last_verified_at,
+    head_sequence, head_hash, event_count,
+    first_broken_sequence, first_broken_reason, updated_at
+  ) values (
+    p_account_id, is_valid, last_verified_at,
+    coalesce(v_head_after.head_sequence, 0), v_head_after.head_hash, checked_count,
+    first_broken_sequence, first_broken_reason, now()
+  )
+  on conflict (account_id) do update set
+    verified = excluded.verified,
+    last_verified_at = excluded.last_verified_at,
+    head_sequence = excluded.head_sequence,
+    head_hash = excluded.head_hash,
+    event_count = excluded.event_count,
+    first_broken_sequence = excluded.first_broken_sequence,
+    first_broken_reason = excluded.first_broken_reason,
+    updated_at = excluded.updated_at;
+end;
+$$;
+
+comment on function public.verify_and_persist_chain_status(uuid) is
+  'Runs verify_provenance_chain and upserts the result into provenance_chain_status. Returns the verification result plus the persisted last_verified_at timestamp.';
+
+revoke all on function public.verify_and_persist_chain_status(uuid)
+  from public, anon, authenticated;
+grant execute on function public.verify_and_persist_chain_status(uuid) to authenticated;
 
 -- ─── I. Internal anchoring ──────────────────────────────────────────────────
 
@@ -866,10 +1012,11 @@ declare
   v_actor_id uuid;
   v_role text;
   v_account_id uuid;
-  v_property record;
   v_projection record;
   v_gate record;
-  v_chain record;
+  v_chain_is_valid boolean;
+  v_chain_checked_count bigint;
+  v_chain_verified_at timestamptz;
   v_anchor record;
   v_badge_state text;
   v_export_allowed boolean;
@@ -877,7 +1024,28 @@ declare
   v_display_balance bigint;
   v_display_basis text;
   v_events jsonb;
+  -- Freshness check variables
+  v_status record;
+  v_current_head record;
+  v_max_age interval := interval '15 minutes';
+  -- Lease-end notice variables
+  v_notices jsonb := '[]'::jsonb;
+  v_seen_leases text[] := '{}';
+  v_ev jsonb;
+  v_ev_lease_id text;
+  v_ev_property_id text;
+  -- Sprint 2C: labels, bridge lines, anchor hash
+  v_account_label text;
+  v_property_label text;
+  v_tenant_label text;
+  v_lease_label text;
+  v_bridge_lines jsonb := '[]'::jsonb;
+  v_event_total bigint := 0;
+  v_accrued_past_lease_end boolean := false;
+  v_has_reconstructed boolean := false;
+  v_anchor_hash text;
 begin
+  -- ── 1. Authorize ──────────────────────────────────────────────────────────
   v_actor_id := auth.uid();
   if v_actor_id is null then
     raise exception 'authentication required';
@@ -897,11 +1065,82 @@ begin
     raise exception 'account operator role required';
   end if;
 
+  -- ── 1b. Resolve labels for evidence summary ────────────────────────────────
+  select a.name into v_account_label
+  from public.accounts a where a.id = v_account_id;
+
+  select p.address into v_property_label
+  from public.properties p where p.id = p_property_id;
+
+  select tn.name into v_tenant_label
+  from public.tenants tn
+  where tn.property_id = p_property_id
+    and tn.account_id = v_account_id
+  order by tn.created_at desc
+  limit 1;
+
+  select 'Lease from ' || l.lease_start_date::text
+         || coalesce(' to ' || l.lease_end_date::text, ' (ongoing)')
+  into v_lease_label
+  from public.leases l
+  where l.property_id = p_property_id
+    and l.account_id = v_account_id
+    and lower(coalesce(l.renewal_status, 'active')) not in ('ended')
+  order by l.lease_start_date desc
+  limit 1;
+
+  -- ── 2. On-read accrual (MUST run before freshness check) ──────────────────
+  --
+  -- Accrual can append rent.charged events, advancing the chain head. The
+  -- freshness check must evaluate against the post-accrual head so the badge
+  -- reports a verification that covers any event just written.
   perform public.provenance_accrue_rent_charges(
     p_account_id := v_account_id,
     p_property_id := p_property_id
   );
 
+  -- ── 3. Freshness check ────────────────────────────────────────────────────
+  --
+  -- Head equality is the primary gate. In an append-only ledger the only
+  -- legitimate change is an append, which advances the head — so an unchanged
+  -- head means no new events, and on-read accrual that DID append makes
+  -- head != cached head → re-verify.
+  --
+  -- The max-age cap is the tamper-detection backstop. An out-of-band
+  -- modification to a historical event would NOT advance the head, so
+  -- head-equality alone could trust a stale "verified" indefinitely on a
+  -- static chain. The cap forces periodic re-verification so such tampering
+  -- surfaces within max_age.
+
+  -- Hold the same advisory lock as ledger writers so no append can slip
+  -- between verification and projection.
+  perform pg_advisory_xact_lock(hashtext('provenance:' || v_account_id::text), 0);
+
+  select h.head_sequence, h.head_hash
+  into v_current_head
+  from public.get_provenance_chain_head(v_account_id) h;
+
+  select s.* into v_status
+  from public.provenance_chain_status s
+  where s.account_id = v_account_id;
+
+  if found
+     and v_status.head_sequence is not distinct from coalesce(v_current_head.head_sequence, 0)
+     and v_status.head_hash is not distinct from v_current_head.head_hash
+     and v_status.last_verified_at >= now() - v_max_age
+  then
+    -- Cache HIT: reuse persisted verification
+    v_chain_is_valid := v_status.verified;
+    v_chain_checked_count := v_status.event_count;
+    v_chain_verified_at := v_status.last_verified_at;
+  else
+    -- Cache MISS: re-verify and persist
+    select vp.is_valid, vp.checked_count, vp.last_verified_at
+    into v_chain_is_valid, v_chain_checked_count, v_chain_verified_at
+    from public.verify_and_persist_chain_status(v_account_id) vp;
+  end if;
+
+  -- ── 4. Projection + reconciliation ────────────────────────────────────────
   select bp.property_id, bp.tenancy_id, bp.balance_minor, bp.currency, bp.events
   into v_projection
   from public.provenance_balance_projection(v_account_id, p_property_id) bp
@@ -915,17 +1154,26 @@ begin
   where rg.property_id = p_property_id
   limit 1;
 
-  select vc.is_valid, vc.checked_count, vc.first_broken_sequence, vc.first_broken_reason
-  into v_chain
-  from public.verify_provenance_chain(v_account_id) vc;
-
   select va.anchor_id, va.has_anchor, va.anchor_consistent, va.anchor_sequence,
          va.anchored_at, va.events_after_anchor
   into v_anchor
   from public.verify_provenance_anchor(v_account_id) va;
 
-  -- Badge state computation (J)
-  if v_chain.is_valid is not true then
+  -- Auto-anchor when chain is valid but no anchor exists yet
+  if v_chain_is_valid is true and not coalesce(v_anchor.has_anchor, false) then
+    begin
+      perform public.anchor_provenance_chain(v_account_id);
+      select va2.anchor_id, va2.has_anchor, va2.anchor_consistent, va2.anchor_sequence,
+             va2.anchored_at, va2.events_after_anchor
+      into v_anchor
+      from public.verify_provenance_anchor(v_account_id) va2;
+    exception when others then
+      null;
+    end;
+  end if;
+
+  -- ── 5. Badge state computation (J) ────────────────────────────────────────
+  if v_chain_is_valid is not true then
     v_badge_state := 'issue';
     v_export_allowed := false;
     v_safe_message := 'A verification check found an inconsistency. Our team has been notified.';
@@ -937,7 +1185,7 @@ begin
       v_account_id,
       jsonb_build_object(
         'property_id', p_property_id,
-        'checked_count', v_chain.checked_count,
+        'checked_count', v_chain_checked_count,
         'trigger', 'explain_property_balance'
       )
     );
@@ -993,7 +1241,58 @@ begin
     v_safe_message := null;
   end if;
 
-  -- Display basis (D)
+  -- ── 6. Lease-end accrual notices + event scanning ──────────────────────────
+  v_events := coalesce(v_projection.events, '[]'::jsonb);
+
+  for v_ev in select jsonb_array_elements(v_events)
+  loop
+    -- Sum event contributions for bridge reconciliation
+    v_event_total := v_event_total + coalesce((v_ev ->> 'contribution_minor')::bigint, 0);
+
+    -- Detect reconstructed events
+    if (v_ev ->> 'reconstructed')::boolean is true
+       or (v_ev -> 'metadata' ->> 'reconstructed')::boolean is true then
+      v_has_reconstructed := true;
+    end if;
+
+    -- Detect lease-end accrual
+    if (v_ev -> 'metadata' ->> 'accrual_continues_past_lease_end_date')::boolean is true then
+      v_accrued_past_lease_end := true;
+      v_ev_lease_id := coalesce(v_ev -> 'metadata' ->> 'lease_id', '');
+      v_ev_property_id := coalesce(v_ev -> 'metadata' ->> 'property_id', p_property_id::text);
+
+      if not (v_ev_lease_id = any(v_seen_leases)) then
+        v_seen_leases := v_seen_leases || v_ev_lease_id;
+
+        v_notices := v_notices || jsonb_build_array(jsonb_build_object(
+          'type', 'lease_end_accrual',
+          'property_id', v_ev_property_id,
+          'lease_id', v_ev_lease_id,
+          'period_key', v_ev -> 'metadata' ->> 'period_key',
+          'message', 'Rent is still being accrued past the lease end date. Review the lease status or record a renewal.'
+        ));
+
+        perform public.upsert_security_anomaly_alert(
+          v_account_id,
+          'provenance.lease_end_accrual',
+          'action',
+          'Rent accrued past lease end date',
+          'Property ' || v_ev_property_id || ' has rent charges accrued beyond the lease end date. Review lease status or record a renewal to resolve.',
+          v_actor_id,
+          'lease',
+          case when v_ev_lease_id <> '' then v_ev_lease_id::uuid else null end,
+          null,
+          jsonb_build_object(
+            'property_id', v_ev_property_id,
+            'lease_id', v_ev_lease_id,
+            'trigger', 'explain_property_balance'
+          )
+        );
+      end if;
+    end if;
+  end loop;
+
+  -- ── 7. Build response ─────────────────────────────────────────────────────
   v_display_basis := coalesce(v_gate.display_basis, 'provenance');
   if v_display_basis = 'legacy_compatible' then
     v_display_balance := coalesce(v_gate.legacy_balance_minor, 0);
@@ -1001,13 +1300,35 @@ begin
     v_display_balance := coalesce(v_projection.balance_minor, 0);
   end if;
 
-  v_events := coalesce(v_projection.events, '[]'::jsonb);
+  -- Compute reconciliation bridge lines when display differs from event total
+  if v_display_basis = 'legacy_compatible'
+     and v_display_balance is distinct from v_event_total then
+    v_bridge_lines := jsonb_build_array(jsonb_build_object(
+      'label', case coalesce(v_gate.divergence_reason, '')
+        when 'overpayment_credit_clamp' then 'Legacy finance display adjustment'
+        when 'post_cutover_rent_change' then 'Legacy rent formula adjustment'
+        else 'Legacy display adjustment'
+      end,
+      'amount_minor', v_display_balance - v_event_total
+    ));
+  end if;
+
+  -- Resolve anchor hash for evidential reference
+  if coalesce(v_anchor.has_anchor, false) then
+    select ca.anchor_hash into v_anchor_hash
+    from public.provenance_chain_anchors ca
+    where ca.id = v_anchor.anchor_id;
+  end if;
 
   return jsonb_build_object(
     'account_id', v_account_id,
     'property_id', p_property_id,
     'tenancy_id', v_projection.tenancy_id,
     'scope', 'property',
+    'account_label', v_account_label,
+    'property_label', v_property_label,
+    'tenant_label', v_tenant_label,
+    'lease_label', v_lease_label,
     'balance', jsonb_build_object(
       'display_balance_minor', v_display_balance,
       'provenance_balance_minor', coalesce(v_projection.balance_minor, 0),
@@ -1016,6 +1337,8 @@ begin
       'display_basis', v_display_basis
     ),
     'events', v_events,
+    'event_contribution_total_minor', v_event_total,
+    'reconciliation_bridge_lines', v_bridge_lines,
     'legacy_reconciliation', jsonb_build_object(
       'status', coalesce(v_gate.status, 'cannot_compare'),
       'difference_minor', coalesce(v_gate.difference_minor, 0),
@@ -1023,28 +1346,106 @@ begin
       'recommended_action', v_gate.recommended_action
     ),
     'chain_verification', jsonb_build_object(
-      'is_valid', coalesce(v_chain.is_valid, false),
-      'checked_count', coalesce(v_chain.checked_count, 0),
-      'verified_at', now()
+      'is_valid', coalesce(v_chain_is_valid, false),
+      'checked_count', coalesce(v_chain_checked_count, 0),
+      'verified_at', v_chain_verified_at,
+      'head_sequence', coalesce(v_current_head.head_sequence, 0),
+      'head_hash', v_current_head.head_hash
     ),
     'anchor_consistency', jsonb_build_object(
       'has_anchor', coalesce(v_anchor.has_anchor, false),
       'anchor_consistent', v_anchor.anchor_consistent,
       'anchor_sequence', v_anchor.anchor_sequence,
+      'anchor_hash', v_anchor_hash,
       'anchored_at', v_anchor.anchored_at,
       'events_after_anchor', coalesce(v_anchor.events_after_anchor, 0)
     ),
     'badge_state', v_badge_state,
     'export_allowed', v_export_allowed,
     'safe_user_message', v_safe_message,
+    'notices', v_notices,
+    'accrued_past_lease_end', v_accrued_past_lease_end,
+    'has_reconstructed', v_has_reconstructed,
     'generated_at', now()
   );
 end;
 $$;
 
 comment on function public.explain_property_balance(uuid) is
-  'Returns a complete balance explanation for a property: balance, events, reconciliation, chain verification, anchor consistency, badge state. Single-call contract — frontend must not separately call projection/reconciliation/verification. Sprint 2B.';
+  'Returns a complete balance explanation for a property including labels, events, reconciliation bridge lines, chain verification with head reference, anchor hash, and evidence flags. Single-call contract for Explain This Balance + Balance Evidence Summary. Sprint 2C.';
 
 revoke all on function public.explain_property_balance(uuid)
   from public, anon, authenticated;
 grant execute on function public.explain_property_balance(uuid) to authenticated;
+
+-- ─── Self-serve provenance cutover activation ─────────────────────────────────
+
+create or replace function public.activate_provenance_cutover(
+  p_account_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_actor_id uuid;
+  v_role text;
+  v_existing record;
+  v_backfill_result jsonb;
+begin
+  v_actor_id := auth.uid();
+  if v_actor_id is null then
+    raise exception 'authentication required';
+  end if;
+
+  v_role := public.account_member_effective_role(p_account_id, v_actor_id);
+  if not public.user_is_root_operator()
+     and coalesce(v_role, '') <> all (array['owner', 'admin']) then
+    raise exception 'account owner or admin role required';
+  end if;
+
+  select c.account_id, c.status into v_existing
+  from public.provenance_finance_cutover c
+  where c.account_id = p_account_id;
+
+  if found and v_existing.status = 'active' then
+    return jsonb_build_object(
+      'account_id', p_account_id,
+      'activated', false,
+      'reason', 'already_active'
+    );
+  end if;
+
+  if found then
+    update public.provenance_finance_cutover
+    set status = 'active',
+        cutover_at = now()
+    where account_id = p_account_id;
+  else
+    insert into public.provenance_finance_cutover (
+      account_id, cutover_at, cutover_version, status, created_by
+    ) values (
+      p_account_id, now(), 1, 'active', v_actor_id
+    );
+  end if;
+
+  v_backfill_result := public.provenance_finance_backfill(p_account_id);
+
+  perform public.anchor_provenance_chain(p_account_id);
+
+  return jsonb_build_object(
+    'account_id', p_account_id,
+    'activated', true,
+    'cutover_at', now(),
+    'backfill', v_backfill_result
+  );
+end;
+$$;
+
+comment on function public.activate_provenance_cutover(uuid) is
+  'Self-serve activation of provenance finance tracking for an account. Inserts the cutover row, runs the historical backfill, and returns a summary. Idempotent — returns already_active if cutover exists. Owner/admin only.';
+
+revoke all on function public.activate_provenance_cutover(uuid)
+  from public, anon, authenticated;
+grant execute on function public.activate_provenance_cutover(uuid) to authenticated;

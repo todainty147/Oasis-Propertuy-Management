@@ -1035,6 +1035,10 @@ grant execute on function public.provenance_balance_projection(uuid, uuid) to au
 
 -- ─── I. Reconciliation gate ─────────────────────────────────────────────────
 
+-- Sprint 2B adds an OUT column to this RPC. DROP is required because PostgreSQL
+-- cannot CREATE OR REPLACE a function whose returned row shape has changed.
+drop function if exists public.provenance_reconciliation_gate(uuid);
+
 create or replace function public.provenance_reconciliation_gate(
   p_account_id uuid
 )
