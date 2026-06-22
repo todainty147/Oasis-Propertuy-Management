@@ -583,6 +583,16 @@ const bootstrapSteps = [
     file: path.join(supabaseDir, "provenance_events.sql"),
     onErrorStop: true,
   },
+  {
+    label: "Apply provenance finance cutover overlay",
+    file: path.join(supabaseDir, "provenance_finance_cutover.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply provenance explain balance overlay",
+    file: path.join(supabaseDir, "provenance_explain_balance.sql"),
+    onErrorStop: true,
+  },
 ];
 
 function resolvePsqlCommand() {

@@ -189,7 +189,7 @@ as $$
       and ci.due_date::date between p_start_date and p_end_date
   ),
 
-  -- Maintenance requests: unresolved, created in window
+  -- Maintenance requests: active/unresolved, created in window
   maintenance_rows as (
     select
       mr.id,
@@ -198,18 +198,18 @@ as $$
       mr.created_at::date                                     as due_date,
       case
         when lower(coalesce(mr.status, '')) = 'resolved'      then 'completed'
-        when lower(coalesce(mr.status, '')) = 'blocked'       then 'blocked'
+        when lower(coalesce(mr.status, '')) = 'waiting'       then 'blocked'
         when lower(coalesce(mr.priority, '')) = 'urgent'      then 'due_soon'
         else                                                       'scheduled'
       end                                                     as status,
       case
         when lower(coalesce(mr.priority, '')) = 'urgent'
-          and lower(coalesce(mr.status, '')) not in ('resolved', 'blocked')
+          and lower(coalesce(mr.status, '')) not in ('resolved', 'closed', 'waiting')
                                                               then 'critical'
         when lower(coalesce(mr.priority, '')) = 'high'
-          and lower(coalesce(mr.status, '')) not in ('resolved', 'blocked')
+          and lower(coalesce(mr.status, '')) not in ('resolved', 'closed', 'waiting')
                                                               then 'high'
-        when lower(coalesce(mr.priority, '')) = 'medium'      then 'medium'
+        when lower(coalesce(mr.priority, '')) = 'normal'      then 'medium'
         else                                                       'low'
       end                                                     as urgency,
       mr.property_id,
@@ -223,7 +223,7 @@ as $$
     cross join authz a
     left join public.properties pr on pr.id = mr.property_id
     where mr.account_id = a.account_id
-      and lower(coalesce(mr.status, '')) not in ('resolved')
+      and lower(coalesce(mr.status, '')) not in ('resolved', 'closed')
       and mr.created_at::date between p_start_date and p_end_date
   ),
 

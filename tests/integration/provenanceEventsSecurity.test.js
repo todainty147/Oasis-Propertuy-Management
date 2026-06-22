@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { isolationFixtures } from "../fixtures/isolationFixtures.js";
 import {
   ensureIsolationHarnessSeed,
+  getIntegrationAdminClient,
   signInAsFixtureUser,
 } from "./helpers/localSupabaseHarness.js";
 import { isIntegrationHarnessConfigured } from "./helpers/env.js";
@@ -216,5 +217,103 @@ describe("provenance event ledger security", () => {
       p_metadata: {},
     }));
     expect(missingSystemSource.error).not.toBeNull();
+  });
+
+  integrationIt("preserves the actor UUID after reviewed Auth identity deletion", async () => {
+    await ensureIsolationHarnessSeed();
+    const admin = getIntegrationAdminClient();
+    const accountId = isolationFixtures.accounts.accountA.id;
+    const email = `provenance-erasure-${randomUUID()}@oasis.test`;
+    const password = `Oasis-${randomUUID()}!`;
+    let userId;
+
+    try {
+      const created = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+      expect(created.error).toBeNull();
+      userId = created.data.user.id;
+
+      const membership = await admin.from("account_members").insert({
+        account_id: accountId,
+        user_id: userId,
+        role: "staff",
+      });
+      expect(membership.error).toBeNull();
+
+      const envClient = (await import("@supabase/supabase-js")).createClient(
+        process.env.TEST_SUPABASE_URL || process.env.VITE_SUPABASE_URL,
+        process.env.TEST_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY,
+        { auth: { persistSession: false, autoRefreshToken: false } },
+      );
+      const signIn = await envClient.auth.signInWithPassword({ email, password });
+      expect(signIn.error).toBeNull();
+
+      const createdEvent = await record(envClient, eventInput(accountId));
+      expect(createdEvent.error).toBeNull();
+      expect(createdEvent.data.actor_user_id).toBe(userId);
+
+      const deleted = await admin.auth.admin.deleteUser(userId);
+      expect(deleted.error).toBeNull();
+      userId = null;
+
+      const retained = await admin
+        .from("provenance_events")
+        .select("id, actor_user_id")
+        .eq("id", createdEvent.data.id)
+        .single();
+      expect(retained.error).toBeNull();
+      expect(retained.data.actor_user_id).toBe(createdEvent.data.actor_user_id);
+    } finally {
+      if (userId) await admin.auth.admin.deleteUser(userId).catch(() => null);
+    }
+  });
+
+  integrationIt("restricts chain verification to same-account owners and admins", async () => {
+    const accountA = isolationFixtures.accounts.accountA.id;
+    const accountB = isolationFixtures.accounts.accountB.id;
+    const [
+      { client: ownerA },
+      { client: adminA },
+      { client: staffA },
+      { client: tenantA },
+      { client: ownerB },
+    ] = await Promise.all([
+      signInAsFixtureUser("ownerA"),
+      signInAsFixtureUser("adminA"),
+      signInAsFixtureUser("staffA"),
+      signInAsFixtureUser("tenantA1"),
+      signInAsFixtureUser("ownerB"),
+    ]);
+
+    const ownerResult = await ownerA.rpc("verify_provenance_chain", {
+      p_account_id: accountA,
+    });
+    expect(ownerResult.error).toBeNull();
+    expect(ownerResult.data).toMatchObject({ is_valid: true });
+    expect(Number(ownerResult.data.checked_count)).toBeGreaterThan(0);
+
+    const adminResult = await adminA.rpc("verify_provenance_chain", {
+      p_account_id: accountA,
+    });
+    expect(adminResult.error).toBeNull();
+    expect(adminResult.data).toMatchObject({ is_valid: true });
+
+    for (const [client, targetAccount] of [
+      [staffA, accountA],
+      [tenantA, accountA],
+      [ownerB, accountA],
+      [ownerA, accountB],
+    ]) {
+      const denied = await client.rpc("verify_provenance_chain", {
+        p_account_id: targetAccount,
+      });
+      expect(denied.data).toBeNull();
+      expect(String(denied.error?.message || "").toLowerCase()).toContain(
+        "account owner or admin role required",
+      );
+    }
   });
 });

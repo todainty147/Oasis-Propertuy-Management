@@ -215,16 +215,29 @@ describe("get_operating_calendar RPC — status derivation", () => {
     expect(block).toContain("current_date");
   });
 
-  it("marks blocked maintenance requests as blocked", () => {
+  it("marks waiting maintenance requests as blocked", () => {
     const block = sql.slice(sql.indexOf("maintenance_rows as ("), sql.indexOf("work_order_rows as ("));
     expect(block).toContain("'blocked'");
-    expect(block.toLowerCase()).toContain("blocked");
+    expect(block.toLowerCase()).toContain("waiting");
+    expect(block).not.toContain("= 'blocked'");
   });
 
   it("marks resolved maintenance requests as completed", () => {
     const block = sql.slice(sql.indexOf("maintenance_rows as ("), sql.indexOf("work_order_rows as ("));
     expect(block).toContain("'resolved'");
     expect(block).toContain("'completed'");
+  });
+
+  it("excludes closed maintenance requests from the active calendar", () => {
+    const block = sql.slice(sql.indexOf("maintenance_rows as ("), sql.indexOf("work_order_rows as ("));
+    expect(block).toContain("not in ('resolved', 'closed')");
+  });
+
+  it("maps normal maintenance priority to medium urgency", () => {
+    const block = sql.slice(sql.indexOf("maintenance_rows as ("), sql.indexOf("work_order_rows as ("));
+    expect(block).toContain("= 'normal'");
+    expect(block).toContain("then 'medium'");
+    expect(block).not.toContain("= 'medium'");
   });
 
   it("marks paused preventive tasks as blocked", () => {
