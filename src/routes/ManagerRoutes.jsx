@@ -74,6 +74,7 @@ const ContractorJobDetails        = lazy(() => import("../pages/ContractorJobDet
 const WorkOrderDetails            = lazy(() => import("../pages/WorkOrderDetails"));
 const ApplicationsPage            = lazy(() => import("../pages/applications/ApplicationsPage"));
 const BalanceEvidenceSummaryPage  = lazy(() => import("../pages/provenance/BalanceEvidenceSummaryPage"));
+const DocumentServiceTimelinePage = lazy(() => import("../pages/provenance/DocumentServiceTimelinePage"));
 
 // ── Route guard helpers ──────────────────────────────────────────────────────
 
@@ -401,6 +402,11 @@ export default function ManagerRoutes() {
       <Route
         path="properties/:propertyId/balance-evidence"
         element={<BalanceEvidenceSummaryPage />}
+      />
+
+      <Route
+        path="documents/:documentId/service-timeline"
+        element={<DocumentServiceTimelinePage />}
       />
 
       <Route path="maintenance-inbox" element={<MaintenanceInboxPage />} />

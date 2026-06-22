@@ -602,6 +602,11 @@ const bootstrapSteps = [
     file: path.join(supabaseDir, "provenance_explain_balance.sql"),
     onErrorStop: true,
   },
+  {
+    label: "Apply provenance document service overlay",
+    file: path.join(supabaseDir, "provenance_document_service.sql"),
+    onErrorStop: true,
+  },
 ];
 
 function resolvePsqlCommand() {

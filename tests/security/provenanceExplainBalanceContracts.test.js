@@ -1329,7 +1329,7 @@ describe("provenance explain balance contracts (Sprint 2B)", () => {
     it("is registered in dbApplyRepoSql.js after cutover and before hardening", () => {
       const applyScript = readSource("scripts/dbApplyRepoSql.js");
       expect(applyScript).toContain(
-        '"migrations/20260622000000_provenance_hash_chain_backfill.sql",\n  "provenance_finance_cutover.sql",\n  "provenance_explain_balance.sql",\n  "supabase_linter_security_hardening.sql"',
+        '"migrations/20260622000000_provenance_hash_chain_backfill.sql",\n  "provenance_finance_cutover.sql",\n  "provenance_explain_balance.sql",\n  "provenance_document_service.sql",\n  "supabase_linter_security_hardening.sql"',
       );
     });
 

@@ -65,7 +65,7 @@ describe("database security hardening contracts", () => {
     const finalHardeningMigration = readSource("supabase/migrations/20260611003000_supabase_linter_final_hardening.sql");
 
     expect(applyScript).toContain('"supabase_linter_security_hardening.sql"');
-    expect(applyScript).toContain('"hmrc_mtd_e1_uk_property_compliance.sql",\n  "provenance_events.sql",\n  "migrations/20260622000000_provenance_hash_chain_backfill.sql",\n  "provenance_finance_cutover.sql",\n  "provenance_explain_balance.sql",\n  "supabase_linter_security_hardening.sql"');
+    expect(applyScript).toContain('"hmrc_mtd_e1_uk_property_compliance.sql",\n  "provenance_events.sql",\n  "migrations/20260622000000_provenance_hash_chain_backfill.sql",\n  "provenance_finance_cutover.sql",\n  "provenance_explain_balance.sql",\n  "provenance_document_service.sql",\n  "supabase_linter_security_hardening.sql"');
     expect(hardeningSql).toContain(
       "alter view if exists public.work_orders_pending_cancellation set (security_invoker = true);",
     );
