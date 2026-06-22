@@ -6,24 +6,31 @@ import { explainPropertyBalance } from "../../services/provenanceExplainService"
 import { formatCurrencyAmount } from "../../utils/currency";
 import { useI18n } from "../../context/I18nContext";
 
-const BADGE_LABEL = {
-  verified: "Balance verified",
-  verified_unanchored: "Balance verified, not yet anchored",
-  reconciliation_warning: "Reconciliation needed",
-  issue: "Verification issue detected",
-  pending: "Verification in progress",
-};
-
-const BADGE_ICON = {
-  verified: ShieldCheck,
-  verified_unanchored: ShieldCheck,
-  reconciliation_warning: AlertTriangle,
-  issue: ShieldAlert,
-  pending: Clock,
+const ASSURANCE_CONFIG = {
+  passed: { label: "Passed", icon: ShieldCheck, className: "text-emerald-700" },
+  failed: { label: "Failed", icon: ShieldAlert, className: "text-rose-700" },
+  usable: { label: "Usable", icon: ShieldCheck, className: "text-emerald-700" },
+  caution_required: { label: "Caution required", icon: AlertTriangle, className: "text-amber-700" },
+  unusable: { label: "Not usable", icon: ShieldAlert, className: "text-rose-700" },
+  not_applicable: { label: "Not applicable", icon: Clock, className: "text-slate-600" },
 };
 
 function fmt(minor, currency) {
   return formatCurrencyAmount((minor || 0) / 100, { currency });
+}
+
+function AssuranceStatus({ label, status }) {
+  const config = ASSURANCE_CONFIG[status] || ASSURANCE_CONFIG.not_applicable;
+  const Icon = config.icon;
+  return (
+    <div className="rounded-lg border border-slate-200 p-3 print:border-slate-400">
+      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={`mt-1 flex items-center gap-1.5 text-sm font-semibold ${config.className}`}>
+        <Icon size={15} />
+        {config.label}
+      </p>
+    </div>
+  );
 }
 
 export default function BalanceEvidenceSummaryPage() {
@@ -48,6 +55,11 @@ export default function BalanceEvidenceSummaryPage() {
   }, [propertyId]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    document.body.classList.add("balance-evidence-print-mode");
+    return () => document.body.classList.remove("balance-evidence-print-mode");
+  }, []);
 
   if (loading) {
     return (
@@ -99,16 +111,78 @@ export default function BalanceEvidenceSummaryPage() {
   const provenanceBalance = data.balance?.provenance_balance_minor ?? 0;
   const legacyBalance = data.balance?.legacy_balance_minor ?? 0;
   const displayBasis = data.balance?.display_basis || "provenance";
-  const BadgeIcon = BADGE_ICON[data.badge_state] || Clock;
-  const badgeLabel = BADGE_LABEL[data.badge_state] || "Verification in progress";
+  const isLegacyMigrated = data.provenance_mode === "legacy_migrated";
+  const assurance = data.assurance || {};
   const hasAnchor = data.anchor_consistency?.has_anchor;
   const headSequence = data.chain_verification?.head_sequence;
   const headHash = data.chain_verification?.head_hash;
   const generatedAt = data.generated_at ? new Date(data.generated_at).toLocaleString() : "—";
 
   return (
-    <div className="balance-evidence-summary mx-auto max-w-4xl print:max-w-none">
-      {/* Print-only header with back link hidden in print */}
+    <div className="balance-evidence-summary mx-auto max-w-4xl bg-white text-slate-950 dark:bg-white dark:text-slate-950 min-h-screen print:max-w-none">
+      <style>{`
+        .balance-evidence-summary,
+        .balance-evidence-summary * {
+          color-scheme: light;
+        }
+        .dark .balance-evidence-summary {
+          background-color: #ffffff !important;
+          color: #020617 !important;
+        }
+        .dark .balance-evidence-summary .bg-white,
+        .dark .balance-evidence-summary .bg-slate-50,
+        .dark .balance-evidence-summary .bg-slate-100 {
+          background-color: inherit;
+        }
+        .dark .balance-evidence-summary .border-slate-200,
+        .dark .balance-evidence-summary .border-slate-100,
+        .dark .balance-evidence-summary .border-slate-300 {
+          border-color: #e2e8f0;
+        }
+        .dark .balance-evidence-summary .text-slate-900 { color: #0f172a; }
+        .dark .balance-evidence-summary .text-slate-800 { color: #1e293b; }
+        .dark .balance-evidence-summary .text-slate-700 { color: #334155; }
+        .dark .balance-evidence-summary .text-slate-600 { color: #475569; }
+        .dark .balance-evidence-summary .text-slate-500 { color: #64748b; }
+        .dark .balance-evidence-summary .text-slate-400 { color: #94a3b8; }
+        .dark .balance-evidence-summary .bg-amber-50 { background-color: #fffbeb; }
+        .dark .balance-evidence-summary .bg-blue-50 { background-color: #eff6ff; }
+        .dark .balance-evidence-summary .text-amber-900 { color: #78350f; }
+        .dark .balance-evidence-summary .text-amber-800 { color: #92400e; }
+        .dark .balance-evidence-summary .text-amber-700 { color: #b45309; }
+        .dark .balance-evidence-summary .text-blue-800 { color: #1e40af; }
+        .dark .balance-evidence-summary .bg-amber-100 { background-color: #fef3c7; }
+        .dark .balance-evidence-summary .bg-slate-100 { background-color: #f1f5f9; }
+        .dark .balance-evidence-summary .bg-slate-50 { background-color: #f8fafc; }
+        @media print {
+          html, body {
+            background: white !important;
+            overflow: visible !important;
+          }
+          body.balance-evidence-print-mode > div,
+          body.balance-evidence-print-mode .tenaqo-app-surface,
+          body.balance-evidence-print-mode main {
+            display: block !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+          body.balance-evidence-print-mode aside,
+          body.balance-evidence-print-mode header,
+          body.balance-evidence-print-mode nav,
+          body.balance-evidence-print-mode .tenaqo-app-surface > header,
+          body.balance-evidence-print-mode [class*="MobileBottomNav"],
+          body.balance-evidence-print-mode [class*="Topbar"],
+          body.balance-evidence-print-mode [class*="Sidebar"] {
+            display: none !important;
+          }
+          .balance-evidence-summary {
+            max-width: none !important;
+            margin: 0 !important;
+            width: 100% !important;
+          }
+        }
+      `}</style>
+      {/* Screen-only toolbar — hidden in print */}
       <div className="flex items-center justify-between px-8 pt-6 pb-2 print:hidden">
         <Link
           to={`/properties/${propertyId}?tab=financials`}
@@ -131,7 +205,7 @@ export default function BalanceEvidenceSummaryPage() {
         <div className="evidence-page-one break-after-avoid">
           <header>
             <h1 className="text-2xl font-bold text-slate-900" data-testid="summary-title">
-              Balance Evidence Summary
+              {isLegacyMigrated ? "Balance Evidence Summary" : "Balance Summary"}
             </h1>
             <p className="mt-1 text-sm text-slate-500" data-testid="generated-at">
               Generated: {generatedAt}
@@ -167,7 +241,7 @@ export default function BalanceEvidenceSummaryPage() {
           </div>
 
           {/* ── Lease-end accrual notice ─────────────────────────────────── */}
-          {data.accrued_past_lease_end && (
+          {isLegacyMigrated && data.accrued_past_lease_end && (
             <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 print:border-amber-400" data-testid="lease-end-notice">
               <p className="text-sm font-medium text-amber-900">
                 Lease-end accrual notice
@@ -179,7 +253,7 @@ export default function BalanceEvidenceSummaryPage() {
           )}
 
           {/* ── Reconstructed history notice ─────────────────────────────── */}
-          {data.has_reconstructed && (
+          {isLegacyMigrated && data.has_reconstructed && (
             <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 print:border-blue-300" data-testid="reconstructed-notice">
               <p className="text-sm text-blue-800">
                 Some opening balance history was reconstructed from the legacy finance calculation. Payment events are shown from recorded payment history.
@@ -187,38 +261,45 @@ export default function BalanceEvidenceSummaryPage() {
             </div>
           )}
 
-          {/* ── Verification badge ───────────────────────────────────────── */}
-          <div className="mt-5 flex items-center gap-2" data-testid="verification-badge">
-            <BadgeIcon size={18} className="text-slate-600 print:text-black" />
-            <span className="text-sm font-semibold text-slate-800">{badgeLabel}</span>
+          {/* ── Assurance status ─────────────────────────────────────────── */}
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3" data-testid="assurance-status">
+            <AssuranceStatus label="Ledger integrity" status={assurance.ledger_integrity} />
+            <AssuranceStatus
+              label="Internal reconciliation"
+              status={assurance.internal_reconciliation}
+            />
+            <AssuranceStatus label="Balance reliability" status={assurance.balance_reliability} />
           </div>
 
           {/* ── Balance summary ───────────────────────────────────────────── */}
           <div className="mt-4 rounded-lg border border-slate-200 p-4 print:border-slate-400">
-            <div className="grid grid-cols-3 gap-4 text-center">
+            <div className={`grid gap-4 text-center ${isLegacyMigrated ? "grid-cols-3" : "grid-cols-1"}`}>
               <div>
-                <p className="text-xs text-slate-500">Display balance</p>
+                <p className="text-xs text-slate-500">
+                  {isLegacyMigrated ? "Display balance" : "Balance"}
+                </p>
                 <p className="text-xl font-bold text-slate-900 mt-1" data-testid="display-balance">
                   {fmt(displayBalance, currency)}
                 </p>
-                <p className="text-[10px] text-slate-400">
+                {isLegacyMigrated && <p className="text-[10px] text-slate-400">
                   {displayBasis === "legacy_compatible"
                     ? "Showing legacy-compatible figure"
                     : "Showing provenance-derived figure"}
-                </p>
+                </p>}
               </div>
-              <div>
+              {isLegacyMigrated && <div>
                 <p className="text-xs text-slate-500">Provenance balance</p>
                 <p className="text-lg font-semibold text-slate-700 mt-1">{fmt(provenanceBalance, currency)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Legacy balance</p>
+              </div>}
+              {isLegacyMigrated && <div>
+                <p className="text-xs text-slate-500">Legacy formula result</p>
                 <p className="text-lg font-semibold text-slate-700 mt-1">{fmt(legacyBalance, currency)}</p>
-              </div>
+              </div>}
             </div>
           </div>
 
           {/* ── Reconciliation status ────────────────────────────────────── */}
+          {isLegacyMigrated && data.legacy_reconciliation && (
           <div className="mt-4 rounded-lg border border-slate-200 p-4 print:border-slate-400">
             <p className="text-xs uppercase tracking-wide text-slate-500 mb-2">Reconciliation</p>
             <p className="text-sm font-medium text-slate-800">
@@ -235,11 +316,16 @@ export default function BalanceEvidenceSummaryPage() {
               </p>
             )}
           </div>
+          )}
         </div>
 
         {/* ── Arithmetic reconciliation ──────────────────────────────────── */}
+        {isLegacyMigrated && bridgeLines.length > 0 && (
         <div className="rounded-lg border border-slate-200 p-4 print:border-slate-400 break-inside-avoid" data-testid="arithmetic-reconciliation">
-          <p className="text-xs uppercase tracking-wide text-slate-500 mb-3">Arithmetic reconciliation</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500 mb-3">Reconciliation bridge</p>
+          <p className="mb-3 text-xs text-slate-500">
+            Presentation-only difference; this is not a charge, payment, or ledger event.
+          </p>
           <table className="w-full text-sm">
             <tbody>
               <tr className="border-b border-slate-100">
@@ -265,6 +351,7 @@ export default function BalanceEvidenceSummaryPage() {
             </tbody>
           </table>
         </div>
+        )}
 
         {/* ── Event timeline ─────────────────────────────────────────────── */}
         <div data-testid="event-timeline">
@@ -308,7 +395,7 @@ export default function BalanceEvidenceSummaryPage() {
                           {ev.treatment}
                         </span>
                       )}
-                      {(ev.reconstructed || ev.metadata?.reconstructed) && (
+                      {isLegacyMigrated && (ev.reconstructed || ev.metadata?.reconstructed) && (
                         <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-700 print:bg-amber-200">
                           reconstructed
                         </span>
@@ -371,18 +458,19 @@ export default function BalanceEvidenceSummaryPage() {
 
         {/* ── Internal anchoring limitation notice ───────────────────────── */}
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 print:border-slate-400 print:bg-white break-inside-avoid" data-testid="anchoring-limitation-notice">
-          Internal verification confirms this record matched Tenaqo's stored provenance chain at generation time. Internal anchoring is a checkpoint inside Tenaqo and is not external legal certification or independent timestamping.
+          The ledger integrity result confirms that Tenaqo's stored event chain passed its internal hash and sequence checks at {data.chain_verification?.verified_at ? new Date(data.chain_verification.verified_at).toLocaleString() : "the recorded verification time"}. It does not establish that each entry is factually or legally correct. Internal anchoring is not external legal certification or independent timestamping.
         </div>
 
         {/* ── Export limitations note ────────────────────────────────────── */}
         <div className="text-xs text-slate-400 print:text-slate-500 break-inside-avoid" data-testid="export-limitations">
           This summary is generated from Tenaqo's internal provenance ledger. It is provided for informational purposes and does not constitute independently audited financial evidence. Figures are denominated in {currency}.
+          {isLegacyMigrated && " Migration-specific figures may include reconstructed history and legacy formula assumptions where identified above."}
         </div>
 
         {/* ── Page footer ────────────────────────────────────────────────── */}
         <footer className="mt-6 border-t border-slate-200 pt-4 text-xs text-slate-400 print:border-slate-400 print:text-slate-500" data-testid="summary-footer">
           <div className="flex justify-between">
-            <span>Balance Evidence Summary — {data.property_label || propertyId}</span>
+            <span>{isLegacyMigrated ? "Balance Evidence Summary" : "Balance Summary"} — {data.property_label || propertyId}</span>
             <span data-testid="footer-generated-at">Generated: {generatedAt}</span>
           </div>
         </footer>

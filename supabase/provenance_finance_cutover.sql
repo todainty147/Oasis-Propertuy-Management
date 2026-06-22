@@ -8,6 +8,31 @@
 
 -- ─── A. Cutover config table ────────────────────────────────────────────────
 
+-- Existing accounts pre-date native provenance and are therefore classified as
+-- migrated. Accounts created after this overlay default to native provenance.
+alter table public.accounts
+  add column if not exists account_provenance_mode text;
+
+update public.accounts
+set account_provenance_mode = 'legacy_migrated'
+where account_provenance_mode is null;
+
+alter table public.accounts
+  alter column account_provenance_mode set default 'native';
+
+alter table public.accounts
+  alter column account_provenance_mode set not null;
+
+alter table public.accounts
+  drop constraint if exists accounts_provenance_mode_check;
+
+alter table public.accounts
+  add constraint accounts_provenance_mode_check
+  check (account_provenance_mode in ('legacy_migrated', 'native'));
+
+comment on column public.accounts.account_provenance_mode is
+  'Controls provenance presentation. legacy_migrated accounts may expose cutover, reconstruction, and legacy reconciliation details; native accounts never do.';
+
 create table if not exists public.provenance_finance_cutover (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts(id),
@@ -42,6 +67,37 @@ using (
 
 revoke all on table public.provenance_finance_cutover from public, anon, authenticated;
 grant select on table public.provenance_finance_cutover to authenticated;
+
+create or replace function public.provenance_finance_tracking_active(
+  p_account_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    exists (
+      select 1
+      from public.accounts a
+      where a.id = p_account_id
+        and a.account_provenance_mode = 'native'
+    )
+    or exists (
+      select 1
+      from public.provenance_finance_cutover c
+      where c.account_id = p_account_id
+        and c.status = 'active'
+        and now() >= c.cutover_at
+    );
+$$;
+
+comment on function public.provenance_finance_tracking_active(uuid) is
+  'Internal predicate for live finance provenance. Native accounts are active from creation; migrated accounts become active at their cutover.';
+
+revoke all on function public.provenance_finance_tracking_active(uuid)
+  from public, anon, authenticated;
 
 -- ─── C. Shared finance property accumulation function ───────────────────────
 --
@@ -403,7 +459,6 @@ as $$
 declare
   v_owner_id uuid;
   v_row public.payments;
-  v_cutover_at timestamptz;
   v_currency text;
 begin
   if coalesce(public.account_role_for(p_account_id), '') not in ('owner','admin') then
@@ -439,12 +494,7 @@ begin
   )
   returning * into v_row;
 
-  select cutover_at into v_cutover_at
-  from public.provenance_finance_cutover
-  where account_id = p_account_id
-    and status = 'active';
-
-  if v_cutover_at is not null and now() >= v_cutover_at then
+  if public.provenance_finance_tracking_active(p_account_id) then
     select coalesce(a.currency, 'PLN') into v_currency
     from public.accounts a where a.id = p_account_id;
 
@@ -494,7 +544,6 @@ as $$
 declare
   v_pay public.payments;
   v_role text;
-  v_cutover_at timestamptz;
   v_currency text;
 begin
   select * into v_pay
@@ -517,12 +566,7 @@ begin
     and account_id = p_account_id
   returning * into v_pay;
 
-  select cutover_at into v_cutover_at
-  from public.provenance_finance_cutover
-  where account_id = p_account_id
-    and status = 'active';
-
-  if v_cutover_at is not null and now() >= v_cutover_at then
+  if public.provenance_finance_tracking_active(p_account_id) then
     select coalesce(a.currency, 'PLN') into v_currency
     from public.accounts a where a.id = p_account_id;
 
@@ -555,7 +599,6 @@ set search_path = public
 as $$
 declare
   v_row public.payments;
-  v_cutover_at timestamptz;
   v_currency text;
 begin
   select * into v_row
@@ -577,12 +620,7 @@ begin
     and account_id = p_account_id
   returning * into v_row;
 
-  select cutover_at into v_cutover_at
-  from public.provenance_finance_cutover
-  where account_id = p_account_id
-    and status = 'active';
-
-  if v_cutover_at is not null and now() >= v_cutover_at then
+  if public.provenance_finance_tracking_active(p_account_id) then
     select coalesce(a.currency, 'PLN') into v_currency
     from public.accounts a where a.id = p_account_id;
 
@@ -613,7 +651,6 @@ as $$
 declare
   v_pay public.payments;
   v_role text;
-  v_cutover_at timestamptz;
   v_currency text;
 begin
   select * into v_pay
@@ -635,12 +672,7 @@ begin
   where id = p_payment_id
   returning * into v_pay;
 
-  select cutover_at into v_cutover_at
-  from public.provenance_finance_cutover
-  where account_id = v_pay.account_id
-    and status = 'active';
-
-  if v_cutover_at is not null and now() >= v_cutover_at then
+  if public.provenance_finance_tracking_active(v_pay.account_id) then
     select coalesce(a.currency, 'PLN') into v_currency
     from public.accounts a where a.id = v_pay.account_id;
 
@@ -671,7 +703,6 @@ as $$
 declare
   v_pay public.payments;
   v_role text;
-  v_cutover_at timestamptz;
   v_currency text;
 begin
   select * into v_pay
@@ -693,12 +724,7 @@ begin
   where id = p_payment_id
   returning * into v_pay;
 
-  select cutover_at into v_cutover_at
-  from public.provenance_finance_cutover
-  where account_id = v_pay.account_id
-    and status = 'active';
-
-  if v_cutover_at is not null and now() >= v_cutover_at then
+  if public.provenance_finance_tracking_active(v_pay.account_id) then
     select coalesce(a.currency, 'PLN') into v_currency
     from public.accounts a where a.id = v_pay.account_id;
 
@@ -735,7 +761,6 @@ as $$
 declare
   v_row public.payments;
   v_old_amount numeric;
-  v_cutover_at timestamptz;
   v_currency text;
 begin
   select * into v_row
@@ -761,12 +786,7 @@ begin
     and account_id = p_account_id
   returning * into v_row;
 
-  select cutover_at into v_cutover_at
-  from public.provenance_finance_cutover
-  where account_id = p_account_id
-    and status = 'active';
-
-  if v_cutover_at is not null and now() >= v_cutover_at then
+  if public.provenance_finance_tracking_active(p_account_id) then
     if p_amount is not null and p_amount is distinct from v_old_amount then
       select coalesce(a.currency, 'PLN') into v_currency
       from public.accounts a where a.id = p_account_id;
@@ -806,7 +826,6 @@ as $$
 declare
   v_account_id uuid;
   v_pay public.payments;
-  v_cutover_at timestamptz;
   v_currency text;
 begin
   select * into v_pay
@@ -822,12 +841,7 @@ begin
     raise exception 'Not allowed';
   end if;
 
-  select cutover_at into v_cutover_at
-  from public.provenance_finance_cutover
-  where account_id = p_account_id
-    and status = 'active';
-
-  if v_cutover_at is not null and now() >= v_cutover_at then
+  if public.provenance_finance_tracking_active(p_account_id) then
     select coalesce(a.currency, 'PLN') into v_currency
     from public.accounts a where a.id = p_account_id;
 
@@ -1171,6 +1185,10 @@ declare
   v_idem_key text;
   v_existing_event_id uuid;
 begin
+  update public.accounts
+  set account_provenance_mode = 'legacy_migrated'
+  where id = p_account_id;
+
   select coalesce(a.currency, 'PLN') into v_currency
   from public.accounts a where a.id = p_account_id;
 

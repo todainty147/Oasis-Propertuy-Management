@@ -76,7 +76,17 @@ describe("provenance explain balance contracts (Sprint 2B)", () => {
 
     it("uses idempotency keys with cutover_version for rent.charged", () => {
       expect(sql).toContain("'live:rent.charged:'");
-      expect(sql).toContain("v_cutover.cutover_version::text");
+      expect(sql).toContain("v_cutover_version::text");
+    });
+
+    it("accrues native accounts without requiring a legacy snapshot or cutover row", () => {
+      expect(sql).toContain(
+        "where public.provenance_finance_tracking_active(a.id)",
+      );
+      expect(sql).toContain(
+        "if v_snapshot_months is null and v_provenance_mode = 'native' then",
+      );
+      expect(sql).toContain("v_snapshot_months := 0");
     });
 
     it("checks idempotency before allocating sequence numbers", () => {
@@ -139,8 +149,13 @@ describe("provenance explain balance contracts (Sprint 2B)", () => {
       );
     });
 
-    it("skips accounts without active cutover", () => {
-      expect(sql).toContain("'no active cutover'");
+    it("does not accrue native rent beyond the recorded lease end", () => {
+      expect(sql).toContain("v_period.period_start > v_lease_end_date");
+      expect(sql).toContain("v_lease_id is null");
+    });
+
+    it("skips accounts where provenance finance tracking is not active", () => {
+      expect(sql).toContain("'provenance finance tracking is not active'");
     });
 
     it("returns emitted and skipped counts", () => {
@@ -861,6 +876,23 @@ describe("provenance explain balance contracts (Sprint 2B)", () => {
       expect(fn[0]).toContain("anchor_provenance_chain(p_account_id)");
     });
 
+    it("classifies activated cutovers as legacy migrated", () => {
+      const fn = sql.match(
+        /create or replace function public\.activate_provenance_cutover[\s\S]*?\$\$;/,
+      );
+      expect(fn).not.toBeNull();
+      expect(fn[0]).toContain("set account_provenance_mode = 'legacy_migrated'");
+    });
+
+    it("preserves cutover existence before updating the account mode", () => {
+      const fn = sql.match(
+        /create or replace function public\.activate_provenance_cutover[\s\S]*?\$\$;/,
+      );
+      expect(fn).not.toBeNull();
+      expect(fn[0]).toContain("v_has_existing_cutover := found");
+      expect(fn[0]).toContain("if v_has_existing_cutover then");
+    });
+
     it("is granted to authenticated but revoked from public", () => {
       expect(sql).toContain(
         "grant execute on function public.activate_provenance_cutover(uuid) to authenticated",
@@ -880,7 +912,7 @@ describe("provenance explain balance contracts (Sprint 2B)", () => {
     describe("2C-1. label resolution", () => {
       it("resolves account_label from accounts.name", () => {
         expect(fn()[0]).toContain("v_account_label");
-        expect(fn()[0]).toContain("select a.name into v_account_label");
+        expect(fn()[0]).toContain("select a.name, a.account_provenance_mode");
       });
 
       it("resolves property_label from properties.address", () => {
@@ -988,6 +1020,45 @@ describe("provenance explain balance contracts (Sprint 2B)", () => {
           /v_badge_state := 'reconciliation_warning'[\s\S]*?v_export_allowed := false/,
         );
         expect(warningBlock).not.toBeNull();
+      });
+    });
+
+    describe("2C.1 provenance mode and assurance model", () => {
+      it("returns the account provenance mode", () => {
+        expect(fn()[0]).toContain("'provenance_mode', v_provenance_mode");
+      });
+
+      it("runs legacy reconciliation only for migrated accounts", () => {
+        expect(fn()[0]).toMatch(
+          /if v_is_legacy_migrated then[\s\S]*?provenance_reconciliation_gate/,
+        );
+      });
+
+      it("returns no legacy reconciliation object for native accounts", () => {
+        expect(fn()[0]).toMatch(
+          /'legacy_reconciliation', case[\s\S]*?when v_is_legacy_migrated[\s\S]*?else null/,
+        );
+      });
+
+      it("returns separate ledger, reconciliation, and reliability statuses", () => {
+        const body = fn()[0];
+        expect(body).toContain("'assurance', jsonb_build_object");
+        expect(body).toContain("'ledger_integrity'");
+        expect(body).toContain("'internal_reconciliation'");
+        expect(body).toContain("'balance_reliability'");
+      });
+
+      it("marks native reconciliation as not applicable", () => {
+        expect(fn()[0]).toContain(
+          "when not v_is_legacy_migrated then 'not_applicable'",
+        );
+      });
+
+      it("normalizes gate statuses to assurance vocabulary for reconciliation", () => {
+        const body = fn()[0];
+        expect(body).toContain("= 'matched' then 'passed'");
+        expect(body).toContain("= 'explained_divergence' then 'caution_required'");
+        expect(body).toContain("= 'unexplained_divergence' then 'failed'");
       });
     });
   });
@@ -1130,13 +1201,32 @@ describe("provenance explain balance contracts (Sprint 2B)", () => {
       });
     });
 
-    describe("2C-F8. verification wording", () => {
-      it("renders verification badge with status", () => {
-        expect(pageSrc).toContain('data-testid="verification-badge"');
+    describe("2C-F8. assurance wording", () => {
+      it("renders three separate assurance statuses", () => {
+        expect(pageSrc).toContain('data-testid="assurance-status"');
+        expect(pageSrc).toContain("Ledger integrity");
+        expect(pageSrc).toContain("Internal reconciliation");
+        expect(pageSrc).toContain("Balance reliability");
       });
 
       it("renders verification status text", () => {
         expect(pageSrc).toContain('data-testid="verification-status"');
+      });
+    });
+
+    describe("2C.1 native and migrated presentation", () => {
+      it("switches presentation using provenance_mode", () => {
+        expect(pageSrc).toContain('data.provenance_mode === "legacy_migrated"');
+      });
+
+      it("uses Balance Summary for native accounts", () => {
+        expect(pageSrc).toContain('"Balance Summary"');
+      });
+
+      it("gates migration-only notices and bridge lines", () => {
+        expect(pageSrc).toContain("isLegacyMigrated && data.has_reconstructed");
+        expect(pageSrc).toContain("isLegacyMigrated && bridgeLines.length > 0");
+        expect(pageSrc).toContain("Legacy formula result");
       });
     });
 
@@ -1149,6 +1239,24 @@ describe("provenance explain balance contracts (Sprint 2B)", () => {
       it("uses print: utility classes for layout", () => {
         expect(pageSrc).toContain("print:hidden");
         expect(pageSrc).toContain("print:max-w-none");
+      });
+
+      it("adds body class for print mode to hide app shell", () => {
+        expect(pageSrc).toContain("balance-evidence-print-mode");
+        expect(pageSrc).toContain("document.body.classList.add");
+        expect(pageSrc).toContain("document.body.classList.remove");
+      });
+
+      it("hides sidebar, topbar, nav, and mobile bottom nav in print", () => {
+        expect(pageSrc).toContain("balance-evidence-print-mode aside");
+        expect(pageSrc).toContain('MobileBottomNav');
+        expect(pageSrc).toContain('Sidebar');
+      });
+
+      it("forces light document surface in dark mode", () => {
+        expect(pageSrc).toContain("dark:bg-white");
+        expect(pageSrc).toContain("dark:text-slate-950");
+        expect(pageSrc).toContain(".dark .balance-evidence-summary");
       });
     });
 
@@ -1221,7 +1329,7 @@ describe("provenance explain balance contracts (Sprint 2B)", () => {
     it("is registered in dbApplyRepoSql.js after cutover and before hardening", () => {
       const applyScript = readSource("scripts/dbApplyRepoSql.js");
       expect(applyScript).toContain(
-        '"migrations/20260622000000_provenance_hash_chain_backfill.sql",\n  "provenance_finance_cutover.sql",\n  "provenance_explain_balance.sql",\n  "supabase_linter_security_hardening.sql"',
+        '"migrations/20260622000000_provenance_hash_chain_backfill.sql",\n  "provenance_finance_cutover.sql",\n  "provenance_explain_balance.sql",\n  "provenance_document_service.sql",\n  "supabase_linter_security_hardening.sql"',
       );
     });
 

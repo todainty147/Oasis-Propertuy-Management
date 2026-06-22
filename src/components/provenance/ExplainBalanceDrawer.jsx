@@ -1,57 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { X, ShieldCheck, ShieldAlert, AlertTriangle, Clock, Printer, FileText } from "lucide-react";
+import { X, Printer, FileText } from "lucide-react";
 import Skeleton from "../ui/Skeleton";
 import { explainPropertyBalance, activateProvenanceCutover } from "../../services/provenanceExplainService";
 import { useAccount } from "../../context/AccountContext";
 import { formatCurrencyAmount } from "../../utils/currency";
 import { useI18n } from "../../context/I18nContext";
 
-const BADGE_CONFIG = {
-  verified: {
-    icon: ShieldCheck,
-    color: "text-emerald-600",
-    bg: "bg-emerald-50 border-emerald-200",
-    labelKey: "provenance.badge.verified",
-  },
-  verified_unanchored: {
-    icon: ShieldCheck,
-    color: "text-blue-600",
-    bg: "bg-blue-50 border-blue-200",
-    labelKey: "provenance.badge.verifiedUnanchored",
-  },
-  reconciliation_warning: {
-    icon: AlertTriangle,
-    color: "text-amber-600",
-    bg: "bg-amber-50 border-amber-200",
-    labelKey: "provenance.badge.warning",
-  },
-  issue: {
-    icon: ShieldAlert,
-    color: "text-rose-600",
-    bg: "bg-rose-50 border-rose-200",
-    labelKey: "provenance.badge.issue",
-  },
-  pending: {
-    icon: Clock,
-    color: "text-slate-500",
-    bg: "bg-slate-50 border-slate-200",
-    labelKey: "provenance.badge.pending",
-  },
-};
-
-function BadgeIndicator({ state, t }) {
-  const config = BADGE_CONFIG[state] || BADGE_CONFIG.pending;
-  const Icon = config.icon;
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${config.bg} ${config.color}`}>
-      <Icon size={14} />
-      {t(config.labelKey)}
-    </span>
-  );
-}
-
-function EventRow({ event, currency, t }) {
+function EventRow({ event, currency, t, showMigrationDetails }) {
   const isDebit = (event.contribution_minor || 0) > 0;
   const isCredit = (event.contribution_minor || 0) < 0;
   const isZero = (event.contribution_minor || 0) === 0;
@@ -73,7 +29,7 @@ function EventRow({ event, currency, t }) {
               {event.treatment}
             </span>
           )}
-          {event.reconstructed && (
+          {showMigrationDetails && event.reconstructed && (
             <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-700">
               {t("provenance.reconstructed")}
             </span>
@@ -137,6 +93,8 @@ export default function ExplainBalanceDrawer({ propertyId, onClose }) {
 
   const currency = data?.balance?.currency || "GBP";
   const events = data?.events || [];
+  const isLegacyMigrated = data?.provenance_mode === "legacy_migrated";
+  const assurance = data?.assurance || {};
   const activeEvents = events.filter((e) => e.treatment === "active" || e.treatment === "reconstructed");
   const inactiveEvents = events.filter((e) => e.treatment !== "active" && e.treatment !== "reconstructed");
 
@@ -206,43 +164,64 @@ export default function ExplainBalanceDrawer({ propertyId, onClose }) {
             </div>
           ) : data ? (
             <>
-              {/* Badge + Balance */}
+              {/* Assurance + Balance */}
               <div className="rounded-xl border border-slate-200 bg-white p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <BadgeIndicator state={data.badge_state} t={t} />
-                  {data.safe_user_message && (
-                    <p className="text-xs text-slate-500">{data.safe_user_message}</p>
-                  )}
-                </div>
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div>
-                    <p className="text-xs text-slate-500">{t("provenance.explainBalance.displayBalance")}</p>
-                    <p className="text-xl font-bold text-slate-900 mt-1">
-                      {formatCurrencyAmount((data.balance?.display_balance_minor || 0) / 100, { currency })}
-                    </p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">
-                      {data.balance?.display_basis === "legacy_compatible"
-                        ? t("provenance.explainBalance.basisLegacy")
-                        : t("provenance.explainBalance.basisProvenance")}
+                    <p className="text-xs text-slate-500">{t("provenance.assurance.ledgerIntegrity")}</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-800">
+                      {(assurance.ledger_integrity || "not_applicable").replace(/_/g, " ")}
                     </p>
                   </div>
                   <div>
+                    <p className="text-xs text-slate-500">{t("provenance.assurance.internalReconciliation")}</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-800">
+                      {(assurance.internal_reconciliation || "not_applicable").replace(/_/g, " ")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">{t("provenance.assurance.balanceReliability")}</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-800">
+                      {(assurance.balance_reliability || "not_applicable").replace(/_/g, " ")}
+                    </p>
+                  </div>
+                  {data.safe_user_message && (
+                    <p className="col-span-full text-xs text-slate-500">{data.safe_user_message}</p>
+                  )}
+                </div>
+                <div className={`mt-4 grid grid-cols-1 gap-4 ${isLegacyMigrated ? "sm:grid-cols-3" : ""}`}>
+                  <div>
+                    <p className="text-xs text-slate-500">
+                      {isLegacyMigrated
+                        ? t("provenance.explainBalance.displayBalance")
+                        : t("provenance.explainBalance.balance")}
+                    </p>
+                    <p className="text-xl font-bold text-slate-900 mt-1">
+                      {formatCurrencyAmount((data.balance?.display_balance_minor || 0) / 100, { currency })}
+                    </p>
+                    {isLegacyMigrated && <p className="text-[10px] text-slate-400 mt-0.5">
+                      {data.balance?.display_basis === "legacy_compatible"
+                        ? t("provenance.explainBalance.basisLegacy")
+                        : t("provenance.explainBalance.basisProvenance")}
+                    </p>}
+                  </div>
+                  {isLegacyMigrated && <div>
                     <p className="text-xs text-slate-500">{t("provenance.explainBalance.provenanceBalance")}</p>
                     <p className="text-lg font-semibold text-slate-700 mt-1">
                       {formatCurrencyAmount((data.balance?.provenance_balance_minor || 0) / 100, { currency })}
                     </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">{t("provenance.explainBalance.legacyBalance")}</p>
+                  </div>}
+                  {isLegacyMigrated && <div>
+                    <p className="text-xs text-slate-500">{t("provenance.explainBalance.legacyFormulaResult")}</p>
                     <p className="text-lg font-semibold text-slate-700 mt-1">
                       {formatCurrencyAmount((data.balance?.legacy_balance_minor || 0) / 100, { currency })}
                     </p>
-                  </div>
+                  </div>}
                 </div>
               </div>
 
               {/* Reconciliation */}
-              {data.legacy_reconciliation && (
+              {isLegacyMigrated && data.legacy_reconciliation && (
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
                   <p className="text-xs uppercase tracking-wide text-slate-500 mb-2">
                     {t("provenance.explainBalance.reconciliation")}
@@ -278,7 +257,7 @@ export default function ExplainBalanceDrawer({ propertyId, onClose }) {
               )}
 
               {/* Cutover activation prompt */}
-              {data.legacy_reconciliation?.divergence_reason === "not_yet_cut_over" && (
+              {isLegacyMigrated && data.legacy_reconciliation?.divergence_reason === "not_yet_cut_over" && (
                 <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
                   <p className="text-sm font-medium text-indigo-900">
                     {t("provenance.cutover.title")}
@@ -339,7 +318,13 @@ export default function ExplainBalanceDrawer({ propertyId, onClose }) {
                   </p>
                   <div className="space-y-2">
                     {activeEvents.map((event) => (
-                      <EventRow key={event.event_id} event={event} currency={currency} t={t} />
+                      <EventRow
+                        key={event.event_id}
+                        event={event}
+                        currency={currency}
+                        t={t}
+                        showMigrationDetails={isLegacyMigrated}
+                      />
                     ))}
                   </div>
                 </div>
@@ -352,7 +337,13 @@ export default function ExplainBalanceDrawer({ propertyId, onClose }) {
                   </summary>
                   <div className="space-y-2 mt-2">
                     {inactiveEvents.map((event) => (
-                      <EventRow key={event.event_id} event={event} currency={currency} t={t} />
+                      <EventRow
+                        key={event.event_id}
+                        event={event}
+                        currency={currency}
+                        t={t}
+                        showMigrationDetails={isLegacyMigrated}
+                      />
                     ))}
                   </div>
                 </details>

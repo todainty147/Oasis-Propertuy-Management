@@ -8,6 +8,20 @@ const readSource = (path) => readFileSync(resolve(process.cwd(), path), "utf8");
 describe("provenance finance cutover contracts", () => {
   const sql = readSource("supabase/provenance_finance_cutover.sql");
 
+  describe("account provenance mode", () => {
+    it("classifies existing accounts as migrated and new accounts as native", () => {
+      expect(sql).toContain("add column if not exists account_provenance_mode text");
+      expect(sql).toContain("set account_provenance_mode = 'legacy_migrated'");
+      expect(sql).toContain("alter column account_provenance_mode set default 'native'");
+    });
+
+    it("constrains provenance mode to migrated or native", () => {
+      expect(sql).toContain(
+        "check (account_provenance_mode in ('legacy_migrated', 'native'))",
+      );
+    });
+  });
+
   describe("A. cutover config table", () => {
     it("defines the per-account cutover table with required columns", () => {
       for (const fragment of [
@@ -148,17 +162,21 @@ describe("provenance finance cutover contracts", () => {
       expect(sql).toContain("'live:payment.deleted:'");
     });
 
-    it("checks cutover status before emitting", () => {
-      const cutoverChecks = sql.match(
-        /select cutover_at into v_cutover_at/g,
+    it("uses one shared activation predicate for all live payment events", () => {
+      const activationChecks = sql.match(
+        /if public\.provenance_finance_tracking_active\(/g,
       );
-      expect(cutoverChecks).not.toBeNull();
-      expect(cutoverChecks.length).toBeGreaterThanOrEqual(6);
+      expect(activationChecks).not.toBeNull();
+      expect(activationChecks.length).toBeGreaterThanOrEqual(7);
     });
 
-    it("only emits when cutover is active and current time is past cutover_at", () => {
+    it("activates native accounts immediately and migrated accounts after cutover", () => {
+      expect(sql).toContain("a.account_provenance_mode = 'native'");
       expect(sql).toContain("status = 'active'");
-      expect(sql).toContain("now() >= v_cutover_at");
+      expect(sql).toContain("now() >= c.cutover_at");
+      expect(sql).toContain(
+        "revoke all on function public.provenance_finance_tracking_active(uuid)",
+      );
     });
   });
 
@@ -168,6 +186,14 @@ describe("provenance finance cutover contracts", () => {
       expect(sql).toContain("p_account_id uuid");
       expect(sql).toContain("p_cutover_at timestamptz");
       expect(sql).toContain("returns jsonb");
+    });
+
+    it("classifies any backfilled account as legacy migrated", () => {
+      const fn = sql.match(
+        /create or replace function public\.provenance_finance_backfill[\s\S]*?\$\$;/,
+      );
+      expect(fn).not.toBeNull();
+      expect(fn[0]).toContain("set account_provenance_mode = 'legacy_migrated'");
     });
 
     it("creates obligation snapshots from shared accumulation function", () => {
@@ -458,7 +484,7 @@ describe("provenance finance cutover contracts", () => {
     it("is registered in dbApplyRepoSql.js after provenance_events and before hardening", () => {
       const applyScript = readSource("scripts/dbApplyRepoSql.js");
       expect(applyScript).toContain(
-        '"provenance_events.sql",\n  "migrations/20260622000000_provenance_hash_chain_backfill.sql",\n  "provenance_finance_cutover.sql",\n  "provenance_explain_balance.sql",\n  "supabase_linter_security_hardening.sql"',
+        '"provenance_events.sql",\n  "migrations/20260622000000_provenance_hash_chain_backfill.sql",\n  "provenance_finance_cutover.sql",\n  "provenance_explain_balance.sql",\n  "provenance_document_service.sql",\n  "supabase_linter_security_hardening.sql"',
       );
     });
 

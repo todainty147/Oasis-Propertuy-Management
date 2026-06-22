@@ -264,6 +264,69 @@ describe("provenance finance cutover security", () => {
     expect(insertAttempt.error).not.toBeNull();
   });
 
+  integrationIt("keeps native account summaries free of migration concepts", async () => {
+    const scenario = await createFinanceScenario({
+      rent: 100,
+      leases: [{
+        startDate: dateAtMonthOffset(0),
+        endDate: dateAtMonthOffset(12),
+      }],
+    });
+
+    const account = await scenario.admin
+      .from("accounts")
+      .select("account_provenance_mode")
+      .eq("id", scenario.accountId)
+      .single();
+    expect(account.error).toBeNull();
+    expect(account.data.account_provenance_mode).toBe("native");
+
+    const payment = await scenario.ownerClient.rpc("create_payment", {
+      p_account_id: scenario.accountId,
+      p_property_id: scenario.propertyId,
+      p_tenant_id: scenario.tenantId,
+      p_amount: 100,
+      p_due_date: dateAtMonthOffset(0),
+    });
+    await requireSuccess(payment, "create native payment");
+
+    const accrual = await scenario.ownerClient.rpc("provenance_accrue_rent_charges", {
+      p_account_id: scenario.accountId,
+      p_property_id: scenario.propertyId,
+    });
+    const accrualResult = await requireSuccess(accrual, "accrue native rent");
+    expect(accrualResult.emitted).toBe(1);
+
+    const nativeEvents = await scenario.admin
+      .from("provenance_events")
+      .select("event_type")
+      .eq("account_id", scenario.accountId)
+      .order("sequence_number");
+    expect(nativeEvents.error).toBeNull();
+    expect(nativeEvents.data.map((row) => row.event_type)).toEqual([
+      "payment.recorded",
+      "rent.charged",
+    ]);
+
+    const explained = await scenario.ownerClient.rpc("explain_property_balance", {
+      p_property_id: scenario.propertyId,
+    });
+    const result = await requireSuccess(explained, "explain native balance");
+
+    expect(result.provenance_mode).toBe("native");
+    expect(result.legacy_reconciliation).toBeNull();
+    expect(result.reconciliation_bridge_lines).toEqual([]);
+    expect(result.has_reconstructed).toBe(false);
+    expect(result.accrued_past_lease_end).toBe(false);
+    expect(result.balance.legacy_balance_minor).toBeNull();
+    expect(Number(result.balance.provenance_balance_minor)).toBe(10000);
+    expect(result.assurance).toEqual({
+      ledger_integrity: "passed",
+      internal_reconciliation: "not_applicable",
+      balance_reliability: "usable",
+    });
+  });
+
   integrationIt("classifies an overpayment as an explained credit-clamp divergence", async () => {
     const scenario = await createFinanceScenario({
       rent: 100,

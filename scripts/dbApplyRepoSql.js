@@ -171,6 +171,7 @@ const OVERLAY_SEQUENCE = [
   "migrations/20260622000000_provenance_hash_chain_backfill.sql",
   "provenance_finance_cutover.sql",
   "provenance_explain_balance.sql",
+  "provenance_document_service.sql",
   "supabase_linter_security_hardening.sql",
 ];
 
