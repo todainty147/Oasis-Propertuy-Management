@@ -578,6 +578,11 @@ const bootstrapSteps = [
     file: path.join(supabaseDir, "hmrc_mtd_e1_uk_property_compliance.sql"),
     onErrorStop: true,
   },
+  {
+    label: "Apply provenance event ledger overlay",
+    file: path.join(supabaseDir, "provenance_events.sql"),
+    onErrorStop: true,
+  },
 ];
 
 function resolvePsqlCommand() {
