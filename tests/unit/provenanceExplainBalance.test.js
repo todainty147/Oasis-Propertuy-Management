@@ -79,7 +79,7 @@ describe("provenance explain balance unit tests (Sprint 2B)", () => {
   describe("forward accrual idempotency", () => {
     it("idempotency key includes account, property, period_key, and cutover_version", () => {
       expect(sql).toContain(
-        "'live:rent.charged:' || p_account_id::text || ':' || v_period.property_id::text || ':' || v_period.period_key || ':' || v_cutover.cutover_version::text",
+        "'live:rent.charged:' || p_account_id::text || ':' || v_period.property_id::text || ':' || v_period.period_key || ':' || v_cutover_version::text",
       );
     });
 
@@ -584,26 +584,56 @@ describe("provenance explain balance unit tests (Sprint 2B)", () => {
         }
       });
     });
+
+    describe("native versus migrated semantics", () => {
+      it("uses provenance as the native display basis", () => {
+        expect(fnBody()).toMatch(
+          /when v_is_legacy_migrated then coalesce\(v_gate\.display_basis, 'provenance'\)[\s\S]*?else 'provenance'/,
+        );
+      });
+
+      it("suppresses legacy balance for native accounts", () => {
+        expect(fnBody()).toMatch(
+          /'legacy_balance_minor', case[\s\S]*?when v_is_legacy_migrated[\s\S]*?else null/,
+        );
+      });
+
+      it("only builds bridge lines for migrated accounts", () => {
+        expect(fnBody()).toMatch(
+          /if v_is_legacy_migrated[\s\S]*?v_display_basis = 'legacy_compatible'[\s\S]*?v_bridge_lines :=/,
+        );
+      });
+
+      it("derives balance reliability independently from ledger integrity", () => {
+        const body = fnBody();
+        expect(body).toContain("v_ledger_integrity_status");
+        expect(body).toContain("v_balance_reliability_status");
+        expect(body).toContain("'caution_required'");
+        expect(body).toContain("'unusable'");
+        expect(body).toContain("'usable'");
+      });
+    });
   });
 
   describe("Sprint 2C: Balance Evidence Summary page structure", () => {
     const pageSrc = readSource("src/pages/provenance/BalanceEvidenceSummaryPage.jsx");
 
-    describe("badge state mapping", () => {
-      it("maps all five badge states to labels", () => {
-        for (const badge of [
-          "verified",
-          "verified_unanchored",
-          "reconciliation_warning",
-          "issue",
-          "pending",
+    describe("assurance status mapping", () => {
+      it("maps ledger and reliability states to labels", () => {
+        for (const status of [
+          "passed",
+          "failed",
+          "usable",
+          "caution_required",
+          "unusable",
+          "not_applicable",
         ]) {
-          expect(pageSrc).toContain(badge);
+          expect(pageSrc).toContain(status);
         }
       });
 
-      it("maps all five badge states to icons", () => {
-        expect(pageSrc).toContain("BADGE_ICON");
+      it("maps assurance states to icons", () => {
+        expect(pageSrc).toContain("ASSURANCE_CONFIG");
         expect(pageSrc).toContain("ShieldCheck");
         expect(pageSrc).toContain("AlertTriangle");
         expect(pageSrc).toContain("ShieldAlert");

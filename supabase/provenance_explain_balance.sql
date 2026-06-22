@@ -74,8 +74,8 @@ as $$
 declare
   v_actor_id uuid;
   v_role text;
-  v_account record;
-  v_cutover record;
+  v_provenance_mode text;
+  v_cutover_version integer;
   v_snapshot_months integer;
   v_period record;
   v_idem_key text;
@@ -103,9 +103,9 @@ begin
 
   if p_account_id is null then
     for v_account_row in
-      select c.account_id, c.cutover_at, c.cutover_version
-      from public.provenance_finance_cutover c
-      where c.status = 'active'
+      select a.id as account_id
+      from public.accounts a
+      where public.provenance_finance_tracking_active(a.id)
     loop
       perform public.provenance_accrue_rent_charges(
         p_account_id := v_account_row.account_id,
@@ -116,17 +116,26 @@ begin
     return jsonb_build_object('batch', true);
   end if;
 
-  select c.account_id, c.cutover_at, c.cutover_version, c.status
-  into v_cutover
-  from public.provenance_finance_cutover c
-  where c.account_id = p_account_id;
+  select a.account_provenance_mode
+  into v_provenance_mode
+  from public.accounts a
+  where a.id = p_account_id;
 
-  if not found or v_cutover.status <> 'active' then
+  if not found or not public.provenance_finance_tracking_active(p_account_id) then
     return jsonb_build_object(
       'account_id', p_account_id,
       'skipped', true,
-      'reason', 'no active cutover'
+      'reason', 'provenance finance tracking is not active'
     );
+  end if;
+
+  select coalesce(c.cutover_version, 1)
+  into v_cutover_version
+  from public.provenance_finance_cutover c
+  where c.account_id = p_account_id;
+
+  if not found then
+    v_cutover_version := 1;
   end if;
 
   for v_period in
@@ -142,7 +151,9 @@ begin
     order by e.sequence_number desc
     limit 1;
 
-    if v_snapshot_months is null then
+    if v_snapshot_months is null and v_provenance_mode = 'native' then
+      v_snapshot_months := 0;
+    elsif v_snapshot_months is null then
       continue;
     end if;
 
@@ -150,7 +161,7 @@ begin
       continue;
     end if;
 
-    v_idem_key := 'live:rent.charged:' || p_account_id::text || ':' || v_period.property_id::text || ':' || v_period.period_key || ':' || v_cutover.cutover_version::text;
+    v_idem_key := 'live:rent.charged:' || p_account_id::text || ':' || v_period.property_id::text || ':' || v_period.period_key || ':' || v_cutover_version::text;
 
     select id into v_existing_event_id
     from public.provenance_events
@@ -166,9 +177,23 @@ begin
     from public.leases l
     where l.account_id = p_account_id
       and l.property_id = v_period.property_id
-      and lower(coalesce(l.renewal_status, 'active')) not in ('ended')
+      and (
+        v_provenance_mode = 'native'
+        or lower(coalesce(l.renewal_status, 'active')) not in ('ended')
+      )
     order by l.lease_start_date desc
     limit 1;
+
+    if v_provenance_mode = 'native'
+       and (
+         v_lease_id is null
+         or (
+           v_lease_end_date is not null
+           and v_period.period_start > v_lease_end_date
+         )
+       ) then
+      continue;
+    end if;
 
     perform pg_advisory_xact_lock(hashtext('provenance:' || p_account_id::text), 0);
 
@@ -208,7 +233,7 @@ begin
         'rent_minor_used', v_period.rent_minor,
         'rent_source', 'properties.rent',
         'accrual_basis', 'finance_snapshot_compatible',
-        'cutover_version', v_cutover.cutover_version,
+        'cutover_version', v_cutover_version,
         'lease_id', v_lease_id,
         'property_id', v_period.property_id,
         'generated_as_of', current_date,
@@ -232,13 +257,13 @@ begin
     'account_id', p_account_id,
     'emitted', v_emitted,
     'skipped_existing', v_skipped,
-    'cutover_version', v_cutover.cutover_version
+    'cutover_version', v_cutover_version
   );
 end;
 $$;
 
 comment on function public.provenance_accrue_rent_charges(uuid, uuid) is
-  'Emits post-cutover rent.charged events for all eligible properties and billing periods since cutover. Uses the shared period breakdown for finance_snapshot compatibility. Idempotent.';
+  'Emits rent.charged events for native accounts and post-cutover periods for migrated accounts. Uses the shared period breakdown for finance_snapshot compatibility. Idempotent.';
 
 revoke all on function public.provenance_accrue_rent_charges(uuid, uuid)
   from public, anon, authenticated;
@@ -1012,6 +1037,8 @@ declare
   v_actor_id uuid;
   v_role text;
   v_account_id uuid;
+  v_provenance_mode text;
+  v_is_legacy_migrated boolean;
   v_projection record;
   v_gate record;
   v_chain_is_valid boolean;
@@ -1044,6 +1071,9 @@ declare
   v_accrued_past_lease_end boolean := false;
   v_has_reconstructed boolean := false;
   v_anchor_hash text;
+  v_ledger_integrity_status text;
+  v_reconciliation_status text;
+  v_balance_reliability_status text;
 begin
   -- ── 1. Authorize ──────────────────────────────────────────────────────────
   v_actor_id := auth.uid();
@@ -1066,8 +1096,12 @@ begin
   end if;
 
   -- ── 1b. Resolve labels for evidence summary ────────────────────────────────
-  select a.name into v_account_label
+  select a.name, a.account_provenance_mode
+  into v_account_label, v_provenance_mode
   from public.accounts a where a.id = v_account_id;
+
+  v_provenance_mode := coalesce(v_provenance_mode, 'legacy_migrated');
+  v_is_legacy_migrated := v_provenance_mode = 'legacy_migrated';
 
   select p.address into v_property_label
   from public.properties p where p.id = p_property_id;
@@ -1146,13 +1180,27 @@ begin
   from public.provenance_balance_projection(v_account_id, p_property_id) bp
   limit 1;
 
-  select rg.property_id, rg.legacy_balance_minor, rg.provenance_balance_minor,
-         rg.difference_minor, rg.currency, rg.status, rg.divergence_reason,
-         rg.recommended_action, rg.display_basis
-  into v_gate
-  from public.provenance_reconciliation_gate(v_account_id) rg
-  where rg.property_id = p_property_id
-  limit 1;
+  if v_is_legacy_migrated then
+    select rg.property_id, rg.legacy_balance_minor, rg.provenance_balance_minor,
+           rg.difference_minor, rg.currency, rg.status, rg.divergence_reason,
+           rg.recommended_action, rg.display_basis
+    into v_gate
+    from public.provenance_reconciliation_gate(v_account_id) rg
+    where rg.property_id = p_property_id
+    limit 1;
+  else
+    select
+      null::uuid as property_id,
+      null::bigint as legacy_balance_minor,
+      null::bigint as provenance_balance_minor,
+      null::bigint as difference_minor,
+      null::text as currency,
+      null::text as status,
+      null::text as divergence_reason,
+      null::text as recommended_action,
+      null::text as display_basis
+    into v_gate;
+  end if;
 
   select va.anchor_id, va.has_anchor, va.anchor_consistent, va.anchor_sequence,
          va.anchored_at, va.events_after_anchor
@@ -1207,7 +1255,8 @@ begin
       )
     );
 
-  elsif coalesce(v_gate.status, 'unexplained_divergence') = 'unexplained_divergence' then
+  elsif v_is_legacy_migrated
+        and coalesce(v_gate.status, 'unexplained_divergence') = 'unexplained_divergence' then
     v_badge_state := 'reconciliation_warning';
     v_export_allowed := false;
     v_safe_message := 'The balance could not be fully reconciled. Our team has been notified.';
@@ -1225,7 +1274,7 @@ begin
       )
     );
 
-  elsif coalesce(v_gate.status, '') = 'cannot_compare' then
+  elsif v_is_legacy_migrated and coalesce(v_gate.status, '') = 'cannot_compare' then
     v_badge_state := 'reconciliation_warning';
     v_export_allowed := false;
     v_safe_message := null;
@@ -1250,13 +1299,15 @@ begin
     v_event_total := v_event_total + coalesce((v_ev ->> 'contribution_minor')::bigint, 0);
 
     -- Detect reconstructed events
-    if (v_ev ->> 'reconstructed')::boolean is true
-       or (v_ev -> 'metadata' ->> 'reconstructed')::boolean is true then
+    if v_is_legacy_migrated
+       and ((v_ev ->> 'reconstructed')::boolean is true
+       or (v_ev -> 'metadata' ->> 'reconstructed')::boolean is true) then
       v_has_reconstructed := true;
     end if;
 
     -- Detect lease-end accrual
-    if (v_ev -> 'metadata' ->> 'accrual_continues_past_lease_end_date')::boolean is true then
+    if v_is_legacy_migrated
+       and (v_ev -> 'metadata' ->> 'accrual_continues_past_lease_end_date')::boolean is true then
       v_accrued_past_lease_end := true;
       v_ev_lease_id := coalesce(v_ev -> 'metadata' ->> 'lease_id', '');
       v_ev_property_id := coalesce(v_ev -> 'metadata' ->> 'property_id', p_property_id::text);
@@ -1293,15 +1344,19 @@ begin
   end loop;
 
   -- ── 7. Build response ─────────────────────────────────────────────────────
-  v_display_basis := coalesce(v_gate.display_basis, 'provenance');
-  if v_display_basis = 'legacy_compatible' then
+  v_display_basis := case
+    when v_is_legacy_migrated then coalesce(v_gate.display_basis, 'provenance')
+    else 'provenance'
+  end;
+  if v_is_legacy_migrated and v_display_basis = 'legacy_compatible' then
     v_display_balance := coalesce(v_gate.legacy_balance_minor, 0);
   else
     v_display_balance := coalesce(v_projection.balance_minor, 0);
   end if;
 
   -- Compute reconciliation bridge lines when display differs from event total
-  if v_display_basis = 'legacy_compatible'
+  if v_is_legacy_migrated
+     and v_display_basis = 'legacy_compatible'
      and v_display_balance is distinct from v_event_total then
     v_bridge_lines := jsonb_build_array(jsonb_build_object(
       'label', case coalesce(v_gate.divergence_reason, '')
@@ -1320,11 +1375,44 @@ begin
     where ca.id = v_anchor.anchor_id;
   end if;
 
+  v_ledger_integrity_status := case
+    when v_chain_is_valid is not true then 'failed'
+    when coalesce(v_anchor.has_anchor, false)
+         and v_anchor.anchor_consistent is not true then 'failed'
+    else 'passed'
+  end;
+
+  v_reconciliation_status := case
+    when not v_is_legacy_migrated then 'not_applicable'
+    when coalesce(v_gate.status, 'cannot_compare') = 'matched' then 'passed'
+    when v_gate.status = 'explained_divergence' then 'caution_required'
+    when v_gate.status = 'unexplained_divergence' then 'failed'
+    else 'not_applicable'
+  end;
+
+  v_balance_reliability_status := case
+    when v_ledger_integrity_status = 'failed' then 'unusable'
+    when v_is_legacy_migrated
+         and coalesce(v_gate.status, 'cannot_compare')
+           in ('cannot_compare', 'unexplained_divergence') then 'unusable'
+    when v_is_legacy_migrated
+         and (
+           coalesce(v_gate.status, '') = 'explained_divergence'
+           or v_accrued_past_lease_end
+         ) then 'caution_required'
+    else 'usable'
+  end;
+
+  if v_balance_reliability_status = 'unusable' then
+    v_export_allowed := false;
+  end if;
+
   return jsonb_build_object(
     'account_id', v_account_id,
     'property_id', p_property_id,
     'tenancy_id', v_projection.tenancy_id,
     'scope', 'property',
+    'provenance_mode', v_provenance_mode,
     'account_label', v_account_label,
     'property_label', v_property_label,
     'tenant_label', v_tenant_label,
@@ -1332,18 +1420,29 @@ begin
     'balance', jsonb_build_object(
       'display_balance_minor', v_display_balance,
       'provenance_balance_minor', coalesce(v_projection.balance_minor, 0),
-      'legacy_balance_minor', coalesce(v_gate.legacy_balance_minor, 0),
+      'legacy_balance_minor', case
+        when v_is_legacy_migrated then coalesce(v_gate.legacy_balance_minor, 0)
+        else null
+      end,
       'currency', coalesce(v_projection.currency, v_gate.currency),
       'display_basis', v_display_basis
     ),
     'events', v_events,
     'event_contribution_total_minor', v_event_total,
     'reconciliation_bridge_lines', v_bridge_lines,
-    'legacy_reconciliation', jsonb_build_object(
-      'status', coalesce(v_gate.status, 'cannot_compare'),
-      'difference_minor', coalesce(v_gate.difference_minor, 0),
-      'divergence_reason', v_gate.divergence_reason,
-      'recommended_action', v_gate.recommended_action
+    'legacy_reconciliation', case
+      when v_is_legacy_migrated then jsonb_build_object(
+        'status', coalesce(v_gate.status, 'cannot_compare'),
+        'difference_minor', coalesce(v_gate.difference_minor, 0),
+        'divergence_reason', v_gate.divergence_reason,
+        'recommended_action', v_gate.recommended_action
+      )
+      else null
+    end,
+    'assurance', jsonb_build_object(
+      'ledger_integrity', v_ledger_integrity_status,
+      'internal_reconciliation', v_reconciliation_status,
+      'balance_reliability', v_balance_reliability_status
     ),
     'chain_verification', jsonb_build_object(
       'is_valid', coalesce(v_chain_is_valid, false),
@@ -1392,6 +1491,7 @@ declare
   v_actor_id uuid;
   v_role text;
   v_existing record;
+  v_has_existing_cutover boolean;
   v_backfill_result jsonb;
 begin
   v_actor_id := auth.uid();
@@ -1409,7 +1509,9 @@ begin
   from public.provenance_finance_cutover c
   where c.account_id = p_account_id;
 
-  if found and v_existing.status = 'active' then
+  v_has_existing_cutover := found;
+
+  if v_has_existing_cutover and v_existing.status = 'active' then
     return jsonb_build_object(
       'account_id', p_account_id,
       'activated', false,
@@ -1417,7 +1519,11 @@ begin
     );
   end if;
 
-  if found then
+  update public.accounts
+  set account_provenance_mode = 'legacy_migrated'
+  where id = p_account_id;
+
+  if v_has_existing_cutover then
     update public.provenance_finance_cutover
     set status = 'active',
         cutover_at = now()
