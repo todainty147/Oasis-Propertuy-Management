@@ -573,6 +573,26 @@ const bootstrapSteps = [
     file: path.join(supabaseDir, "hmrc_mtd_phase5d_one_account_live_pilot.sql"),
     onErrorStop: true,
   },
+  {
+    label: "Apply HMRC E1 UK Property compliance overlay",
+    file: path.join(supabaseDir, "hmrc_mtd_e1_uk_property_compliance.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply provenance event ledger overlay",
+    file: path.join(supabaseDir, "provenance_events.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply provenance finance cutover overlay",
+    file: path.join(supabaseDir, "provenance_finance_cutover.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply provenance explain balance overlay",
+    file: path.join(supabaseDir, "provenance_explain_balance.sql"),
+    onErrorStop: true,
+  },
 ];
 
 function resolvePsqlCommand() {

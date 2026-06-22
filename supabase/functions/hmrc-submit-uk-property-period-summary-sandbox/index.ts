@@ -35,6 +35,7 @@ const DRAFT_SELECT = [
   "id", "account_id", "tax_year", "period_label", "period_start", "period_end",
   "property_business_id", "income_source_id", "hmrc_connection_id", "status",
   "source_summary", "category_totals", "validation_summary", "payload_preview",
+  "draft_type", "original_draft_id", "amendment_reason", "accounting_type_snapshot", "accounting_type_review_required",
   "sandbox_submitted_at", "sandbox_submission_status", "sandbox_submission_attempt_id",
   "sandbox_submission_id", "sandbox_receipt_summary", "updated_at",
 ].join(", ");
@@ -291,6 +292,9 @@ async function loadDraft(accountId: string, draftId: string) {
   if (Number(validation.issueCount || 0) > 0) {
     throw new HttpError("Resolve quarterly draft issues before sandbox submission.", 400);
   }
+  if (draftRecord.accounting_type_review_required === true) {
+    throw new HttpError("HMRC accounting type changed after this draft was prepared. Rebuild and review the draft before submission.", 409);
+  }
   if (
     String(draftRecord.sandbox_submission_status || "").toLowerCase() === "success"
     || Boolean(draftRecord.sandbox_submitted_at)
@@ -398,7 +402,9 @@ async function createSubmissionAttempt({
       hmrc_connection_id: connection.id || null,
       environment: "sandbox",
       submission_mode: "sandbox",
-      submission_type: "uk_property_period_summary",
+      submission_type: draft.draft_type === "amendment"
+        ? "uk_property_quarterly_amendment"
+        : "uk_property_period_summary",
       status,
       nino_masked: maskNino(profile.nino),
       business_id: businessId,

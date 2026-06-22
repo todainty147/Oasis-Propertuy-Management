@@ -318,10 +318,11 @@ describe("HMRC Phase 5A consent framework contracts", () => {
     const component = read("src/components/compliance/QuarterlyDraftsTab.jsx");
 
     for (const surface of [docs, component]) {
-      expect(surface).toContain("Live submission is not enabled");
-      expect(surface).toContain("Future live submission will require explicit consent");
-      expect(surface).toContain("Consent framework ready");
-      expect(surface).not.toMatch(/Submit live|File with HMRC|MTD compliant|HMRC recognised|Tax advice/i);
+      expect(surface).toMatch(/Live submission is not enabled|Live HMRC submission remains disabled/);
+      expect(surface).toMatch(/Future live submission will require explicit consent|explicit consent is required/);
+      expect(surface).toMatch(/Consent framework ready|Consent is explicit|explicit consent is required/);
+      expect(surface).not.toMatch(/Submit live|File with HMRC|guaranteed MTD compliant|HMRC recognised/i);
     }
+    expect(component).toContain("Tenaqo does not provide tax advice");
   });
 });

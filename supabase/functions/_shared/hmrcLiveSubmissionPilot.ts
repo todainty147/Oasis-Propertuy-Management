@@ -75,6 +75,10 @@ export async function assertHmrcLiveSubmissionPilotAllowed({
     await auditPilotBlock(accountId, userId, "draft_has_unresolved_issues");
     throw new HttpError("Resolve or exclude draft issues before live HMRC pilot pre-flight.", 409);
   }
+  if (draft.accounting_type_review_required === true) {
+    await auditPilotBlock(accountId, userId, "accounting_type_review_required");
+    throw new HttpError("HMRC accounting type changed after this draft was prepared. Review and revalidate the draft before live pilot submission.", 409);
+  }
 
   const consent = await assertHmrcLiveSubmissionConsent({ accountId, draftId, userId, consentId });
   if (String(consent.consentedBy || "") !== userId) {
@@ -140,7 +144,7 @@ async function getAllowlist(accountId: string) {
 async function getDraft(accountId: string, draftId: string) {
   const { data, error } = await admin
     .from("mtd_quarterly_update_drafts")
-    .select("id, account_id, status, reviewed_at, locked_at, validation_summary, live_submission_status, live_submitted_at")
+    .select("id, account_id, status, reviewed_at, locked_at, validation_summary, live_submission_status, live_submitted_at, accounting_type_review_required")
     .eq("id", draftId)
     .eq("account_id", accountId)
     .maybeSingle();

@@ -12,7 +12,7 @@ import {
   buildPropertyBusinessReadPath,
   HMRC_ACCEPT_HEADERS,
   hmrcRequest,
-  persistDiscoveredIncomeSourceId,
+  persistDiscoveredBusinessMetadata,
   requireConnectedHmrcConnection,
   safeObligationsBusinessType,
   summarizeBusinessDetails,
@@ -55,8 +55,12 @@ Deno.serve(async (req) => {
     const businessSummary: Record<string, unknown> = business.ok
       ? summarizeBusinessDetails(business.body)
       : { safe_code: business.normalized?.safeCode || "hmrc_error" };
-    if (business.ok && businessSummary.firstIncomeSourceId) {
-      await persistDiscoveredIncomeSourceId(connection, String(businessSummary.firstIncomeSourceId), accountId);
+    if (business.ok) {
+      await persistDiscoveredBusinessMetadata(connection, {
+        incomeSourceId: String(businessSummary.firstIncomeSourceId || ""),
+        accountingType: String(businessSummary.firstUkPropertyAccountingType || "") || null,
+        accountingTypeBusinessId: String(businessSummary.firstIncomeSourceId || "") || null,
+      }, accountId, user.id);
     }
     const businessStatus = business.ok ? "success" : business.status === 404 ? "no_data" : "failed";
     await writeHmrcReadinessCheck({
@@ -198,6 +202,8 @@ function publicBusinessSummary(summary: Record<string, unknown>) {
     hasUkProperty: Boolean(summary.hasUkProperty),
     hasForeignProperty: Boolean(summary.hasForeignProperty),
     discoveredIncomeSourceIdsCount: Number(summary.discoveredIncomeSourceIdsCount || 0),
+    accountingType: summary.firstUkPropertyAccountingType || null,
+    accountingTypeKnown: ["CASH", "ACCRUALS"].includes(String(summary.firstUkPropertyAccountingType || "")),
     safeCode: summary.safe_code || null,
   };
 }

@@ -21,6 +21,7 @@ import { formatCurrencyAmount } from "../utils/currency";
 import { isManageRole, can } from "../utils/permissions";
 import { listEntityCustomFieldValues } from "../services/customFieldService";
 import { ENTITLEMENT_FEATURES } from "../lib/entitlements";
+import ExplainBalanceDrawer from "../components/provenance/ExplainBalanceDrawer";
 
 /* ======================
    SKELETON
@@ -68,6 +69,7 @@ export default function PropertyDetails({
   const canUpdateProperty  = can(activePermissionContext, "properties", "update");
   const [customFieldRows, setCustomFieldRows]     = useState([]);
   const [customFieldsLoading, setCustomFieldsLoading] = useState(false);
+  const [showExplainBalance, setShowExplainBalance] = useState(false);
 
   const TABS = [
     { id: "overview",    label: t("propertyDetails.tab.overview")       },
@@ -309,6 +311,17 @@ export default function PropertyDetails({
           </div>
 
           {canManageLease && (
+            <button
+              type="button"
+              onClick={() => setShowExplainBalance(true)}
+              className="w-full rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-left hover:bg-indigo-100 transition-colors"
+            >
+              <p className="text-sm font-semibold text-indigo-900">{t("provenance.explainBalance.button")}</p>
+              <p className="text-xs text-indigo-600 mt-0.5">{t("provenance.explainBalance.subtitle")}</p>
+            </button>
+          )}
+
+          {canManageLease && (
             <PropertyOperatingExpensesCard
               accountId={activeAccountId}
               propertyId={property.id}
@@ -369,6 +382,13 @@ export default function PropertyDetails({
           propertyId={property.id}
           limit={25}
           defaultOpen={true}
+        />
+      )}
+
+      {showExplainBalance && (
+        <ExplainBalanceDrawer
+          propertyId={property.id}
+          onClose={() => setShowExplainBalance(false)}
         />
       )}
     </div>

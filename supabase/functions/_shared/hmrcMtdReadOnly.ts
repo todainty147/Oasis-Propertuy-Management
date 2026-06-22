@@ -13,6 +13,7 @@ export {
   isTaxYearFrom2025,
   maskNino,
   normalizeHmrcError,
+  normalizeHmrcNetworkError,
   normalizeSandboxNino,
   normalizeTestBusinessType,
   safeObligationsBusinessType,
@@ -25,11 +26,16 @@ export {
 import {
   maskNino,
   normalizeHmrcError,
+  normalizeHmrcNetworkError,
   normalizeSandboxNino,
   normalizeTestBusinessType,
   safeObligationsBusinessType,
   taxYearAccountingPeriod,
 } from "./hmrcMtdReadOnlyHelpers.ts";
+import {
+  buildHmrcFraudPreventionHeaders,
+  safeHmrcFraudHeaderEvidence,
+} from "./hmrcFraudPreventionHeaders.ts";
 
 export type HmrcCheckType =
   | "business_details"
@@ -50,6 +56,9 @@ export function getSandboxProfile(connection: Record<string, unknown> | null | u
     testBusinessId: String(profile.test_business_id || "").trim(),
     testBusinessType: String(profile.test_business_type || "").trim(),
     testTaxYear: String(profile.test_tax_year || "").trim(),
+    accountingType: String(profile.accounting_type || "").trim() || null,
+    accountingTypeBusinessId: String(profile.accounting_type_business_id || "").trim() || null,
+    accountingTypeRefreshedAt: profile.accounting_type_refreshed_at || null,
     updatedAt: profile.updated_at || null,
   };
 }
@@ -65,20 +74,48 @@ export function safeSandboxProfile(connection: Record<string, unknown> | null | 
     testBusinessIdMasked: profile.testBusinessId ? maskIdentifier(profile.testBusinessId) : "",
     testBusinessType: profile.testBusinessType || "",
     testTaxYear: profile.testTaxYear || "",
+    accountingType: profile.accountingType || null,
+    accountingTypeKnown: ["CASH", "ACCRUALS"].includes(String(profile.accountingType || "")),
+    accountingTypeRefreshedAt: profile.accountingTypeRefreshedAt,
     updatedAt: profile.updatedAt,
   };
 }
 
-export async function persistDiscoveredIncomeSourceId(connection: Record<string, unknown>, incomeSourceId: string, accountId: string) {
+export async function persistDiscoveredBusinessMetadata(
+  connection: Record<string, unknown>,
+  {
+    incomeSourceId,
+    accountingType,
+    accountingTypeBusinessId,
+  }: {
+    incomeSourceId?: string;
+    accountingType?: string | null;
+    accountingTypeBusinessId?: string | null;
+  },
+  accountId: string,
+  userId = "",
+) {
   const id = String(incomeSourceId || "").trim();
-  if (!id || !connection?.id || !accountId) return;
+  const normalizedAccountingType = ["CASH", "ACCRUALS"].includes(String(accountingType || ""))
+    ? String(accountingType)
+    : null;
+  if ((!id && !normalizedAccountingType) || !connection?.id || !accountId) return;
   const metadata = connection.metadata && typeof connection.metadata === "object"
     ? connection.metadata as Record<string, unknown>
     : {};
   const profile = metadata.sandbox_profile && typeof metadata.sandbox_profile === "object"
     ? metadata.sandbox_profile as Record<string, unknown>
     : {};
-  if (profile.income_source_id === id) return;
+  const accountingTypeChanged = Boolean(
+    normalizedAccountingType
+      && profile.accounting_type
+      && profile.accounting_type !== normalizedAccountingType,
+  );
+  if (
+    (!id || profile.income_source_id === id)
+    && (!normalizedAccountingType || profile.accounting_type === normalizedAccountingType)
+  ) return;
+  const refreshedAt = new Date().toISOString();
   const { error } = await admin
     .from("hmrc_connections")
     .update({
@@ -86,8 +123,13 @@ export async function persistDiscoveredIncomeSourceId(connection: Record<string,
         ...metadata,
         sandbox_profile: {
           ...profile,
-          income_source_id: id,
-          updated_at: new Date().toISOString(),
+          ...(id ? { income_source_id: id } : {}),
+          ...(normalizedAccountingType ? {
+            accounting_type: normalizedAccountingType,
+            accounting_type_business_id: String(accountingTypeBusinessId || id || "").trim(),
+            accounting_type_refreshed_at: refreshedAt,
+          } : {}),
+          updated_at: refreshedAt,
         },
       },
     })
@@ -99,7 +141,37 @@ export async function persistDiscoveredIncomeSourceId(connection: Record<string,
       connectionId: String(connection.id || ""),
       message: error.message,
     });
+    return;
   }
+  if (normalizedAccountingType) {
+    if (accountingTypeChanged) {
+      const { error: reviewError } = await admin.rpc("mark_mtd_drafts_for_accounting_type_review", {
+        p_account_id: accountId,
+        p_accounting_type: normalizedAccountingType,
+      });
+      if (reviewError) {
+        console.warn("[hmrc] accounting type draft review marking failed", {
+          accountId,
+          message: reviewError.message,
+        });
+      }
+    }
+    await auditHmrcEvent({
+      accountId,
+      userId,
+      action: "hmrc.accounting_type_refreshed",
+      status: "success",
+      responseSummary: {
+        accounting_type: normalizedAccountingType,
+        changed: accountingTypeChanged,
+        business_id_present: Boolean(accountingTypeBusinessId || id),
+      },
+    });
+  }
+}
+
+export async function persistDiscoveredIncomeSourceId(connection: Record<string, unknown>, incomeSourceId: string, accountId: string) {
+  return persistDiscoveredBusinessMetadata(connection, { incomeSourceId }, accountId);
 }
 
 export async function updateSandboxProfile(connection: Record<string, unknown>, patch: Record<string, unknown>, accountId: string) {
@@ -155,6 +227,7 @@ export async function hmrcRequest({
   method = "GET",
   body = null,
   testScenario = "STATEFUL",
+  fraudContext = {},
 }: {
   accountId: string;
   connection: Record<string, unknown>;
@@ -166,23 +239,62 @@ export async function hmrcRequest({
   method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: Record<string, unknown> | null;
   testScenario?: string | null;
+  fraudContext?: {
+    deviceId?: string;
+    timezone?: string;
+    publicIp?: string;
+    publicPort?: string | number;
+    publicIpTimestamp?: string;
+  };
 }) {
   const accessToken = await decryptConnectionAccessToken(connection);
+  const fraud = buildHmrcFraudPreventionHeaders({
+    accountId,
+    userId,
+    ...fraudContext,
+    licenseId: Deno.env.get("HMRC_VENDOR_LICENSE_ID") || accountId,
+    productName: Deno.env.get("HMRC_VENDOR_PRODUCT_NAME") || "Tenaqo",
+    productVersion: Deno.env.get("HMRC_VENDOR_VERSION") || "web",
+    publicIp: fraudContext.publicIp || Deno.env.get("HMRC_SERVER_PUBLIC_IP") || "",
+    publicPort: fraudContext.publicPort || Deno.env.get("HMRC_SERVER_PUBLIC_PORT") || "443",
+  });
   const url = new URL(path, HMRC_BASE_URL);
   Object.entries(query).forEach(([key, value]) => {
     if (value) url.searchParams.set(key, value);
   });
 
-  const response = await fetch(url.toString(), {
-    method,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: accept,
-      ...(body ? { "Content-Type": "application/json" } : {}),
-      ...(testScenario ? { "Gov-Test-Scenario": testScenario } : {}),
-    },
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  });
+  let response: Response;
+  try {
+    response = await fetch(url.toString(), {
+      method,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: accept,
+        ...(body ? { "Content-Type": "application/json" } : {}),
+        ...(testScenario ? { "Gov-Test-Scenario": testScenario } : {}),
+        ...fraud.headers,
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+  } catch (error) {
+    const normalized = normalizeHmrcNetworkError(error);
+    await auditHmrcEvent({
+      accountId,
+      userId,
+      action,
+      endpoint: path,
+      method,
+      status: "failed",
+      responseSummary: {
+        ok: false,
+        status: 0,
+        safe_code: normalized.safeCode,
+        fraud_prevention_headers: safeHmrcFraudHeaderEvidence(fraud.headers, fraud.missingContext),
+      },
+      errorMessage: normalized.message,
+    });
+    return { ok: false, status: 0, body: {}, correlationId: null, normalized };
+  }
   const responseBody = await response.json().catch(() => ({}));
   const normalized = response.ok ? null : normalizeHmrcError(response.status, responseBody);
   const correlationId = response.headers.get("X-CorrelationId")
@@ -204,6 +316,7 @@ export async function hmrcRequest({
       hmrc_code: normalized?.hmrcCode || null,
       safe_code: normalized?.safeCode || null,
       hmrc_correlation_id: correlationId,
+      fraud_prevention_headers: safeHmrcFraudHeaderEvidence(fraud.headers, fraud.missingContext),
     },
     errorMessage: response.ok || response.status === 404 ? null : normalized?.message || "HMRC read-only check failed",
   });

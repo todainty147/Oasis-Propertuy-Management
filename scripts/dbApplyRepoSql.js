@@ -166,6 +166,10 @@ const OVERLAY_SEQUENCE = [
   "hmrc_mtd_phase5b_live_pilot.sql",
   "hmrc_mtd_phase5c_live_endpoint_skeleton.sql",
   "hmrc_mtd_phase5d_one_account_live_pilot.sql",
+  "hmrc_mtd_e1_uk_property_compliance.sql",
+  "provenance_events.sql",
+  "provenance_finance_cutover.sql",
+  "provenance_explain_balance.sql",
   "supabase_linter_security_hardening.sql",
 ];
 

@@ -19,9 +19,12 @@ const DRAFT_SELECT = [
   "id", "account_id", "tax_year", "period_label", "period_start", "period_end",
   "obligation_id", "property_business_id", "income_source_id", "hmrc_connection_id",
   "status", "source_summary", "category_totals", "validation_summary", "payload_preview",
+  "draft_type", "original_draft_id", "amendment_reason", "original_category_totals",
+  "accounting_type_snapshot", "accounting_type_review_required", "accounting_type_reviewed_at",
   "reviewed_by", "reviewed_at", "locked_at", "locked_by", "archived_at",
   "sandbox_submitted_at", "sandbox_submission_status", "sandbox_submission_attempt_id",
   "sandbox_submission_id", "sandbox_receipt_summary",
+  "live_submission_status", "live_submitted_at", "live_submission_attempt_id",
   "created_by", "created_at", "updated_at",
 ].join(", ");
 
@@ -100,6 +103,7 @@ export async function createQuarterlyDraft({
   periodEnd,
   obligationId = null,
   periodLabel = "",
+  accountingType = null,
 } = {}) {
   if (!accountId) throw new Error("Missing account id.");
   if (!taxYear) throw new Error("Choose a tax year.");
@@ -116,11 +120,59 @@ export async function createQuarterlyDraft({
       period_end: periodEnd,
       obligation_id: obligationId || null,
       status: "draft",
+      accounting_type_snapshot: ["CASH", "ACCRUALS"].includes(String(accountingType || "")) ? accountingType : null,
     })
     .select(DRAFT_SELECT)
     .single();
   if (error) throw error;
   await writeMtdDraftAuditEvent(accountId, { draftId: data.id, eventType: "draft_created" });
+  return rebuildQuarterlyDraft(data.id);
+}
+
+export async function createQuarterlyAmendmentDraft(originalDraftId, {
+  amendmentReason = "Digital records updated after the original quarterly update.",
+  accountingType = null,
+} = {}) {
+  const original = await getQuarterlyDraft(originalDraftId);
+  if (!original) throw new Error("Original quarterly draft not found.");
+  const successfulAttempt = (original.submissionAttempts || []).find((attempt) => attempt.status === "success");
+  if (!successfulAttempt && original.sandbox_submission_status !== "success" && original.live_submission_status !== "success") {
+    throw new Error("An amendment can only be created from a submitted quarterly update.");
+  }
+  if (!String(amendmentReason || "").trim()) throw new Error("Add a reason for the quarterly amendment.");
+
+  const { data, error } = await supabase
+    .from("mtd_quarterly_update_drafts")
+    .insert({
+      account_id: original.account_id,
+      tax_year: original.tax_year,
+      period_label: `${original.period_label || `${original.period_start} to ${original.period_end}`} amendment`,
+      period_start: original.period_start,
+      period_end: original.period_end,
+      obligation_id: original.obligation_id,
+      property_business_id: original.property_business_id,
+      income_source_id: original.income_source_id,
+      hmrc_connection_id: original.hmrc_connection_id,
+      status: "draft",
+      draft_type: "amendment",
+      original_draft_id: original.id,
+      amendment_reason: String(amendmentReason).trim(),
+      original_category_totals: original.category_totals || [],
+      accounting_type_snapshot: ["CASH", "ACCRUALS"].includes(String(accountingType || ""))
+        ? accountingType
+        : original.accounting_type_snapshot,
+    })
+    .select(DRAFT_SELECT)
+    .single();
+  if (error) throw error;
+  await writeMtdDraftAuditEvent(original.account_id, {
+    draftId: data.id,
+    eventType: "amendment_draft_created",
+    metadata: {
+      originalDraftId: original.id,
+      originalSubmissionAttemptId: successfulAttempt?.id || original.sandbox_submission_attempt_id || null,
+    },
+  });
   return rebuildQuarterlyDraft(data.id);
 }
 
@@ -224,12 +276,41 @@ export function markDraftReviewed(draftId) {
   return setDraftStatus(draftId, "reviewed", { reviewed_at: new Date().toISOString() }, "draft_reviewed");
 }
 
-export function lockDraft(draftId) {
-  return setDraftStatus(draftId, "locked", { locked_at: new Date().toISOString() }, "draft_locked");
+export async function lockDraft(draftId) {
+  const draft = await getQuarterlyDraft(draftId);
+  if (!draft) throw new Error("Quarterly draft not found.");
+  const provenanceSnapshot = (draft.lines || [])
+    .filter((line) => line.include_in_draft)
+    .map((line) => `${line.source_type}:${line.source_table}:${line.source_id}:${line.amount}:${line.hmrc_category_key || ""}`)
+    .sort();
+  return setDraftStatus(draftId, "locked", {
+    locked_at: new Date().toISOString(),
+    source_summary: { ...(draft.source_summary || {}), lockedProvenanceSnapshot: provenanceSnapshot },
+  }, "draft_locked");
 }
 
 export function archiveDraft(draftId) {
   return setDraftStatus(draftId, "archived", { archived_at: new Date().toISOString() }, "draft_archived");
+}
+
+export async function revalidateDraftAccountingType(draftId, reviewNote = "") {
+  if (!draftId) throw new Error("Quarterly draft not found.");
+  const { data, error } = await supabase.rpc("revalidate_mtd_draft_accounting_type", {
+    p_draft_id: draftId,
+    p_review_note: String(reviewNote || "").trim() || null,
+  });
+  if (error) {
+    const message = String(error.message || "");
+    if (message.includes("not_permitted")) {
+      throw new Error("Only an account owner, admin, or authorised root operator can revalidate HMRC accounting type.");
+    }
+    if (message.includes("accounting_type_not_returned_review_note_required")) {
+      throw new Error("HMRC did not return an accounting type. Add a review note before clearing this check.");
+    }
+    throw error;
+  }
+  if (data?.ok !== true) throw new Error("HMRC accounting type revalidation was not completed.");
+  return getQuarterlyDraft(draftId);
 }
 
 export async function setDraftLineIncluded(draftId, lineId, includeInDraft) {
@@ -300,6 +381,9 @@ export function generateQuarterlyDraftSummaryCsv(draft) {
     ["Tax year", draft?.tax_year],
     ["Period", draft?.period_label || `${draft?.period_start} to ${draft?.period_end}`],
     ["Status", draft?.status],
+    ["Update type", draft?.draft_type === "amendment" ? "Quarterly amendment" : "Original quarterly update"],
+    ["Business/source identifier", draft?.income_source_id || draft?.property_business_id || "Not recorded"],
+    ["Accounting type", draft?.accounting_type_snapshot || "Not returned by HMRC"],
     ["Income total", summary.incomeTotal || 0],
     ["Expense total", summary.expenseTotal || 0],
     ["Issue count", summary.issueCount || 0],
@@ -310,6 +394,9 @@ export function generateQuarterlyDraftSummaryCsv(draft) {
     ["HMRC correlation ID", receipt.correlationId],
     ["Read-back verification", receipt.readBackLabel],
     ["Submitted timestamp", receipt.submittedAt],
+    ["Amendment reason", draft?.amendment_reason || ""],
+    ["Original category totals", draft?.draft_type === "amendment" ? JSON.stringify(draft?.original_category_totals || []) : ""],
+    ["Amended category totals", draft?.draft_type === "amendment" ? JSON.stringify(draft?.category_totals || []) : ""],
     ["Sandbox disclaimer", "Sandbox submission records do not represent a live HMRC filing."],
   ];
   return rows.map((row) => row.map(csvCell).join(",")).join("\n");

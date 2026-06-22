@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, Download, FileJson, Lock, RefreshCw, Send,
 import { DEFAULT_TAX_YEAR, TAX_YEAR_OPTIONS, formatCurrency } from "../../utils/taxTools";
 import {
   archiveDraft,
+  createQuarterlyAmendmentDraft,
   createQuarterlyDraft,
   downloadQuarterlyDraftCsv,
   exportDraftSummary,
@@ -16,6 +17,7 @@ import {
   markDraftReadyForAccountant,
   markDraftReviewed,
   rebuildQuarterlyDraft,
+  revalidateDraftAccountingType,
   setDraftLineIncluded,
 } from "../../services/mtdQuarterlyDraftService";
 import { getHmrcConnectionStatus, runHmrcUkPropertyPeriodSummaryLiveDryRun, submitHmrcUkPropertyPeriodSummarySandbox } from "../../services/hmrcMtdService";
@@ -98,6 +100,7 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
   const [liveDryRunResult, setLiveDryRunResult] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmSandbox, setConfirmSandbox] = useState(false);
+  const [accountingReviewMessage, setAccountingReviewMessage] = useState("");
 
   const load = useCallback(async (nextDraftId = selectedDraftId) => {
     if (!accountId) return;
@@ -192,12 +195,31 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
         periodEnd: form.periodEnd,
         periodLabel: form.periodLabel,
         obligationId: form.obligationId,
+        accountingType: hmrcStatus?.sandboxProfile?.accountingType || null,
       });
       setSelectedDraftId(draft.id);
       setSelectedDraft(draft);
       await load(draft.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create quarterly draft.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCreateAmendment() {
+    if (!selectedDraft?.id) return;
+    try {
+      setBusy(true);
+      setError("");
+      const amendment = await createQuarterlyAmendmentDraft(selectedDraft.id, {
+        accountingType: hmrcStatus?.sandboxProfile?.accountingType || null,
+      });
+      setSelectedDraftId(amendment.id);
+      setSelectedDraft(amendment);
+      await load(amendment.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create a quarterly amendment.");
     } finally {
       setBusy(false);
     }
@@ -264,6 +286,28 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
     );
   }
 
+  async function handleAccountingTypeRevalidation() {
+    if (!selectedDraft?.id) return;
+    const reviewNote = window.prompt(
+      "Optional review note for the HMRC accounting type audit record:",
+      "",
+    );
+    if (reviewNote === null) return;
+    try {
+      setBusy(true);
+      setError("");
+      setAccountingReviewMessage("");
+      const nextDraft = await revalidateDraftAccountingType(selectedDraft.id, reviewNote);
+      setSelectedDraft(nextDraft);
+      setAccountingReviewMessage("HMRC accounting type review was revalidated and recorded in the audit trail.");
+      await load(selectedDraft.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not revalidate the HMRC accounting type.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleExport(kind) {
     if (!selectedDraft) return;
     if (kind === "summary") {
@@ -292,7 +336,7 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
         </div>
         <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-100">
           This screen prepares draft totals and can send reviewed drafts to HMRC sandbox only when enabled. Live HMRC submission remains disabled.
-          Consent framework ready. Live submission is not enabled. Future live submission will require explicit consent.
+          This is a quarterly update only, not a final declaration or full tax return. Tenaqo does not provide tax advice. You remain responsible for figures, which must come from reviewed digital records.
         </div>
       </Panel>
 
@@ -389,6 +433,9 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
                   <p className="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">Draft detail</p>
                   <h3 className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{selectedDraft.period_label}</h3>
                   <p className="text-sm text-slate-500">{selectedDraft.period_start} to {selectedDraft.period_end} · {selectedDraft.tax_year}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {selectedDraft.draft_type === "amendment" ? "Quarterly amendment" : "Original quarterly update"} · Accounting type: {selectedDraft.accounting_type_snapshot || "Not returned by HMRC"}
+                  </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" disabled={busy || selectedDraft.status === "locked" || selectedDraft.status === "archived"} onClick={() => runAction(rebuildQuarterlyDraft, "Could not rebuild draft.")} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><RefreshCw size={14} /> Rebuild</button>
@@ -396,8 +443,36 @@ export default function QuarterlyDraftsTab({ accountId, properties = [], sandbox
                   <button type="button" disabled={busy || selectedDraft.status === "locked" || selectedDraft.status === "archived"} onClick={() => runAction(markDraftReviewed, "Could not mark draft reviewed.")} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><CheckCircle2 size={14} /> Reviewed</button>
                   <button type="button" disabled={busy || selectedDraft.status === "locked" || selectedDraft.status === "archived"} onClick={() => runAction(lockDraft, "Could not lock draft.")} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700"><Lock size={14} /> Lock</button>
                   <button type="button" disabled={busy || selectedDraft.status === "archived"} onClick={() => runAction(archiveDraft, "Could not archive draft.")} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium disabled:opacity-50 dark:border-slate-700">Archive</button>
+                  {hasSuccessfulSandboxAttempt && selectedDraft.draft_type !== "amendment" ? (
+                    <button type="button" disabled={busy} onClick={handleCreateAmendment} className="inline-flex items-center gap-2 rounded-lg border border-blue-200 px-3 py-2 text-xs font-medium text-blue-700 disabled:opacity-50 dark:border-blue-800 dark:text-blue-200">
+                      Create amendment
+                    </button>
+                  ) : null}
                 </div>
               </div>
+              {selectedDraft.accounting_type_review_required ? (
+                <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
+                  HMRC Business Details reports a different accounting type from this draft snapshot. Rebuild and review the draft before any submission.
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={handleAccountingTypeRevalidation}
+                    className="ml-3 rounded-lg border border-amber-300 px-2 py-1 text-xs font-semibold disabled:opacity-50 dark:border-amber-700"
+                  >
+                    Review and revalidate
+                  </button>
+                </div>
+              ) : null}
+              {accountingReviewMessage ? (
+                <div className="mt-4 rounded-xl border border-teal-200 bg-teal-50 p-3 text-sm text-teal-900 dark:border-teal-900/60 dark:bg-teal-950/30 dark:text-teal-100">
+                  {accountingReviewMessage}
+                </div>
+              ) : null}
+              {selectedDraft.draft_type === "amendment" ? (
+                <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100">
+                  This amendment was rebuilt from current digital records. Original totals remain preserved in the accountant export. Fresh explicit consent is required before any controlled live pilot submission.
+                </div>
+              ) : null}
               <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
                 {[
                   ["Income", formatCurrency(validation.incomeTotal || 0)],
