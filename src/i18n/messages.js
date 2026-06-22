@@ -2985,6 +2985,9 @@ export const messages = {
     "provenance.explainBalance.generatedAt": "Wygenerowano",
     "provenance.explainBalance.error": "Nie udało się wczytać wyjaśnienia salda",
     "provenance.explainBalance.button": "Wyjaśnij saldo",
+    "provenance.cutover.title": "Śledzenie proweniencji nie jest jeszcze aktywne",
+    "provenance.cutover.description": "Aktywuj śledzenie proweniencji, aby porównywać salda z systemem legacy i weryfikować łańcuch zdarzeń.",
+    "provenance.cutover.activate": "Aktywuj śledzenie proweniencji",
     "common.print": "Drukuj",
   },
   en: {
@@ -5973,6 +5976,9 @@ export const messages = {
     "provenance.explainBalance.generatedAt": "Generated at",
     "provenance.explainBalance.error": "Could not load balance explanation",
     "provenance.explainBalance.button": "Explain balance",
+    "provenance.cutover.title": "Provenance tracking is not yet active",
+    "provenance.cutover.description": "Activate provenance tracking to compare balances against the legacy system and verify the event chain.",
+    "provenance.cutover.activate": "Activate provenance tracking",
     "common.print": "Print",
   },
 };

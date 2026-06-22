@@ -186,7 +186,7 @@ describe("provenance event ledger contracts", () => {
     const bootstrapScript = readSource("scripts/dbBootstrap.js");
 
     expect(applyScript).toContain(
-      '"provenance_events.sql",\n  "provenance_finance_cutover.sql",\n  "provenance_explain_balance.sql",\n  "supabase_linter_security_hardening.sql"',
+      '"provenance_events.sql",\n  "migrations/20260622000000_provenance_hash_chain_backfill.sql",\n  "provenance_finance_cutover.sql",\n  "provenance_explain_balance.sql",\n  "supabase_linter_security_hardening.sql"',
     );
     expect(bootstrapScript).toContain('path.join(supabaseDir, "provenance_events.sql")');
   });

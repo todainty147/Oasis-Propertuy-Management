@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
-import { X, ShieldCheck, ShieldAlert, AlertTriangle, Clock, Printer } from "lucide-react";
+import { Link } from "react-router-dom";
+import { X, ShieldCheck, ShieldAlert, AlertTriangle, Clock, Printer, FileText } from "lucide-react";
 import Skeleton from "../ui/Skeleton";
-import { explainPropertyBalance } from "../../services/provenanceExplainService";
+import { explainPropertyBalance, activateProvenanceCutover } from "../../services/provenanceExplainService";
+import { useAccount } from "../../context/AccountContext";
 import { formatCurrencyAmount } from "../../utils/currency";
 import { useI18n } from "../../context/I18nContext";
 
@@ -94,9 +96,11 @@ function EventRow({ event, currency, t }) {
 
 export default function ExplainBalanceDrawer({ propertyId, onClose }) {
   const { t } = useI18n();
+  const { activeAccountId } = useAccount();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activating, setActivating] = useState(false);
 
   const load = useCallback(async () => {
     if (!propertyId) return;
@@ -111,6 +115,19 @@ export default function ExplainBalanceDrawer({ propertyId, onClose }) {
       setLoading(false);
     }
   }, [propertyId]);
+
+  const handleActivateCutover = useCallback(async () => {
+    if (!activeAccountId) return;
+    setActivating(true);
+    try {
+      await activateProvenanceCutover(activeAccountId);
+      await load();
+    } catch (err) {
+      setError(err.message || "Failed to activate provenance tracking");
+    } finally {
+      setActivating(false);
+    }
+  }, [activeAccountId, load]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -132,7 +149,7 @@ export default function ExplainBalanceDrawer({ propertyId, onClose }) {
         className="absolute right-0 top-0 h-full w-full max-w-2xl overflow-y-auto border-l border-slate-200 bg-white shadow-xl print:static print:max-w-none print:border-0 print:shadow-none"
       >
         {/* Header */}
-        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-5 py-4 backdrop-blur print:static print:backdrop-blur-none">
+        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-5 py-4 backdrop-blur print:static print:backdrop-blur-none">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="text-lg font-semibold text-slate-900">
@@ -144,14 +161,24 @@ export default function ExplainBalanceDrawer({ propertyId, onClose }) {
             </div>
             <div className="flex items-center gap-2 print:hidden">
               {data?.export_allowed && (
-                <button
-                  type="button"
-                  onClick={handlePrint}
-                  className="rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50"
-                  aria-label={t("common.print")}
-                >
-                  <Printer size={16} />
-                </button>
+                <>
+                  <Link
+                    to={`/properties/${propertyId}/balance-evidence`}
+                    className="rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50"
+                    aria-label="Balance evidence summary"
+                    title="Balance evidence summary"
+                  >
+                    <FileText size={16} />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handlePrint}
+                    className="rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50"
+                    aria-label={t("common.print")}
+                  >
+                    <Printer size={16} />
+                  </button>
+                </>
               )}
               <button
                 type="button"
@@ -247,6 +274,26 @@ export default function ExplainBalanceDrawer({ propertyId, onClose }) {
                       {data.legacy_reconciliation.recommended_action}
                     </p>
                   )}
+                </div>
+              )}
+
+              {/* Cutover activation prompt */}
+              {data.legacy_reconciliation?.divergence_reason === "not_yet_cut_over" && (
+                <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+                  <p className="text-sm font-medium text-indigo-900">
+                    {t("provenance.cutover.title")}
+                  </p>
+                  <p className="mt-1 text-xs text-indigo-700">
+                    {t("provenance.cutover.description")}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleActivateCutover}
+                    disabled={activating}
+                    className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                  >
+                    {activating ? t("common.loading") : t("provenance.cutover.activate")}
+                  </button>
                 </div>
               )}
 

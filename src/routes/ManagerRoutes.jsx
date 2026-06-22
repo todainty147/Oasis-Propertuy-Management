@@ -73,6 +73,7 @@ const ContractorPortal            = lazy(() => import("../pages/ContractorPortal
 const ContractorJobDetails        = lazy(() => import("../pages/ContractorJobDetails"));
 const WorkOrderDetails            = lazy(() => import("../pages/WorkOrderDetails"));
 const ApplicationsPage            = lazy(() => import("../pages/applications/ApplicationsPage"));
+const BalanceEvidenceSummaryPage  = lazy(() => import("../pages/provenance/BalanceEvidenceSummaryPage"));
 
 // ── Route guard helpers ──────────────────────────────────────────────────────
 
@@ -395,6 +396,11 @@ export default function ManagerRoutes() {
             <DepositDisputePackPrintPage properties={ownerProperties} tenants={ownerTenants} />
           </EntitledRoute>
         }
+      />
+
+      <Route
+        path="properties/:propertyId/balance-evidence"
+        element={<BalanceEvidenceSummaryPage />}
       />
 
       <Route path="maintenance-inbox" element={<MaintenanceInboxPage />} />

@@ -539,3 +539,45 @@ body {
   background-color: #1e293b;
   color: #94a3b8;
 }
+
+/* ── Balance Evidence Summary print layout ────────────────────────────────── */
+@media print {
+  .balance-evidence-summary {
+    font-size: 11pt;
+    color: #000;
+    background: #fff;
+  }
+
+  .balance-evidence-summary * {
+    color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .break-after-avoid { break-after: avoid; }
+  .break-inside-avoid { break-inside: avoid; }
+
+  .balance-evidence-summary table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .balance-evidence-summary thead {
+    display: table-header-group;
+  }
+
+  .balance-evidence-summary th,
+  .balance-evidence-summary td {
+    border-bottom: 0.5pt solid #94a3b8;
+    padding: 4pt 6pt;
+  }
+
+  @page {
+    margin: 15mm 12mm;
+    @bottom-center {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 8pt;
+      color: #64748b;
+    }
+  }
+}
