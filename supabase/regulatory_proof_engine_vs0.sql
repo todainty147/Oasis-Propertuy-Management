@@ -235,11 +235,11 @@ begin
   end if;
 
   for v_req in
-    select *
-    from public.regulatory_data_requirements
-    where impact_rule_ref = 'rra_info_sheet_v1'
+    select r.*
+    from public.regulatory_data_requirements r
+    where r.impact_rule_ref = 'rra_info_sheet_v1'
     order by
-      case input_key
+      case r.input_key
         when 'regulatory_change_version' then 1
         when 'impact_rule_version' then 2
         when 'qualifying_date' then 3

@@ -78,6 +78,13 @@ describe("RPE VS-0 read-model contract", () => {
     expect(sql).toContain("grant execute on function public.get_rra_info_sheet_data_readiness(uuid, uuid) to authenticated");
   });
 
+  it("qualifies catalogue input_key references inside the RPC to avoid PL/pgSQL ambiguity", () => {
+    expect(sql).toContain("from public.regulatory_data_requirements r");
+    expect(sql).toContain("where r.impact_rule_ref = 'rra_info_sheet_v1'");
+    expect(sql).toContain("case r.input_key");
+    expect(sql).not.toContain("case input_key");
+  });
+
   it("returns the VS-0 classified-input shape and strips values from missing/not_applicable outputs", () => {
     expect(sql).toContain("'input_key', p_input_key");
     expect(sql).toContain("'classification', p_classification");
