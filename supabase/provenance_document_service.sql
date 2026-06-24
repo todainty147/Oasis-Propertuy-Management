@@ -778,6 +778,9 @@ begin
   if nullif(btrim(p_acknowledgement_text), '') is null then
     raise exception 'acknowledgement_text is required';
   end if;
+  if length(btrim(p_acknowledgement_text)) > 2000 then
+    raise exception 'acknowledgement_text exceeds 2000 characters';
+  end if;
   if nullif(btrim(p_acknowledgement_text_version), '') is null then
     raise exception 'acknowledgement_text_version is required';
   end if;
@@ -934,7 +937,8 @@ begin
   -- Prevent re-parenting a document that already has provenance history
   if exists (
     select 1 from public.provenance_events pe
-     where pe.entity_type = 'document'
+     where pe.account_id = v_ctx.v_account_id
+       and pe.entity_type = 'document'
        and pe.entity_id = p_replacement_document_id
   ) then
     raise exception 'replacement document already has provenance history';
@@ -1055,6 +1059,7 @@ declare
   v_has_expired boolean := false;
   v_has_replaced boolean := false;
   v_has_withdrawn boolean := false;
+  v_latest_service_outcome text := null;
   v_first_ack_at timestamptz;
   v_ack_count integer := 0;
   v_view_count integer := 0;
@@ -1111,10 +1116,18 @@ begin
   loop
     case v_ev.event_type
       when 'document.uploaded' then v_has_uploaded := true;
-      when 'document.served_asserted' then v_has_served_asserted := true;
-      when 'document.served_system' then v_has_served_system := true;
-      when 'document.delivery_confirmed' then v_has_delivery_confirmed := true;
-      when 'document.service_failed' then v_has_service_failed := true;
+      when 'document.served_asserted' then
+        v_has_served_asserted := true;
+        v_latest_service_outcome := 'asserted';
+      when 'document.served_system' then
+        v_has_served_system := true;
+        v_latest_service_outcome := 'sent';
+      when 'document.delivery_confirmed' then
+        v_has_delivery_confirmed := true;
+        v_latest_service_outcome := 'confirmed';
+      when 'document.service_failed' then
+        v_has_service_failed := true;
+        v_latest_service_outcome := 'failed';
       when 'document.available' then v_has_available := true;
       when 'document.viewed' then
         v_has_viewed := true;
@@ -1135,7 +1148,7 @@ begin
     end case;
   end loop;
 
-  -- Compute projection status (Finding 6: service_failed now affects status)
+  -- Compute projection status using latest service outcome (last-write-wins)
   v_status := case
     when v_has_withdrawn then 'withdrawn'
     when v_has_expired then 'expired'
@@ -1144,23 +1157,20 @@ begin
     when v_has_downloaded then 'available_downloaded'
     when v_has_viewed then 'available_viewed'
     when v_has_available and not v_has_viewed then 'available_no_access'
-    when v_has_service_failed and not v_has_delivery_confirmed
-         and not v_has_served_asserted then 'service_failed'
-    when v_has_delivery_confirmed then 'delivery_confirmed'
+    when v_latest_service_outcome = 'failed' then 'service_failed'
+    when v_latest_service_outcome = 'confirmed' then 'delivery_confirmed'
     when v_has_served_system or v_has_served_asserted then 'service_recorded'
     when v_has_uploaded then 'uploaded'
     else 'unknown'
   end;
 
-  -- Access Evidence Strength (1-4)
-  -- Delivery confirmation strengthens service evidence but stays at level 2
-  -- Service failure with no confirmation/assertion downgrades to 1
+  -- Access Evidence Strength (0-4)
+  -- Latest service outcome determines whether service evidence holds at level 2
   v_evidence_strength := case
     when v_has_acknowledged then 4
     when v_has_viewed or v_has_downloaded then 3
     when (v_has_served_asserted or v_has_served_system)
-         and not (v_has_service_failed and not v_has_delivery_confirmed
-                  and not v_has_served_asserted) then 2
+         and v_latest_service_outcome <> 'failed' then 2
     when v_has_uploaded then 1
     else 0
   end;
