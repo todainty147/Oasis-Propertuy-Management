@@ -22,6 +22,7 @@ describe("document antivirus scanning contracts", () => {
 
     expect(sql).toContain("'legacy_unscanned', 'pending_scan', 'clean', 'flagged', 'scan_failed'");
     expect(sql).toContain("document_audit_log_action_check");
+    expect(sql).toContain("'access'");
     expect(sql).toContain("'scan_requested'");
     expect(sql).toContain("'scan_clean'");
     expect(sql).toContain("'scan_flagged'");
@@ -53,6 +54,15 @@ describe("document antivirus scanning contracts", () => {
     expect(service).not.toContain("void storagePath");
     expect(service).toContain("URL.createObjectURL(blob)");
     expect(service).toContain("await fetch(signedUrl)");
+  });
+
+  it("exposes the document service provenance timeline from the documents list", () => {
+    const page = read("src/pages/Documents.jsx");
+    const messages = read("src/i18n/messages.js");
+
+    expect(page).toContain('to={`/documents/${doc.id}/service-timeline`}');
+    expect(page).toContain('t("documents.provenanceTimeline")');
+    expect(messages).toContain('"documents.provenanceTimeline": "Provenance"');
   });
 
   it("defines Edge Functions for signed document links and scan dispatch", () => {

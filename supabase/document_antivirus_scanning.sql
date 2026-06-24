@@ -7,6 +7,7 @@ alter table public.document_audit_log
   add constraint document_audit_log_action_check
   check (action = any (array[
     'upload',
+    'access',
     'delete',
     'download',
     'update_tags',

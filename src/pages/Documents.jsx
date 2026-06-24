@@ -1,6 +1,6 @@
 // src/pages/Documents.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Skeleton from "../components/ui/Skeleton";
 import { ChevronDown, X } from "lucide-react";
 import { usePageTitle } from "../layout/PageTitleContext";
@@ -785,6 +785,12 @@ export default function Documents({ tenants: tenantsProp = null, properties: pro
                       >
                         {t("attachments.download")}
                       </button>
+                      <Link
+                        to={`/documents/${doc.id}/service-timeline`}
+                        className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
+                      >
+                        {t("documents.provenanceTimeline")}
+                      </Link>
                       {canDeleteDocument(permissionContext) && (
                         <button
                           type="button"

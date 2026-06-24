@@ -568,7 +568,7 @@ describe("provenance document service contracts (Sprint 3)", () => {
       }
     });
 
-    it("computes access evidence strength levels 0-4 with service_failed downgrade", () => {
+    it("computes access evidence strength levels 0-4 using latest service outcome", () => {
       const fn = sql.match(
         /create or replace function public\.document_service_projection[\s\S]*?\$\$;/,
       );
@@ -576,8 +576,7 @@ describe("provenance document service contracts (Sprint 3)", () => {
       expect(fn[0]).toContain("v_evidence_strength");
       expect(fn[0]).toContain("when v_has_acknowledged then 4");
       expect(fn[0]).toContain("when v_has_viewed or v_has_downloaded then 3");
-      expect(fn[0]).toContain("v_has_service_failed");
-      expect(fn[0]).toContain("v_has_delivery_confirmed");
+      expect(fn[0]).toContain("v_latest_service_outcome <> 'failed'");
       expect(fn[0]).toContain("when v_has_uploaded then 1");
     });
 
@@ -1126,6 +1125,51 @@ describe("provenance document service contracts (Sprint 3)", () => {
       expect(fn).not.toBeNull();
       expect(fn[0]).toContain("pg_advisory_xact_lock");
       expect(fn[0]).toContain("doc_family:");
+    });
+  });
+
+  describe("security: acknowledgement text length cap", () => {
+    it("rejects acknowledgement_text longer than 2000 characters", () => {
+      const fn = sql.match(
+        /create or replace function public\.record_document_acknowledged[\s\S]*?\$\$;/,
+      );
+      expect(fn).not.toBeNull();
+      expect(fn[0]).toContain("'acknowledgement_text exceeds 2000 characters'");
+      expect(fn[0]).toContain("length(btrim(p_acknowledgement_text)) > 2000");
+    });
+  });
+
+  describe("projection: latest-service-outcome model", () => {
+    it("tracks v_latest_service_outcome across service events in sequence order", () => {
+      const fn = sql.match(
+        /create or replace function public\.document_service_projection[\s\S]*?\$\$;/,
+      );
+      expect(fn).not.toBeNull();
+      expect(fn[0]).toContain("v_latest_service_outcome text := null");
+      expect(fn[0]).toContain("v_latest_service_outcome := 'sent'");
+      expect(fn[0]).toContain("v_latest_service_outcome := 'confirmed'");
+      expect(fn[0]).toContain("v_latest_service_outcome := 'failed'");
+      expect(fn[0]).toContain("v_latest_service_outcome := 'asserted'");
+    });
+
+    it("uses latest outcome (not ever-happened) for service_failed status", () => {
+      const fn = sql.match(
+        /create or replace function public\.document_service_projection[\s\S]*?\$\$;/,
+      );
+      expect(fn).not.toBeNull();
+      expect(fn[0]).toContain("v_latest_service_outcome = 'failed'");
+      expect(fn[0]).toContain("v_latest_service_outcome = 'confirmed'");
+    });
+  });
+
+  describe("security: replacement provenance check scoped to account", () => {
+    it("includes account_id in the replacement provenance-history query", () => {
+      const fn = sql.match(
+        /create or replace function public\.record_document_replaced[\s\S]*?\$\$;/,
+      );
+      expect(fn).not.toBeNull();
+      expect(fn[0]).toContain("pe.account_id = v_ctx.v_account_id");
+      expect(fn[0]).toContain("pe.entity_id = p_replacement_document_id");
     });
   });
 
