@@ -9,6 +9,7 @@
 // qualified professional where needed.
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -539,6 +540,12 @@ export default function RentersRightsPage() {
           </h1>
           <JurisdictionBadge t={t} />
         </div>
+        <Link
+          to="/compliance/renters-rights/rpe-diagnostic"
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          RPE diagnostic
+        </Link>
       </div>
 
       <p className="text-sm text-slate-500 dark:text-slate-400">

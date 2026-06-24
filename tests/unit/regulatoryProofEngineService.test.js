@@ -102,6 +102,40 @@ describe("regulatoryProofEngineService", () => {
     expect(result.id).toBe("eval-1");
   });
 
+  it("previews evaluations without recording them", async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        id: "rule-1",
+        rule_key: "rra_info_sheet_v1",
+        version: 1,
+        active: false,
+        demo_mode_only: true,
+        correctness_approved_by: null,
+      },
+      error: null,
+    });
+    mockRpc.mockResolvedValue({
+      data: [
+        { input_key: "jurisdiction", classified_input: { classification: "exists", value: "WLS" } },
+      ],
+      error: null,
+    });
+
+    const result = await service.previewRraInfoSheetEvaluationForTenancy({
+      accountId: "acct-1",
+      tenancyId: "lease-1",
+    });
+
+    expect(result.result).toBe("not_affected");
+    expect(result.reason_codes).toEqual(["EXCL_JURISDICTION"]);
+    expect(result.id).toBeUndefined();
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledWith("get_rra_info_sheet_data_readiness", {
+      p_account_id: "acct-1",
+      p_lease_id: "lease-1",
+    });
+  });
+
   it("loads grouped evaluation summary", async () => {
     mockRpc.mockResolvedValue({ data: [{ result: "affected", evaluation_count: 2 }], error: null });
 
