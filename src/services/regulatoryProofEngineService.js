@@ -82,6 +82,21 @@ export async function runRraInfoSheetEvaluationForTenancy({
   return { ...evaluation, id: persisted?.id ?? null };
 }
 
+export async function previewRraInfoSheetEvaluationForTenancy({
+  accountId,
+  tenancyId,
+  demoMode = true,
+} = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!tenancyId) throw new Error("Missing tenancyId");
+
+  return runRraInfoSheetEvaluation(tenancyId, {
+    demoMode,
+    loadImpactRule: loadRraInfoSheetImpactRule,
+    loadVs0Map: () => loadRraInfoSheetVs0Map({ accountId, tenancyId }),
+  });
+}
+
 export async function listRraInfoSheetRuleEvaluations({
   accountId,
   limit = 100,

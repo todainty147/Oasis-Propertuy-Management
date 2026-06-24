@@ -63,6 +63,7 @@ const ComplianceSafePage          = lazy(() => import("../pages/compliance/Compl
 const RentShieldPage              = lazy(() => import("../pages/compliance/RentShieldPage"));
 const LeaseAuditorPage            = lazy(() => import("../pages/compliance/LeaseAuditorPage"));
 const RentersRightsPage           = lazy(() => import("../pages/compliance/RentersRightsPage"));
+const RpeDiagnosticPage           = lazy(() => import("../pages/compliance/RpeDiagnosticPage"));
 const PolandCompliancePage        = lazy(() => import("../pages/compliance/PolandCompliancePage"));
 const PlAdvancedPage              = lazy(() => import("../pages/compliance/PlAdvancedPage"));
 const RentPlansPage               = lazy(() => import("../pages/RentPlansPage"));
@@ -125,6 +126,7 @@ export default function ManagerRoutes() {
     propertiesLoading, paymentsLoading, tenantsLoading,
     propertiesError, paymentsError, tenantsError, leasesError,
     payments,
+    leases,
     ownerProperties, ownerTenants, ownerPayments,
     occupiedCount, vacantCount, occupancyRate, longVacantProperties,
     refetchProperties,
@@ -607,6 +609,14 @@ export default function ManagerRoutes() {
         element={
           <EntitledRoute feature={ENTITLEMENT_FEATURES.RENTERS_RIGHTS_READINESS}>
             <RentersRightsPage />
+          </EntitledRoute>
+        }
+      />
+      <Route
+        path="compliance/renters-rights/rpe-diagnostic"
+        element={
+          <EntitledRoute feature={ENTITLEMENT_FEATURES.RENTERS_RIGHTS_READINESS}>
+            <RpeDiagnosticPage leases={leases} />
           </EntitledRoute>
         }
       />
