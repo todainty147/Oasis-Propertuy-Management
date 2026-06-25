@@ -123,6 +123,18 @@ describe("RPE VS-1 evaluation write/read RPC contract", () => {
     expect(vs1Sql).toContain("group by re.result, re.evaluation_confidence");
     expect(vs1Sql).toContain("grant execute on function public.rra_info_sheet_evaluation_summary(uuid) to authenticated");
   });
+
+  it("keeps list_rra_info_sheet_rule_evaluations on the corrected three-argument signature", () => {
+    expect(vs1Sql).toMatch(
+      /create or replace function public\.list_rra_info_sheet_rule_evaluations\(\s*p_account_id uuid,\s*p_limit integer default 100,\s*p_offset integer default 0\s*\)/i,
+    );
+
+    const listFnHeader = vs1Sql.slice(
+      vs1Sql.indexOf("create or replace function public.list_rra_info_sheet_rule_evaluations"),
+      vs1Sql.indexOf("returns table", vs1Sql.indexOf("create or replace function public.list_rra_info_sheet_rule_evaluations")),
+    );
+    expect((listFnHeader.match(/p_limit integer default 100/g) || [])).toHaveLength(1);
+  });
 });
 
 describe("RPE VS-1 provenance-integrity contract", () => {

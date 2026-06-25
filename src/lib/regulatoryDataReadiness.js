@@ -110,13 +110,13 @@ export const REGULATORY_DATA_REQUIREMENTS = Object.freeze([
   },
   {
     input_key: "jurisdiction",
-    capability: "missing",
+    capability: "exists",
     capture_tier: 1,
     capture_location: "property setup",
     mandatory: true,
     conditional: false,
-    source_fields: [],
-    notes: "Current schema lacks property-level England/Wales/Scotland subdivision. Account GB and property market uk are inadmissible.",
+    source_fields: ["properties.country_subdivision"],
+    notes: "Property-level UK subdivision. Account GB, property market uk, and task jurisdiction defaults remain inadmissible (§15).",
   },
   {
     input_key: "annual_rent_gbp",
