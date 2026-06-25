@@ -26,6 +26,13 @@ create table if not exists public.regulatory_data_requirements (
 comment on table public.regulatory_data_requirements is
   'Platform-curated VS-0 catalogue of structural data requirements. Capability describes schema capability, not per-record legal status.';
 
+do $$ begin
+  alter table public.properties
+    add column country_subdivision text
+    check (country_subdivision in ('England','Wales','Scotland','Northern Ireland','Other'));
+exception when duplicate_column then null;
+end $$;
+
 alter table public.regulatory_data_requirements enable row level security;
 
 revoke all on table public.regulatory_data_requirements from public;
@@ -66,7 +73,7 @@ values
   ('rra_info_sheet_v1','tenancy_start_date','exists',2,'tenancy setup',true,false,array['leases.lease_start_date','leases.start_date'],'Dual nullable columns are accepted only when one is populated or both agree.'),
   ('rra_info_sheet_v1','tenancy_end_date','exists',2,'tenancy setup',true,false,array['leases.lease_end_date','leases.end_date'],'Null is not proof of an ongoing tenancy until an explicit semantic contract exists.'),
   ('rra_info_sheet_v1','active_on_qualifying_date','derivable',2,'tenancy setup / time-qualified term review',true,false,array['leases.lease_start_date','leases.start_date','leases.lease_end_date','leases.end_date','regulatory.qualifying_date','leases.term_type','leases.term_type_effective_from','leases.term_type_evidence_basis'],'Derived from admissible tenancy dates plus the versioned qualifying date. Null-end tenancies require a time-qualified periodic/open-ended indicator effective on or before the qualifying date.'),
-  ('rra_info_sheet_v1','jurisdiction','missing',1,'property setup',true,false,array[]::text[],'Current schema lacks property-level England/Wales/Scotland subdivision. Account GB and property market uk are inadmissible.'),
+  ('rra_info_sheet_v1','jurisdiction','exists',1,'property setup',true,false,array['properties.country_subdivision'],'Property-level UK subdivision. Account GB, property market uk, and task jurisdiction defaults remain inadmissible (§15).'),
   ('rra_info_sheet_v1','annual_rent_gbp','derivable',3,'tenancy rent terms',true,false,array['leases.rent_amount','leases.rent_frequency'],'properties.rent is an inadmissible substitute for lease rent.'),
   ('rra_info_sheet_v1','company_let','missing',4,'tenancy parties workflow',true,false,array[]::text[],'Requires structured contracting-party legal-person type.'),
   ('rra_info_sheet_v1','resident_landlord','missing',4,'tenancy setup/review',true,false,array[]::text[],'Requires structured occupancy/resident-landlord classification.'),
@@ -198,6 +205,7 @@ declare
   v_rent_amount numeric;
   v_rent_frequency text;
   v_multiplier numeric;
+  v_country_subdivision text;
 begin
   if not public.user_can_manage_account(p_account_id) then
     raise exception 'Not authorized for account';
@@ -214,6 +222,11 @@ begin
   end if;
 
   v_lease_json := to_jsonb(v_lease);
+
+  select p.country_subdivision
+  into v_country_subdivision
+  from public.properties p
+  where p.id = v_lease.property_id;
 
   select *
   into v_task
@@ -433,11 +446,20 @@ begin
       );
 
     elsif v_req.input_key = 'jurisdiction' then
-      classified_input := public.rpe_vs0_classified_input(
-        v_req.input_key, 'missing', null, array['properties.country_subdivision'],
-        'No property-level England/Wales/Scotland subdivision exists. Account GB, property market uk, and task jurisdiction defaults are inadmissible.',
-        null, null, v_req.capture_tier, v_req.capture_location
-      );
+      if v_country_subdivision is not null then
+        classified_input := public.rpe_vs0_classified_input(
+          v_req.input_key, 'exists', to_jsonb(v_country_subdivision),
+          array['properties.country_subdivision'],
+          'Admissible structured field is present.', 'exists', null,
+          v_req.capture_tier, v_req.capture_location
+        );
+      else
+        classified_input := public.rpe_vs0_classified_input(
+          v_req.input_key, 'missing', null, array['properties.country_subdivision'],
+          'No property-level England/Wales/Scotland subdivision exists. Account GB, property market uk, and task jurisdiction defaults are inadmissible.',
+          null, null, v_req.capture_tier, v_req.capture_location
+        );
+      end if;
 
     else
       classified_input := public.rpe_vs0_classified_input(

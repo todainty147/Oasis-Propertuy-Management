@@ -273,6 +273,43 @@ describe("classifyInput", () => {
     expect(result.value).toBe("2026-04-01");
   });
 
+  it("classifies jurisdiction as exists when country_subdivision is set (Record A — England proceeds)", () => {
+    const result = classifyInput("jurisdiction", {
+      property: { country_subdivision: "England" },
+    });
+
+    expect(result.classification).toBe(CLASSIFICATIONS.EXISTS);
+    expect(result.value).toBe("ENGLAND");
+    expect(result.source_fields).toEqual(["properties.country_subdivision"]);
+    expect(result.confidence_basis).toBe("exists");
+  });
+
+  it("classifies non-England subdivisions identically (Record D — Wales/Scotland/NI fast-fail path)", () => {
+    for (const subdivision of ["Wales", "Scotland", "Northern Ireland", "Other"]) {
+      const result = classifyInput("jurisdiction", {
+        property: { country_subdivision: subdivision },
+      });
+
+      expect(result.classification).toBe(CLASSIFICATIONS.EXISTS);
+      expect(result.value).toBe(subdivision.toUpperCase());
+      expect(result.source_fields).toEqual(["properties.country_subdivision"]);
+    }
+  });
+
+  it("returns missing when country_subdivision is null even with inadmissible sources present (§15 guard)", () => {
+    const result = classifyInput("jurisdiction", {
+      property: { market: "uk", country_subdivision: null },
+      account: { country_code: "GB" },
+      renters_rights_task: { jurisdiction: "GB-ENG" },
+    });
+
+    expect(result.classification).toBe(CLASSIFICATIONS.MISSING);
+    expect(result.value).toBeNull();
+    expect(result.confidence_basis).toBeNull();
+    expect(result.admissibility_reason).toMatch(/inadmissible/i);
+    expect(result.source_fields).toEqual(["properties.country_subdivision"]);
+  });
+
   it("is pure and deterministic for the same context", () => {
     const first = classifyTenancyReadiness(baseContext);
     const second = classifyTenancyReadiness(baseContext);

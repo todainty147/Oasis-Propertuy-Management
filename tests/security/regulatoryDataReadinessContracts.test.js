@@ -49,7 +49,7 @@ describe("RPE VS-0 SQL catalogue contract", () => {
   });
 
   it("documents inadmissible source boundaries in the catalogue/read model", () => {
-    expect(sql).toContain("Account GB and property market uk are inadmissible");
+    expect(sql).toContain("Account GB, property market uk, and task jurisdiction defaults remain inadmissible");
     expect(sql).toContain("properties.rent is an inadmissible substitute");
     expect(sql).toContain("Existing Polish lease_type values are inadmissible");
     expect(sql).toContain("document tags or filenames are inadmissible");
@@ -114,6 +114,34 @@ describe("RPE VS-0 read-model contract", () => {
     expect(sql).toContain("v_lease_json->>'start_date'");
     expect(sql).toContain("v_lease_json->>'rent_amount'");
     expect(sql).toContain("v_lease_json->>'rent_frequency'");
+  });
+});
+
+describe("RPE B-prereq-1 jurisdiction read contract", () => {
+  it("adds properties.country_subdivision constrained to canonical subdivisions", () => {
+    expect(sql).toContain("country_subdivision text");
+    expect(sql).toMatch(/check\s*\(country_subdivision in\s*\('England','Wales','Scotland','Northern Ireland','Other'\)\)/i);
+  });
+
+  it("reads country_subdivision from the property in the RPC", () => {
+    expect(sql).toContain("v_country_subdivision");
+    expect(sql).toContain("p.country_subdivision");
+    expect(sql).toContain("from public.properties p");
+    expect(sql).toContain("p.id = v_lease.property_id");
+  });
+
+  it("classifies jurisdiction as exists when country_subdivision is present", () => {
+    expect(sql).toContain("if v_country_subdivision is not null then");
+    expect(sql).toContain("to_jsonb(v_country_subdivision)");
+  });
+
+  it("preserves the inadmissibility guard when country_subdivision is null", () => {
+    expect(sql).toContain("Account GB, property market uk, and task jurisdiction defaults are inadmissible");
+  });
+
+  it("updates the catalogue to reflect jurisdiction as an exists-capability field", () => {
+    expect(sql).toMatch(/'jurisdiction','exists',1/);
+    expect(sql).toContain("array['properties.country_subdivision']");
   });
 });
 
