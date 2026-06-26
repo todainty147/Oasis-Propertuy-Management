@@ -2,6 +2,10 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAccount } from "../../context/AccountContext";
 import {
+  captureRraJurisdictionAndEvaluate,
+  captureRraTermIndicatorAndEvaluate,
+  captureRraTier4ClassificationAndEvaluate,
+  getRraCaptureReadiness,
   loadRraInfoSheetVs0Map,
   previewRraInfoSheetEvaluationForTenancy,
   runRraInfoSheetEvaluationForTenancy,
@@ -41,8 +45,27 @@ export default function RpeDiagnosticPage({ leases = [] }) {
   const [selectedLeaseId, setSelectedLeaseId] = useState("");
   const [readiness, setReadiness] = useState(null);
   const [evaluation, setEvaluation] = useState(null);
+  const [captureReadiness, setCaptureReadiness] = useState(null);
   const [error, setError] = useState("");
   const [loadingAction, setLoadingAction] = useState("");
+  const [jurisdictionCapture, setJurisdictionCapture] = useState({
+    countrySubdivision: "England",
+    evidenceBasis: "Manual RPE diagnostic confirmation",
+  });
+  const [termCapture, setTermCapture] = useState({
+    termType: "periodic",
+    termTypeEffectiveFrom: "2026-05-01",
+    termTypeEvidenceBasis: "Manual RPE diagnostic confirmation",
+  });
+  const [tier4Capture, setTier4Capture] = useState({
+    tenancyClass: "assured_shorthold",
+    companyLet: "false",
+    residentLandlord: "false",
+    rentAct1977: "false",
+    pbsa: "false",
+    isWhollyOral: "false",
+    evidenceBasis: "Manual RPE diagnostic confirmation",
+  });
 
   const selectedLease = useMemo(
     () => leases.find((lease) => String(lease.id) === String(selectedLeaseId)) || null,
@@ -71,7 +94,17 @@ export default function RpeDiagnosticPage({ leases = [] }) {
       });
       setReadiness(result);
       setEvaluation(null);
+      setCaptureReadiness(null);
     });
+  }
+
+  async function refreshCaptureReadiness() {
+    const result = await getRraCaptureReadiness({
+      accountId: activeAccountId,
+      tenancyId: selectedLeaseId,
+    });
+    setCaptureReadiness(result);
+    return result;
   }
 
   async function handlePreviewEvaluation() {
@@ -83,6 +116,7 @@ export default function RpeDiagnosticPage({ leases = [] }) {
       });
       setReadiness(result.input_snapshot);
       setEvaluation(result);
+      setCaptureReadiness(null);
     });
   }
 
@@ -95,6 +129,66 @@ export default function RpeDiagnosticPage({ leases = [] }) {
       });
       setReadiness(result.input_snapshot);
       setEvaluation(result);
+      await refreshCaptureReadiness();
+    });
+  }
+
+  async function handleLoadCaptureReadiness() {
+    await runAction("capture-readiness", refreshCaptureReadiness);
+  }
+
+  async function handleCaptureJurisdiction() {
+    await runAction("capture-jurisdiction", async () => {
+      const propertyId = selectedLease?.property_id || selectedLease?.property?.id;
+      if (!propertyId) throw new Error("Selected lease is missing property_id");
+
+      const result = await captureRraJurisdictionAndEvaluate({
+        accountId: activeAccountId,
+        propertyId,
+        tenancyId: selectedLeaseId,
+        countrySubdivision: jurisdictionCapture.countrySubdivision,
+        evidenceBasis: jurisdictionCapture.evidenceBasis,
+      });
+
+      setReadiness(result.evaluation.input_snapshot);
+      setEvaluation(result.evaluation);
+      await refreshCaptureReadiness();
+    });
+  }
+
+  async function handleCaptureTermIndicator() {
+    await runAction("capture-term", async () => {
+      const result = await captureRraTermIndicatorAndEvaluate({
+        accountId: activeAccountId,
+        tenancyId: selectedLeaseId,
+        termType: termCapture.termType,
+        termTypeEffectiveFrom: termCapture.termTypeEffectiveFrom,
+        termTypeEvidenceBasis: termCapture.termTypeEvidenceBasis,
+      });
+
+      setReadiness(result.evaluation.input_snapshot);
+      setEvaluation(result.evaluation);
+      await refreshCaptureReadiness();
+    });
+  }
+
+  async function handleCaptureTier4() {
+    await runAction("capture-tier4", async () => {
+      const result = await captureRraTier4ClassificationAndEvaluate({
+        accountId: activeAccountId,
+        tenancyId: selectedLeaseId,
+        tenancyClass: tier4Capture.tenancyClass,
+        companyLet: tier4Capture.companyLet === "true",
+        residentLandlord: tier4Capture.residentLandlord === "true",
+        rentAct1977: tier4Capture.rentAct1977 === "true",
+        pbsa: tier4Capture.pbsa === "true",
+        isWhollyOral: tier4Capture.isWhollyOral === "true",
+        evidenceBasis: tier4Capture.evidenceBasis,
+      });
+
+      setReadiness(result.evaluation.input_snapshot);
+      setEvaluation(result.evaluation);
+      await refreshCaptureReadiness();
     });
   }
 
@@ -136,6 +230,7 @@ export default function RpeDiagnosticPage({ leases = [] }) {
                 setSelectedLeaseId(event.target.value);
                 setReadiness(null);
                 setEvaluation(null);
+                setCaptureReadiness(null);
                 setError("");
               }}
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
@@ -243,6 +338,214 @@ export default function RpeDiagnosticPage({ leases = [] }) {
           </div>
         </section>
       )}
+
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              VS-2A capture readiness
+            </h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Diagnostic-only capture. Each write records narrow RPE provenance,
+              then immediately records a fresh demo evaluation.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={!canRun || loadingAction}
+            onClick={handleLoadCaptureReadiness}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            {loadingAction === "capture-readiness" ? "Loading…" : "Load capture readiness"}
+          </button>
+        </div>
+
+        <dl className="mt-4 grid gap-3 text-sm md:grid-cols-4">
+          <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-950">
+            <dt className="text-slate-500 dark:text-slate-400">Latest result</dt>
+            <dd className="mt-1 font-mono text-xs text-slate-800 dark:text-slate-200">
+              {captureReadiness?.result || "not loaded"}
+            </dd>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-950">
+            <dt className="text-slate-500 dark:text-slate-400">Next action</dt>
+            <dd className="mt-1 font-mono text-xs text-slate-800 dark:text-slate-200">
+              {captureReadiness?.next_capture_action || "—"}
+            </dd>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-950">
+            <dt className="text-slate-500 dark:text-slate-400">Blocking fields</dt>
+            <dd className="mt-1 font-mono text-xs text-slate-800 dark:text-slate-200">
+              {(captureReadiness?.blocking_fields || []).join(", ") || "—"}
+            </dd>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-950">
+            <dt className="text-slate-500 dark:text-slate-400">Evaluation ID</dt>
+            <dd className="mt-1 break-all font-mono text-xs text-slate-800 dark:text-slate-200">
+              {captureReadiness?.current_evaluation_id || "—"}
+            </dd>
+          </div>
+        </dl>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">
+              1. Jurisdiction
+            </h3>
+            <label className="mt-3 block text-sm">
+              <span className="text-slate-600 dark:text-slate-300">Country subdivision</span>
+              <select
+                value={jurisdictionCapture.countrySubdivision}
+                onChange={(event) => setJurisdictionCapture((current) => ({
+                  ...current,
+                  countrySubdivision: event.target.value,
+                }))}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+              >
+                {["England", "Wales", "Scotland", "Northern Ireland", "Other"].map((value) => (
+                  <option key={value} value={value}>{value}</option>
+                ))}
+              </select>
+            </label>
+            <label className="mt-3 block text-sm">
+              <span className="text-slate-600 dark:text-slate-300">Evidence basis</span>
+              <input
+                value={jurisdictionCapture.evidenceBasis}
+                onChange={(event) => setJurisdictionCapture((current) => ({
+                  ...current,
+                  evidenceBasis: event.target.value,
+                }))}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={!canRun || loadingAction}
+              onClick={handleCaptureJurisdiction}
+              className="mt-4 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+            >
+              {loadingAction === "capture-jurisdiction" ? "Capturing…" : "Capture + evaluate"}
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">
+              2. Active-on-date term indicator
+            </h3>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm">
+                <span className="text-slate-600 dark:text-slate-300">Term type</span>
+                <select
+                  value={termCapture.termType}
+                  onChange={(event) => setTermCapture((current) => ({
+                    ...current,
+                    termType: event.target.value,
+                  }))}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                >
+                  <option value="periodic">periodic</option>
+                  <option value="open_ended">open_ended</option>
+                </select>
+              </label>
+              <label className="block text-sm">
+                <span className="text-slate-600 dark:text-slate-300">Effective from</span>
+                <input
+                  type="date"
+                  value={termCapture.termTypeEffectiveFrom}
+                  onChange={(event) => setTermCapture((current) => ({
+                    ...current,
+                    termTypeEffectiveFrom: event.target.value,
+                  }))}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                />
+              </label>
+            </div>
+            <label className="mt-3 block text-sm">
+              <span className="text-slate-600 dark:text-slate-300">Evidence basis</span>
+              <input
+                value={termCapture.termTypeEvidenceBasis}
+                onChange={(event) => setTermCapture((current) => ({
+                  ...current,
+                  termTypeEvidenceBasis: event.target.value,
+                }))}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={!canRun || loadingAction}
+              onClick={handleCaptureTermIndicator}
+              className="mt-4 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+            >
+              {loadingAction === "capture-term" ? "Capturing…" : "Capture + evaluate"}
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100">
+              3. Tier-4 classification
+            </h3>
+            <label className="mt-3 block text-sm">
+              <span className="text-slate-600 dark:text-slate-300">Tenancy class</span>
+              <select
+                value={tier4Capture.tenancyClass}
+                onChange={(event) => setTier4Capture((current) => ({
+                  ...current,
+                  tenancyClass: event.target.value,
+                }))}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+              >
+                {["assured_shorthold", "assured", "regulated_rent_act", "business", "agricultural", "licence", "other"].map((value) => (
+                  <option key={value} value={value}>{value}</option>
+                ))}
+              </select>
+            </label>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {[
+                ["companyLet", "Company let"],
+                ["residentLandlord", "Resident landlord"],
+                ["rentAct1977", "Rent Act 1977"],
+                ["pbsa", "PBSA"],
+                ["isWhollyOral", "Wholly oral"],
+              ].map(([key, label]) => (
+                <label key={key} className="block text-sm">
+                  <span className="text-slate-600 dark:text-slate-300">{label}</span>
+                  <select
+                    value={tier4Capture[key]}
+                    onChange={(event) => setTier4Capture((current) => ({
+                      ...current,
+                      [key]: event.target.value,
+                    }))}
+                    className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                  >
+                    <option value="false">false</option>
+                    <option value="true">true</option>
+                  </select>
+                </label>
+              ))}
+            </div>
+            <label className="mt-3 block text-sm">
+              <span className="text-slate-600 dark:text-slate-300">Evidence basis</span>
+              <input
+                value={tier4Capture.evidenceBasis}
+                onChange={(event) => setTier4Capture((current) => ({
+                  ...current,
+                  evidenceBasis: event.target.value,
+                }))}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={!canRun || loadingAction}
+              onClick={handleCaptureTier4}
+              className="mt-4 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+            >
+              {loadingAction === "capture-tier4" ? "Capturing…" : "Capture + evaluate"}
+            </button>
+          </div>
+        </div>
+      </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
