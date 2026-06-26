@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(join(process.cwd(), "supabase/regulatory_proof_engine_vs0.sql"), "utf8");
+const classifierJs = readFileSync(join(process.cwd(), "src/lib/regulatoryDataReadiness.js"), "utf8");
 const dbApply = readFileSync(join(process.cwd(), "scripts/dbApplyRepoSql.js"), "utf8");
 
 describe("RPE VS-0 SQL catalogue contract", () => {
@@ -199,6 +200,19 @@ describe("RPE B-prereq-3 Tier-4 read contract", () => {
     expect(sql).toContain("v_pbsa");
     expect(sql).toContain("array['properties.pbsa']");
     expect(sql).not.toContain("array['leases.pbsa']");
+  });
+});
+
+describe("RPE JS↔SQL classifier parity contract", () => {
+  it("reads only country_subdivision for jurisdiction, with no fallback aliases", () => {
+    expect(classifierJs).toContain("property.country_subdivision");
+    expect(classifierJs).not.toContain("uk_subdivision");
+    expect(classifierJs).not.toContain("jurisdiction_subdivision");
+  });
+
+  it("reads only term_type for the open-ended indicator, with no fallback aliases", () => {
+    expect(classifierJs).toContain("lease?.term_type");
+    expect(classifierJs).not.toContain("tenancy_term_type");
   });
 });
 

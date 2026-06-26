@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const vs1Sql = readFileSync(join(process.cwd(), "supabase/regulatory_proof_engine_vs1.sql"), "utf8");
 const vs2aSql = readFileSync(join(process.cwd(), "supabase/regulatory_proof_engine_vs2a_capture.sql"), "utf8");
 const vs2bSql = readFileSync(join(process.cwd(), "supabase/regulatory_proof_engine_vs2b_obligations.sql"), "utf8");
+const vs2cSql = readFileSync(join(process.cwd(), "supabase/regulatory_proof_engine_vs2c_discharge.sql"), "utf8");
 const engineJs = readFileSync(join(process.cwd(), "src/lib/regulatoryProofEngine.js"), "utf8");
 const engineService = readFileSync(join(process.cwd(), "src/services/regulatoryProofEngineService.js"), "utf8");
 const dbApply = readFileSync(join(process.cwd(), "scripts/dbApplyRepoSql.js"), "utf8");
@@ -518,6 +519,114 @@ describe("RPE VS-2B obligation-instance lifecycle contract", () => {
     expect(engineService).toContain('supabase.rpc("list_rra_obligation_instances"');
     expect(engineService).toContain("export async function getRraObligationPostureSummary");
     expect(engineService).toContain('supabase.rpc("rra_obligation_posture_summary"');
+  });
+});
+
+describe("RPE VS-2C discharge-path contract", () => {
+  it("is applied after VS-2B and before unrelated overlays", () => {
+    const vs2b = dbApply.indexOf('"regulatory_proof_engine_vs2b_obligations.sql"');
+    const vs2c = dbApply.indexOf('"regulatory_proof_engine_vs2c_discharge.sql"');
+    const trial = dbApply.indexOf('"trial_period_enforcement.sql"');
+
+    expect(vs2b).toBeGreaterThan(-1);
+    expect(vs2c).toBeGreaterThan(vs2b);
+    expect(trial).toBeGreaterThan(vs2c);
+  });
+
+  it("creates first-class queryable service evidence, not JSON-only obligation metadata", () => {
+    expect(vs2cSql).toMatch(/create table if not exists public\.rra_info_sheet_service_evidence/i);
+    for (const field of [
+      "account_id uuid not null",
+      "property_id uuid",
+      "lease_id uuid not null",
+      "obligation_instance_id uuid not null",
+      "official_info_sheet_identity text not null",
+      "service_evidence_timestamp timestamptz not null",
+      "evidence_type text not null",
+      "captured_by uuid",
+      "capture_source text not null",
+      "demo_mode boolean not null default true",
+    ]) {
+      expect(vs2cSql).toContain(field);
+    }
+    expect(vs2cSql).toContain("rra_info_sheet_service_evidence_no_direct_write");
+    expect(vs2cSql).not.toMatch(/alter table public\.obligation_instance[\s\S]{0,200}add column if not exists service_evidence jsonb/i);
+  });
+
+  it("rejects half-admissible or inadmissible service evidence at the RPC/database level", () => {
+    expect(vs2cSql).toMatch(/create or replace function public\.capture_rra_info_sheet_service_evidence/i);
+    expect(vs2cSql).toContain("official_info_sheet_identity is required");
+    expect(vs2cSql).toContain("service_evidence_timestamp is required");
+    expect(vs2cSql).toContain("official_info_sheet_source is inadmissible for discharge");
+    expect(vs2cSql).toContain("evidence_basis is required");
+    expect(vs2cSql).toContain("official_info_sheet_source in ('govuk_official_identity','official_document_catalogue','controlled_template_registry')");
+    expect(vs2cSql).not.toContain("filename");
+    expect(vs2cSql).not.toContain("document tags");
+  });
+
+  it("lifts discharged reachability only through the discharge reconciliation path", () => {
+    expect(vs2cSql).toContain("drop constraint if exists obligation_instance_no_discharged_vs2b");
+    expect(vs2cSql).toMatch(/create or replace function public\.reconcile_rra_info_sheet_obligation_discharge/i);
+    expect(vs2cSql).toContain("only open obligations can be discharged");
+    expect(vs2cSql).toContain("update public.obligation_instance");
+    expect(vs2cSql).toContain("set posture = 'discharged'");
+    expect(vs2cSql).toContain("'rpe.obligation.discharged'");
+    expect(vs2cSql).toContain("pe.metadata ? 'evidence_id'");
+    expect(vs2cSql).toContain("obligation_instance can only discharge from open posture");
+  });
+
+  it("preserves the VS-2B operational boundary with no task-to-posture path", () => {
+    expect(vs2cSql).not.toMatch(/create\s+(constraint\s+)?trigger[\s\S]{0,200}renters_rights_tasks/i);
+    expect(vs2cSql).not.toMatch(/after\s+update[\s\S]{0,200}on public\.renters_rights_tasks/i);
+    expect(vs2cSql).not.toMatch(/update public\.obligation_instance[\s\S]{0,240}from public\.renters_rights_tasks/i);
+  });
+
+  it("freezes discharged obligations on later not_affected/needs_data and exposes the review flag", () => {
+    expect(vs2cSql).toContain("review_flag text");
+    expect(vs2cSql).toContain("'discharged_basis_changed'");
+    expect(vs2cSql).toContain("v_had_active and v_active.posture = 'discharged'");
+    expect(vs2cSql).toContain("v_evaluation.result in ('not_affected','needs_data')");
+    expect(vs2cSql).toContain("'rpe.obligation.discharged_basis_changed_flag'");
+    expect(vs2cSql).toContain("'action', 'discharged_basis_changed_flag'");
+    expect(vs2cSql).toContain("review_flag_count");
+    expect(vs2cSql).toContain("oi.review_flag");
+  });
+
+  it("browser service exposes capture, discharge, evidence read, and combined demo helpers", () => {
+    expect(engineService).toContain("export async function captureRraInfoSheetServiceEvidence");
+    expect(engineService).toContain('supabase.rpc("capture_rra_info_sheet_service_evidence"');
+    expect(engineService).toContain("export async function dischargeRraInfoSheetObligation");
+    expect(engineService).toContain('supabase.rpc("reconcile_rra_info_sheet_obligation_discharge"');
+    expect(engineService).toContain("export async function captureAndDischargeRraInfoSheetObligation");
+    expect(engineService).toContain("export async function listRraInfoSheetServiceEvidence");
+    expect(engineService).toContain('supabase.rpc("list_rra_info_sheet_service_evidence"');
+  });
+});
+
+describe("RPE VS-2C read-surface authorization contract", () => {
+  it("does NOT grant direct SELECT on rra_info_sheet_service_evidence to authenticated", () => {
+    expect(vs2cSql).not.toMatch(/grant\s+select\s+on\s+table\s+public\.rra_info_sheet_service_evidence\s+to\s+authenticated/i);
+  });
+
+  it("provides a throwing SECURITY DEFINER evidence read RPC with obligation ownership check", () => {
+    expect(vs2cSql).toMatch(/create or replace function public\.list_rra_info_sheet_service_evidence/i);
+    expect(vs2cSql).toMatch(/list_rra_info_sheet_service_evidence[\s\S]*?security definer/i);
+    expect(vs2cSql).toMatch(/list_rra_info_sheet_service_evidence[\s\S]*?set search_path = public/i);
+    expect(vs2cSql).toMatch(/list_rra_info_sheet_service_evidence[\s\S]*?user_can_manage_account\(p_account_id\)/i);
+    expect(vs2cSql).toMatch(/list_rra_info_sheet_service_evidence[\s\S]*?Obligation not found for account/i);
+    expect(vs2cSql).toMatch(/list_rra_info_sheet_service_evidence[\s\S]*?oi\.account_id = p_account_id/i);
+  });
+
+  it("revokes evidence read RPC from public and grants to authenticated only", () => {
+    expect(vs2cSql).toMatch(/revoke all on function public\.list_rra_info_sheet_service_evidence\(uuid, uuid\) from public/i);
+    expect(vs2cSql).toMatch(/grant execute on function public\.list_rra_info_sheet_service_evidence\(uuid, uuid\) to authenticated/i);
+  });
+});
+
+describe("RPE VS-2A get_rra_capture_readiness lease ownership contract", () => {
+  it("throws on cross-account lease instead of returning neutral not_run", () => {
+    expect(vs2aSql).toMatch(/get_rra_capture_readiness[\s\S]*?Lease not found for account/i);
+    expect(vs2aSql).toMatch(/get_rra_capture_readiness[\s\S]*?l\.account_id = p_account_id/i);
   });
 });
 

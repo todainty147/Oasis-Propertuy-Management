@@ -379,7 +379,7 @@ function getDateResultValue(result) {
 }
 
 function hasAdmissibleOpenEndedIndicator(lease, qualifyingDate) {
-  const termType = String(lease?.term_type ?? lease?.tenancy_term_type ?? "").trim().toLowerCase();
+  const termType = String(lease?.term_type ?? "").trim().toLowerCase();
   const effectiveFrom = normalizeDate(lease?.term_type_effective_from);
   const evidenceBasis = lease?.term_type_evidence_basis;
 
@@ -400,7 +400,7 @@ function missingOpenEndedIndicatorReason(lease) {
     return "Term-type indicator is present but inadmissible: it must be periodic/open_ended, effective on or before the qualifying date, and supported by evidence basis.";
   }
 
-  if (lease?.renewal_status || lease?.is_open_ended || lease?.tenancy_term_type) {
+  if (lease?.renewal_status || lease?.is_open_ended) {
     return "Bare current-state term/open-ended flags are inadmissible without term_type_effective_from <= qualifying date and evidence basis.";
   }
 
@@ -529,7 +529,7 @@ export function classifyInput(inputKey, context = {}) {
     }
 
     case "jurisdiction": {
-      const subdivision = property.country_subdivision ?? property.uk_subdivision ?? property.jurisdiction_subdivision;
+      const subdivision = property.country_subdivision;
       if (hasValue(subdivision)) {
         return exists(inputKey, String(subdivision), ["properties.country_subdivision"]);
       }
