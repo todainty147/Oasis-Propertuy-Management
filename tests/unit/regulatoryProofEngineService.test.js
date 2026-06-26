@@ -151,6 +151,46 @@ describe("regulatoryProofEngineService", () => {
     expect(result).toEqual([{ result: "affected", evaluation_count: 2 }]);
   });
 
+  it("reconciles obligation posture after recording a fresh evaluation", async () => {
+    mockRpc.mockResolvedValue({
+      data: {
+        action: "created",
+        obligation_instance_id: "obligation-1",
+        posture: "open",
+      },
+      error: null,
+    });
+
+    const result = await service.reconcileRraInfoSheetObligationForEvaluation({
+      accountId: "acct-1",
+      evaluationId: "eval-1",
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith("reconcile_rra_info_sheet_obligation", {
+      p_account_id: "acct-1",
+      p_evaluation_id: "eval-1",
+      p_demo_mode: true,
+    });
+    expect(result.posture).toBe("open");
+  });
+
+  it("loads obligation posture summary with requires_review as its own bucket", async () => {
+    mockRpc.mockResolvedValue({
+      data: [
+        { posture: "open", obligation_count: 1 },
+        { posture: "requires_review", obligation_count: 1 },
+      ],
+      error: null,
+    });
+
+    const result = await service.getRraObligationPostureSummary({ accountId: "acct-1" });
+
+    expect(mockRpc).toHaveBeenCalledWith("rra_obligation_posture_summary", {
+      p_account_id: "acct-1",
+    });
+    expect(result.map((row) => row.posture)).toEqual(["open", "requires_review"]);
+  });
+
   it("loads VS-2A capture readiness for the selected tenancy", async () => {
     mockRpc.mockResolvedValue({
       data: {
@@ -199,6 +239,9 @@ describe("regulatoryProofEngineService", () => {
       }
       if (fn === "record_rra_info_sheet_rule_evaluation") {
         return Promise.resolve({ data: { id: "eval-1" }, error: null });
+      }
+      if (fn === "reconcile_rra_info_sheet_obligation") {
+        return Promise.resolve({ data: { action: "none" }, error: null });
       }
       throw new Error(`Unexpected RPC ${fn}`);
     });
@@ -256,6 +299,9 @@ describe("regulatoryProofEngineService", () => {
       if (fn === "record_rra_info_sheet_rule_evaluation") {
         return Promise.resolve({ data: { id: "eval-2" }, error: null });
       }
+      if (fn === "reconcile_rra_info_sheet_obligation") {
+        return Promise.resolve({ data: { action: "none" }, error: null });
+      }
       throw new Error(`Unexpected RPC ${fn}`);
     });
 
@@ -305,6 +351,9 @@ describe("regulatoryProofEngineService", () => {
       }
       if (fn === "record_rra_info_sheet_rule_evaluation") {
         return Promise.resolve({ data: { id: "eval-3" }, error: null });
+      }
+      if (fn === "reconcile_rra_info_sheet_obligation") {
+        return Promise.resolve({ data: { action: "none" }, error: null });
       }
       throw new Error(`Unexpected RPC ${fn}`);
     });

@@ -61,6 +61,23 @@ export async function recordRraInfoSheetRuleEvaluation({ accountId, evaluation }
   return data;
 }
 
+export async function reconcileRraInfoSheetObligationForEvaluation({
+  accountId,
+  evaluationId,
+} = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!evaluationId) throw new Error("Missing evaluationId");
+
+  const { data, error } = await supabase.rpc("reconcile_rra_info_sheet_obligation", {
+    p_account_id: accountId,
+    p_evaluation_id: evaluationId,
+    p_demo_mode: true,
+  });
+
+  if (error) throw friendly(error, "Failed to reconcile RRA obligation instance");
+  return data ?? null;
+}
+
 export async function runRraInfoSheetEvaluationForTenancy({
   accountId,
   tenancyId,
@@ -80,7 +97,14 @@ export async function runRraInfoSheetEvaluationForTenancy({
     evaluation,
   });
 
-  return { ...evaluation, id: persisted?.id ?? null };
+  const obligation = persisted?.id
+    ? await reconcileRraInfoSheetObligationForEvaluation({
+      accountId,
+      evaluationId: persisted.id,
+    })
+    : null;
+
+  return { ...evaluation, id: persisted?.id ?? null, obligation };
 }
 
 export async function previewRraInfoSheetEvaluationForTenancy({
@@ -123,6 +147,34 @@ export async function getRraInfoSheetEvaluationSummary({ accountId } = {}) {
   });
 
   if (error) throw friendly(error, "Failed to load RRA information-sheet evaluation summary");
+  return data ?? [];
+}
+
+export async function listRraObligationInstances({
+  accountId,
+  limit = 100,
+  offset = 0,
+} = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+
+  const { data, error } = await supabase.rpc("list_rra_obligation_instances", {
+    p_account_id: accountId,
+    p_limit: limit,
+    p_offset: offset,
+  });
+
+  if (error) throw friendly(error, "Failed to list RRA obligation instances");
+  return data ?? [];
+}
+
+export async function getRraObligationPostureSummary({ accountId } = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+
+  const { data, error } = await supabase.rpc("rra_obligation_posture_summary", {
+    p_account_id: accountId,
+  });
+
+  if (error) throw friendly(error, "Failed to load RRA obligation posture summary");
   return data ?? [];
 }
 

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const vs1Sql = readFileSync(join(process.cwd(), "supabase/regulatory_proof_engine_vs1.sql"), "utf8");
 const vs2aSql = readFileSync(join(process.cwd(), "supabase/regulatory_proof_engine_vs2a_capture.sql"), "utf8");
+const vs2bSql = readFileSync(join(process.cwd(), "supabase/regulatory_proof_engine_vs2b_obligations.sql"), "utf8");
 const engineJs = readFileSync(join(process.cwd(), "src/lib/regulatoryProofEngine.js"), "utf8");
 const engineService = readFileSync(join(process.cwd(), "src/services/regulatoryProofEngineService.js"), "utf8");
 const dbApply = readFileSync(join(process.cwd(), "scripts/dbApplyRepoSql.js"), "utf8");
@@ -370,6 +371,153 @@ describe("RPE VS-2A capture-to-evaluation contract", () => {
     expect(engineService).toContain("runFreshDemoEvaluation({ accountId, tenancyId })");
     expect(engineService).toContain("demoMode: true");
     expect(engineService).toContain("getRraCaptureReadiness");
+  });
+});
+
+describe("RPE VS-2B obligation-instance lifecycle contract", () => {
+  it("is applied after VS-2A and before unrelated overlays", () => {
+    const vs2a = dbApply.indexOf('"regulatory_proof_engine_vs2a_capture.sql"');
+    const vs2b = dbApply.indexOf('"regulatory_proof_engine_vs2b_obligations.sql"');
+    const trial = dbApply.indexOf('"trial_period_enforcement.sql"');
+
+    expect(vs2a).toBeGreaterThan(-1);
+    expect(vs2b).toBeGreaterThan(vs2a);
+    expect(trial).toBeGreaterThan(vs2b);
+  });
+
+  it("creates the authoritative obligation_instance table with demo-only legal posture fields", () => {
+    expect(vs2bSql).toMatch(/create table if not exists public\.obligation_instance/i);
+    for (const field of [
+      "account_id uuid not null",
+      "property_id uuid",
+      "lease_id uuid not null",
+      "regulatory_change_id uuid not null",
+      "impact_rule_id uuid not null",
+      "obligation_kind text not null",
+      "exposure_gbp_ceiling numeric not null default 7000",
+      "source_evaluation_id uuid not null",
+      "related_task_id uuid",
+      "last_transition_at timestamptz not null default now()",
+      "demo_mode boolean not null default true",
+    ]) {
+      expect(vs2bSql).toContain(field);
+    }
+
+    expect(vs2bSql).toContain("posture in ('open','superseded','requires_review','discharged')");
+    expect(vs2bSql).toContain("obligation_instance_no_discharged_vs2b");
+    expect(vs2bSql).toContain("posture <> 'discharged'");
+    expect(vs2bSql).toContain("obligation_instance_one_active_per_rule_idx");
+    expect(vs2bSql).toContain("where posture in ('open','requires_review')");
+  });
+
+  it("enforces account-scoped RLS and blocks direct authenticated writes", () => {
+    expect(vs2bSql).toContain("alter table public.obligation_instance enable row level security");
+    expect(vs2bSql).toContain("grant select on table public.obligation_instance to authenticated");
+    expect(vs2bSql).toContain("grant all on table public.obligation_instance to service_role");
+    expect(vs2bSql).toContain("obligation_instance_select_account_managers");
+    expect(vs2bSql).toContain("public.user_can_manage_account(account_id)");
+    expect(vs2bSql).toContain("obligation_instance_no_direct_write");
+    expect(vs2bSql).toContain("using (false)");
+    expect(vs2bSql).toContain("with check (false)");
+  });
+
+  it("provides a single evaluation-driven reconciliation RPC and keeps it demo-only", () => {
+    expect(vs2bSql).toMatch(/create or replace function public\.reconcile_rra_info_sheet_obligation/i);
+    expect(vs2bSql).toContain("security definer");
+    expect(vs2bSql).toContain("set search_path = public");
+    expect(vs2bSql).toContain("if p_demo_mode is not true then");
+    expect(vs2bSql).toContain("RPE VS-2B obligation reconciliation is demo_mode only until Gate-B approval");
+    expect(vs2bSql).toContain("if not public.user_can_manage_account(p_account_id)");
+    expect(vs2bSql).toContain("where re.id = p_evaluation_id");
+    expect(vs2bSql).toContain("v_evaluation.demo_mode is not true");
+    expect(vs2bSql).toContain("ir.rule_key = 'rra_info_sheet_v1'");
+    expect(vs2bSql).toContain("grant execute on function public.reconcile_rra_info_sheet_obligation");
+  });
+
+  it("creates affected obligations idempotently and supersedes on obligation_kind change", () => {
+    expect(vs2bSql).toContain("if v_evaluation.result = 'affected' then");
+    expect(vs2bSql).toContain("affected evaluation requires obligation_kind");
+    expect(vs2bSql).toContain("v_active.obligation_kind = v_evaluation.obligation_kind");
+    expect(vs2bSql).toContain("'idempotent_update'");
+    expect(vs2bSql).toContain("v_active.obligation_kind <> v_evaluation.obligation_kind");
+    expect(vs2bSql).toContain("fresh affected evaluation changed obligation_kind; old obligation superseded");
+    expect(vs2bSql).toContain("'kind_changed_new_open'");
+    expect(vs2bSql).toContain("'rpe.obligation.created'");
+  });
+
+  it("moves open obligations to superseded or requires_review from later fresh evaluations", () => {
+    expect(vs2bSql).toContain("v_evaluation.result in ('not_affected','needs_data')");
+    expect(vs2bSql).toContain("when 'not_affected' then 'superseded'");
+    expect(vs2bSql).toContain("when 'needs_data' then 'requires_review'");
+    expect(vs2bSql).toContain("'fresh evaluation returned not_affected'");
+    expect(vs2bSql).toContain("'fresh evaluation returned needs_data; current posture no longer provable'");
+    expect(vs2bSql).toContain("'rpe.obligation.superseded'");
+    expect(vs2bSql).toContain("'rpe.obligation.requires_review'");
+  });
+
+  it("does not revive superseded obligations; later affected evaluations create a new open row", () => {
+    expect(vs2bSql).toContain("and oi.posture in ('open','requires_review')");
+    expect(vs2bSql).not.toMatch(/where id = .*posture = 'superseded'[\s\S]{0,240}set posture = 'open'/i);
+    expect(vs2bSql).toContain("insert into public.obligation_instance");
+    expect(vs2bSql).toContain("'fresh affected evaluation created obligation'");
+  });
+
+  it("links renters_rights_tasks for context only and contains no task-to-posture path", () => {
+    expect(vs2bSql).toContain("related_task_id");
+    expect(vs2bSql).toContain("Operational context only");
+    expect(vs2bSql).toContain("from public.renters_rights_tasks t");
+    expect(vs2bSql).not.toMatch(/create\s+(constraint\s+)?trigger[\s\S]{0,200}renters_rights_tasks/i);
+    expect(vs2bSql).not.toMatch(/after\s+update[\s\S]{0,200}on public\.renters_rights_tasks/i);
+    expect(vs2bSql).not.toMatch(/update public\.obligation_instance[\s\S]{0,240}from public\.renters_rights_tasks/i);
+  });
+
+  it("emits atomic narrow provenance events for every posture transition", () => {
+    expect(vs2bSql).toContain("record_rpe_obligation_transition_event");
+    for (const eventType of [
+      "rpe.obligation.created",
+      "rpe.obligation.superseded",
+      "rpe.obligation.requires_review",
+    ]) {
+      expect(vs2bSql).toContain(eventType);
+    }
+
+    expect(vs2bSql).toContain("obligation_instance_require_transition_event");
+    expect(vs2bSql).toMatch(/constraint trigger trg_obligation_instance_require_transition/i);
+    expect(vs2bSql).toMatch(/deferrable initially deferred/i);
+    for (const metadataKey of [
+      "'obligation_instance_id'",
+      "'evaluation_id'",
+      "'regulatory_change_id'",
+      "'impact_rule_id'",
+      "'lease_id'",
+      "'property_id'",
+      "'obligation_kind'",
+      "'previous_posture'",
+      "'new_posture'",
+      "'reason'",
+      "'demo_mode', true",
+    ]) {
+      expect(vs2bSql).toContain(metadataKey);
+    }
+  });
+
+  it("reports requires_review as a separate non-compliant posture bucket", () => {
+    expect(vs2bSql).toMatch(/create or replace function public\.rra_obligation_posture_summary/i);
+    const summaryFn = vs2bSql.slice(vs2bSql.indexOf("create or replace function public.rra_obligation_posture_summary"));
+    expect(summaryFn).toContain("group by oi.posture");
+    expect(summaryFn).not.toMatch(/case[\s\S]{0,160}requires_review[\s\S]{0,160}open/i);
+    expect(summaryFn).not.toMatch(/case[\s\S]{0,160}requires_review[\s\S]{0,160}superseded/i);
+    expect(summaryFn).not.toMatch(/case[\s\S]{0,160}requires_review[\s\S]{0,160}compliant/i);
+  });
+
+  it("browser service reconciles obligations after persisted evaluations and exposes read models", () => {
+    expect(engineService).toContain("export async function reconcileRraInfoSheetObligationForEvaluation");
+    expect(engineService).toContain('supabase.rpc("reconcile_rra_info_sheet_obligation"');
+    expect(engineService).toContain("await reconcileRraInfoSheetObligationForEvaluation");
+    expect(engineService).toContain("export async function listRraObligationInstances");
+    expect(engineService).toContain('supabase.rpc("list_rra_obligation_instances"');
+    expect(engineService).toContain("export async function getRraObligationPostureSummary");
+    expect(engineService).toContain('supabase.rpc("rra_obligation_posture_summary"');
   });
 });
 
