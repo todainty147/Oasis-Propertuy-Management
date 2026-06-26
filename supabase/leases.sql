@@ -4,8 +4,11 @@ create table if not exists public.leases (
   property_id uuid not null references public.properties(id) on delete cascade,
   tenant_id uuid not null references public.tenants(id) on delete cascade,
   lease_start_date date not null,
-  lease_end_date date not null,
+  lease_end_date date,
   renewal_status text not null default 'active',
+  term_type text,
+  term_type_effective_from date,
+  term_type_evidence_basis text,
   notice_period_days integer not null default 30,
   auto_renew boolean not null default false,
   notes text,
@@ -14,6 +17,9 @@ create table if not exists public.leases (
   constraint leases_date_order check (lease_end_date >= lease_start_date),
   constraint leases_renewal_status check (
     renewal_status in ('active', 'expiring_soon', 'renewal_in_progress', 'renewed', 'ended')
+  ),
+  constraint leases_term_type_check check (
+    term_type in ('fixed', 'periodic', 'open_ended')
   )
 );
 
@@ -24,6 +30,9 @@ alter table public.leases
   add column if not exists lease_start_date date,
   add column if not exists lease_end_date date,
   add column if not exists renewal_status text default 'active',
+  add column if not exists term_type text,
+  add column if not exists term_type_effective_from date,
+  add column if not exists term_type_evidence_basis text,
   add column if not exists notice_period_days integer default 30,
   add column if not exists auto_renew boolean default false,
   add column if not exists notes text,
@@ -47,6 +56,7 @@ where
 alter table public.leases
   alter column renewal_status set default 'active',
   alter column renewal_status set not null,
+  alter column lease_end_date drop not null,
   alter column notice_period_days set default 30,
   alter column notice_period_days set not null,
   alter column auto_renew set default false,
@@ -77,6 +87,18 @@ begin
     alter table public.leases
       add constraint leases_renewal_status check (
         renewal_status in ('active', 'expiring_soon', 'renewal_in_progress', 'renewed', 'ended')
+      );
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'leases_term_type_check'
+      and conrelid = 'public.leases'::regclass
+  ) then
+    alter table public.leases
+      add constraint leases_term_type_check check (
+        term_type in ('fixed', 'periodic', 'open_ended')
       );
   end if;
 end

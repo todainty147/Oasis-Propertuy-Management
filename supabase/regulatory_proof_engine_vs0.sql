@@ -33,6 +33,29 @@ do $$ begin
 exception when duplicate_column then null;
 end $$;
 
+alter table public.leases
+  add column if not exists term_type text,
+  add column if not exists term_type_effective_from date,
+  add column if not exists term_type_evidence_basis text;
+
+alter table public.leases
+  alter column lease_end_date drop not null;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'leases_term_type_check'
+      and conrelid = 'public.leases'::regclass
+  ) then
+    alter table public.leases
+      add constraint leases_term_type_check
+      check (term_type in ('fixed','periodic','open_ended'));
+  end if;
+end
+$$;
+
 alter table public.regulatory_data_requirements enable row level security;
 
 revoke all on table public.regulatory_data_requirements from public;
@@ -370,7 +393,7 @@ begin
               'Value is deterministically derived from admissible structured fields.',
               'derivable', null, v_req.capture_tier, v_req.capture_location
             );
-          elsif v_term_type in ('periodic','open_ended','open-ended')
+          elsif v_term_type in ('periodic','open_ended')
              and v_term_effective_from is not null
              and v_term_effective_from <= v_qualifying_date
              and v_term_evidence_basis is not null then
@@ -384,7 +407,13 @@ begin
             classified_input := public.rpe_vs0_classified_input(
               v_req.input_key, 'missing', null,
               array['leases.lease_end_date','leases.end_date','leases.term_type','leases.term_type_effective_from','leases.term_type_evidence_basis'],
-              'End date is absent and no admissible time-qualified periodic/open-ended indicator is present.',
+              case
+                when v_term_type is not null
+                  or v_term_effective_from is not null
+                  or v_term_evidence_basis is not null
+                then 'Term-type indicator is present but inadmissible: it must be periodic/open_ended, effective on or before the qualifying date, and supported by evidence basis.'
+                else 'End date is absent and no admissible time-qualified periodic/open-ended indicator is present.'
+              end,
               null, null, v_req.capture_tier, v_req.capture_location
             );
           end if;

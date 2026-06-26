@@ -81,11 +81,56 @@ describe("evaluateRraInfoSheetV1 results", () => {
   });
 
   it("returns not_affected for Wales and stops at jurisdiction", () => {
-    const result = evaluateRraInfoSheetV1(affectedMap({ jurisdiction: exists("jurisdiction", "WLS") }));
+    const map = affectedMap({ jurisdiction: exists("jurisdiction", "Wales") });
+    const result = evaluateRraInfoSheetV1(map);
 
     expect(result.result).toBe("not_affected");
     expect(result.reason_codes).toEqual(["EXCL_JURISDICTION"]);
     expect(result.decision_path).toEqual(["jurisdiction"]);
+    expect(result.missing_fields).toEqual([]);
+    expect(deriveEvaluationConfidence(map, result.decision_path, result.result)).toBe("high");
+  });
+
+  it("does not read downstream fields when Wales excludes the case at jurisdiction", () => {
+    const result = evaluateRraInfoSheetV1(affectedMap({
+      jurisdiction: exists("jurisdiction", "Wales"),
+      tenancy_exists: missing("tenancy_exists"),
+      tenancy_start_date: missing("tenancy_start_date"),
+      active_on_qualifying_date: missing("active_on_qualifying_date"),
+      annual_rent_gbp: missing("annual_rent_gbp"),
+      tenancy_class: missing("tenancy_class"),
+      company_let: missing("company_let"),
+      resident_landlord: missing("resident_landlord"),
+      rent_act_1977: missing("rent_act_1977"),
+      pbsa: missing("pbsa"),
+      s21_served: missing("s21_served"),
+      s8_served: missing("s8_served"),
+      proceedings_status: missing("proceedings_status"),
+    }));
+
+    expect(result).toMatchObject({
+      result: "not_affected",
+      reason_codes: ["EXCL_JURISDICTION"],
+      missing_fields: [],
+      decision_path: ["jurisdiction"],
+    });
+    expect(result.result).not.toBe("needs_data");
+  });
+
+  it("keeps inadmissible-only jurisdiction records at needs_data[jurisdiction]", () => {
+    const result = evaluateRraInfoSheetV1(affectedMap({
+      jurisdiction: missing("jurisdiction", {
+        source_fields: ["properties.country_subdivision"],
+        admissibility_reason: "Account GB, property market uk, and task jurisdiction defaults are inadmissible.",
+      }),
+    }));
+
+    expect(result).toMatchObject({
+      result: "needs_data",
+      reason_codes: [],
+      missing_fields: ["jurisdiction"],
+      decision_path: ["jurisdiction"],
+    });
   });
 
   it("returns not_affected for non-AST tenancies", () => {
@@ -120,6 +165,80 @@ describe("evaluateRraInfoSheetV1 results", () => {
       "tenancy_start_date",
       "active_on_qualifying_date",
     ]);
+  });
+
+  it("Record A: known-end active-on-date branch still proceeds to tenancy_class", () => {
+    const result = evaluateRraInfoSheetV1(affectedMap({
+      jurisdiction: exists("jurisdiction", "England"),
+      tenancy_start_date: exists("tenancy_start_date", "2026-03-17"),
+      tenancy_end_date: exists("tenancy_end_date", "2026-05-12"),
+      active_on_qualifying_date: derivable("active_on_qualifying_date", true),
+      tenancy_class: missing("tenancy_class"),
+    }));
+
+    expect(result).toMatchObject({
+      result: "needs_data",
+      missing_fields: ["tenancy_class"],
+      decision_path: [
+        "jurisdiction",
+        "tenancy_exists",
+        "tenancy_start_date",
+        "active_on_qualifying_date",
+        "tenancy_class",
+      ],
+    });
+  });
+
+  it("Record B: admissible null-end periodic indicator proceeds to tenancy_class", () => {
+    const result = evaluateRraInfoSheetV1(affectedMap({
+      jurisdiction: exists("jurisdiction", "England"),
+      tenancy_start_date: exists("tenancy_start_date", "2025-10-01"),
+      tenancy_end_date: missing("tenancy_end_date"),
+      active_on_qualifying_date: derivable("active_on_qualifying_date", true, {
+        source_fields: [
+          "leases.lease_start_date",
+          "regulatory.qualifying_date",
+          "leases.term_type",
+          "leases.term_type_effective_from",
+          "leases.term_type_evidence_basis",
+        ],
+      }),
+      tenancy_class: missing("tenancy_class"),
+    }));
+
+    expect(result).toMatchObject({
+      result: "needs_data",
+      missing_fields: ["tenancy_class"],
+    });
+    expect(result.decision_path).toEqual([
+      "jurisdiction",
+      "tenancy_exists",
+      "tenancy_start_date",
+      "active_on_qualifying_date",
+      "tenancy_class",
+    ]);
+  });
+
+  it("Records C/C-bad: missing active-on-date stops before tenancy_class", () => {
+    const result = evaluateRraInfoSheetV1(affectedMap({
+      jurisdiction: exists("jurisdiction", "England"),
+      tenancy_start_date: exists("tenancy_start_date", "2025-10-01"),
+      tenancy_end_date: missing("tenancy_end_date"),
+      active_on_qualifying_date: missing("active_on_qualifying_date"),
+      tenancy_class: missing("tenancy_class"),
+    }));
+
+    expect(result).toMatchObject({
+      result: "needs_data",
+      missing_fields: ["active_on_qualifying_date"],
+      reason_codes: [],
+      decision_path: [
+        "jurisdiction",
+        "tenancy_exists",
+        "tenancy_start_date",
+        "active_on_qualifying_date",
+      ],
+    });
   });
 
   it("returns not_affected for annual rent above £100,000 and treats the boundary as affected", () => {

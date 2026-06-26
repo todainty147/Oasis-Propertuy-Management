@@ -145,6 +145,29 @@ describe("RPE B-prereq-1 jurisdiction read contract", () => {
   });
 });
 
+describe("RPE B-prereq-2 term-type read contract", () => {
+  it("adds real term-type columns to leases", () => {
+    expect(sql).toContain("add column if not exists term_type text");
+    expect(sql).toContain("add column if not exists term_type_effective_from date");
+    expect(sql).toContain("add column if not exists term_type_evidence_basis text");
+  });
+
+  it("constrains term_type to the canonical admissible values", () => {
+    expect(sql).toContain("leases_term_type_check");
+    expect(sql).toMatch(/check\s*\(term_type in \('fixed','periodic','open_ended'\)\)/i);
+  });
+
+  it("keeps SQL admissible periodic/open-ended indicator set aligned to the constraint", () => {
+    expect(sql).toContain("v_term_type in ('periodic','open_ended')");
+    expect(sql).not.toContain("v_term_type in ('periodic','open_ended','open-ended')");
+  });
+
+  it("distinguishes absent indicators from present-but-inadmissible indicators", () => {
+    expect(sql).toContain("Term-type indicator is present but inadmissible");
+    expect(sql).toContain("End date is absent and no admissible time-qualified periodic/open-ended indicator is present");
+  });
+});
+
 describe("RPE VS-0 deployment order", () => {
   it("applies after existing Renters' Rights overlays and before later unrelated modules", () => {
     const rr = dbApply.indexOf('"renters_rights_tenant_filter_fix.sql"');
