@@ -547,6 +547,7 @@ returns table (
   id uuid,
   tenancy_id uuid,
   result text,
+  aod_branch text,
   evaluation_confidence text,
   decision_path text[],
   reason_codes text[],
@@ -572,6 +573,28 @@ begin
     re.id,
     re.tenancy_id,
     re.result,
+    case
+      when not ('active_on_qualifying_date' = any(re.decision_path)) then 'not_reached'
+      when re.input_snapshot -> 'active_on_qualifying_date' ->> 'classification' = 'missing' then 'missing'
+      when exists (
+        select 1
+        from jsonb_array_elements_text(coalesce(
+          re.input_snapshot -> 'active_on_qualifying_date' -> 'source_fields',
+          '[]'::jsonb
+        )) as source_field(value)
+        where source_field.value in (
+          'leases.term_type',
+          'leases.term_type_effective_from',
+          'leases.term_type_evidence_basis'
+        )
+      ) then 'time_qualified_periodic_indicator'
+      when lower(coalesce(re.input_snapshot -> 'active_on_qualifying_date' ->> 'admissibility_reason', '')) like '%periodic%'
+        or lower(coalesce(re.input_snapshot -> 'active_on_qualifying_date' ->> 'admissibility_reason', '')) like '%open-ended%'
+        or lower(coalesce(re.input_snapshot -> 'active_on_qualifying_date' ->> 'admissibility_reason', '')) like '%open_ended%'
+        or lower(coalesce(re.input_snapshot -> 'active_on_qualifying_date' ->> 'admissibility_reason', '')) like '%time-qualified%'
+        then 'time_qualified_periodic_indicator'
+      else 'known_end_date'
+    end as aod_branch,
     re.evaluation_confidence,
     re.decision_path,
     re.reason_codes,

@@ -56,6 +56,29 @@ select
   l.tenancy_class,
   l.is_wholly_oral,
   re.result,
+  case
+    when re.id is null then null
+    when not ('active_on_qualifying_date' = any(re.decision_path)) then 'not_reached'
+    when re.input_snapshot -> 'active_on_qualifying_date' ->> 'classification' = 'missing' then 'missing'
+    when exists (
+      select 1
+      from jsonb_array_elements_text(coalesce(
+        re.input_snapshot -> 'active_on_qualifying_date' -> 'source_fields',
+        '[]'::jsonb
+      )) as source_field(value)
+      where source_field.value in (
+        'leases.term_type',
+        'leases.term_type_effective_from',
+        'leases.term_type_evidence_basis'
+      )
+    ) then 'time_qualified_periodic_indicator'
+    when lower(coalesce(re.input_snapshot -> 'active_on_qualifying_date' ->> 'admissibility_reason', '')) like '%periodic%'
+      or lower(coalesce(re.input_snapshot -> 'active_on_qualifying_date' ->> 'admissibility_reason', '')) like '%open-ended%'
+      or lower(coalesce(re.input_snapshot -> 'active_on_qualifying_date' ->> 'admissibility_reason', '')) like '%open_ended%'
+      or lower(coalesce(re.input_snapshot -> 'active_on_qualifying_date' ->> 'admissibility_reason', '')) like '%time-qualified%'
+      then 'time_qualified_periodic_indicator'
+    else 'known_end_date'
+  end as aod_branch,
   coalesce(re.reason_codes, array[]::text[]) as reason_codes,
   coalesce(re.missing_fields, array[]::text[]) as missing_fields,
   coalesce(re.decision_path, array[]::text[]) as decision_path,

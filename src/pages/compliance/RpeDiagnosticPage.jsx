@@ -215,7 +215,7 @@ export default function RpeDiagnosticPage({ leases = [] }) {
             </h2>
             {resultBadge(evaluation.result)}
           </div>
-          <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+          <div className="mt-4 grid gap-3 text-sm md:grid-cols-4">
             <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-950">
               <div className="text-slate-500 dark:text-slate-400">Reason codes</div>
               <div className="mt-1 font-mono text-xs text-slate-800 dark:text-slate-200">
@@ -226,6 +226,12 @@ export default function RpeDiagnosticPage({ leases = [] }) {
               <div className="text-slate-500 dark:text-slate-400">Missing fields</div>
               <div className="mt-1 font-mono text-xs text-slate-800 dark:text-slate-200">
                 {(evaluation.missing_fields || []).join(", ") || "—"}
+              </div>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-950">
+              <div className="text-slate-500 dark:text-slate-400">AOD branch</div>
+              <div className="mt-1 font-mono text-xs text-slate-800 dark:text-slate-200">
+                {evaluation.aod_branch || "—"}
               </div>
             </div>
             <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-950">

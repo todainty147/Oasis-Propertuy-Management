@@ -365,6 +365,18 @@ describe("classifyInput", () => {
     expect(result.source_fields).toEqual([]);
   });
 
+  it("does not derive PBSA from a lease-level fallback", () => {
+    const result = classifyInput("pbsa", {
+      property: { pbsa: null },
+      lease: { pbsa: true },
+    });
+
+    expect(result.classification).toBe(CLASSIFICATIONS.MISSING);
+    expect(result.value).toBeNull();
+    expect(result.source_fields).toEqual([]);
+    expect(result.admissibility_reason).toContain("No admissible structured source field");
+  });
+
   it("classifies tenancy_class from leases.tenancy_class and rejects lease_type as inadmissible", () => {
     expect(classifyInput("tenancy_class", {
       lease: { tenancy_class: "assured_shorthold" },

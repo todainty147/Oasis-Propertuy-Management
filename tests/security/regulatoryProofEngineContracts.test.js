@@ -110,6 +110,20 @@ describe("RPE VS-1 evaluation write/read RPC contract", () => {
     expect(vs1Sql).not.toMatch(/create table if not exists public\.obligation_instance/i);
   });
 
+  it("derives aod_branch in read output without storing it in the input snapshot", () => {
+    expect(engineJs).toContain("deriveAodBranch");
+    expect(engineJs).toContain("aod_branch:");
+    expect(vs1Sql).toContain("aod_branch text");
+    expect(vs1Sql).toContain("time_qualified_periodic_indicator");
+    expect(vs1Sql).toContain("active_on_qualifying_date");
+    expect(vs1Sql).not.toMatch(/p_aod_branch/i);
+    const insertColumnList = vs1Sql.slice(
+      vs1Sql.indexOf("insert into public.rule_evaluation"),
+      vs1Sql.indexOf("values (", vs1Sql.indexOf("insert into public.rule_evaluation")),
+    );
+    expect(insertColumnList).not.toContain("aod_branch");
+  });
+
   it("enforces confidence nullability rules", () => {
     expect(vs1Sql).toContain("rule_eval_needs_data_confidence_null");
     expect(vs1Sql).toContain("needs_data evaluations must have null confidence");
@@ -151,6 +165,7 @@ describe("RPE VS-1 provenance-integrity contract", () => {
     expect(vs1Sql).toContain("extensions.digest(convert_to(p_input_snapshot::text, 'UTF8'), 'sha256')");
     expect(vs1Sql).toContain("v_snapshot_hash");
     expect(vs1Sql).not.toContain("p_input_snapshot_hash");
+    expect(vs1Sql).not.toContain("'aodBranch'");
   });
 
   it("enforces atomicity: rule_evaluation insert requires a same-transaction provenance event", () => {
