@@ -81,11 +81,56 @@ describe("evaluateRraInfoSheetV1 results", () => {
   });
 
   it("returns not_affected for Wales and stops at jurisdiction", () => {
-    const result = evaluateRraInfoSheetV1(affectedMap({ jurisdiction: exists("jurisdiction", "WLS") }));
+    const map = affectedMap({ jurisdiction: exists("jurisdiction", "Wales") });
+    const result = evaluateRraInfoSheetV1(map);
 
     expect(result.result).toBe("not_affected");
     expect(result.reason_codes).toEqual(["EXCL_JURISDICTION"]);
     expect(result.decision_path).toEqual(["jurisdiction"]);
+    expect(result.missing_fields).toEqual([]);
+    expect(deriveEvaluationConfidence(map, result.decision_path, result.result)).toBe("high");
+  });
+
+  it("does not read downstream fields when Wales excludes the case at jurisdiction", () => {
+    const result = evaluateRraInfoSheetV1(affectedMap({
+      jurisdiction: exists("jurisdiction", "Wales"),
+      tenancy_exists: missing("tenancy_exists"),
+      tenancy_start_date: missing("tenancy_start_date"),
+      active_on_qualifying_date: missing("active_on_qualifying_date"),
+      annual_rent_gbp: missing("annual_rent_gbp"),
+      tenancy_class: missing("tenancy_class"),
+      company_let: missing("company_let"),
+      resident_landlord: missing("resident_landlord"),
+      rent_act_1977: missing("rent_act_1977"),
+      pbsa: missing("pbsa"),
+      s21_served: missing("s21_served"),
+      s8_served: missing("s8_served"),
+      proceedings_status: missing("proceedings_status"),
+    }));
+
+    expect(result).toMatchObject({
+      result: "not_affected",
+      reason_codes: ["EXCL_JURISDICTION"],
+      missing_fields: [],
+      decision_path: ["jurisdiction"],
+    });
+    expect(result.result).not.toBe("needs_data");
+  });
+
+  it("keeps inadmissible-only jurisdiction records at needs_data[jurisdiction]", () => {
+    const result = evaluateRraInfoSheetV1(affectedMap({
+      jurisdiction: missing("jurisdiction", {
+        source_fields: ["properties.country_subdivision"],
+        admissibility_reason: "Account GB, property market uk, and task jurisdiction defaults are inadmissible.",
+      }),
+    }));
+
+    expect(result).toMatchObject({
+      result: "needs_data",
+      reason_codes: [],
+      missing_fields: ["jurisdiction"],
+      decision_path: ["jurisdiction"],
+    });
   });
 
   it("returns not_affected for non-AST tenancies", () => {
@@ -94,6 +139,19 @@ describe("evaluateRraInfoSheetV1 results", () => {
     expect(result.result).toBe("not_affected");
     expect(result.reason_codes).toEqual(["EXCL_NOT_AST"]);
     expect(result.decision_path).toContain("tenancy_class");
+  });
+
+  it("treats assured and assured shorthold as provisionally in scope", () => {
+    for (const tenancyClass of ["assured_shorthold", "assured"]) {
+      expect(evaluateRraInfoSheetV1(affectedMap({
+        tenancy_class: exists("tenancy_class", tenancyClass),
+      }))).toMatchObject({
+        result: "affected",
+        reason_codes: ["AFF_INFO_SHEET"],
+        obligation_kind: "information_sheet",
+        exposure_gbp_ceiling: 7000,
+      });
+    }
   });
 
   it("returns not_affected for tenancies entered on or after commencement", () => {
@@ -122,6 +180,90 @@ describe("evaluateRraInfoSheetV1 results", () => {
     ]);
   });
 
+  it("Record A: known-end active-on-date branch still proceeds to tenancy_class", () => {
+    const result = evaluateRraInfoSheetV1(affectedMap({
+      jurisdiction: exists("jurisdiction", "England"),
+      tenancy_start_date: exists("tenancy_start_date", "2026-03-17"),
+      tenancy_end_date: exists("tenancy_end_date", "2026-05-12"),
+      active_on_qualifying_date: derivable("active_on_qualifying_date", true),
+      tenancy_class: missing("tenancy_class"),
+    }));
+
+    expect(result).toMatchObject({
+      result: "needs_data",
+      missing_fields: ["tenancy_class"],
+      decision_path: [
+        "jurisdiction",
+        "tenancy_exists",
+        "tenancy_start_date",
+        "active_on_qualifying_date",
+        "annual_rent_gbp",
+        "company_let",
+        "resident_landlord",
+        "rent_act_1977",
+        "pbsa",
+        "tenancy_class",
+      ],
+    });
+  });
+
+  it("Record B: admissible null-end periodic indicator proceeds to tenancy_class", () => {
+    const result = evaluateRraInfoSheetV1(affectedMap({
+      jurisdiction: exists("jurisdiction", "England"),
+      tenancy_start_date: exists("tenancy_start_date", "2025-10-01"),
+      tenancy_end_date: missing("tenancy_end_date"),
+      active_on_qualifying_date: derivable("active_on_qualifying_date", true, {
+        source_fields: [
+          "leases.lease_start_date",
+          "regulatory.qualifying_date",
+          "leases.term_type",
+          "leases.term_type_effective_from",
+          "leases.term_type_evidence_basis",
+        ],
+      }),
+      tenancy_class: missing("tenancy_class"),
+    }));
+
+    expect(result).toMatchObject({
+      result: "needs_data",
+      missing_fields: ["tenancy_class"],
+    });
+    expect(result.decision_path).toEqual([
+      "jurisdiction",
+      "tenancy_exists",
+      "tenancy_start_date",
+      "active_on_qualifying_date",
+      "annual_rent_gbp",
+      "company_let",
+      "resident_landlord",
+      "rent_act_1977",
+      "pbsa",
+      "tenancy_class",
+    ]);
+  });
+
+  it("Records C/C-bad: missing active-on-date stops before tenancy_class", () => {
+    const result = evaluateRraInfoSheetV1(affectedMap({
+      jurisdiction: exists("jurisdiction", "England"),
+      tenancy_start_date: exists("tenancy_start_date", "2025-10-01"),
+      tenancy_end_date: missing("tenancy_end_date"),
+      active_on_qualifying_date: missing("active_on_qualifying_date"),
+      tenancy_class: missing("tenancy_class"),
+    }));
+
+    expect(result).toMatchObject({
+      result: "needs_data",
+      missing_fields: ["active_on_qualifying_date"],
+      reason_codes: [],
+      decision_path: [
+        "jurisdiction",
+        "tenancy_exists",
+        "tenancy_start_date",
+        "active_on_qualifying_date",
+      ],
+    });
+  });
+
   it("returns not_affected for annual rent above £100,000 and treats the boundary as affected", () => {
     expect(evaluateRraInfoSheetV1(affectedMap({
       annual_rent_gbp: derivable("annual_rent_gbp", 100001),
@@ -141,8 +283,8 @@ describe("evaluateRraInfoSheetV1 results", () => {
 
   it("returns not_affected for each excluded class", () => {
     const cases = [
-      ["resident_landlord", true, "EXCL_CLASS_LODGER"],
       ["company_let", true, "EXCL_CLASS_COMPANY_LET"],
+      ["resident_landlord", true, "EXCL_CLASS_LODGER"],
       ["rent_act_1977", true, "EXCL_CLASS_RENT_ACT_1977"],
       ["pbsa", true, "EXCL_CLASS_PBSA"],
     ];
@@ -151,18 +293,50 @@ describe("evaluateRraInfoSheetV1 results", () => {
       const result = evaluateRraInfoSheetV1(affectedMap({ [key]: exists(key, value) }));
       expect(result.result).toBe("not_affected");
       expect(result.reason_codes).toEqual([reason]);
+      expect(deriveEvaluationConfidence(affectedMap({ [key]: exists(key, value) }), result.decision_path, result.result)).toBe("medium");
     }
   });
 
-  it("evaluates provable exclusions before completeness", () => {
+  it("evaluates present true exclusion flags before tenancy_class completeness", () => {
     const result = evaluateRraInfoSheetV1(affectedMap({
-      annual_rent_gbp: missing("annual_rent_gbp"),
       company_let: exists("company_let", true),
+      tenancy_class: missing("tenancy_class"),
+      resident_landlord: missing("resident_landlord"),
+      rent_act_1977: missing("rent_act_1977"),
+      pbsa: missing("pbsa"),
+      is_wholly_oral: missing("is_wholly_oral"),
     }));
 
     expect(result.result).toBe("not_affected");
     expect(result.reason_codes).toEqual(["EXCL_CLASS_COMPANY_LET"]);
     expect(result.missing_fields).toEqual([]);
+    expect(result.decision_path).toEqual([
+      "jurisdiction",
+      "tenancy_exists",
+      "tenancy_start_date",
+      "active_on_qualifying_date",
+      "annual_rent_gbp",
+      "company_let",
+    ]);
+    expect(result.decision_path).not.toContain("tenancy_class");
+  });
+
+  it("does not treat null exclusion flags as false", () => {
+    const result = evaluateRraInfoSheetV1(affectedMap({
+      company_let: missing("company_let"),
+      resident_landlord: exists("resident_landlord", false),
+      rent_act_1977: exists("rent_act_1977", false),
+      pbsa: exists("pbsa", false),
+      tenancy_class: exists("tenancy_class", "assured_shorthold"),
+      is_wholly_oral: exists("is_wholly_oral", false),
+    }));
+
+    expect(result).toMatchObject({
+      result: "needs_data",
+      missing_fields: ["company_let"],
+      reason_codes: [],
+    });
+    expect(result.result).not.toBe("affected");
   });
 
   it("returns information_sheet for written/partly-written tenancies and written_statement for wholly oral", () => {
@@ -172,6 +346,7 @@ describe("evaluateRraInfoSheetV1 results", () => {
       result: "affected",
       reason_codes: ["AFF_INFO_SHEET"],
       obligation_kind: "information_sheet",
+      exposure_gbp_ceiling: 7000,
     });
 
     expect(evaluateRraInfoSheetV1(affectedMap({
@@ -180,6 +355,23 @@ describe("evaluateRraInfoSheetV1 results", () => {
       result: "affected",
       reason_codes: ["AFF_WRITTEN_STATEMENT"],
       obligation_kind: "written_statement",
+      exposure_gbp_ceiling: 7000,
+    });
+  });
+
+  it("returns needs_data for is_wholly_oral only after all exclusions and classification are resolved", () => {
+    const result = evaluateRraInfoSheetV1(affectedMap({
+      company_let: exists("company_let", false),
+      resident_landlord: exists("resident_landlord", false),
+      rent_act_1977: exists("rent_act_1977", false),
+      pbsa: exists("pbsa", false),
+      tenancy_class: exists("tenancy_class", "assured_shorthold"),
+      is_wholly_oral: missing("is_wholly_oral"),
+    }));
+
+    expect(result).toMatchObject({
+      result: "needs_data",
+      missing_fields: ["is_wholly_oral"],
     });
   });
 
@@ -379,6 +571,7 @@ describe("runRraInfoSheetEvaluation", () => {
       decision_path: ["jurisdiction"],
       result: "not_affected",
       reason_codes: ["EXCL_JURISDICTION"],
+      exposure_gbp_ceiling: null,
       evaluation_confidence: "high",
       demo_mode: true,
     }));

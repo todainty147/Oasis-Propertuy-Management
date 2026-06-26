@@ -138,9 +138,10 @@ describe("classifyInput", () => {
     expect(result.classification).toBe(CLASSIFICATIONS.MISSING);
     expect(result.value).toBeNull();
     expect(result.confidence_basis).toBeNull();
+    expect(result.admissibility_reason).toMatch(/no admissible time-qualified periodic\/open-ended indicator/i);
   });
 
-  it("derives active_on_qualifying_date for null-end tenancies with an admissible time-qualified periodic indicator", () => {
+  it("Record B: derives active_on_qualifying_date for null-end tenancies with an admissible time-qualified periodic indicator", () => {
     const result = classifyInput("active_on_qualifying_date", {
       regulatory: { qualifying_date: "2026-05-01" },
       lease: {
@@ -156,6 +157,28 @@ describe("classifyInput", () => {
     expect(result.value).toBe(true);
     expect(result.confidence_basis).toBe("derivable");
     expect(result.source_fields).toContain("leases.term_type_effective_from");
+    expect(result.admissibility_reason).toMatch(/time-qualified periodic\/open-ended indicator/i);
+  });
+
+  it("derives active_on_qualifying_date for the canonical open_ended term_type value", () => {
+    const result = classifyInput("active_on_qualifying_date", {
+      regulatory: { qualifying_date: "2026-05-01" },
+      lease: {
+        lease_start_date: "2025-01-01",
+        lease_end_date: null,
+        term_type: "open_ended",
+        term_type_effective_from: "2026-05-01",
+        term_type_evidence_basis: "statutory_conversion",
+      },
+    });
+
+    expect(result.classification).toBe(CLASSIFICATIONS.DERIVABLE);
+    expect(result.value).toBe(true);
+    expect(result.source_fields).toEqual(expect.arrayContaining([
+      "leases.term_type",
+      "leases.term_type_effective_from",
+      "leases.term_type_evidence_basis",
+    ]));
   });
 
   it("rejects bare current-state term flags for active_on_qualifying_date", () => {
@@ -176,20 +199,61 @@ describe("classifyInput", () => {
     expect(result.admissibility_reason).toMatch(/Bare current-state/i);
   });
 
-  it("rejects periodic indicators that became effective after the qualifying date", () => {
+  it.each([
+    [
+      "C-bad-1 no effective date",
+      {
+        term_type: "periodic",
+        term_type_effective_from: null,
+        term_type_evidence_basis: "statutory_conversion",
+      },
+    ],
+    [
+      "C-bad-2 effective after qualifying date",
+      {
+        term_type: "periodic",
+        term_type_effective_from: "2026-06-01",
+        term_type_evidence_basis: "statutory_conversion",
+      },
+    ],
+    [
+      "C-bad-3 no evidence basis",
+      {
+        term_type: "periodic",
+        term_type_effective_from: "2026-05-01",
+        term_type_evidence_basis: null,
+      },
+    ],
+    [
+      "C-bad-4 fixed is not an open-ended/periodic indicator",
+      {
+        term_type: "fixed",
+        term_type_effective_from: "2026-05-01",
+        term_type_evidence_basis: "agreement_clause",
+      },
+    ],
+    [
+      "hyphenated open-ended is rejected because the schema only admits open_ended",
+      {
+        term_type: "open-ended",
+        term_type_effective_from: "2026-05-01",
+        term_type_evidence_basis: "agreement_clause",
+      },
+    ],
+  ])("Record %s: rejects present but inadmissible term indicator", (_label, leasePatch) => {
     const result = classifyInput("active_on_qualifying_date", {
       regulatory: { qualifying_date: "2026-05-01" },
       lease: {
-        lease_start_date: "2025-01-01",
+        lease_start_date: "2025-10-01",
         lease_end_date: null,
-        term_type: "periodic",
-        term_type_effective_from: "2026-06-01",
-        term_type_evidence_basis: "later variation",
+        ...leasePatch,
       },
     });
 
     expect(result.classification).toBe(CLASSIFICATIONS.MISSING);
     expect(result.value).toBeNull();
+    expect(result.admissibility_reason).toMatch(/present but inadmissible/i);
+    expect(result.admissibility_reason).not.toMatch(/absent/i);
   });
 
   it("derives active_on_qualifying_date false when start is after qualifying or end is before qualifying", () => {
@@ -273,13 +337,59 @@ describe("classifyInput", () => {
     expect(result.value).toBe("2026-04-01");
   });
 
+  it("classifies Tier-4 boolean fields from their structured columns and preserves false as present", () => {
+    const cases = [
+      ["company_let", { lease: { company_let: false } }, "leases.company_let"],
+      ["resident_landlord", { lease: { resident_landlord: false } }, "leases.resident_landlord"],
+      ["rent_act_1977", { lease: { rent_act_1977: false } }, "leases.rent_act_1977"],
+      ["is_wholly_oral", { lease: { is_wholly_oral: false } }, "leases.is_wholly_oral"],
+      ["pbsa", { property: { pbsa: false } }, "properties.pbsa"],
+    ];
+
+    for (const [inputKey, context, sourceField] of cases) {
+      const result = classifyInput(inputKey, context);
+      expect(result.classification).toBe(CLASSIFICATIONS.EXISTS);
+      expect(result.value).toBe(false);
+      expect(result.source_fields).toEqual([sourceField]);
+    }
+  });
+
+  it("keeps null Tier-4 boolean fields missing instead of treating them as false", () => {
+    const result = classifyInput("company_let", {
+      lease: { company_let: null },
+      tenant: { company_let: false },
+    });
+
+    expect(result.classification).toBe(CLASSIFICATIONS.MISSING);
+    expect(result.value).toBeNull();
+    expect(result.source_fields).toEqual([]);
+  });
+
+  it("classifies tenancy_class from leases.tenancy_class and rejects lease_type as inadmissible", () => {
+    expect(classifyInput("tenancy_class", {
+      lease: { tenancy_class: "assured_shorthold" },
+    })).toMatchObject({
+      classification: CLASSIFICATIONS.EXISTS,
+      value: "assured_shorthold",
+      source_fields: ["leases.tenancy_class"],
+    });
+
+    const missingClass = classifyInput("tenancy_class", {
+      lease: { tenancy_class: null, lease_type: "najem_okazjonalny" },
+    });
+
+    expect(missingClass.classification).toBe(CLASSIFICATIONS.MISSING);
+    expect(missingClass.value).toBeNull();
+    expect(missingClass.admissibility_reason).toMatch(/inadmissible/i);
+  });
+
   it("classifies jurisdiction as exists when country_subdivision is set (Record A — England proceeds)", () => {
     const result = classifyInput("jurisdiction", {
       property: { country_subdivision: "England" },
     });
 
     expect(result.classification).toBe(CLASSIFICATIONS.EXISTS);
-    expect(result.value).toBe("ENGLAND");
+    expect(result.value).toBe("England");
     expect(result.source_fields).toEqual(["properties.country_subdivision"]);
     expect(result.confidence_basis).toBe("exists");
   });
@@ -291,7 +401,7 @@ describe("classifyInput", () => {
       });
 
       expect(result.classification).toBe(CLASSIFICATIONS.EXISTS);
-      expect(result.value).toBe(subdivision.toUpperCase());
+      expect(result.value).toBe(subdivision);
       expect(result.source_fields).toEqual(["properties.country_subdivision"]);
     }
   });

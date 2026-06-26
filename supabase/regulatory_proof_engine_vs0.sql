@@ -33,6 +33,48 @@ do $$ begin
 exception when duplicate_column then null;
 end $$;
 
+alter table public.properties
+  add column if not exists pbsa boolean;
+
+alter table public.leases
+  add column if not exists term_type text,
+  add column if not exists term_type_effective_from date,
+  add column if not exists term_type_evidence_basis text,
+  add column if not exists company_let boolean,
+  add column if not exists resident_landlord boolean,
+  add column if not exists rent_act_1977 boolean,
+  add column if not exists is_wholly_oral boolean,
+  add column if not exists tenancy_class text;
+
+alter table public.leases
+  alter column lease_end_date drop not null;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'leases_term_type_check'
+      and conrelid = 'public.leases'::regclass
+  ) then
+    alter table public.leases
+      add constraint leases_term_type_check
+      check (term_type in ('fixed','periodic','open_ended'));
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'leases_tenancy_class_check'
+      and conrelid = 'public.leases'::regclass
+  ) then
+    alter table public.leases
+      add constraint leases_tenancy_class_check
+      check (tenancy_class in ('assured_shorthold','assured','regulated_rent_act','business','agricultural','licence','other'));
+  end if;
+end
+$$;
+
 alter table public.regulatory_data_requirements enable row level security;
 
 revoke all on table public.regulatory_data_requirements from public;
@@ -75,12 +117,12 @@ values
   ('rra_info_sheet_v1','active_on_qualifying_date','derivable',2,'tenancy setup / time-qualified term review',true,false,array['leases.lease_start_date','leases.start_date','leases.lease_end_date','leases.end_date','regulatory.qualifying_date','leases.term_type','leases.term_type_effective_from','leases.term_type_evidence_basis'],'Derived from admissible tenancy dates plus the versioned qualifying date. Null-end tenancies require a time-qualified periodic/open-ended indicator effective on or before the qualifying date.'),
   ('rra_info_sheet_v1','jurisdiction','exists',1,'property setup',true,false,array['properties.country_subdivision'],'Property-level UK subdivision. Account GB, property market uk, and task jurisdiction defaults remain inadmissible (§15).'),
   ('rra_info_sheet_v1','annual_rent_gbp','derivable',3,'tenancy rent terms',true,false,array['leases.rent_amount','leases.rent_frequency'],'properties.rent is an inadmissible substitute for lease rent.'),
-  ('rra_info_sheet_v1','company_let','missing',4,'tenancy parties workflow',true,false,array[]::text[],'Requires structured contracting-party legal-person type.'),
-  ('rra_info_sheet_v1','resident_landlord','missing',4,'tenancy setup/review',true,false,array[]::text[],'Requires structured occupancy/resident-landlord classification.'),
-  ('rra_info_sheet_v1','is_wholly_oral','missing',4,'tenancy setup/review',true,false,array[]::text[],'Requires structured oral/written tenancy flag.'),
-  ('rra_info_sheet_v1','tenancy_class','missing',4,'tenancy setup/review',true,false,array[]::text[],'Existing Polish lease_type values are inadmissible for UK statutory classification.'),
-  ('rra_info_sheet_v1','rent_act_1977','missing',4,'tenancy setup/review',true,false,array[]::text[],'Requires structured UK statutory-regime flag.'),
-  ('rra_info_sheet_v1','pbsa','missing',4,'property and tenancy setup/review',true,false,array[]::text[],'Requires structured PBSA/excluded accommodation classification.'),
+  ('rra_info_sheet_v1','company_let','exists',4,'tenancy parties workflow',true,false,array['leases.company_let'],'Structured contracting-party legal-person exclusion flag. Null means unknown, not false.'),
+  ('rra_info_sheet_v1','resident_landlord','exists',4,'tenancy setup/review',true,false,array['leases.resident_landlord'],'Structured resident-landlord/lodger exclusion flag. Null means unknown, not false.'),
+  ('rra_info_sheet_v1','is_wholly_oral','exists',4,'tenancy setup/review',true,false,array['leases.is_wholly_oral'],'Structured obligation selector: true selects written_statement; false selects information_sheet.'),
+  ('rra_info_sheet_v1','tenancy_class','exists',4,'tenancy setup/review',true,false,array['leases.tenancy_class'],'Provisional UK tenancy classification value set; Existing Polish lease_type values are inadmissible.'),
+  ('rra_info_sheet_v1','rent_act_1977','exists',4,'tenancy setup/review',true,false,array['leases.rent_act_1977'],'Structured Rent Act 1977 exclusion flag. Null means unknown, not false.'),
+  ('rra_info_sheet_v1','pbsa','exists',4,'property and tenancy setup/review',true,false,array['properties.pbsa'],'Structured property-level PBSA/excluded accommodation flag. Null means unknown, not false.'),
   ('rra_info_sheet_v1','s21_served','missing',5,'possession notice workflow',true,true,array[]::text[],'Conditional possession input. No structured notice signal means not_applicable per tenancy.'),
   ('rra_info_sheet_v1','s8_served','missing',5,'possession notice workflow',true,true,array[]::text[],'Conditional possession input. No structured notice signal means not_applicable per tenancy.'),
   ('rra_info_sheet_v1','notice_cutoff_date','missing',null,'controlled regulatory catalogue',true,false,array[]::text[],'Delivered by the versioned rule catalogue, not by portfolio data.'),
@@ -206,6 +248,7 @@ declare
   v_rent_frequency text;
   v_multiplier numeric;
   v_country_subdivision text;
+  v_pbsa boolean;
 begin
   if not public.user_can_manage_account(p_account_id) then
     raise exception 'Not authorized for account';
@@ -223,8 +266,8 @@ begin
 
   v_lease_json := to_jsonb(v_lease);
 
-  select p.country_subdivision
-  into v_country_subdivision
+  select p.country_subdivision, p.pbsa
+  into v_country_subdivision, v_pbsa
   from public.properties p
   where p.id = v_lease.property_id;
 
@@ -370,7 +413,7 @@ begin
               'Value is deterministically derived from admissible structured fields.',
               'derivable', null, v_req.capture_tier, v_req.capture_location
             );
-          elsif v_term_type in ('periodic','open_ended','open-ended')
+          elsif v_term_type in ('periodic','open_ended')
              and v_term_effective_from is not null
              and v_term_effective_from <= v_qualifying_date
              and v_term_evidence_basis is not null then
@@ -384,7 +427,13 @@ begin
             classified_input := public.rpe_vs0_classified_input(
               v_req.input_key, 'missing', null,
               array['leases.lease_end_date','leases.end_date','leases.term_type','leases.term_type_effective_from','leases.term_type_evidence_basis'],
-              'End date is absent and no admissible time-qualified periodic/open-ended indicator is present.',
+              case
+                when v_term_type is not null
+                  or v_term_effective_from is not null
+                  or v_term_evidence_basis is not null
+                then 'Term-type indicator is present but inadmissible: it must be periodic/open_ended, effective on or before the qualifying date, and supported by evidence basis.'
+                else 'End date is absent and no admissible time-qualified periodic/open-ended indicator is present.'
+              end,
               null, null, v_req.capture_tier, v_req.capture_location
             );
           end if;
@@ -420,6 +469,100 @@ begin
           v_req.input_key, 'missing', null, array['leases.rent_amount','leases.rent_frequency'],
           'No admissible lease rent amount/frequency is present. properties.rent is inadmissible.',
           null, null, v_req.capture_tier, v_req.capture_location
+        );
+      end if;
+
+    elsif v_req.input_key = 'company_let' then
+      if v_lease.company_let is null then
+        classified_input := public.rpe_vs0_classified_input(
+          v_req.input_key, 'missing', null, array['leases.company_let'],
+          'No admissible structured source field is present for this input.',
+          null, null, v_req.capture_tier, v_req.capture_location
+        );
+      else
+        classified_input := public.rpe_vs0_classified_input(
+          v_req.input_key, 'exists', to_jsonb(v_lease.company_let), array['leases.company_let'],
+          'Admissible structured field is present.', 'exists', null,
+          v_req.capture_tier, v_req.capture_location
+        );
+      end if;
+
+    elsif v_req.input_key = 'resident_landlord' then
+      if v_lease.resident_landlord is null then
+        classified_input := public.rpe_vs0_classified_input(
+          v_req.input_key, 'missing', null, array['leases.resident_landlord'],
+          'No admissible structured source field is present for this input.',
+          null, null, v_req.capture_tier, v_req.capture_location
+        );
+      else
+        classified_input := public.rpe_vs0_classified_input(
+          v_req.input_key, 'exists', to_jsonb(v_lease.resident_landlord), array['leases.resident_landlord'],
+          'Admissible structured field is present.', 'exists', null,
+          v_req.capture_tier, v_req.capture_location
+        );
+      end if;
+
+    elsif v_req.input_key = 'rent_act_1977' then
+      if v_lease.rent_act_1977 is null then
+        classified_input := public.rpe_vs0_classified_input(
+          v_req.input_key, 'missing', null, array['leases.rent_act_1977'],
+          'No admissible structured source field is present for this input.',
+          null, null, v_req.capture_tier, v_req.capture_location
+        );
+      else
+        classified_input := public.rpe_vs0_classified_input(
+          v_req.input_key, 'exists', to_jsonb(v_lease.rent_act_1977), array['leases.rent_act_1977'],
+          'Admissible structured field is present.', 'exists', null,
+          v_req.capture_tier, v_req.capture_location
+        );
+      end if;
+
+    elsif v_req.input_key = 'is_wholly_oral' then
+      if v_lease.is_wholly_oral is null then
+        classified_input := public.rpe_vs0_classified_input(
+          v_req.input_key, 'missing', null, array['leases.is_wholly_oral'],
+          'No admissible structured source field is present for this input.',
+          null, null, v_req.capture_tier, v_req.capture_location
+        );
+      else
+        classified_input := public.rpe_vs0_classified_input(
+          v_req.input_key, 'exists', to_jsonb(v_lease.is_wholly_oral), array['leases.is_wholly_oral'],
+          'Admissible structured field is present.', 'exists', null,
+          v_req.capture_tier, v_req.capture_location
+        );
+      end if;
+
+    elsif v_req.input_key = 'tenancy_class' then
+      if v_lease.tenancy_class is not null then
+        classified_input := public.rpe_vs0_classified_input(
+          v_req.input_key, 'exists', to_jsonb(v_lease.tenancy_class), array['leases.tenancy_class'],
+          'Admissible structured field is present.', 'exists', null,
+          v_req.capture_tier, v_req.capture_location
+        );
+      else
+        classified_input := public.rpe_vs0_classified_input(
+          v_req.input_key, 'missing', null, array['leases.tenancy_class'],
+          case
+            when nullif(v_lease_json->>'lease_type', '') is not null
+            then 'leases.lease_type contains non-UK/Polish classifications and is inadmissible for RRA tenancy class.'
+            else 'No admissible structured source field is present for this input.'
+          end,
+          null, null, v_req.capture_tier, v_req.capture_location
+        );
+      end if;
+
+    elsif v_req.input_key = 'pbsa' then
+      if v_pbsa is null then
+        classified_input := public.rpe_vs0_classified_input(
+          v_req.input_key, 'missing', null, array['properties.pbsa'],
+          'No admissible structured source field is present for this input.',
+          null, null, v_req.capture_tier, v_req.capture_location
+        );
+      else
+        classified_input := public.rpe_vs0_classified_input(
+          v_req.input_key, 'exists', to_jsonb(v_pbsa), array['properties.pbsa'],
+          'Admissible structured field is present.', 'exists', null,
+          v_req.capture_tier, v_req.capture_location
         );
       end if;
 

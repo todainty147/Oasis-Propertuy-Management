@@ -130,63 +130,63 @@ export const REGULATORY_DATA_REQUIREMENTS = Object.freeze([
   },
   {
     input_key: "company_let",
-    capability: "missing",
+    capability: "exists",
     capture_tier: 4,
     capture_location: "tenancy parties workflow",
     mandatory: true,
     conditional: false,
-    source_fields: [],
-    notes: "Requires structured contracting-party legal-person type.",
+    source_fields: ["leases.company_let"],
+    notes: "Structured contracting-party legal-person exclusion flag. Null means unknown, not false.",
   },
   {
     input_key: "resident_landlord",
-    capability: "missing",
+    capability: "exists",
     capture_tier: 4,
     capture_location: "tenancy setup/review",
     mandatory: true,
     conditional: false,
-    source_fields: [],
-    notes: "Requires structured occupancy/resident-landlord classification.",
+    source_fields: ["leases.resident_landlord"],
+    notes: "Structured resident-landlord/lodger exclusion flag. Null means unknown, not false.",
   },
   {
     input_key: "is_wholly_oral",
-    capability: "missing",
+    capability: "exists",
     capture_tier: 4,
     capture_location: "tenancy setup/review",
     mandatory: true,
     conditional: false,
-    source_fields: [],
-    notes: "Requires structured oral/written tenancy flag.",
+    source_fields: ["leases.is_wholly_oral"],
+    notes: "Structured obligation selector: true selects written_statement; false selects information_sheet.",
   },
   {
     input_key: "tenancy_class",
-    capability: "missing",
+    capability: "exists",
     capture_tier: 4,
     capture_location: "tenancy setup/review",
     mandatory: true,
     conditional: false,
-    source_fields: [],
-    notes: "Existing Polish lease_type values are inadmissible for UK statutory classification.",
+    source_fields: ["leases.tenancy_class"],
+    notes: "Provisional UK tenancy classification value set; Existing Polish lease_type values are inadmissible.",
   },
   {
     input_key: "rent_act_1977",
-    capability: "missing",
+    capability: "exists",
     capture_tier: 4,
     capture_location: "tenancy setup/review",
     mandatory: true,
     conditional: false,
-    source_fields: [],
-    notes: "Requires structured UK statutory-regime flag.",
+    source_fields: ["leases.rent_act_1977"],
+    notes: "Structured Rent Act 1977 exclusion flag. Null means unknown, not false.",
   },
   {
     input_key: "pbsa",
-    capability: "missing",
+    capability: "exists",
     capture_tier: 4,
     capture_location: "property and tenancy setup/review",
     mandatory: true,
     conditional: false,
-    source_fields: [],
-    notes: "Requires structured PBSA/excluded accommodation classification.",
+    source_fields: ["properties.pbsa"],
+    notes: "Structured property-level PBSA/excluded accommodation flag. Null means unknown, not false.",
   },
   {
     input_key: "s21_served",
@@ -383,10 +383,28 @@ function hasAdmissibleOpenEndedIndicator(lease, qualifyingDate) {
   const effectiveFrom = normalizeDate(lease?.term_type_effective_from);
   const evidenceBasis = lease?.term_type_evidence_basis;
 
-  if (!["periodic", "open_ended", "open-ended"].includes(termType)) return false;
+  if (!["periodic", "open_ended"].includes(termType)) return false;
   if (!effectiveFrom || effectiveFrom > qualifyingDate) return false;
   if (!hasValue(evidenceBasis)) return false;
   return true;
+}
+
+function hasStructuredTermIndicatorAttempt(lease) {
+  return hasValue(lease?.term_type)
+    || hasValue(lease?.term_type_effective_from)
+    || hasValue(lease?.term_type_evidence_basis);
+}
+
+function missingOpenEndedIndicatorReason(lease) {
+  if (hasStructuredTermIndicatorAttempt(lease)) {
+    return "Term-type indicator is present but inadmissible: it must be periodic/open_ended, effective on or before the qualifying date, and supported by evidence basis.";
+  }
+
+  if (lease?.renewal_status || lease?.is_open_ended || lease?.tenancy_term_type) {
+    return "Bare current-state term/open-ended flags are inadmissible without term_type_effective_from <= qualifying date and evidence basis.";
+  }
+
+  return "End date is absent and no admissible time-qualified periodic/open-ended indicator is present.";
 }
 
 function hasStructuredNoticeSignal(context) {
@@ -499,9 +517,7 @@ export function classifyInput(inputKey, context = {}) {
 
       return missing(
         inputKey,
-        lease.renewal_status || lease.is_open_ended || lease.tenancy_term_type
-          ? "Bare current-state term/open-ended flags are inadmissible without term_type_effective_from <= qualifying date and evidence basis."
-          : "End date is absent and no admissible time-qualified periodic/open-ended indicator is present.",
+        missingOpenEndedIndicatorReason(lease),
         [
           "leases.lease_end_date",
           "leases.end_date",
@@ -515,7 +531,7 @@ export function classifyInput(inputKey, context = {}) {
     case "jurisdiction": {
       const subdivision = property.country_subdivision ?? property.uk_subdivision ?? property.jurisdiction_subdivision;
       if (hasValue(subdivision)) {
-        return exists(inputKey, String(subdivision).toUpperCase(), ["properties.country_subdivision"]);
+        return exists(inputKey, String(subdivision), ["properties.country_subdivision"]);
       }
       return missing(
         inputKey,
@@ -557,7 +573,7 @@ export function classifyInput(inputKey, context = {}) {
       return classifyStructuredBoolean(inputKey, lease.is_wholly_oral, "leases.is_wholly_oral");
 
     case "company_let":
-      return classifyStructuredBoolean(inputKey, lease.company_let ?? context.tenant?.company_let, "tenancy_parties.company_let");
+      return classifyStructuredBoolean(inputKey, lease.company_let, "leases.company_let");
 
     case "resident_landlord":
       return classifyStructuredBoolean(inputKey, lease.resident_landlord, "leases.resident_landlord");

@@ -25,6 +25,7 @@ describe("RPE VS-1 SQL persistence contract", () => {
     expect(vs1Sql).toContain("evaluation_confidence text check (evaluation_confidence in ('high','medium','low'))");
     expect(vs1Sql).toContain("result text not null check (result in ('affected','not_affected','deferred','needs_data'))");
     expect(vs1Sql).toContain("obligation_kind text check (obligation_kind in ('information_sheet','written_statement'))");
+    expect(vs1Sql).toContain("exposure_gbp_ceiling numeric");
   });
 
   it("seeds one demo-only inactive RRA information-sheet rule v1", () => {
@@ -99,6 +100,14 @@ describe("RPE VS-1 evaluation write/read RPC contract", () => {
     expect(vs1Sql).toContain("decision_path,");
     expect(vs1Sql).not.toMatch(/update public\.renters_rights_tasks/i);
     expect(vs1Sql).not.toMatch(/insert into public\.renters_rights_tasks/i);
+  });
+
+  it("records and lists affected exposure ceiling without creating obligation instances", () => {
+    expect(vs1Sql).toContain("p_exposure_gbp_ceiling numeric default null");
+    expect(vs1Sql).toContain("exposure_gbp_ceiling,");
+    expect(vs1Sql).toContain("v_evaluation.exposure_gbp_ceiling");
+    expect(vs1Sql).toContain("re.exposure_gbp_ceiling");
+    expect(vs1Sql).not.toMatch(/create table if not exists public\.obligation_instance/i);
   });
 
   it("enforces confidence nullability rules", () => {
