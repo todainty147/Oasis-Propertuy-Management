@@ -21,6 +21,13 @@ export const RRA_INFO_SHEET_REASON_CODES = Object.freeze([
   "AFF_WRITTEN_STATEMENT",
 ]);
 
+export const RRA_INFO_SHEET_AOD_BRANCHES = Object.freeze([
+  "known_end_date",
+  "time_qualified_periodic_indicator",
+  "missing",
+  "not_reached",
+]);
+
 const ENGLAND_VALUES = new Set(["ENG", "ENGLAND", "GB-ENG"]);
 const AST_VALUES = new Set([
   "ast",
@@ -72,6 +79,7 @@ function normalizeDate(value) {
 function result(payload) {
   return {
     result: payload.result,
+    aod_branch: payload.aod_branch ?? "not_reached",
     reason_codes: payload.reason_codes ?? [],
     decision_path: payload.decision_path ?? [],
     missing_fields: payload.missing_fields ?? [],
@@ -82,9 +90,37 @@ function result(payload) {
   };
 }
 
-function needsData(missingFields, decisionPath) {
+export function deriveAodBranch(classifiedMap, decisionPath = []) {
+  if (!decisionPath.includes("active_on_qualifying_date")) return "not_reached";
+
+  const activeOnQualifyingDate = input(classifiedMap, "active_on_qualifying_date");
+  if (isMissing(activeOnQualifyingDate)) return "missing";
+
+  const sourceFields = activeOnQualifyingDate.source_fields ?? [];
+  const reason = normalizeString(activeOnQualifyingDate.admissibility_reason).toLowerCase();
+  const usedPeriodicIndicator = sourceFields.some((field) => [
+    "leases.term_type",
+    "leases.term_type_effective_from",
+    "leases.term_type_evidence_basis",
+  ].includes(field));
+
+  if (
+    usedPeriodicIndicator ||
+    reason.includes("periodic") ||
+    reason.includes("open-ended") ||
+    reason.includes("open_ended") ||
+    reason.includes("time-qualified")
+  ) {
+    return "time_qualified_periodic_indicator";
+  }
+
+  return "known_end_date";
+}
+
+function needsData(missingFields, decisionPath, classifiedMap) {
   return result({
     result: "needs_data",
+    aod_branch: deriveAodBranch(classifiedMap, decisionPath),
     missing_fields: missingFields,
     reason_codes: [],
     decision_path: decisionPath,
@@ -98,11 +134,15 @@ function pushRead(decisionPath, key) {
 
 export function evaluateRraInfoSheetV1(classifiedMap) {
   const decisionPath = [];
+  const makeResult = (payload) => result({
+    ...payload,
+    aod_branch: deriveAodBranch(classifiedMap, payload.decision_path ?? decisionPath),
+  });
 
   const jurisdiction = input(classifiedMap, pushRead(decisionPath, "jurisdiction"));
-  if (isMissing(jurisdiction)) return needsData(["jurisdiction"], decisionPath);
+  if (isMissing(jurisdiction)) return needsData(["jurisdiction"], decisionPath, classifiedMap);
   if (!ENGLAND_VALUES.has(normalizeJurisdiction(jurisdiction.value))) {
-    return result({
+    return makeResult({
       result: "not_affected",
       reason_codes: ["EXCL_JURISDICTION"],
       decision_path: decisionPath,
@@ -111,13 +151,13 @@ export function evaluateRraInfoSheetV1(classifiedMap) {
 
   const tenancyExists = input(classifiedMap, pushRead(decisionPath, "tenancy_exists"));
   if (isMissing(tenancyExists) || tenancyExists.value !== true) {
-    return needsData(["tenancy_exists"], decisionPath);
+    return needsData(["tenancy_exists"], decisionPath, classifiedMap);
   }
 
   const tenancyStart = input(classifiedMap, pushRead(decisionPath, "tenancy_start_date"));
-  if (isMissing(tenancyStart)) return needsData(["tenancy_start_date"], decisionPath);
+  if (isMissing(tenancyStart)) return needsData(["tenancy_start_date"], decisionPath, classifiedMap);
   if (normalizeDate(tenancyStart.value) >= RRA_INFO_SHEET_COMMENCEMENT) {
-    return result({
+    return makeResult({
       result: "not_affected",
       reason_codes: ["EXCL_ENTERED_AFTER"],
       decision_path: decisionPath,
@@ -125,9 +165,9 @@ export function evaluateRraInfoSheetV1(classifiedMap) {
   }
 
   const activeOnQualifyingDate = input(classifiedMap, pushRead(decisionPath, "active_on_qualifying_date"));
-  if (isMissing(activeOnQualifyingDate)) return needsData(["active_on_qualifying_date"], decisionPath);
+  if (isMissing(activeOnQualifyingDate)) return needsData(["active_on_qualifying_date"], decisionPath, classifiedMap);
   if (activeOnQualifyingDate.value !== true) {
-    return result({
+    return makeResult({
       result: "not_affected",
       reason_codes: ["EXCL_NOT_ACTIVE_ON_DATE"],
       decision_path: decisionPath,
@@ -141,14 +181,14 @@ export function evaluateRraInfoSheetV1(classifiedMap) {
     const notice = input(classifiedMap, noticeKey);
     if (notice.classification === CLASSIFICATIONS.NOT_APPLICABLE) continue;
     pushRead(decisionPath, noticeKey);
-    if (isMissing(notice)) return needsData([noticeKey], decisionPath);
+    if (isMissing(notice)) return needsData([noticeKey], decisionPath, classifiedMap);
 
     const noticeDate = normalizeDate(notice.value);
     if (noticeDate && noticeDate < RRA_INFO_SHEET_COMMENCEMENT) {
       const proceedings = input(classifiedMap, pushRead(decisionPath, "proceedings_status"));
-      if (isMissing(proceedings)) return needsData(["proceedings_status"], decisionPath);
+      if (isMissing(proceedings)) return needsData(["proceedings_status"], decisionPath, classifiedMap);
       if (!CONCLUDED_PROCEEDINGS.has(normalizeString(proceedings.value).toLowerCase())) {
-        return result({
+        return makeResult({
           result: "deferred",
           reason_codes: [reasonCode],
           decision_path: decisionPath,
@@ -160,7 +200,7 @@ export function evaluateRraInfoSheetV1(classifiedMap) {
 
   const annualRent = input(classifiedMap, pushRead(decisionPath, "annual_rent_gbp"));
   if (!isMissing(annualRent) && Number(annualRent.value) > 100000) {
-    return result({
+    return makeResult({
       result: "not_affected",
       reason_codes: ["EXCL_HIGH_RENT"],
       decision_path: decisionPath,
@@ -169,7 +209,7 @@ export function evaluateRraInfoSheetV1(classifiedMap) {
 
   const companyLet = input(classifiedMap, pushRead(decisionPath, "company_let"));
   if (!isMissing(companyLet) && normalizeBoolean(companyLet.value) === true) {
-    return result({
+    return makeResult({
       result: "not_affected",
       reason_codes: ["EXCL_CLASS_COMPANY_LET"],
       decision_path: decisionPath,
@@ -178,7 +218,7 @@ export function evaluateRraInfoSheetV1(classifiedMap) {
 
   const residentLandlord = input(classifiedMap, pushRead(decisionPath, "resident_landlord"));
   if (!isMissing(residentLandlord) && normalizeBoolean(residentLandlord.value) === true) {
-    return result({
+    return makeResult({
       result: "not_affected",
       reason_codes: ["EXCL_CLASS_LODGER"],
       decision_path: decisionPath,
@@ -187,7 +227,7 @@ export function evaluateRraInfoSheetV1(classifiedMap) {
 
   const rentAct1977 = input(classifiedMap, pushRead(decisionPath, "rent_act_1977"));
   if (!isMissing(rentAct1977) && normalizeBoolean(rentAct1977.value) === true) {
-    return result({
+    return makeResult({
       result: "not_affected",
       reason_codes: ["EXCL_CLASS_RENT_ACT_1977"],
       decision_path: decisionPath,
@@ -196,7 +236,7 @@ export function evaluateRraInfoSheetV1(classifiedMap) {
 
   const pbsa = input(classifiedMap, pushRead(decisionPath, "pbsa"));
   if (!isMissing(pbsa) && normalizeBoolean(pbsa.value) === true) {
-    return result({
+    return makeResult({
       result: "not_affected",
       reason_codes: ["EXCL_CLASS_PBSA"],
       decision_path: decisionPath,
@@ -204,31 +244,32 @@ export function evaluateRraInfoSheetV1(classifiedMap) {
   }
 
   const tenancyClass = input(classifiedMap, pushRead(decisionPath, "tenancy_class"));
-  if (isMissing(tenancyClass)) return needsData(["tenancy_class"], decisionPath);
+  if (isMissing(tenancyClass)) return needsData(["tenancy_class"], decisionPath, classifiedMap);
   if (!AST_VALUES.has(normalizeTenancyClass(tenancyClass.value))) {
-    return result({
+    return makeResult({
       result: "not_affected",
       reason_codes: ["EXCL_NOT_AST"],
       decision_path: decisionPath,
     });
   }
 
-  const missingExclusionFields = [
+  const whollyOral = input(classifiedMap, pushRead(decisionPath, "is_wholly_oral"));
+
+  const missingFields = [
     ["annual_rent_gbp", annualRent],
     ["company_let", companyLet],
     ["resident_landlord", residentLandlord],
     ["rent_act_1977", rentAct1977],
     ["pbsa", pbsa],
+    ["is_wholly_oral", whollyOral],
   ].filter(([, item]) => isMissing(item)).map(([key]) => key);
 
-  if (missingExclusionFields.length > 0) {
-    return needsData(missingExclusionFields, decisionPath);
+  if (missingFields.length > 0) {
+    return needsData(missingFields, decisionPath, classifiedMap);
   }
 
-  const whollyOral = input(classifiedMap, pushRead(decisionPath, "is_wholly_oral"));
-  if (isMissing(whollyOral)) return needsData(["is_wholly_oral"], decisionPath);
   if (normalizeBoolean(whollyOral.value) === true) {
-    return result({
+    return makeResult({
       result: "affected",
       reason_codes: ["AFF_WRITTEN_STATEMENT"],
       decision_path: decisionPath,
@@ -237,7 +278,7 @@ export function evaluateRraInfoSheetV1(classifiedMap) {
     });
   }
 
-  return result({
+  return makeResult({
     result: "affected",
     reason_codes: ["AFF_INFO_SHEET"],
     decision_path: decisionPath,
@@ -300,6 +341,7 @@ export async function runRraInfoSheetEvaluation(tenancyId, {
     input_snapshot: inputSnapshot,
     decision_path: evaluation.decision_path,
     result: evaluation.result,
+    aod_branch: evaluation.aod_branch,
     obligation_kind: evaluation.obligation_kind,
     exposure_gbp_ceiling: evaluation.exposure_gbp_ceiling,
     reason_codes: evaluation.reason_codes,

@@ -1,7 +1,9 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 
 import { CLASSIFICATIONS } from "../../src/lib/regulatoryDataReadiness.js";
 import {
+  deriveAodBranch,
   deriveEvaluationConfidence,
   evaluateRraInfoSheetV1,
   runRraInfoSheetEvaluation,
@@ -69,6 +71,10 @@ function affectedMap(overrides = {}) {
   };
 }
 
+function snapshotHash(value) {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
 describe("evaluateRraInfoSheetV1 results", () => {
   it("returns needs_data when jurisdiction is missing", () => {
     const result = evaluateRraInfoSheetV1(affectedMap({ jurisdiction: missing("jurisdiction") }));
@@ -86,6 +92,7 @@ describe("evaluateRraInfoSheetV1 results", () => {
 
     expect(result.result).toBe("not_affected");
     expect(result.reason_codes).toEqual(["EXCL_JURISDICTION"]);
+    expect(result.aod_branch).toBe("not_reached");
     expect(result.decision_path).toEqual(["jurisdiction"]);
     expect(result.missing_fields).toEqual([]);
     expect(deriveEvaluationConfidence(map, result.decision_path, result.result)).toBe("high");
@@ -339,6 +346,37 @@ describe("evaluateRraInfoSheetV1 results", () => {
     expect(result.result).not.toBe("affected");
   });
 
+  it("collects all reachable missing Tier-4 completeness fields", () => {
+    const result = evaluateRraInfoSheetV1(affectedMap({
+      company_let: missing("company_let"),
+      resident_landlord: exists("resident_landlord", false),
+      rent_act_1977: exists("rent_act_1977", false),
+      pbsa: exists("pbsa", false),
+      tenancy_class: exists("tenancy_class", "assured_shorthold"),
+      is_wholly_oral: missing("is_wholly_oral"),
+    }));
+
+    expect(result).toMatchObject({
+      result: "needs_data",
+      missing_fields: ["company_let", "is_wholly_oral"],
+      reason_codes: [],
+      aod_branch: "known_end_date",
+    });
+    expect(result.decision_path).toEqual([
+      "jurisdiction",
+      "tenancy_exists",
+      "tenancy_start_date",
+      "active_on_qualifying_date",
+      "annual_rent_gbp",
+      "company_let",
+      "resident_landlord",
+      "rent_act_1977",
+      "pbsa",
+      "tenancy_class",
+      "is_wholly_oral",
+    ]);
+  });
+
   it("returns information_sheet for written/partly-written tenancies and written_statement for wholly oral", () => {
     expect(evaluateRraInfoSheetV1(affectedMap({
       is_wholly_oral: exists("is_wholly_oral", false),
@@ -387,6 +425,101 @@ describe("evaluateRraInfoSheetV1 results", () => {
     expect(result.result).toBe("needs_data");
     expect(result.missing_fields).toEqual(["annual_rent_gbp"]);
     expect(result.decision_path).toContain("annual_rent_gbp");
+  });
+});
+
+describe("active-on-date branch reporting", () => {
+  it("reports known_end_date for fixed-term active-on-date resolution", () => {
+    const map = affectedMap({
+      active_on_qualifying_date: derivable("active_on_qualifying_date", true, {
+        source_fields: [
+          "leases.lease_start_date",
+          "leases.lease_end_date",
+          "regulatory.qualifying_date",
+        ],
+      }),
+    });
+
+    const evaluation = evaluateRraInfoSheetV1(map);
+
+    expect(evaluation.aod_branch).toBe("known_end_date");
+    expect(deriveAodBranch(map, evaluation.decision_path)).toBe("known_end_date");
+  });
+
+  it("reports time_qualified_periodic_indicator for admissible periodic null-end resolution", () => {
+    const map = affectedMap({
+      tenancy_end_date: missing("tenancy_end_date"),
+      active_on_qualifying_date: derivable("active_on_qualifying_date", true, {
+        source_fields: [
+          "leases.lease_start_date",
+          "regulatory.qualifying_date",
+          "leases.term_type",
+          "leases.term_type_effective_from",
+          "leases.term_type_evidence_basis",
+        ],
+        admissibility_reason: "Admissible time-qualified periodic indicator.",
+      }),
+    });
+
+    const evaluation = evaluateRraInfoSheetV1(map);
+
+    expect(evaluation.aod_branch).toBe("time_qualified_periodic_indicator");
+    expect(deriveAodBranch(map, evaluation.decision_path)).toBe("time_qualified_periodic_indicator");
+  });
+
+  it("reports missing when active-on-date is reached but unresolved", () => {
+    const map = affectedMap({
+      active_on_qualifying_date: missing("active_on_qualifying_date"),
+    });
+
+    const evaluation = evaluateRraInfoSheetV1(map);
+
+    expect(evaluation).toMatchObject({
+      result: "needs_data",
+      missing_fields: ["active_on_qualifying_date"],
+      aod_branch: "missing",
+    });
+  });
+
+  it("reports not_reached when evaluation terminates before active-on-date", () => {
+    const map = affectedMap({ jurisdiction: exists("jurisdiction", "Wales") });
+    const evaluation = evaluateRraInfoSheetV1(map);
+
+    expect(evaluation.aod_branch).toBe("not_reached");
+    expect(deriveAodBranch(map, evaluation.decision_path)).toBe("not_reached");
+  });
+
+  it("keeps aod_branch orthogonal to the final result", () => {
+    const map = affectedMap({
+      company_let: exists("company_let", true),
+      active_on_qualifying_date: derivable("active_on_qualifying_date", true, {
+        source_fields: [
+          "leases.lease_start_date",
+          "leases.lease_end_date",
+          "regulatory.qualifying_date",
+        ],
+      }),
+    });
+
+    const evaluation = evaluateRraInfoSheetV1(map);
+
+    expect(evaluation).toMatchObject({
+      result: "not_affected",
+      reason_codes: ["EXCL_CLASS_COMPANY_LET"],
+      aod_branch: "known_end_date",
+    });
+  });
+
+  it("does not mutate or enrich the hashed input snapshot with aod_branch", () => {
+    const map = affectedMap();
+    const before = snapshotHash(map);
+
+    const evaluation = evaluateRraInfoSheetV1(map);
+    const after = snapshotHash(map);
+
+    expect(evaluation.aod_branch).toBe("known_end_date");
+    expect(after).toBe(before);
+    expect(JSON.stringify(map)).not.toContain("aod_branch");
   });
 });
 

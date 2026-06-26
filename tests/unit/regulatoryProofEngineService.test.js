@@ -69,6 +69,7 @@ describe("regulatoryProofEngineService", () => {
       input_snapshot: { jurisdiction: { classification: "exists", value: "WLS" } },
       decision_path: ["jurisdiction"],
       result: "not_affected",
+      aod_branch: "not_reached",
       obligation_kind: null,
       exposure_gbp_ceiling: null,
       reason_codes: ["EXCL_JURISDICTION"],
@@ -130,6 +131,7 @@ describe("regulatoryProofEngineService", () => {
 
     expect(result.result).toBe("not_affected");
     expect(result.reason_codes).toEqual(["EXCL_JURISDICTION"]);
+    expect(result.aod_branch).toBe("not_reached");
     expect(result.id).toBeUndefined();
     expect(mockRpc).toHaveBeenCalledTimes(1);
     expect(mockRpc).toHaveBeenCalledWith("get_rra_info_sheet_data_readiness", {

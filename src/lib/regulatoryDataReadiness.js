@@ -582,7 +582,7 @@ export function classifyInput(inputKey, context = {}) {
       return classifyStructuredBoolean(inputKey, lease.rent_act_1977, "leases.rent_act_1977");
 
     case "pbsa":
-      return classifyStructuredBoolean(inputKey, property.pbsa ?? lease.pbsa, "properties.pbsa");
+      return classifyStructuredBoolean(inputKey, property.pbsa, "properties.pbsa");
 
     case "tenancy_class":
       if (hasValue(lease.tenancy_class)) return exists(inputKey, String(lease.tenancy_class), ["leases.tenancy_class"]);
