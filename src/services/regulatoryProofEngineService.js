@@ -61,6 +61,23 @@ export async function recordRraInfoSheetRuleEvaluation({ accountId, evaluation }
   return data;
 }
 
+export async function reconcileRraInfoSheetObligationForEvaluation({
+  accountId,
+  evaluationId,
+} = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!evaluationId) throw new Error("Missing evaluationId");
+
+  const { data, error } = await supabase.rpc("reconcile_rra_info_sheet_obligation", {
+    p_account_id: accountId,
+    p_evaluation_id: evaluationId,
+    p_demo_mode: true,
+  });
+
+  if (error) throw friendly(error, "Failed to reconcile RRA obligation instance");
+  return data ?? null;
+}
+
 export async function runRraInfoSheetEvaluationForTenancy({
   accountId,
   tenancyId,
@@ -80,7 +97,14 @@ export async function runRraInfoSheetEvaluationForTenancy({
     evaluation,
   });
 
-  return { ...evaluation, id: persisted?.id ?? null };
+  const obligation = persisted?.id
+    ? await reconcileRraInfoSheetObligationForEvaluation({
+      accountId,
+      evaluationId: persisted.id,
+    })
+    : null;
+
+  return { ...evaluation, id: persisted?.id ?? null, obligation };
 }
 
 export async function previewRraInfoSheetEvaluationForTenancy({
@@ -124,6 +148,133 @@ export async function getRraInfoSheetEvaluationSummary({ accountId } = {}) {
 
   if (error) throw friendly(error, "Failed to load RRA information-sheet evaluation summary");
   return data ?? [];
+}
+
+export async function listRraObligationInstances({
+  accountId,
+  limit = 100,
+  offset = 0,
+} = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+
+  const { data, error } = await supabase.rpc("list_rra_obligation_instances", {
+    p_account_id: accountId,
+    p_limit: limit,
+    p_offset: offset,
+  });
+
+  if (error) throw friendly(error, "Failed to list RRA obligation instances");
+  return data ?? [];
+}
+
+export async function getRraObligationPostureSummary({ accountId } = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+
+  const { data, error } = await supabase.rpc("rra_obligation_posture_summary", {
+    p_account_id: accountId,
+  });
+
+  if (error) throw friendly(error, "Failed to load RRA obligation posture summary");
+  return data ?? [];
+}
+
+export async function listRraInfoSheetServiceEvidence({
+  accountId,
+  obligationInstanceId,
+} = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!obligationInstanceId) throw new Error("Missing obligationInstanceId");
+
+  const { data, error } = await supabase.rpc("list_rra_info_sheet_service_evidence", {
+    p_account_id: accountId,
+    p_obligation_instance_id: obligationInstanceId,
+  });
+
+  if (error) throw friendly(error, "Failed to list RRA information-sheet service evidence");
+  return data ?? [];
+}
+
+export async function captureRraInfoSheetServiceEvidence({
+  accountId,
+  obligationInstanceId,
+  officialInfoSheetIdentity,
+  serviceEvidenceTimestamp,
+  evidenceType,
+  evidenceBasis,
+  officialInfoSheetSource = "official_document_catalogue",
+  captureSource = "manual_rpe_service_evidence_capture",
+} = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!obligationInstanceId) throw new Error("Missing obligationInstanceId");
+  if (!officialInfoSheetIdentity) throw new Error("Missing officialInfoSheetIdentity");
+  if (!serviceEvidenceTimestamp) throw new Error("Missing serviceEvidenceTimestamp");
+  if (!evidenceType) throw new Error("Missing evidenceType");
+  if (!evidenceBasis) throw new Error("Missing evidenceBasis");
+
+  const { data, error } = await supabase.rpc("capture_rra_info_sheet_service_evidence", {
+    p_account_id: accountId,
+    p_obligation_instance_id: obligationInstanceId,
+    p_official_info_sheet_identity: officialInfoSheetIdentity,
+    p_service_evidence_timestamp: serviceEvidenceTimestamp,
+    p_evidence_type: evidenceType,
+    p_evidence_basis: evidenceBasis,
+    p_official_info_sheet_source: officialInfoSheetSource,
+    p_capture_source: captureSource,
+    p_demo_mode: true,
+  });
+
+  if (error) throw friendly(error, "Failed to capture RRA information-sheet service evidence");
+  return data ?? null;
+}
+
+export async function dischargeRraInfoSheetObligation({
+  accountId,
+  obligationInstanceId,
+  serviceEvidenceId,
+} = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!obligationInstanceId) throw new Error("Missing obligationInstanceId");
+  if (!serviceEvidenceId) throw new Error("Missing serviceEvidenceId");
+
+  const { data, error } = await supabase.rpc("reconcile_rra_info_sheet_obligation_discharge", {
+    p_account_id: accountId,
+    p_obligation_instance_id: obligationInstanceId,
+    p_service_evidence_id: serviceEvidenceId,
+    p_demo_mode: true,
+  });
+
+  if (error) throw friendly(error, "Failed to discharge RRA information-sheet obligation");
+  return data ?? null;
+}
+
+export async function captureAndDischargeRraInfoSheetObligation({
+  accountId,
+  obligationInstanceId,
+  officialInfoSheetIdentity,
+  serviceEvidenceTimestamp,
+  evidenceType,
+  evidenceBasis,
+  officialInfoSheetSource = "official_document_catalogue",
+  captureSource = "manual_rpe_service_evidence_capture",
+} = {}) {
+  const evidence = await captureRraInfoSheetServiceEvidence({
+    accountId,
+    obligationInstanceId,
+    officialInfoSheetIdentity,
+    serviceEvidenceTimestamp,
+    evidenceType,
+    evidenceBasis,
+    officialInfoSheetSource,
+    captureSource,
+  });
+
+  const discharge = await dischargeRraInfoSheetObligation({
+    accountId,
+    obligationInstanceId,
+    serviceEvidenceId: evidence?.evidence_id,
+  });
+
+  return { evidence, discharge };
 }
 
 export async function getRraCaptureReadiness({ accountId, tenancyId } = {}) {

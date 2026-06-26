@@ -432,6 +432,35 @@ describe("classifyInput", () => {
     expect(result.source_fields).toEqual(["properties.country_subdivision"]);
   });
 
+  it("does not read uk_subdivision or jurisdiction_subdivision as aliases for country_subdivision (JS↔SQL parity)", () => {
+    const result = classifyInput("jurisdiction", {
+      property: {
+        country_subdivision: null,
+        uk_subdivision: "England",
+        jurisdiction_subdivision: "ENG",
+      },
+    });
+
+    expect(result.classification).toBe(CLASSIFICATIONS.MISSING);
+    expect(result.value).toBeNull();
+  });
+
+  it("does not read tenancy_term_type as an alias for term_type (JS↔SQL parity)", () => {
+    const result = classifyInput("active_on_qualifying_date", {
+      regulatory: { qualifying_date: "2026-05-01" },
+      lease: {
+        lease_start_date: "2025-01-01",
+        lease_end_date: null,
+        tenancy_term_type: "periodic",
+        term_type_effective_from: "2024-06-01",
+        term_type_evidence_basis: "tenancy_agreement_clause_3",
+      },
+    });
+
+    expect(result.classification).toBe(CLASSIFICATIONS.MISSING);
+    expect(result.value).toBeNull();
+  });
+
   it("is pure and deterministic for the same context", () => {
     const first = classifyTenancyReadiness(baseContext);
     const second = classifyTenancyReadiness(baseContext);

@@ -1,0 +1,211 @@
+# Engineering brief:
+
+# Codex Prompt — RPE VS-2C: Discharge Path (open → discharged via admissible service evidence)
+
+**Status:** `RPE VS-2C — v0.3.2 pinned — APPROVED (+ first-class evidence record & flag-visibility, PO amendments)`. The one authorized door in the posture wall VS-2B built. Discharge path ONLY.
+**Slice:** RPE: RRA Information Sheet Proof Pack · **Step:** VS-2C (after VS-2B; the discharged-basis-changed reconciliation is deferred to VS-2D)
+**Spec:** Regulatory Proof Engine **v0.3.2** (§2 obligation, §4 demo discipline, Operational/Legal Separation, freshness rule). Reuses the VS-2A capture pattern and the VS-2B posture boundary.
+**Stack:** React + Supabase (Postgres + RLS, pgcrypto) · TypeScript · Vitest
+
+---
+
+## 1. What VS-2C is — cutting one door in a proven wall
+
+VS-2B proved that **nothing** can move obligation posture except engine reconciliation — RLS blocks direct writes, the constraint trigger requires provenance, no task→posture path exists. VS-2C adds the **one** posture transition that *is* allowed: `open → discharged`, on admissible service evidence, through the engine. It is safe to add precisely because VS-2B proved everything else is locked — the door is cut *through* the engine, not *around* it.
+
+**Scope is the discharge path only.** Capture admissible service evidence → engine confirms fulfilment → posture `open → discharged` → provenance. NOT the discharged-then-re-evaluated reconciliation (that's VS-2D), not `expired`, not deadline/possession, not Proof Pack, not Command Centre, not a generic evidence register.
+
+**Still demo_mode.** Gate-B unsigned — every evidence record, every discharge, every event is `demo_mode=true`, not a customer-facing legal conclusion.
+
+---
+
+## 2. The admissibility bar — discharge requires BOTH (PO)
+
+Discharge is not "mark it served." It requires admissible proof that **the correct statutory artefact was served**, with **proof of service** — both, the same `fact + time + basis` pattern as the C-shaped term indicator:
+
+```
+official_info_sheet_identity   — the GOV.UK artefact identity / version / hash.
+                                 Document tags, filenames, free text are INADMISSIBLE.
+service_evidence_timestamp     — when service occurred (+ the service proof / evidence type).
+
+BOTH required. One alone is insufficient, even in demo mode:
+  - timestamp alone proves something happened, not that the CORRECT artefact was served.
+  - artefact identity alone proves the document, not that it was SERVED.
+No bare "sent" flag. No filename inference. No task-status shortcut.
+```
+This mirrors the discipline VS-2A enforced for input facts and VS-2B proved for posture: a half-admissible discharge (one field, or an inadmissible source) is rejected, not written.
+
+---
+
+## 3. The flow (reuse the VS-2A pattern; the engine moves posture, not the capture)
+
+```
+capture service evidence (official_info_sheet_identity + service_evidence_timestamp + proof)
+→ validate admissibility (§2) — reject if incomplete/inadmissible, stored row unchanged
+→ write evidence record (first-class, §3a)
+→ write rpe.service_evidence.* provenance event (atomic with the write)
+→ ENGINE evaluates fulfilment: is the obligation met by admissible evidence?
+→ if yes: reconciliation moves obligation posture open → discharged
+→ write rpe.obligation.discharged event (atomic with the transition)
+```
+FORBIDDEN (the VS-2B boundary still holds):
+```
+- capturing evidence must NOT directly UPDATE obligation_instance to discharged
+- a "sent" / task flag must NOT discharge (VS-2B already proved it can't move posture)
+- posture moves ONLY through engine reconciliation — discharge is a new reconciliation OUTCOME,
+  not a new bypass. discharged is set inside the reconciliation RPC, nowhere else.
+```
+
+### 3a. Evidence record shape — first-class and queryable (PO amendment)
+Service evidence must be a **first-class, independently queryable record** linked to `obligation_instance` — NOT loose JSON buried on the obligation. The eventual Proof Pack must be able to render, by query: what official artefact was served, when, what evidence proves service, who captured it, which obligation it discharged, which provenance event recorded it. Use a dedicated service/evidence table (or an existing first-class evidence/document table).
+```
+Minimum fields:
+  evidence_id, account_id, property_id, lease_id, obligation_instance_id,
+  official_info_sheet_identity, service_evidence_timestamp, evidence_type,
+  captured_by, capture_source, demo_mode, created_at
+```
+Do NOT store service evidence only as a JSON payload on `obligation_instance`. This keeps the Proof Pack path open without building Proof Pack now.
+
+---
+
+## 4. Discharge transition rules
+
+```
+open → discharged       : ONLY when admissible service evidence (§2) proves fulfilment, via the engine.
+non-open → discharge     : REJECTED. A superseded obligation has nothing to discharge; a requires_review
+                           obligation's posture isn't provable. Discharge transitions from `open` only.
+discharged is now REACHABLE (VS-2C lifts the VS-2B reserved-only block) — but ONLY via this path.
+```
+
+---
+
+## 5. ★ The freeze rule — discharged is protected from automatic supersession (PO, load-bearing)
+
+This is the rule that lets VS-2C ship without resolving the immutability-vs-freshness tension. A proven discharge is a true historical fact (the sheet *was* served, with evidence, while the obligation applied) — it must not be silently erased by a later evaluation.
+
+```
+If an obligation is discharged, a later fresh evaluation must NOT silently move it to
+superseded or requires_review.
+
+Specifically:
+  discharged + later not_affected  → DO NOT auto-supersede. Raise a `discharged-basis-changed`
+                                     review flag. Posture stays discharged; the discrepancy is recorded
+                                     for VS-2D / human review, not auto-resolved.
+  discharged + later needs_data    → same: do not auto-move; flag review-required.
+  discharged + later affected      → idempotent (already discharged for this obligation); no change.
+```
+**The wrong outcome this prevents:** `open → discharged → (later not_affected) → superseded`, which would erase the historical fact that the obligation was discharged with evidence. That is the history-rewriting the whole architecture forbids.
+
+**What VS-2C does NOT do:** it does not decide the *final* model for discharged-basis-changed (candidate C — `discharged_then_superseded` / `discharged_basis_changed` — is the probable long-term answer but is **deferred to VS-2D**). VS-2C implements rule **A** (discharged stays discharged) as the safe temporary behaviour, with the discrepancy *flagged*, not resolved.
+
+**Flag must be visible (PO amendment).** When `discharged-basis-changed` is raised, expose it in the **diagnostic / read model** (e.g. surfaced on the obligation in the readiness/posture-summary read, and/or the diagnostic page) so it's observable in testing — a flag that exists but can't be seen is untestable. **Diagnostic-only**: no customer-facing UX, no Command Centre card. Just enough visibility to confirm the flag was raised and to support VS-2D's later design.
+
+---
+
+## 6. Provenance
+
+```
+rpe.service_evidence.captured   — on admissible evidence capture (atomic with the evidence write)
+  payload: account_id, property_id, lease_id, obligation_instance_id,
+           official_info_sheet_identity, service_evidence_timestamp, evidence_type,
+           captured_by, capture_source, demo_mode
+rpe.obligation.discharged       — on the open → discharged transition (atomic with the posture change)
+  payload: obligation_instance_id, evaluation_id, evidence_id(s),
+           official_info_sheet_identity, service_evidence_timestamp,
+           previous_posture=open, new_posture=discharged, reason, demo_mode
+rpe.obligation.discharged_basis_changed_flag  — when a discharged obligation gets a later
+           not_affected/needs_data (review flag, NOT a posture move)
+```
+The discharge event records *which evidence* discharged it — so the eventual Proof Pack can show "discharged, because this official artefact was served on this date, proven by this evidence." Same atomic + demo_mode discipline as all prior events.
+
+---
+
+## 7. Tests
+
+```
+Admissibility (§2):
+  - discharge with official_info_sheet_identity only (no service proof) → REJECTED, posture stays open
+  - discharge with service timestamp only (no artefact identity) → REJECTED, posture stays open
+  - discharge with an inadmissible artefact source (filename/tag/free text) → REJECTED
+  - discharge with BOTH admissible → succeeds (see below)
+Discharge (the door):
+  - open obligation + admissible evidence (both fields) → posture open → discharged via engine;
+    rpe.service_evidence.captured + rpe.obligation.discharged events present, atomic
+  - evidence capture does NOT directly set discharged (posture moves only via reconciliation RPC)
+Transition guards:
+  - attempt discharge on a superseded obligation → REJECTED (non-open)
+  - attempt discharge on a requires_review obligation → REJECTED (non-open)
+★ Freeze rule (§5 — load-bearing):
+  - discharged obligation + later not_affected eval → posture STAYS discharged;
+    discharged-basis-changed flag raised; NO auto-supersession, NO posture event moving it off discharged
+  - discharged obligation + later needs_data eval → stays discharged, flag raised
+  - discharged obligation + later affected eval → idempotent, no change
+  - flag visibility (amend 2): a raised discharged-basis-changed flag is observable in the
+    diagnostic/read model (readiness or posture summary), not just buried in a column
+Evidence record (amend 1):
+  - service evidence is a first-class queryable record (own table/row), linked to obligation_instance,
+    with all minimum fields — NOT only JSON on obligation_instance
+  - the discharge can be traced by query: obligation → evidence → official artefact + timestamp + captured_by
+Boundary (still holds from VS-2B):
+  - renters_rights_tasks.sent = true on a discharged or open obligation → NO posture move
+  - direct UPDATE to discharged outside reconciliation RPC → blocked (RLS + constraint trigger)
+Hard checks:
+  - demo_mode = true on every evidence record, discharge, and event (Gate-B leak → STOP)
+  - account-scoped: ownerB cannot capture evidence / discharge ownerA's obligation (behavioral, not structural)
+  - ★ cross-account READS reject by THROWING (system-wide rule): every VS-2C read RPC — evidence
+    reads, list/summary of evidence or discharged obligations, any readiness/posture surface that now
+    includes discharge state — THROWS an authorization error when accessed cross-account. NOT a neutral
+    empty/not_run payload. This matches the write RPCs and the get_rra_capture_readiness fix: ALL
+    account-scoped RPE RPCs reject cross-account, no mixed read/write model. Behavioral test, not string-match.
+```
+
+---
+
+## 8. Acceptance criteria
+
+- Discharge requires BOTH `official_info_sheet_identity` AND `service_evidence_timestamp`/proof; one alone or an inadmissible source → rejected, posture unchanged.
+- `open → discharged` happens ONLY through engine reconciliation on admissible evidence; evidence capture never directly sets posture.
+- Discharge rejected on non-open obligations.
+- **Freeze rule:** a discharged obligation is never auto-superseded; a later not_affected/needs_data raises a `discharged-basis-changed` review flag and leaves posture discharged (§5).
+- **Evidence record is first-class and queryable** (own table/row, minimum fields, linked to obligation_instance) — not loose JSON on the obligation (amend 1).
+- **Flag is visible** in the diagnostic/read model when raised — diagnostic-only, no customer UX (amend 2).
+- `rpe.service_evidence.captured` and `rpe.obligation.discharged` events emitted atomically, full payload incl. the discharging evidence; `demo_mode=true` everywhere.
+- VS-2B boundary intact: task writes still cannot move posture; direct posture writes still blocked; discharged reachable ONLY via this path.
+- Account-scoped behaviorally (ownerB cannot discharge ownerA's obligation).
+- **Cross-account reads throw** (system-wide rule): every VS-2C read RPC (evidence reads, list/summary, discharge-state surfaces) rejects cross-account by throwing an authorization error, never a neutral payload — consistent with the write RPCs and `get_rra_capture_readiness`. No mixed read/write model.
+- Out of scope absent: no discharged_then_superseded final model, no expired, no deadline logic, no Proof Pack, no Command Centre, no generic evidence register.
+
+---
+
+## 9. Deferred to VS-2D / flagged (do not build)
+
+```
+discharged-basis-changed FINAL model (candidate C: discharged_then_superseded / discharged_basis_changed)
+  — VS-2C only FLAGS the discrepancy; VS-2D decides how to resolve it.
+expired posture, deadline/possession logic
+Proof Pack export (the discharge provenance is what it will eventually render)
+Command Centre cards
+generic evidence register / source framework
+```
+
+---
+
+## 10. After VS-2C
+
+The obligation lifecycle is now complete for the demo-mode slice: `affected → open` (VS-2B), `open → discharged` on admissible evidence (VS-2C), with `superseded`/`requires_review` for changed bases and discharged frozen against silent erasure. Every transition is provenanced and demo-only. The engine can now show not just "this tenancy is affected" but "this obligation was discharged, because this official artefact was served on this date, proven by this evidence" — which is the Proof Pack's eventual content. **VS-2D** then resolves the one deferred question (how a discharged obligation reconciles when its basis later changes — candidate C), over a lifecycle that's otherwise complete and proven. Gate-B sign-off remains the gate before any of this becomes customer-facing.
+
+# RULES FOR CODEX
+- Implement only the CURRENT TASK section.
+- Do not modify unrelated files.
+- Reuse existing architecture before creating new systems.
+- Run tests/build and report results.
+- List assumptions and files changed.
+
+# COMPLETION REPORT FORMAT
+- Files changed:
+- Files created:
+- Tests added:
+- Test result:
+- Build result:
+- Risks/assumptions:
+- Manual steps:

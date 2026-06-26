@@ -420,6 +420,14 @@ begin
     raise exception 'Not authorized for account';
   end if;
 
+  if not exists (
+    select 1 from public.leases l
+    where l.id = p_lease_id
+      and l.account_id = p_account_id
+  ) then
+    raise exception 'Lease not found for account';
+  end if;
+
   select re.*
     into v_eval
     from public.rule_evaluation re

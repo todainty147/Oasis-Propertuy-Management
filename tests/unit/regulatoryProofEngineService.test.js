@@ -151,6 +151,159 @@ describe("regulatoryProofEngineService", () => {
     expect(result).toEqual([{ result: "affected", evaluation_count: 2 }]);
   });
 
+  it("reconciles obligation posture after recording a fresh evaluation", async () => {
+    mockRpc.mockResolvedValue({
+      data: {
+        action: "created",
+        obligation_instance_id: "obligation-1",
+        posture: "open",
+      },
+      error: null,
+    });
+
+    const result = await service.reconcileRraInfoSheetObligationForEvaluation({
+      accountId: "acct-1",
+      evaluationId: "eval-1",
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith("reconcile_rra_info_sheet_obligation", {
+      p_account_id: "acct-1",
+      p_evaluation_id: "eval-1",
+      p_demo_mode: true,
+    });
+    expect(result.posture).toBe("open");
+  });
+
+  it("loads obligation posture summary with requires_review as its own bucket", async () => {
+    mockRpc.mockResolvedValue({
+      data: [
+        { posture: "open", obligation_count: 1 },
+        { posture: "requires_review", obligation_count: 1 },
+      ],
+      error: null,
+    });
+
+    const result = await service.getRraObligationPostureSummary({ accountId: "acct-1" });
+
+    expect(mockRpc).toHaveBeenCalledWith("rra_obligation_posture_summary", {
+      p_account_id: "acct-1",
+    });
+    expect(result.map((row) => row.posture)).toEqual(["open", "requires_review"]);
+  });
+
+  it("lists RRA information-sheet service evidence via throwing RPC", async () => {
+    mockRpc.mockResolvedValue({
+      data: [
+        { id: "ev-1", obligation_instance_id: "obligation-1", evidence_type: "delivery_confirmation" },
+      ],
+      error: null,
+    });
+
+    const result = await service.listRraInfoSheetServiceEvidence({
+      accountId: "acct-1",
+      obligationInstanceId: "obligation-1",
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith("list_rra_info_sheet_service_evidence", {
+      p_account_id: "acct-1",
+      p_obligation_instance_id: "obligation-1",
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0].evidence_type).toBe("delivery_confirmation");
+  });
+
+  it("captures admissible RRA information-sheet service evidence", async () => {
+    mockRpc.mockResolvedValue({
+      data: {
+        evidence_id: "evidence-1",
+        obligation_instance_id: "obligation-1",
+        demo_mode: true,
+      },
+      error: null,
+    });
+
+    const result = await service.captureRraInfoSheetServiceEvidence({
+      accountId: "acct-1",
+      obligationInstanceId: "obligation-1",
+      officialInfoSheetIdentity: "govuk-rra-info-sheet:v1:sha256-demo",
+      serviceEvidenceTimestamp: "2026-06-26T12:00:00.000Z",
+      evidenceType: "delivery_confirmation",
+      evidenceBasis: "provider delivery receipt",
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith("capture_rra_info_sheet_service_evidence", {
+      p_account_id: "acct-1",
+      p_obligation_instance_id: "obligation-1",
+      p_official_info_sheet_identity: "govuk-rra-info-sheet:v1:sha256-demo",
+      p_service_evidence_timestamp: "2026-06-26T12:00:00.000Z",
+      p_evidence_type: "delivery_confirmation",
+      p_evidence_basis: "provider delivery receipt",
+      p_official_info_sheet_source: "official_document_catalogue",
+      p_capture_source: "manual_rpe_service_evidence_capture",
+      p_demo_mode: true,
+    });
+    expect(result.evidence_id).toBe("evidence-1");
+  });
+
+  it("discharges an RRA information-sheet obligation through reconciliation", async () => {
+    mockRpc.mockResolvedValue({
+      data: {
+        action: "discharged",
+        obligation_instance_id: "obligation-1",
+        evidence_id: "evidence-1",
+        posture: "discharged",
+      },
+      error: null,
+    });
+
+    const result = await service.dischargeRraInfoSheetObligation({
+      accountId: "acct-1",
+      obligationInstanceId: "obligation-1",
+      serviceEvidenceId: "evidence-1",
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith("reconcile_rra_info_sheet_obligation_discharge", {
+      p_account_id: "acct-1",
+      p_obligation_instance_id: "obligation-1",
+      p_service_evidence_id: "evidence-1",
+      p_demo_mode: true,
+    });
+    expect(result.posture).toBe("discharged");
+  });
+
+  it("captures service evidence then discharges via the engine helper", async () => {
+    mockRpc.mockImplementation((fn) => {
+      if (fn === "capture_rra_info_sheet_service_evidence") {
+        return Promise.resolve({ data: { evidence_id: "evidence-1" }, error: null });
+      }
+      if (fn === "reconcile_rra_info_sheet_obligation_discharge") {
+        return Promise.resolve({ data: { action: "discharged", posture: "discharged" }, error: null });
+      }
+      throw new Error(`Unexpected RPC ${fn}`);
+    });
+
+    const result = await service.captureAndDischargeRraInfoSheetObligation({
+      accountId: "acct-1",
+      obligationInstanceId: "obligation-1",
+      officialInfoSheetIdentity: "govuk-rra-info-sheet:v1:sha256-demo",
+      serviceEvidenceTimestamp: "2026-06-26T12:00:00.000Z",
+      evidenceType: "delivery_confirmation",
+      evidenceBasis: "provider delivery receipt",
+    });
+
+    expect(mockRpc).toHaveBeenNthCalledWith(1, "capture_rra_info_sheet_service_evidence", expect.objectContaining({
+      p_obligation_instance_id: "obligation-1",
+      p_demo_mode: true,
+    }));
+    expect(mockRpc).toHaveBeenNthCalledWith(2, "reconcile_rra_info_sheet_obligation_discharge", {
+      p_account_id: "acct-1",
+      p_obligation_instance_id: "obligation-1",
+      p_service_evidence_id: "evidence-1",
+      p_demo_mode: true,
+    });
+    expect(result.discharge.posture).toBe("discharged");
+  });
+
   it("loads VS-2A capture readiness for the selected tenancy", async () => {
     mockRpc.mockResolvedValue({
       data: {
@@ -199,6 +352,9 @@ describe("regulatoryProofEngineService", () => {
       }
       if (fn === "record_rra_info_sheet_rule_evaluation") {
         return Promise.resolve({ data: { id: "eval-1" }, error: null });
+      }
+      if (fn === "reconcile_rra_info_sheet_obligation") {
+        return Promise.resolve({ data: { action: "none" }, error: null });
       }
       throw new Error(`Unexpected RPC ${fn}`);
     });
@@ -256,6 +412,9 @@ describe("regulatoryProofEngineService", () => {
       if (fn === "record_rra_info_sheet_rule_evaluation") {
         return Promise.resolve({ data: { id: "eval-2" }, error: null });
       }
+      if (fn === "reconcile_rra_info_sheet_obligation") {
+        return Promise.resolve({ data: { action: "none" }, error: null });
+      }
       throw new Error(`Unexpected RPC ${fn}`);
     });
 
@@ -305,6 +464,9 @@ describe("regulatoryProofEngineService", () => {
       }
       if (fn === "record_rra_info_sheet_rule_evaluation") {
         return Promise.resolve({ data: { id: "eval-3" }, error: null });
+      }
+      if (fn === "reconcile_rra_info_sheet_obligation") {
+        return Promise.resolve({ data: { action: "none" }, error: null });
       }
       throw new Error(`Unexpected RPC ${fn}`);
     });
