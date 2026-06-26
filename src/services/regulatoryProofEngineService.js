@@ -125,3 +125,118 @@ export async function getRraInfoSheetEvaluationSummary({ accountId } = {}) {
   if (error) throw friendly(error, "Failed to load RRA information-sheet evaluation summary");
   return data ?? [];
 }
+
+export async function getRraCaptureReadiness({ accountId, tenancyId } = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!tenancyId) throw new Error("Missing tenancyId");
+
+  const { data, error } = await supabase.rpc("get_rra_capture_readiness", {
+    p_account_id: accountId,
+    p_lease_id: tenancyId,
+  });
+
+  if (error) throw friendly(error, "Failed to load RRA capture readiness");
+  return data ?? null;
+}
+
+async function runFreshDemoEvaluation({ accountId, tenancyId }) {
+  return runRraInfoSheetEvaluationForTenancy({
+    accountId,
+    tenancyId,
+    demoMode: true,
+  });
+}
+
+export async function captureRraJurisdictionAndEvaluate({
+  accountId,
+  propertyId,
+  tenancyId,
+  countrySubdivision,
+  evidenceBasis = null,
+} = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!propertyId) throw new Error("Missing propertyId");
+  if (!tenancyId) throw new Error("Missing tenancyId");
+  if (!countrySubdivision) throw new Error("Missing countrySubdivision");
+
+  const { data, error } = await supabase.rpc("capture_rra_jurisdiction", {
+    p_account_id: accountId,
+    p_property_id: propertyId,
+    p_country_subdivision: countrySubdivision,
+    p_evidence_basis: evidenceBasis,
+    p_demo_mode: true,
+  });
+
+  if (error) throw friendly(error, "Failed to capture RRA jurisdiction");
+
+  const evaluation = await runFreshDemoEvaluation({ accountId, tenancyId });
+  return { capture: data, evaluation };
+}
+
+export async function captureRraTermIndicatorAndEvaluate({
+  accountId,
+  tenancyId,
+  termType,
+  termTypeEffectiveFrom,
+  termTypeEvidenceBasis,
+} = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!tenancyId) throw new Error("Missing tenancyId");
+  if (!termType) throw new Error("Missing termType");
+  if (!termTypeEffectiveFrom) throw new Error("Missing termTypeEffectiveFrom");
+  if (!termTypeEvidenceBasis) throw new Error("Missing termTypeEvidenceBasis");
+
+  const { data, error } = await supabase.rpc("capture_rra_term_indicator", {
+    p_account_id: accountId,
+    p_lease_id: tenancyId,
+    p_term_type: termType,
+    p_term_type_effective_from: termTypeEffectiveFrom,
+    p_term_type_evidence_basis: termTypeEvidenceBasis,
+    p_demo_mode: true,
+  });
+
+  if (error) throw friendly(error, "Failed to capture RRA term indicator");
+
+  const evaluation = await runFreshDemoEvaluation({ accountId, tenancyId });
+  return { capture: data, evaluation };
+}
+
+export async function captureRraTier4ClassificationAndEvaluate({
+  accountId,
+  tenancyId,
+  tenancyClass,
+  companyLet,
+  residentLandlord,
+  rentAct1977,
+  pbsa,
+  isWhollyOral,
+  evidenceBasis,
+} = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!tenancyId) throw new Error("Missing tenancyId");
+  if (!tenancyClass) throw new Error("Missing tenancyClass");
+  if (typeof companyLet !== "boolean") throw new Error("Missing companyLet");
+  if (typeof residentLandlord !== "boolean") throw new Error("Missing residentLandlord");
+  if (typeof rentAct1977 !== "boolean") throw new Error("Missing rentAct1977");
+  if (typeof pbsa !== "boolean") throw new Error("Missing pbsa");
+  if (typeof isWhollyOral !== "boolean") throw new Error("Missing isWhollyOral");
+  if (!evidenceBasis) throw new Error("Missing evidenceBasis");
+
+  const { data, error } = await supabase.rpc("capture_rra_tier4_classification", {
+    p_account_id: accountId,
+    p_lease_id: tenancyId,
+    p_tenancy_class: tenancyClass,
+    p_company_let: companyLet,
+    p_resident_landlord: residentLandlord,
+    p_rent_act_1977: rentAct1977,
+    p_pbsa: pbsa,
+    p_is_wholly_oral: isWhollyOral,
+    p_evidence_basis: evidenceBasis,
+    p_demo_mode: true,
+  });
+
+  if (error) throw friendly(error, "Failed to capture RRA Tier-4 classification");
+
+  const evaluation = await runFreshDemoEvaluation({ accountId, tenancyId });
+  return { capture: data, evaluation };
+}
