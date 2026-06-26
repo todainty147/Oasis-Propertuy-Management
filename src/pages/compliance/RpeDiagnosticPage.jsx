@@ -319,19 +319,28 @@ export default function RpeDiagnosticPage({ leases = [] }) {
             </div>
             <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-950">
               <div className="text-slate-500 dark:text-slate-400">Missing fields</div>
-              <div className="mt-1 font-mono text-xs text-slate-800 dark:text-slate-200">
+              <div
+                data-testid="rpe-evaluation-missing-fields"
+                className="mt-1 font-mono text-xs text-slate-800 dark:text-slate-200"
+              >
                 {(evaluation.missing_fields || []).join(", ") || "—"}
               </div>
             </div>
             <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-950">
               <div className="text-slate-500 dark:text-slate-400">AOD branch</div>
-              <div className="mt-1 font-mono text-xs text-slate-800 dark:text-slate-200">
+              <div
+                data-testid="rpe-evaluation-aod-branch"
+                className="mt-1 font-mono text-xs text-slate-800 dark:text-slate-200"
+              >
                 {evaluation.aod_branch || "—"}
               </div>
             </div>
             <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-950">
               <div className="text-slate-500 dark:text-slate-400">Recorded evaluation ID</div>
-              <div className="mt-1 break-all font-mono text-xs text-slate-800 dark:text-slate-200">
+              <div
+                data-testid="rpe-recorded-evaluation-id"
+                className="mt-1 break-all font-mono text-xs text-slate-800 dark:text-slate-200"
+              >
                 {evaluation.id || "not recorded"}
               </div>
             </div>
@@ -369,7 +378,10 @@ export default function RpeDiagnosticPage({ leases = [] }) {
           </div>
           <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-950">
             <dt className="text-slate-500 dark:text-slate-400">Next action</dt>
-            <dd className="mt-1 font-mono text-xs text-slate-800 dark:text-slate-200">
+            <dd
+              data-testid="rpe-capture-next-action"
+              className="mt-1 font-mono text-xs text-slate-800 dark:text-slate-200"
+            >
               {captureReadiness?.next_capture_action || "—"}
             </dd>
           </div>
@@ -450,6 +462,7 @@ export default function RpeDiagnosticPage({ leases = [] }) {
               <label className="block text-sm">
                 <span className="text-slate-600 dark:text-slate-300">Effective from</span>
                 <input
+                  data-testid="rpe-term-effective-from"
                   type="date"
                   value={termCapture.termTypeEffectiveFrom}
                   onChange={(event) => setTermCapture((current) => ({
@@ -463,6 +476,7 @@ export default function RpeDiagnosticPage({ leases = [] }) {
             <label className="mt-3 block text-sm">
               <span className="text-slate-600 dark:text-slate-300">Evidence basis</span>
               <input
+                data-testid="rpe-term-evidence-basis"
                 value={termCapture.termTypeEvidenceBasis}
                 onChange={(event) => setTermCapture((current) => ({
                   ...current,
@@ -473,6 +487,7 @@ export default function RpeDiagnosticPage({ leases = [] }) {
             </label>
             <button
               type="button"
+              data-testid="rpe-capture-term-submit"
               disabled={!canRun || loadingAction}
               onClick={handleCaptureTermIndicator}
               className="mt-4 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
