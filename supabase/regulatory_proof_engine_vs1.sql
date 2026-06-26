@@ -89,6 +89,7 @@ create table if not exists public.rule_evaluation (
   decision_path text[] not null default '{}',
   result text not null check (result in ('affected','not_affected','deferred','needs_data')),
   obligation_kind text check (obligation_kind in ('information_sheet','written_statement')),
+  exposure_gbp_ceiling numeric,
   reason_codes text[] not null default '{}',
   missing_fields text[] not null default '{}',
   deferred_until date,
@@ -110,7 +111,8 @@ create table if not exists public.rule_evaluation (
 );
 
 alter table public.rule_evaluation
-  add column if not exists deferred_until_basis text;
+  add column if not exists deferred_until_basis text,
+  add column if not exists exposure_gbp_ceiling numeric;
 
 do $$ begin
   alter table public.rule_evaluation
@@ -344,6 +346,9 @@ select
       'AFF_WRITTEN_STATEMENT'
     ],
     'gate_b_questions', array[
+      'Tenancy_class value set and reason-code de-duplication for regulated_rent_act versus rent_act_1977.',
+      'Exposure presentation: confirm up to £7,000 per affected tenancy as statutory ceiling, not prediction.',
+      'Resident_landlord to EXCL_CLASS_LODGER reason-code naming.',
       'Oral tenancy: written statement only, or information sheet as well?',
       'No-notice default: confirm absence of recorded S21/S8 means no deferral.',
       'Excluded-class completeness and rent boundary treatment.'
@@ -364,6 +369,12 @@ set
 drop function if exists public.record_rra_info_sheet_rule_evaluation(
   uuid, uuid, jsonb, text[], text, text, text[], text[], date, text, boolean, text, timestamptz
 );
+drop function if exists public.record_rra_info_sheet_rule_evaluation(
+  uuid, uuid, jsonb, text[], text, text, text[], text[], date, text, text, boolean, timestamptz
+);
+drop function if exists public.record_rra_info_sheet_rule_evaluation(
+  uuid, uuid, jsonb, text[], text, text, numeric, text[], text[], date, text, text, boolean, timestamptz
+);
 
 create or replace function public.record_rra_info_sheet_rule_evaluation(
   p_account_id uuid,
@@ -372,6 +383,7 @@ create or replace function public.record_rra_info_sheet_rule_evaluation(
   p_decision_path text[],
   p_result text,
   p_obligation_kind text default null,
+  p_exposure_gbp_ceiling numeric default null,
   p_reason_codes text[] default '{}',
   p_missing_fields text[] default '{}',
   p_deferred_until date default null,
@@ -453,6 +465,7 @@ begin
     decision_path,
     result,
     obligation_kind,
+    exposure_gbp_ceiling,
     reason_codes,
     missing_fields,
     deferred_until,
@@ -469,6 +482,7 @@ begin
     p_decision_path,
     p_result,
     p_obligation_kind,
+    p_exposure_gbp_ceiling,
     coalesce(p_reason_codes, array[]::text[]),
     coalesce(p_missing_fields, array[]::text[]),
     p_deferred_until,
@@ -496,6 +510,8 @@ begin
       'ruleVersion', v_rule.version,
       'tenancyId', p_tenancy_id,
       'result', v_evaluation.result,
+      'obligationKind', v_evaluation.obligation_kind,
+      'exposureGbpCeiling', v_evaluation.exposure_gbp_ceiling,
       'reasonCodes', v_evaluation.reason_codes,
       'decisionPath', v_evaluation.decision_path,
       'confidence', v_evaluation.evaluation_confidence,
@@ -520,6 +536,8 @@ begin
 end;
 $$;
 
+drop function if exists public.list_rra_info_sheet_rule_evaluations(uuid, integer, integer);
+
 create or replace function public.list_rra_info_sheet_rule_evaluations(
   p_account_id uuid,
   p_limit integer default 100,
@@ -534,6 +552,7 @@ returns table (
   reason_codes text[],
   missing_fields text[],
   obligation_kind text,
+  exposure_gbp_ceiling numeric,
   deferred_until_basis text,
   demo_mode boolean,
   evaluated_at timestamptz
@@ -558,6 +577,7 @@ begin
     re.reason_codes,
     re.missing_fields,
     re.obligation_kind,
+    re.exposure_gbp_ceiling,
     re.deferred_until_basis,
     re.demo_mode,
     re.evaluated_at
@@ -610,13 +630,13 @@ end;
 $$;
 
 revoke all on function public.record_rra_info_sheet_rule_evaluation(
-  uuid, uuid, jsonb, text[], text, text, text[], text[], date, text, text, boolean, timestamptz
+  uuid, uuid, jsonb, text[], text, text, numeric, text[], text[], date, text, text, boolean, timestamptz
 ) from public;
 revoke all on function public.list_rra_info_sheet_rule_evaluations(uuid, integer, integer) from public;
 revoke all on function public.rra_info_sheet_evaluation_summary(uuid) from public;
 
 grant execute on function public.record_rra_info_sheet_rule_evaluation(
-  uuid, uuid, jsonb, text[], text, text, text[], text[], date, text, text, boolean, timestamptz
+  uuid, uuid, jsonb, text[], text, text, numeric, text[], text[], date, text, text, boolean, timestamptz
 ) to authenticated;
 grant execute on function public.list_rra_info_sheet_rule_evaluations(uuid, integer, integer) to authenticated;
 grant execute on function public.rra_info_sheet_evaluation_summary(uuid) to authenticated;

@@ -24,6 +24,7 @@ export const RRA_INFO_SHEET_REASON_CODES = Object.freeze([
 const ENGLAND_VALUES = new Set(["ENG", "ENGLAND", "GB-ENG"]);
 const AST_VALUES = new Set([
   "ast",
+  "assured",
   "assured_shorthold",
   "assured_shorthold_tenancy",
   "assured shorthold",
@@ -75,6 +76,7 @@ function result(payload) {
     decision_path: payload.decision_path ?? [],
     missing_fields: payload.missing_fields ?? [],
     obligation_kind: payload.obligation_kind ?? null,
+    exposure_gbp_ceiling: payload.exposure_gbp_ceiling ?? null,
     deferred_until: payload.deferred_until ?? null,
     deferred_until_basis: payload.deferred_until_basis ?? null,
   };
@@ -132,16 +134,6 @@ export function evaluateRraInfoSheetV1(classifiedMap) {
     });
   }
 
-  const tenancyClass = input(classifiedMap, pushRead(decisionPath, "tenancy_class"));
-  if (isMissing(tenancyClass)) return needsData(["tenancy_class"], decisionPath);
-  if (!AST_VALUES.has(normalizeTenancyClass(tenancyClass.value))) {
-    return result({
-      result: "not_affected",
-      reason_codes: ["EXCL_NOT_AST"],
-      decision_path: decisionPath,
-    });
-  }
-
   for (const [noticeKey, reasonCode] of [
     ["s21_served", "DEFER_PENDING_S21"],
     ["s8_served", "DEFER_PENDING_S8"],
@@ -175,20 +167,20 @@ export function evaluateRraInfoSheetV1(classifiedMap) {
     });
   }
 
-  const residentLandlord = input(classifiedMap, pushRead(decisionPath, "resident_landlord"));
-  if (!isMissing(residentLandlord) && normalizeBoolean(residentLandlord.value) === true) {
-    return result({
-      result: "not_affected",
-      reason_codes: ["EXCL_CLASS_LODGER"],
-      decision_path: decisionPath,
-    });
-  }
-
   const companyLet = input(classifiedMap, pushRead(decisionPath, "company_let"));
   if (!isMissing(companyLet) && normalizeBoolean(companyLet.value) === true) {
     return result({
       result: "not_affected",
       reason_codes: ["EXCL_CLASS_COMPANY_LET"],
+      decision_path: decisionPath,
+    });
+  }
+
+  const residentLandlord = input(classifiedMap, pushRead(decisionPath, "resident_landlord"));
+  if (!isMissing(residentLandlord) && normalizeBoolean(residentLandlord.value) === true) {
+    return result({
+      result: "not_affected",
+      reason_codes: ["EXCL_CLASS_LODGER"],
       decision_path: decisionPath,
     });
   }
@@ -211,10 +203,20 @@ export function evaluateRraInfoSheetV1(classifiedMap) {
     });
   }
 
+  const tenancyClass = input(classifiedMap, pushRead(decisionPath, "tenancy_class"));
+  if (isMissing(tenancyClass)) return needsData(["tenancy_class"], decisionPath);
+  if (!AST_VALUES.has(normalizeTenancyClass(tenancyClass.value))) {
+    return result({
+      result: "not_affected",
+      reason_codes: ["EXCL_NOT_AST"],
+      decision_path: decisionPath,
+    });
+  }
+
   const missingExclusionFields = [
     ["annual_rent_gbp", annualRent],
-    ["resident_landlord", residentLandlord],
     ["company_let", companyLet],
+    ["resident_landlord", residentLandlord],
     ["rent_act_1977", rentAct1977],
     ["pbsa", pbsa],
   ].filter(([, item]) => isMissing(item)).map(([key]) => key);
@@ -231,6 +233,7 @@ export function evaluateRraInfoSheetV1(classifiedMap) {
       reason_codes: ["AFF_WRITTEN_STATEMENT"],
       decision_path: decisionPath,
       obligation_kind: "written_statement",
+      exposure_gbp_ceiling: 7000,
     });
   }
 
@@ -239,6 +242,7 @@ export function evaluateRraInfoSheetV1(classifiedMap) {
     reason_codes: ["AFF_INFO_SHEET"],
     decision_path: decisionPath,
     obligation_kind: "information_sheet",
+    exposure_gbp_ceiling: 7000,
   });
 }
 
@@ -297,6 +301,7 @@ export async function runRraInfoSheetEvaluation(tenancyId, {
     decision_path: evaluation.decision_path,
     result: evaluation.result,
     obligation_kind: evaluation.obligation_kind,
+    exposure_gbp_ceiling: evaluation.exposure_gbp_ceiling,
     reason_codes: evaluation.reason_codes,
     missing_fields: evaluation.missing_fields,
     deferred_until: evaluation.deferred_until,

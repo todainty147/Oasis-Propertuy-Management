@@ -141,6 +141,19 @@ describe("evaluateRraInfoSheetV1 results", () => {
     expect(result.decision_path).toContain("tenancy_class");
   });
 
+  it("treats assured and assured shorthold as provisionally in scope", () => {
+    for (const tenancyClass of ["assured_shorthold", "assured"]) {
+      expect(evaluateRraInfoSheetV1(affectedMap({
+        tenancy_class: exists("tenancy_class", tenancyClass),
+      }))).toMatchObject({
+        result: "affected",
+        reason_codes: ["AFF_INFO_SHEET"],
+        obligation_kind: "information_sheet",
+        exposure_gbp_ceiling: 7000,
+      });
+    }
+  });
+
   it("returns not_affected for tenancies entered on or after commencement", () => {
     const result = evaluateRraInfoSheetV1(affectedMap({
       tenancy_start_date: exists("tenancy_start_date", "2026-05-01"),
@@ -184,6 +197,11 @@ describe("evaluateRraInfoSheetV1 results", () => {
         "tenancy_exists",
         "tenancy_start_date",
         "active_on_qualifying_date",
+        "annual_rent_gbp",
+        "company_let",
+        "resident_landlord",
+        "rent_act_1977",
+        "pbsa",
         "tenancy_class",
       ],
     });
@@ -215,6 +233,11 @@ describe("evaluateRraInfoSheetV1 results", () => {
       "tenancy_exists",
       "tenancy_start_date",
       "active_on_qualifying_date",
+      "annual_rent_gbp",
+      "company_let",
+      "resident_landlord",
+      "rent_act_1977",
+      "pbsa",
       "tenancy_class",
     ]);
   });
@@ -260,8 +283,8 @@ describe("evaluateRraInfoSheetV1 results", () => {
 
   it("returns not_affected for each excluded class", () => {
     const cases = [
-      ["resident_landlord", true, "EXCL_CLASS_LODGER"],
       ["company_let", true, "EXCL_CLASS_COMPANY_LET"],
+      ["resident_landlord", true, "EXCL_CLASS_LODGER"],
       ["rent_act_1977", true, "EXCL_CLASS_RENT_ACT_1977"],
       ["pbsa", true, "EXCL_CLASS_PBSA"],
     ];
@@ -270,18 +293,50 @@ describe("evaluateRraInfoSheetV1 results", () => {
       const result = evaluateRraInfoSheetV1(affectedMap({ [key]: exists(key, value) }));
       expect(result.result).toBe("not_affected");
       expect(result.reason_codes).toEqual([reason]);
+      expect(deriveEvaluationConfidence(affectedMap({ [key]: exists(key, value) }), result.decision_path, result.result)).toBe("medium");
     }
   });
 
-  it("evaluates provable exclusions before completeness", () => {
+  it("evaluates present true exclusion flags before tenancy_class completeness", () => {
     const result = evaluateRraInfoSheetV1(affectedMap({
-      annual_rent_gbp: missing("annual_rent_gbp"),
       company_let: exists("company_let", true),
+      tenancy_class: missing("tenancy_class"),
+      resident_landlord: missing("resident_landlord"),
+      rent_act_1977: missing("rent_act_1977"),
+      pbsa: missing("pbsa"),
+      is_wholly_oral: missing("is_wholly_oral"),
     }));
 
     expect(result.result).toBe("not_affected");
     expect(result.reason_codes).toEqual(["EXCL_CLASS_COMPANY_LET"]);
     expect(result.missing_fields).toEqual([]);
+    expect(result.decision_path).toEqual([
+      "jurisdiction",
+      "tenancy_exists",
+      "tenancy_start_date",
+      "active_on_qualifying_date",
+      "annual_rent_gbp",
+      "company_let",
+    ]);
+    expect(result.decision_path).not.toContain("tenancy_class");
+  });
+
+  it("does not treat null exclusion flags as false", () => {
+    const result = evaluateRraInfoSheetV1(affectedMap({
+      company_let: missing("company_let"),
+      resident_landlord: exists("resident_landlord", false),
+      rent_act_1977: exists("rent_act_1977", false),
+      pbsa: exists("pbsa", false),
+      tenancy_class: exists("tenancy_class", "assured_shorthold"),
+      is_wholly_oral: exists("is_wholly_oral", false),
+    }));
+
+    expect(result).toMatchObject({
+      result: "needs_data",
+      missing_fields: ["company_let"],
+      reason_codes: [],
+    });
+    expect(result.result).not.toBe("affected");
   });
 
   it("returns information_sheet for written/partly-written tenancies and written_statement for wholly oral", () => {
@@ -291,6 +346,7 @@ describe("evaluateRraInfoSheetV1 results", () => {
       result: "affected",
       reason_codes: ["AFF_INFO_SHEET"],
       obligation_kind: "information_sheet",
+      exposure_gbp_ceiling: 7000,
     });
 
     expect(evaluateRraInfoSheetV1(affectedMap({
@@ -299,6 +355,23 @@ describe("evaluateRraInfoSheetV1 results", () => {
       result: "affected",
       reason_codes: ["AFF_WRITTEN_STATEMENT"],
       obligation_kind: "written_statement",
+      exposure_gbp_ceiling: 7000,
+    });
+  });
+
+  it("returns needs_data for is_wholly_oral only after all exclusions and classification are resolved", () => {
+    const result = evaluateRraInfoSheetV1(affectedMap({
+      company_let: exists("company_let", false),
+      resident_landlord: exists("resident_landlord", false),
+      rent_act_1977: exists("rent_act_1977", false),
+      pbsa: exists("pbsa", false),
+      tenancy_class: exists("tenancy_class", "assured_shorthold"),
+      is_wholly_oral: missing("is_wholly_oral"),
+    }));
+
+    expect(result).toMatchObject({
+      result: "needs_data",
+      missing_fields: ["is_wholly_oral"],
     });
   });
 
@@ -498,6 +571,7 @@ describe("runRraInfoSheetEvaluation", () => {
       decision_path: ["jurisdiction"],
       result: "not_affected",
       reason_codes: ["EXCL_JURISDICTION"],
+      exposure_gbp_ceiling: null,
       evaluation_confidence: "high",
       demo_mode: true,
     }));

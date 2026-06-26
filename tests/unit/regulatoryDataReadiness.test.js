@@ -337,6 +337,52 @@ describe("classifyInput", () => {
     expect(result.value).toBe("2026-04-01");
   });
 
+  it("classifies Tier-4 boolean fields from their structured columns and preserves false as present", () => {
+    const cases = [
+      ["company_let", { lease: { company_let: false } }, "leases.company_let"],
+      ["resident_landlord", { lease: { resident_landlord: false } }, "leases.resident_landlord"],
+      ["rent_act_1977", { lease: { rent_act_1977: false } }, "leases.rent_act_1977"],
+      ["is_wholly_oral", { lease: { is_wholly_oral: false } }, "leases.is_wholly_oral"],
+      ["pbsa", { property: { pbsa: false } }, "properties.pbsa"],
+    ];
+
+    for (const [inputKey, context, sourceField] of cases) {
+      const result = classifyInput(inputKey, context);
+      expect(result.classification).toBe(CLASSIFICATIONS.EXISTS);
+      expect(result.value).toBe(false);
+      expect(result.source_fields).toEqual([sourceField]);
+    }
+  });
+
+  it("keeps null Tier-4 boolean fields missing instead of treating them as false", () => {
+    const result = classifyInput("company_let", {
+      lease: { company_let: null },
+      tenant: { company_let: false },
+    });
+
+    expect(result.classification).toBe(CLASSIFICATIONS.MISSING);
+    expect(result.value).toBeNull();
+    expect(result.source_fields).toEqual([]);
+  });
+
+  it("classifies tenancy_class from leases.tenancy_class and rejects lease_type as inadmissible", () => {
+    expect(classifyInput("tenancy_class", {
+      lease: { tenancy_class: "assured_shorthold" },
+    })).toMatchObject({
+      classification: CLASSIFICATIONS.EXISTS,
+      value: "assured_shorthold",
+      source_fields: ["leases.tenancy_class"],
+    });
+
+    const missingClass = classifyInput("tenancy_class", {
+      lease: { tenancy_class: null, lease_type: "najem_okazjonalny" },
+    });
+
+    expect(missingClass.classification).toBe(CLASSIFICATIONS.MISSING);
+    expect(missingClass.value).toBeNull();
+    expect(missingClass.admissibility_reason).toMatch(/inadmissible/i);
+  });
+
   it("classifies jurisdiction as exists when country_subdivision is set (Record A — England proceeds)", () => {
     const result = classifyInput("jurisdiction", {
       property: { country_subdivision: "England" },

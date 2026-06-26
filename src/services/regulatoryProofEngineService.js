@@ -47,6 +47,7 @@ export async function recordRraInfoSheetRuleEvaluation({ accountId, evaluation }
     p_decision_path: evaluation.decision_path,
     p_result: evaluation.result,
     p_obligation_kind: evaluation.obligation_kind,
+    p_exposure_gbp_ceiling: evaluation.exposure_gbp_ceiling,
     p_reason_codes: evaluation.reason_codes,
     p_missing_fields: evaluation.missing_fields,
     p_deferred_until: evaluation.deferred_until,

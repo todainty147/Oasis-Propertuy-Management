@@ -168,6 +168,40 @@ describe("RPE B-prereq-2 term-type read contract", () => {
   });
 });
 
+describe("RPE B-prereq-3 Tier-4 read contract", () => {
+  it("adds the six Tier-4 structured fields", () => {
+    expect(sql).toContain("add column if not exists company_let boolean");
+    expect(sql).toContain("add column if not exists resident_landlord boolean");
+    expect(sql).toContain("add column if not exists rent_act_1977 boolean");
+    expect(sql).toContain("add column if not exists is_wholly_oral boolean");
+    expect(sql).toContain("add column if not exists tenancy_class text");
+    expect(sql).toContain("add column if not exists pbsa boolean");
+  });
+
+  it("constrains tenancy_class to the provisional Gate-B value set", () => {
+    expect(sql).toContain("leases_tenancy_class_check");
+    expect(sql).toContain("'assured_shorthold','assured','regulated_rent_act','business','agricultural','licence','other'");
+  });
+
+  it("records Tier-4 catalogue sources as real structured columns", () => {
+    expect(sql).toContain("'company_let','exists',4");
+    expect(sql).toContain("array['leases.company_let']");
+    expect(sql).toContain("array['leases.resident_landlord']");
+    expect(sql).toContain("array['leases.rent_act_1977']");
+    expect(sql).toContain("array['leases.is_wholly_oral']");
+    expect(sql).toContain("array['leases.tenancy_class']");
+    expect(sql).toContain("array['properties.pbsa']");
+    expect(sql).not.toContain("'pbsa','missing',4");
+  });
+
+  it("reads PBSA from properties rather than leases", () => {
+    expect(sql).toContain("select p.country_subdivision, p.pbsa");
+    expect(sql).toContain("v_pbsa");
+    expect(sql).toContain("array['properties.pbsa']");
+    expect(sql).not.toContain("array['leases.pbsa']");
+  });
+});
+
 describe("RPE VS-0 deployment order", () => {
   it("applies after existing Renters' Rights overlays and before later unrelated modules", () => {
     const rr = dbApply.indexOf('"renters_rights_tenant_filter_fix.sql"');
