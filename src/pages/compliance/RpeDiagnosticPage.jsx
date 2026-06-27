@@ -13,6 +13,7 @@ import {
   runRraInfoSheetEvaluationForTenancy,
 } from "../../services/regulatoryProofEngineService";
 import ObligationProofPackPanel from "../../components/compliance/ObligationProofPackPanel";
+import { downloadProofPackPdf } from "../../utils/proofPackPdfExport";
 
 function formatJson(value) {
   return JSON.stringify(value, null, 2);
@@ -667,6 +668,16 @@ export default function RpeDiagnosticPage({ leases = [] }) {
         {proofPackPayload && (
           <div className="mt-5">
             <ObligationProofPackPanel payload={proofPackPayload} />
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => downloadProofPackPdf(proofPackPayload)}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                data-testid="proof-pack-export-pdf"
+              >
+                Export PDF
+              </button>
+            </div>
           </div>
         )}
       </section>
