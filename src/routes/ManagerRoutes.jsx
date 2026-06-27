@@ -64,6 +64,7 @@ const RentShieldPage              = lazy(() => import("../pages/compliance/RentS
 const LeaseAuditorPage            = lazy(() => import("../pages/compliance/LeaseAuditorPage"));
 const RentersRightsPage           = lazy(() => import("../pages/compliance/RentersRightsPage"));
 const RpeDiagnosticPage           = lazy(() => import("../pages/compliance/RpeDiagnosticPage"));
+const RentersRightsProofPackPage  = lazy(() => import("../pages/compliance/RentersRightsProofPackPage"));
 const PolandCompliancePage        = lazy(() => import("../pages/compliance/PolandCompliancePage"));
 const PlAdvancedPage              = lazy(() => import("../pages/compliance/PlAdvancedPage"));
 const RentPlansPage               = lazy(() => import("../pages/RentPlansPage"));
@@ -106,6 +107,14 @@ function ManagerOnlyRoute({ children }) {
   const { activeRole, isRootOperator } = useAccount();
   const role = String(activeRole || "").toLowerCase();
   return isManageRole(role, { isRootOperator })
+    ? children
+    : <Navigate to="/dashboard" replace />;
+}
+
+function InternalDiagnosticRoute({ children }) {
+  const { isRootOperator } = useAccount();
+  const diagnosticsEnabled = String(import.meta.env.VITE_ENABLE_INTERNAL_DIAGNOSTICS || "").toLowerCase() === "true";
+  return isRootOperator || diagnosticsEnabled
     ? children
     : <Navigate to="/dashboard" replace />;
 }
@@ -613,11 +622,33 @@ export default function ManagerRoutes() {
         }
       />
       <Route
-        path="compliance/renters-rights/rpe-diagnostic"
+        path="compliance/renters-rights/proof-pack"
         element={
           <EntitledRoute feature={ENTITLEMENT_FEATURES.RENTERS_RIGHTS_READINESS}>
-            <RpeDiagnosticPage leases={leases} />
+            <RentersRightsProofPackPage />
           </EntitledRoute>
+        }
+      />
+      <Route
+        path="compliance/renters-rights/proof-pack/:obligationInstanceId"
+        element={
+          <EntitledRoute feature={ENTITLEMENT_FEATURES.RENTERS_RIGHTS_READINESS}>
+            <RentersRightsProofPackPage />
+          </EntitledRoute>
+        }
+      />
+      <Route
+        path="compliance/renters-rights/rpe-diagnostic"
+        element={<Navigate to="/internal/compliance/renters-rights/rpe-diagnostic" replace />}
+      />
+      <Route
+        path="internal/compliance/renters-rights/rpe-diagnostic"
+        element={
+          <InternalDiagnosticRoute>
+            <EntitledRoute feature={ENTITLEMENT_FEATURES.RENTERS_RIGHTS_READINESS}>
+              <RpeDiagnosticPage leases={leases} />
+            </EntitledRoute>
+          </InternalDiagnosticRoute>
         }
       />
       <Route
