@@ -119,6 +119,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("RPE VS-2C obligation dischar
 
     const evaluationIds = (evaluations || []).map((row) => row.id);
 
+    await deleteMaybe(admin.from("obligation_basis_review").delete().in("account_id", [accountAId]));
     await deleteMaybe(admin.from("obligation_instance").delete().in("lease_id", allLeaseIds));
     if (evaluationIds.length > 0) {
       await deleteMaybe(admin.from("rule_evaluation").delete().in("id", evaluationIds));
@@ -280,6 +281,29 @@ describe.skipIf(!isIntegrationHarnessConfigured())("RPE VS-2C obligation dischar
     return result.data;
   }
 
+  async function loadBasisReviewsForObligation(obligationId) {
+    const result = await admin
+      .from("obligation_basis_review")
+      .select("*")
+      .eq("obligation_instance_id", obligationId)
+      .order("created_at", { ascending: true });
+
+    expect(result.error).toBeNull();
+    return result.data;
+  }
+
+  async function loadBasisReviewEvents(basisReviewId) {
+    const result = await admin
+      .from("provenance_events")
+      .select("id, event_type, metadata")
+      .eq("entity_type", "obligation_basis_review")
+      .eq("entity_id", basisReviewId)
+      .order("recorded_at", { ascending: true });
+
+    expect(result.error).toBeNull();
+    return result.data;
+  }
+
   async function loadEvidenceEvents(evidenceId) {
     const result = await admin
       .from("provenance_events")
@@ -409,14 +433,13 @@ describe.skipIf(!isIntegrationHarnessConfigured())("RPE VS-2C obligation dischar
     expect(String(reviewCapture.error.message || "").toLowerCase()).toContain("requires an open obligation");
   });
 
-  it("freezes discharged obligations and raises visible flags on later not_affected or needs_data evaluations", async () => {
+  it("freezes discharged obligations and records two-axis basis-review on later not_affected or needs_data evaluations", async () => {
     await cleanup();
     const { obligationId: notAffectedId } = await createOpenObligation(records.freezeNotAffected);
     const capturedNotAffected = await captureEvidence(notAffectedId);
     expect(capturedNotAffected.error).toBeNull();
     const dischargedNotAffected = await discharge(notAffectedId, capturedNotAffected.data.evidence_id);
     expect(dischargedNotAffected.error).toBeNull();
-    const beforeNotAffected = await loadObligation(notAffectedId);
 
     const notAffectedEval = await recordEvaluation(records.freezeNotAffected, {
       result: "not_affected",
@@ -427,16 +450,34 @@ describe.skipIf(!isIntegrationHarnessConfigured())("RPE VS-2C obligation dischar
     });
     const notAffectedReconcile = await reconcile(notAffectedEval.id);
     expect(notAffectedReconcile).toMatchObject({
-      action: "discharged_basis_changed_flag",
+      action: "basis_change_recorded",
       posture: "discharged",
-      review_flag: "discharged_basis_changed",
+      basis_change_kind: "not_affected_after_discharge",
+      latest_evaluation_result: "not_affected",
+      review_required: true,
+      demo_mode: true,
     });
+    expect(notAffectedReconcile.basis_review_id).toBeTruthy();
+
+    // Side-columns on obligation_instance still written (backward compat)
     expect(await loadObligation(notAffectedId)).toMatchObject({
-      id: beforeNotAffected.id,
       posture: "discharged",
       review_flag: "discharged_basis_changed",
       review_flag_source_evaluation_id: notAffectedEval.id,
     });
+
+    // Stored basis-review row exists
+    const notAffectedReviews = await loadBasisReviewsForObligation(notAffectedId);
+    expect(notAffectedReviews).toHaveLength(1);
+    expect(notAffectedReviews[0]).toMatchObject({
+      obligation_instance_id: notAffectedId,
+      basis_change_kind: "not_affected_after_discharge",
+      latest_evaluation_result: "not_affected",
+      basis_change_status: "changed_after_discharge",
+      review_required: true,
+      demo_mode: true,
+    });
+    expect(notAffectedReviews[0].provenance_event_id).toBeTruthy();
 
     const { obligationId: needsDataId } = await createOpenObligation(records.freezeNeedsData);
     const capturedNeedsData = await captureEvidence(needsDataId);
@@ -453,11 +494,19 @@ describe.skipIf(!isIntegrationHarnessConfigured())("RPE VS-2C obligation dischar
     });
     const needsDataReconcile = await reconcile(needsDataEval.id);
     expect(needsDataReconcile).toMatchObject({
-      action: "discharged_basis_changed_flag",
+      action: "basis_change_recorded",
       posture: "discharged",
-      review_flag: "discharged_basis_changed",
+      basis_change_kind: "unprovable_after_discharge",
+      latest_evaluation_result: "needs_data",
+      review_required: true,
     });
 
+    // Stored basis-review row preserves distinct kind
+    const needsDataReviews = await loadBasisReviewsForObligation(needsDataId);
+    expect(needsDataReviews).toHaveLength(1);
+    expect(needsDataReviews[0].basis_change_kind).toBe("unprovable_after_discharge");
+
+    // Read model surfaces VS-2D columns
     const list = await ownerAClient.rpc("list_rra_obligation_instances", {
       p_account_id: accountAId,
       p_limit: 20,
@@ -468,7 +517,13 @@ describe.skipIf(!isIntegrationHarnessConfigured())("RPE VS-2C obligation dischar
     expect(flagged).toHaveLength(2);
     expect(flagged.every((row) => row.posture === "discharged")).toBe(true);
     expect(flagged.every((row) => row.review_flag === "discharged_basis_changed")).toBe(true);
+    expect(flagged.every((row) => row.basis_review_required === true)).toBe(true);
+    const notAffectedRow = flagged.find((row) => row.id === notAffectedId);
+    const needsDataRow = flagged.find((row) => row.id === needsDataId);
+    expect(notAffectedRow.basis_change_kind).toBe("not_affected_after_discharge");
+    expect(needsDataRow.basis_change_kind).toBe("unprovable_after_discharge");
 
+    // Posture summary: discharged + basis_review_required_count
     const summary = await ownerAClient.rpc("rra_obligation_posture_summary", {
       p_account_id: accountAId,
     });
@@ -476,14 +531,24 @@ describe.skipIf(!isIntegrationHarnessConfigured())("RPE VS-2C obligation dischar
     expect(summary.data.find((row) => row.posture === "discharged")).toMatchObject({
       obligation_count: 2,
       review_flag_count: 2,
+      basis_review_required_count: 2,
     });
 
+    // Obligation events: created + discharged only (VS-2D events are on obligation_basis_review entity)
     for (const obligationId of [notAffectedId, needsDataId]) {
       expect(eventTypes(await loadObligationEvents(obligationId))).toEqual([
         "rpe.obligation.created",
         "rpe.obligation.discharged",
-        "rpe.obligation.discharged_basis_changed_flag",
       ]);
+    }
+
+    // Basis-review provenance events exist
+    for (const obligationId of [notAffectedId, needsDataId]) {
+      const reviews = await loadBasisReviewsForObligation(obligationId);
+      const basisEvents = await loadBasisReviewEvents(reviews[0].id);
+      expect(basisEvents).toHaveLength(1);
+      expect(basisEvents[0].event_type).toBe("rpe.obligation.basis_change_recorded");
+      expect(basisEvents[0].metadata).toMatchObject({ demo_mode: true });
     }
   });
 

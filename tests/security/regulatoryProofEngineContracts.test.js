@@ -623,6 +623,110 @@ describe("RPE VS-2C read-surface authorization contract", () => {
   });
 });
 
+const vs2dSql = readFileSync(join(process.cwd(), "supabase/regulatory_proof_engine_vs2d_basis_review.sql"), "utf8");
+
+describe("RPE VS-2D basis-review two-axis model contract", () => {
+  it("creates obligation_basis_review table with demo-only constraint", () => {
+    expect(vs2dSql).toMatch(/create table if not exists public\.obligation_basis_review/i);
+    expect(vs2dSql).toContain("obligation_basis_review_demo_only");
+    expect(vs2dSql).toContain("demo_mode is true");
+  });
+
+  it("preserves not_affected vs needs_data as distinct basis_change_kind values", () => {
+    expect(vs2dSql).toContain("not_affected_after_discharge");
+    expect(vs2dSql).toContain("unprovable_after_discharge");
+    expect(vs2dSql).toContain("obligation_basis_review_kind_check");
+  });
+
+  it("enforces one current active basis-review row per obligation (unique partial index)", () => {
+    expect(vs2dSql).toMatch(/create unique index.*obligation_basis_review_one_active_per_obligation_idx/i);
+    expect(vs2dSql).toContain("review_required is true");
+  });
+
+  it("has RLS enabled with no direct access for authenticated", () => {
+    expect(vs2dSql).toContain("enable row level security");
+    expect(vs2dSql).toContain("obligation_basis_review_no_direct_access");
+    expect(vs2dSql).toMatch(/using\s*\(\s*false\s*\)/);
+  });
+
+  it("provides a deferred constraint trigger requiring provenance event on every basis-review row", () => {
+    expect(vs2dSql).toContain("obligation_basis_review_require_provenance_event");
+    expect(vs2dSql).toContain("rpe.obligation.basis_change_recorded");
+    expect(vs2dSql).toContain("deferrable initially deferred");
+  });
+
+  it("provides a SECURITY DEFINER provenance event helper for basis-change recording", () => {
+    expect(vs2dSql).toMatch(/create or replace function public\.record_rpe_basis_change_recorded_event/i);
+    expect(vs2dSql).toMatch(/record_rpe_basis_change_recorded_event[\s\S]*?security definer/i);
+    expect(vs2dSql).toMatch(/record_rpe_basis_change_recorded_event[\s\S]*?set search_path = public/i);
+    expect(vs2dSql).toContain("rpe.obligation.basis_change_recorded");
+  });
+
+  it("overrides reconcile_rra_info_sheet_obligation with two-axis basis-review logic", () => {
+    expect(vs2dSql).toMatch(/create or replace function public\.reconcile_rra_info_sheet_obligation/i);
+    expect(vs2dSql).toContain("basis_change_recorded");
+    expect(vs2dSql).toContain("not_affected_after_discharge");
+    expect(vs2dSql).toContain("unprovable_after_discharge");
+  });
+
+  it("keeps discharged posture immutable — no compound posture values", () => {
+    expect(vs2dSql).not.toContain("discharged_then_not_affected");
+    expect(vs2dSql).not.toContain("discharged_then_unprovable");
+    expect(vs2dSql).not.toContain("discharged_then_superseded");
+  });
+
+  it("implements idempotent upsert — updates existing review on repeat, does not duplicate", () => {
+    expect(vs2dSql).toContain("v_is_update");
+    expect(vs2dSql).toContain("for update");
+    expect(vs2dSql).toMatch(/update public\.obligation_basis_review/i);
+    expect(vs2dSql).toMatch(/insert into public\.obligation_basis_review/i);
+  });
+
+  it("handles deferred edge: re-affected after basis change records latest result without creating/reviving", () => {
+    expect(vs2dSql).toContain("already_discharged");
+    expect(vs2dSql).toMatch(/latest_evaluation_result.*'affected'/);
+  });
+
+  it("updates list_rra_obligation_instances to surface basis-review columns", () => {
+    expect(vs2dSql).toMatch(/create or replace function public\.list_rra_obligation_instances/i);
+    expect(vs2dSql).toContain("basis_review_id");
+    expect(vs2dSql).toContain("basis_change_kind");
+    expect(vs2dSql).toContain("basis_review_required");
+    expect(vs2dSql).toContain("basis_latest_evaluation_result");
+  });
+
+  it("updates rra_obligation_posture_summary with basis_review_required_count", () => {
+    expect(vs2dSql).toMatch(/create or replace function public\.rra_obligation_posture_summary/i);
+    expect(vs2dSql).toContain("basis_review_required_count");
+  });
+
+  it("provides a throwing SECURITY DEFINER list_obligation_basis_reviews read RPC with Shape 2 ownership check", () => {
+    expect(vs2dSql).toMatch(/create or replace function public\.list_obligation_basis_reviews/i);
+    expect(vs2dSql).toMatch(/list_obligation_basis_reviews[\s\S]*?security definer/i);
+    expect(vs2dSql).toMatch(/list_obligation_basis_reviews[\s\S]*?set search_path = public/i);
+    expect(vs2dSql).toMatch(/list_obligation_basis_reviews[\s\S]*?user_can_manage_account\(p_account_id\)/i);
+    expect(vs2dSql).toMatch(/list_obligation_basis_reviews[\s\S]*?Not authorized for account/i);
+    expect(vs2dSql).toMatch(/list_obligation_basis_reviews[\s\S]*?p_obligation_instance_id/i);
+    expect(vs2dSql).toMatch(/list_obligation_basis_reviews[\s\S]*?Obligation not found for account/i);
+  });
+
+  it("revokes internal helpers and grants only read RPCs to authenticated", () => {
+    expect(vs2dSql).toMatch(/revoke all on function public\.record_rpe_basis_change_recorded_event/i);
+    expect(vs2dSql).toMatch(/revoke all on function public\.obligation_basis_review_require_provenance_event\(\) from public/i);
+    expect(vs2dSql).toMatch(/grant execute on function public\.list_obligation_basis_reviews\(uuid, uuid, integer, integer\) to authenticated/i);
+    expect(vs2dSql).not.toMatch(/grant execute on function public\.record_rpe_basis_change_recorded_event.*to authenticated/i);
+  });
+
+  it("is registered in the dbApplyRepoSql overlay list", () => {
+    expect(dbApply).toContain("regulatory_proof_engine_vs2d_basis_review.sql");
+  });
+
+  it("has a service wrapper for listObligationBasisReviews", () => {
+    expect(engineService).toContain("listObligationBasisReviews");
+    expect(engineService).toContain("list_obligation_basis_reviews");
+  });
+});
+
 describe("RPE VS-2A get_rra_capture_readiness lease ownership contract", () => {
   it("throws on cross-account lease instead of returning neutral not_run", () => {
     expect(vs2aSql).toMatch(/get_rra_capture_readiness[\s\S]*?Lease not found for account/i);
