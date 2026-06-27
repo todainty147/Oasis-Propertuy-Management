@@ -5,11 +5,14 @@ import {
   captureRraJurisdictionAndEvaluate,
   captureRraTermIndicatorAndEvaluate,
   captureRraTier4ClassificationAndEvaluate,
+  getObligationProofPack,
   getRraCaptureReadiness,
+  listRraObligationInstances,
   loadRraInfoSheetVs0Map,
   previewRraInfoSheetEvaluationForTenancy,
   runRraInfoSheetEvaluationForTenancy,
 } from "../../services/regulatoryProofEngineService";
+import ObligationProofPackPanel from "../../components/compliance/ObligationProofPackPanel";
 
 function formatJson(value) {
   return JSON.stringify(value, null, 2);
@@ -48,6 +51,9 @@ export default function RpeDiagnosticPage({ leases = [] }) {
   const [captureReadiness, setCaptureReadiness] = useState(null);
   const [error, setError] = useState("");
   const [loadingAction, setLoadingAction] = useState("");
+  const [obligations, setObligations] = useState([]);
+  const [selectedObligationId, setSelectedObligationId] = useState("");
+  const [proofPackPayload, setProofPackPayload] = useState(null);
   const [jurisdictionCapture, setJurisdictionCapture] = useState({
     countrySubdivision: "England",
     evidenceBasis: "Manual RPE diagnostic confirmation",
@@ -169,6 +175,28 @@ export default function RpeDiagnosticPage({ leases = [] }) {
       setReadiness(result.evaluation.input_snapshot);
       setEvaluation(result.evaluation);
       await refreshCaptureReadiness();
+    });
+  }
+
+  async function handleLoadObligations() {
+    await runAction("obligations", async () => {
+      const rows = await listRraObligationInstances({
+        accountId: activeAccountId,
+      });
+      setObligations(rows);
+      setSelectedObligationId("");
+      setProofPackPayload(null);
+    });
+  }
+
+  async function handleLoadProofPack() {
+    if (!selectedObligationId) return;
+    await runAction("proof-pack", async () => {
+      const payload = await getObligationProofPack({
+        accountId: activeAccountId,
+        obligationInstanceId: selectedObligationId,
+      });
+      setProofPackPayload(payload);
     });
   }
 
@@ -580,6 +608,67 @@ export default function RpeDiagnosticPage({ leases = [] }) {
             {evaluation ? formatJson(evaluation) : "No evaluation run yet."}
           </pre>
         </div>
+      </section>
+
+      {/* Proof Pack VS-1 viewer */}
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              Proof Pack VS-1
+            </h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Read-only assembly of one obligation's full story from stored RPE records.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={!activeAccountId || loadingAction}
+            onClick={handleLoadObligations}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            {loadingAction === "obligations" ? "Loading…" : "Load obligations"}
+          </button>
+        </div>
+
+        {obligations.length > 0 && (
+          <div className="mt-4 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                Obligation instance
+              </span>
+              <select
+                value={selectedObligationId}
+                onChange={(e) => {
+                  setSelectedObligationId(e.target.value);
+                  setProofPackPayload(null);
+                }}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              >
+                <option value="">Select an obligation…</option>
+                {obligations.map((ob) => (
+                  <option key={ob.obligation_instance_id || ob.id} value={ob.obligation_instance_id || ob.id}>
+                    {ob.obligation_kind || "obligation"} · {ob.posture || "unknown"} · {ob.obligation_instance_id || ob.id}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              disabled={!selectedObligationId || loadingAction}
+              onClick={handleLoadProofPack}
+              className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+            >
+              {loadingAction === "proof-pack" ? "Loading…" : "View proof pack"}
+            </button>
+          </div>
+        )}
+
+        {proofPackPayload && (
+          <div className="mt-5">
+            <ObligationProofPackPanel payload={proofPackPayload} />
+          </div>
+        )}
       </section>
     </div>
   );
