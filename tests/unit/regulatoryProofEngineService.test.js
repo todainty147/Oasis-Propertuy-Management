@@ -238,6 +238,30 @@ describe("regulatoryProofEngineService", () => {
     expect(result[0].basis_change_kind).toBe("not_affected_after_discharge");
   });
 
+  it("loads an obligation proof pack via throwing RPC", async () => {
+    const pack = {
+      evaluation: { evaluation_id: "eval-1", result: "affected" },
+      obligation: { obligation_instance_id: "obligation-1", posture: "discharged" },
+      evidence: [],
+      basis_review: null,
+      provenance: [],
+      status: { demo_mode: true, gate_b_signed_off: false },
+    };
+    mockRpc.mockResolvedValue({ data: pack, error: null });
+
+    const result = await service.getObligationProofPack({
+      accountId: "acct-1",
+      obligationInstanceId: "obligation-1",
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith("get_obligation_proof_pack", {
+      p_account_id: "acct-1",
+      p_obligation_instance_id: "obligation-1",
+    });
+    expect(result.evaluation.result).toBe("affected");
+    expect(result.status.demo_mode).toBe(true);
+  });
+
   it("captures admissible RRA information-sheet service evidence", async () => {
     mockRpc.mockResolvedValue({
       data: {

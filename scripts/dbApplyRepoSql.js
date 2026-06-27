@@ -141,6 +141,7 @@ const OVERLAY_SEQUENCE = [
   "regulatory_proof_engine_vs2b_obligations.sql",
   "regulatory_proof_engine_vs2c_discharge.sql",
   "regulatory_proof_engine_vs2d_basis_review.sql",
+  "regulatory_proof_engine_proof_pack_vs1.sql",
   "trial_period_enforcement.sql",
   "operator_agency_grants.sql",
   "account_subscription_plan_hardened.sql",

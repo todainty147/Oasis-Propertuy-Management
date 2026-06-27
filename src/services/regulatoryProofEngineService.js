@@ -298,6 +298,22 @@ export async function listObligationBasisReviews({
   return data ?? [];
 }
 
+export async function getObligationProofPack({
+  accountId,
+  obligationInstanceId,
+} = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+  if (!obligationInstanceId) throw new Error("Missing obligationInstanceId");
+
+  const { data, error } = await supabase.rpc("get_obligation_proof_pack", {
+    p_account_id: accountId,
+    p_obligation_instance_id: obligationInstanceId,
+  });
+
+  if (error) throw friendly(error, "Failed to load obligation proof pack");
+  return data ?? null;
+}
+
 export async function getRraCaptureReadiness({ accountId, tenancyId } = {}) {
   if (!accountId) throw new Error("Missing accountId");
   if (!tenancyId) throw new Error("Missing tenancyId");
