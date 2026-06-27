@@ -28,7 +28,7 @@ describe("Proof Pack VS-3 PDF export — payload-only boundary (load-bearing)", 
   });
 
   it("takes payload as a function argument — no internal data fetching", () => {
-    expect(exportSrc).toMatch(/function\s+generateProofPackPdf\s*\(\s*payload\s*\)/);
+    expect(exportSrc).toMatch(/function\s+generateProofPackPdf\s*\(\s*payload\s*,\s*options\s*=\s*\{\}/);
     expect(exportSrc).not.toContain("useEffect");
     expect(exportSrc).not.toContain("fetch(");
   });
@@ -136,8 +136,8 @@ describe("Proof Pack VS-3 PDF export — anchors and wording", () => {
   });
 
   it("labels 'Exported at' and 'Evaluated at' distinctly", () => {
-    expect(exportSrc).toContain('"Exported at"');
-    expect(exportSrc).toContain('"Evaluated at"');
+    expect(exportSrc).toContain("LEGACY_EXPORTED_AT_LABEL");
+    expect(exportSrc).toContain("LEGACY_EVALUATED_AT_LABEL");
   });
 
   it("includes the honest rendering note — not a verification claim", () => {
@@ -175,13 +175,13 @@ describe("Proof Pack VS-3 PDF export — basis-review flag (review, not breach)"
 
 describe("Proof Pack VS-3 PDF export — provenance rendering", () => {
   it("renders trace status labels: complete vs incomplete", () => {
-    expect(exportSrc).toContain("Provenance trail: complete");
-    expect(exportSrc).toContain("Provenance trail: incomplete");
+    expect(exportSrc).toContain("LEGACY_TRACE_COMPLETE_LABEL");
+    expect(exportSrc).toContain("LEGACY_TRACE_INCOMPLETE_LABEL");
   });
 
   it("renders expected events present and missing event types", () => {
-    expect(exportSrc).toContain("Expected events present:");
-    expect(exportSrc).toContain("Missing event types:");
+    expect(exportSrc).toContain("LEGACY_EXPECTED_EVENTS_LABEL");
+    expect(exportSrc).toContain("LEGACY_MISSING_EVENTS_LABEL");
   });
 
   it("does NOT re-sort the provenance trail — renders in payload order", () => {

@@ -12,6 +12,16 @@ const diagnosticPageSrc = readFileSync(
   "utf8",
 );
 
+const customerPageSrc = readFileSync(
+  join(process.cwd(), "src/pages/compliance/RentersRightsProofPackPage.jsx"),
+  "utf8",
+);
+
+const routesSrc = readFileSync(
+  join(process.cwd(), "src/routes/ManagerRoutes.jsx"),
+  "utf8",
+);
+
 // ─── VS-2 load-bearing boundary: payload-only ────────────────────────────────
 
 describe("Proof Pack VS-2 panel — payload-only boundary (load-bearing)", () => {
@@ -28,7 +38,7 @@ describe("Proof Pack VS-2 panel — payload-only boundary (load-bearing)", () =>
   });
 
   it("takes payload as a prop — no internal data fetching", () => {
-    expect(panelSrc).toMatch(/function\s+ObligationProofPackPanel\s*\(\s*\{\s*payload\s*\}/);
+    expect(panelSrc).toMatch(/function\s+ObligationProofPackPanel\s*\(\s*\{[\s\S]*payload/);
     expect(panelSrc).not.toContain("useEffect");
     expect(panelSrc).not.toContain("fetch(");
   });
@@ -122,11 +132,11 @@ describe("Proof Pack VS-2 panel — demo/Gate-B watermark (PO persistent, non-di
   it("watermark is at the top of the panel — before all other sections", () => {
     const watermarkIdx = panelSrc.indexOf("proof-pack-demo-watermark");
     const headlineIdx = panelSrc.indexOf("proof-pack-headline");
-    const obligationIdx = panelSrc.indexOf(">Obligation<");
-    const evaluationIdx = panelSrc.indexOf(">Evaluation<");
+    const coversIdx = panelSrc.indexOf("proof-pack-what-covers");
+    const assessmentIdx = panelSrc.indexOf("proof-pack-assessment");
     expect(watermarkIdx).toBeLessThan(headlineIdx);
-    expect(watermarkIdx).toBeLessThan(obligationIdx);
-    expect(watermarkIdx).toBeLessThan(evaluationIdx);
+    expect(watermarkIdx).toBeLessThan(coversIdx);
+    expect(watermarkIdx).toBeLessThan(assessmentIdx);
   });
 
   it("has a data-testid for the watermark element", () => {
@@ -219,21 +229,25 @@ describe("Proof Pack VS-2 panel — section completeness", () => {
     expect(panelSrc).toContain("Evaluation: not recorded");
   });
 
-  it("renders all six sections in the prompt-specified narrative order", () => {
+  it("renders the reusable customer skeleton in narrative order", () => {
     const watermarkIdx = panelSrc.indexOf("proof-pack-demo-watermark");
     const headlineIdx = panelSrc.indexOf("Evidence state summary");
-    const obligationIdx = panelSrc.indexOf(">Obligation<");
-    const evaluationIdx = panelSrc.indexOf(">Evaluation<");
-    const evidenceIdx = panelSrc.indexOf(">Evidence<");
-    const currentStateIdx = panelSrc.indexOf(">Current state<");
-    const provenanceIdx = panelSrc.indexOf(">Provenance<");
+    const coversIdx = panelSrc.indexOf("proof-pack-what-covers");
+    const assessmentIdx = panelSrc.indexOf("proof-pack-assessment");
+    const evidenceIdx = panelSrc.indexOf("proof-pack-evidence");
+    const currentStateIdx = panelSrc.indexOf("proof-pack-current-state");
+    const proofTrailIdx = panelSrc.indexOf("proof-pack-proof-trail");
+    const verificationIdx = panelSrc.indexOf("proof-pack-verification-details");
+    const exportIdx = panelSrc.indexOf("proof-pack-export");
 
     expect(watermarkIdx).toBeLessThan(headlineIdx);
-    expect(headlineIdx).toBeLessThan(obligationIdx);
-    expect(obligationIdx).toBeLessThan(evaluationIdx);
-    expect(evaluationIdx).toBeLessThan(evidenceIdx);
+    expect(headlineIdx).toBeLessThan(coversIdx);
+    expect(coversIdx).toBeLessThan(assessmentIdx);
+    expect(assessmentIdx).toBeLessThan(evidenceIdx);
     expect(evidenceIdx).toBeLessThan(currentStateIdx);
-    expect(currentStateIdx).toBeLessThan(provenanceIdx);
+    expect(currentStateIdx).toBeLessThan(proofTrailIdx);
+    expect(proofTrailIdx).toBeLessThan(verificationIdx);
+    expect(verificationIdx).toBeLessThan(exportIdx);
   });
 
   it("renders evaluation fields from the payload: result, confidence, input_snapshot_hash, evaluated_at", () => {
@@ -296,16 +310,11 @@ describe("Proof Pack VS-2 panel — quality floor", () => {
 // ─── VS-2 out-of-scope absent ────────────────────────────────────────────────
 
 describe("Proof Pack VS-2 panel — out-of-scope absent", () => {
-  it("no PDF/export functionality", () => {
-    const lower = panelSrc.toLowerCase();
-    expect(lower).not.toContain("pdf");
-    expect(lower).not.toContain("download");
-    expect(lower).not.toContain("print");
-    const exportMatches = [...lower.matchAll(/export/g)];
-    for (const m of exportMatches) {
-      const ctx = panelSrc.slice(Math.max(0, m.index - 5), m.index + 30);
-      expect(ctx).toMatch(/export default/i);
-    }
+  it("has no internal PDF implementation — only an optional injected export action", () => {
+    expect(panelSrc).toContain("exportAction");
+    expect(panelSrc).not.toContain("downloadProofPackPdf");
+    expect(panelSrc).not.toContain("jsPDF");
+    expect(panelSrc).not.toContain("doc.save");
   });
 
   it("no scoring or rating system", () => {
@@ -313,5 +322,36 @@ describe("Proof Pack VS-2 panel — out-of-scope absent", () => {
     expect(lower).not.toContain("score");
     expect(lower).not.toContain("rating");
     expect(lower).not.toContain("grade");
+  });
+});
+
+// ─── Presentation polish route contracts ───────────────────────────────────
+
+describe("Proof Pack presentation polish — customer route and no-fork contract", () => {
+  it("adds base and obligation-specific customer proof-pack routes", () => {
+    expect(routesSrc).toContain('path="compliance/renters-rights/proof-pack"');
+    expect(routesSrc).toContain('path="compliance/renters-rights/proof-pack/:obligationInstanceId"');
+  });
+
+  it("moves diagnostic to an internal gated route and redirects the old route", () => {
+    expect(routesSrc).toContain("InternalDiagnosticRoute");
+    expect(routesSrc).toContain('path="internal/compliance/renters-rights/rpe-diagnostic"');
+    expect(routesSrc).toContain('to="/internal/compliance/renters-rights/rpe-diagnostic"');
+  });
+
+  it("customer page reuses the shared panel and existing PDF export path", () => {
+    expect(customerPageSrc).toContain("ObligationProofPackPanel");
+    expect(customerPageSrc).toContain("downloadProofPackPdf");
+    expect(customerPageSrc).toContain('mode="customer"');
+    expect(customerPageSrc).toContain("rraProofPackLabels");
+  });
+
+  it("customer page contains no raw diagnostic chrome", () => {
+    expect(customerPageSrc).not.toContain("VS-0");
+    expect(customerPageSrc).not.toContain("VS-1");
+    expect(customerPageSrc).not.toContain("VS-2");
+    expect(customerPageSrc).not.toContain("Full evaluation payload");
+    expect(customerPageSrc).not.toContain("Capture + evaluate");
+    expect(customerPageSrc).not.toContain("readiness map");
   });
 });

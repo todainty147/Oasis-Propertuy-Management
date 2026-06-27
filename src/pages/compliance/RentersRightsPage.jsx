@@ -541,10 +541,10 @@ export default function RentersRightsPage() {
           <JurisdictionBadge t={t} />
         </div>
         <Link
-          to="/compliance/renters-rights/rpe-diagnostic"
+          to="/compliance/renters-rights/proof-pack"
           className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
         >
-          RPE diagnostic
+          Proof packs
         </Link>
       </div>
 

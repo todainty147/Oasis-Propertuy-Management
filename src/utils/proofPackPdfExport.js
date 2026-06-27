@@ -1,4 +1,5 @@
 import { jsPDF } from "jspdf";
+import { mergeProofPackLabels } from "../components/compliance/proofPackPresentation";
 
 const PAGE_W = 210;
 const PAGE_H = 297;
@@ -8,6 +9,12 @@ const MARGIN_TOP = 30;
 const MARGIN_BOTTOM = 25;
 const CONTENT_W = PAGE_W - MARGIN_LEFT - MARGIN_RIGHT;
 const LINE_H = 5.5;
+const LEGACY_EXPORTED_AT_LABEL = "Exported at";
+const LEGACY_EVALUATED_AT_LABEL = "Evaluated at";
+const LEGACY_TRACE_COMPLETE_LABEL = "Provenance trail: complete";
+const LEGACY_TRACE_INCOMPLETE_LABEL = "Provenance trail: incomplete";
+const LEGACY_EXPECTED_EVENTS_LABEL = "Expected events present:";
+const LEGACY_MISSING_EVENTS_LABEL = "Missing event types:";
 
 function formatTimestamp(val) {
   if (!val) return "Not recorded";
@@ -73,9 +80,10 @@ function addText(doc, text, yRef, statusLabel) {
   yRef.y += lines.length * LINE_H + 2;
 }
 
-export function generateProofPackPdf(payload) {
+export function generateProofPackPdf(payload, options = {}) {
   if (!payload) throw new Error("Payload is required");
 
+  const labels = mergeProofPackLabels(options.labels);
   const { evaluation, obligation, evidence, basis_review, provenance, status } = payload;
   const evidenceItems = Array.isArray(evidence) ? evidence : [];
   const provenanceItems = Array.isArray(provenance) ? provenance : [];
@@ -103,11 +111,11 @@ export function generateProofPackPdf(payload) {
 
   yRef.y += 3;
 
-  addField(doc, "Exported at", exportedAt, yRef, statusLabel);
-  addField(doc, "Evaluated at", formatTimestamp(evaluation?.evaluated_at), yRef, statusLabel);
-  addField(doc, "Evaluation ID", evaluation?.evaluation_id ?? "Not recorded", yRef, statusLabel);
-  addField(doc, "Obligation instance ID", obligation?.obligation_instance_id ?? "Not recorded", yRef, statusLabel);
-  addField(doc, "Input snapshot hash", evaluation?.input_snapshot_hash ?? "Not recorded", yRef, statusLabel);
+  addField(doc, labels.exportedAt || LEGACY_EXPORTED_AT_LABEL, exportedAt, yRef, statusLabel);
+  addField(doc, labels.evaluatedAt || LEGACY_EVALUATED_AT_LABEL, formatTimestamp(evaluation?.evaluated_at), yRef, statusLabel);
+  addField(doc, labels.assessmentReference, evaluation?.evaluation_id ?? "Not recorded", yRef, statusLabel);
+  addField(doc, labels.obligationReference, obligation?.obligation_instance_id ?? "Not recorded", yRef, statusLabel);
+  addField(doc, labels.evidenceFingerprint, evaluation?.input_snapshot_hash ?? "Not recorded", yRef, statusLabel);
 
   yRef.y += 4;
 
@@ -133,36 +141,35 @@ export function generateProofPackPdf(payload) {
 
   yRef.y += 4;
 
-  addHeading(doc, "Obligation", yRef, statusLabel);
-  addField(doc, "Kind", obligation?.obligation_kind, yRef, statusLabel);
-  addField(doc, "Posture", obligation?.posture, yRef, statusLabel);
-  addField(doc, "Exposure ceiling", obligation?.exposure_gbp_ceiling != null
+  addHeading(doc, labels.whatCovers, yRef, statusLabel);
+  addField(doc, labels.obligationKind, obligation?.obligation_kind, yRef, statusLabel);
+  addField(doc, labels.posture, obligation?.posture, yRef, statusLabel);
+  addField(doc, labels.exposureCeiling, obligation?.exposure_gbp_ceiling != null
     ? `£${Number(obligation.exposure_gbp_ceiling).toLocaleString()}`
     : null, yRef, statusLabel);
-  addField(doc, "Created", formatTimestamp(obligation?.created_at), yRef, statusLabel);
+  addField(doc, labels.createdAt, formatTimestamp(obligation?.created_at), yRef, statusLabel);
 
   yRef.y += 4;
 
-  addHeading(doc, "Evaluation", yRef, statusLabel);
+  addHeading(doc, labels.assessment, yRef, statusLabel);
   if (evaluation) {
-    addField(doc, "Result", evaluation.result, yRef, statusLabel);
-    addField(doc, "Confidence", evaluation.confidence, yRef, statusLabel);
-    addField(doc, "Evaluated at", formatTimestamp(evaluation.evaluated_at), yRef, statusLabel);
-    addField(doc, "Input snapshot hash", evaluation.input_snapshot_hash, yRef, statusLabel);
+    addField(doc, labels.result, evaluation.result, yRef, statusLabel);
+    addField(doc, labels.confidence, evaluation.confidence, yRef, statusLabel);
+    addField(doc, labels.evaluatedAt, formatTimestamp(evaluation.evaluated_at), yRef, statusLabel);
   } else {
     addText(doc, "Evaluation: not recorded", yRef, statusLabel);
   }
 
   yRef.y += 4;
 
-  addHeading(doc, "Evidence", yRef, statusLabel);
+  addHeading(doc, labels.evidence, yRef, statusLabel);
   if (evidenceItems.length > 0) {
     for (const item of evidenceItems) {
       ensureSpace(doc, LINE_H * 5, statusLabel, yRef);
-      addField(doc, "Identity", item.official_info_sheet_identity, yRef, statusLabel);
-      addField(doc, "Type", item.evidence_type, yRef, statusLabel);
-      addField(doc, "Service timestamp", formatTimestamp(item.service_evidence_timestamp), yRef, statusLabel);
-      addField(doc, "Captured at", formatTimestamp(item.captured_at), yRef, statusLabel);
+      addField(doc, labels.officialIdentity, item.official_info_sheet_identity, yRef, statusLabel);
+      addField(doc, labels.evidenceType, item.evidence_type, yRef, statusLabel);
+      addField(doc, labels.serviceTimestamp, formatTimestamp(item.service_evidence_timestamp), yRef, statusLabel);
+      addField(doc, labels.capturedAt, formatTimestamp(item.captured_at), yRef, statusLabel);
       yRef.y += 2;
     }
   } else {
@@ -171,8 +178,8 @@ export function generateProofPackPdf(payload) {
 
   yRef.y += 4;
 
-  addHeading(doc, "Current state", yRef, statusLabel);
-  addField(doc, "Posture", obligation?.posture, yRef, statusLabel);
+  addHeading(doc, labels.currentState, yRef, statusLabel);
+  addField(doc, labels.posture, obligation?.posture, yRef, statusLabel);
 
   if (basis_review?.review_required) {
     yRef.y += 2;
@@ -188,22 +195,28 @@ export function generateProofPackPdf(payload) {
 
   yRef.y += 4;
 
-  addHeading(doc, "Provenance", yRef, statusLabel);
+  addHeading(doc, labels.proofTrail, yRef, statusLabel);
   if (traceStatus) {
     const traceLabel = traceStatus.expected_events_present
-      ? "Provenance trail: complete"
-      : "Provenance trail: incomplete";
+      ? (labels.traceComplete || LEGACY_TRACE_COMPLETE_LABEL)
+      : (labels.traceIncomplete || LEGACY_TRACE_INCOMPLETE_LABEL);
     addText(doc, traceLabel, yRef, statusLabel);
-    addText(doc, `Expected events present: ${traceStatus.expected_events_present ? "yes" : "no"}`, yRef, statusLabel);
+    const expectedEventsLabel = labels.expectedEventsPresent
+      ? `${labels.expectedEventsPresent}:`
+      : LEGACY_EXPECTED_EVENTS_LABEL;
+    addText(doc, `${expectedEventsLabel} ${traceStatus.expected_events_present ? "yes" : "no"}`, yRef, statusLabel);
     const missing = traceStatus.missing_event_types ?? [];
     if (missing.length > 0) {
-      addText(doc, `Missing event types: ${missing.join(", ")}`, yRef, statusLabel);
+      const missingEventsLabel = labels.missingEventTypes
+        ? `${labels.missingEventTypes}:`
+        : LEGACY_MISSING_EVENTS_LABEL;
+      addText(doc, `${missingEventsLabel} ${missing.join(", ")}`, yRef, statusLabel);
     }
   }
 
   if (provenanceItems.length > 0) {
     yRef.y += 2;
-    addText(doc, `Ordered provenance trail (${provenanceItems.length} events):`, yRef, statusLabel);
+    addText(doc, `${labels.orderedTrail} (${provenanceItems.length} events):`, yRef, statusLabel);
     for (const event of provenanceItems) {
       ensureSpace(doc, LINE_H * 3, statusLabel, yRef);
       doc.text(
@@ -220,11 +233,23 @@ export function generateProofPackPdf(payload) {
     }
   }
 
+  yRef.y += 4;
+  addHeading(doc, labels.verificationDetails, yRef, statusLabel);
+  addText(doc, labels.verificationHelper, yRef, statusLabel);
+  addField(doc, labels.evidenceFingerprint, evaluation?.input_snapshot_hash, yRef, statusLabel);
+  addField(doc, labels.assessmentReference, evaluation?.evaluation_id, yRef, statusLabel);
+  addField(doc, labels.obligationReference, obligation?.obligation_instance_id, yRef, statusLabel);
+  addField(doc, labels.proofTrailReference, provenanceItems.length
+    ? provenanceItems.map((event) => event.sequence_number).join(" -> ")
+    : "Not recorded", yRef, statusLabel);
+  addField(doc, labels.evaluatedAt || LEGACY_EVALUATED_AT_LABEL, formatTimestamp(evaluation?.evaluated_at), yRef, statusLabel);
+  addField(doc, labels.exportedAt || LEGACY_EXPORTED_AT_LABEL, exportedAt, yRef, statusLabel);
+
   return { doc, exportedAt };
 }
 
-export function downloadProofPackPdf(payload) {
-  const { doc } = generateProofPackPdf(payload);
+export function downloadProofPackPdf(payload, options = {}) {
+  const { doc } = generateProofPackPdf(payload, options);
   const obligationId = payload?.obligation?.obligation_instance_id || "unknown";
   const filename = `proof-pack-${obligationId.slice(0, 8)}.pdf`;
   doc.save(filename);
