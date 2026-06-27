@@ -21,6 +21,7 @@ const RPE_SQL_FILE_NAMES = [
   "regulatory_proof_engine_vs2b_obligations.sql",
   "regulatory_proof_engine_vs2c_discharge.sql",
   "regulatory_proof_engine_vs2d_basis_review.sql",
+  "regulatory_proof_engine_proof_pack_vs1.sql",
 ];
 
 const rpeSqlSources = RPE_SQL_FILE_NAMES.map((f) =>
@@ -258,6 +259,21 @@ const CROSS_ACCOUNT_REGISTRY = [
   {
     name: "list_obligation_basis_reviews",
     shape1: { p_account_id: accountAId },
+    shape2: {
+      args: {
+        p_account_id: accountBId,
+        p_obligation_instance_id: FAKE_RESOURCE_ID,
+      },
+      label: "foreign obligation",
+    },
+  },
+  // Proof Pack VS-1
+  {
+    name: "get_obligation_proof_pack",
+    shape1: {
+      p_account_id: accountAId,
+      p_obligation_instance_id: FAKE_RESOURCE_ID,
+    },
     shape2: {
       args: {
         p_account_id: accountBId,

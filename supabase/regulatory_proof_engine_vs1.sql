@@ -112,7 +112,8 @@ create table if not exists public.rule_evaluation (
 
 alter table public.rule_evaluation
   add column if not exists deferred_until_basis text,
-  add column if not exists exposure_gbp_ceiling numeric;
+  add column if not exists exposure_gbp_ceiling numeric,
+  add column if not exists input_snapshot_hash text;
 
 do $$ begin
   alter table public.rule_evaluation
@@ -123,6 +124,15 @@ do $$ begin
     );
 exception when duplicate_object then null;
 end $$;
+
+-- Backfill input_snapshot_hash for pre-remediation rows that lack it.
+update public.rule_evaluation
+   set input_snapshot_hash = encode(
+     extensions.digest(convert_to(input_snapshot::text, 'UTF8'), 'sha256'),
+     'hex'
+   )
+ where input_snapshot_hash is null
+   and input_snapshot is not null;
 
 create index if not exists rule_eval_tenancy_time_idx
   on public.rule_evaluation(tenancy_id, evaluated_at desc);
@@ -462,6 +472,7 @@ begin
     impact_rule_version,
     tenancy_id,
     input_snapshot,
+    input_snapshot_hash,
     decision_path,
     result,
     obligation_kind,
@@ -479,6 +490,7 @@ begin
     v_rule.version,
     p_tenancy_id,
     p_input_snapshot,
+    v_snapshot_hash,
     p_decision_path,
     p_result,
     p_obligation_kind,

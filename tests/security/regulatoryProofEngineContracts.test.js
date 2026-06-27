@@ -196,6 +196,12 @@ describe("RPE VS-1 provenance-integrity contract", () => {
     expect(vs1Sql).not.toContain("'aodBranch'");
   });
 
+  it("persists input_snapshot_hash as a first-class column on rule_evaluation, frozen at recording time", () => {
+    expect(vs1Sql).toContain("add column if not exists input_snapshot_hash text");
+    expect(vs1Sql).toContain("input_snapshot_hash,");
+    expect(vs1Sql).toContain("v_snapshot_hash,");
+  });
+
   it("enforces atomicity: rule_evaluation insert requires a same-transaction provenance event", () => {
     expect(vs1Sql).toContain("rule_evaluation_require_provenance_event");
     expect(vs1Sql).toContain("trg_rule_evaluation_require_provenance");
@@ -724,6 +730,131 @@ describe("RPE VS-2D basis-review two-axis model contract", () => {
   it("has a service wrapper for listObligationBasisReviews", () => {
     expect(engineService).toContain("listObligationBasisReviews");
     expect(engineService).toContain("list_obligation_basis_reviews");
+  });
+});
+
+const proofPackVs1Sql = readFileSync(join(process.cwd(), "supabase/regulatory_proof_engine_proof_pack_vs1.sql"), "utf8");
+
+describe("RPE Proof Pack VS-1 assembly read model contract", () => {
+  it("creates a SECURITY DEFINER stable read RPC get_obligation_proof_pack(uuid, uuid)", () => {
+    expect(proofPackVs1Sql).toMatch(/create or replace function public\.get_obligation_proof_pack\(\s*p_account_id uuid,\s*p_obligation_instance_id uuid\s*\)/i);
+    expect(proofPackVs1Sql).toMatch(/security definer/i);
+    expect(proofPackVs1Sql).toMatch(/stable/i);
+    expect(proofPackVs1Sql).toMatch(/set search_path = public/i);
+  });
+
+  it("enforces account authorization and obligation ownership (Shape 2)", () => {
+    expect(proofPackVs1Sql).toMatch(/user_can_manage_account\(p_account_id\)/i);
+    expect(proofPackVs1Sql).toMatch(/account_id = p_account_id/i);
+    expect(proofPackVs1Sql).toMatch(/Obligation not found for account/i);
+  });
+
+  it("reads stored evaluation values without calling evaluator or reconciliation", () => {
+    expect(proofPackVs1Sql).toMatch(/from public\.rule_evaluation re/i);
+    expect(proofPackVs1Sql).toMatch(/re\.id = v_obligation\.source_evaluation_id/i);
+    expect(proofPackVs1Sql).not.toMatch(/reconcile_rra_info_sheet_obligation/i);
+    expect(proofPackVs1Sql).not.toMatch(/run_rra_info_sheet_evaluation/i);
+    expect(proofPackVs1Sql).not.toMatch(/runRraInfoSheetEvaluation/i);
+  });
+
+  it("reads stored input_snapshot_hash from rule_evaluation — never recomputes with digest()", () => {
+    expect(proofPackVs1Sql).toContain("re.input_snapshot_hash");
+    expect(proofPackVs1Sql).toContain("v_evaluation.input_snapshot_hash");
+    const fnBody = proofPackVs1Sql.slice(proofPackVs1Sql.indexOf("as $$"));
+    expect(fnBody).not.toMatch(/extensions\.digest/i);
+    expect(fnBody).not.toContain("convert_to(");
+  });
+
+  it("reads stored evidence from rra_info_sheet_service_evidence", () => {
+    expect(proofPackVs1Sql).toMatch(/from public\.rra_info_sheet_service_evidence e/i);
+    expect(proofPackVs1Sql).toMatch(/e\.obligation_instance_id = p_obligation_instance_id/i);
+  });
+
+  it("reads stored basis review from obligation_basis_review and surfaces latest_evaluation_id", () => {
+    expect(proofPackVs1Sql).toMatch(/from public\.obligation_basis_review br/i);
+    expect(proofPackVs1Sql).toMatch(/br\.obligation_instance_id = p_obligation_instance_id/i);
+    expect(proofPackVs1Sql).toContain("br.latest_evaluation_id");
+    expect(proofPackVs1Sql).toContain("'latest_evaluation_id', br.latest_evaluation_id");
+  });
+
+  it("includes provenance events for the later evaluation (basis-trigger evaluation)", () => {
+    expect(proofPackVs1Sql).toContain("pe.entity_id = v_latest_evaluation_id");
+  });
+
+  it("checks later evaluation_run presence for basis-changed obligations", () => {
+    expect(proofPackVs1Sql).toContain("evaluation_run:basis_trigger_evaluation");
+    expect(proofPackVs1Sql).toContain("pe.entity_id = v_latest_evaluation_id");
+    expect(proofPackVs1Sql).toContain("pe.event_type = 'evaluation_run'");
+  });
+
+  it("assembles provenance trail in deterministic lifecycle order using sequence_number", () => {
+    expect(proofPackVs1Sql).toMatch(/order by pe\.sequence_number/i);
+    expect(proofPackVs1Sql).toMatch(/pe\.recorded_at/i);
+    expect(proofPackVs1Sql).toMatch(/pe\.id\)/i);
+  });
+
+  it("documents the sequence_number NOT NULL invariant for ordering correctness", () => {
+    expect(proofPackVs1Sql).toMatch(/sequence_number is NOT NULL/i);
+  });
+
+  it("collects provenance events across all obligation lifecycle entity types", () => {
+    expect(proofPackVs1Sql).toMatch(/entity_type = 'obligation_instance'/i);
+    expect(proofPackVs1Sql).toMatch(/entity_type = 'rule_evaluation'/i);
+    expect(proofPackVs1Sql).toMatch(/entity_type = 'rra_info_sheet_service_evidence'/i);
+    expect(proofPackVs1Sql).toMatch(/entity_type = 'obligation_basis_review'/i);
+  });
+
+  it("includes provenance_trace_status with expected_events_present and missing_event_types", () => {
+    expect(proofPackVs1Sql).toContain("expected_events_present");
+    expect(proofPackVs1Sql).toContain("missing_event_types");
+    expect(proofPackVs1Sql).toContain("evaluation_run");
+    expect(proofPackVs1Sql).toContain("rpe.obligation.created");
+    expect(proofPackVs1Sql).toContain("rpe.service_evidence.captured");
+    expect(proofPackVs1Sql).toContain("rpe.obligation.discharged");
+    expect(proofPackVs1Sql).toContain("rpe.obligation.basis_change_recorded");
+  });
+
+  it("uses completeness/state indicators only — no legal verdict language in function body", () => {
+    expect(proofPackVs1Sql).toContain("evaluation_recorded");
+    expect(proofPackVs1Sql).toContain("obligation_created");
+    expect(proofPackVs1Sql).toContain("discharge_evidence_present");
+    expect(proofPackVs1Sql).toContain("provenance_trail_intact");
+    expect(proofPackVs1Sql).toContain("evidence_missing");
+    const fnBody = proofPackVs1Sql.slice(proofPackVs1Sql.indexOf("as $$"));
+    expect(fnBody).not.toMatch(/court.?ready/i);
+    expect(fnBody).not.toMatch(/legally compliant/i);
+    expect(fnBody).not.toMatch(/verdict/i);
+  });
+
+  it("carries demo/Gate-B status visibly in the payload", () => {
+    expect(proofPackVs1Sql).toContain("demo_mode");
+    expect(proofPackVs1Sql).toContain("gate_b_signed_off");
+    expect(proofPackVs1Sql).toContain("customer_facing_allowed");
+    expect(proofPackVs1Sql).toContain("pack_status_label");
+    expect(proofPackVs1Sql).toContain("Demo proof pack");
+  });
+
+  it("performs no writes — no INSERT, UPDATE, DELETE, or event emission", () => {
+    const fnBody = proofPackVs1Sql.slice(proofPackVs1Sql.indexOf("as $$"));
+    expect(fnBody).not.toMatch(/\binsert\s+into\b/i);
+    expect(fnBody).not.toMatch(/\bupdate\s+public\./i);
+    expect(fnBody).not.toMatch(/\bdelete\s+from\b/i);
+    expect(fnBody).not.toMatch(/record_provenance_event/i);
+    expect(fnBody).not.toMatch(/record_rpe_/i);
+  });
+
+  it("revokes from public and grants to authenticated only", () => {
+    expect(proofPackVs1Sql).toMatch(/revoke all on function public\.get_obligation_proof_pack\(uuid, uuid\) from public/i);
+    expect(proofPackVs1Sql).toMatch(/grant execute on function public\.get_obligation_proof_pack\(uuid, uuid\) to authenticated/i);
+  });
+
+  it("is registered in the dbApplyRepoSql overlay list", () => {
+    expect(dbApply).toContain("regulatory_proof_engine_proof_pack_vs1.sql");
+  });
+
+  it("has a service wrapper for getObligationProofPack", () => {
+    expect(engineService).toContain("getObligationProofPack");
+    expect(engineService).toContain("get_obligation_proof_pack");
   });
 });
 
