@@ -277,6 +277,27 @@ export async function captureAndDischargeRraInfoSheetObligation({
   return { evidence, discharge };
 }
 
+export async function listObligationBasisReviews({
+  accountId,
+  obligationInstanceId = null,
+  limit = 100,
+  offset = 0,
+} = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+
+  const params = {
+    p_account_id: accountId,
+    p_limit: limit,
+    p_offset: offset,
+  };
+  if (obligationInstanceId) params.p_obligation_instance_id = obligationInstanceId;
+
+  const { data, error } = await supabase.rpc("list_obligation_basis_reviews", params);
+
+  if (error) throw friendly(error, "Failed to list obligation basis reviews");
+  return data ?? [];
+}
+
 export async function getRraCaptureReadiness({ accountId, tenancyId } = {}) {
   if (!accountId) throw new Error("Missing accountId");
   if (!tenancyId) throw new Error("Missing tenancyId");

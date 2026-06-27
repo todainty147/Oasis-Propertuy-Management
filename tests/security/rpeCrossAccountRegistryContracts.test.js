@@ -20,6 +20,7 @@ const RPE_SQL_FILE_NAMES = [
   "regulatory_proof_engine_vs2a_capture.sql",
   "regulatory_proof_engine_vs2b_obligations.sql",
   "regulatory_proof_engine_vs2c_discharge.sql",
+  "regulatory_proof_engine_vs2d_basis_review.sql",
 ];
 
 const rpeSqlSources = RPE_SQL_FILE_NAMES.map((f) =>
@@ -253,6 +254,18 @@ const CROSS_ACCOUNT_REGISTRY = [
       label: "foreign obligation",
     },
   },
+  // VS-2D
+  {
+    name: "list_obligation_basis_reviews",
+    shape1: { p_account_id: accountAId },
+    shape2: {
+      args: {
+        p_account_id: accountBId,
+        p_obligation_instance_id: FAKE_RESOURCE_ID,
+      },
+      label: "foreign obligation",
+    },
+  },
 ];
 
 const REGISTERED_NAMES = new Set(CROSS_ACCOUNT_REGISTRY.map((r) => r.name));
@@ -268,6 +281,7 @@ const INTERNAL_HELPERS = new Set([
   "record_rpe_obligation_discharged_event",
   "record_rpe_discharged_basis_changed_flag_event",
   "record_rpe_obligation_transition_event",
+  "record_rpe_basis_change_recorded_event",
 ]);
 
 // ---------------------------------------------------------------------------

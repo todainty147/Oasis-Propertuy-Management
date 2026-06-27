@@ -212,6 +212,32 @@ describe("regulatoryProofEngineService", () => {
     expect(result[0].evidence_type).toBe("delivery_confirmation");
   });
 
+  it("lists obligation basis reviews via throwing RPC", async () => {
+    mockRpc.mockResolvedValue({
+      data: [
+        {
+          id: "br-1",
+          obligation_instance_id: "obligation-1",
+          basis_change_kind: "not_affected_after_discharge",
+          review_required: true,
+        },
+      ],
+      error: null,
+    });
+
+    const result = await service.listObligationBasisReviews({
+      accountId: "acct-1",
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith("list_obligation_basis_reviews", {
+      p_account_id: "acct-1",
+      p_limit: 100,
+      p_offset: 0,
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0].basis_change_kind).toBe("not_affected_after_discharge");
+  });
+
   it("captures admissible RRA information-sheet service evidence", async () => {
     mockRpc.mockResolvedValue({
       data: {
