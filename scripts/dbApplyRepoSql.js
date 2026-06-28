@@ -138,6 +138,8 @@ const OVERLAY_SEQUENCE = [
   "regulatory_proof_engine_vs0.sql",
   "regulatory_proof_engine_vs1.sql",
   "regulatory_monitoring_vs1_intake.sql",
+  "regulatory_monitoring_vs2_sources.sql",
+  "regulatory_monitoring_vs2_5_scheduled.sql",
   "regulatory_proof_engine_vs2a_capture.sql",
   "regulatory_proof_engine_vs2b_obligations.sql",
   "regulatory_proof_engine_vs2c_discharge.sql",

@@ -174,3 +174,35 @@ export async function listRegulatoryChangeCandidates({
   if (error) throw friendly(error, "Failed to list regulatory change candidates");
   return data ?? [];
 }
+
+export async function listRegulatorySources({
+  accountId,
+  status = null,
+  limit = 100,
+  offset = 0,
+} = {}) {
+  if (!accountId) throw new Error("Missing accountId");
+
+  const { data, error } = await supabase.rpc("list_regulatory_sources", {
+    p_account_id: accountId,
+    p_status: status,
+    p_limit: limit,
+    p_offset: offset,
+  });
+
+  if (error) throw friendly(error, "Failed to list regulatory sources");
+  return data ?? [];
+}
+
+export async function checkRegulatorySource({
+  sourceId,
+} = {}) {
+  if (!sourceId) throw new Error("Missing sourceId");
+
+  const { data, error } = await supabase.functions.invoke("check-regulatory-source", {
+    body: { sourceId },
+  });
+
+  if (error) throw friendly(error, "Failed to check regulatory source");
+  return data ?? null;
+}

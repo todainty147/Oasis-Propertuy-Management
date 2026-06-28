@@ -11,6 +11,7 @@ const SCHEDULED_FUNCTIONS = [
   "send-sms-notifications",
   "cleanup-security-audit-exports",
   "cleanup-security-observability-events",
+  "check-regulatory-sources-scheduled",
 ];
 
 describe("scheduled Edge Function observability contracts", () => {
