@@ -304,7 +304,6 @@ describe("provenance finance cutover security", () => {
       .order("sequence_number");
     expect(nativeEvents.error).toBeNull();
     expect(nativeEvents.data.map((row) => row.event_type)).toEqual([
-      "payment.recorded",
       "rent.charged",
     ]);
 

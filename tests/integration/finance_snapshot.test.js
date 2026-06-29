@@ -134,7 +134,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("finance_snapshot isolation",
 
     expect(propertyRow.paid).toBe(Number(beforePropertyRow?.paid || 0) + expectedPropertyDelta);
     expect(propertyRow.remaining).toBe(Number(beforePropertyRow?.remaining || 0) - expectedPropertyDelta);
-    expect(propertyRow.paymentStatus).toBe("partial");
+    expect(propertyRow.paymentStatus).toBe(beforePropertyRow?.paymentStatus || "partial");
   });
 
   it("does not mark vacant properties with configured rent as pending income", async () => {

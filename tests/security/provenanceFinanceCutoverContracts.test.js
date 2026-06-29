@@ -117,6 +117,7 @@ describe("provenance finance cutover contracts", () => {
     it("validates payment provenance event types", () => {
       for (const eventType of [
         "payment.recorded",
+        "payment.reversed",
         "payment.marked_paid",
         "payment.reopened",
         "payment.voided",
@@ -140,16 +141,22 @@ describe("provenance finance cutover contracts", () => {
       expect(sql).toContain("'live:payment.recorded:'");
     });
 
-    it("mark_payment_paid emits payment.marked_paid after cutover", () => {
-      expect(sql).toContain("'live:payment.marked_paid:'");
+    it("mark_payment_paid emits payment.recorded after cutover", () => {
+      expect(sql).toContain("'live:payment.recorded:' || p_payment_id::text");
     });
 
-    it("mark_payment_unpaid emits payment.reopened after cutover", () => {
-      expect(sql).toContain("'live:payment.reopened:'");
+    it("mark_payment_unpaid emits payment.reversed after cutover", () => {
+      expect(sql).toContain("'live:payment.reversed:'");
     });
 
     it("void_payment emits payment.voided after cutover", () => {
       expect(sql).toContain("'live:payment.voided:'");
+    });
+
+    it("reverse_payment emits payment.reversed after cutover", () => {
+      expect(sql).toContain("create or replace function public.reverse_payment");
+      expect(sql).toContain("'Only paid payments can be reversed'");
+      expect(sql).toContain("'live:payment.reversed:'");
     });
 
     it("update_payment emits payment.adjusted on amount change after cutover", () => {
@@ -347,9 +354,9 @@ describe("provenance finance cutover contracts", () => {
       expect(sql).toContain("events jsonb");
     });
 
-    it("payment.recorded contributes exactly 0 to balance", () => {
+    it("payment.recorded contributes as cash received", () => {
       expect(sql).toContain(
-        "when re.event_type = 'payment.recorded' then 0::bigint",
+        "when re.event_type = 'payment.recorded' then -coalesce(re.amount_minor, 0)",
       );
     });
 
@@ -365,9 +372,9 @@ describe("provenance finance cutover contracts", () => {
       );
     });
 
-    it("payment.marked_paid contributes negative to balance", () => {
+    it("legacy payment.marked_paid is informational after payment.recorded carries cash", () => {
       expect(sql).toContain(
-        "when re.event_type = 'payment.marked_paid' then -coalesce(re.amount_minor, 0)",
+        "when re.event_type = 'payment.marked_paid' then 0::bigint",
       );
     });
 

@@ -179,10 +179,19 @@ begin
       when lower(coalesce(old.status, '')) is distinct from lower(coalesce(new.status, ''))
         and lower(coalesce(new.status, '')) in ('overdue', 'zaległe', 'zalegle') then 'payment_overdue'
       when lower(coalesce(old.status, '')) is distinct from lower(coalesce(new.status, ''))
-        and lower(coalesce(new.status, '')) = 'void' then 'payment_reversed'
+        and lower(coalesce(new.status, '')) = 'void'
+        and (
+          old.paid_at is not null
+          or lower(coalesce(old.status, '')) in ('paid', 'partial')
+        ) then 'payment_reversed'
       when lower(coalesce(old.status, '')) is distinct from lower(coalesce(new.status, ''))
-        and lower(coalesce(old.status, '')) = 'paid'
-        and coalesce(new.paid_at, null) is null then 'payment_reopened'
+        and lower(coalesce(new.status, '')) = 'void' then 'payment_voided'
+      when lower(coalesce(old.status, '')) is distinct from lower(coalesce(new.status, ''))
+        and lower(coalesce(old.status, '')) = 'void'
+        and lower(coalesce(new.status, '')) in ('due', 'overdue') then 'payment_reopened'
+      when old.paid_at is not null
+        and new.paid_at is null
+        and lower(coalesce(new.status, '')) <> 'void' then 'payment_reversed'
       when old.amount is distinct from new.amount or old.due_date is distinct from new.due_date then 'payment_updated'
       else 'payment_status_changed'
     end;
@@ -240,8 +249,8 @@ begin
 end;
 $$;
 
-drop function if exists public.void_payment(uuid, uuid);
-create or replace function public.void_payment(
+drop function if exists public.reverse_payment(uuid, uuid, text);
+create or replace function public.reverse_payment(
   p_payment_id uuid,
   p_account_id uuid default null::uuid,
   p_reason text default null::text
@@ -297,6 +306,120 @@ begin
 end;
 $$;
 
+drop function if exists public.void_payment(uuid, uuid, text);
+create or replace function public.void_payment(
+  p_payment_id uuid,
+  p_account_id uuid default null::uuid,
+  p_reason text default null::text
+)
+returns public.payments
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_pay public.payments;
+  v_role text;
+  v_reason text := nullif(trim(coalesce(p_reason, '')), '');
+begin
+  select * into v_pay
+  from public.payments
+  where id = p_payment_id
+    and (p_account_id is null or account_id = p_account_id);
+
+  if not found then
+    raise exception 'Payment not found';
+  end if;
+
+  v_role := public.account_role_for(v_pay.account_id);
+  if coalesce(v_role, '') not in ('owner', 'admin')
+     and not public.account_member_has_permission(v_pay.account_id, 'finance.reverse_payment') then
+    raise exception 'Not permitted';
+  end if;
+
+  if lower(coalesce(v_pay.status, '')) = 'void' then
+    raise exception 'Payment is already voided';
+  end if;
+
+  if v_pay.paid_at is not null
+     or lower(coalesce(v_pay.status, '')) in ('paid', 'partial') then
+    raise exception 'Paid payments must be reversed, not voided';
+  end if;
+
+  if v_reason is not null then
+    perform set_config('oasis.payment_reversal_reason', v_reason, true);
+  end if;
+
+  update public.payments
+  set status  = 'void',
+      paid_at = null,
+      notes = concat_ws(E'\n', nullif(notes, ''), 'Payment voided: ' || coalesce(v_reason, 'unpaid charge cancelled'))
+  where id = p_payment_id
+  returning * into v_pay;
+
+  return v_pay;
+end;
+$$;
+
+create or replace function public.reopen_payment(
+  p_payment_id uuid,
+  p_account_id uuid default null::uuid
+)
+returns public.payments
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_pay public.payments;
+  v_role text;
+begin
+  select * into v_pay
+  from public.payments
+  where id = p_payment_id
+    and (p_account_id is null or account_id = p_account_id);
+
+  if not found then
+    raise exception 'Payment not found';
+  end if;
+
+  v_role := public.account_role_for(v_pay.account_id);
+  if coalesce(v_role, '') not in ('owner', 'admin')
+     and not public.account_member_has_permission(v_pay.account_id, 'finance.reverse_payment') then
+    raise exception 'Not permitted';
+  end if;
+
+  if lower(coalesce(v_pay.status, '')) <> 'void' then
+    raise exception 'Only voided unpaid charges can be reopened';
+  end if;
+
+  if v_pay.notes ilike '%Payment reversed:%' then
+    raise exception 'Reversed paid receipts must be recorded again as a fresh payment';
+  end if;
+
+  if v_pay.paid_at is not null then
+    raise exception 'Reversed paid receipts must be recorded again as a fresh payment';
+  end if;
+
+  update public.payments
+  set status = case
+                 when due_date < current_date then 'overdue'
+                 else 'due'
+               end,
+      paid_at = null
+  where id = p_payment_id
+  returning * into v_pay;
+
+  return v_pay;
+end;
+$$;
+
+revoke all on function public.reverse_payment(uuid, uuid, text) from public;
 revoke all on function public.void_payment(uuid, uuid, text) from public;
+revoke all on function public.reopen_payment(uuid, uuid) from public;
+grant execute on function public.reverse_payment(uuid, uuid, text) to authenticated;
+grant execute on function public.reverse_payment(uuid, uuid, text) to service_role;
 grant execute on function public.void_payment(uuid, uuid, text) to authenticated;
 grant execute on function public.void_payment(uuid, uuid, text) to service_role;
+grant execute on function public.reopen_payment(uuid, uuid) to authenticated;
+grant execute on function public.reopen_payment(uuid, uuid) to service_role;

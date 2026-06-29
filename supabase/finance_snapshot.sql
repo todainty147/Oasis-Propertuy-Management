@@ -179,6 +179,13 @@ begin
         where pr2.property_id = pt.property_id
           and pr2.is_paid
       ), 0) as total_paid_alltime,
+      coalesce((
+        select sum(pr2.amount)
+        from payment_rows pr2
+        where pr2.property_id = pt.property_id
+          and pr2.is_paid
+          and pr2.cycle_month < date_trunc('month', current_date)
+      ), 0) as total_paid_before_current_month,
       case
         when pt.rent_start_month is not null and pt.rent > 0 then
           greatest(
@@ -218,10 +225,13 @@ begin
       ), 0) as total_income,
 
       -- Overdue: historical arrears plus current-cycle balances whose due date has passed.
+      --
+      -- D-07: payments are attributed to their due/rent cycle by default.
+      -- Current-cycle payments must not silently reduce historical arrears.
       coalesce((
         select sum(
           greatest(
-            (pa.months_elapsed - 1) * pa.rent - pa.total_paid_alltime,
+            (pa.months_elapsed - 1) * pa.rent - pa.total_paid_before_current_month,
             0
           )
         )
@@ -230,7 +240,7 @@ begin
         where po.has_assigned_tenant
           and pa.rent > 0
           and pa.months_elapsed > 1
-          and pa.total_paid_alltime < (pa.months_elapsed - 1) * pa.rent
+          and pa.total_paid_before_current_month < (pa.months_elapsed - 1) * pa.rent
       ), 0)
       +
       coalesce((
@@ -305,7 +315,7 @@ begin
         when (po.has_assigned_tenant or coalesce(bool_or(pc.property_id is not null), false))
           and sp.rent > 0
           and pa.months_elapsed > 1
-          and coalesce(pa.total_paid_alltime, 0) < (pa.months_elapsed - 1) * sp.rent
+          and coalesce(pa.total_paid_before_current_month, 0) < (pa.months_elapsed - 1) * sp.rent
         then true
         else coalesce(
           bool_or(greatest(pc.billed_amount - pc.paid_amount, 0) > 0 and pc.has_overdue),
@@ -319,7 +329,7 @@ begin
     left join property_accumulated pa on pa.property_id = sp.id
     group by
       sp.id, sp.address, sp.city, sp.rent, po.has_assigned_tenant,
-      pa.total_paid_alltime, pa.months_elapsed
+      pa.total_paid_alltime, pa.total_paid_before_current_month, pa.months_elapsed
   ),
 
   property_status_rows as (
