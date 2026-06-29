@@ -4,10 +4,42 @@ Small, high-value runbooks for production diagnosis and safe remediation.
 
 Use these documents when the issue is already narrowed to a concrete operational symptom. If you are not sure where to start, use the triage guide below first.
 
+## Runbook format convention
+
+All new and updated runbooks should follow [runbook-template.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/runbook-template.md). Keep the template's top-level section order so operators can scan every runbook the same way. Module-specific setup, deployment, secret, or cron details should live as subsections inside the closest template section, usually `Data model / RPCs / functions`, rather than introducing a different top-level shape.
+
 ## Triage Guide
 
 If the symptom is:
 
+- support/engineering needs to find the operational guide for a high-trust module:
+  - start with [operational-coverage-matrix.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/operational-coverage-matrix.md)
+- creating or updating a runbook:
+  - use [runbook-template.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/runbook-template.md)
+- support needs safe wording for legal/tax/compliance/billing/security-adjacent tickets:
+  - use [customer-safe-wording.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/customer-safe-wording.md)
+- HMRC connection, sandbox submission, live pilot, consent, token, or MTD draft behavior fails:
+  - start with [hmrc-mtd-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/hmrc-mtd-operations.md)
+- provenance ledger verification, hash chain, append-only evidence, or actor history looks wrong:
+  - start with [provenance-ledger-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/provenance-ledger-operations.md)
+- balance evidence, finance cutover, provenance-vs-legacy balance explanation, or reconciliation drift appears wrong:
+  - start with [finance-provenance-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/finance-provenance-operations.md)
+- RPE evaluation, obligation posture, discharge evidence, basis review, or proof pack trace fails:
+  - start with [compliance-rpe-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/compliance-rpe-operations.md)
+- regulatory monitoring candidate, Gate A/B, source register, source check, or scheduled source run fails:
+  - start with [regulatory-monitoring-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/regulatory-monitoring-operations.md)
+- billing, Stripe, trial, founder entitlement, plan resolver, or feature access looks wrong:
+  - start with [billing-stripe-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/billing-stripe-operations.md)
+- auth, roles, account isolation, tenant/contractor portal boundary, staff permissions, or root support access looks wrong:
+  - start with [auth-isolation-triage.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/auth-isolation-triage.md)
+- maintenance requests, work orders, contractor assignment, contractor visibility, or preferred supplier behavior fails:
+  - start with [maintenance-work-orders-support.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/maintenance-work-orders-support.md)
+- document upload, preview/download, evidence link, service evidence, PDF export, storage, or tenant visibility fails:
+  - start with [documents-evidence-storage-runbook.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/documents-evidence-storage-runbook.md)
+- scheduled cron, CRON_SECRET, stuck job, skipped job, or scheduled observability behavior fails:
+  - start with [scheduled-functions-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/scheduled-functions-operations.md)
+- AI quota, provider failure, fallback, missing source context, or unsafe AI wording appears:
+  - start with [ai-quota-provider-operations.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/ai-quota-provider-operations.md)
 - a new customer support ticket needs classification or routing:
   - start with [support-triage-workflow.md](/mnt/c/Users/Home/oasisrentalmanagementapp/docs/runbooks/support-triage-workflow.md)
 - preparing or approving a production-facing release:

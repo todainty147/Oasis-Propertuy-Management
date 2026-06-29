@@ -7,6 +7,7 @@ const FUNCTIONS = [
   "send-sms-notifications",
   "cleanup-security-audit-exports",
   "cleanup-security-observability-events",
+  "check-regulatory-sources-scheduled",
 ];
 
 function parseArgs(argv) {
@@ -50,6 +51,7 @@ What it does:
   4. Deploys send-sms-notifications.
   5. Deploys cleanup-security-audit-exports.
   6. Deploys cleanup-security-observability-events.
+  7. Deploys check-regulatory-sources-scheduled.
 
 After it runs:
   Update any Supabase Cron / pg_net jobs to send the printed CRON_SECRET in

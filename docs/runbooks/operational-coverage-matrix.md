@@ -1,0 +1,28 @@
+# Operational Runbook Coverage Matrix
+
+This matrix records the June 2026 support-readiness pass for high-trust modules. It is intentionally operational: if a production symptom touches money, legal posture, tax/HMRC, evidence, account isolation, billing, or customer trust, support should be able to find a guide here or in the linked module docs.
+
+## Summary
+
+| Area / module | Code evidence found | Existing doc found? | Existing doc path | Coverage status | Risk level | Why it matters | Required doc type | Proposed doc path | Action taken |
+|---|---|---:|---|---|---|---|---|---|---|
+| HMRC / MTD | `src/services/hmrcMtdService.js`, `src/lib/mtd/*`, `supabase/hmrc_mtd_*.sql`, `supabase/functions/hmrc-*`, HMRC tests/docs | Yes | `docs/support/hmrc-submission-support-runbook.md`, `docs/hmrc/production-access/*`, release docs | Partial | Critical | Tax submission, tokens, pilot gates, live-network safety | Operations runbook | `docs/runbooks/hmrc-mtd-operations.md` | Created first-pass runbook and linked existing support doc |
+| Provenance / evidence ledger | `supabase/provenance_events.sql`, `supabase/migrations/20260622000000_provenance_hash_chain_backfill.sql`, provenance services/pages/tests | Yes | `docs/features/provenance-event-ledger.md`, sprint reports | Partial | Critical | Evidence integrity and historical audit trail | Runbook | `docs/runbooks/provenance-ledger-operations.md` | Created first-pass runbook |
+| Finance / provenance finance | `supabase/provenance_finance_cutover.sql`, `supabase/provenance_explain_balance.sql`, finance services/pages/tests | Some | sprint reports and finance feature docs | Partial | Critical | Balance evidence, reconciliation drift, customer trust | Runbook | `docs/runbooks/finance-provenance-operations.md` | Created first-pass runbook |
+| Compliance / RPE / proof packs | `src/lib/regulatory*`, `src/services/regulatoryProofEngineService.js`, `supabase/regulatory_proof_engine_*.sql`, proof pack route/tests | Yes | `docs/regulatory-proof-engine-input-coverage-audit.md`, `docs/rpe-spec-v0.3.2-clarification.md` | Partial | Critical | Legal posture evidence and customer proof packs | Runbook | `docs/runbooks/compliance-rpe-operations.md` | Created first-pass runbook |
+| Regulatory monitoring / intake | `src/services/regulatoryMonitoringService.js`, `supabase/regulatory_monitoring_*.sql`, `supabase/functions/check-regulatory-*`, tests | Some | VS prompts/reports in working notes only | Missing | Critical | Reviewed source-change intake; must not publish unreviewed changes | Runbook | `docs/runbooks/regulatory-monitoring-operations.md` | Created first-pass runbook |
+| Billing / Stripe / entitlements | `src/services/billingService.js`, `src/pages/BillingPage.jsx`, `supabase/account_subscription_*.sql`, entitlement SQL | Some | `docs/billing/FOUNDER_OFFER.md`, release docs | Partial | Critical | Plan access, trial state, Stripe webhooks, customer billing trust | Runbook | `docs/runbooks/billing-stripe-operations.md` | Created first-pass runbook |
+| Auth / roles / isolation | `src/services/accountMemberService.js`, role pages, `supabase/custom_staff_roles*.sql`, RLS tests | Yes | `docs/runbooks/support-permission-issues.md`, security docs | Partial | Critical | Cross-account and role boundary safety | Triage guide | `docs/runbooks/auth-isolation-triage.md` | Created expanded triage guide |
+| Maintenance / work orders / contractor | maintenance/work-order pages/services, contractor SQL/tests | Yes | contractor support docs, roadmap docs | Partial | High | Tenant repair flow and contractor visibility | Support guide | `docs/runbooks/maintenance-work-orders-support.md` | Created first-pass support guide |
+| Documents / evidence / storage | document pages/services, storage policies, extraction/signature SQL/functions | Yes | `docs/runbooks/document-workflow-operations.md`, extraction runbook | Partial | High | File access, proof evidence, tenant/landlord documents | Runbook | `docs/runbooks/documents-evidence-storage-runbook.md` | Created storage/evidence runbook |
+| Scheduled functions / observability | scheduled Edge Functions, `scheduledFunctionObservabilityContracts`, CRON_SECRET helpers | Some | security observability docs | Partial | High | Stuck cron, failed scheduled jobs, unauthorized cron | Runbook | `docs/runbooks/scheduled-functions-operations.md` | Created first-pass runbook |
+| AI features / quotas | AI services, quota SQL, AI runbooks | Yes | `docs/runbooks/ai-*-operations.md`, `ai-cost-controls-operations.md` | Partial | Medium | Provider failures, quotas, unsafe output wording | Runbook | `docs/runbooks/ai-quota-provider-operations.md` | Created cross-AI support guide |
+| Customer-safe wording | support templates and scattered runbooks | Yes | `docs/templates/customer-response-templates.md` | Partial | High | Prevents legal/tax/security overclaiming | Support wording | `docs/runbooks/customer-safe-wording.md` | Created wording guide |
+
+## Deferred / follow-up instrumentation
+
+- HMRC live pilot still needs environment-specific operational dashboards before broad support use.
+- RPE/proof pack support would benefit from a single read-only admin view for evaluation, obligation, proof pack, and evidence lineage.
+- Regulatory monitoring scheduler should expose run history in an internal-only operator view before recurring monitoring is widened.
+- Billing support would benefit from a webhook replay checklist tied to the Stripe event id and local idempotency evidence.
+- Scheduled functions need a central failed-job dashboard if more customer-impacting scheduled jobs are added.
