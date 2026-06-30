@@ -404,6 +404,7 @@ export function parseMarketplaceIntegrationSettingRow(row) {
     providerKey: toStringOr(value.provider_key).trim().toLowerCase(),
     enabled: toBooleanOr(value.enabled),
     configuration: toObjectOr(value.configuration),
+    categoryIdsVerified: toBooleanOr(value.category_ids_verified),
     updatedAt: toNullableString(value.updated_at),
   };
 }

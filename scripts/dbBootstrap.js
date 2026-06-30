@@ -529,6 +529,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply Phase 2 repair pass (E-066b / E-077 / E-074)",
+    file: path.join(supabaseDir, "phase2_repair_e066b_e077_e074.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply HMRC MTD Phase 1 overlay",
     file: path.join(supabaseDir, "hmrc_mtd_phase1.sql"),
     onErrorStop: true,

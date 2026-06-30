@@ -9,12 +9,15 @@ describe("provenance finance cutover unit tests", () => {
   const sql = readSource("supabase/provenance_finance_cutover.sql");
 
   describe("balance projection contribution rules", () => {
-    it("payment.recorded contributes exactly 0 to balance (INVARIANT)", () => {
+    it("payment.recorded contributes credit to balance (is the credit event in the new payment model)", () => {
+      // 2475c3b: payment.recorded is now the credit event. recording a payment IS
+      // the ledger credit; payment.marked_paid is a zero-contribution status event.
       expect(sql).toContain(
-        "when re.event_type = 'payment.recorded' then 0::bigint",
+        "when re.event_type = 'payment.recorded' then -coalesce(re.amount_minor, 0)",
       );
-      expect(sql).not.toMatch(
-        /payment\.recorded.*then\s+coalesce\(re\.amount_minor/,
+      // Guard against regression to the old zero-contribution model.
+      expect(sql).not.toContain(
+        "when re.event_type = 'payment.recorded' then 0::bigint",
       );
     });
 
@@ -30,9 +33,9 @@ describe("provenance finance cutover unit tests", () => {
       );
     });
 
-    it("payment.marked_paid contributes negative (credit)", () => {
+    it("payment.marked_paid contributes zero (status event — credit moved to payment.recorded in new model)", () => {
       expect(sql).toContain(
-        "when re.event_type = 'payment.marked_paid' then -coalesce(re.amount_minor, 0)",
+        "when re.event_type = 'payment.marked_paid' then 0::bigint",
       );
     });
 
@@ -58,9 +61,9 @@ describe("provenance finance cutover unit tests", () => {
   });
 
   describe("treatment assignment", () => {
-    it("assigns 'informational' to payment.recorded", () => {
+    it("assigns 'informational' to payment.marked_overdue only (payment.recorded is now a credit event, not informational)", () => {
       expect(sql).toContain(
-        "when re.event_type in ('payment.recorded', 'payment.marked_overdue') then 'informational'",
+        "when re.event_type in ('payment.marked_overdue') then 'informational'",
       );
     });
 
@@ -102,7 +105,7 @@ describe("provenance finance cutover unit tests", () => {
   describe("cutover gap/overlap prevention", () => {
     it("live instrumentation only fires when status is active and time >= cutover_at", () => {
       expect(sql).toContain("status = 'active'");
-      expect(sql).toContain("now() >= v_cutover_at");
+      expect(sql).toContain("now() >= c.cutover_at");
     });
 
     it("backfill uses cutover timestamp as obligation occurred_at", () => {
@@ -178,9 +181,12 @@ describe("provenance finance cutover unit tests", () => {
       expect(sql).toContain("'live:payment.recorded:' || v_row.id::text");
     });
 
-    it("mark_payment_paid uses stable key", () => {
+    it("mark_payment_paid emits payment.recorded event with paid-at-time stable key", () => {
+      // 2475c3b: mark_payment_paid now emits payment.recorded (not payment.marked_paid).
+      // The paid-at timestamp is included in the key so re-marking paid on the same
+      // payment at a different time produces a distinct idempotency key.
       expect(sql).toContain(
-        "'live:payment.marked_paid:' || p_payment_id::text",
+        "'live:payment.recorded:' || p_payment_id::text || ':' || coalesce(p_paid_at, current_date)::text",
       );
     });
 
@@ -305,15 +311,18 @@ describe("provenance finance cutover unit tests", () => {
 
   describe("cutover seam: no gap between backfill and live", () => {
     it("backfill and live use distinct idempotency key prefixes (no overlap)", () => {
+      // Backfill keys: both events exist in the backfill path
       expect(sql).toContain("'backfill:payment.recorded:'");
-      expect(sql).toContain("'live:payment.recorded:'");
       expect(sql).toContain("'backfill:payment.marked_paid:'");
-      expect(sql).toContain("'live:payment.marked_paid:'");
+      // Live key: mark_payment_paid now emits payment.recorded (2475c3b).
+      // No live:payment.marked_paid: key exists — the credit is on recorded.
+      expect(sql).toContain("'live:payment.recorded:'");
+      expect(sql).not.toContain("'live:payment.marked_paid:'");
     });
 
     it("live instrumentation only fires after cutover is active", () => {
       expect(sql).toContain("status = 'active'");
-      expect(sql).toContain("now() >= v_cutover_at");
+      expect(sql).toContain("now() >= c.cutover_at");
     });
   });
 

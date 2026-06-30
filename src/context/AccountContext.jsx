@@ -146,7 +146,8 @@ export function AccountProvider({ children }) {
             )
           `
           )
-          .eq("user_id", user.id);
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: true });
       }
 
       let memberships = null;
@@ -313,10 +314,11 @@ export function AccountProvider({ children }) {
         setAccounts(accs);
 
         const stored = localStorage.getItem("activeAccountId");
+        // Root validates stored against all accounts; non-root against own memberships only.
         const validStored = stored && accs.some((a) => a.id === stored);
         const nextId = rootOperator
           ? (validStored ? stored : accs[0]?.id ?? null)
-          : (accs[0]?.id ?? null);
+          : (validStored ? stored : accs[0]?.id ?? null);
         setActiveAccountId(nextId);
 
         if (nextId) localStorage.setItem("activeAccountId", nextId);
@@ -550,7 +552,7 @@ export function AccountProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [user, authLoading, accountVersion]);
+  }, [user?.id, authLoading, accountVersion]);
 
   /* Founder entitlement — load alongside OA grant status */
   useEffect(() => {

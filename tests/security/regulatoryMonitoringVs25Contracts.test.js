@@ -109,6 +109,19 @@ describe("Monitoring VS-2.5 scheduled trigger", () => {
     expect(vs25Sql).toContain("regulatory_source.scheduled_run_skipped");
   });
 
+  it("isolates beginRun inside the per-account try/catch so one account failure cannot abort others", () => {
+    expect(scheduledFunction).toMatch(
+      /for\s*\(const\s*\[accountId[\s\S]*?try\s*\{[\s\S]*?beginRun\(accountId\)/,
+    );
+    expect(scheduledFunction).toContain("if (runId)");
+    expect(scheduledFunction).toMatch(/if\s*\(runId\)\s*\{?\s*\n?\s*await failRun/);
+  });
+
+  it("uses emptyCounters() for counter initialisation so inline drift is impossible", () => {
+    expect(scheduledFunction).toContain("function emptyCounters()");
+    expect(scheduledFunction).toContain("const counters = emptyCounters()");
+  });
+
   it("marks stale running jobs failed before starting a new run and skips live overlaps", () => {
     expect(vs25Sql).toContain("p_stale_after_minutes");
     expect(vs25Sql).toContain("started_at < now() - v_stale_after");

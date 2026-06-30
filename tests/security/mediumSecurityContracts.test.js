@@ -80,6 +80,57 @@ describe("medium security audit contracts", () => {
     }
   });
 
+  it("selects the active account deterministically with localStorage memory for all users (E-138)", () => {
+    const context = readSource("src/context/AccountContext.jsx");
+
+    expect(context).toContain('.order("created_at", { ascending: true })');
+
+    const selectionBlock = context.slice(
+      context.indexOf("const stored = localStorage.getItem"),
+      context.indexOf("setActiveAccountId(nextId)"),
+    );
+    expect(selectionBlock).toContain("validStored ? stored : accs[0]");
+    expect(selectionBlock).toContain("rootOperator");
+  });
+
+  it("validates non-root stored account against own memberships, not all accounts (E-138 deny)", () => {
+    const context = readSource("src/context/AccountContext.jsx");
+
+    const selectionBlock = context.slice(
+      context.indexOf("const stored = localStorage.getItem"),
+      context.indexOf("setActiveAccountId(nextId)"),
+    );
+
+    expect(selectionBlock).toContain('accs.some((a) => a.id === stored)');
+
+    const nonRootBranch = selectionBlock.slice(
+      selectionBlock.lastIndexOf("validStored"),
+    );
+    expect(nonRootBranch).toContain("validStored ? stored : accs[0]");
+    expect(nonRootBranch).not.toMatch(/accs\[0\].*\?\?.*null\s*;?\s*$/m);
+
+    const rootListBlock = context.slice(
+      context.indexOf("if (rootOperator && rootMembership"),
+      context.indexOf("if (!rootOperator)"),
+    );
+    expect(rootListBlock).toContain("rootListAccounts");
+
+    const nonRootFilterBlock = context.slice(
+      context.indexOf("if (!rootOperator)"),
+      context.indexOf("const accountFeatureFlags"),
+    );
+    expect(nonRootFilterBlock).toContain("accs.filter");
+  });
+
+  it("cleans up provenance finance test accounts to prevent data accumulation (E-137)", () => {
+    const source = readSource("tests/integration/provenanceFinanceCutoverSecurity.test.js");
+
+    expect(source).toContain("createdAccountIds.push(accountId)");
+    expect(source).toContain("cleanupProvenanceTestMemberships");
+    expect(source).toContain("afterAll");
+    expect(source).toContain('like("name", "Provenance reconciliation %")');
+  });
+
   it("keeps contractor account context as a navigation hint, not an authorization assumption", () => {
     const context = readSource("src/context/AccountContext.jsx");
 
@@ -89,5 +140,95 @@ describe("medium security audit contracts", () => {
     expect(context).toContain("has_multiple_accounts: contractorAccountIds.length > 1");
     expect(context).toContain("navigation hint only");
     expect(context).toContain("must not be treated as an authorization grant");
+  });
+
+  // ── E-035 Phase A-1 contracts ────────────────────────────────────────────────
+
+  it("compliance service recording uses the provenance-backed path, not only updateComplianceSafeItem (E-035)", () => {
+    const svc = readSource("src/services/legalSecurityService.js");
+    // The strong service path must exist and call the Sprint 3 provenance RPC.
+    expect(svc).toContain("recordComplianceServiceAsserted");
+    expect(svc).toContain("recordDocumentServedAsserted");
+    // The service function must delegate to the provenance layer, not only write the DB row.
+    expect(svc).toContain("getServiceProjectionForComplianceItem");
+  });
+
+  it("document upload wires provenance best-effort after finalize (E-144 Phase A-1)", () => {
+    const svc = readSource("src/services/documentService.js");
+    // Upload provenance must be additive: fired after finalize succeeds.
+    expect(svc).toContain("recordDocumentUploaded");
+    // Must not block upload — the call must be fire-and-forget with a catch handler.
+    expect(svc).toContain(".catch(");
+    // Failed provenance write must be logged, not silently swallowed.
+    expect(svc).toContain("record_document_uploaded_provenance");
+  });
+
+  it("compliance safe page exposes provenance-backed service recording to users (E-035)", () => {
+    const page = readSource("src/pages/compliance/ComplianceSafePage.jsx");
+    expect(page).toContain("recordComplianceServiceAsserted");
+    expect(page).toContain("onRecordService");
+    expect(page).toContain("deriveComplianceServiceStatus");
+    expect(page).toContain("hasProvenanceServiceEvent");
+  });
+
+  it("no UI copy implies legally valid service in compliance safe (E-035 overclaim test)", () => {
+    const page = readSource("src/pages/compliance/ComplianceSafePage.jsx");
+    const lower = page.toLowerCase();
+    expect(lower).not.toContain("validly served");
+    expect(lower).not.toContain("legally served");
+    expect(lower).not.toContain("compliant service");
+    expect(lower).not.toContain("section 21 compliant");
+    expect(lower).not.toContain("proof of valid service");
+    // The acceptable wording is present
+    expect(lower).toContain("service recorded");
+    expect(lower).toContain("service recorded ≠ legally valid service");
+  });
+
+  // E-035 fold tripwire — stays red until served_at is fully retired from updateComplianceSafeItem.
+  // When this test passes, the bifurcation is closed and E-035 can be marked resolved.
+  it.fails("E-035 TRIPWIRE: served_at write in updateComplianceSafeItem must be retired before E-035 closes", () => {
+    const svc = readSource("src/services/legalSecurityService.js");
+    // This test stays RED until updateComplianceSafeItem no longer accepts served_at.
+    // Once red → green, served_at is no longer an independently writable service-truth
+    // field and the bifurcation is closed.
+    expect(svc).not.toMatch(/nextPatch\.served_at\s*=/);
+  });
+
+  // ── E-084 OCR false-compliance gate contracts ────────────────────────────────
+
+  it("COMPLIANCE_SELECT includes the three E-084 verification columns (E-084 schema contract)", () => {
+    const svc = readSource("src/services/legalSecurityService.js");
+    expect(svc).toContain("ocr_source_extraction_id");
+    expect(svc).toContain("human_verified_at");
+    expect(svc).toContain("human_verified_by");
+  });
+
+  it("recordHumanVerification calls record_compliance_value_human_verified RPC (E-084 call site)", () => {
+    const svc = readSource("src/services/legalSecurityService.js");
+    expect(svc).toContain('rpc("record_compliance_value_human_verified"');
+  });
+
+  it("deriveComplianceItemStatus gates OCR-sourced unverified items via OCR_GATED_STATUSES (E-084 gate contract)", () => {
+    const src = readSource("src/lib/complianceSafeStatus.js");
+    expect(src).toContain("ocr_source_extraction_id");
+    expect(src).toContain("human_verified_at");
+    expect(src).toContain("OCR_GATED_STATUSES");
+  });
+
+  it("compliance safe page imports recordHumanVerification and wires onVerifyExtraction (E-084 UI contract)", () => {
+    const page = readSource("src/pages/compliance/ComplianceSafePage.jsx");
+    expect(page).toContain("recordHumanVerification");
+    expect(page).toContain("onVerifyExtraction");
+    expect(page).toContain("handleVerifyExtraction");
+  });
+
+  // E-084 fold tripwire — stays RED in Branch B until Phase A-2 wires the provenance event.
+  // Branch B wires the RPC call site; Phase A-2 adds the provenance emission inside the SQL function.
+  // When this test passes, E-084 can move from REDUCED to CLOSED.
+  it.fails("E-084 TRIPWIRE: record_compliance_value_human_verified must emit a provenance event before E-084 closes", () => {
+    const sql = readSource("supabase/compliance_safe_e084_interim_gate.sql");
+    // Stays RED in Branch B: the SQL function does not yet call append_provenance_event.
+    // Phase A-2 will add: perform public.append_provenance_event(...) inside the function body.
+    expect(sql).toMatch(/append_provenance_event|record_provenance_event/);
   });
 });

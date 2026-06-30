@@ -84,6 +84,31 @@ export function buildDisputeTimeline(pack = {}, reports = []) {
   return events.sort((a, b) => toSortableDateTime(a.date) - toSortableDateTime(b.date));
 }
 
+/**
+ * Returns condition comparison rows for a deposit dispute pack given an array
+ * of inspection reports. Finds the check-in and check-out reports and compares
+ * them room-by-room. Returns null when either report is absent (so callers can
+ * distinguish "no reports" from "empty comparison").
+ *
+ * This is the named pack-build entry point — callers should use this instead
+ * of calling compareInspectionReports directly so that the requirement "a pack
+ * that has both reports produces a non-empty comparison" is easy to test.
+ */
+export function buildConditionComparisonRows(reports = []) {
+  const checkIn = reports.find(
+    (r) => r.inspection_type === "check_in" || r.inspection_type === "check-in",
+  );
+  const checkOut = reports.find(
+    (r) => r.inspection_type === "check_out" || r.inspection_type === "check-out",
+  );
+  if (!checkIn || !checkOut) return null;
+  return {
+    rows: compareInspectionReports(checkIn, checkOut),
+    checkInDate: checkIn.inspection_date || checkIn.created_at || null,
+    checkOutDate: checkOut.inspection_date || checkOut.created_at || null,
+  };
+}
+
 export function compareInspectionReports(checkInReport, checkOutReport) {
   const rows = [];
   const checkOutByKey = new Map();

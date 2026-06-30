@@ -907,8 +907,113 @@ with check (
   and public.can_insert_document_quarantine_storage(name)
 );
 
+-- SELECT policy: handle both legacy (<account_id>/<doc_id>/<file>) and
+-- quarantine/active (<zone>/<account_id>/<doc_id>/<file>) storage paths.
+create or replace function public.can_select_document_storage(p_storage_path text)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_parts text[];
+  v_account_id uuid;
+  v_document_id uuid;
+begin
+  if auth.uid() is null then
+    return false;
+  end if;
+
+  v_parts := string_to_array(coalesce(p_storage_path, ''), '/');
+
+  if array_length(v_parts, 1) = 3
+     and public.safe_uuid(v_parts[1]) is not null
+     and public.safe_uuid(v_parts[2]) is not null
+  then
+    return public.can_access_document_storage(
+      public.safe_uuid(v_parts[1]),
+      public.safe_uuid(v_parts[2])
+    );
+  end if;
+
+  if array_length(v_parts, 1) = 4
+     and lower(coalesce(v_parts[1], '')) in ('quarantine', 'active')
+     and public.safe_uuid(v_parts[2]) is not null
+     and public.safe_uuid(v_parts[3]) is not null
+  then
+    return public.can_access_document_storage(
+      public.safe_uuid(v_parts[2]),
+      public.safe_uuid(v_parts[3])
+    );
+  end if;
+
+  return false;
+end;
+$$;
+
+drop policy if exists "documents_storage_select_scoped" on storage.objects;
+
+create policy "documents_storage_select_scoped"
+on storage.objects
+for select
+to authenticated
+using (
+  bucket_id = 'documents'
+  and public.can_select_document_storage(name)
+);
+
+-- DELETE policy: same path-format handling.
+create or replace function public.can_delete_document_storage(p_storage_path text)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_parts text[];
+  v_account_id uuid;
+begin
+  if auth.uid() is null then
+    return false;
+  end if;
+
+  v_parts := string_to_array(coalesce(p_storage_path, ''), '/');
+
+  if array_length(v_parts, 1) = 3
+     and public.safe_uuid(v_parts[1]) is not null
+  then
+    v_account_id := public.safe_uuid(v_parts[1]);
+  elsif array_length(v_parts, 1) = 4
+     and lower(coalesce(v_parts[1], '')) in ('quarantine', 'active')
+     and public.safe_uuid(v_parts[2]) is not null
+  then
+    v_account_id := public.safe_uuid(v_parts[2]);
+  else
+    return false;
+  end if;
+
+  return public.account_member_effective_role(v_account_id, auth.uid())
+    = any (array['owner', 'admin']);
+end;
+$$;
+
+drop policy if exists "documents_storage_delete_owner_admin" on storage.objects;
+
+create policy "documents_storage_delete_owner_admin"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'documents'
+  and public.can_delete_document_storage(name)
+);
+
 revoke all on function public.is_valid_document_storage_path(text, uuid, uuid, text) from public;
 revoke all on function public.can_insert_document_quarantine_storage(text) from public;
+revoke all on function public.can_select_document_storage(text) from public;
+revoke all on function public.can_delete_document_storage(text) from public;
 revoke all on function public.audit_document_access(uuid) from public;
 revoke all on function public.request_document_scan(uuid) from public;
 revoke all on function public.record_document_scan_result(uuid, text, text, text, text, boolean, text, text) from public;
@@ -917,6 +1022,8 @@ revoke all on function public.create_document_stub(uuid, text) from public, anon
 
 grant execute on function public.is_valid_document_storage_path(text, uuid, uuid, text) to authenticated, service_role;
 grant execute on function public.can_insert_document_quarantine_storage(text) to authenticated, service_role;
+grant execute on function public.can_select_document_storage(text) to authenticated, service_role;
+grant execute on function public.can_delete_document_storage(text) to authenticated, service_role;
 grant execute on function public.audit_document_access(uuid) to authenticated, service_role;
 grant execute on function public.request_document_scan(uuid) to authenticated, service_role;
 grant execute on function public.record_document_scan_result(uuid, text, text, text, text, boolean, text, text) to service_role;

@@ -65,7 +65,7 @@ export default function ProfilePage() {
       phone: normalizeText(metadata.phone),
       job_title: normalizeText(metadata.job_title),
     });
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     setTitle(t("topbar.profile"));

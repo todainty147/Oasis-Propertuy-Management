@@ -4,6 +4,7 @@ export {
   calculateComplianceRating,
   deriveComplianceItemStatus,
   deriveComplianceItemStatus as deriveComplianceSafeStatus,
+  deriveComplianceServiceStatus,
   getComplianceSummary,
   isExpiringSoon,
   normalizeComplianceStatus,

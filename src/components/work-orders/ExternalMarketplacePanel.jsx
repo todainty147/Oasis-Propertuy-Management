@@ -86,8 +86,9 @@ const COPY = {
     apiDisabled:
       "Checkatrade API submission is not enabled for this account yet. Manual handoff remains available.",
     apiRolloutReady:
-      "Checkatrade API rollout is staged for this account. Live provider submission remains gated until the transport goes live.",
+      "Checkatrade API is staged for this account — jobs submitted here will NOT be dispatched to contractors. Live provider submission is gated until the transport is verified live. Use the manual handoff for now.",
     submitApi: "Submit to Checkatrade API",
+    submitApiLiveOnly: "Live submission (not yet active)",
     apiResultFallback:
       "Provider API scaffolding is ready, but manual handoff is still the safe fallback in this rollout phase.",
     tradesFound: (n) => `${n} trade${n === 1 ? "" : "s"} matched in your area.`,
@@ -158,8 +159,9 @@ const COPY = {
     apiDisabled:
       "Wysyłka API Checkatrade nie jest jeszcze włączona dla tego konta. Ręczny handoff nadal pozostaje dostępny.",
     apiRolloutReady:
-      "Rollout API Checkatrade jest przygotowany dla tego konta. Żywa wysyłka do providera pozostaje bramkowana do czasu uruchomienia transportu.",
+      "API Checkatrade jest przygotowany dla tego konta — zlecenia wysłane tutaj NIE zostaną przekazane wykonawcom. Żywa wysyłka do providera pozostaje bramkowana do czasu weryfikacji transportu. Na razie używaj ręcznego handoffu.",
     submitApi: "Wyślij do API Checkatrade",
+    submitApiLiveOnly: "Żywa wysyłka (jeszcze niedostępna)",
     apiResultFallback:
       "Scaffold API providera jest gotowy, ale w tej fazie rolloutu bezpiecznym fallbackiem pozostaje ręczny handoff.",
     tradesFound: (n) => `Dopasowano ${n} wykonawc${n === 1 ? "ę" : "ów"} w Twojej okolicy.`,
@@ -627,14 +629,16 @@ export default function ExternalMarketplacePanel({ accountId, workOrder, canMana
                                     setSyncError(feedback);
                                   }
                                 }}
-                                disabled={providerSetting?.enabled !== true}
+                                disabled={providerSetting?.configuration?.live_submission_enabled !== true}
                                 className={`rounded-lg px-3 py-2 text-sm font-medium ${
-                                  providerSetting?.enabled === true
+                                  providerSetting?.configuration?.live_submission_enabled === true
                                     ? "border border-blue-600 text-blue-700 hover:bg-blue-50"
                                     : "cursor-not-allowed border border-slate-300 text-slate-400"
                                 }`}
                               >
-                                {copy.submitApi}
+                                {providerSetting?.configuration?.live_submission_enabled === true
+                                  ? copy.submitApi
+                                  : copy.submitApiLiveOnly}
                               </button>
                             ) : null}
                             <a

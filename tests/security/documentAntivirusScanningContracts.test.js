@@ -44,6 +44,31 @@ describe("document antivirus scanning contracts", () => {
     expect(sql).toContain("storage_path_active");
   });
 
+  it("makes SELECT and DELETE storage policies quarantine-and-active-path aware", () => {
+    const sql = read("supabase/document_antivirus_scanning.sql");
+
+    expect(sql).toContain("can_select_document_storage");
+    expect(sql).toContain("can_delete_document_storage");
+    expect(sql).toContain('drop policy if exists "documents_storage_select_scoped"');
+    expect(sql).toContain("public.can_select_document_storage(name)");
+    expect(sql).toContain('drop policy if exists "documents_storage_delete_owner_admin"');
+    expect(sql).toContain("public.can_delete_document_storage(name)");
+
+    for (const fn of ["can_select_document_storage", "can_delete_document_storage"]) {
+      expect(sql).toContain(`revoke all on function public.${fn}(text)`);
+      expect(sql).toContain(`grant execute on function public.${fn}(text)`);
+    }
+
+    const selectFn = sql.slice(
+      sql.indexOf("function public.can_select_document_storage"),
+      sql.indexOf("function public.can_delete_document_storage"),
+    );
+    expect(selectFn).toContain("('quarantine', 'active')");
+    expect(selectFn).toContain("can_access_document_storage");
+    expect(selectFn).toContain("array_length(v_parts, 1) = 3");
+    expect(selectFn).toContain("array_length(v_parts, 1) = 4");
+  });
+
   it("routes document preview and download through the scanner-gated Edge Function", () => {
     const service = read("src/services/documentService.js");
 

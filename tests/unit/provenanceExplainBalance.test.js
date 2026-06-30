@@ -153,9 +153,9 @@ describe("provenance explain balance unit tests (Sprint 2B)", () => {
       );
     });
 
-    it("payment.marked_paid contribution rule is unchanged", () => {
+    it("payment.marked_paid contributes zero to balance projection (changed to 0 in new payment model — credit is on payment.recorded)", () => {
       expect(sql).toContain(
-        "when re.event_type = 'payment.marked_paid' then -coalesce(re.amount_minor, 0)",
+        "when re.event_type = 'payment.marked_paid' then 0::bigint",
       );
     });
   });

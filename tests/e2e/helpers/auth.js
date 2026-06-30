@@ -44,6 +44,25 @@ export async function openUserMenu(page) {
   await page.getByRole("button", { name: "Open user menu" }).click();
 }
 
+async function waitForAuthenticatedAppReady(page) {
+  await expect(page).not.toHaveURL(/\/login(?:\?.*)?$/, { timeout: 15_000 });
+
+  // The root auth/account gate renders only "Loading…" while the session and
+  // active account are hydrating. Under parallel Playwright load this can last
+  // longer than the immediate post-login URL change, so do not use <main> as a
+  // pre-hydration readiness signal.
+  await expect(page.locator("body")).not.toHaveText(/^\s*Loading…\s*$/, {
+    timeout: 30_000,
+  });
+
+  const appShellMain = page.getByTestId("app-shell-main");
+  if (await appShellMain.isVisible({ timeout: 1_000 }).catch(() => false)) {
+    return;
+  }
+
+  await expect(page.getByRole("main")).toBeVisible({ timeout: 30_000 });
+}
+
 export async function logout(page) {
   // TenantPortalLayout exposes a direct Logout button; AppLayout hides it in UserMenu
   if (page.url().includes("/tenant")) {
@@ -111,6 +130,5 @@ export async function signInAs(page, email) {
   await passwordInput.fill(TEST_USER_PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  await expect(page).not.toHaveURL(/\/login(?:\?.*)?$/);
-  await expect(page.getByRole("main")).toBeVisible();
+  await waitForAuthenticatedAppReady(page);
 }

@@ -27,3 +27,7 @@ export const supabase = createClient(
     },
   }
 );
+
+if (typeof window !== "undefined" && import.meta.env.DEV) {
+  window.__supabase_test = supabase;
+}
