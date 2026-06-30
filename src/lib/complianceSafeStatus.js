@@ -22,6 +22,10 @@ const COMPLETE_STATUSES = new Set(["logged", "acknowledged", "expiring_soon"]);
 const WARNING_STATUSES = new Set(["expiring_soon"]);
 const INCOMPLETE_STATUSES = new Set(["missing", "expired", "needs_review"]);
 
+// E-084: statuses that are gated when a value was OCR-sourced and not yet human-verified.
+// 'expired' is intentionally excluded — an OCR-read past date is still a real past date (safe-fail).
+const OCR_GATED_STATUSES = new Set(["logged", "acknowledged", "expiring_soon"]);
+
 function toDateOnly(value) {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(`${String(value).slice(0, 10)}T00:00:00Z`);
@@ -51,14 +55,20 @@ export function deriveComplianceItemStatus(item, currentDate = new Date()) {
   if (status === "needs_review") return "needs_review";
 
   const expiry = toDateOnly(item?.expires_at);
+  let computed = status;
   if (expiry) {
     const today = toDateOnly(currentDate) || new Date();
     const days = Math.ceil((expiry.getTime() - today.getTime()) / 86_400_000);
-    if (days < 0) return "expired";
-    if (isExpiringSoon(item, today)) return "expiring_soon";
+    if (days < 0) return "expired"; // expired is never gated — safe-fail for OCR-read past dates
+    if (isExpiringSoon(item, today)) computed = "expiring_soon";
   }
 
-  return status;
+  // E-084: OCR-sourced values that have not been human-verified must not be trusted as compliant.
+  if (item?.ocr_source_extraction_id && !item?.human_verified_at && OCR_GATED_STATUSES.has(computed)) {
+    return "needs_review";
+  }
+
+  return computed;
 }
 
 export function getComplianceSummary(items = [], currentDate = new Date()) {
@@ -94,5 +104,28 @@ export function getComplianceSummary(items = [], currentDate = new Date()) {
 
 export function calculateComplianceRating(items = [], currentDate = new Date()) {
   return getComplianceSummary(items, currentDate);
+}
+
+/**
+ * Derives service evidence status for a compliance item.
+ *
+ * served_at alone is NOT authoritative service evidence — it is a mutable
+ * reference timestamp with no actor, recipient, channel, or immutability.
+ * Authoritative service evidence requires a provenance-backed service event
+ * (document.served_asserted or document.served_system) recorded through the
+ * Sprint 3 document service layer.
+ *
+ * This function is the deny-gate for E-035: callers that check service
+ * evidence must use hasProvenanceServiceEvent, not served_at presence.
+ */
+export function deriveComplianceServiceStatus(item, serviceProjection = null) {
+  return {
+    served_at: item?.served_at ?? null,
+    hasProvenanceServiceEvent: Boolean(
+      serviceProjection?.has_served_asserted || serviceProjection?.has_served_system,
+    ),
+    evidenceStrength: serviceProjection?.access_evidence_strength ?? 0,
+    projectionStatus: serviceProjection?.status ?? null,
+  };
 }
 

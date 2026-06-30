@@ -3,10 +3,10 @@ import { Link, useParams } from "react-router-dom";
 
 import { useAccount } from "../../context/AccountContext";
 import {
+  buildConditionComparisonRows,
   buildDisputeTimeline,
   buildEvidenceIndex,
   calculateDeductionTotal,
-  compareInspectionReports,
   formatDisputePackMoney,
 } from "../../lib/depositDisputePack";
 import {
@@ -147,7 +147,8 @@ export default function DepositDisputePackPrintPage({ properties = [], tenants =
   const tenant = tenantById[pack?.tenant_id];
   const checkInReport = findReferencedReport(pack, referencedReports, "check_in_report", "check_in");
   const checkOutReport = findReferencedReport(pack, referencedReports, "check_out_report", "check_out");
-  const comparisonRows = checkInReport && checkOutReport ? compareInspectionReports(checkInReport, checkOutReport) : [];
+  const comparisonResult = buildConditionComparisonRows(referencedReports);
+  const comparisonRows = comparisonResult?.rows ?? [];
   const reportPhotos = collectReportPhotos(referencedReports);
   const signatures = referencedReports.flatMap((report) =>
     (report.inspection_signatures || []).map((signature) => ({ ...signature, report }))

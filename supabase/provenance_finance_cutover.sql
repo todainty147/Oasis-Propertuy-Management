@@ -327,6 +327,7 @@ declare
 begin
   if p_event_type not in (
     'payment.recorded',
+    'payment.reversed',
     'payment.marked_paid',
     'payment.reopened',
     'payment.voided',
@@ -494,7 +495,7 @@ begin
   )
   returning * into v_row;
 
-  if public.provenance_finance_tracking_active(p_account_id) then
+  if public.provenance_finance_tracking_active(p_account_id) and p_paid_at is not null then
     select coalesce(a.currency, 'PLN') into v_currency
     from public.accounts a where a.id = p_account_id;
 
@@ -510,21 +511,6 @@ begin
       p_summary := 'Payment recorded',
       p_idempotency_key := 'live:payment.recorded:' || v_row.id::text
     );
-
-    if p_paid_at is not null then
-      perform public.provenance_record_payment_event(
-        p_account_id := p_account_id,
-        p_payment_id := v_row.id,
-        p_property_id := p_property_id,
-        p_tenant_id := p_tenant_id,
-        p_event_type := 'payment.marked_paid',
-        p_amount_minor := (p_amount * 100)::bigint,
-        p_currency := v_currency,
-        p_occurred_at := p_paid_at::timestamptz,
-        p_summary := 'Payment marked as paid',
-        p_idempotency_key := 'live:payment.marked_paid:' || v_row.id::text
-      );
-    end if;
   end if;
 
   return v_row;
@@ -561,7 +547,8 @@ begin
   end if;
 
   update public.payments
-  set paid_at = coalesce(p_paid_at, current_date)
+  set paid_at = coalesce(p_paid_at, current_date),
+      status = 'paid'
   where id = p_payment_id
     and account_id = p_account_id
   returning * into v_pay;
@@ -575,12 +562,12 @@ begin
       p_payment_id := p_payment_id,
       p_property_id := v_pay.property_id,
       p_tenant_id := v_pay.tenant_id,
-      p_event_type := 'payment.marked_paid',
+      p_event_type := 'payment.recorded',
       p_amount_minor := (v_pay.amount * 100)::bigint,
       p_currency := v_currency,
       p_occurred_at := coalesce(p_paid_at, current_date)::timestamptz,
-      p_summary := 'Payment marked as paid',
-      p_idempotency_key := 'live:payment.marked_paid:' || p_payment_id::text
+      p_summary := 'Payment recorded',
+      p_idempotency_key := 'live:payment.recorded:' || p_payment_id::text || ':' || coalesce(p_paid_at, current_date)::text
     );
   end if;
 
@@ -615,7 +602,11 @@ begin
   end if;
 
   update public.payments
-  set paid_at = null
+  set paid_at = null,
+      status = case
+                 when due_date < current_date then 'overdue'
+                 else 'due'
+               end
   where id = p_payment_id
     and account_id = p_account_id
   returning * into v_row;
@@ -629,12 +620,12 @@ begin
       p_payment_id := p_payment_id,
       p_property_id := v_row.property_id,
       p_tenant_id := v_row.tenant_id,
-      p_event_type := 'payment.reopened',
+      p_event_type := 'payment.reversed',
       p_amount_minor := (v_row.amount * 100)::bigint,
       p_currency := v_currency,
       p_occurred_at := now(),
-      p_summary := 'Payment reopened (marked unpaid)',
-      p_idempotency_key := 'live:payment.reopened:' || p_payment_id::text || ':' || extract(epoch from now())::text
+      p_summary := 'Payment reversed (marked unpaid)',
+      p_idempotency_key := 'live:payment.reversed:' || p_payment_id::text || ':' || extract(epoch from now())::text
     );
   end if;
 
@@ -642,7 +633,11 @@ begin
 end;
 $$;
 
-create or replace function public.reopen_payment(p_payment_id uuid)
+drop function if exists public.reopen_payment(uuid);
+create or replace function public.reopen_payment(
+  p_payment_id uuid,
+  p_account_id uuid default null::uuid
+)
 returns public.payments
 language plpgsql
 security definer
@@ -655,7 +650,8 @@ declare
 begin
   select * into v_pay
   from public.payments
-  where id = p_payment_id;
+  where id = p_payment_id
+    and (p_account_id is null or account_id = p_account_id);
 
   if not found then
     raise exception 'Payment not found';
@@ -666,8 +662,23 @@ begin
     raise exception 'Not permitted';
   end if;
 
+  if lower(coalesce(v_pay.status, '')) <> 'void' then
+    raise exception 'Only voided unpaid charges can be reopened';
+  end if;
+
+  if v_pay.notes ilike '%Payment reversed:%' then
+    raise exception 'Reversed paid receipts must be recorded again as a fresh payment';
+  end if;
+
+  if v_pay.paid_at is not null then
+    raise exception 'Reversed paid receipts must be recorded again as a fresh payment';
+  end if;
+
   update public.payments
-  set status = null,
+  set status = case
+                 when due_date < current_date then 'overdue'
+                 else 'due'
+               end,
       paid_at = null
   where id = p_payment_id
   returning * into v_pay;
@@ -694,7 +705,12 @@ begin
 end;
 $$;
 
-create or replace function public.void_payment(p_payment_id uuid)
+drop function if exists public.reverse_payment(uuid);
+create or replace function public.reverse_payment(
+  p_payment_id uuid,
+  p_account_id uuid default null::uuid,
+  p_reason text default null::text
+)
 returns public.payments
 language plpgsql
 security definer
@@ -704,10 +720,16 @@ declare
   v_pay public.payments;
   v_role text;
   v_currency text;
+  v_reason text := nullif(trim(coalesce(p_reason, '')), '');
 begin
+  if v_reason is null then
+    raise exception 'Payment reversal reason is required';
+  end if;
+
   select * into v_pay
   from public.payments
-  where id = p_payment_id;
+  where id = p_payment_id
+    and (p_account_id is null or account_id = p_account_id);
 
   if not found then
     raise exception 'Payment not found';
@@ -716,6 +738,91 @@ begin
   v_role := public.account_role_for(v_pay.account_id);
   if coalesce(v_role, '') not in ('owner','admin') then
     raise exception 'Not permitted';
+  end if;
+
+  if lower(coalesce(v_pay.status, '')) = 'void' then
+    raise exception 'Payment is already voided';
+  end if;
+
+  if v_pay.paid_at is null
+     and lower(coalesce(v_pay.status, '')) not in ('paid', 'partial') then
+    raise exception 'Only paid payments can be reversed';
+  end if;
+
+  perform set_config('oasis.payment_reversal_reason', v_reason, true);
+
+  update public.payments
+  set status = 'void',
+      paid_at = null,
+      notes = concat_ws(E'\n', nullif(notes, ''), 'Payment reversed: ' || v_reason)
+  where id = p_payment_id
+  returning * into v_pay;
+
+  if public.provenance_finance_tracking_active(v_pay.account_id) then
+    select coalesce(a.currency, 'PLN') into v_currency
+    from public.accounts a where a.id = v_pay.account_id;
+
+    perform public.provenance_record_payment_event(
+      p_account_id := v_pay.account_id,
+      p_payment_id := v_pay.id,
+      p_property_id := v_pay.property_id,
+      p_tenant_id := v_pay.tenant_id,
+      p_event_type := 'payment.reversed',
+      p_amount_minor := (v_pay.amount * 100)::bigint,
+      p_currency := v_currency,
+      p_occurred_at := now(),
+      p_summary := 'Payment reversed',
+      p_metadata := jsonb_build_object('reversal_reason', v_reason),
+      p_idempotency_key := 'live:payment.reversed:' || v_pay.id::text || ':' || extract(epoch from now())::text
+    );
+  end if;
+
+  return v_pay;
+end;
+$$;
+
+drop function if exists public.void_payment(uuid);
+create or replace function public.void_payment(
+  p_payment_id uuid,
+  p_account_id uuid default null::uuid,
+  p_reason text default null::text
+)
+returns public.payments
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_pay public.payments;
+  v_role text;
+  v_currency text;
+  v_reason text := nullif(trim(coalesce(p_reason, '')), '');
+begin
+  select * into v_pay
+  from public.payments
+  where id = p_payment_id
+    and (p_account_id is null or account_id = p_account_id);
+
+  if not found then
+    raise exception 'Payment not found';
+  end if;
+
+  v_role := public.account_role_for(v_pay.account_id);
+  if coalesce(v_role, '') not in ('owner','admin') then
+    raise exception 'Not permitted';
+  end if;
+
+  if lower(coalesce(v_pay.status, '')) = 'void' then
+    raise exception 'Payment is already voided';
+  end if;
+
+  if v_pay.paid_at is not null
+     or lower(coalesce(v_pay.status, '')) in ('paid', 'partial') then
+    raise exception 'Paid payments must be reversed, not voided';
+  end if;
+
+  if v_reason is not null then
+    perform set_config('oasis.payment_reversal_reason', v_reason, true);
   end if;
 
   update public.payments
@@ -738,6 +845,7 @@ begin
       p_currency := v_currency,
       p_occurred_at := now(),
       p_summary := 'Payment voided',
+      p_metadata := jsonb_build_object('void_reason', v_reason),
       p_idempotency_key := 'live:payment.voided:' || v_pay.id::text
     );
   end if;
@@ -929,13 +1037,15 @@ begin
     where e.account_id = p_account_id
       and e.event_type in (
         'payment.recorded',
+        'payment.reversed',
         'payment.marked_paid',
         'payment.reopened',
         'payment.voided',
         'payment.adjusted',
         'payment.deleted',
         'payment.marked_overdue',
-        'finance.legacy_obligation_snapshot'
+        'finance.legacy_obligation_snapshot',
+        'rent.charged'
       )
       and (p_property_id is null or e.property_id = p_property_id)
     order by e.sequence_number asc
@@ -956,20 +1066,23 @@ begin
       case
         when re.event_id in (select event_id from reversed_event_ids) then 'reversed'
         when re.event_id in (select event_id from superseded_event_ids) then 'superseded'
-        when re.event_type in ('payment.recorded', 'payment.marked_overdue') then 'informational'
+        when re.event_type in ('payment.marked_overdue') then 'informational'
         when re.reversal_of_event_id is not null then 'active'
         when re.supersedes_event_id is not null then 'active'
         when re.event_type = 'finance.legacy_obligation_snapshot' then
           case when coalesce(re.metadata ->> 'reconstructed', 'false') = 'true' then 'reconstructed' else 'active' end
+        when re.event_type = 'rent.charged' then 'active'
         else 'active'
       end as treatment,
       case
         when re.event_id in (select event_id from reversed_event_ids) then 0::bigint
         when re.event_id in (select event_id from superseded_event_ids) then 0::bigint
-        when re.event_type = 'payment.recorded' then 0::bigint
+        when re.event_type = 'payment.recorded' then -coalesce(re.amount_minor, 0)
+        when re.event_type = 'payment.reversed' then coalesce(re.amount_minor, 0)
         when re.event_type = 'payment.marked_overdue' then 0::bigint
         when re.event_type = 'finance.legacy_obligation_snapshot' then coalesce(re.amount_minor, 0)
-        when re.event_type = 'payment.marked_paid' then -coalesce(re.amount_minor, 0)
+        when re.event_type = 'rent.charged' then coalesce(re.amount_minor, 0)
+        when re.event_type = 'payment.marked_paid' then 0::bigint
         when re.event_type = 'payment.reopened' then coalesce(re.amount_minor, 0)
         when re.event_type = 'payment.voided' then
           case
@@ -986,7 +1099,10 @@ begin
       end as contribution_minor,
       case
         when re.event_type = 'finance.legacy_obligation_snapshot' then coalesce(re.amount_minor, 0)
-        when re.event_type in ('payment.marked_paid', 'payment.adjusted') then -coalesce(re.amount_minor, 0)
+        when re.event_type = 'rent.charged' then coalesce(re.amount_minor, 0)
+        when re.event_type in ('payment.recorded', 'payment.adjusted') then -coalesce(re.amount_minor, 0)
+        when re.event_type = 'payment.marked_paid' then 0::bigint
+        when re.event_type = 'payment.reversed' then coalesce(re.amount_minor, 0)
         when re.event_type = 'payment.reopened' then coalesce(re.amount_minor, 0)
         else 0::bigint
       end as signed_amount_minor
@@ -1091,6 +1207,7 @@ begin
     select
       fa.property_id,
       fa.remaining_clamped as legacy_remaining,
+      fa.rent_minor_used as current_rent_minor,
       fa.currency as legacy_currency
     from public.finance_property_accumulation(p_account_id) fa
   ),
@@ -1102,6 +1219,15 @@ begin
       bp.currency as prov_currency
     from public.provenance_balance_projection(p_account_id) bp
   ),
+  snapshot_rent as (
+    select distinct on (e.property_id)
+      e.property_id as snapshot_property_id,
+      nullif(e.metadata ->> 'rent_minor_used', '')::bigint as snapshot_rent_minor
+    from public.provenance_events e
+    where e.account_id = p_account_id
+      and e.event_type = 'finance.legacy_obligation_snapshot'
+    order by e.property_id, e.sequence_number desc
+  ),
   combined as (
     select
       coalesce(l.property_id, p.prov_property_id) as prop_id,
@@ -1110,9 +1236,12 @@ begin
       coalesce(p.prov_balance, 0) as prov_bal,
       coalesce(l.legacy_currency, p.prov_currency) as curr,
       l.legacy_currency as l_curr,
-      p.prov_currency as p_curr
+      p.prov_currency as p_curr,
+      l.current_rent_minor,
+      sr.snapshot_rent_minor
     from legacy l
     full outer join provenance p on l.property_id = p.prov_property_id
+    left join snapshot_rent sr on sr.snapshot_property_id = coalesce(l.property_id, p.prov_property_id)
   )
   select
     c.prop_id as property_id,
@@ -1126,12 +1255,20 @@ begin
       when c.leg_balance = 0 and c.prov_bal = 0 then 'matched'
       when c.leg_balance = c.prov_bal then 'matched'
       when c.leg_balance = 0 and c.prov_bal < 0 then 'explained_divergence'
+      when c.current_rent_minor is not null
+           and c.snapshot_rent_minor is not null
+           and c.current_rent_minor <> c.snapshot_rent_minor
+        then 'explained_divergence'
       else 'unexplained_divergence'
     end as status,
     case
       when c.l_curr is not null and c.p_curr is not null and c.l_curr <> c.p_curr then 'currency_mismatch'
       when c.leg_balance = c.prov_bal then null
       when c.leg_balance = 0 and c.prov_bal < 0 then 'overpayment_credit_clamp'
+      when c.current_rent_minor is not null
+           and c.snapshot_rent_minor is not null
+           and c.current_rent_minor <> c.snapshot_rent_minor
+        then 'post_cutover_rent_change'
       when c.leg_balance = 0 and c.prov_bal = 0 then null
       else 'derivation_mismatch'
     end as divergence_reason,
@@ -1139,6 +1276,10 @@ begin
       when c.l_curr is not null and c.p_curr is not null and c.l_curr <> c.p_curr then 'investigate currency configuration'
       when c.leg_balance = c.prov_bal then null
       when c.leg_balance = 0 and c.prov_bal < 0 then 'expected: provenance shows tenant credit that legacy clamps to zero'
+      when c.current_rent_minor is not null
+           and c.snapshot_rent_minor is not null
+           and c.current_rent_minor <> c.snapshot_rent_minor
+        then 'The legacy finance view recalculates ALL earlier months using the current rent. Provenance keeps the rent that was recorded for each period.'
       else 'investigate derivation mismatch — fix shared accumulation, do not classify around it'
     end as recommended_action
   from combined c;
@@ -1290,62 +1431,65 @@ begin
     where p.account_id = p_account_id
     order by coalesce(p.due_date, p.created_at::date, current_date), p.created_at
   loop
-    -- Check idempotency BEFORE allocating a sequence number to avoid gaps on re-run
-    v_idem_key := 'backfill:payment.recorded:' || v_pay.payment_id::text;
-    select id into v_existing_event_id
-    from public.provenance_events
-    where account_id = p_account_id and idempotency_key = v_idem_key;
+    if v_pay.paid_at is not null
+       or v_pay.status_norm in ('paid', 'oplacone', 'opłacone') then
+      -- Check idempotency BEFORE allocating a sequence number to avoid gaps on re-run
+      v_idem_key := 'backfill:payment.recorded:' || v_pay.payment_id::text;
+      select id into v_existing_event_id
+      from public.provenance_events
+      where account_id = p_account_id and idempotency_key = v_idem_key;
 
-    if v_existing_event_id is null then
-      perform pg_advisory_xact_lock(hashtext('provenance:' || p_account_id::text), 0);
+      if v_existing_event_id is null then
+        perform pg_advisory_xact_lock(hashtext('provenance:' || p_account_id::text), 0);
 
-      insert into public.provenance_event_counters(account_id, next_sequence)
-      values (p_account_id, 2)
-      on conflict (account_id) do update
-        set next_sequence = public.provenance_event_counters.next_sequence + 1
-      returning next_sequence - 1 into v_sequence_number;
+        insert into public.provenance_event_counters(account_id, next_sequence)
+        values (p_account_id, 2)
+        on conflict (account_id) do update
+          set next_sequence = public.provenance_event_counters.next_sequence + 1
+        returning next_sequence - 1 into v_sequence_number;
 
-      v_event_id := gen_random_uuid();
+        v_event_id := gen_random_uuid();
 
-      insert into public.provenance_events (
-        id, account_id, sequence_number,
-        entity_type, entity_id, property_id, tenancy_id,
-        event_type, event_version,
-        actor_type, actor_user_id, actor_role,
-        occurred_at, recorded_at,
-        summary, reason, metadata,
-        amount_minor, currency,
-        source_type, source_id,
-        visibility,
-        previous_event_hash, event_hash, hash_version,
-        idempotency_key, created_at
-      ) values (
-        v_event_id, p_account_id, v_sequence_number,
-        'payment', v_pay.payment_id, v_pay.property_id, null,
-        'payment.recorded', 1,
-        'system', null, 'system',
-        coalesce(v_pay.due_date::timestamptz, v_pay.payment_created_at, p_cutover_at),
-        now(),
-        'Payment recorded (backfill)',
-        null,
-        jsonb_build_object(
-          'reconstructed', true,
-          'backfill', true,
-          'original_table', 'payments',
-          'original_status', v_pay.status_norm,
-          'original_due_date', v_pay.due_date,
-          'original_paid_at', v_pay.paid_at
-        ),
-        (v_pay.amount * 100)::bigint,
-        v_currency,
-        'backfill_payment', v_pay.payment_id,
-        'internal',
-        null, null, 0,
-        v_idem_key,
-        now()
-      );
+        insert into public.provenance_events (
+          id, account_id, sequence_number,
+          entity_type, entity_id, property_id, tenancy_id,
+          event_type, event_version,
+          actor_type, actor_user_id, actor_role,
+          occurred_at, recorded_at,
+          summary, reason, metadata,
+          amount_minor, currency,
+          source_type, source_id,
+          visibility,
+          previous_event_hash, event_hash, hash_version,
+          idempotency_key, created_at
+        ) values (
+          v_event_id, p_account_id, v_sequence_number,
+          'payment', v_pay.payment_id, v_pay.property_id, null,
+          'payment.recorded', 1,
+          'system', null, 'system',
+          coalesce(v_pay.paid_at::timestamptz, v_pay.due_date::timestamptz, v_pay.payment_created_at, p_cutover_at),
+          now(),
+          'Payment recorded (backfill)',
+          null,
+          jsonb_build_object(
+            'reconstructed', true,
+            'backfill', true,
+            'original_table', 'payments',
+            'original_status', v_pay.status_norm,
+            'original_due_date', v_pay.due_date,
+            'original_paid_at', v_pay.paid_at
+          ),
+          (v_pay.amount * 100)::bigint,
+          v_currency,
+          'backfill_payment', v_pay.payment_id,
+          'internal',
+          null, null, 0,
+          v_idem_key,
+          now()
+        );
 
-      v_payment_count := v_payment_count + 1;
+        v_payment_count := v_payment_count + 1;
+      end if;
     end if;
 
     if v_pay.paid_at is not null

@@ -328,6 +328,7 @@ begin
     where e.account_id = p_account_id
       and e.event_type in (
         'payment.recorded',
+        'payment.reversed',
         'payment.marked_paid',
         'payment.reopened',
         'payment.voided',
@@ -356,7 +357,7 @@ begin
       case
         when re.event_id in (select event_id from reversed_event_ids) then 'reversed'
         when re.event_id in (select event_id from superseded_event_ids) then 'superseded'
-        when re.event_type in ('payment.recorded', 'payment.marked_overdue') then 'informational'
+        when re.event_type in ('payment.marked_overdue') then 'informational'
         when re.reversal_of_event_id is not null then 'active'
         when re.supersedes_event_id is not null then 'active'
         when re.event_type = 'finance.legacy_obligation_snapshot' then
@@ -367,11 +368,12 @@ begin
       case
         when re.event_id in (select event_id from reversed_event_ids) then 0::bigint
         when re.event_id in (select event_id from superseded_event_ids) then 0::bigint
-        when re.event_type = 'payment.recorded' then 0::bigint
+        when re.event_type = 'payment.recorded' then -coalesce(re.amount_minor, 0)
+        when re.event_type = 'payment.reversed' then coalesce(re.amount_minor, 0)
         when re.event_type = 'payment.marked_overdue' then 0::bigint
         when re.event_type = 'finance.legacy_obligation_snapshot' then coalesce(re.amount_minor, 0)
         when re.event_type = 'rent.charged' then coalesce(re.amount_minor, 0)
-        when re.event_type = 'payment.marked_paid' then -coalesce(re.amount_minor, 0)
+        when re.event_type = 'payment.marked_paid' then 0::bigint
         when re.event_type = 'payment.reopened' then coalesce(re.amount_minor, 0)
         when re.event_type = 'payment.voided' then
           case
@@ -389,7 +391,9 @@ begin
       case
         when re.event_type = 'finance.legacy_obligation_snapshot' then coalesce(re.amount_minor, 0)
         when re.event_type = 'rent.charged' then coalesce(re.amount_minor, 0)
-        when re.event_type in ('payment.marked_paid', 'payment.adjusted') then -coalesce(re.amount_minor, 0)
+        when re.event_type in ('payment.recorded', 'payment.adjusted') then -coalesce(re.amount_minor, 0)
+        when re.event_type = 'payment.marked_paid' then 0::bigint
+        when re.event_type = 'payment.reversed' then coalesce(re.amount_minor, 0)
         when re.event_type = 'payment.reopened' then coalesce(re.amount_minor, 0)
         else 0::bigint
       end as signed_amount_minor

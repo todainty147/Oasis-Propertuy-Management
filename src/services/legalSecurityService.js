@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { buildDefaultEvidenceItemsPayload, getDefaultInspectionRoomNames } from "../data/inspectionRoomTemplates";
 import { normalizeDisputePackEvidenceReferenceType, normalizeDisputePackItemType } from "../lib/depositDisputePack";
+import { getDocumentServiceProjection, recordDocumentServedAsserted } from "./provenanceDocumentService.js";
 
 const COMPLIANCE_SELECT = [
   "id", "account_id", "property_id", "tenant_id", "tenancy_id",
@@ -8,6 +9,7 @@ const COMPLIANCE_SELECT = [
   "served_at", "evidence_document_id", "evidence_source_type", "evidence_source_id",
   "reminder_days_before", "last_reminder_sent_at", "marked_not_applicable_at", "marked_not_applicable_by",
   "acknowledged_by_tenant_at", "needs_review_reason", "notes",
+  "ocr_source_extraction_id", "human_verified_at", "human_verified_by",
   "created_by", "created_at", "updated_at",
   "compliance_requirements(label, description, requirement_key, requirement_type, expiry_tracking, acknowledgement_required, compliance_templates(country_code, jurisdiction, name))",
   "compliance_item_acknowledgements(id, tenant_id, acknowledgement_status, message, acknowledged_at, comment, created_at, updated_at)",
@@ -265,6 +267,18 @@ export async function updateComplianceSafeItem(id, accountId, patch = {}) {
   return data;
 }
 
+export async function recordHumanVerification(id, accountId) {
+  if (!id) throw new Error("Missing compliance item id");
+  if (!accountId) throw new Error("Missing accountId");
+  const result = await supabase.rpc("record_compliance_value_human_verified", {
+    p_account_id: accountId,
+    p_item_id: id,
+  });
+  if (result.error) throw result.error;
+  await writeComplianceEvidenceEvent(accountId, id, "value_human_verified", {}).catch(() => null);
+  return getComplianceSafeItemDetails(accountId, id);
+}
+
 export async function attachComplianceDocument(accountId, itemId, documentId) {
   if (!documentId) throw new Error("Choose a document to attach.");
   return updateComplianceSafeItem(itemId, accountId, {
@@ -275,6 +289,61 @@ export async function attachComplianceDocument(accountId, itemId, documentId) {
     eventType: "document_attached",
     eventMetadata: { document_id: documentId },
   });
+}
+
+/**
+ * Records that a landlord asserted a compliance document was served.
+ *
+ * Wires the Sprint 3 strong service-event path:
+ *   record_document_served_asserted() → provenance chain (immutable, attributed)
+ *
+ * Also writes served_at for backward-compat display. served_at alone is NOT
+ * authoritative service evidence — use deriveComplianceServiceStatus() with
+ * getServiceProjectionForComplianceItem() to check provenance-backed status.
+ *
+ * E-035 Option C: served_at remains as a mutable display field until the
+ * bifurcation tripwire test in mediumSecurityContracts.test.js is satisfied.
+ */
+export async function recordComplianceServiceAsserted(accountId, itemId, payload = {}) {
+  if (!accountId || !itemId) throw new Error("Missing compliance item");
+  const documentId = payload.documentId;
+  if (!documentId) throw new Error("Attach a document before recording service");
+  const serviceMethod = String(payload.serviceMethod || "").trim();
+  if (!serviceMethod) throw new Error("Choose a service method");
+  const assertedServiceDate = payload.assertedServiceDate;
+  if (!assertedServiceDate) throw new Error("Provide a service date");
+  const recipient = payload.recipient || `tenant:${payload.tenantId || "unknown"}`;
+
+  await recordDocumentServedAsserted(documentId, {
+    serviceMethod,
+    recipient,
+    assertedServiceDate,
+    assertionNote: payload.assertionNote || null,
+    supportingEvidenceReference: itemId,
+  });
+
+  return updateComplianceSafeItem(itemId, accountId, {
+    served_at: assertedServiceDate,
+    eventType: "service_recorded",
+    eventMetadata: {
+      service_method: serviceMethod,
+      document_id: documentId,
+      provenance_event_recorded: true,
+    },
+  });
+}
+
+/**
+ * Returns the document service projection for the evidence document attached
+ * to a compliance item, or null if no document is attached.
+ *
+ * Use deriveComplianceServiceStatus(item, projection) to evaluate service
+ * evidence strength — never use served_at alone as the authoritative check.
+ */
+export async function getServiceProjectionForComplianceItem(item) {
+  const documentId = item?.evidence_document_id;
+  if (!documentId) return null;
+  return getDocumentServiceProjection(documentId).catch(() => null);
 }
 
 export async function linkComplianceInspectionReport(accountId, itemId, reportId) {

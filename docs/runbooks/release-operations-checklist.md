@@ -72,6 +72,17 @@ After apply:
 
 If `db:apply:repo` stops partway through, do not rerun blindly. Identify the failed file, verify whether earlier files were applied, then decide whether to forward-fix or resume from the failed point.
 
+### Finance/payment lifecycle overlay order
+
+If the release touches finance snapshots, payment lifecycle semantics, provenance finance cutover, or Explain This Balance, confirm these overlays are applied in the same relative order as `scripts/dbApplyRepoSql.js`:
+
+1. `supabase/finance_snapshot.sql`
+2. `supabase/payment_ledger_reversal_hardening.sql`
+3. `supabase/provenance_finance_cutover.sql`
+4. `supabase/provenance_explain_balance.sql`
+
+This ordering is release-critical. `provenance_explain_balance.sql` depends on `provenance_finance_cutover.sql`; provenance finance must see the current payment event taxonomy; and finance snapshot establishes the due-cycle attribution basis used by the verification cluster. Do not promote a finance/payment lifecycle release from local verification to staging or production until the ordered apply path and post-apply checks are captured in release evidence.
+
 ### Trial enforcement activation gate
 
 `account_subscription_plan_hardened.sql` is the last overlay in the sequence and replaces the live `account_subscription_plan()` function. This function is the single enforcement point for all feature gates. Before applying it to any environment with existing accounts, run:

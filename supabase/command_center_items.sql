@@ -1,3 +1,36 @@
+drop function if exists public.assert_command_center_access(uuid);
+
+create function public.assert_command_center_access(
+  p_account_id uuid
+)
+returns uuid
+language plpgsql stable security definer
+set search_path = public
+as $$
+declare
+  v_is_root boolean;
+  v_required_plan text;
+begin
+  -- Delegate base auth/account/role check to the shared audited guard.
+  -- Any future fix to assert_manage_account_access propagates here automatically.
+  perform public.assert_manage_account_access(p_account_id);
+
+  -- Command-center-specific entitlement check (root operators bypass feature gates).
+  v_is_root := public.user_is_root_operator();
+  if not v_is_root then
+    if not public.account_has_feature(p_account_id, 'command_center') then
+      v_required_plan := public.account_feature_required_plan('command_center');
+      raise exception 'Feature command_center requires % plan or higher for this account', v_required_plan;
+    end if;
+  end if;
+
+  return p_account_id;
+end;
+$$;
+
+alter function public.assert_command_center_access(uuid) owner to postgres;
+grant execute on function public.assert_command_center_access(uuid) to authenticated;
+
 drop function if exists public.command_center_items(uuid, integer);
 
 create function public.command_center_items(
@@ -38,8 +71,7 @@ as $$
   ),
   authz as materialized (
     select
-      public.assert_manage_account_access(p_account_id) as account_id,
-      public.assert_account_feature_access(p_account_id, 'command_center') as feature_account_id
+      public.assert_command_center_access(p_account_id) as account_id
   ),
   security_cfg as (
     select
@@ -999,7 +1031,7 @@ as $$
       'compliance_due_soon'::text,
       'compliance'::text,
       'action'::text,
-      'upcoming'::text,
+      'action'::text,
       case when c.tenant_id is not null then 'tenant' else 'property' end::text,
       coalesce(c.tenant_id::text, c.property_id::text),
       'Compliance due soon'::text,
@@ -1021,7 +1053,7 @@ as $$
       c.updated_at as created_at,
       false,
       'compliance_items'::text,
-      57 as sort_order
+      20 as sort_order
     from public.compliance_items c
     left join public.properties p on p.id = c.property_id
     left join public.tenants t on t.id = c.tenant_id

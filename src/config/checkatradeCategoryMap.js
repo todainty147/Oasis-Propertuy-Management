@@ -16,6 +16,14 @@
 // Key format: lower-case, underscores. The resolver checks the raw label text so that
 // free-text inputs like "Plumbing", "plumbing repairs" or "plumber" can still match.
 
+// Go-live gate: false until ALL 18 category IDs have been verified against the live
+// Checkatrade category API (https://developer.checkatrade.com/affiliate/categories)
+// AND the per-account marketplace_integration_settings.category_ids_verified flag
+// has been set to true via the DB trigger gate.
+// The UI uses this flag to block the "Submit to Checkatrade API" button even when
+// configuration.live_submission_enabled is true in a misconfigured account.
+export const CHECKATRADE_CATEGORY_IDS_VERIFIED = false;
+
 export const checkatradeCategoryMap = [
   // ── Most common residential maintenance categories ─────────────────────────
   { key: "plumbing", label: "Plumbing", categoryId: 667, keywords: ["plumb", "leak", "tap", "pipe", "toilet", "shower", "bath", "cistern"] },

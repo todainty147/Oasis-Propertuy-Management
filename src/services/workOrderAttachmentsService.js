@@ -123,7 +123,7 @@ export async function listWorkOrderAttachments({ accountId, workOrderId, signal 
   let q = supabase
     .from("work_order_attachments")
     .select(
-      "id, account_id, work_order_id, uploaded_by, file_name, mime_type, file_size, storage_bucket, storage_path, kind, created_at"
+      "id, account_id, work_order_id, uploaded_by, attester_role, file_name, mime_type, file_size, storage_bucket, storage_path, kind, created_at"
     )
     .eq("account_id", accountId)
     .eq("work_order_id", workOrderId)
@@ -236,7 +236,7 @@ export async function createAttachmentSignedUrlForRow({
  * Upload multiple files and create DB metadata rows.
  * Returns array of inserted rows (attachments).
  */
-export async function uploadWorkOrderAttachments({ accountId, workOrderId, files = [], signal } = {}) {
+export async function uploadWorkOrderAttachments({ accountId, workOrderId, files = [], attesterRole = null, signal } = {}) {
   if (!accountId) throw new Error("Brak accountId");
   if (!workOrderId) throw new Error("Brak workOrderId");
 
@@ -272,6 +272,7 @@ export async function uploadWorkOrderAttachments({ accountId, workOrderId, files
         account_id: accountId,
         work_order_id: workOrderId,
         uploaded_by: user.id,
+        attester_role: attesterRole ?? null,
         file_name: file.name,
         mime_type: file.type || null,
         file_size: typeof file.size === "number" ? file.size : null,
@@ -280,7 +281,7 @@ export async function uploadWorkOrderAttachments({ accountId, workOrderId, files
         kind,
       })
       .select(
-        "id, account_id, work_order_id, uploaded_by, file_name, mime_type, file_size, storage_bucket, storage_path, kind, created_at"
+        "id, account_id, work_order_id, uploaded_by, attester_role, file_name, mime_type, file_size, storage_bucket, storage_path, kind, created_at"
       )
       .single();
 
@@ -360,6 +361,43 @@ export async function deleteWorkOrderAttachment({ attachmentId, attachmentRow, s
     throw new Error("Brak storage path");
   }
 
+  // DB delete first. RLS is the sole authority on the lock boundary:
+  // uploaders cannot delete evidence from completed work orders; account
+  // owner/admin/staff can (data-correction path). Using .select('id') makes
+  // PostgREST return the deleted rows so we can detect a silent RLS denial
+  // (0 rows returned) without an error being raised.
+  let del = supabase
+    .from("work_order_attachments")
+    .delete()
+    .eq("id", resolved.id)
+    .select("id");
+
+  if (signal) del = del.abortSignal(signal);
+
+  const { data: deleted, error: delErr } = await del;
+  if (delErr) throw friendlyError(delErr, "Nie udało się usunąć załącznika");
+
+  if (!deleted || deleted.length === 0) {
+    // RLS blocked the delete or the row is already gone. Check existence to
+    // distinguish the two cases and surface an actionable message.
+    const { data: stillExists } = await supabase
+      .from("work_order_attachments")
+      .select("id")
+      .eq("id", resolved.id)
+      .maybeSingle();
+
+    if (stillExists) {
+      throw new Error(
+        "Evidence from a completed work order cannot be deleted by the uploader. " +
+          "This evidence is locked to maintain the integrity of the maintenance record. " +
+          "Contact an account administrator for data corrections.",
+      );
+    }
+    // Row is already gone — nothing more to do.
+    return true;
+  }
+
+  // DB row confirmed deleted — now remove the storage object.
   const { error: storageErr } = await supabase.storage
     .from(bucket)
     .remove([path]);
@@ -367,16 +405,6 @@ export async function deleteWorkOrderAttachment({ attachmentId, attachmentRow, s
   if (storageErr) {
     throw friendlyError(storageErr, "Nie udało się usunąć pliku ze storage");
   }
-
-  let del = supabase
-    .from("work_order_attachments")
-    .delete()
-    .eq("id", resolved.id);
-
-  if (signal) del = del.abortSignal(signal);
-
-  const { error: delErr } = await del;
-  if (delErr) throw friendlyError(delErr, "Nie udało się usunąć załącznika");
 
   return true;
 }

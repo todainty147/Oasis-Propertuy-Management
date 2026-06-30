@@ -265,7 +265,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
       .order("created_at", { ascending: false });
 
     expect(reopenedEventsError).toBeNull();
-    expect((reopenedEvents || []).some((row) => row.event_type === "payment_reopened")).toBe(true);
+    expect((reopenedEvents || []).some((row) => row.event_type === "payment_reversed")).toBe(true);
   });
 
   it("denies staff status mutation and leaves payment plus side effects unchanged", async () => {
@@ -409,7 +409,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
     }
   });
 
-  it("allows admins to void and reopen payments while recording status events", async () => {
+  it("allows admins to void and reopen unpaid charges while recording status events", async () => {
     const payment = await createTempPaymentAs("ownerA", {
       amount: 1205,
       dueDate: "2099-04-14",
@@ -418,6 +418,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
 
     const voidResult = await client.rpc("void_payment", {
       p_payment_id: payment.id,
+      p_account_id: isolationFixtures.accounts.accountA.id,
       p_reason: "Duplicate receipt recorded during test",
     });
 
@@ -442,6 +443,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
 
     const reopenResult = await client.rpc("reopen_payment", {
       p_payment_id: payment.id,
+      p_account_id: isolationFixtures.accounts.accountA.id,
     });
 
     expect(reopenResult.error).toBeNull();
@@ -470,8 +472,58 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
       .order("created_at", { ascending: false });
 
     expect(eventsError).toBeNull();
+    expect((events || []).some((row) => row.event_type === "payment_voided" && row.new_status === "void")).toBe(true);
+    expect((events || []).some((row) => row.event_type === "payment_reopened" && row.old_status === "void" && row.new_status === "due")).toBe(true);
+  });
+
+  it("allows admins to reverse paid payments without allowing unpaid reverse attempts", async () => {
+    const payment = await createTempPaymentAs("ownerA", {
+      amount: 1405,
+      dueDate: "2099-04-16",
+    });
+    const { client } = await signInAsFixtureUser("adminA");
+
+    const unpaidReverse = await client.rpc("reverse_payment", {
+      p_payment_id: payment.id,
+      p_account_id: isolationFixtures.accounts.accountA.id,
+      p_reason: "Should not reverse an unpaid expected charge",
+    });
+    expect(unpaidReverse.error?.message || "").toContain("Only paid payments can be reversed");
+
+    const paidResult = await client.rpc("mark_payment_paid", {
+      p_account_id: isolationFixtures.accounts.accountA.id,
+      p_payment_id: payment.id,
+      p_paid_at: "2099-04-16",
+    });
+    expect(paidResult.error).toBeNull();
+
+    const reverseResult = await client.rpc("reverse_payment", {
+      p_payment_id: payment.id,
+      p_account_id: isolationFixtures.accounts.accountA.id,
+      p_reason: "Duplicate receipt recorded during test",
+    });
+
+    expect(reverseResult.error).toBeNull();
+    expect(reverseResult.data).toMatchObject({
+      id: payment.id,
+      status: "void",
+      paid_at: null,
+    });
+
+    const reopenResult = await client.rpc("reopen_payment", {
+      p_payment_id: payment.id,
+      p_account_id: isolationFixtures.accounts.accountA.id,
+    });
+    expect(reopenResult.error?.message || "").toContain("Reversed paid receipts must be recorded again as a fresh payment");
+
+    const { data: events, error: eventsError } = await admin
+      .from("payment_events")
+      .select("event_type, old_status, new_status")
+      .eq("payment_id", payment.id)
+      .order("created_at", { ascending: false });
+
+    expect(eventsError).toBeNull();
     expect((events || []).some((row) => row.event_type === "payment_reversed" && row.new_status === "void")).toBe(true);
-    expect((events || []).some((row) => row.event_type === "payment_status_changed" && row.old_status === "void" && row.new_status === "due")).toBe(true);
   });
 
   it("denies staff, tenant, contractor, and cross-account owners from voiding or reopening payments", async () => {
@@ -492,18 +544,21 @@ describe.skipIf(!isIntegrationHarnessConfigured())("payment write authorization"
 
       const voidResult = await client.rpc("void_payment", {
         p_payment_id: payment.id,
+        p_account_id: isolationFixtures.accounts.accountA.id,
         p_reason: "Permission denial test",
       });
       expectWriteDenied(voidResult);
 
       const { error: ownerVoidError } = await ownerClient.rpc("void_payment", {
         p_payment_id: payment.id,
+        p_account_id: isolationFixtures.accounts.accountA.id,
         p_reason: "Owner correction for permission denial test",
       });
       expect(ownerVoidError).toBeNull();
 
       const reopenResult = await client.rpc("reopen_payment", {
         p_payment_id: payment.id,
+        p_account_id: isolationFixtures.accounts.accountA.id,
       });
       expectWriteDenied(reopenResult);
 

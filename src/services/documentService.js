@@ -4,6 +4,7 @@ import { assertFiles, assertUuid } from "../utils/validation";
 import { parseDocumentRow, parseRpcRows } from "./rpcContracts";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
 import { recordActivationEventBestEffort } from "./earlyUsersService";
+import { recordDocumentUploaded } from "./provenanceDocumentService";
 
 /* ======================
    CONFIG
@@ -264,6 +265,26 @@ export async function uploadDocument({
   }
 
   const parsed = parseDocumentRow(finalized);
+
+  // Best-effort: anchor the upload in the provenance chain.
+  // Fire-and-forget — must NOT block or roll back the completed upload.
+  // A failed provenance write is logged for retry; it is not corruption.
+  recordDocumentUploaded(finalized.id).catch((provErr) => {
+    logSecurityRelevantFailure("record_document_uploaded_provenance", {
+      error: provErr,
+      context: buildDocumentContext({
+        accountId,
+        documentId: finalized.id,
+        propertyId,
+        tenantId,
+        scope,
+        visibility,
+        operation: "record_document_uploaded_provenance",
+        storageBucket: "documents",
+      }),
+    });
+  });
+
   recordActivationEventBestEffort({
     accountId,
     eventKey: "first_document_uploaded",

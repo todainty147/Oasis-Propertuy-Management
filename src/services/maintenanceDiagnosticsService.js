@@ -12,7 +12,15 @@ function isMissingBackendObject(error) {
 }
 
 function sortSteps(steps) {
-  return [...(steps || [])].sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+  return [...(steps || [])].sort(
+    (a, b) =>
+      Number(a.sort_order || 0) - Number(b.sort_order || 0) ||
+      // Emergency steps render before non-emergency at the same sort_order.
+      // This is the durable invariant — step_key naming must never determine
+      // whether the emergency question appears first.
+      (b.triggers_emergency ? 1 : 0) - (a.triggers_emergency ? 1 : 0) ||
+      String(a.step_key || "").localeCompare(String(b.step_key || "")),
+  );
 }
 
 let diagnosticTemplateCache = null;
@@ -26,7 +34,10 @@ export async function listMaintenanceDiagnosticTemplates() {
       "id, issue_type, title, description, emergency_warning, active, maintenance_diagnostic_steps(id, template_id, step_key, question, answer_type, options, help_text, sort_order, triggers_emergency, triggers_deposit_flag, triggers_eco_upgrade_flag, triggers_compliance_flag, active)",
     )
     .eq("active", true)
-    .order("sort_order", { ascending: true });
+    .order("sort_order", { ascending: true })
+    .order("sort_order", { foreignTable: "maintenance_diagnostic_steps", ascending: true })
+    .order("triggers_emergency", { foreignTable: "maintenance_diagnostic_steps", ascending: false })
+    .order("step_key", { foreignTable: "maintenance_diagnostic_steps", ascending: true });
 
   if (error) {
     if (isMissingBackendObject(error)) return [];

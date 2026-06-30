@@ -36,6 +36,7 @@ const OVERLAY_SEQUENCE = [
   "account_role_compatibility_helpers.sql",
   "account_role_for_custom_roles.sql",
   "property_tenant_dynamic_permission_policies.sql",
+  "rls_performance_optimization.sql",
   "account_branding.sql",
   "account_invitations_saas.sql",
   "account_owner_contact.sql",
@@ -163,10 +164,12 @@ const OVERLAY_SEQUENCE = [
   "tax_tools_phase2.sql",
   "legal_security_phase3.sql",
   "compliance_safe_phase2.sql",
+  "compliance_safe_e084_interim_gate.sql",
   "evidence_vault_phase2.sql",
   "evidence_vault_phase2_fixes.sql",
   "property_risk_deposit_controls.sql",
   "maintenance_smart_diagnostics.sql",
+  "phase2_repair_e066b_e077_e074.sql",
   "hmrc_mtd_phase1.sql",
   "hmrc_mtd_phase2_readonly.sql",
   "hmrc_mtd_phase3_sandbox_test_data.sql",
@@ -182,6 +185,7 @@ const OVERLAY_SEQUENCE = [
   "provenance_finance_cutover.sql",
   "provenance_explain_balance.sql",
   "provenance_document_service.sql",
+  "evidence_provenance_stub.sql",
   "supabase_linter_security_hardening.sql",
 ];
 

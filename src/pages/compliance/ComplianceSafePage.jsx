@@ -18,17 +18,21 @@ import {
   calculateComplianceRating,
   COMPLIANCE_SAFE_STATUS_LABELS,
   deriveComplianceItemStatus,
+  deriveComplianceServiceStatus,
 } from "../../utils/complianceSafe";
 import { fetchDocuments, uploadDocument } from "../../services/documentService";
 import {
   attachComplianceDocument,
   createComplianceChecklistFromTemplate,
   getComplianceSafeItemDetails,
+  getServiceProjectionForComplianceItem,
   linkComplianceInspectionReport,
   listComplianceEvidenceEvents,
   listComplianceSafeItems,
   listComplianceTemplates,
   listInspectionReports,
+  recordComplianceServiceAsserted,
+  recordHumanVerification,
   requestComplianceTenantAcknowledgement,
   revokeComplianceTenantAcknowledgement,
   updateComplianceSafeItem,
@@ -72,6 +76,13 @@ function latestAcknowledgement(item) {
     .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0] || null;
 }
 
+const SERVICE_METHODS = [
+  { value: "email", label: "Email" },
+  { value: "post", label: "Post" },
+  { value: "hand_delivery", label: "Hand delivery" },
+  { value: "other", label: "Other" },
+];
+
 function ComplianceItemDrawer({
   item,
   properties,
@@ -80,11 +91,14 @@ function ComplianceItemDrawer({
   reports,
   events,
   tenantAckEnabled,
+  serviceProjection,
   onClose,
   onAttachDocument,
   onUploadDocument,
   onLinkReport,
   onUpdateItem,
+  onRecordService,
+  onVerifyExtraction,
   onRequestAcknowledgement,
   onRevokeAcknowledgement,
   busy,
@@ -100,9 +114,11 @@ function ComplianceItemDrawer({
     served_at: item?.served_at ? String(item.served_at).slice(0, 10) : "",
     needs_review_reason: item?.needs_review_reason || "",
     acknowledgementMessage: "",
+    serviceMethod: "email",
   });
   const acknowledgement = latestAcknowledgement(item);
   const status = deriveComplianceItemStatus(item);
+  const serviceEvidence = deriveComplianceServiceStatus(item, serviceProjection);
   const requirement = item?.compliance_requirements || {};
   const template = requirement?.compliance_templates || {};
   const linkedReport = item?.evidence_source_type === "inspection_report"
@@ -142,7 +158,12 @@ function ComplianceItemDrawer({
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
             <p className="text-xs uppercase text-slate-500">Evidence</p>
             <p className="mt-2 text-sm">{item.evidence_document_id ? "Evidence attached" : item.evidence_source_type === "inspection_report" ? "Inspection report linked" : "No evidence attached"}</p>
-            <p className="mt-1 text-xs text-slate-500">Served/sent: {formatDate(item.served_at)}</p>
+            <p className="mt-1 text-xs text-slate-500">Service reference date: {formatDate(item.served_at)}</p>
+            {serviceEvidence.hasProvenanceServiceEvent ? (
+              <p className="mt-1 text-xs text-emerald-400">Service event recorded (strength {serviceEvidence.evidenceStrength}/4)</p>
+            ) : item.served_at ? (
+              <p className="mt-1 text-xs text-amber-400">Service date recorded — no provenance service event yet</p>
+            ) : null}
             {linkedReport ? (
               <div className="mt-3 rounded-xl border border-slate-700 bg-slate-950/70 p-3">
                 <p className="text-sm font-semibold text-slate-100">{linkedReport.title || "Evidence Vault report"}</p>
@@ -160,6 +181,26 @@ function ComplianceItemDrawer({
             ) : item.evidence_source_type === "inspection_report" ? (
               <p className="mt-2 text-xs text-amber-200">Linked report details are unavailable from the current property filter.</p>
             ) : null}
+            {item.ocr_source_extraction_id && !item.human_verified_at && (
+              <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-3">
+                <p className="text-xs font-semibold text-amber-100">Machine-extracted — awaiting review</p>
+                <p className="mt-0.5 text-xs text-amber-200/80">Values were read by OCR and have not been human-verified. The compliance status is held at Needs review until confirmed.</p>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => onVerifyExtraction(item)}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-400/40 px-2.5 py-1.5 text-xs font-semibold text-amber-100 disabled:opacity-60"
+                >
+                  <ShieldCheck size={13} /> Verify against document
+                </button>
+              </div>
+            )}
+            {item.human_verified_at && (
+              <p className="mt-2 text-xs text-emerald-400">
+                <ShieldCheck size={12} className="mr-1 inline" />
+                Human-verified {formatDate(item.human_verified_at)}
+              </p>
+            )}
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
             <p className="text-xs uppercase text-slate-500">Tenant acknowledgement</p>
@@ -219,12 +260,21 @@ function ComplianceItemDrawer({
           <h3 className="font-semibold">Dates and notes</h3>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <label className="text-sm">
-              <span className="text-xs uppercase text-slate-500">Served/sent date</span>
+              <span className="text-xs uppercase text-slate-500">Service reference date</span>
               <input type="date" value={draft.served_at} onChange={(event) => setDraft((current) => ({ ...current, served_at: event.target.value }))} className={`${fieldClass} mt-1 w-full`} />
             </label>
             <label className="text-sm">
               <span className="text-xs uppercase text-slate-500">Expiry date</span>
               <input type="date" value={draft.expires_at} onChange={(event) => setDraft((current) => ({ ...current, expires_at: event.target.value }))} className={`${fieldClass} mt-1 w-full`} />
+              {item.ocr_source_extraction_id && !item.human_verified_at && (
+                <span className="mt-1 block text-xs text-amber-400">Machine-extracted · not yet verified</span>
+              )}
+              {item.human_verified_at && (
+                <span className="mt-1 block text-xs text-emerald-400">Human-verified {formatDate(item.human_verified_at)}</span>
+              )}
+              {!item.ocr_source_extraction_id && (
+                <span className="mt-1 block text-xs text-slate-500">Manually entered</span>
+              )}
             </label>
           </div>
           <label className="mt-3 block text-sm">
@@ -239,6 +289,55 @@ function ComplianceItemDrawer({
           >
             <CheckCircle2 size={15} /> Save changes
           </button>
+        </section>
+
+        <section className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+          <h3 className="font-semibold">Record service event</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Records that a document was served/sent to the tenant. Service recorded ≠ legally valid service — this is an organisational record only.
+          </p>
+          {item.evidence_document_id ? (
+            <div className="mt-3 space-y-3">
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="text-sm">
+                  <span className="text-xs uppercase text-slate-500">Service method</span>
+                  <select
+                    value={draft.serviceMethod}
+                    onChange={(event) => setDraft((current) => ({ ...current, serviceMethod: event.target.value }))}
+                    className={`${fieldClass} mt-1 w-full`}
+                  >
+                    {SERVICE_METHODS.map((method) => (
+                      <option key={method.value} value={method.value}>{method.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm">
+                  <span className="text-xs uppercase text-slate-500">Service date</span>
+                  <input
+                    type="date"
+                    value={draft.served_at}
+                    onChange={(event) => setDraft((current) => ({ ...current, served_at: event.target.value }))}
+                    className={`${fieldClass} mt-1 w-full`}
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                disabled={busy || !draft.served_at}
+                onClick={() => onRecordService(item, {
+                  serviceMethod: draft.serviceMethod,
+                  assertedServiceDate: draft.served_at,
+                })}
+                className="inline-flex items-center gap-2 rounded-lg border border-teal-400/40 bg-teal-400/10 px-3 py-2 text-sm font-semibold text-teal-100 disabled:opacity-60"
+              >
+                <CheckCircle2 size={15} /> Record service event
+              </button>
+            </div>
+          ) : (
+            <p className="mt-2 rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-slate-400">
+              Attach a document to this compliance item before recording a service event.
+            </p>
+          )}
         </section>
 
         <section className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
@@ -303,6 +402,7 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
   const [creatingChecklist, setCreatingChecklist] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [serviceProjection, setServiceProjection] = useState(null);
   const selectedItemLoadSeq = useRef(0);
   const tenantAckEnabled = hasEntitlement(ENTITLEMENT_FEATURES.COMPLIANCE_SAFE_TENANT_ACKNOWLEDGEMENT);
 
@@ -348,6 +448,14 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
       if (loadSeq !== selectedItemLoadSeq.current) return;
       setDocuments(nextDocuments);
       setReports(nextReports);
+    }
+    // Load service projection for evidence document (best-effort, non-blocking).
+    if (detail?.evidence_document_id) {
+      getServiceProjectionForComplianceItem(detail)
+        .then((proj) => { if (loadSeq === selectedItemLoadSeq.current) setServiceProjection(proj); })
+        .catch(() => { if (loadSeq === selectedItemLoadSeq.current) setServiceProjection(null); });
+    } else if (loadSeq === selectedItemLoadSeq.current) {
+      setServiceProjection(null);
     }
     if (loadSeq === selectedItemLoadSeq.current) setSelectedItemLoading(false);
   }, [activeAccountId]);
@@ -422,6 +530,37 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
       setError(err?.message || "Could not create compliance checklist.");
     } finally {
       setCreatingChecklist(false);
+    }
+  }
+
+  async function handleRecordService(item, payload) {
+    try {
+      setBusy(true);
+      const tenant = tenants.find((t) => String(t.id) === String(item.tenant_id));
+      await recordComplianceServiceAsserted(activeAccountId, item.id, {
+        documentId: item.evidence_document_id,
+        serviceMethod: payload.serviceMethod,
+        assertedServiceDate: payload.assertedServiceDate,
+        tenantId: item.tenant_id || null,
+        recipient: tenant?.email || tenant?.name || (item.tenant_id ? `tenant:${item.tenant_id}` : "unknown"),
+      });
+      await refreshAfterAction(item.id);
+    } catch (err) {
+      setError(err?.message || "Could not record service event.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleVerifyExtraction(item) {
+    try {
+      setBusy(true);
+      await recordHumanVerification(item.id, activeAccountId);
+      await refreshAfterAction(item.id);
+    } catch (err) {
+      setError(err?.message || "Could not record human verification.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -610,12 +749,15 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
           reports={reports}
           events={events}
           tenantAckEnabled={tenantAckEnabled}
+          serviceProjection={serviceProjection}
           busy={busy}
-          onClose={() => { setSelectedItemId(""); setSelectedItem(null); }}
+          onClose={() => { setSelectedItemId(""); setSelectedItem(null); setServiceProjection(null); }}
           onAttachDocument={(item, documentId) => handleAction(() => attachComplianceDocument(activeAccountId, item.id, documentId))}
           onUploadDocument={handleUploadDocument}
           onLinkReport={(item, reportId) => handleAction(() => linkComplianceInspectionReport(activeAccountId, item.id, reportId))}
           onUpdateItem={(item, patch) => handleAction(() => updateComplianceSafeItem(item.id, activeAccountId, patch))}
+          onRecordService={handleRecordService}
+          onVerifyExtraction={handleVerifyExtraction}
           onRequestAcknowledgement={(item, message) => handleAction(() => requestComplianceTenantAcknowledgement(activeAccountId, item.id, { tenantId: item.tenant_id, message }))}
           onRevokeAcknowledgement={(ackId) => handleAction(() => revokeComplianceTenantAcknowledgement(activeAccountId, ackId))}
         />

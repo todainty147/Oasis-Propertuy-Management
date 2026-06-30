@@ -23,11 +23,14 @@ describe("payment reversal contracts", () => {
   it("requires reversal reason and explicit role or permission in the SQL RPC", () => {
     const sql = readSource("supabase/payment_ledger_reversal_hardening.sql");
 
+    expect(sql).toContain("create or replace function public.reverse_payment(");
     expect(sql).toContain("create or replace function public.void_payment(");
     expect(sql).toContain("p_reason text default null::text");
     expect(sql).toContain("Payment reversal reason is required");
     expect(sql).toContain("Payment is already voided");
     expect(sql).toContain("Only paid payments can be reversed");
+    expect(sql).toContain("Paid payments must be reversed, not voided");
+    expect(sql).toContain("Only voided unpaid charges can be reopened");
     expect(sql).toContain("lower(coalesce(v_pay.status, '')) not in ('paid', 'partial')");
     expect(sql).toContain("coalesce(v_role, '') not in ('owner', 'admin')");
     expect(sql).toContain("public.account_member_has_permission(v_pay.account_id, 'finance.reverse_payment')");
@@ -39,6 +42,9 @@ describe("payment reversal contracts", () => {
     expect(sql.indexOf("raise exception 'Not permitted'")).toBeLessThan(
       sql.indexOf("raise exception 'Only paid payments can be reversed'"),
     );
+    expect(sql).toContain("then 'payment_reversed'");
+    expect(sql).toContain("then 'payment_voided'");
+    expect(sql).toContain("then 'payment_reopened'");
   });
 
   it("keeps payment reversal UI mutation outside React state updaters", () => {

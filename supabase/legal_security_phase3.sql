@@ -979,3 +979,17 @@ join (
   on t.issue_type = s.issue_type
 on conflict(template_id, step_key) do update
 set question = excluded.question, answer_type = excluded.answer_type, options = excluded.options, help_text = excluded.help_text, sort_order = excluded.sort_order, active = true;
+
+-- E-066b cleanup: remove immediate_danger duplicate steps from templates that
+-- already have an emergency_risk step (inserted by maintenance_smart_diagnostics.sql).
+-- immediate_danger has triggers_emergency=false (boolean flag not set in the 7-column
+-- insert above). emergency_risk has triggers_emergency=true. When both share sort_order=10,
+-- stable client-side sort preserves ctid order and renders the non-emergency question first,
+-- silently swallowing affirmative answers that should fire the emergency flag.
+-- no_hot_water is excluded: it has no conflicting emergency_risk step; its immediate_danger
+-- is updated to triggers_emergency=true by phase2_repair_e066b_e077_e074.sql.
+delete from public.maintenance_diagnostic_steps mds
+using public.maintenance_diagnostic_templates mdt
+where mds.template_id = mdt.id
+  and mdt.issue_type in ('boiler_heating', 'electrical_issue')
+  and mds.step_key = 'immediate_danger';
