@@ -78,6 +78,18 @@ function normalizeStoragePath(bucket, rawPath) {
   return p;
 }
 
+async function sha256Hex(file) {
+  if (!file || typeof file.arrayBuffer !== "function") return null;
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) return null;
+
+  const buffer = await file.arrayBuffer();
+  const digest = await subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 /**
  * ✅ Policy-friendly path:
  * account/<accountId>/work_orders/<workOrderId>/<ts>_<safeFileName>
@@ -123,7 +135,7 @@ export async function listWorkOrderAttachments({ accountId, workOrderId, signal 
   let q = supabase
     .from("work_order_attachments")
     .select(
-      "id, account_id, work_order_id, uploaded_by, attester_role, file_name, mime_type, file_size, storage_bucket, storage_path, kind, created_at"
+      "id, account_id, work_order_id, uploaded_by, attester_role, file_name, mime_type, file_size, storage_bucket, storage_path, kind, created_at, maintenance_stage, capture_method, work_order_status_at_received, late_upload, content_hash_client_asserted, content_hash_algorithm, content_hash_verified_at, provenance_event_id"
     )
     .eq("account_id", accountId)
     .eq("work_order_id", workOrderId)
@@ -134,7 +146,11 @@ export async function listWorkOrderAttachments({ accountId, workOrderId, signal 
   const { data, error } = await q;
   if (error) throw friendlyError(error, "Nie udało się pobrać załączników");
 
-  return data ?? [];
+  return (data ?? []).map((row) => ({
+    ...row,
+    received_at: row.created_at,
+    hash_trust: row.content_hash_client_asserted ? "client_asserted_unverified" : "not_available",
+  }));
 }
 
 /* ======================
@@ -236,14 +252,22 @@ export async function createAttachmentSignedUrlForRow({
  * Upload multiple files and create DB metadata rows.
  * Returns array of inserted rows (attachments).
  */
-export async function uploadWorkOrderAttachments({ accountId, workOrderId, files = [], attesterRole = null, signal } = {}) {
+export async function uploadWorkOrderAttachments({
+  accountId,
+  workOrderId,
+  files = [],
+  attesterRole = null,
+  maintenanceStage = null,
+  captureMethod = "uploaded",
+  signal,
+} = {}) {
   if (!accountId) throw new Error("Brak accountId");
   if (!workOrderId) throw new Error("Brak workOrderId");
 
   const list = assertFiles(files, { maxFiles: 10, maxBytes: 15 * 1024 * 1024 });
   if (list.length === 0) return [];
 
-  const user = await getAuthedUser();
+  await getAuthedUser();
   const results = [];
 
   for (const file of list) {
@@ -263,34 +287,35 @@ export async function uploadWorkOrderAttachments({ accountId, workOrderId, files
       throw friendlyError(upErr, `Nie udało się wgrać pliku: ${file.name}`);
     }
 
-    // 2) insert DB row (authoritative)
+    // 2) record DB row + provenance atomically in Postgres.
+    // Storage is intentionally first: if this RPC fails, the only residue is
+    // an orphaned object with no evidence claim. The forbidden direction
+    // (anchored row/event pointing at absent bytes) is prevented by the RPC's
+    // storage.objects existence check.
     const kind = (file.type || "").startsWith("image/") ? "photo" : "document";
+    const contentHashClientAsserted = kind === "photo" ? await sha256Hex(file) : null;
 
-    let ins = supabase
-      .from("work_order_attachments")
-      .insert({
-        account_id: accountId,
-        work_order_id: workOrderId,
-        uploaded_by: user.id,
-        attester_role: attesterRole ?? null,
-        file_name: file.name,
-        mime_type: file.type || null,
-        file_size: typeof file.size === "number" ? file.size : null,
-        storage_bucket: BUCKET,
-        storage_path: storagePath,
-        kind,
-      })
-      .select(
-        "id, account_id, work_order_id, uploaded_by, attester_role, file_name, mime_type, file_size, storage_bucket, storage_path, kind, created_at"
-      )
-      .single();
+    let ins = supabase.rpc("record_work_order_attachment_received", {
+      p_account_id: accountId,
+      p_work_order_id: workOrderId,
+      p_storage_path: storagePath,
+      p_file_name: file.name,
+      p_mime_type: file.type || null,
+      p_file_size: typeof file.size === "number" ? file.size : null,
+      p_kind: kind,
+      p_attester_role: attesterRole ?? null,
+      p_maintenance_stage: maintenanceStage ?? null,
+      p_capture_method: captureMethod || "uploaded",
+      p_content_hash_client_asserted: contentHashClientAsserted,
+    });
 
     if (signal) ins = ins.abortSignal(signal);
 
     const { data: row, error: insErr } = await ins;
 
     if (insErr) {
-      // Best-effort cleanup: remove the uploaded object if DB insert fails
+      // Best-effort cleanup: remove the uploaded object if DB/provenance insert fails.
+      // If cleanup fails, the orphan is harmless because no row/event exists.
       try {
         await supabase.storage.from(BUCKET).remove([storagePath]);
       } catch {
@@ -299,7 +324,14 @@ export async function uploadWorkOrderAttachments({ accountId, workOrderId, files
       throw friendlyError(insErr, `Nie udało się zapisać załącznika: ${file.name}`);
     }
 
-    results.push(row);
+    const inserted = Array.isArray(row) ? row[0] : row;
+    results.push({
+      ...inserted,
+      received_at: inserted?.created_at,
+      hash_trust: inserted?.content_hash_client_asserted
+        ? "client_asserted_unverified"
+        : "not_available",
+    });
   }
 
   return results;

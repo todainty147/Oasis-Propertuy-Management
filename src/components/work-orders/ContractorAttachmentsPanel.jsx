@@ -56,7 +56,14 @@ export default function ContractorAttachmentsPanel({ accountId, workOrderId, can
     setError("");
 
     try {
-      await uploadWorkOrderAttachments({ accountId, workOrderId, files });
+      await uploadWorkOrderAttachments({
+        accountId,
+        workOrderId,
+        files,
+        attesterRole: "contractor",
+        maintenanceStage: "contractor_completion",
+        captureMethod: "uploaded",
+      });
       await load();
       e.target.value = "";
     } catch (e2) {
@@ -125,7 +132,7 @@ export default function ContractorAttachmentsPanel({ accountId, workOrderId, can
 
         {canUpload && (
           <label className="inline-flex items-center px-3 py-2 rounded-lg bg-slate-900 text-white text-sm cursor-pointer hover:bg-slate-800 disabled:opacity-50">
-            {uploading ? t("attachments.uploading") : t("attachments.addFiles")}
+            {uploading ? t("attachments.uploading") : "Upload completion photo"}
             <input type="file" multiple className="hidden" onChange={onFilesSelected} disabled={uploading} />
           </label>
         )}
@@ -157,7 +164,15 @@ export default function ContractorAttachmentsPanel({ accountId, workOrderId, can
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-slate-900">{item.file_name}</p>
-                  <p className="text-xs text-slate-500">{prettySize(item.file_size)}</p>
+                  <p className="text-xs text-slate-500">
+                    {prettySize(item.file_size)}
+                    {item.received_at || item.created_at ? ` • Received ${new Date(item.received_at || item.created_at).toLocaleString()}` : ""}
+                  </p>
+                  {item.maintenance_stage ? (
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Uploaded by {item.attester_role || "user"} • stage {item.maintenance_stage}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
