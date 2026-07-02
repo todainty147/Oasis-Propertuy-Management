@@ -130,6 +130,9 @@ create trigger trg_regulatory_change_candidate_touch_updated_at
 before update on public.regulatory_change_candidate
 for each row execute function public.regulatory_intake_touch_candidate_updated_at();
 
+-- DROP BEFORE REPLACE: return type changed from provenance_events to void (all callers
+-- use PERFORM, so no return value is ever consumed). Idempotent on a fresh DB.
+drop function if exists public.regulatory_intake_record_event(uuid, text, uuid, text, text, jsonb);
 create or replace function public.regulatory_intake_record_event(
   p_account_id uuid,
   p_entity_type text,
@@ -138,7 +141,7 @@ create or replace function public.regulatory_intake_record_event(
   p_summary text,
   p_metadata jsonb default '{}'::jsonb
 )
-returns public.provenance_events
+returns void
 language plpgsql
 security definer
 set search_path = public
@@ -146,7 +149,7 @@ as $$
 begin
   perform public.regulatory_intake_require_root_operator();
 
-  return public.record_provenance_event(
+  perform public.record_provenance_event(
     p_account_id,
     p_entity_type,
     p_entity_id,

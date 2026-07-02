@@ -1,5 +1,9 @@
 begin;
 
+-- Defer PL/pgSQL body compilation so %rowtype references to provenance_events
+-- (created later in the OVERLAY_SEQUENCE) do not fail at CREATE FUNCTION time.
+set local check_function_bodies = off;
+
 create or replace function public.capture_rra_jurisdiction(
   p_account_id uuid,
   p_property_id uuid,

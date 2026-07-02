@@ -258,11 +258,7 @@ function ComplianceItemDrawer({
 
         <section className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
           <h3 className="font-semibold">Dates and notes</h3>
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <label className="text-sm">
-              <span className="text-xs uppercase text-slate-500">Service reference date</span>
-              <input type="date" value={draft.served_at} onChange={(event) => setDraft((current) => ({ ...current, served_at: event.target.value }))} className={`${fieldClass} mt-1 w-full`} />
-            </label>
+          <div className="mt-3">
             <label className="text-sm">
               <span className="text-xs uppercase text-slate-500">Expiry date</span>
               <input type="date" value={draft.expires_at} onChange={(event) => setDraft((current) => ({ ...current, expires_at: event.target.value }))} className={`${fieldClass} mt-1 w-full`} />
@@ -284,7 +280,7 @@ function ComplianceItemDrawer({
           <button
             type="button"
             disabled={busy}
-            onClick={() => onUpdateItem(item, { notes: draft.notes, expires_at: draft.expires_at, served_at: draft.served_at })}
+            onClick={() => onUpdateItem(item, { notes: draft.notes, expires_at: draft.expires_at })}
             className="mt-3 inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-950 disabled:opacity-60"
           >
             <CheckCircle2 size={15} /> Save changes

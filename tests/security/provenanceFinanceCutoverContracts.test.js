@@ -491,7 +491,7 @@ describe("provenance finance cutover contracts", () => {
     it("is registered in dbApplyRepoSql.js after provenance_events and before hardening", () => {
       const applyScript = readSource("scripts/dbApplyRepoSql.js");
       expect(applyScript).toContain(
-        '"provenance_events.sql",\n  "migrations/20260622000000_provenance_hash_chain_backfill.sql",\n  "provenance_finance_cutover.sql",\n  "provenance_explain_balance.sql",\n  "provenance_document_service.sql",\n  "evidence_provenance_stub.sql",\n  "supabase_linter_security_hardening.sql"',
+        '"provenance_events.sql",\n  "migrations/20260622000000_provenance_hash_chain_backfill.sql",\n  "provenance_finance_cutover.sql",\n  "provenance_explain_balance.sql",\n  "provenance_document_service.sql",\n  "evidence_provenance_stub.sql",\n  "inspection_report_lock_signature_binding.sql",\n  "supabase_linter_security_hardening.sql"',
       );
     });
 

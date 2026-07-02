@@ -241,18 +241,17 @@ Add `signature_content_hash` column to `inspection_signatures` populated at inse
 **Trust blocker**
 
 ### Workbook update
-- Observed Repo State: signer_role/signed_from/tenant_id/share_id in schema; RLS enforces cross-tenant replay prevention; trigger enforces locked/archived immutability; no document hash; signed-status mutation window open
-- Observed Verdict: Half-built
-- Confidence: Low
-- Layer: Documents/Evidence finding
-- Linkage Axis: Built
-- Evidential Strength Axis: Weak
-- Stopping Point: No document hash; signed-not-locked mutation window; no per-share uniqueness on tenant signature
-- Next Untaken Step: Add signature_content_hash + unique constraint on (inspection_report_id, tenant_id, share_id)
-- Evidence Paths: supabase/legal_security_phase3.sql, supabase/evidence_vault_phase2.sql, supabase/evidence_vault_phase2_fixes.sql
-- Classification: Trust blocker
-- Inherent Severity: High
-- Residual Risk: High
+- **CLOSED 2026-07-02 (E-033 + E-152) — full behavioural proof executed**
+- Observed Repo State (updated): Single-writer model via `capture_inspection_signature` RPC (SECURITY DEFINER); canonical content hash (SHA-256, status/locked_at/locked_by/signature_data excluded — E-152); per-share uniqueness partial unique index; signer_type CHECK ('landlord','agent','tenant'); RLS INSERT policies removed; manager forgery prevention enforced server-side; tenant path server-derives signer_type/signer_role/signed_from/tenant_id; Pin 3 signed-status mutation freeze extended; production-RPC atomicity proven by GUC fault injector in `record_signature_captured`
+- Observed Verdict: **Closed**
+- Confidence: **High** — `npm run db:bootstrap` succeeded; integration tests 8/8 pass on live local Supabase; A-2.2 lock tests 8/8 pass; security contracts 5/5 pass; git-stash baseline confirms 4 failures are pre-existing (not introduced here). **E-154 CLOSED 2026-07-02:** deploy-path caveat lifted — all 8 integration tests re-verified on the full-overlay-produced DB (double-apply Pass 2 clean).
+- Signer_type values on script-built DB: 'landlord', 'tenant' (2 rows). 'agent' requires populated production data; constraint covers all 3.
+- E-152 canonical hash fix proven: status change alone (no signature added) leaves hash unchanged (Test 8). Signature addition correctly changes hash — signatures are included in canonical content.
+- E-153 lock half: NOT closed here. Lock production deny-test remains open.
+- E-032/E-148: Not touched.
+- Evidence Paths: supabase/inspection_report_lock_signature_binding.sql, src/services/legalSecurityService.js, tests/integration/inspectionSignatureSingleWriterContracts.test.js, tests/security/inspectionSignatureSingleWriterSecurityContracts.test.js, tests/integration/inspectionLockSignatureContracts.test.js
+- Classification: Closed / Trust blocker → resolved
+- Residual Risk: Low
 
 ---
 
@@ -960,7 +959,7 @@ Proof packs reviewed (`EvidenceVaultPrintPage`, `DepositDisputePackPrintPage`): 
 | ID | Topic | Verdict | Confidence | Linkage | Evidential Strength | Layer | Risk | Classification | Stopping Point | Next Untaken Step |
 |---|---|---|---|---|---|---|---|---|---|---|
 | E-032 | Evidence Vault | Half-built | Low | Built | Weak | D/E | High | Trust blocker | Delete block missing on locked report header; no document hash; signed-status mutation window | Add delete-blocking trigger on inspection_reports for locked/archived status |
-| E-033 | Signatures split | Half-built | Low | Built | Weak | D/E | High | Trust blocker | No document hash at signing; signed-not-locked mutation window; no per-share uniqueness | Add signature_content_hash + unique constraint on (report_id, tenant_id, share_id) |
+| E-033 | Signatures split | **Closed** | High | Strong | **Built** | D/E | ~~High~~ Low | ~~Trust blocker~~ Closed | CLOSED 2026-07-02: single-writer RPC; E-152 content hash; per-share uniqueness; INSERT policies removed; production-RPC atomicity proven; 8/8 integration + 5/5 security contracts pass | — |
 | E-034 | Deposit dispute pack | Half-built | Low | Built | Weak | D/E + Consumer | Medium | Launch blocker | attester_role not rendered in pack; no content hash; items mutable after exported status | Surface attester_role in buildEvidenceIndex() |
 | E-035 | Document served events | Half-built | Low | Partial | Missing | D/E + Source | High | Trust blocker | No service event record; served_at is timestamp only; no actor/recipient/channel/version | Create document_service_events table with full attribution |
 | E-036 | Disclosure basis | Half-built | Low | Partial | Missing | D/E + Consumer | Medium | Launch blocker | No disclosure_basis; no content hash; no scope re-check; inspection report print unrecorded | Add disclosure_basis + content hash to export records |

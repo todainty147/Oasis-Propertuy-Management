@@ -4,54 +4,101 @@
 
 begin;
 
-drop policy if exists "Managers can manage MTD quarterly drafts" on public.mtd_quarterly_update_drafts;
-create policy "Managers can manage MTD quarterly drafts"
-  on public.mtd_quarterly_update_drafts
-  to authenticated
-  using (public.user_can_manage_account(account_id))
-  with check (public.user_can_manage_account(account_id));
+-- Note: these tables are created by HMRC MTD overlay SQL files, not by migrations.
+-- The DO blocks guard against the case where supabase db reset runs migrations before
+-- overlays have been applied (e.g. on a fresh local dev DB bootstrap).
+do $$ begin
+  drop policy if exists "Managers can manage MTD quarterly drafts" on public.mtd_quarterly_update_drafts;
+exception when undefined_table then null;
+end $$;
+do $$ begin
+  create policy "Managers can manage MTD quarterly drafts"
+    on public.mtd_quarterly_update_drafts
+    to authenticated
+    using (public.user_can_manage_account(account_id))
+    with check (public.user_can_manage_account(account_id));
+exception when undefined_table or duplicate_object then null;
+end $$;
 
-drop policy if exists "Managers can manage MTD quarterly draft lines" on public.mtd_quarterly_update_draft_lines;
-create policy "Managers can manage MTD quarterly draft lines"
-  on public.mtd_quarterly_update_draft_lines
-  to authenticated
-  using (public.user_can_manage_account(account_id))
-  with check (public.user_can_manage_account(account_id));
+do $$ begin
+  drop policy if exists "Managers can manage MTD quarterly draft lines" on public.mtd_quarterly_update_draft_lines;
+exception when undefined_table then null;
+end $$;
+do $$ begin
+  create policy "Managers can manage MTD quarterly draft lines"
+    on public.mtd_quarterly_update_draft_lines
+    to authenticated
+    using (public.user_can_manage_account(account_id))
+    with check (public.user_can_manage_account(account_id));
+exception when undefined_table or duplicate_object then null;
+end $$;
 
-drop policy if exists "Managers can read MTD quarterly draft audit" on public.mtd_quarterly_update_audit_events;
-create policy "Managers can read MTD quarterly draft audit"
-  on public.mtd_quarterly_update_audit_events
-  for select
-  to authenticated
-  using (public.user_can_manage_account(account_id));
+do $$ begin
+  drop policy if exists "Managers can read MTD quarterly draft audit" on public.mtd_quarterly_update_audit_events;
+exception when undefined_table then null;
+end $$;
+do $$ begin
+  create policy "Managers can read MTD quarterly draft audit"
+    on public.mtd_quarterly_update_audit_events
+    for select
+    to authenticated
+    using (public.user_can_manage_account(account_id));
+exception when undefined_table or duplicate_object then null;
+end $$;
 
-drop policy if exists "Managers can insert MTD quarterly draft audit" on public.mtd_quarterly_update_audit_events;
-create policy "Managers can insert MTD quarterly draft audit"
-  on public.mtd_quarterly_update_audit_events
-  for insert
-  to authenticated
-  with check (public.user_can_manage_account(account_id));
+do $$ begin
+  drop policy if exists "Managers can insert MTD quarterly draft audit" on public.mtd_quarterly_update_audit_events;
+exception when undefined_table then null;
+end $$;
+do $$ begin
+  create policy "Managers can insert MTD quarterly draft audit"
+    on public.mtd_quarterly_update_audit_events
+    for insert
+    to authenticated
+    with check (public.user_can_manage_account(account_id));
+exception when undefined_table or duplicate_object then null;
+end $$;
 
-drop policy if exists "Managers can read MTD sandbox submission attempts" on public.mtd_quarterly_submission_attempts;
-create policy "Managers can read MTD sandbox submission attempts"
-  on public.mtd_quarterly_submission_attempts
-  for select
-  to authenticated
-  using (public.user_can_manage_account(account_id));
+do $$ begin
+  drop policy if exists "Managers can read MTD sandbox submission attempts" on public.mtd_quarterly_submission_attempts;
+exception when undefined_table then null;
+end $$;
+do $$ begin
+  create policy "Managers can read MTD sandbox submission attempts"
+    on public.mtd_quarterly_submission_attempts
+    for select
+    to authenticated
+    using (public.user_can_manage_account(account_id));
+exception when undefined_table or duplicate_object then null;
+end $$;
 
-drop policy if exists "Managers can read MTD sandbox submission events" on public.mtd_quarterly_submission_events;
-create policy "Managers can read MTD sandbox submission events"
-  on public.mtd_quarterly_submission_events
-  for select
-  to authenticated
-  using (public.user_can_manage_account(account_id));
+do $$ begin
+  drop policy if exists "Managers can read MTD sandbox submission events" on public.mtd_quarterly_submission_events;
+exception when undefined_table then null;
+end $$;
+do $$ begin
+  create policy "Managers can read MTD sandbox submission events"
+    on public.mtd_quarterly_submission_events
+    for select
+    to authenticated
+    using (public.user_can_manage_account(account_id));
+exception when undefined_table or duplicate_object then null;
+end $$;
 
-drop policy if exists "Managers can read HMRC live submission consents" on public.hmrc_live_submission_consents;
-create policy "Managers can read HMRC live submission consents"
-  on public.hmrc_live_submission_consents
-  for select
-  to authenticated
-  using (public.user_can_manage_account(account_id));
+do $$ begin
+  drop policy if exists "Managers can read HMRC live submission consents" on public.hmrc_live_submission_consents;
+exception when undefined_table then null;
+end $$;
+do $$ begin
+  create policy "Managers can read HMRC live submission consents"
+    on public.hmrc_live_submission_consents
+    for select
+    to authenticated
+    using (public.user_can_manage_account(account_id));
+exception when undefined_table or duplicate_object then null;
+end $$;
+
+set local check_function_bodies = off;
 
 create or replace function public.record_hmrc_live_submission_consent(
   p_account_id uuid,

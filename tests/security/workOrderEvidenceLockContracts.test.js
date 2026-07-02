@@ -36,28 +36,44 @@ describe("E-077: Work order evidence lock — SQL contracts", () => {
     expect(sql).toContain("'cancelled'");
   });
 
-  it("wo_attach_delete policy is also updated with the same completion-status gate", () => {
+  it("drops legacy policy families and keeps only canonical woa_* policies (E-159)", () => {
     const sql = read("supabase/phase2_repair_e066b_e077_e074.sql");
+    expect(sql).toContain('drop policy if exists "wo_attach_read"');
+    expect(sql).toContain('drop policy if exists "wo_attach_insert"');
     expect(sql).toContain('drop policy if exists "wo_attach_delete"');
-    expect(sql).toContain('create policy "wo_attach_delete"');
-    expect(sql).toContain("'zakończone'");
-    expect(sql).toContain("'anulowane'");
+    expect(sql).toContain('drop policy if exists "wo_attachments_select"');
+    expect(sql).toContain('drop policy if exists "wo_attachments_insert"');
+    expect(sql).toContain('drop policy if exists "wo_attachments_delete"');
+    expect(sql).toContain('create policy "woa_select"');
+    expect(sql).toContain('create policy "woa_insert"');
+    expect(sql).toContain('create policy "woa_delete"');
   });
 
-  it("owner/admin/staff arm is preserved in both policies (data-correction path)", () => {
+  it("owner/admin/staff arm is preserved in canonical delete policy (data-correction path)", () => {
     const sql = read("supabase/phase2_repair_e066b_e077_e074.sql");
     const occurrences = (sql.match(/lower\(am\.role::text\) = any/g) || []).length;
-    // Both woa_delete and wo_attach_delete must have the owner/admin/staff arm
-    expect(occurrences).toBeGreaterThanOrEqual(2);
+    expect(occurrences).toBeGreaterThanOrEqual(1);
     expect(sql).toContain("'owner', 'admin', 'staff'");
+  });
+
+  it("canonical work-order access helper preserves assigned contractor reads", () => {
+    const sql = read("supabase/phase2_repair_e066b_e077_e074.sql");
+    expect(sql).toContain("create or replace function public.can_access_work_order");
+    expect(sql).toContain("wo.contractor_user_id = auth.uid()");
+    expect(sql).toContain("public.is_tenant_for_work_order(p_work_order_id)");
   });
 });
 
 describe("E-077: Work order evidence lock — service layer contracts", () => {
-  it("uploadWorkOrderAttachments accepts attesterRole param and includes it in insert", () => {
+  it("uploadWorkOrderAttachments accepts attesterRole/stage/capture metadata and uses recorder RPC", () => {
     const svc = read("src/services/workOrderAttachmentsService.js");
     expect(svc).toContain("attesterRole = null");
-    expect(svc).toContain("attester_role: attesterRole ?? null");
+    expect(svc).toContain("maintenanceStage = null");
+    expect(svc).toContain('captureMethod = "uploaded"');
+    expect(svc).toContain('supabase.rpc("record_work_order_attachment_received"');
+    expect(svc).toContain("p_attester_role: attesterRole ?? null");
+    expect(svc).toContain("p_maintenance_stage: maintenanceStage ?? null");
+    expect(svc).toContain("p_capture_method: captureMethod || \"uploaded\"");
   });
 
   it("listWorkOrderAttachments selects attester_role from DB", () => {
@@ -92,6 +108,86 @@ describe("E-077: Work order evidence lock — service layer contracts", () => {
     if (statusCheckIdx !== -1) {
       expect(statusCheckIdx).toBeGreaterThan(deleteIdx);
     }
+  });
+});
+
+describe("E-150: Work-order contractor completion photo evidence contracts", () => {
+  it("adds nullable evidence metadata fields without a misleading image_content_hash", () => {
+    const sql = read("supabase/phase2_repair_e066b_e077_e074.sql");
+    expect(sql).toContain("add column if not exists maintenance_stage text");
+    expect(sql).toContain("add column if not exists capture_method text");
+    expect(sql).toContain("add column if not exists work_order_status_at_received text");
+    expect(sql).toContain("add column if not exists late_upload boolean");
+    expect(sql).toContain("add column if not exists content_hash_client_asserted text");
+    expect(sql).toContain("add column if not exists content_hash_algorithm text");
+    expect(sql).toContain("add column if not exists content_hash_verified_at timestamptz");
+    expect(sql).toContain("add column if not exists provenance_event_id uuid");
+    expect(sql).not.toContain("image_content_hash");
+    expect(sql).not.toContain("photo_content_hash");
+  });
+
+  it("records DB row and photo.received provenance inside one RPC transaction", () => {
+    const sql = read("supabase/phase2_repair_e066b_e077_e074.sql");
+    const fn = sql.match(/create or replace function public\.record_work_order_attachment_received[\s\S]*?\nend;\n\$\$;/)?.[0] || "";
+    expect(fn).toContain("insert into public.work_order_attachments");
+    expect(fn).toContain("public._append_evidence_provenance_event");
+    expect(fn).toContain("'photo.received'");
+    expect(fn).toContain("'work_order'");
+    expect(fn).toContain("v_attachment.created_at");
+    expect(fn).toContain("update public.work_order_attachments");
+    expect(fn).toContain("set provenance_event_id = v_event_id");
+  });
+
+  it("prevents anchored rows/events for absent storage bytes", () => {
+    const sql = read("supabase/phase2_repair_e066b_e077_e074.sql");
+    const fn = sql.match(/create or replace function public\.record_work_order_attachment_received[\s\S]*?\nend;\n\$\$;/)?.[0] || "";
+    const storageCheck = fn.indexOf("from storage.objects");
+    const insertRow = fn.indexOf("insert into public.work_order_attachments");
+    const appendEvent = fn.indexOf("public._append_evidence_provenance_event");
+    expect(storageCheck).toBeGreaterThan(-1);
+    expect(storageCheck).toBeLessThan(insertRow);
+    expect(storageCheck).toBeLessThan(appendEvent);
+    expect(fn).toContain("raise exception 'storage object not found for work-order attachment'");
+  });
+
+  it("blocks post-completion contractor completion uploads and records observed status", () => {
+    const sql = read("supabase/phase2_repair_e066b_e077_e074.sql");
+    const fn = sql.match(/create or replace function public\.record_work_order_attachment_received[\s\S]*?\nend;\n\$\$;/)?.[0] || "";
+    expect(fn).toContain("p_maintenance_stage = 'contractor_completion'");
+    expect(fn).toContain("only the assigned contractor can upload contractor completion evidence");
+    expect(fn).toContain("contractor completion photo uploads are blocked after work-order completion or cancellation");
+    expect(fn).toContain("work_order_status_at_received");
+    expect(fn).toContain("v_work_order.status");
+    expect(fn).toContain("late_upload");
+    expect(fn).toContain("false");
+  });
+
+  it("labels client byte hash honestly and never server-verifies it in this slice", () => {
+    const svc = read("src/services/workOrderAttachmentsService.js");
+    const sql = read("supabase/phase2_repair_e066b_e077_e074.sql");
+    expect(svc).toContain("subtle.digest(\"SHA-256\", buffer)");
+    expect(svc).toContain("p_content_hash_client_asserted");
+    expect(sql).toContain("'hash_trust', v_hash_trust");
+    expect(sql).toContain("'client_asserted_unverified'");
+    expect(sql).toContain("content_hash_verified_at");
+    expect(sql).toContain("null");
+  });
+
+  it("contractor panel sets contractor completion metadata and does not wire MobileUploadZone", () => {
+    const panel = read("src/components/work-orders/ContractorAttachmentsPanel.jsx");
+    expect(panel).toContain('attesterRole: "contractor"');
+    expect(panel).toContain('maintenanceStage: "contractor_completion"');
+    expect(panel).toContain('captureMethod: "uploaded"');
+    expect(panel).toContain("Upload completion photo");
+    expect(panel).not.toContain("MobileUploadZone");
+    expect(panel).not.toContain("in_app_camera");
+  });
+
+  it("does not change deposit-dispute pack rendering to overclaim completion proof", () => {
+    const printPage = read("src/pages/documents/DepositDisputePackPrintPage.jsx");
+    expect(printPage).not.toContain("Verified completion photo");
+    expect(printPage).not.toContain("photo.received");
+    expect(printPage).not.toContain("contractor_completion");
   });
 });
 

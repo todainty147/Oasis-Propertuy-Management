@@ -18,6 +18,10 @@
 
 begin;
 
+-- Defer PL/pgSQL body compilation so %rowtype references to provenance_events
+-- (created later in the OVERLAY_SEQUENCE) do not fail at CREATE FUNCTION time.
+set local check_function_bodies = off;
+
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 1. obligation_basis_review table
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -33,7 +37,7 @@ create table if not exists public.obligation_basis_review (
   review_required boolean not null default true,
   review_flagged_at timestamptz not null default now(),
   last_seen_at timestamptz not null default now(),
-  provenance_event_id uuid references public.provenance_events(id) on delete restrict,
+  provenance_event_id uuid, -- FK to provenance_events added below (conditionally, in case provenance_events is not yet created)
   demo_mode boolean not null default true,
   created_at timestamptz not null default now(),
   constraint obligation_basis_review_demo_only check (demo_mode is true),
@@ -47,6 +51,17 @@ create table if not exists public.obligation_basis_review (
     basis_change_status in ('changed_after_discharge')
   )
 );
+
+-- Add FK to provenance_events conditionally: on a fresh DB replay, provenance_events is created
+-- later in the OVERLAY_SEQUENCE (position 183). Exception handlers are intentional.
+do $$ begin
+  alter table public.obligation_basis_review
+    add constraint obligation_basis_review_provenance_event_fk
+    foreign key (provenance_event_id) references public.provenance_events(id) on delete restrict;
+exception
+  when undefined_table then null;
+  when duplicate_object then null;
+end $$;
 
 create unique index if not exists obligation_basis_review_one_active_per_obligation_idx
   on public.obligation_basis_review(obligation_instance_id)
@@ -114,6 +129,11 @@ create constraint trigger trg_obligation_basis_review_require_provenance_event
 -- 3. Provenance event helper for basis-change recording
 -- ═══════════════════════════════════════════════════════════════════════════
 
+-- DROP BEFORE REPLACE: return type changed from provenance_events to uuid (callers only
+-- need the event ID; provenance_events is not yet created at this sequence position).
+drop function if exists public.record_rpe_basis_change_recorded_event(
+  uuid, uuid, uuid, uuid, uuid, uuid, uuid, uuid, text, text, text, boolean, boolean
+);
 create or replace function public.record_rpe_basis_change_recorded_event(
   p_account_id uuid,
   p_basis_review_id uuid,
@@ -129,7 +149,7 @@ create or replace function public.record_rpe_basis_change_recorded_event(
   p_is_update boolean,
   p_demo_mode boolean
 )
-returns public.provenance_events
+returns uuid
 language plpgsql
 security definer
 set search_path = public
@@ -183,7 +203,7 @@ begin
     1
   );
 
-  return v_event;
+  return v_event.id;
 end;
 $$;
 
@@ -225,7 +245,7 @@ declare
   v_existing_review public.obligation_basis_review%rowtype;
   v_basis_review public.obligation_basis_review%rowtype;
   v_basis_review_id uuid;
-  v_basis_event public.provenance_events%rowtype;
+  v_basis_event_id uuid;
   v_is_update boolean;
 begin
   if p_demo_mode is not true then
@@ -329,7 +349,7 @@ begin
       v_basis_review_id := case when v_is_update then v_existing_review.id else gen_random_uuid() end;
 
       -- Record provenance event FIRST (atomic)
-      v_basis_event := public.record_rpe_basis_change_recorded_event(
+      v_basis_event_id := public.record_rpe_basis_change_recorded_event(
         p_account_id, v_basis_review_id, v_active.id, v_evaluation.id,
         v_change.id, v_rule.id, v_evaluation.tenancy_id, v_lease.property_id,
         v_active.obligation_kind, v_evaluation.result, v_basis_kind,
@@ -342,7 +362,7 @@ begin
                latest_evaluation_result = v_evaluation.result,
                basis_change_kind = v_basis_kind,
                last_seen_at = now(),
-               provenance_event_id = v_basis_event.id
+               provenance_event_id = v_basis_event_id
          where id = v_existing_review.id
          returning * into v_basis_review;
       else
@@ -354,7 +374,7 @@ begin
         ) values (
           v_basis_review_id, v_active.id, p_account_id, v_evaluation.id,
           v_evaluation.result, 'changed_after_discharge', v_basis_kind,
-          true, now(), now(), v_basis_event.id, true
+          true, now(), now(), v_basis_event_id, true
         ) returning * into v_basis_review;
       end if;
 
@@ -389,7 +409,7 @@ begin
 
       if found then
         -- Re-affected after basis change: update latest result, keep kind/history
-        v_basis_event := public.record_rpe_basis_change_recorded_event(
+        v_basis_event_id := public.record_rpe_basis_change_recorded_event(
           p_account_id, v_existing_review.id, v_active.id, v_evaluation.id,
           v_change.id, v_rule.id, v_evaluation.tenancy_id, v_lease.property_id,
           v_active.obligation_kind, 'affected', v_existing_review.basis_change_kind,
@@ -400,7 +420,7 @@ begin
            set latest_evaluation_id = v_evaluation.id,
                latest_evaluation_result = 'affected',
                last_seen_at = now(),
-               provenance_event_id = v_basis_event.id
+               provenance_event_id = v_basis_event_id
          where id = v_existing_review.id
          returning * into v_basis_review;
 

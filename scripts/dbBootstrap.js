@@ -509,6 +509,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply Compliance Safe E-084 interim gate overlay",
+    file: path.join(supabaseDir, "compliance_safe_e084_interim_gate.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply Evidence Vault Phase 2 overlay",
     file: path.join(supabaseDir, "evidence_vault_phase2.sql"),
     onErrorStop: true,
@@ -610,6 +615,16 @@ const bootstrapSteps = [
   {
     label: "Apply provenance document service overlay",
     file: path.join(supabaseDir, "provenance_document_service.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply evidence provenance stub overlay",
+    file: path.join(supabaseDir, "evidence_provenance_stub.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply inspection report lock and signature binding overlay",
+    file: path.join(supabaseDir, "inspection_report_lock_signature_binding.sql"),
     onErrorStop: true,
   },
 ];
@@ -838,7 +853,41 @@ async function ensureLocalSupabaseRunning() {
   });
 }
 
-async function resetLocalSupabaseDb() {
+function isMigrationFailureOutput(output) {
+  const msg = String(output || "").toLowerCase();
+  return (
+    msg.includes("applying migration") &&
+    (msg.includes("error:") || msg.includes("sqlstate"))
+  );
+}
+
+function rawPublicSchemaReset(dbUrl) {
+  // Fallback for when supabase db reset fails due to migration ordering issues
+  // (migrations that reference overlay-created tables). Wipes public schema so
+  // baseline_schema.sql + overlays can be applied from scratch.
+  const sql = [
+    "drop schema if exists public cascade;",
+    "create schema public authorization pg_database_owner;",
+    "grant usage on schema public to anon;",
+    "grant usage on schema public to authenticated;",
+    "grant usage on schema public to service_role;",
+    "grant all on schema public to postgres;",
+    "grant all on schema public to pg_database_owner;",
+  ].join(" ");
+
+  const { status, output } = runPsqlWithResult({
+    args: ["--dbname", dbUrl, "-c", sql],
+  });
+
+  if (status !== 0) {
+    throw new Error(`raw public schema reset failed\n${output}`);
+  }
+
+  if (output) console.log(output);
+  console.log("Raw public schema reset complete (supabase db reset bypassed due to migration ordering).");
+}
+
+async function resetLocalSupabaseDb(dbUrl) {
   const maxAttempts = 3;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -848,6 +897,13 @@ async function resetLocalSupabaseDb() {
 
     if (status === 0) {
       if (output) console.log(output);
+      return;
+    }
+
+    if (isMigrationFailureOutput(output)) {
+      console.warn("supabase db reset failed due to migration ordering issue; falling back to raw public schema reset.");
+      if (output) console.warn(output);
+      rawPublicSchemaReset(dbUrl);
       return;
     }
 
@@ -901,7 +957,7 @@ async function main() {
 
   console.log("");
   console.log("Preflight: resetting local Supabase DB");
-  await resetLocalSupabaseDb();
+  await resetLocalSupabaseDb(dbUrl);
 
   console.log("");
   console.log("Preflight: checking database connectivity");
