@@ -186,6 +186,7 @@ const OVERLAY_SEQUENCE = [
   "provenance_explain_balance.sql",
   "provenance_document_service.sql",
   "evidence_provenance_stub.sql",
+  "inspection_report_lock_signature_binding.sql",
   "supabase_linter_security_hardening.sql",
 ];
 

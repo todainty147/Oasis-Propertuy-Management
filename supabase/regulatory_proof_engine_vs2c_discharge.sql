@@ -15,6 +15,10 @@
 
 begin;
 
+-- Defer PL/pgSQL body compilation so %rowtype references to provenance_events
+-- (created later in the OVERLAY_SEQUENCE) do not fail at CREATE FUNCTION time.
+set local check_function_bodies = off;
+
 alter table public.obligation_instance
   drop constraint if exists obligation_instance_no_discharged_vs2b;
 
@@ -43,7 +47,7 @@ create table if not exists public.rra_info_sheet_service_evidence (
   evidence_basis text not null,
   captured_by uuid references auth.users(id) on delete set null,
   capture_source text not null default 'manual_rpe_service_evidence_capture',
-  capture_event_id uuid references public.provenance_events(id) on delete restrict,
+  capture_event_id uuid, -- FK to provenance_events added below (conditionally, in case provenance_events is not yet created)
   demo_mode boolean not null default true,
   created_at timestamptz not null default now(),
   constraint rra_info_sheet_service_evidence_demo_only check (demo_mode is true),
@@ -56,6 +60,18 @@ create table if not exists public.rra_info_sheet_service_evidence (
   constraint rra_info_sheet_service_evidence_identity_not_blank check (length(btrim(official_info_sheet_identity)) > 0),
   constraint rra_info_sheet_service_evidence_basis_not_blank check (length(btrim(evidence_basis)) > 0)
 );
+
+-- Add FK to provenance_events conditionally: on a fresh DB replay, provenance_events is created
+-- later in the OVERLAY_SEQUENCE (position 183). The exception handlers are intentional —
+-- undefined_table means provenance_events not yet created; duplicate_object means already added.
+do $$ begin
+  alter table public.rra_info_sheet_service_evidence
+    add constraint rra_info_sheet_service_evidence_capture_event_fk
+    foreign key (capture_event_id) references public.provenance_events(id) on delete restrict;
+exception
+  when undefined_table then null;
+  when duplicate_object then null;
+end $$;
 
 create index if not exists rra_info_sheet_service_evidence_obligation_idx
   on public.rra_info_sheet_service_evidence(obligation_instance_id, created_at desc);
@@ -175,6 +191,11 @@ begin
 end;
 $$;
 
+-- DROP BEFORE REPLACE: return type changed from provenance_events to uuid (callers only
+-- need the event ID; provenance_events is not yet created at this sequence position).
+drop function if exists public.record_rpe_obligation_discharged_event(
+  uuid, uuid, uuid, uuid, uuid, uuid, uuid, uuid, text, text, timestamptz, boolean
+);
 create or replace function public.record_rpe_obligation_discharged_event(
   p_account_id uuid,
   p_obligation_instance_id uuid,
@@ -189,7 +210,7 @@ create or replace function public.record_rpe_obligation_discharged_event(
   p_service_evidence_timestamp timestamptz,
   p_demo_mode boolean
 )
-returns public.provenance_events
+returns uuid
 language plpgsql
 security definer
 set search_path = public
@@ -242,10 +263,14 @@ begin
     1
   );
 
-  return v_event;
+  return v_event.id;
 end;
 $$;
 
+-- DROP BEFORE REPLACE: return type changed from provenance_events to void (all callers use PERFORM).
+drop function if exists public.record_rpe_discharged_basis_changed_flag_event(
+  uuid, uuid, uuid, uuid, uuid, uuid, uuid, text, text, boolean
+);
 create or replace function public.record_rpe_discharged_basis_changed_flag_event(
   p_account_id uuid,
   p_obligation_instance_id uuid,
@@ -258,7 +283,7 @@ create or replace function public.record_rpe_discharged_basis_changed_flag_event
   p_later_result text,
   p_demo_mode boolean
 )
-returns public.provenance_events
+returns void
 language plpgsql
 security definer
 set search_path = public
@@ -307,8 +332,6 @@ begin
     'rra_info_sheet:obligation:discharged_basis_changed:' || p_obligation_instance_id::text || ':' || p_evaluation_id::text,
     1
   );
-
-  return v_event;
 end;
 $$;
 
@@ -484,7 +507,7 @@ declare
   v_obligation public.obligation_instance%rowtype;
   v_evidence public.rra_info_sheet_service_evidence%rowtype;
   v_rule public.impact_rule%rowtype;
-  v_event public.provenance_events%rowtype;
+  v_discharge_event_id uuid;
 begin
   if p_demo_mode is not true then
     raise exception 'RPE VS-2C obligation discharge is demo_mode only until Gate-B approval';
@@ -552,7 +575,7 @@ begin
    where id = p_obligation_instance_id
    returning * into v_obligation;
 
-  v_event := public.record_rpe_obligation_discharged_event(
+  v_discharge_event_id := public.record_rpe_obligation_discharged_event(
     p_account_id,
     v_obligation.id,
     v_obligation.source_evaluation_id,
@@ -572,7 +595,7 @@ begin
     'obligation_instance_id', v_obligation.id,
     'posture', v_obligation.posture,
     'evidence_id', v_evidence.id,
-    'discharge_event_id', v_event.id,
+    'discharge_event_id', v_discharge_event_id,
     'official_info_sheet_identity', v_evidence.official_info_sheet_identity,
     'service_evidence_timestamp', v_evidence.service_evidence_timestamp,
     'demo_mode', true

@@ -203,7 +203,7 @@ describe("Phase 3 legal security contracts", () => {
     expect(templates).toContain("Fridge/freezer");
     expect(service).toContain("buildDefaultEvidenceItemsPayload");
     expect(service).toContain("inspection_audit_events");
-    expect(service).toContain("report_locked");
+    expect(service).toContain("lock_inspection_report");
     expect(service).toContain("report_archived");
     expect(page).toContain("Print / save PDF");
     expect(page).toContain("This report is locked. Editing is disabled to preserve the evidence record.");

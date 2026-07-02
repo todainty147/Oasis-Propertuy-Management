@@ -231,7 +231,6 @@ export async function updateComplianceSafeItem(id, accountId, patch = {}) {
   if (Object.prototype.hasOwnProperty.call(patch, "evidence_document_id")) nextPatch.evidence_document_id = patch.evidence_document_id || null;
   if (Object.prototype.hasOwnProperty.call(patch, "evidence_source_type")) nextPatch.evidence_source_type = patch.evidence_source_type || null;
   if (Object.prototype.hasOwnProperty.call(patch, "evidence_source_id")) nextPatch.evidence_source_id = patch.evidence_source_id || null;
-  if (Object.prototype.hasOwnProperty.call(patch, "served_at")) nextPatch.served_at = patch.served_at || null;
   if (Object.prototype.hasOwnProperty.call(patch, "reminder_days_before")) nextPatch.reminder_days_before = patch.reminder_days_before === "" ? null : Number(patch.reminder_days_before);
   if (Object.prototype.hasOwnProperty.call(patch, "needs_review_reason")) nextPatch.needs_review_reason = patch.needs_review_reason || null;
   if (Object.prototype.hasOwnProperty.call(patch, "marked_not_applicable_at")) nextPatch.marked_not_applicable_at = patch.marked_not_applicable_at || null;
@@ -783,24 +782,16 @@ export async function recordInspectionSignature(accountId, reportId, payload = {
   const signerName = String(payload.signerName || "").trim();
   if (!signerName) throw new Error("Add signer name");
   const signerType = payload.signerType === "agent" ? "agent" : "landlord";
-  const { data, error } = await supabase
-    .from("inspection_signatures")
-    .insert({
-      account_id: accountId,
-      inspection_report_id: reportId,
-      signer_type: signerType,
-      signer_role: "landlord",
-      signer_name: signerName,
-      signed_from: "landlord_portal",
-      metadata: { source: "evidence_vault_manual_acknowledgement" },
-    })
-    .select("id, signer_type, signer_role, signer_name, signed_at, signed_from, tenant_id, share_id, signature_status, metadata")
-    .single();
-  if (error) throw error;
-  await writeInspectionAuditEvent(accountId, reportId, "report_updated", {
-    action: "signature_acknowledgement_recorded",
-    signer_type: signerType,
+  // Route through provenance-anchored RPC — no direct table insert (E-033).
+  const { data, error } = await supabase.rpc("capture_inspection_signature", {
+    p_account_id: accountId,
+    p_report_id: reportId,
+    p_signer_name: signerName,
+    p_signer_type: signerType,
+    p_signer_role: "landlord",
+    p_signed_from: "landlord_portal",
   });
+  if (error) throw error;
   return data;
 }
 
@@ -992,6 +983,7 @@ export async function recordTenantInspectionSignature(accountId, shareId, payloa
     .not("share_status", "in", "(revoked,expired)")
     .single();
   if (shareError) throw shareError;
+  // JS-level duplicate guard — gives a clear error message before hitting the DB unique constraint.
   const { data: existingSignature, error: existingSignatureError } = await supabase
     .from("inspection_signatures")
     .select("id")
@@ -1003,22 +995,15 @@ export async function recordTenantInspectionSignature(accountId, shareId, payloa
   if (existingSignatureError) throw existingSignatureError;
   if (existingSignature) throw new Error("This inspection report has already been signed from the tenant portal.");
   const hasDispute = (share.inspection_report_tenant_comments || []).some((comment) => comment.comment_type === "dispute");
-  const { data, error } = await supabase
-    .from("inspection_signatures")
-    .insert({
-      account_id: accountId,
-      inspection_report_id: share.inspection_report_id,
-      signer_type: "tenant",
-      signer_role: "tenant",
-      signer_name: signerName,
-      signed_from: "tenant_portal",
-      tenant_id: share.tenant_id,
-      share_id: share.id,
-      metadata: { source: "tenant_portal_review" },
-    })
-    .select("id, signer_type, signer_role, signer_name, signed_at, signed_from, tenant_id, share_id, signature_status, metadata")
-    .single();
-  if (error) throw error;
+  // Route through provenance-anchored RPC — no direct table insert (E-033).
+  // signer_type/signer_role/signed_from/tenant_id are server-derived from the share on the RPC side.
+  const { data: sigResult, error: sigError } = await supabase.rpc("capture_inspection_signature", {
+    p_account_id: accountId,
+    p_report_id: share.inspection_report_id,
+    p_signer_name: signerName,
+    p_share_id: shareId,
+  });
+  if (sigError) throw sigError;
   const nextStatus = hasDispute ? "tenant_disputed" : "tenant_signed";
   const { error: shareUpdateError } = await supabase
     .from("inspection_report_shares")
@@ -1031,22 +1016,22 @@ export async function recordTenantInspectionSignature(accountId, shareId, payloa
   await writeInspectionAuditEvent(accountId, share.inspection_report_id, hasDispute ? "tenant_disputed_report" : "tenant_signed_report", {
     tenant_id: share.tenant_id,
   });
-  return data;
+  return sigResult;
 }
 
 export async function lockInspectionReport(id, accountId) {
-  const current = await getInspectionStatusForReport(accountId, id);
-  assertEditableStatus(current.status);
-  const userId = await getCurrentUserId();
+  const { error: rpcErr } = await supabase.rpc("lock_inspection_report", {
+    p_account_id: accountId,
+    p_report_id: id,
+  });
+  if (rpcErr) throw rpcErr;
   const { data, error } = await supabase
     .from("inspection_reports")
-    .update({ status: "locked", locked_at: new Date().toISOString(), locked_by: userId })
+    .select(INSPECTION_SELECT)
     .eq("id", id)
     .eq("account_id", accountId)
-    .select(INSPECTION_SELECT)
     .single();
   if (error) throw error;
-  await writeInspectionAuditEvent(accountId, id, "report_locked", {}, userId);
   return data;
 }
 

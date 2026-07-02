@@ -16,6 +16,10 @@
 
 begin;
 
+-- Defer PL/pgSQL body compilation so %rowtype references to provenance_events
+-- (created later in the OVERLAY_SEQUENCE) do not fail at CREATE FUNCTION time.
+set local check_function_bodies = off;
+
 create table if not exists public.obligation_instance (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts(id) on delete cascade,
@@ -138,6 +142,11 @@ create constraint trigger trg_obligation_instance_require_transition
   for each row
   execute function public.obligation_instance_require_transition_event();
 
+-- DROP BEFORE REPLACE: return type changed from provenance_events to void (all callers
+-- use PERFORM so the return value is never consumed). Idempotent on a fresh DB.
+drop function if exists public.record_rpe_obligation_transition_event(
+  uuid, uuid, text, uuid, uuid, uuid, uuid, uuid, text, text, text, text, boolean
+);
 create or replace function public.record_rpe_obligation_transition_event(
   p_account_id uuid,
   p_obligation_instance_id uuid,
@@ -153,19 +162,17 @@ create or replace function public.record_rpe_obligation_transition_event(
   p_reason text,
   p_demo_mode boolean
 )
-returns public.provenance_events
+returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  v_event public.provenance_events%rowtype;
 begin
   if p_demo_mode is not true then
     raise exception 'RPE VS-2B obligation transitions are demo_mode only until Gate-B approval';
   end if;
 
-  v_event := public.record_provenance_event(
+  perform public.record_provenance_event(
     p_account_id,
     'obligation_instance',
     p_obligation_instance_id,
@@ -203,8 +210,6 @@ begin
     'rra_info_sheet:obligation:' || p_event_type || ':' || p_obligation_instance_id::text || ':' || p_evaluation_id::text,
     1
   );
-
-  return v_event;
 end;
 $$;
 
@@ -512,6 +517,9 @@ begin
 end;
 $$;
 
+-- DROP BEFORE REPLACE: return-type changed across schema versions; CREATE OR REPLACE cannot
+-- change OUT-parameter row type. Idempotent — safe on a fresh DB where the function is absent.
+drop function if exists public.list_rra_obligation_instances(uuid, integer, integer);
 create or replace function public.list_rra_obligation_instances(
   p_account_id uuid,
   p_limit integer default 100,
@@ -568,6 +576,9 @@ begin
 end;
 $$;
 
+-- DROP BEFORE REPLACE: return-type changed across schema versions; CREATE OR REPLACE cannot
+-- change OUT-parameter row type. Idempotent — safe on a fresh DB where the function is absent.
+drop function if exists public.rra_obligation_posture_summary(uuid);
 create or replace function public.rra_obligation_posture_summary(
   p_account_id uuid
 )

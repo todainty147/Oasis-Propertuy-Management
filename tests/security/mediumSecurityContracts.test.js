@@ -186,11 +186,11 @@ describe("medium security audit contracts", () => {
 
   // E-035 fold tripwire — stays red until served_at is fully retired from updateComplianceSafeItem.
   // When this test passes, the bifurcation is closed and E-035 can be marked resolved.
-  it.fails("E-035 TRIPWIRE: served_at write in updateComplianceSafeItem must be retired before E-035 closes", () => {
+  it("E-035 TRIPWIRE: served_at write in updateComplianceSafeItem must be retired before E-035 closes", () => {
     const svc = readSource("src/services/legalSecurityService.js");
-    // This test stays RED until updateComplianceSafeItem no longer accepts served_at.
-    // Once red → green, served_at is no longer an independently writable service-truth
-    // field and the bifurcation is closed.
+    // GREEN: served_at write removed from updateComplianceSafeItem in Phase A-2.1.
+    // The bifurcation is closed — served_at is no longer an independently writable
+    // service-truth field.
     expect(svc).not.toMatch(/nextPatch\.served_at\s*=/);
   });
 
@@ -225,10 +225,9 @@ describe("medium security audit contracts", () => {
   // E-084 fold tripwire — stays RED in Branch B until Phase A-2 wires the provenance event.
   // Branch B wires the RPC call site; Phase A-2 adds the provenance emission inside the SQL function.
   // When this test passes, E-084 can move from REDUCED to CLOSED.
-  it.fails("E-084 TRIPWIRE: record_compliance_value_human_verified must emit a provenance event before E-084 closes", () => {
+  it("E-084 TRIPWIRE: record_compliance_value_human_verified must emit a provenance event before E-084 closes", () => {
     const sql = readSource("supabase/compliance_safe_e084_interim_gate.sql");
-    // Stays RED in Branch B: the SQL function does not yet call append_provenance_event.
-    // Phase A-2 will add: perform public.append_provenance_event(...) inside the function body.
-    expect(sql).toMatch(/append_provenance_event|record_provenance_event/);
+    // GREEN: Phase A-2.1 wired _append_evidence_provenance_event inside the function body.
+    expect(sql).toMatch(/append_evidence_provenance_event|append_provenance_event|record_provenance_event/);
   });
 });

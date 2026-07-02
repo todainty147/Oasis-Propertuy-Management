@@ -213,6 +213,12 @@ to authenticated
 using (false)
 with check (false);
 
+-- E-154: DROP required before CREATE OR REPLACE because the return type changed
+-- (removed category_ids_verified boolean from the prior version).
+-- The exact prior 1-arg signature is named so the DROP fires on overlay-over-existing.
+-- On a fresh DB where the function does not yet exist, IF EXISTS no-ops safely.
+drop function if exists public.list_marketplace_integration_settings(uuid);
+
 create or replace function public.list_marketplace_integration_settings(
   p_account_id uuid
 )
