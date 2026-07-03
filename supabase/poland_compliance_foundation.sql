@@ -294,9 +294,8 @@ BEGIN
   SELECT ARRAY(
     SELECT am.user_id
     FROM   account_members am
-    WHERE  am.account_id  = p_account_id
+    WHERE  am.account_id = p_account_id
       AND  am.role IN ('owner', 'admin')
-      AND  am.archived_at IS NULL
   ) INTO v_recipients;
 
   IF array_length(v_recipients, 1) IS NULL THEN
