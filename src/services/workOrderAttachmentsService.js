@@ -135,7 +135,7 @@ export async function listWorkOrderAttachments({ accountId, workOrderId, signal 
   let q = supabase
     .from("work_order_attachments")
     .select(
-      "id, account_id, work_order_id, uploaded_by, attester_role, file_name, mime_type, file_size, storage_bucket, storage_path, kind, created_at, maintenance_stage, capture_method, work_order_status_at_received, late_upload, content_hash_client_asserted, content_hash_algorithm, content_hash_verified_at, provenance_event_id"
+      "id, account_id, work_order_id, uploaded_by, attester_role, file_name, mime_type, file_size, storage_bucket, storage_path, kind, created_at, maintenance_stage, capture_method, work_order_status_at_received, late_upload, content_hash_client_asserted, content_hash_algorithm, content_hash_verified_at, hash_trust, content_hash_server_computed, hash_verification_error, verification_attempted_at, provenance_event_id"
     )
     .eq("account_id", accountId)
     .eq("work_order_id", workOrderId)
@@ -149,7 +149,9 @@ export async function listWorkOrderAttachments({ accountId, workOrderId, signal 
   return (data ?? []).map((row) => ({
     ...row,
     received_at: row.created_at,
-    hash_trust: row.content_hash_client_asserted ? "client_asserted_unverified" : "not_available",
+    hash_trust:
+      row.hash_trust ||
+      (row.content_hash_client_asserted ? "client_asserted_unverified" : "not_available"),
   }));
 }
 
@@ -328,13 +330,64 @@ export async function uploadWorkOrderAttachments({
     results.push({
       ...inserted,
       received_at: inserted?.created_at,
-      hash_trust: inserted?.content_hash_client_asserted
-        ? "client_asserted_unverified"
-        : "not_available",
+      hash_trust:
+        inserted?.hash_trust ||
+        (inserted?.content_hash_client_asserted ? "client_asserted_unverified" : "not_available"),
     });
+
+    // Async verification trigger (non-blocking, fire-and-forget).
+    // Invokes verify-work-order-photo-hash after the anchor commits.
+    // Does not gate or delay the upload response.
+    if (inserted?.id && inserted?.content_hash_client_asserted) {
+      triggerHashVerification(inserted.id);
+    }
   }
 
   return results;
+}
+
+/**
+ * Fire-and-forget call to the hash verification edge function.
+ * Errors are swallowed; the sweep will retry any transient failures.
+ * @param {string} attachmentId
+ */
+function triggerHashVerification(attachmentId) {
+  // Using Promise chain (not await) so it never blocks the caller.
+  supabase.functions
+    .invoke("verify-work-order-photo-hash", {
+      body: { attachmentId },
+    })
+    .catch(() => {
+      // Non-fatal; the sweep function handles unverified rows.
+    });
+}
+
+/**
+ * Retry sweep: invokes hash verification for work-order attachments that still
+ * have hash_trust='client_asserted_unverified' with a client hash and a recorded
+ * transient error (or null server hash after a prior attempt).
+ *
+ * Terminal states ('verified', 'verification_failed') are never re-verified.
+ *
+ * @param {string} accountId
+ * @param {string} workOrderId
+ */
+export async function sweepUnverifiedAttachmentHashes({ accountId, workOrderId } = {}) {
+  if (!accountId || !workOrderId) return;
+
+  const { data, error } = await supabase
+    .from("work_order_attachments")
+    .select("id, content_hash_client_asserted, hash_trust, hash_verification_error")
+    .eq("account_id", accountId)
+    .eq("work_order_id", workOrderId)
+    .eq("hash_trust", "client_asserted_unverified")
+    .not("content_hash_client_asserted", "is", null);
+
+  if (error || !data) return;
+
+  for (const row of data) {
+    triggerHashVerification(row.id);
+  }
 }
 
 /* ======================
