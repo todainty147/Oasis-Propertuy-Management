@@ -376,6 +376,15 @@ begin
       else 'not_available'
     end;
 
+    -- E-160 test-only fault-injection gate. Inert when GUC is absent/false (default).
+    -- When armed by the deny-test wrapper (transaction-local 'on'), raises AFTER the
+    -- work_order_attachments row INSERT is staged in-transaction, proving the full
+    -- rollback includes both the row and any photo.received event.
+    -- Must RAISE — never skip, no-op, or branch around the real append call.
+    if current_setting('app.test_force_wo_photo_provenance_failure', true) = 'on' then
+      raise exception 'test_force_wo_photo_provenance_failure: forced provenance failure for atomicity proof';
+    end if;
+
     v_event_id := public._append_evidence_provenance_event(
       p_account_id,
       'work_order',
@@ -565,6 +574,80 @@ drop trigger if exists tg_enforce_checkatrade_go_live_gate
 create trigger tg_enforce_checkatrade_go_live_gate
   before insert or update on public.marketplace_integration_settings
   for each row execute function public.enforce_checkatrade_go_live_gate();
+
+-- ────────────────────────────────────────────────────────────
+-- E-160  Atomicity deny-test wrapper (production-path fault injection)
+--
+-- Sets a transaction-local GUC then calls the REAL
+-- record_work_order_attachment_received. The GUC fires inside that function
+-- AFTER the work_order_attachments INSERT is staged and BEFORE
+-- _append_evidence_provenance_event, raising an exception that rolls back
+-- the entire transaction (row + event). Proves the production atomicity
+-- claim is executed, not merely inferred from PL/pgSQL semantics.
+--
+-- The GUC is transaction-local (is_local=true in set_config) and is never
+-- set outside this wrapper, so the happy path is completely unaffected.
+-- Mirrors capture_inspection_signature_atomicity_deny_test (E-033/E-153).
+-- ────────────────────────────────────────────────────────────
+
+drop function if exists public.record_work_order_attachment_received_atomicity_deny_test(
+  uuid, uuid, text, text, text, bigint, text, text, text, text, text
+);
+
+create or replace function public.record_work_order_attachment_received_atomicity_deny_test(
+  p_account_id                   uuid,
+  p_work_order_id                uuid,
+  p_storage_path                 text,
+  p_file_name                    text,
+  p_mime_type                    text    default null,
+  p_file_size                    bigint  default null,
+  p_kind                         text    default 'photo',
+  p_attester_role                text    default null,
+  p_maintenance_stage            text    default null,
+  p_capture_method               text    default 'uploaded',
+  p_content_hash_client_asserted text    default null
+) returns public.work_order_attachments
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- Arm the fault injector: transaction-local, inert outside this call.
+  perform set_config('app.test_force_wo_photo_provenance_failure', 'on', true);
+
+  -- Call the real production RPC. The GUC fires inside
+  -- record_work_order_attachment_received after the INSERT and before
+  -- _append_evidence_provenance_event, raising and rolling back everything.
+  return public.record_work_order_attachment_received(
+    p_account_id                   := p_account_id,
+    p_work_order_id                := p_work_order_id,
+    p_storage_path                 := p_storage_path,
+    p_file_name                    := p_file_name,
+    p_mime_type                    := p_mime_type,
+    p_file_size                    := p_file_size,
+    p_kind                         := p_kind,
+    p_attester_role                := p_attester_role,
+    p_maintenance_stage            := p_maintenance_stage,
+    p_capture_method               := p_capture_method,
+    p_content_hash_client_asserted := p_content_hash_client_asserted
+  );
+end;
+$$;
+
+revoke all on function public.record_work_order_attachment_received_atomicity_deny_test(
+  uuid, uuid, text, text, text, bigint, text, text, text, text, text
+) from public, anon;
+grant execute on function public.record_work_order_attachment_received_atomicity_deny_test(
+  uuid, uuid, text, text, text, bigint, text, text, text, text, text
+) to authenticated;
+
+comment on function public.record_work_order_attachment_received_atomicity_deny_test(
+  uuid, uuid, text, text, text, bigint, text, text, text, text, text
+) is
+  'E-160 atomicity deny-test wrapper. Arms a transaction-local GUC then calls '
+  'the real record_work_order_attachment_received. The GUC raises after the '
+  'work_order_attachments INSERT and before _append_evidence_provenance_event, '
+  'rolling back both to prove production atomicity. Inert outside this wrapper.';
 
 -- Also return category_ids_verified from the settings listing function
 -- so the UI can surface an honest staged-vs-live distinction.

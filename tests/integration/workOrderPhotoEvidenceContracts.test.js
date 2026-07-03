@@ -837,6 +837,89 @@ describe("E-150.1 — work-order photo evidence (integration)", () => {
     },
   );
 
+  // ─── E-160: Provenance-failure atomicity deny-test ──────────────────────────
+  integrationIt(
+    "E-160 — forced provenance-failure rolls back both attachment row and photo.received event (atomicity deny-test)",
+    async () => {
+      const admin = getIntegrationAdminClient();
+      const { client: ownerClient, user: ownerUser } = await signInAsFixtureUser("ownerA");
+      const { client: contractorClient, user: contractorUser } = await signInAsFixtureUser("contractorA1");
+
+      const { accountId, workOrderId } = await scaffoldWorkOrder(
+        admin,
+        ownerUser,
+        contractorUser.id,
+      );
+
+      // Seed a real storage object so the function PASSES the storage-absent gate
+      // and reaches the INSERT + provenance-append phase — the key difference from T5.
+      const denyPath = makePath(accountId, workOrderId, "e160-deny.jpg");
+      await seedStorageObject(admin, denyPath);
+
+      // DENY PATH: call the atomicity deny-test wrapper (arms GUC, calls real RPC).
+      // The GUC fires AFTER the work_order_attachments INSERT is staged in-transaction
+      // and BEFORE _append_evidence_provenance_event, then RAISEs — rolling back both.
+      const { data: denyData, error: denyError } = await contractorClient.rpc(
+        "record_work_order_attachment_received_atomicity_deny_test",
+        {
+          p_account_id: accountId,
+          p_work_order_id: workOrderId,
+          p_storage_path: denyPath,
+          p_file_name: "e160-deny.jpg",
+          p_mime_type: "image/jpeg",
+          p_file_size: 4,
+          p_kind: "photo",
+          p_attester_role: "contractor",
+          p_maintenance_stage: "contractor_completion",
+          p_capture_method: "uploaded",
+          p_content_hash_client_asserted: null,
+        },
+      );
+
+      // Forced failure must surface as an error.
+      expect(denyError, "deny wrapper must raise the forced provenance failure").not.toBeNull();
+      expect(String(denyError.message)).toContain("test_force_wo_photo_provenance_failure");
+      expect(denyData, "no row must be returned on forced failure").toBeNull();
+
+      // No attachment row must persist — the INSERT rolled back.
+      const { data: rowsAfterDeny } = await admin
+        .from("work_order_attachments")
+        .select("id")
+        .eq("work_order_id", workOrderId)
+        .eq("storage_path", denyPath);
+      expect(rowsAfterDeny ?? [], "no attachment row must survive the rollback").toHaveLength(0);
+
+      // No photo.received event must persist.
+      const eventsAfterDeny = await readProvenanceEvents(
+        admin, accountId, "work_order", workOrderId, "photo.received",
+      );
+      expect(eventsAfterDeny, "no photo.received event must survive the rollback").toHaveLength(0);
+
+      // POSITIVE CONTROL: the identical scenario WITHOUT the deny wrapper must succeed.
+      // Proves the deny test fails for the injected reason, not some unrelated breakage.
+      const controlPath = makePath(accountId, workOrderId, "e160-control.jpg");
+      await seedStorageObject(admin, controlPath);
+
+      const { data: controlRow, error: controlError } = await callRecordRpc(contractorClient, {
+        accountId,
+        workOrderId,
+        storagePath: controlPath,
+        attesterRole: "contractor",
+        maintenanceStage: "contractor_completion",
+      });
+      expect(controlError, `positive control must succeed: ${controlError?.message}`).toBeNull();
+      expect(controlRow, "positive control must return a row").not.toBeNull();
+      expect(controlRow.provenance_event_id, "positive control must have provenance_event_id").toBeTruthy();
+      createdAttachmentIds.push(controlRow.id);
+
+      const controlEvents = await readProvenanceEvents(
+        admin, accountId, "work_order", workOrderId, "photo.received",
+      );
+      const controlEvt = controlEvents.find((e) => e.metadata?.attachment_id === controlRow.id);
+      expect(controlEvt, "positive control photo.received event must exist").toBeDefined();
+    },
+  );
+
   // ─── Additional: non-photo rejected for contractor_completion ───────────────
   integrationIt(
     "T3b — document kind rejected for contractor_completion stage",
