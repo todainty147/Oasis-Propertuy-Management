@@ -33,6 +33,8 @@ as $$
 declare
   v_obligation public.obligation_instance%rowtype;
   v_evaluation record;
+  v_property record;
+  v_tenancy record;
   v_evidence jsonb;
   v_basis_review jsonb;
   v_latest_evaluation_id uuid;
@@ -56,7 +58,8 @@ begin
 
   -- Read stored evaluation (no recomputation)
   select re.id, re.result, re.evaluation_confidence, re.decision_path,
-         re.input_snapshot_hash, re.evaluated_at, re.demo_mode
+         re.input_snapshot_hash, re.evaluated_at, re.demo_mode,
+         re.reason_codes, re.impact_rule_version
     into v_evaluation
     from public.rule_evaluation re
    where re.id = v_obligation.source_evaluation_id;
@@ -90,6 +93,19 @@ begin
   where br.obligation_instance_id = p_obligation_instance_id
     and br.review_required is true
   limit 1;
+
+  -- Read property summary (best-effort; null if property_id is not set or row deleted)
+  select p.id, p.address, p.city
+    into v_property
+    from public.properties p
+   where p.id = v_obligation.property_id;
+
+  -- Read tenancy summary from lease (best-effort; null if not found)
+  select l.id, l.lease_start_date, l.lease_end_date,
+         l.rent_amount, l.rent_frequency, l.tenancy_class
+    into v_tenancy
+    from public.leases l
+   where l.id = v_obligation.lease_id;
 
   -- Assemble provenance trail in deterministic lifecycle order.
   -- sequence_number is NOT NULL with a positive check on provenance_events,
@@ -183,7 +199,9 @@ begin
       'decision_path', to_jsonb(v_evaluation.decision_path),
       'input_snapshot_hash', v_evaluation.input_snapshot_hash,
       'evaluated_at', v_evaluation.evaluated_at,
-      'demo_mode', v_evaluation.demo_mode
+      'demo_mode', v_evaluation.demo_mode,
+      'reason_codes', to_jsonb(coalesce(v_evaluation.reason_codes, array[]::text[])),
+      'impact_rule_version', v_evaluation.impact_rule_version
     ) else null end,
     'obligation', jsonb_build_object(
       'obligation_instance_id', v_obligation.id,
@@ -211,7 +229,20 @@ begin
       'gate_b_signed_off', false,
       'customer_facing_allowed', false,
       'pack_status_label', 'Demo proof pack — not legal sign-off'
-    )
+    ),
+    'property', case when v_property.id is not null then jsonb_build_object(
+      'property_id', v_property.id,
+      'address', v_property.address,
+      'city', v_property.city
+    ) else null end,
+    'tenancy', case when v_tenancy.id is not null then jsonb_build_object(
+      'lease_id', v_tenancy.id,
+      'start_date', v_tenancy.lease_start_date,
+      'end_date', v_tenancy.lease_end_date,
+      'rent_amount', v_tenancy.rent_amount,
+      'rent_frequency', v_tenancy.rent_frequency,
+      'tenancy_class', v_tenancy.tenancy_class
+    ) else null end
   );
 end;
 $$;
