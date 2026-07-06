@@ -135,7 +135,7 @@ export async function listWorkOrderAttachments({ accountId, workOrderId, signal 
   let q = supabase
     .from("work_order_attachments")
     .select(
-      "id, account_id, work_order_id, uploaded_by, attester_role, file_name, mime_type, file_size, storage_bucket, storage_path, kind, created_at, maintenance_stage, capture_method, work_order_status_at_received, late_upload, content_hash_client_asserted, content_hash_algorithm, content_hash_verified_at, provenance_event_id"
+      "id, account_id, work_order_id, uploaded_by, attester_role, file_name, mime_type, file_size, storage_bucket, storage_path, kind, created_at, maintenance_stage, capture_method, work_order_status_at_received, late_upload, content_hash_client_asserted, content_hash_algorithm, content_hash_verified_at, hash_trust, content_hash_server_computed, hash_verification_error, verification_attempted_at, provenance_event_id, scan_status, scanned_at, scan_engine, scan_signature, scan_failed_reason, scan_attempted_at"
     )
     .eq("account_id", accountId)
     .eq("work_order_id", workOrderId)
@@ -149,7 +149,9 @@ export async function listWorkOrderAttachments({ accountId, workOrderId, signal 
   return (data ?? []).map((row) => ({
     ...row,
     received_at: row.created_at,
-    hash_trust: row.content_hash_client_asserted ? "client_asserted_unverified" : "not_available",
+    hash_trust:
+      row.hash_trust ||
+      (row.content_hash_client_asserted ? "client_asserted_unverified" : "not_available"),
   }));
 }
 
@@ -190,58 +192,47 @@ export async function createAttachmentSignedUrl(bucket, path, expiresIn = 60) {
 }
 
 /**
- * Robust signed URL resolution for an attachment row.
- * Fallback strategy:
- * 1) Try row.storage_path directly
- * 2) If not found, list account/<accountId>/work_orders/<workOrderId>/ and match by filename tail
+ * E-158: Serve gate for attachment signed URLs.
+ * Routes through the signed-work-order-attachment-url Edge Function, which enforces
+ * scan_status='clean' before generating a signed URL (D4 fail-closed-at-serve).
+ * Returns the signed URL string on success; throws on error or non-clean scan state.
  */
 export async function createAttachmentSignedUrlForRow({
   attachmentRow,
+  // accountId and workOrderId kept for API compatibility; path is resolved server-side
+  // eslint-disable-next-line no-unused-vars
   accountId,
+  // eslint-disable-next-line no-unused-vars
   workOrderId,
-  expiresIn = 60,
+  // eslint-disable-next-line no-unused-vars
+  expiresIn = 600,
 } = {}) {
-  if (!attachmentRow) throw new Error("Brak attachmentRow");
+  if (!attachmentRow?.id) throw new Error("attachmentRow.id is required");
 
-  const bucket = attachmentRow.storage_bucket || BUCKET;
-  const directPath = attachmentRow.storage_path;
+  const { data, error } = await supabase.functions.invoke(
+    "signed-work-order-attachment-url",
+    { body: { attachmentId: attachmentRow.id } },
+  );
 
-  try {
-    return await createAttachmentSignedUrl(bucket, directPath, expiresIn);
-  } catch (directErr) {
-    const acct = accountId || attachmentRow.account_id;
-    const woId = workOrderId || attachmentRow.work_order_id;
-    if (!acct || !woId) throw directErr;
-
-    const folder = `account/${acct}/work_orders/${woId}`;
-    const { data: objects, error: listErr } = await supabase.storage.from(bucket).list(folder, {
-      limit: 200,
-      sortBy: { column: "name", order: "desc" },
-    });
-    if (listErr) throw friendlyError(listErr, directErr?.message || "Nie udało się odnaleźć pliku");
-
-    const list = objects ?? [];
-    if (list.length === 0) throw directErr;
-
-    const rawName = String(attachmentRow.file_name || "").trim();
-    const safeName = safeBaseName(rawName);
-    const tailCandidates = uniq([
-      rawName,
-      safeName,
-      rawName.replace(/\s+/g, "_"),
-      safeName && `_${safeName}`,
-      rawName && `_${rawName}`,
-    ]);
-
-    const match =
-      list.find((o) => tailCandidates.some((t) => t && String(o?.name || "") === t)) ||
-      list.find((o) => tailCandidates.some((t) => t && String(o?.name || "").endsWith(t)));
-
-    if (!match?.name) throw directErr;
-
-    const recoveredPath = `${folder}/${match.name}`;
-    return await createAttachmentSignedUrl(bucket, recoveredPath, expiresIn);
+  if (error) {
+    // Attempt to surface the structured error reason from the Edge Function body
+    let message = "Could not create attachment link";
+    try {
+      const body = error?.context?.json
+        ? await error.context.json()
+        : null;
+      if (body?.error) message = body.error;
+    } catch {
+      // fall through to generic message
+    }
+    throw new Error(message);
   }
+
+  if (!data?.signedUrl) {
+    throw new Error(data?.error || "Attachment is not available");
+  }
+
+  return data.signedUrl;
 }
 
 /* ======================
@@ -328,13 +319,101 @@ export async function uploadWorkOrderAttachments({
     results.push({
       ...inserted,
       received_at: inserted?.created_at,
-      hash_trust: inserted?.content_hash_client_asserted
-        ? "client_asserted_unverified"
-        : "not_available",
+      hash_trust:
+        inserted?.hash_trust ||
+        (inserted?.content_hash_client_asserted ? "client_asserted_unverified" : "not_available"),
     });
+
+    // Async verification trigger (non-blocking, fire-and-forget).
+    // Invokes verify-work-order-photo-hash after the anchor commits.
+    // Does not gate or delay the upload response.
+    if (inserted?.id && inserted?.content_hash_client_asserted) {
+      triggerHashVerification(inserted.id);
+    }
+
+    // E-158: async ClamAV scan trigger (non-blocking, fire-and-forget).
+    // Row is anchored with scan_status='pending_scan'; scan runs after upload.
+    // Serve gate blocks access until scan_status='clean'.
+    if (inserted?.id) {
+      triggerAttachmentScan(inserted.id);
+    }
   }
 
   return results;
+}
+
+/**
+ * Fire-and-forget call to the hash verification edge function.
+ * Errors are swallowed; the sweep will retry any transient failures.
+ * @param {string} attachmentId
+ */
+function triggerHashVerification(attachmentId) {
+  supabase.functions
+    .invoke("verify-work-order-photo-hash", { body: { attachmentId } })
+    .catch(() => {});
+}
+
+/**
+ * E-158: Fire-and-forget ClamAV scan dispatch.
+ * Invokes scan-work-order-attachment after the upload anchor commits.
+ * Never blocks the caller; sweepPendingScanAttachments handles stragglers.
+ * @param {string} attachmentId
+ */
+function triggerAttachmentScan(attachmentId) {
+  supabase.functions
+    .invoke("scan-work-order-attachment", { body: { attachmentId } })
+    .catch(() => {});
+}
+
+/**
+ * E-158: Sweep retry for attachments whose scan has not reached a terminal state.
+ * Retriggers scan dispatch for pending_scan / scan_failed / legacy_unscanned rows.
+ * clean and flagged are terminal and are never re-scanned.
+ * @param {{ accountId: string, workOrderId: string }} opts
+ */
+export async function sweepPendingScanAttachments({ accountId, workOrderId } = {}) {
+  if (!accountId || !workOrderId) return;
+
+  const { data, error } = await supabase
+    .from("work_order_attachments")
+    .select("id, scan_status")
+    .eq("account_id", accountId)
+    .eq("work_order_id", workOrderId)
+    .in("scan_status", ["legacy_unscanned", "pending_scan", "scan_failed"]);
+
+  if (error || !data) return;
+
+  for (const row of data) {
+    triggerAttachmentScan(row.id);
+  }
+}
+
+/**
+ * Retry sweep: invokes hash verification for work-order attachments that still
+ * have hash_trust='client_asserted_unverified' with a client hash and a recorded
+ * transient error (or null server hash after a prior attempt).
+ *
+ * Terminal states ('verified', 'verification_failed') are never re-verified.
+ *
+ * @param {string} accountId
+ * @param {string} workOrderId
+ */
+export async function sweepUnverifiedAttachmentHashes({ accountId, workOrderId } = {}) {
+  if (!accountId || !workOrderId) return;
+
+  const { data, error } = await supabase
+    .from("work_order_attachments")
+    .select("id, content_hash_client_asserted, hash_trust, hash_verification_error")
+    .eq("account_id", accountId)
+    .eq("work_order_id", workOrderId)
+    .eq("hash_trust", "client_asserted_unverified")
+    .not("content_hash_client_asserted", "is", null);
+
+  if (error || !data) return;
+
+  for (const row of data) {
+    triggerHashVerification(row.id);
+  }
 }
 
 /* ======================

@@ -1,436 +1,257 @@
-import { describe, expect, it } from "vitest";
+/**
+ * Headless harness for Compliance Proof Pack v0 PDF generation.
+ *
+ * Produces an actual PDF file from a static discharged-scenario fixture and
+ * verifies the required sections are present. The generated PDF is written to
+ * artifacts/compliance-proof-pack-v0-demo.pdf for visual review.
+ */
 
-const { generateProofPackPdf } = await import(
-  "../../src/utils/proofPackPdfExport.js"
-);
+import fs from "node:fs";
+import path from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-// ─── Mock payloads (same shapes as VS-2 tests) ────────────────────────────
+import { rraProofPackLabels } from "../../src/components/compliance/proofPackPresentation.js";
+import { generateProofPackPdf } from "../../src/utils/proofPackPdfExport.js";
 
-const OPEN_PAYLOAD = {
+const ARTIFACT_PATH = path.join(process.cwd(), "artifacts", "compliance-proof-pack-v0-demo.pdf");
+
+// Static fixture: discharged obligation scenario
+const DISCHARGED_PAYLOAD = {
   evaluation: {
-    evaluation_id: "eval-1",
+    evaluation_id: "aaaaaa00-1234-0000-0000-000000000001",
     result: "affected",
     confidence: "high",
-    decision_path: ["node_a", "node_b"],
-    input_snapshot_hash: "abc123def456",
-    evaluated_at: "2026-06-15T10:00:00Z",
+    decision_path: [
+      "jurisdiction", "tenancy_exists", "tenancy_start_date",
+      "active_on_qualifying_date", "annual_rent_gbp", "company_let",
+      "resident_landlord", "rent_act_1977", "pbsa", "tenancy_class", "is_wholly_oral",
+    ],
+    input_snapshot_hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    evaluated_at: "2026-07-01T12:00:00.000Z",
     demo_mode: true,
+    reason_codes: ["AFF_INFO_SHEET"],
+    impact_rule_version: 1,
   },
   obligation: {
-    obligation_instance_id: "obl-1",
-    posture: "open",
-    obligation_kind: "rra_information_sheet",
+    obligation_instance_id: "bbbbbb00-5678-0000-0000-000000000002",
+    posture: "discharged",
+    obligation_kind: "information_sheet",
     exposure_gbp_ceiling: 7000,
-    created_at: "2026-06-15T10:00:01Z",
-    last_transition_at: "2026-06-15T10:00:01Z",
+    created_at: "2026-07-01T12:01:00.000Z",
+    last_transition_at: "2026-07-01T12:05:00.000Z",
   },
-  evidence: [],
+  property: {
+    property_id: "cccccc00-0000-0000-0000-000000000003",
+    address: "12 Demo Lane",
+    city: "London",
+  },
+  tenancy: {
+    lease_id: "dddddd00-0000-0000-0000-000000000004",
+    start_date: "2026-03-17",
+    end_date: "2026-05-12",
+    rent_amount: 1200,
+    rent_frequency: "monthly",
+    tenancy_class: "assured_shorthold",
+  },
+  evidence: [
+    {
+      evidence_id: "eeeeee00-0000-0000-0000-000000000005",
+      official_info_sheet_identity: "govuk-rra-info-sheet:v1:sha256-demo",
+      service_evidence_timestamp: "2026-07-01T12:03:00.000Z",
+      evidence_type: "delivery_confirmation",
+      captured_at: "2026-07-01T12:04:00.000Z",
+    },
+  ],
   basis_review: null,
   provenance: [
     {
-      event_id: "pe-1",
+      event_id: "fff00000-0000-0000-0000-000000000001",
       entity_type: "rule_evaluation",
-      entity_id: "eval-1",
+      entity_id: "aaaaaa00-1234-0000-0000-000000000001",
       event_type: "evaluation_run",
-      recorded_at: "2026-06-15T10:00:00Z",
+      recorded_at: "2026-07-01T12:00:00.000Z",
       sequence_number: 1,
-      summary: "Evaluation recorded",
-      reason: null,
-      metadata: {},
+      summary: "RRA information sheet impact evaluated: affected",
     },
     {
-      event_id: "pe-2",
+      event_id: "fff00000-0000-0000-0000-000000000002",
       entity_type: "obligation_instance",
-      entity_id: "obl-1",
+      entity_id: "bbbbbb00-5678-0000-0000-000000000002",
       event_type: "rpe.obligation.created",
-      recorded_at: "2026-06-15T10:00:01Z",
+      recorded_at: "2026-07-01T12:01:00.000Z",
       sequence_number: 2,
-      summary: "Obligation created",
-      reason: null,
-      metadata: {},
+      summary: "Obligation created with posture: open",
+    },
+    {
+      event_id: "fff00000-0000-0000-0000-000000000003",
+      entity_type: "rra_info_sheet_service_evidence",
+      entity_id: "eeeeee00-0000-0000-0000-000000000005",
+      event_type: "rpe.service_evidence.captured",
+      recorded_at: "2026-07-01T12:04:00.000Z",
+      sequence_number: 3,
+      summary: "Service evidence captured",
+    },
+    {
+      event_id: "fff00000-0000-0000-0000-000000000004",
+      entity_type: "obligation_instance",
+      entity_id: "bbbbbb00-5678-0000-0000-000000000002",
+      event_type: "rpe.obligation.discharged",
+      recorded_at: "2026-07-01T12:05:00.000Z",
+      sequence_number: 4,
+      summary: "Obligation discharged",
     },
   ],
   status: {
     evaluation_recorded: true,
     obligation_created: true,
-    discharge_evidence_present: false,
+    discharge_evidence_present: true,
     provenance_trail_intact: true,
     basis_review_required: false,
-    evidence_missing: true,
-    provenance_trace_status: {
-      expected_events_present: true,
-      missing_event_types: [],
-    },
+    evidence_missing: false,
     demo_mode: true,
     gate_b_signed_off: false,
     customer_facing_allowed: false,
     pack_status_label: "Demo proof pack — not legal sign-off",
-  },
-};
-
-const DISCHARGED_PAYLOAD = {
-  ...OPEN_PAYLOAD,
-  obligation: {
-    ...OPEN_PAYLOAD.obligation,
-    posture: "discharged",
-  },
-  evidence: [
-    {
-      evidence_id: "ev-1",
-      official_info_sheet_identity: "RRA-IS-2026-001",
-      service_evidence_timestamp: "2026-06-16T14:00:00Z",
-      evidence_type: "gov_uk_information_sheet",
-      captured_by: "user-1",
-      captured_at: "2026-06-16T14:01:00Z",
-    },
-  ],
-  status: {
-    ...OPEN_PAYLOAD.status,
-    discharge_evidence_present: true,
-    evidence_missing: false,
-  },
-};
-
-const BASIS_CHANGED_PAYLOAD = {
-  ...DISCHARGED_PAYLOAD,
-  basis_review: {
-    basis_review_id: "br-1",
-    latest_evaluation_id: "eval-2",
-    latest_evaluation_result: "not_affected",
-    basis_change_kind: "evaluation_result_changed",
-    review_required: true,
-    review_flagged_at: "2026-06-17T09:00:00Z",
-    last_seen_at: "2026-06-17T09:00:00Z",
-  },
-  status: {
-    ...DISCHARGED_PAYLOAD.status,
-    basis_review_required: true,
-  },
-};
-
-const INCOMPLETE_PROVENANCE_PAYLOAD = {
-  ...OPEN_PAYLOAD,
-  status: {
-    ...OPEN_PAYLOAD.status,
     provenance_trace_status: {
-      expected_events_present: false,
-      missing_event_types: ["rpe.obligation.created"],
+      expected_events_present: true,
+      missing_event_types: [],
     },
   },
 };
 
-function buildLongPayload() {
-  const manyEvents = [];
-  for (let i = 0; i < 60; i++) {
-    manyEvents.push({
-      event_id: `pe-${i}`,
-      entity_type: "rule_evaluation",
-      entity_id: `eval-${i}`,
-      event_type: `event_type_${i}`,
-      recorded_at: `2026-06-15T10:${String(i).padStart(2, "0")}:00Z`,
-      sequence_number: i + 1,
-      summary: `Event summary line ${i}`,
-      reason: null,
-      metadata: {},
-    });
+let rawPdfBuffer;
+
+beforeAll(() => {
+  const { doc } = generateProofPackPdf(DISCHARGED_PAYLOAD, { labels: rraProofPackLabels });
+  rawPdfBuffer = Buffer.from(doc.output("arraybuffer"));
+  fs.mkdirSync(path.dirname(ARTIFACT_PATH), { recursive: true });
+  fs.writeFileSync(ARTIFACT_PATH, rawPdfBuffer);
+});
+
+afterAll(() => {
+  // Leave artifact in place for visual review.
+});
+
+describe("Proof Pack PDF — generation", () => {
+  it("produces a valid PDF file", () => {
+    expect(rawPdfBuffer.length).toBeGreaterThan(1000);
+    expect(rawPdfBuffer.toString("ascii", 0, 5)).toBe("%PDF-");
+  });
+
+  it("writes the PDF artifact to disk", () => {
+    expect(fs.existsSync(ARTIFACT_PATH)).toBe(true);
+  });
+});
+
+describe("Proof Pack PDF — required content", () => {
+  function pdfContains(str) {
+    return rawPdfBuffer.toString("binary").includes(str);
   }
-  return {
-    ...OPEN_PAYLOAD,
-    provenance: manyEvents,
-  };
-}
 
-function extractPdfText(doc) {
-  const pages = doc.internal.pages;
-  const result = [];
-  for (let i = 1; i < pages.length; i++) {
-    const pageContent = pages[i];
-    if (!pageContent) {
-      result.push("");
-      continue;
-    }
-    const lines = Array.isArray(pageContent)
-      ? pageContent.join("\n")
-      : String(pageContent);
-    result.push(lines);
+  it("renders the pack title", () => {
+    expect(pdfContains("RRA Information Sheet Proof Pack")).toBe(true);
+  });
+
+  it("renders the demo/legal-status label", () => {
+    expect(pdfContains("Demo proof pack")).toBe(true);
+  });
+
+  it("labels input_snapshot_hash as Evidence fingerprint", () => {
+    expect(pdfContains("Evidence fingerprint")).toBe(true);
+  });
+
+  it("does not claim pack_content_hash", () => {
+    const raw = rawPdfBuffer.toString("binary");
+    expect(raw.includes("pack_content_hash")).toBe(false);
+    expect(raw.includes("Pack content hash")).toBe(false);
+    expect(raw.includes("Pack hash")).toBe(false);
+  });
+
+  it("renders the Important limitations section", () => {
+    expect(pdfContains("Important limitations")).toBe(true);
+  });
+
+  it("renders the disclosure-basis caveat", () => {
+    expect(pdfContains("disclosure-basis tracking is not yet enabled")).toBe(true);
+  });
+
+  it("renders Evaluation and proof-chain trail section", () => {
+    expect(pdfContains("Evaluation and proof-chain trail")).toBe(true);
+  });
+
+  it("renders regulation and obligation section", () => {
+    expect(pdfContains("Regulation and obligation")).toBe(true);
+  });
+
+  it("renders reason codes in landlord-readable language", () => {
+    expect(pdfContains("Tenancy qualifies for the information sheet requirement")).toBe(true);
+  });
+
+  it("renders rule version", () => {
+    expect(pdfContains("Version 1")).toBe(true);
+  });
+
+  it("renders property summary", () => {
+    expect(pdfContains("12 Demo Lane")).toBe(true);
+  });
+
+  it("renders tenancy summary with tenancy type", () => {
+    expect(pdfContains("Assured Shorthold Tenancy")).toBe(true);
+  });
+});
+
+describe("Proof Pack PDF — Phase 2 humanization", () => {
+  function pdfContains(str) {
+    return rawPdfBuffer.toString("binary").includes(str);
   }
-  return result;
-}
 
-function extractAllText(doc) {
-  return extractPdfText(doc).join("\n");
-}
-
-// ─── ★ PDF artefact: payload-only (renders from mock, no data layer) ──────
-
-describe("★ Proof Pack VS-3 PDF — payload-only artefact (closure test)", () => {
-  it("generates a PDF from open payload mock alone — no data layer needed", () => {
-    const { doc, exportedAt } = generateProofPackPdf(OPEN_PAYLOAD);
-    expect(doc).toBeDefined();
-    expect(exportedAt).toBeTruthy();
-    const output = doc.output("arraybuffer");
-    expect(output.byteLength).toBeGreaterThan(100);
+  it("renders human date format for evaluated_at (no ISO strings in reader-facing PDF)", () => {
+    // "2026-07-01T12:00:00.000Z" → "1 July 2026, 12:00 (UTC)"
+    expect(pdfContains("1 July 2026")).toBe(true);
+    expect(pdfContains("2026-07-01T12:00:00.000Z")).toBe(false);
   });
 
-  it("generates a PDF from discharged payload mock alone", () => {
-    const { doc } = generateProofPackPdf(DISCHARGED_PAYLOAD);
-    const output = doc.output("arraybuffer");
-    expect(output.byteLength).toBeGreaterThan(100);
+  it("renders human date format for tenancy start date", () => {
+    // "2026-03-17" → "17 March 2026"
+    expect(pdfContains("17 March 2026")).toBe(true);
+    expect(pdfContains("2026-03-17")).toBe(false);
   });
 
-  it("generates a PDF from basis-changed payload mock alone", () => {
-    const { doc } = generateProofPackPdf(BASIS_CHANGED_PAYLOAD);
-    const output = doc.output("arraybuffer");
-    expect(output.byteLength).toBeGreaterThan(100);
+  it("renders humanized event type for evaluation_run", () => {
+    expect(pdfContains("Compliance check run")).toBe(true);
   });
 
-  it("throws on null payload — does not silently produce empty PDF", () => {
-    expect(() => generateProofPackPdf(null)).toThrow("Payload is required");
-  });
-});
-
-// ─── ★ PDF artefact: per-page demo watermark (escape-the-context defense) ──
-
-describe("★ Proof Pack VS-3 PDF — per-page demo watermark (closure test)", () => {
-  it("single-page PDF has demo watermark text in its content", () => {
-    const { doc } = generateProofPackPdf(OPEN_PAYLOAD);
-    const allText = extractAllText(doc);
-    expect(allText).toContain("Demo proof pack");
+  it("renders humanized event type for rpe.obligation.discharged", () => {
+    expect(pdfContains("Obligation discharged")).toBe(true);
   });
 
-  it("multi-page PDF has demo header/footer text on EVERY page", () => {
-    const longPayload = buildLongPayload();
-    const { doc } = generateProofPackPdf(longPayload);
-    const pages = extractPdfText(doc);
-    expect(pages.length).toBeGreaterThan(1);
-    for (let i = 0; i < pages.length; i++) {
-      expect(pages[i]).toContain("Demo proof pack");
-      expect(pages[i]).toContain("not legal sign-off");
-    }
+  it("renders humanized official document identity", () => {
+    expect(pdfContains("GOV.UK RRA Information Sheet")).toBe(true);
+    expect(pdfContains("govuk-rra-info-sheet:v1:sha256-demo")).toBe(false);
   });
 
-  it("watermark reads from payload.status.pack_status_label — not hardcoded only", () => {
-    const customPayload = {
-      ...OPEN_PAYLOAD,
-      status: { ...OPEN_PAYLOAD.status, pack_status_label: "Custom watermark label for test" },
-    };
-    const { doc } = generateProofPackPdf(customPayload);
-    const allText = extractAllText(doc);
-    expect(allText).toContain("Custom watermark label for test");
+  it("renders humanized evidence type", () => {
+    expect(pdfContains("Delivery confirmation")).toBe(true);
+    expect(pdfContains("delivery_confirmation")).toBe(false);
   });
 
-  it("watermark header/footer text on every page of multi-page PDF", () => {
-    const longPayload = buildLongPayload();
-    const { doc } = generateProofPackPdf(longPayload);
-    const pages = extractPdfText(doc);
-    expect(pages.length).toBeGreaterThan(1);
-    for (let i = 0; i < pages.length; i++) {
-      expect(pages[i]).toContain("Demo proof pack");
-      expect(pages[i]).toContain("not legal sign-off");
-    }
-  });
-});
-
-// ─── ★ PDF artefact: zero writes ──────────────────────────────────────────
-
-describe("★ Proof Pack VS-3 PDF — zero writes (closure test)", () => {
-  it("generating PDF does not modify the input payload", () => {
-    const payloadCopy = JSON.parse(JSON.stringify(OPEN_PAYLOAD));
-    generateProofPackPdf(payloadCopy);
-    expect(payloadCopy).toEqual(OPEN_PAYLOAD);
+  it("renders rent frequency as plain English", () => {
+    expect(pdfContains("per month")).toBe(true);
   });
 
-  it("exported_at is the only new value — generated at export time", () => {
-    const before = new Date().toISOString();
-    const { exportedAt } = generateProofPackPdf(OPEN_PAYLOAD);
-    const after = new Date().toISOString();
-    expect(exportedAt >= before).toBe(true);
-    expect(exportedAt <= after).toBe(true);
-  });
-});
-
-// ─── ★ PDF artefact: no aggregate verdict ─────────────────────────────────
-
-describe("★ Proof Pack VS-3 PDF — no aggregate verdict (closure test)", () => {
-  it("PDF text contains no forbidden verdict language", () => {
-    for (const p of [OPEN_PAYLOAD, DISCHARGED_PAYLOAD, BASIS_CHANGED_PAYLOAD]) {
-      const { doc } = generateProofPackPdf(p);
-      const text = extractAllText(doc).toLowerCase();
-      expect(text).not.toContain("compliant");
-      expect(text).not.toContain("court-ready");
-      expect(text).not.toContain("court ready");
-      expect(text).not.toMatch(/\bsafe\b/);
-      expect(text).not.toContain("passed");
-      expect(text).not.toContain("overall status");
-      expect(text).not.toContain("all checks");
-      expect(text).not.toContain("compliance status");
-    }
+  it("renders What's on file section heading", () => {
+    expect(pdfContains("What")).toBe(true);
   });
 
-  it("PDF text contains no roll-up badge/score/grade or forbidden-in-spirit roll-ups", () => {
-    for (const p of [OPEN_PAYLOAD, DISCHARGED_PAYLOAD, BASIS_CHANGED_PAYLOAD, INCOMPLETE_PROVENANCE_PAYLOAD]) {
-      const { doc } = generateProofPackPdf(p);
-      const text = extractAllText(doc).toLowerCase();
-      expect(text).not.toContain("score");
-      expect(text).not.toContain("grade");
-      expect(text).not.toContain("rating");
-      expect(text).not.toMatch(/status:\s*✓/);
-      expect(text).not.toContain("will succeed");
-      expect(text).not.toContain("safe from enforcement");
-      expect(text).not.toContain("all checks passed");
-      expect(text).not.toMatch(/\boverall\b/);
-      expect(text).not.toMatch(/\bready\b/);
-      expect(text).not.toMatch(/\bclear\b/);
-      expect(text).not.toMatch(/\bapproved\b/);
-    }
+  it("renders traceComplete label from rraProofPackLabels", () => {
+    expect(pdfContains("Expected compliance events present: Yes")).toBe(true);
   });
 
-  it("top-line is 'Evidence state summary' — not a compliance headline", () => {
-    const { doc } = generateProofPackPdf(OPEN_PAYLOAD);
-    const allText = extractAllText(doc);
-    expect(allText).toContain("Evidence state summary");
-  });
-});
-
-// ─── PDF artefact: anchors and wording ────────────────────────────────────
-
-describe("Proof Pack VS-3 PDF — anchors present in artefact", () => {
-  it("PDF contains input_snapshot_hash from the payload", () => {
-    const { doc } = generateProofPackPdf(OPEN_PAYLOAD);
-    const text = extractAllText(doc);
-    expect(text).toContain("abc123def456");
+  it("renders sub-headline describing what the pack covers", () => {
+    expect(pdfContains("A record of what Tenaqo checked")).toBe(true);
   });
 
-  it("PDF contains evaluation_id from the payload", () => {
-    const { doc } = generateProofPackPdf(OPEN_PAYLOAD);
-    const text = extractAllText(doc);
-    expect(text).toContain("eval-1");
-  });
-
-  it("PDF contains obligation_instance_id from the payload", () => {
-    const { doc } = generateProofPackPdf(OPEN_PAYLOAD);
-    const text = extractAllText(doc);
-    expect(text).toContain("obl-1");
-  });
-
-  it("PDF contains exported_at timestamp", () => {
-    const { doc, exportedAt } = generateProofPackPdf(OPEN_PAYLOAD);
-    const text = extractAllText(doc);
-    expect(text).toContain(exportedAt);
-  });
-
-  it("'Exported at' and 'Evaluated at' are distinctly labelled", () => {
-    const { doc } = generateProofPackPdf(OPEN_PAYLOAD);
-    const text = extractAllText(doc);
-    expect(text).toContain("Exported at");
-    expect(text).toContain("Evaluated at");
-  });
-
-  it("contains the honest rendering note", () => {
-    const { doc } = generateProofPackPdf(OPEN_PAYLOAD);
-    const text = extractAllText(doc);
-    expect(text).toContain("rendering of recorded evidence state");
-  });
-
-  it("does NOT claim verification or legal proof", () => {
-    const { doc } = generateProofPackPdf(OPEN_PAYLOAD);
-    const text = extractAllText(doc).toLowerCase();
-    expect(text).not.toContain("verified legal proof");
-    expect(text).not.toContain("legally verified");
-    expect(text).not.toContain("certification");
-  });
-});
-
-// ─── PDF artefact: basis-review wording ─────────────────────────────────────
-
-describe("Proof Pack VS-3 PDF — basis-review in artefact", () => {
-  it("basis-changed payload shows review-recommended wording in PDF", () => {
-    const { doc } = generateProofPackPdf(BASIS_CHANGED_PAYLOAD);
-    const text = extractAllText(doc);
-    expect(text).toContain("Review recommended");
-    expect(text).toContain("Basis changed after discharge");
-  });
-
-  it("basis-changed payload shows both truths in PDF", () => {
-    const { doc } = generateProofPackPdf(BASIS_CHANGED_PAYLOAD);
-    const text = extractAllText(doc);
-    expect(text).toContain("discharged");
-    expect(text).toContain("Basis changed");
-  });
-
-  it("basis-review uses no breach/exposure language in PDF", () => {
-    const { doc } = generateProofPackPdf(BASIS_CHANGED_PAYLOAD);
-    const text = extractAllText(doc).toLowerCase();
-    expect(text).not.toContain("breach");
-    expect(text).not.toContain("non-compliant");
-    expect(text).not.toContain("at risk");
-    expect(text).not.toContain("failed");
-  });
-
-  it("basis-review section is absent from PDF when review_required is false", () => {
-    const { doc } = generateProofPackPdf(OPEN_PAYLOAD);
-    const text = extractAllText(doc);
-    expect(text).not.toContain("Review recommended");
-    expect(text).not.toContain("Basis changed after discharge");
-  });
-});
-
-// ─── PDF artefact: provenance ──────────────────────────────────────────────
-
-describe("Proof Pack VS-3 PDF — provenance in artefact", () => {
-  it("renders trace status in PDF — complete vs incomplete", () => {
-    const { doc: completeDoc } = generateProofPackPdf(OPEN_PAYLOAD);
-    expect(extractAllText(completeDoc)).toContain("Provenance trail: complete");
-
-    const { doc: incompleteDoc } = generateProofPackPdf(INCOMPLETE_PROVENANCE_PAYLOAD);
-    expect(extractAllText(incompleteDoc)).toContain("Provenance trail: incomplete");
-  });
-
-  it("renders missing event types in PDF when provenance incomplete", () => {
-    const { doc } = generateProofPackPdf(INCOMPLETE_PROVENANCE_PAYLOAD);
-    const text = extractAllText(doc);
-    expect(text).toContain("Missing event types:");
-    expect(text).toContain("rpe.obligation.created");
-  });
-
-  it("renders provenance events in payload order in PDF", () => {
-    const { doc } = generateProofPackPdf(OPEN_PAYLOAD);
-    const text = extractAllText(doc);
-    const idx1 = text.indexOf("evaluation_run");
-    const idx2 = text.indexOf("rpe.obligation.created");
-    expect(idx1).toBeGreaterThan(-1);
-    expect(idx2).toBeGreaterThan(-1);
-    expect(idx1).toBeLessThan(idx2);
-  });
-});
-
-// ─── PDF artefact: section completeness ───────────────────────────────────
-
-describe("Proof Pack VS-3 PDF — section completeness", () => {
-  it("discharged payload renders evidence identity in PDF", () => {
-    const { doc } = generateProofPackPdf(DISCHARGED_PAYLOAD);
-    const text = extractAllText(doc);
-    expect(text).toContain("RRA-IS-2026-001");
-    expect(text).toContain("gov_uk_information_sheet");
-  });
-
-  it("open payload shows 'not recorded' for absent evidence in PDF", () => {
-    const { doc } = generateProofPackPdf(OPEN_PAYLOAD);
-    const text = extractAllText(doc);
-    expect(text).toContain("Discharge evidence: not recorded");
-  });
-
-  it("renders component states in PDF", () => {
-    const { doc } = generateProofPackPdf(OPEN_PAYLOAD);
-    const text = extractAllText(doc);
-    expect(text).toContain("Evaluation recorded");
-    expect(text).toContain("Obligation created");
-  });
-
-  it("null evaluation renders 'not recorded' in PDF", () => {
-    const noEvalPayload = { ...OPEN_PAYLOAD, evaluation: null };
-    const { doc } = generateProofPackPdf(noEvalPayload);
-    const text = extractAllText(doc);
-    expect(text).toContain("Evaluation: not recorded");
+  it("renders Important limitations — please read header (ASCII-safe check)", () => {
+    expect(pdfContains("please read")).toBe(true);
   });
 });

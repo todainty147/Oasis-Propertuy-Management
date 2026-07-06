@@ -9,7 +9,8 @@ const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL |
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const CLAMAV_HOST = process.env.CLAMAV_HOST || "clamav";
 const CLAMAV_PORT = Number(process.env.CLAMAV_PORT || "3310");
-const BUCKET = "documents";
+const BUCKET    = "documents";
+const WO_BUCKET = "work-order-attachments";
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
@@ -31,8 +32,8 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
 
-    if (req.method !== "POST" || req.url !== "/scan-document") {
-      return json(res, 404, { error: "Not found" });
+    if (req.method !== "POST") {
+      return json(res, 405, { error: "Method not allowed" });
     }
 
     if (!isAuthorized(req.headers.authorization || "")) {
@@ -40,20 +41,34 @@ const server = http.createServer(async (req, res) => {
     }
 
     const body = await readJson(req);
-    const documentId = String(body?.documentId || "").trim();
-    if (!documentId) {
-      return json(res, 400, { error: "documentId is required" });
+
+    if (req.url === "/scan-document") {
+      const documentId = String(body?.documentId || "").trim();
+      if (!documentId) {
+        return json(res, 400, { error: "documentId is required" });
+      }
+      const result = await scanDocument(documentId);
+      return json(res, 200, { ok: true, ...result });
     }
 
-    const result = await scanDocument(documentId);
-    return json(res, 200, { ok: true, ...result });
+    if (req.url === "/scan-work-order-attachment") {
+      const attachmentId = String(body?.attachmentId || "").trim();
+      if (!attachmentId) {
+        return json(res, 400, { error: "attachmentId is required" });
+      }
+      const result = await scanWorkOrderAttachment(attachmentId);
+      return json(res, 200, { ok: true, ...result });
+    }
+
+    return json(res, 404, { error: "Not found" });
   } catch (error) {
     console.error(JSON.stringify({
       level: "error",
-      event: "document_scan_worker_error",
+      event: "scanner_worker_error",
+      url: req.url,
       message: error?.message || String(error),
     }));
-    return json(res, 500, { error: "Document scan failed" });
+    return json(res, 500, { error: "Scan failed" });
   }
 });
 
@@ -148,6 +163,84 @@ async function scanDocument(documentId) {
   }
 
   return { documentId, scanStatus: scan.status };
+}
+
+async function scanWorkOrderAttachment(attachmentId) {
+  // D1: reuse scanWithClamAv — no separate ClamAV implementation.
+  // D4: fail-closed-at-serve (not quarantine/active model).
+  //     Files stay at their original storage path; the serve gate
+  //     (signed-work-order-attachment-url) gates on scan_status='clean'.
+  //     No storage object movement on any verdict.
+  // Storage path resolved from the trusted DB row keyed by attachmentId.
+  // The caller (handler.js / scanner worker's own call path) never supplies a path.
+
+  const { data: attachment, error: lookupError } = await supabase
+    .from("work_order_attachments")
+    .select("id, account_id, storage_bucket, storage_path, mime_type, scan_status")
+    .eq("id", attachmentId)
+    .single();
+
+  if (lookupError || !attachment) {
+    throw lookupError || new Error("Work-order attachment not found: " + attachmentId);
+  }
+
+  // Terminal idempotency: clean and flagged are final; skip gracefully.
+  // scan_failed is retryable so the worker will re-attempt.
+  if (attachment.scan_status === "clean" || attachment.scan_status === "flagged") {
+    return { attachmentId, scanStatus: attachment.scan_status, skipped: true };
+  }
+
+  const storagePath = String(attachment.storage_path || "").trim();
+  if (!storagePath) {
+    throw new Error("Work-order attachment has no storage_path: " + attachmentId);
+  }
+
+  const bucket = String(attachment.storage_bucket || WO_BUCKET).trim();
+
+  const { data: fileData, error: downloadError } = await supabase.storage
+    .from(bucket)
+    .download(storagePath);
+
+  if (downloadError || !fileData) {
+    const reason = downloadError?.message || "storage download returned no data";
+    // Record transient failure so the DB reflects the attempt
+    const { error: recordErr } = await supabase.rpc("record_work_order_attachment_scan_result", {
+      p_attachment_id:      attachmentId,
+      p_scan_status:        "scan_failed",
+      p_scan_engine:        "clamav",
+      p_scan_signature:     null,
+      p_scan_failed_reason: reason,
+    });
+    if (recordErr) {
+      console.warn(JSON.stringify({
+        level: "warn",
+        event: "woa_scan_record_failed",
+        attachmentId,
+        message: recordErr.message,
+      }));
+    }
+    return { attachmentId, scanStatus: "scan_failed" };
+  }
+
+  const buffer = Buffer.from(await fileData.arrayBuffer());
+  const scan = await scanWithClamAv(buffer);
+
+  const { error: recordError } = await supabase.rpc("record_work_order_attachment_scan_result", {
+    p_attachment_id:      attachmentId,
+    p_scan_status:        scan.status,
+    p_scan_engine:        "clamav",
+    p_scan_signature:     scan.status === "flagged"     ? scan.reference : null,
+    p_scan_failed_reason: scan.status === "scan_failed" ? scan.reason    : null,
+  });
+
+  if (recordError) {
+    throw recordError;
+  }
+
+  // D3/D8: never delete attachment bytes — flagged files are retained as evidence.
+  // No storage object movement regardless of verdict (D4 fail-closed-at-serve model).
+
+  return { attachmentId, scanStatus: scan.status };
 }
 
 function scanWithClamAv(buffer) {

@@ -3,7 +3,9 @@
  *
  * 8 tests covering all mandatory requirements:
  *
- * 1. Lock atomicity deny-test: provenance failure rolls back status='locked' UPDATE.
+ * 1. E-153 lock-half real-path deny-test: GUC-armed wrapper calls real lock_inspection_report;
+ *    forced provenance failure rolls back lock UPDATE exactly (field-for-field restoration);
+ *    no provenance event persists; retry succeeds (proving rollback, not skip).
  * 2. Signature atomicity deny-test: provenance failure rolls back the signature INSERT.
  * 3. Lock binding correctness: event.metadata.content_hash == pre-lock state hash.
  * 4. Signature binding correctness: event.metadata.content_hash == pre-insert state hash;
@@ -108,31 +110,118 @@ describe("Phase A-2.2 — inspection report lock + signature binding contracts",
     afterAll(cleanup);
   }
 
-  // ─── Test 1: Lock atomicity deny-test ───────────────────────────────────────
+  // ─── Test 1: E-153 lock-half — real-path atomicity deny-test ───────────────
+  // Calls the REAL lock_inspection_report via a thin wrapper that sets a
+  // transaction-local GUC before the call. Inside lock_inspection_report the GUC
+  // check fires AFTER the inspection_reports UPDATE is staged but BEFORE
+  // record_inspection_report_locked, rolling back the entire transaction.
+  //
+  // Proves: (a) forced provenance failure rolls back the lock UPDATE; (b) the report
+  // row is restored to its EXACT pre-lock state field-for-field; (c) no provenance
+  // event persists; (d) retry via the real path succeeds (proving rollback, not skip).
   integrationIt(
-    "1 atomicity deny-test: lock UPDATE rolls back when provenance event fails",
+    "1 E-153 lock-half atomicity deny-test: forced provenance failure rolls back lock UPDATE exactly; retry succeeds",
     async () => {
       const admin = getIntegrationAdminClient();
       const { client: ownerClient, user: ownerUser } = await signInAsFixtureUser("ownerA");
       const { accountId, reportId } = await scaffoldReport(admin, ownerUser);
 
-      const { error: denyErr } = await ownerClient.rpc("inspect_lock_deny_test", {
-        p_account_id: accountId,
-        p_report_id: reportId,
-      });
-
-      expect(denyErr, "deny-test must return an error").not.toBeNull();
-      expect(denyErr.message).toMatch(/summary is required/i);
-
-      const { data: report, error: readErr } = await admin
+      // Capture pre-lock snapshot for exact-restoration assertion
+      const { data: preLockRow, error: preReadErr } = await admin
         .from("inspection_reports")
-        .select("status")
+        .select("status, locked_at, locked_by")
         .eq("id", reportId)
         .single();
+      expect(preReadErr, `pre-lock read: ${preReadErr?.message}`).toBeNull();
+      expect(preLockRow.locked_at, "pre-lock locked_at must be null").toBeNull();
+      expect(preLockRow.locked_by, "pre-lock locked_by must be null").toBeNull();
 
-      expect(readErr, `report read: ${readErr?.message}`).toBeNull();
-      expect(report.status, "UPDATE must have rolled back — status must not be 'locked'").not.toBe(
-        "locked",
+      const { data: preLockHash, error: preHashErr } = await ownerClient.rpc(
+        "get_inspection_report_content_hash",
+        { p_account_id: accountId, p_report_id: reportId },
+      );
+      expect(preHashErr, `pre-lock hash: ${preHashErr?.message}`).toBeNull();
+      expect(preLockHash, "pre-lock hash must be truthy").toBeTruthy();
+
+      // DENY PATH: wrapper arms GUC → calls real lock_inspection_report →
+      // GUC fires after UPDATE, before provenance → entire tx rolls back
+      const { data: denyData, error: denyErr } = await ownerClient.rpc(
+        "lock_inspection_report_atomicity_deny_test",
+        { p_account_id: accountId, p_report_id: reportId, p_lock_reason: null },
+      );
+      expect(denyErr, "deny wrapper must raise the forced provenance failure").not.toBeNull();
+      expect(String(denyErr.message)).toContain("forced inspection lock provenance failure");
+      expect(denyData, "no result must be returned on forced failure").toBeNull();
+
+      // Exact pre-lock restoration — field-for-field, not merely "not locked"
+      const { data: afterDenyRow, error: afterReadErr } = await admin
+        .from("inspection_reports")
+        .select("status, locked_at, locked_by")
+        .eq("id", reportId)
+        .single();
+      expect(afterReadErr, `post-deny read: ${afterReadErr?.message}`).toBeNull();
+      expect(afterDenyRow.status, "status must be exactly restored to pre-lock value").toBe(
+        preLockRow.status,
+      );
+      expect(afterDenyRow.locked_at, "locked_at must be NULL — exactly restored").toBeNull();
+      expect(afterDenyRow.locked_by, "locked_by must be NULL — exactly restored").toBeNull();
+
+      // Content hash must be unchanged (E-152)
+      const { data: afterDenyHash, error: afterHashErr } = await ownerClient.rpc(
+        "get_inspection_report_content_hash",
+        { p_account_id: accountId, p_report_id: reportId },
+      );
+      expect(afterHashErr, `post-deny hash: ${afterHashErr?.message}`).toBeNull();
+      expect(afterDenyHash, "content hash must be unchanged after rollback").toBe(preLockHash);
+
+      // No lock provenance event must persist
+      const { data: eventsAfterDeny, error: evDenyErr } = await admin
+        .from("provenance_events")
+        .select("id")
+        .eq("account_id", accountId)
+        .eq("entity_type", "inspection_report")
+        .eq("entity_id", reportId)
+        .eq("event_type", "inspection_report.locked");
+      expect(evDenyErr, `provenance read: ${evDenyErr?.message}`).toBeNull();
+      expect(eventsAfterDeny ?? [], "no lock provenance event must persist after rollback").toHaveLength(0);
+
+      // RETRY / POSITIVE CONTROL: same report, real path, no GUC — must succeed.
+      // If the deny-test had NOT rolled back (lock persisted), this call would
+      // fail with "already locked" — proving the rollback, not a skip.
+      const { data: lockResult, error: lockErr } = await ownerClient.rpc(
+        "lock_inspection_report",
+        { p_account_id: accountId, p_report_id: reportId },
+      );
+      expect(lockErr, `retry/positive-control must succeed: ${lockErr?.message}`).toBeNull();
+      expect(lockResult?.event_id, "retry must return event_id").toBeTruthy();
+      expect(lockResult?.status, "retry result status must be locked").toBe("locked");
+      expect(lockResult?.content_hash, "retry content_hash must match pre-lock hash (E-152)").toBe(
+        preLockHash,
+      );
+
+      // Report must now be locked with correct column values
+      const { data: lockedRow, error: lockedReadErr } = await admin
+        .from("inspection_reports")
+        .select("status, locked_at, locked_by")
+        .eq("id", reportId)
+        .single();
+      expect(lockedReadErr, `locked report read: ${lockedReadErr?.message}`).toBeNull();
+      expect(lockedRow.status, "status must be locked after retry").toBe("locked");
+      expect(lockedRow.locked_at, "locked_at must be set after retry").toBeTruthy();
+      expect(lockedRow.locked_by, "locked_by must be set after retry").toBeTruthy();
+
+      // Exactly one lock provenance event must exist (from the retry, not the denied call)
+      const { data: finalEvents, error: finalEvErr } = await admin
+        .from("provenance_events")
+        .select("id")
+        .eq("account_id", accountId)
+        .eq("entity_type", "inspection_report")
+        .eq("entity_id", reportId)
+        .eq("event_type", "inspection_report.locked");
+      expect(finalEvErr, `final provenance read: ${finalEvErr?.message}`).toBeNull();
+      expect(finalEvents, "exactly one lock event must exist after successful retry").toHaveLength(1);
+      expect(finalEvents[0].id, "event id must match the retry lock result").toBe(
+        lockResult.event_id,
       );
     },
   );

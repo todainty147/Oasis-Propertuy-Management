@@ -445,6 +445,15 @@ begin
     jsonb_build_object('lock_reason', p_lock_reason)
   );
 
+  -- E-153 lock-half test-only fault-injection gate. Inert when GUC is absent/false (default).
+  -- When armed by the deny-test wrapper (transaction-local 'on'), raises AFTER the
+  -- inspection_reports UPDATE and audit INSERT are staged in-transaction, proving the
+  -- full rollback includes the lock UPDATE and any subsequent provenance event.
+  -- Must RAISE — never skip, no-op, or branch around the real provenance call.
+  if current_setting('app.test_force_inspection_lock_provenance_failure', true) = 'on' then
+    raise exception 'forced inspection lock provenance failure for E-153 lock-half deny-test';
+  end if;
+
   -- No EXCEPTION handler — provenance failure rolls back the UPDATE above.
   -- Pass v_report.status (pre-lock status) for workflow metadata.
   v_event_id := public.record_inspection_report_locked(
@@ -749,43 +758,45 @@ $$;
 -- Used by integration tests to prove that primary writes roll back when
 -- the provenance call fails.
 
-create or replace function public.inspect_lock_deny_test(
-  p_account_id uuid,
-  p_report_id  uuid
-) returns void
+-- inspect_lock_deny_test (mirror) is replaced by lock_inspection_report_atomicity_deny_test
+-- (real-path wrapper, E-153 lock-half). Drop the mirror so it cannot be left running
+-- beside the real-path proof (D-10: no strong+weak bifurcation).
+drop function if exists public.inspect_lock_deny_test(uuid, uuid);
+
+-- lock_inspection_report_atomicity_deny_test (E-153 lock-half):
+-- Thin production-RPC wrapper. Arms the transaction-local GUC, then calls the REAL
+-- lock_inspection_report. Inside lock_inspection_report the GUC check fires AFTER the
+-- inspection_reports UPDATE is staged but BEFORE record_inspection_report_locked,
+-- raising an exception that rolls back the entire transaction.
+-- This proves the production lock path is atomic: if provenance anchoring fails,
+-- the lock UPDATE (and audit INSERT) are rolled back — no misleading locked state.
+-- The GUC is transaction-local (is_local=true): cannot leak across sessions.
+
+drop function if exists public.lock_inspection_report_atomicity_deny_test(uuid, uuid, text);
+
+create or replace function public.lock_inspection_report_atomicity_deny_test(
+  p_account_id  uuid,
+  p_report_id   uuid,
+  p_lock_reason text default null
+) returns jsonb
 language plpgsql
 security definer
 set search_path = public
 as $$
 begin
-  perform set_config('inspection.lock_authorized', 'true', true);
-
-  update public.inspection_reports
-  set status    = 'locked',
-      locked_at = now(),
-      locked_by = auth.uid()
-  where id = p_report_id
-    and account_id = p_account_id;
-
-  perform set_config('inspection.lock_authorized', '', true);
-
-  -- Deliberately fail provenance — empty summary triggers 'summary is required'
-  perform public._append_evidence_provenance_event(
-    p_account_id          := p_account_id,
-    p_entity_type         := 'inspection_report'::text,
-    p_entity_id           := p_report_id,
-    p_event_type          := 'inspection_report.locked'::text,
-    p_actor_type          := 'system'::text,
-    p_actor_user_id       := null::uuid,
-    p_actor_role          := null::text,
-    p_occurred_at         := now(),
-    p_summary             := ''::text
+  perform set_config('app.test_force_inspection_lock_provenance_failure', 'on', true);
+  return public.lock_inspection_report(
+    p_account_id  := p_account_id,
+    p_report_id   := p_report_id,
+    p_lock_reason := p_lock_reason
   );
 end;
 $$;
 
-revoke all on function public.inspect_lock_deny_test(uuid, uuid) from public;
-grant execute on function public.inspect_lock_deny_test(uuid, uuid) to authenticated;
+revoke all on function public.lock_inspection_report_atomicity_deny_test(uuid, uuid, text)
+  from public, anon;
+grant execute on function public.lock_inspection_report_atomicity_deny_test(uuid, uuid, text)
+  to authenticated;
 
 -- inspect_sig_deny_test: atomicity pattern proof for signature capture.
 -- Inserts the signature (SECURITY DEFINER bypasses RLS as the RPC does),
