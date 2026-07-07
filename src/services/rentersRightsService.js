@@ -15,15 +15,11 @@ import {
 
 // ── Bridge helpers ────────────────────────────────────────────────────────────
 
-function deliveryMethodToEvidenceType(method) {
-  const map = {
-    email:                 "email_delivery_receipt",
-    sms:                   "delivery_confirmation",
-    printed_hand_delivery: "delivery_confirmation",
-    post:                  "delivery_confirmation",
-    other:                 "manual_attestation",
-  };
-  return map[method] || "manual_attestation";
+function deliveryMethodToEvidenceType(_method) {
+  // All customer "Mark as sent" actions are landlord self-attestations.
+  // No delivery receipt is independently held by Tenaqo, so all methods map
+  // to manual_attestation regardless of the channel chosen.
+  return "manual_attestation";
 }
 
 // Resolves a lease_id for the given task.

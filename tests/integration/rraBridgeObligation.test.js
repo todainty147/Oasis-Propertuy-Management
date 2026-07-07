@@ -291,7 +291,7 @@ describe.skipIf(!isIntegrationHarnessConfigured())(
         p_obligation_instance_id:       obligationInstanceId,
         p_official_info_sheet_identity: "govuk-rra-information-sheet-2025",
         p_service_evidence_timestamp:   new Date().toISOString(),
-        p_evidence_type:                "email_delivery_receipt",
+        p_evidence_type:                "manual_attestation",
         p_evidence_basis:               "Landlord recorded as sent via email. Operational record only — not legal proof.",
         p_official_info_sheet_source:   "official_document_catalogue",
         p_capture_source:               "rra_task_mark_sent_bridge",
@@ -349,6 +349,75 @@ describe.skipIf(!isIntegrationHarnessConfigured())(
 
       // No new obligation_instance rows appear from task alone
       expect(afterIds).toEqual(beforeIds);
+    });
+
+    // ── Evidence type: all self-attested methods → manual_attestation ────────
+
+    it("service evidence captured via bridge always uses manual_attestation evidence type", async () => {
+      await setupFresh();
+      const { obligationInstanceId } = await runBridgeSequence(clientA);
+
+      const captureResult = await clientA.rpc("capture_rra_info_sheet_service_evidence", {
+        p_account_id:                   accountAId,
+        p_obligation_instance_id:       obligationInstanceId,
+        p_official_info_sheet_identity: "govuk-rra-information-sheet-2025",
+        p_service_evidence_timestamp:   new Date().toISOString(),
+        p_evidence_type:                "manual_attestation",
+        p_evidence_basis:               "Landlord recorded as sent via post. Operational record only — not legal proof.",
+        p_official_info_sheet_source:   "official_document_catalogue",
+        p_capture_source:               "rra_task_mark_sent_bridge",
+        p_demo_mode:                    true,
+      });
+      expect(captureResult.error).toBeNull();
+
+      // Verify evidence stored with manual_attestation — no delivery receipt type
+      const { data: evidenceRows } = await admin
+        .from("rra_info_sheet_service_evidence")
+        .select("evidence_type, evidence_basis")
+        .eq("obligation_instance_id", obligationInstanceId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      expect(evidenceRows).toHaveLength(1);
+      expect(evidenceRows[0].evidence_type).toBe("manual_attestation");
+      expect(evidenceRows[0].evidence_basis).toContain("post");
+      expect(evidenceRows[0].evidence_basis).toContain("Operational record only");
+      // Delivery receipt types must not appear
+      expect(evidenceRows[0].evidence_type).not.toBe("email_delivery_receipt");
+      expect(evidenceRows[0].evidence_type).not.toBe("delivery_confirmation");
+      expect(evidenceRows[0].evidence_type).not.toBe("postal_delivery_receipt");
+      expect(evidenceRows[0].evidence_type).not.toBe("signed_receipt");
+      expect(evidenceRows[0].evidence_type).not.toBe("verified_delivery");
+    });
+
+    it("delivery method is preserved in evidence basis text even though type is manual_attestation", async () => {
+      await setupFresh();
+      const { obligationInstanceId } = await runBridgeSequence(clientA);
+
+      for (const method of ["email", "sms", "printed_hand_delivery", "post", "other"]) {
+        const captureResult = await clientA.rpc("capture_rra_info_sheet_service_evidence", {
+          p_account_id:                   accountAId,
+          p_obligation_instance_id:       obligationInstanceId,
+          p_official_info_sheet_identity: "govuk-rra-information-sheet-2025",
+          p_service_evidence_timestamp:   new Date().toISOString(),
+          p_evidence_type:                "manual_attestation",
+          p_evidence_basis:               `Landlord recorded as sent via ${method}. Operational record only — not legal proof.`,
+          p_official_info_sheet_source:   "official_document_catalogue",
+          p_capture_source:               "rra_task_mark_sent_bridge",
+          p_demo_mode:                    true,
+        });
+        expect(captureResult.error, `method ${method} should succeed`).toBeNull();
+
+        const { data: rows } = await admin
+          .from("rra_info_sheet_service_evidence")
+          .select("evidence_type, evidence_basis")
+          .eq("obligation_instance_id", obligationInstanceId)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        expect(rows[0].evidence_type).toBe("manual_attestation");
+        expect(rows[0].evidence_basis).toContain(method);
+      }
     });
 
     // ── Tenancy Review "Run checks" does NOT create obligation instances ───────
