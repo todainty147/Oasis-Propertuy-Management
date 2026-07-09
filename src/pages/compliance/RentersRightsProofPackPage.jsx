@@ -229,7 +229,7 @@ export default function RentersRightsProofPackPage() {
         <div className="rounded-xl border border-dashed border-slate-300 py-12 text-center dark:border-slate-700">
           <FileText className="mx-auto mb-3 h-8 w-8 text-slate-300 dark:text-slate-600" />
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Select a pack reference to open a customer-readable proof pack.
+            Select a pack reference to open the proof pack.
           </p>
         </div>
       )}
