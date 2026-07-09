@@ -212,9 +212,17 @@ export default function DepositDisputePackPrintPage({ properties = [], tenants =
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Tenaqo Evidence Vault</p>
               <h1 className="mt-3 text-4xl font-bold tracking-tight">Deposit Dispute Pack</h1>
               <p className="mt-2 text-lg font-semibold">{pack.title}</p>
-              <p className="mt-2 max-w-2xl text-sm text-slate-600">
-                This pack is an organisational evidence record created in Tenaqo. It does not guarantee the outcome of any deposit dispute and does not replace legal advice.
-              </p>
+            </section>
+
+            <section className="print-section mt-6 rounded-lg border-2 border-amber-400 bg-amber-50 p-5">
+              <h2 className="text-base font-bold text-amber-900">Important limitations — please read</h2>
+              <div className="mt-3 space-y-2 text-sm leading-6 text-amber-900">
+                <p>This pack is an operational evidence record. It is not legal advice, legal sign-off, or a decision by a deposit adjudicator.</p>
+                <p>Condition ratings, deduction amounts, notes, and evidence links are records held in Tenaqo. They do not by themselves prove legal liability, tenant fault, or that a deduction is valid.</p>
+                <p>Photos shown in this pack are uploaded evidence records. Tenaqo does not independently authenticate when, where, or by whom the photo was originally taken.</p>
+                <p>Signatures and acknowledgements show that a user acted through the relevant portal at the recorded time. They do not by themselves prove legal agreement beyond the recorded acknowledgement.</p>
+                <p>A locked report is a business-process lock in Tenaqo. It is not a cryptographic seal of the report contents.</p>
+              </div>
             </section>
 
             <section className="print-section mt-6 grid gap-4 border-b border-slate-300 pb-6 text-sm sm:grid-cols-2">
@@ -392,7 +400,7 @@ export default function DepositDisputePackPrintPage({ properties = [], tenants =
             </section>
 
             <footer className="mt-8 border-t border-slate-300 pt-4 text-xs leading-5 text-slate-600">
-              This pack is an organisational evidence record created in Tenaqo. It does not guarantee the outcome of any deposit dispute and does not replace legal advice.
+              Generated via Tenaqo Evidence Vault · Operational evidence record only · Not legal advice or a deposit adjudicator decision
             </footer>
           </article>
         ) : null}
