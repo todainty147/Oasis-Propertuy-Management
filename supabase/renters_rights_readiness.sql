@@ -300,7 +300,19 @@ begin
 
   -- Set-based INSERT is atomic and avoids per-row round-trips for large portfolios.
   with eligible as (
-    select t.id as tenant_id, t.property_id
+    select
+      t.id          as tenant_id,
+      t.property_id,
+      -- Mirror the JS fallback in resolveLeaseIdForTask: most recently created
+      -- lease for this account + tenant, no status filter, null when none exists.
+      (
+        select l.id
+        from   public.leases l
+        where  l.account_id = p_account_id
+          and  l.tenant_id  = t.id
+        order by l.created_at desc
+        limit  1
+      ) as lease_id
     from public.tenants t
     where t.account_id  = p_account_id
       and t.archived_at is null          -- status not filtered: default is 'applicant'
@@ -313,11 +325,11 @@ begin
       )
   )
   insert into public.renters_rights_tasks (
-    account_id, property_id, tenant_id,
+    account_id, property_id, tenant_id, lease_id,
     requirement_type, jurisdiction, due_date, status
   )
   select
-    p_account_id, e.property_id, e.tenant_id,
+    p_account_id, e.property_id, e.tenant_id, e.lease_id,
     v_type, 'GB-ENG', coalesce(p_due_date, '2026-05-31'), 'required'
   from eligible e;
 

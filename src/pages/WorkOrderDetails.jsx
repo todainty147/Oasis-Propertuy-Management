@@ -34,6 +34,8 @@ import {
   listWorkOrderStatusDefinitions,
   setWorkOrderStatus as updateWorkOrderStatus,
 } from "../services/workOrderService";
+import { getWorkOrderEvidencePack } from "../services/workOrderEvidencePackService";
+import { generateMaintenancePackPdf } from "../utils/maintenanceEvidencePackPdfExport";
 import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount, getDefaultCurrency } from "../utils/currency";
 import { isManageRole } from "../utils/permissions";
@@ -635,6 +637,8 @@ export default function WorkOrderDetails() {
   const [ratingNotice, setRatingNotice] = useState("");
   const [preferredSuggestion, setPreferredSuggestion] = useState(null);
   const [dismissedPreferredSuggestionFor, setDismissedPreferredSuggestionFor] = useState("");
+  const [packExporting, setPackExporting] = useState(false);
+  const [packError, setPackError] = useState(null);
   const slaState = useMemo(() => workOrderSlaState(wo), [wo]);
   const workflowSummary = useMemo(() => getWorkflowSummary(wo, t), [wo, t]);
 
@@ -902,6 +906,24 @@ export default function WorkOrderDetails() {
       alert(e?.message ?? t("ratings.saveError"));
     } finally {
       setRatingSaving(false);
+    }
+  }
+
+  async function handleExportPack() {
+    if (!wo || !activeAccountId) return;
+    setPackExporting(true);
+    setPackError(null);
+    try {
+      const payload = await getWorkOrderEvidencePack({
+        accountId: wo.account_id || activeAccountId,
+        workOrderId: wo.id,
+      });
+      const { doc } = generateMaintenancePackPdf(payload);
+      doc.save(`maintenance-evidence-pack-${wo.id.slice(0, 8)}.pdf`);
+    } catch (err) {
+      setPackError(err?.message || "Failed to export evidence pack");
+    } finally {
+      setPackExporting(false);
     }
   }
 
@@ -1390,6 +1412,47 @@ export default function WorkOrderDetails() {
               </div>
             </>
           )}
+        </Card>
+      )}
+
+      {/* Evidence Pack export — manager only */}
+      {canManage && (
+        <Card className="p-6 space-y-4">
+          <div>
+            <p className="font-semibold text-slate-900">Evidence Pack</p>
+            <p className="text-xs text-slate-500 mt-1">
+              Export a PDF record of the maintenance evidence on file for this work order.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 leading-5">
+            This pack records maintenance evidence on file for this work order. It does not
+            prove the photo is authentic, that the file is safe to download, or that the work
+            was legally verified.
+          </div>
+
+          {normalizeWorkOrderStatus(wo.status) !== "completed" && (
+            <p className="text-xs text-amber-700">
+              Work order is not marked completed.
+            </p>
+          )}
+
+          {packError && (
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {packError}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={handleExportPack}
+            disabled={packExporting}
+            className={`text-sm px-3 py-2 rounded-lg text-white ${
+              packExporting ? "bg-slate-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+            }`}
+          >
+            {packExporting ? "Exporting..." : "Export Evidence Pack"}
+          </button>
         </Card>
       )}
 

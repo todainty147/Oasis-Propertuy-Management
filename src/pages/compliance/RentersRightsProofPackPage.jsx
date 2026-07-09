@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { AlertTriangle, FileText } from "lucide-react";
+import { AlertTriangle, FileText, Info } from "lucide-react";
 import { useAccount } from "../../context/AccountContext";
 import {
   getObligationProofPack,
@@ -25,7 +25,7 @@ function obligationLabel(row) {
 }
 
 export default function RentersRightsProofPackPage() {
-  const { activeAccountId } = useAccount();
+  const { activeAccountId, isRootOperator } = useAccount();
   const { obligationInstanceId } = useParams();
   const navigate = useNavigate();
   const [obligations, setObligations] = useState([]);
@@ -186,11 +186,50 @@ export default function RentersRightsProofPackPage() {
         </div>
       )}
 
-      {!obligationInstanceId && (
+      {!obligationInstanceId && obligations.length === 0 && !error && (
+        <div className="rounded-xl border border-dashed border-slate-300 py-10 text-center dark:border-slate-700">
+          <FileText className="mx-auto mb-3 h-8 w-8 text-slate-300 dark:text-slate-600" />
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            No proof pack records yet
+          </p>
+          <p className="mx-auto mt-2 max-w-md text-xs text-slate-500 dark:text-slate-400">
+            Information-sheet tasks and proof pack records are separate systems.
+            Marking an information sheet as sent on the{" "}
+            <Link
+              to="/compliance/renters-rights"
+              className="underline hover:text-slate-700 dark:hover:text-slate-200"
+            >
+              Renters' Rights page
+            </Link>{" "}
+            now creates a proof pack record automatically. If tasks were marked
+            sent before this update, open the task and mark it sent again to
+            create the record.
+          </p>
+          {isRootOperator && (
+            <div className="mx-auto mt-5 max-w-sm rounded-lg border border-slate-200 bg-slate-50 p-3 text-left dark:border-slate-700 dark:bg-slate-800">
+              <p className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                <Info className="h-3.5 w-3.5 shrink-0" />
+                Internal support
+              </p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Run the full RPE diagnostic to create obligation instances directly.
+              </p>
+              <Link
+                to="/internal/compliance/renters-rights/rpe-diagnostic"
+                className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-blue-600 underline hover:text-blue-700 dark:text-blue-400"
+              >
+                Open RPE diagnostic
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!obligationInstanceId && obligations.length > 0 && (
         <div className="rounded-xl border border-dashed border-slate-300 py-12 text-center dark:border-slate-700">
           <FileText className="mx-auto mb-3 h-8 w-8 text-slate-300 dark:text-slate-600" />
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Select a pack reference to open a customer-readable proof pack.
+            Select a pack reference to open the proof pack.
           </p>
         </div>
       )}

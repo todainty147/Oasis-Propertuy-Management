@@ -45,6 +45,14 @@ describe("entitlements", () => {
     });
   });
 
+  it("includes evidence_vault_dispute_pack in growth and above, not starter", () => {
+    expect(hasFeature("starter", ENTITLEMENT_FEATURES.EVIDENCE_VAULT_DISPUTE_PACK)).toBe(false);
+    expect(hasFeature("growth", ENTITLEMENT_FEATURES.EVIDENCE_VAULT_DISPUTE_PACK)).toBe(true);
+    expect(hasFeature("pro", ENTITLEMENT_FEATURES.EVIDENCE_VAULT_DISPUTE_PACK)).toBe(true);
+    expect(hasFeature("operator_agency", ENTITLEMENT_FEATURES.EVIDENCE_VAULT_DISPUTE_PACK)).toBe(true);
+    expect(getFeatureMinimumPlan(ENTITLEMENT_FEATURES.EVIDENCE_VAULT_DISPUTE_PACK)).toBe("growth");
+  });
+
   it("keeps pro features off growth plans", () => {
     expect(hasFeature("growth", ENTITLEMENT_FEATURES.SECURITY_AUDIT)).toBe(false);
     expect(hasFeature("growth", ENTITLEMENT_FEATURES.PORTFOLIO_HEALTH)).toBe(true);

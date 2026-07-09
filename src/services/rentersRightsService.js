@@ -8,6 +8,37 @@
 
 import { supabase } from "../lib/supabase";
 import { logSecurityRelevantFailure } from "./securityFailureLogger";
+import {
+  runRraInfoSheetEvaluationForTenancy,
+  captureAndDischargeRraInfoSheetObligation,
+} from "./regulatoryProofEngineService";
+
+// ── Bridge helpers ────────────────────────────────────────────────────────────
+
+function deliveryMethodToEvidenceType(_method) {
+  // All customer "Mark as sent" actions are landlord self-attestations.
+  // No delivery receipt is independently held by Tenaqo, so all methods map
+  // to manual_attestation regardless of the channel chosen.
+  return "manual_attestation";
+}
+
+// Resolves a lease_id for the given task.
+// Uses task.leaseId if already present (tasks created via upsertRentersRightsTask).
+// Falls back to the most recently created lease for the tenant (tasks from the
+// auto-sync path which omit lease_id at creation time).
+async function resolveLeaseIdForTask({ accountId, task }) {
+  if (task.leaseId) return task.leaseId;
+  if (!task.tenantId) return null;
+  const { data } = await supabase
+    .from("leases")
+    .select("id")
+    .eq("account_id", accountId)
+    .eq("tenant_id", task.tenantId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.id || null;
+}
 
 function friendly(err, fallback) {
   return new Error(err?.message ?? fallback);
@@ -173,6 +204,93 @@ export async function linkRrTaskDocument({ taskId, accountId, documentId } = {})
   if (error) throw friendly(error, "Failed to link evidence document");
   if (!data) throw new Error("link_rr_task_document returned no data");
   return parseRrTaskRow(data);
+}
+
+// ── Bridge: Mark Sent → RPE obligation reconciliation ────────────────────────
+//
+// On "Mark as sent", atomically:
+//   1. marks the task sent (mark_rr_task_sent RPC)
+//   2. resolves the lease for the tenancy
+//   3. runs the RRA information-sheet evaluation (client-side + 3 RPCs)
+//   4. reconciles / creates the obligation_instance
+//   5. captures service evidence + discharges the obligation (demo_mode = true)
+//
+// Returns a bridgeStatus to guide UI messaging:
+//   "full"             — all steps succeeded; proof pack dropdown will show the record
+//   "obligation_only"  — obligation created but service evidence capture failed
+//   "not_obligated"    — evaluation ran but result was not_affected / needs_data / deferred
+//   "evaluation_failed"— task marked sent; evaluation threw (DB or logic error)
+//   "no_lease"         — task marked sent; no lease found for the tenant
+//
+// The task is always marked sent regardless of the bridge outcome.
+// Does NOT claim legal proof — all records carry demo_mode = true.
+// Uses authenticated supabase client only — no service_role / admin client.
+export async function markRrTaskSentAndReconcileObligation({
+  taskId,
+  accountId,
+  deliveryMethod,
+  sentAt = null,
+  notes = null,
+} = {}) {
+  // Step 1: mark the task sent (this is the primary user action; it must succeed)
+  const task = await markRrTaskSent({ taskId, accountId, deliveryMethod, sentAt, notes });
+
+  // Step 2: resolve the lease
+  const leaseId = await resolveLeaseIdForTask({ accountId, task });
+  if (!leaseId) {
+    return { task, obligationInstanceId: null, bridgeStatus: "no_lease" };
+  }
+
+  // Step 3+4: run evaluation and reconcile obligation_instance
+  let evaluationResult;
+  try {
+    evaluationResult = await runRraInfoSheetEvaluationForTenancy({
+      accountId,
+      tenancyId: leaseId,
+      demoMode: true,
+    });
+  } catch (err) {
+    return {
+      task,
+      obligationInstanceId: null,
+      bridgeStatus:  "evaluation_failed",
+      bridgeError:   err?.message || "Evaluation failed",
+    };
+  }
+
+  const obligationInstanceId =
+    evaluationResult?.obligation?.obligation_instance_id ?? null;
+
+  if (!obligationInstanceId) {
+    return {
+      task,
+      obligationInstanceId: null,
+      bridgeStatus: "not_obligated",
+      evaluationResult: evaluationResult?.result ?? null,
+    };
+  }
+
+  // Step 5: capture service evidence + discharge (best-effort; does not block proof pack creation)
+  const resolvedSentAt = sentAt || new Date().toISOString();
+  try {
+    await captureAndDischargeRraInfoSheetObligation({
+      accountId,
+      obligationInstanceId,
+      officialInfoSheetIdentity: "govuk-rra-information-sheet-2025",
+      serviceEvidenceTimestamp:  resolvedSentAt,
+      evidenceType:              deliveryMethodToEvidenceType(deliveryMethod),
+      evidenceBasis:             `Landlord recorded as sent via ${deliveryMethod}. Operational record only — not legal proof.`,
+      captureSource:             "rra_task_mark_sent_bridge",
+    });
+    return { task, obligationInstanceId, bridgeStatus: "full" };
+  } catch (err) {
+    return {
+      task,
+      obligationInstanceId,
+      bridgeStatus: "obligation_only",
+      bridgeError:  err?.message || "Service evidence capture failed",
+    };
+  }
 }
 
 // ── Phase 2: Tenancy Review Prompts ──────────────────────────────────────────

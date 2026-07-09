@@ -11,7 +11,7 @@ export const defaultProofPackLabels = {
   proofTrail: "Proof trail",
   verificationDetails: "Verification details",
   verificationHelper:
-    "These are the internal references for the assessment and evidence trail recorded in Tenaqo.",
+    "Verification details for this pack — the assessment ID, obligation reference, and evidence fingerprint.",
   export: "Export",
   exportPdf: "Export PDF",
   obligationReference: "Pack reference",

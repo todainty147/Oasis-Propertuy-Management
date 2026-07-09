@@ -27,7 +27,7 @@ import { useAccount } from "../../context/AccountContext";
 import { useI18n } from "../../context/I18nContext";
 import {
   listRentersRightsTasks,
-  markRrTaskSent,
+  markRrTaskSentAndReconcileObligation,
   setRrTaskNotRequired,
   createRrTasksForActiveTenants,
   generateTenancyReviewPrompts,
@@ -113,26 +113,64 @@ function StatusBadge({ status, t }) {
 
 // ── Mark Sent Modal ───────────────────────────────────────────────────────────
 
+function bridgeStatusMessage(bridgeStatus, evaluationResult) {
+  if (bridgeStatus === "full") {
+    return {
+      kind: "success",
+      text: "Proof pack record created and service evidence recorded. This is an operational record only — not legal proof.",
+    };
+  }
+  if (bridgeStatus === "obligation_only") {
+    return {
+      kind: "warn",
+      text: "Proof pack record created. Service evidence recording incomplete — you can retry from the Proof Packs page.",
+    };
+  }
+  if (bridgeStatus === "not_obligated") {
+    const result = evaluationResult ? ` (evaluation: ${evaluationResult})` : "";
+    return {
+      kind: "info",
+      text: `Marked as sent. The tenancy evaluation found no information-sheet obligation for this lease${result}. No proof pack record required.`,
+    };
+  }
+  if (bridgeStatus === "evaluation_failed") {
+    return {
+      kind: "warn",
+      text: "Marked as sent. Proof pack evaluation could not run — you can retry from the Proof Packs page.",
+    };
+  }
+  if (bridgeStatus === "no_lease") {
+    return {
+      kind: "info",
+      text: "Marked as sent. No active lease found for this tenant — proof pack record not created.",
+    };
+  }
+  return null;
+}
+
 function MarkSentModal({ task, onClose, onSaved, accountId, t }) {
   const [deliveryMethod, setDeliveryMethod] = useState("email");
   const [sentAt, setSentAt] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [bridgeResult, setBridgeResult] = useState(null);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
     setError(null);
+    setBridgeResult(null);
     try {
-      const updated = await markRrTaskSent({
-        taskId:         task.id,
+      const result = await markRrTaskSentAndReconcileObligation({
+        taskId:        task.id,
         accountId,
         deliveryMethod,
-        sentAt:         sentAt ? new Date(sentAt).toISOString() : null,
-        notes:          notes || null,
+        sentAt:        sentAt ? new Date(sentAt).toISOString() : null,
+        notes:         notes || null,
       });
-      onSaved(updated);
+      setBridgeResult(result);
+      onSaved(result);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -206,22 +244,39 @@ function MarkSentModal({ task, onClose, onSaved, accountId, t }) {
             </p>
           )}
 
+          {bridgeResult && (() => {
+            const msg = bridgeStatusMessage(bridgeResult.bridgeStatus, bridgeResult.evaluationResult);
+            if (!msg) return null;
+            const colours = {
+              success: "border-green-200 bg-green-50 text-green-800 dark:border-green-800/40 dark:bg-green-900/20 dark:text-green-300",
+              warn:    "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300",
+              info:    "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800/40 dark:bg-blue-900/20 dark:text-blue-300",
+            };
+            return (
+              <p className={`rounded-md border px-3 py-2 text-xs ${colours[msg.kind] || colours.info}`}>
+                {msg.text}
+              </p>
+            );
+          })()}
+
           <div className="flex justify-end gap-2 pt-1">
             <button
               type="button"
               onClick={onClose}
               className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
             >
-              {t("common.cancel")}
+              {bridgeResult ? t("common.close") : t("common.cancel")}
             </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
-            >
-              {saving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-              {t("rentersRights.informationSheet.markSent")}
-            </button>
+            {!bridgeResult && (
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
+              >
+                {saving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                {t("rentersRights.informationSheet.markSent")}
+              </button>
+            )}
           </div>
         </form>
       </div>
@@ -271,8 +326,9 @@ function InformationSheetsTab({ tasks, counts, loading, error, accountId, onRefr
     }
   }
 
-  function handleMarkSentSaved() {
-    setMarkSentTask(null);
+  function handleMarkSentSaved(_result) {
+    // The modal shows the bridge result inline; we keep it open briefly so the
+    // user can read it. Refresh the task list so the sent status updates.
     onRefresh();
   }
 

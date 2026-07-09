@@ -190,6 +190,7 @@ const OVERLAY_SEQUENCE = [
   "work_order_photo_hash_verification.sql",
   "work_order_attachment_scanning.sql",
   "supabase_linter_security_hardening.sql",
+  "work_order_evidence_pack.sql",
 ];
 
 function resolvePsqlCommand() {
