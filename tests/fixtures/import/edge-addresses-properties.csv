@@ -1,0 +1,6 @@
+address,city,rent,external_property_ref
+Flat 1/1 10 High Street,Glasgow,800,EDGE-001
+Flat 2 10 High Street,Glasgow,800,EDGE-002
+10 High Street,Glasgow,1000,EDGE-003
+Apartment 4B The Maltings 10 High Road,London,1500,EDGE-004
+10 High Street,Glasgow,950,EDGE-005

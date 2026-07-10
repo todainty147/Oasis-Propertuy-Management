@@ -1,0 +1,6 @@
+external_property_ref,title,description,priority,status
+CLEAN-001,P009 Leaking tap,Tap reported leaking in kitchen,normal,closed
+CLEAN-001,P009 Boiler fault,Boiler stopped working in winter,high,closed
+CLEAN-002,P009 Roof repair,Tiles missing after storm,urgent,closed
+CLEAN-002,P009 Open issue,Currently open maintenance issue,normal,open
+CLEAN-001,P009 Bad status,This has an invalid status,normal,done-ish

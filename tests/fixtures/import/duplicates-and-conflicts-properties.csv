@@ -1,0 +1,5 @@
+address,city,rent,external_property_ref
+10 Conflict Street,London,1200,CONFLICT-001
+99 Different Road,London,900,CONFLICT-001
+10 Conflict Street,London,1200,CONFLICT-002
+10 Conflict Street,London,1350,CONFLICT-002

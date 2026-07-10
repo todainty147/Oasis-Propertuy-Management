@@ -74,6 +74,7 @@ const ContractorsPage             = lazy(() => import("../pages/ContractorsPage"
 const ContractorPortal            = lazy(() => import("../pages/ContractorPortal"));
 const ContractorJobDetails        = lazy(() => import("../pages/ContractorJobDetails"));
 const WorkOrderDetails            = lazy(() => import("../pages/WorkOrderDetails"));
+const DataImportPage              = lazy(() => import("../pages/DataImportPage"));
 const ApplicationsPage            = lazy(() => import("../pages/applications/ApplicationsPage"));
 const BalanceEvidenceSummaryPage  = lazy(() => import("../pages/provenance/BalanceEvidenceSummaryPage"));
 const DocumentServiceTimelinePage = lazy(() => import("../pages/provenance/DocumentServiceTimelinePage"));
@@ -495,6 +496,10 @@ export default function ManagerRoutes() {
       <Route
         path="settings/custom-fields"
         element={<ManagerOnlyRoute><CustomFieldsManagementPage /></ManagerOnlyRoute>}
+      />
+      <Route
+        path="settings/data-import"
+        element={<ManagerOnlyRoute><DataImportPage /></ManagerOnlyRoute>}
       />
       <Route
         path="settings/playbooks"

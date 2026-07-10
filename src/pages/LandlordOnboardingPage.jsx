@@ -235,6 +235,34 @@ export default function LandlordOnboardingPage() {
           </div>
         </div>
       </section>
+
+      <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-r from-white to-sky-50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-900 dark:to-slate-900/80">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-400 via-blue-500 to-cyan-400 opacity-80" />
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">
+              Moving from a spreadsheet?
+            </p>
+            <h3 className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
+              Import your existing data
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+              Upload a CSV to import properties, tenancies, compliance records, and maintenance
+              history in bulk. Each row is processed individually so one bad row won&apos;t block
+              the rest.
+            </p>
+          </div>
+          <div className="shrink-0">
+            <Link
+              to="/settings/data-import"
+              className="inline-flex items-center gap-1 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 dark:bg-white dark:text-slate-900 dark:hover:bg-blue-100"
+            >
+              Open import wizard
+              <ArrowRight size={16} />
+            </Link>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
