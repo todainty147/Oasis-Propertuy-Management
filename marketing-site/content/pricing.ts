@@ -49,7 +49,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
     seo: {
       title: "Tenaqo Pricing | Plans for Landlords and Portfolios",
       description:
-        "Start simple and add control as your portfolio grows. Starter, Growth, Pro, and Operator / Agency plans for landlords, compliance-heavy operators, and property management companies.",
+        "Start simple and add control as your portfolio grows. Spreadsheet import, evidence packs, Renters' Rights readiness, MTD records, and compliance workflows across Starter, Growth, Pro, and Operator / Agency plans.",
       canonicalPath: "/pricing",
     },
     hero: {
@@ -76,6 +76,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
           "For solo landlords with 1–10 properties who need rent, tenants, documents, and maintenance in one place before admin, arrears, and repairs spread across folders and message threads.",
         bullets: [
           "up to 10 properties",
+          "spreadsheet import — properties, tenancies, compliance dates and maintenance history",
           "rent plans engine and expected charges",
           "advanced rent models — split rent, room rent, STR nightly, discounts, utilities, rent increases",
           "tenants, properties, and core records in one place",
@@ -97,6 +98,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
           "Command Center — urgent, action, and upcoming queues",
           "portfolio health and maintenance KPI dashboards",
           "Renters' Rights readiness, Tax Readiness, Rent Shield",
+          "Deposit Dispute Pack and Maintenance Evidence Pack",
           "Poland compliance toolkit (Najem Okazjonalny)",
           "AI maintenance triage, attention insights, property health explainer, message drafts",
           "500 AI calls / month",
@@ -114,6 +116,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
           "unlimited properties",
           "everything in Growth",
           "security audit — event ledger, anomaly detection, investigation panel",
+          "Compliance Proof Pack",
           "playbooks — if-then automation for routine operations",
           "AI-assisted clause flagging for landlord review",
           "AI contractor recommendation and weekly portfolio summary",
@@ -143,6 +146,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
     included: {
       title: "Every plan includes the core rental workflow",
       bullets: [
+        "Spreadsheet import — import properties, tenancies, compliance dates and maintenance history with preview before commit and no silent overwrites",
         "Rent Plans Engine — rules-based expected charges, proration, deposit warnings, calculation previews, and finance posting with approval before the ledger is touched",
         "Advanced Rent Models — split rent, room rent, variable utilities, rent adjustments, rent increase workflow, and STR nightly charges",
         "Maintenance request and work order workflows",
@@ -187,6 +191,11 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
         question: "Is there a Founder Launch Offer?",
         answer:
           "Yes. The first 20 landlords can access Pro at Starter pricing for 12 months. Reach out via the early-access link to claim your place.",
+      },
+      {
+        question: "What are evidence packs?",
+        answer:
+          "Evidence packs are landlord-readable records generated from data held in Tenaqo. The Deposit Dispute Pack compiles inspection records, photos, tenant responses and deductions. The Maintenance Evidence Pack covers completed work-order details and status history. The Compliance Proof Pack covers compliance records and document history. Packs are operational evidence records, not legal advice or legal sign-off. Deposit Dispute Pack and Maintenance Evidence Pack are available on Growth and above. Compliance Proof Pack is available on Pro and above.",
       },
       {
         question: "Is Tenaqo priced for landlords rather than agencies?",

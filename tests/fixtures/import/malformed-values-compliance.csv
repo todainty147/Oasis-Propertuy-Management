@@ -1,0 +1,5 @@
+external_property_ref,requirement_type,expiry_date,completed_date
+CLEAN-001,epc,31/31/2026,not sure
+CLEAN-001,gas_safety_certificate,2026-ish,2025-ish
+CLEAN-001,eicr,45291,2025-01-01
+CLEAN-001,unknown_cert_type,2027-01-01,2026-01-01

@@ -4,14 +4,14 @@ export const complianceContent = {
   seo: {
     title: "Compliance Suite for Landlords | Tenaqo",
     description:
-      "AI-assisted clause flagging for landlord review, rent visibility, and tax deadline tracking — Tenaqo brings portfolio compliance into one connected workspace so nothing slips through the cracks.",
+      "AI-assisted clause flagging, Renters' Rights Act information-sheet tracking, Compliance Proof Pack, HMRC connection checks, MTD quarterly draft readiness, and Rent Shield — Tenaqo brings landlord compliance into one connected workspace.",
     canonical: `${siteConfig.url}/features/compliance`,
   },
   hero: {
     eyebrow: "Compliance suite",
     title: "Keep lease review, rent visibility, and tax deadlines easier to review",
     body:
-      "Compliance should not live in spreadsheets, inboxes, and last-minute reminders. Tenaqo brings AI-assisted lease clause flagging, rent visibility, and tax-readiness tracking into one connected workspace — helping landlords spot issues earlier, organise evidence, and act before issues become expensive problems.",
+      "Compliance should not live in spreadsheets, inboxes, and last-minute reminders. Tenaqo brings AI-assisted lease clause flagging, Renters' Rights Act information-sheet tracking, Compliance Proof Pack generation, rent visibility, and tax-readiness tracking into one connected workspace — helping landlords spot issues earlier, organise evidence, and act before issues become expensive problems.",
     imageSrc: "/screenshots/compliance-suite.png",
     imageAlt:
       "Tenaqo Compliance suite showing AI-assisted clause flags, Rent Shield risk scores, and Tax Readiness dashboard.",
@@ -102,10 +102,14 @@ export const complianceContent = {
   },
   taxSection: {
     eyebrow: "Tax Readiness Dashboard",
-    title: "Know what is due, what is done, and what still needs attention",
+    title: "MTD readiness, HMRC connection checks, and tax deadline tracking in one place",
     body:
-      "Tax season should not be a scramble through spreadsheets, emails, receipts, and old notes. The Tenaqo Tax Readiness Dashboard helps landlords and finance teams keep tax-related tasks organised throughout the year.",
+      "Tax season should not be a scramble through spreadsheets, emails, receipts, and old notes. The Tenaqo Tax Readiness Dashboard helps landlords and finance teams keep tax-related tasks organised throughout the year — including HMRC connection checks, MTD readiness signals, quarterly draft preparation, and property expense records.",
     items: [
+      {
+        title: "HMRC connection checks and MTD readiness",
+        body: "Connect your HMRC account, check your connection status, and use MTD readiness signals to understand whether your property expense records and quarterly draft data are on track. Quarterly draft preparation is available in the Tax Readiness surface.",
+      },
       {
         title: "One view of the full picture",
         body: "Upcoming deadlines, completed obligations, overdue items, missing evidence, and records ready for export — all visible from one place.",
@@ -145,12 +149,16 @@ export const complianceContent = {
         body: "Rent exposure signals feed into the portfolio health view so the full pressure picture — maintenance, arrears, compliance — sits in one place.",
       },
       {
-        title: "High-priority issues surface inside the Attention Center",
+        title: "High-priority issues surface inside the Attention Centre",
         body: "Critical compliance items can appear as action queue entries so nothing important sits unnoticed in a background dashboard.",
       },
       {
         title: "Evidence stays attached to the work",
         body: "Documents, exports, and reviewed items remain linked to the relevant record so accountants, solicitors, and your own team always start from the same point.",
+      },
+      {
+        title: "Renters' Rights Act — information-sheet tracking",
+        body: "Track RRA information-sheet tasks, record landlord-supplied sent dates, reconcile obligations, and keep a clear evidence trail of what was recorded. Not a determination of legal compliance.",
       },
     ],
   },
@@ -172,6 +180,10 @@ export const complianceContent = {
       {
         title: "What still needs follow-up",
         body: "Pending items, overdue reviews, and high-risk findings stay visible until they are resolved — not buried once they are seen once.",
+      },
+      {
+        title: "Compliance Proof Pack",
+        body: "Create a landlord-readable Compliance Proof Pack from the compliance records held in Tenaqo. Packs are operational evidence records, not legal advice or legal sign-off.",
       },
     ],
   },

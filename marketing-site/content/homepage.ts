@@ -141,16 +141,16 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
     seo: {
       title: "Tenaqo | Rental Operations Software That Protects Your Portfolio",
       description:
-        "Tenaqo helps landlords organise compliance evidence, maintenance workflows, tenant onboarding, documents, rent records and property operations in one secure workspace.",
+        "Tenaqo helps landlords move from spreadsheets into one workspace for rent visibility, maintenance, compliance evidence, Renters' Rights readiness, evidence packs and property operations. Spreadsheet onboarding included.",
       canonicalPath: "/",
     },
     hero: {
       eyebrow: "Rental operations software that keeps landlords in control",
       title: "The operating layer for independent landlords.",
       body:
-        "Tenaqo gives landlords one calm workspace for rent visibility, maintenance follow-up, tenant updates, documents, contractors and compliance evidence.",
+        "Tenaqo gives landlords one calm workspace for rent visibility, maintenance follow-up, tenant updates, documents, contractors and compliance evidence. Start from the spreadsheet you already use, or begin fresh and build from today.",
       emphasis:
-        "Compliance evidence, maintenance triage, documents, and rent records in one action queue.",
+        "Compliance evidence, evidence packs, maintenance triage, documents, and rent records in one action queue.",
       support:
         "No income promises. Tenaqo does not collect rent, move money, or operate as a payment rail today. Just visibility, workflows, and the operational clarity that keeps a rental portfolio easier to review.",
       imageSrc: "/screenshots/command-center.png",
@@ -164,12 +164,13 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       body: "Tenaqo gives landlords the operating layer usually missing between spreadsheets, inboxes, tenants, contractors, and finance records.",
       badges: [
         { label: "Compliance evidence" },
-        { label: "Deposit dispute preparation" },
+        { label: "Spreadsheet import" },
+        { label: "Evidence packs" },
         { label: "Maintenance triage" },
         { label: "Tenant onboarding" },
         { label: "Property records" },
       ],
-      disclaimer: "Verified partner and industry badges can be added here once approved.",
+      disclaimer: "",
     },
     testimonials: {
       title: "What early landlord conversations keep showing us",
@@ -194,7 +195,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
     },
     seoFeatureSection: {
       title: "Rental operations software that keeps landlords in control",
-      body: "Tenaqo helps landlords reduce manual admin, track rental income, manage maintenance, organise documents, and keep portfolio actions visible from one dashboard.",
+      body: "Tenaqo helps landlords move from spreadsheets into one workspace — tracking rental income, managing maintenance, organising documents, keeping evidence records, and keeping portfolio actions visible from one dashboard.",
       features: [
         {
           title: "Rent and expected charge tracking",
@@ -219,6 +220,14 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
         {
           title: "Portfolio health scoring",
           body: "Maintenance strain, arrears, compliance gaps, and vacancy pressure become an action-ready view before they get expensive.",
+        },
+        {
+          title: "Start from the spreadsheet you already use",
+          body: "Import properties, tenancies, compliance dates and maintenance history from a spreadsheet. Tenaqo shows what matched, what needs review and what was imported — without silently overwriting your records.",
+        },
+        {
+          title: "Evidence packs for the moments that matter",
+          body: "Create landlord-readable packs for compliance records, maintenance follow-up and deposit disputes — using records held in Tenaqo. Packs are operational evidence records, not legal advice or legal sign-off.",
         },
       ],
     },
@@ -332,8 +341,8 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
           body: "Command Center briefings, maintenance triage, contractor recommendations, and property explainers speed the next decision without taking it away from you.",
         },
         {
-          title: "Keep the trail intact",
-          body: "Documents, payments visibility, compliance review, notifications, and security audit stay tied to the same operational history.",
+          title: "Keep the evidence trail intact",
+          body: "Documents, payments visibility, compliance review, evidence packs, notifications, and security audit stay tied to the same operational history.",
         },
       ],
     },
@@ -493,7 +502,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
     finalCta: {
       title: "See Tenaqo before public launch",
       body:
-        "If your real problem is keeping maintenance, documents, payments visibility, and follow-up moving together, Tenaqo is built for that stage.",
+        "If your real problem is keeping maintenance, documents, payments visibility, compliance evidence, and follow-up moving together — and you want to start from the spreadsheet you already use — Tenaqo is built for that stage.",
       primaryCta: { label: "Claim Founder Access", href: siteConfig.appUrl },
       secondaryCta: { label: "Explore Tenaqo features", href: "/features" },
     },

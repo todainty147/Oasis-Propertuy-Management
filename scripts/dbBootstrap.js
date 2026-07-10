@@ -627,6 +627,11 @@ const bootstrapSteps = [
     file: path.join(supabaseDir, "inspection_report_lock_signature_binding.sql"),
     onErrorStop: true,
   },
+  {
+    label: "Apply spreadsheet import v1 overlay",
+    file: path.join(supabaseDir, "spreadsheet_import_v1.sql"),
+    onErrorStop: true,
+  },
 ];
 
 function resolvePsqlCommand() {

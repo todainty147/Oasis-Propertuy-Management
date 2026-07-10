@@ -191,6 +191,7 @@ const OVERLAY_SEQUENCE = [
   "work_order_attachment_scanning.sql",
   "supabase_linter_security_hardening.sql",
   "work_order_evidence_pack.sql",
+  "spreadsheet_import_v1.sql",
 ];
 
 function resolvePsqlCommand() {

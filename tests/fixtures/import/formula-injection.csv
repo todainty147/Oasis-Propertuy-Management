@@ -1,0 +1,6 @@
+address,city,rent,external_property_ref,notes
+=HYPERLINK("http://evil.com"),London,1200,INJECT-001,safe note
+10 Normal Street,London,=SUM(A1:A10),INJECT-002,normal
+20 Another Street,London,900,INJECT-003,@formula attempt
++cmd|/C calc,London,800,INJECT-004,safe
+10 Safe Street,London,800,INJECT-005,=DDE("cmd","/C","calc")

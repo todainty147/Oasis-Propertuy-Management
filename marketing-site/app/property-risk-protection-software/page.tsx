@@ -4,9 +4,9 @@ import type { Metadata } from "next";
 import { buildMetadata } from "../../lib/metadata";
 
 export const metadata: Metadata = buildMetadata({
-  title: "Property Risk Protection Software | Tenaqo",
+  title: "Evidence Packs and Property Risk Protection | Tenaqo",
   description:
-    "Protect your rental operations with organised compliance evidence, inspection records, tenant acknowledgements and deposit dispute packs.",
+    "Deposit Dispute Pack, Maintenance Evidence Pack and Compliance Proof Pack — landlord-readable operational records from data held in Tenaqo. Not legal advice or adjudicator decisions.",
   canonical: "/property-risk-protection-software",
 });
 
@@ -21,7 +21,15 @@ const sections = [
   },
   {
     title: "Deposit Dispute Pack",
-    body: "Prepare an organised evidence bundle with inspection reports, photos, tenant responses, deductions and supporting documents.",
+    body: "Bring together check-in and check-out condition records, deduction items, tenant responses, signatures and evidence references into a landlord-readable pack. This is an operational evidence record, not a decision by a deposit adjudicator.",
+  },
+  {
+    title: "Maintenance Evidence Pack",
+    body: "Turn a completed work order into a Maintenance Evidence Pack with job details, status history and evidence references. The pack records what Tenaqo holds — it does not prove photo authenticity or legal verification of the work.",
+  },
+  {
+    title: "Compliance Proof Pack",
+    body: "Create a landlord-readable Compliance Proof Pack from the compliance records and evidence held in Tenaqo. Packs are operational records, not legal advice or legal sign-off.",
   },
   {
     title: "Smart Maintenance Diagnostics",
@@ -45,6 +53,10 @@ const faqs = [
   {
     q: "Can tenants submit maintenance information?",
     a: "Yes. Diagnostics are for basic information gathering only and do not replace emergency handling or professional advice.",
+  },
+  {
+    q: "What do evidence packs contain?",
+    a: "Evidence packs are landlord-readable records generated from data held in Tenaqo. The Deposit Dispute Pack covers inspection records, condition comparisons, deductions and tenant responses. The Maintenance Evidence Pack covers work-order details and status history. The Compliance Proof Pack covers compliance records and document history. All packs are operational records, not legal proof or adjudicator decisions.",
   },
 ];
 
@@ -91,12 +103,19 @@ export default function PropertyRiskProtectionPage() {
 
       <section className="section section-tight-top">
         <div className="container grid grid-3">
-          {["Compliance evidence", "Deposit dispute preparation", "Maintenance triage"].map((title) => (
-            <article className="card" key={title}>
-              <h2>{title}</h2>
-              <p className="muted">Organise the operational records landlords need to review, reduce risk and keep decisions traceable.</p>
+          {[
+            { title: "Deposit Dispute Pack", body: "Organised inspection records, condition comparisons, deduction items and tenant responses in one landlord-readable pack." },
+            { title: "Maintenance Evidence Pack", body: "Completed work-order details, job status history and evidence references in one record." },
+            { title: "Compliance Proof Pack", body: "Compliance dates, document history and evidence records compiled into a landlord-readable pack." },
+          ].map((item) => (
+            <article className="card" key={item.title}>
+              <h2>{item.title}</h2>
+              <p className="muted">{item.body}</p>
             </article>
           ))}
+        </div>
+        <div className="container" style={{ marginTop: "1rem" }}>
+          <p className="muted" style={{ textAlign: "center" }}>All evidence packs are operational records held in Tenaqo. They are not legal advice, legal proof or adjudicator decisions.</p>
         </div>
       </section>
 

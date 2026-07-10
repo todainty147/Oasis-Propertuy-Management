@@ -1,0 +1,7 @@
+external_property_ref,requirement_type,expiry_date,completed_date,notes
+CLEAN-001,epc,2028-01-15,2023-01-15,
+CLEAN-001,gas_safety_certificate,2026-12-31,2025-12-31,
+CLEAN-001,eicr,2030-01-01,2025-01-01,
+CLEAN-002,epc,2027-06-01,2022-06-01,
+CLEAN-002,gas_safety_certificate,2026-06-30,2025-06-30,
+CLEAN-003,deposit_protection_certificate,,2025-03-15,TDS scheme

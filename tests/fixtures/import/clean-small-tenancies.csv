@@ -1,0 +1,4 @@
+external_property_ref,tenant_name,tenant_email,tenant_phone,start_date,end_date,rent_amount,deposit_amount
+CLEAN-001,Alice Smith,alice@clean.test,07700000001,2025-01-01,2026-01-01,1200,1200
+CLEAN-002,Bob Jones,bob@clean.test,07700000002,2025-02-01,2026-02-01,900,900
+CLEAN-003,Carol Brown,carol@clean.test,07700000003,2025-03-01,2026-03-01,800,800

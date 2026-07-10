@@ -4,7 +4,7 @@ export const maintenanceManagementContent = {
   seo: {
     title: "Maintenance Management Software for Landlords | Tenaqo",
     description:
-      "Move repair requests into tracked work orders, clear ownership, and cleaner follow-through with Tenaqo.",
+      "Move repair requests into tracked work orders with clear ownership, cleaner follow-through, and a Maintenance Evidence Pack from completed work — so follow-up does not depend on scattered messages.",
     canonical: `${siteConfig.url}/features/maintenance-management`,
   },
   hero: {
@@ -67,6 +67,10 @@ export const maintenanceManagementContent = {
         title: "See bottlenecks early",
         body: "Spot overdue actions, unassigned work, stalled repairs, and slow response loops before they become bigger tenant issues.",
       },
+      {
+        title: "Maintenance Evidence Pack",
+        body: "Turn a completed work order into a Maintenance Evidence Pack with job details, status history and evidence references, so follow-up does not depend on scattered messages. The pack records what Tenaqo holds — it does not prove photo authenticity, file safety or legal verification of the work.",
+      },
     ],
     imageSrc: "/screenshots/maintenance-inbox.png",
     imageAlt: "Tenaqo maintenance workflow showing requests, AI triage, work orders, and contractor coordination in one place.",
@@ -116,6 +120,10 @@ export const maintenanceManagementContent = {
       {
         title: "More confidence in operations",
         body: "Run maintenance with a process that is easier to monitor, improve, and stay ahead of over time.",
+      },
+      {
+        title: "Evidence record when it matters",
+        body: "Completed work orders can be compiled into a Maintenance Evidence Pack with job details, photos, and status history. Operational records, not legal verification.",
       },
     ],
   },

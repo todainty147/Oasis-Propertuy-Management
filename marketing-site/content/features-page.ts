@@ -37,9 +37,9 @@ type FeaturesPageContent = {
 export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = {
   en: {
     seo: {
-      title: "Tenaqo Features | Rent, Repairs, Documents and AI",
+      title: "Tenaqo Features | Rent, Repairs, Evidence Packs, Compliance and AI",
       description:
-        "Every workflow landlords check, chase, and worry about — connected. Rent Plans Engine, maintenance, documents, compliance, AI-assisted action queues, and audit trails in one platform.",
+        "Every workflow landlords check, chase, and worry about — connected. Rent Plans Engine, spreadsheet onboarding, evidence packs, Renters' Rights readiness, maintenance, MTD records, and audit trails in one platform.",
       canonicalPath: "/features",
     },
     hero: {
@@ -159,13 +159,41 @@ export const featuresPageContentByLocale: Record<Locale, FeaturesPageContent> = 
         cta: "Explore the compliance suite",
       },
       {
+        eyebrow: "Evidence packs",
+        title: "Generate landlord-readable records for the moments that matter",
+        why:
+          "When a deposit is disputed, a maintenance job is challenged, or a compliance record is requested, landlords need organised evidence — not scattered messages. Tenaqo generates evidence packs from records already held in your account.",
+        bullets: [
+          "Compliance Proof Pack — compile compliance records, document history and evidence into a landlord-readable pack.",
+          "Maintenance Evidence Pack — turn a completed work order into a record with job details, status history and evidence references.",
+          "Deposit Dispute Pack — bring together check-in and check-out records, deduction items, tenant responses and supporting documents.",
+          "Packs are operational evidence records, not legal advice or legal sign-off.",
+        ],
+        href: "/property-risk-protection-software",
+        cta: "See evidence packs",
+      },
+      {
+        eyebrow: "Spreadsheet onboarding",
+        title: "Start from the spreadsheet you already use",
+        why:
+          "Most landlords track properties and tenancies in spreadsheets before moving to dedicated software. Tenaqo lets you import properties, tenancies, compliance dates and maintenance history directly — with a preview before anything is committed and no silent overwrites.",
+        bullets: [
+          "Import properties, tenancies, compliance dates and maintenance history from a CSV spreadsheet.",
+          "Review what matched, what needs attention and what was skipped before committing.",
+          "No silent overwrites — the same file imported twice shows skipped rows, not duplicates.",
+          "A clear import trail so you know exactly what came in and when.",
+        ],
+        href: "/pricing",
+        cta: "See the Starter plan",
+      },
+      {
         eyebrow: "Security and audit trail",
         title: "Move fast without losing accountability",
         why:
           "Permissions, audit events, and review surfaces help the team act quickly while keeping a trustworthy trail.",
         bullets: [
           "Keep roles separated without losing context.",
-          "Review sensitive actions when decisions need proof.",
+          "Review sensitive actions when decisions need an audit record.",
           "Stay audit-ready as the portfolio gets busier.",
         ],
         href: "/features/security-audit",

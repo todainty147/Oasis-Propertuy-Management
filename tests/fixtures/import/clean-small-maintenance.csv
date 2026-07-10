@@ -1,0 +1,3 @@
+external_property_ref,title,description,priority,status
+CLEAN-001,P009 Dripping tap,Kitchen tap dripping,normal,closed
+CLEAN-002,P009 Boiler service,Annual boiler service completed,low,closed

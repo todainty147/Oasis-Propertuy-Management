@@ -8,7 +8,7 @@ export const commandCenterContent = {
     canonical: `${siteConfig.url}/features/command-center`,
   },
   hero: {
-    eyebrow: "Command center",
+    eyebrow: "Command Centre",
     title: "Start with the work that actually needs attention",
     body:
       "Tenaqo gives landlords a command center for urgent queues, overdue balances, next actions, and an AI-assisted briefing so the week does not begin with reconstruction work.",

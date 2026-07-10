@@ -1,0 +1,4 @@
+address,city,rent,size,external_property_ref
+10 Clean Street,London,1200,,CLEAN-001
+20 Clean Avenue,Manchester,900,,CLEAN-002
+30 Clean Lane,Birmingham,800,,CLEAN-003
