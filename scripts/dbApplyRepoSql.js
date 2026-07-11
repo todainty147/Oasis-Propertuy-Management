@@ -192,6 +192,7 @@ const OVERLAY_SEQUENCE = [
   "supabase_linter_security_hardening.sql",
   "work_order_evidence_pack.sql",
   "spreadsheet_import_v1.sql",
+  "compliance_import_labeling.sql",
 ];
 
 function resolvePsqlCommand() {

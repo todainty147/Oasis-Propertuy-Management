@@ -268,7 +268,10 @@ function ComplianceItemDrawer({
               {item.human_verified_at && (
                 <span className="mt-1 block text-xs text-emerald-400">Human-verified {formatDate(item.human_verified_at)}</span>
               )}
-              {!item.ocr_source_extraction_id && (
+              {!item.ocr_source_extraction_id && item.import_batch_id && (
+                <span data-testid="compliance-import-drawer-label" className="mt-1 block text-xs text-amber-300">Attested import — not independently verified</span>
+              )}
+              {!item.ocr_source_extraction_id && !item.import_batch_id && (
                 <span className="mt-1 block text-xs text-slate-500">Manually entered</span>
               )}
             </label>
@@ -696,6 +699,9 @@ export default function ComplianceSafePage({ properties = [], tenants = [] }) {
                       <span>·</span>
                       <span>{evidenceLabel}</span>
                       {item.expires_at ? <><span>·</span><span>Expires {formatDate(item.expires_at)}</span></> : null}
+                      {item.import_batch_id ? (
+                        <><span>·</span><span data-testid="compliance-import-label" className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 font-semibold text-amber-300">Attested import</span></>
+                      ) : null}
                       <span>·</span>
                       <span>Ack: {ack?.acknowledgement_status || "Not requested"}</span>
                     </div>

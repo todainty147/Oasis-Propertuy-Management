@@ -589,6 +589,7 @@ function SidebarContent({ onNavigate }) {
                 <Item to="/settings/roles"         icon={UserCog}     label="Roles"                     onNavigate={onNavigate} />
                 <Item to="/settings/custom-fields" icon={Rows3}       label="Custom fields"             onNavigate={onNavigate} />
                 <Item to="/settings/billing"       icon={CreditCard}  label={t("sidebar.billing")}     onNavigate={onNavigate} />
+                <Item to="/settings/data-import"   icon={FileText}    label="Data Import"               onNavigate={onNavigate} />
                 {hasEntitlement(ENTITLEMENT_FEATURES.PLAYBOOKS) && (
                   <Item to="/settings/playbooks"      icon={Zap}    label={t("sidebar.playbooks")}    onNavigate={onNavigate} />
                 )}
