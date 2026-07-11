@@ -10,6 +10,7 @@ const COMPLIANCE_SELECT = [
   "reminder_days_before", "last_reminder_sent_at", "marked_not_applicable_at", "marked_not_applicable_by",
   "acknowledged_by_tenant_at", "needs_review_reason", "notes",
   "ocr_source_extraction_id", "human_verified_at", "human_verified_by",
+  "import_batch_id",
   "created_by", "created_at", "updated_at",
   "compliance_requirements(label, description, requirement_key, requirement_type, expiry_tracking, acknowledgement_required, compliance_templates(country_code, jurisdiction, name))",
   "compliance_item_acknowledgements(id, tenant_id, acknowledgement_status, message, acknowledged_at, comment, created_at, updated_at)",
