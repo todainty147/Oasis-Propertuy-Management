@@ -24,6 +24,7 @@ import {
   hashFileContent,
   isValidImportDate,
   parseCurrencyValue,
+  getTemplateHeaders,
 } from "../../src/lib/spreadsheetParser.js";
 
 const FIXTURES = path.resolve(import.meta.dirname, "../fixtures/import");
@@ -475,5 +476,120 @@ describe("parseCsv — unsupported/binary content", () => {
         expect(["=", "@"]).not.toContain(v[0]);
       });
     }
+  });
+});
+
+// ── §11  Template coverage (getTemplateHeaders) ───────────────────────────────
+
+const COMPLIANCE_TYPES = [
+  "epc",
+  "gas_safety_certificate",
+  "eicr",
+  "deposit_protection_certificate",
+  "how_to_rent",
+  "deposit_prescribed_information",
+];
+
+describe("getTemplateHeaders — returns full CSV with example rows", () => {
+  it("returns a non-empty string for all four tabs", () => {
+    for (const tab of ["properties", "tenancies", "compliance", "maintenance"]) {
+      const csv = getTemplateHeaders(tab);
+      expect(csv.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it("returns empty string for unknown tab", () => {
+    expect(getTemplateHeaders("unknown")).toBe("");
+  });
+
+  it("properties template has external_property_ref and address columns", () => {
+    const csv = getTemplateHeaders("properties");
+    const header = csv.split("\n")[0];
+    expect(header).toContain("external_property_ref");
+    expect(header).toContain("address");
+  });
+
+  it("properties template includes example rows", () => {
+    const lines = getTemplateHeaders("properties").split("\n").filter(Boolean);
+    expect(lines.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("tenancies template has tenant_email and tenancy_start_date columns", () => {
+    const csv = getTemplateHeaders("tenancies");
+    const header = csv.split("\n")[0];
+    expect(header).toContain("tenant_email");
+    expect(header).toContain("tenancy_start_date");
+  });
+
+  it("compliance template uses compliance_type as the column name (not requirement_type)", () => {
+    const header = getTemplateHeaders("compliance").split("\n")[0];
+    expect(header).toContain("compliance_type");
+    expect(header).not.toContain("requirement_type");
+  });
+
+  it("compliance template includes tenancy_start_date column", () => {
+    const header = getTemplateHeaders("compliance").split("\n")[0];
+    expect(header).toContain("tenancy_start_date");
+  });
+
+  it("compliance template includes all 6 compliance_type values in example rows", () => {
+    const csv = getTemplateHeaders("compliance");
+    for (const ct of COMPLIANCE_TYPES) {
+      expect(csv).toContain(ct);
+    }
+  });
+
+  it("compliance template example rows parse back to valid compliance_type via column aliases", () => {
+    const csv = getTemplateHeaders("compliance");
+    const { rows } = parseTabCsv(csv, "compliance");
+    const types = rows.map((r) => r.requirement_type);
+    for (const ct of COMPLIANCE_TYPES) {
+      expect(types).toContain(ct);
+    }
+  });
+
+  it("maintenance template has reported_date, completed_date, contractor_name, cost, notes", () => {
+    const header = getTemplateHeaders("maintenance").split("\n")[0];
+    expect(header).toContain("reported_date");
+    expect(header).toContain("completed_date");
+    expect(header).toContain("contractor_name");
+    expect(header).toContain("cost");
+    expect(header).toContain("notes");
+  });
+
+  it("maintenance template example rows include valid priority values (normal, urgent)", () => {
+    const csv = getTemplateHeaders("maintenance");
+    expect(csv).toContain("normal");
+    expect(csv).toContain("urgent");
+  });
+
+  it("maintenance template example rows include valid status values (open, closed)", () => {
+    const csv = getTemplateHeaders("maintenance");
+    expect(csv).toContain(",open,");
+    expect(csv).toContain(",closed,");
+  });
+
+  it("templates do not include phantom property-level compliance columns", () => {
+    const phantom = ["epc_expiry", "gas_cp12_date", "eicr_date", "gas_safety_expiry"];
+    for (const tab of ["properties", "tenancies", "compliance", "maintenance"]) {
+      const csv = getTemplateHeaders(tab);
+      for (const col of phantom) {
+        expect(csv).not.toContain(col);
+      }
+    }
+  });
+
+  it("compliance template example rows are parseable with no parse errors", () => {
+    const csv = getTemplateHeaders("compliance");
+    const { rows, parseErrors } = parseTabCsv(csv, "compliance");
+    expect(parseErrors).toHaveLength(0);
+    expect(rows.length).toBeGreaterThan(0);
+  });
+
+  it("maintenance template example rows are parseable with no parse errors", () => {
+    const csv = getTemplateHeaders("maintenance");
+    const { rows, parseErrors } = parseTabCsv(csv, "maintenance");
+    expect(parseErrors).toHaveLength(0);
+    expect(rows.length).toBeGreaterThan(0);
   });
 });

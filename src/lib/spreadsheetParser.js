@@ -117,11 +117,14 @@ function splitCsvLine(line) {
 /** Column aliases → canonical names for each tab. */
 const COLUMN_ALIASES = {
   properties: {
+    external_property_ref: ["external_property_ref", "property_ref", "ref", "external_ref", "id"],
     address: ["address", "property_address", "full_address"],
     city: ["city", "town", "location"],
+    bedrooms: ["bedrooms", "beds", "bedroom_count"],
+    property_type: ["property_type", "type"],
     rent: ["rent", "monthly_rent", "rent_amount"],
     size: ["size", "property_size", "sq_ft", "sqft"],
-    external_property_ref: ["external_property_ref", "property_ref", "ref", "external_ref", "id"],
+    notes: ["notes", "note", "comments"],
   },
   tenancies: {
     external_property_ref: ["external_property_ref", "property_ref", "ref", "external_ref"],
@@ -129,19 +132,21 @@ const COLUMN_ALIASES = {
     tenant_name: ["tenant_name", "name", "tenant"],
     tenant_email: ["tenant_email", "email"],
     tenant_phone: ["tenant_phone", "phone"],
-    start_date: ["start_date", "lease_start", "tenancy_start"],
-    end_date: ["end_date", "lease_end", "tenancy_end"],
+    start_date: ["start_date", "lease_start", "tenancy_start", "tenancy_start_date"],
+    end_date: ["end_date", "lease_end", "tenancy_end", "tenancy_end_date"],
     rent_amount: ["rent_amount", "rent", "monthly_rent"],
     rent_frequency: ["rent_frequency", "frequency"],
     deposit_amount: ["deposit_amount", "deposit"],
+    status: ["status"],
   },
   compliance: {
     external_property_ref: ["external_property_ref", "property_ref", "ref", "external_ref"],
     address: ["address", "property_address"],
     tenant_email: ["tenant_email", "email"],
+    tenancy_start_date: ["tenancy_start_date", "tenancy_start"],
     requirement_type: ["requirement_type", "type", "compliance_type", "category"],
     expiry_date: ["expiry_date", "expires", "expiry", "valid_until", "next_due"],
-    completed_date: ["completed_date", "completed", "issued_date", "certificate_date"],
+    completed_date: ["completed_date", "completed", "issued_date", "certificate_date", "date"],
     scheme_reference: ["scheme_reference", "scheme_ref", "deposit_scheme_ref", "reference"],
     notes: ["notes", "note", "comments"],
   },
@@ -149,9 +154,14 @@ const COLUMN_ALIASES = {
     external_property_ref: ["external_property_ref", "property_ref", "ref", "external_ref"],
     address: ["address", "property_address"],
     title: ["title", "issue", "subject"],
-    description: ["description", "details", "notes"],
+    description: ["description", "details"],
+    reported_date: ["reported_date", "reported", "report_date"],
+    completed_date: ["completed_date", "completed", "closed_date", "resolution_date"],
     priority: ["priority"],
     status: ["status"],
+    contractor_name: ["contractor_name", "contractor"],
+    cost: ["cost", "amount", "job_cost"],
+    notes: ["notes", "note", "comments"],
   },
 };
 
@@ -265,18 +275,38 @@ export function hashFileContent(text) {
 }
 
 /**
- * Return template CSV headers for a given tab.
+ * Return a full CSV template (header + example rows) for a given tab.
+ * Example rows illustrate all allowed enum values for compliance_type and status.
  */
 export function getTemplateHeaders(tab) {
-  const HEADERS = {
-    properties: "address,city,rent,size,external_property_ref",
-    tenancies:
-      "address,external_property_ref,tenant_name,tenant_email,tenant_phone,start_date,end_date,rent_amount,rent_frequency,deposit_amount",
-    compliance:
-      "address,external_property_ref,tenant_email,requirement_type,expiry_date,completed_date,scheme_reference,notes",
-    maintenance: "address,external_property_ref,title,description,priority,status",
+  const TEMPLATES = {
+    properties: [
+      "external_property_ref,address,city,bedrooms,property_type,rent_amount,notes",
+      'PROP-001,"10 High Street",London,2,flat,1250,"2-bed flat in zone 2"',
+      'PROP-002,"20 The Elms Road",Manchester,3,terraced,1100,"3-bed house with garden"',
+    ],
+    tenancies: [
+      "property_external_ref,property_address,tenant_name,tenant_email,tenancy_start_date,tenancy_end_date,rent_amount,deposit_amount,status",
+      'PROP-001,"10 High Street","Alice Tenant",alice@example.com,2024-01-10,2025-01-09,1250,3750,active',
+      'PROP-002,"20 The Elms Road","Bob Tenant",bob@example.com,2024-06-01,,1100,2200,active',
+    ],
+    compliance: [
+      "property_external_ref,property_address,tenant_email,tenancy_start_date,compliance_type,completed_date,expiry_date,scheme_reference,notes",
+      'PROP-001,"10 High Street",alice@example.com,2024-01-10,epc,,2028-05-01,,"EPC expiry from landlord spreadsheet"',
+      'PROP-001,"10 High Street",alice@example.com,2024-01-10,gas_safety_certificate,,2026-03-15,,"CP12 expiry supplied by landlord"',
+      'PROP-001,"10 High Street",alice@example.com,2024-01-10,eicr,,2027-08-20,,"EICR expiry supplied by landlord"',
+      'PROP-001,"10 High Street",alice@example.com,2024-01-10,deposit_protection_certificate,2024-01-12,,DPS-12345,"Deposit protected date and scheme ref"',
+      'PROP-001,"10 High Street",alice@example.com,2024-01-10,how_to_rent,2024-01-10,,,"How to Rent served date"',
+      'PROP-001,"10 High Street",alice@example.com,2024-01-10,deposit_prescribed_information,2024-01-12,,,"Prescribed information served date"',
+    ],
+    maintenance: [
+      "property_external_ref,property_address,reported_date,completed_date,title,description,priority,status,contractor_name,cost,notes",
+      'PROP-001,"10 High Street",2025-02-01,2025-02-05,"Leaking tap","Tenant reported leaking kitchen tap",normal,closed,"ABC Plumbing",85.00,"Imported from landlord spreadsheet"',
+      'PROP-002,"20 The Elms Road",2025-04-10,,"Broken boiler","No heating reported",urgent,open,,,"Still open at time of import"',
+      'PROP-003,"30 Clean Lane",2024-11-20,2024-11-25,"Fence repair","Rear fence panel replaced",normal,closed,"Local Handyman",120.00,"Historical maintenance"',
+    ],
   };
-  return HEADERS[tab] ?? "";
+  return (TEMPLATES[tab] ?? []).join("\n");
 }
 
 /**
