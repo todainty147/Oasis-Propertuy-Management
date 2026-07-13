@@ -24,6 +24,7 @@ import { useRealtimeTables } from "../hooks/useRealtimeTables";
 import { formatCurrencyAmount } from "../utils/currency";
 import { getLeaseAttentionItems, getLeaseSummary } from "../services/leaseService";
 import { listPropertyOperationalHealthScores, summarizePropertyOperationalHealth } from "../services/propertyHealthScoreService";
+import { getImportedReviewCount } from "../services/complianceImportService";
 import { isManageRole } from "../utils/permissions";
 import { ENTITLEMENT_FEATURES } from "../lib/entitlements";
 import OnboardingHintCard from "../components/OnboardingHintCard";
@@ -414,6 +415,7 @@ export default function PortfolioHealthDashboardPage() {
 
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState("");
+  const [importedReviewCount, setImportedReviewCount] = useState(0);
   const [snapshot, setSnapshot]         = useState(null);
   const [attentionItems, setAttentionItems] = useState([]);
   const [leaseAttentionItems, setLeaseAttentionItems] = useState([]);
@@ -445,12 +447,13 @@ export default function PortfolioHealthDashboardPage() {
       setLoading(true);
       setError("");
       try {
-        const [snapshotRow, attention, leaseAttention, leaseSummaryRow, healthRows] = await Promise.all([
+        const [snapshotRow, attention, leaseAttention, leaseSummaryRow, healthRows, importedCount] = await Promise.all([
           getPortfolioHealthSnapshot(activeAccountId, activeTenantId || null),
           getPortfolioAttentionItems(activeAccountId, activeTenantId || null, 10),
           getLeaseAttentionItems(activeAccountId, 6),
           getLeaseSummary(activeAccountId),
           listPropertyOperationalHealthScores(activeAccountId, { limit: 200 }),
+          getImportedReviewCount(activeAccountId).catch(() => 0),
         ]);
         if (dead) return;
         setSnapshot(snapshotRow);
@@ -458,6 +461,7 @@ export default function PortfolioHealthDashboardPage() {
         setLeaseAttentionItems(Array.isArray(leaseAttention) ? leaseAttention : []);
         setLeaseSummary(leaseSummaryRow || null);
         setPropertyHealthRows(Array.isArray(healthRows) ? healthRows : []);
+        setImportedReviewCount(Number(importedCount) || 0);
       } catch (e) {
         if (!dead) setError(e?.message || t("portfolio.error"));
       } finally {
@@ -482,7 +486,7 @@ export default function PortfolioHealthDashboardPage() {
     onChange: async () => {
       if (!activeAccountId || !canManage) return;
       try {
-        const [snapshotRow, attention, leaseAttention, leaseSummaryRow, reportingRow, healthRows, weeklyInsight] = await Promise.all([
+        const [snapshotRow, attention, leaseAttention, leaseSummaryRow, reportingRow, healthRows, weeklyInsight, importedCount] = await Promise.all([
           getPortfolioHealthSnapshot(activeAccountId, activeTenantId || null, { forceRefresh: true }),
           getPortfolioAttentionItems(activeAccountId, activeTenantId || null, 10),
           getLeaseAttentionItems(activeAccountId, 6),
@@ -490,6 +494,7 @@ export default function PortfolioHealthDashboardPage() {
           getAccountReportSettings(activeAccountId),
           listPropertyOperationalHealthScores(activeAccountId, { limit: 200 }),
           getWeeklyPortfolioInsight({ accountId: activeAccountId, forceRefresh: true }).catch(() => null),
+          getImportedReviewCount(activeAccountId).catch(() => 0),
         ]);
         setSnapshot(snapshotRow || null);
         setAttentionItems(Array.isArray(attention) ? attention : []);
@@ -498,6 +503,7 @@ export default function PortfolioHealthDashboardPage() {
         setPropertyHealthRows(Array.isArray(healthRows) ? healthRows : []);
         setReporting(reportingRow || null);
         setWeeklyPortfolioInsight(weeklyInsight || null);
+        setImportedReviewCount(Number(importedCount) || 0);
       } catch {
         // silent on realtime refresh errors
       }
@@ -731,6 +737,22 @@ export default function PortfolioHealthDashboardPage() {
         <StatCard title={t("portfolio.kpi.highRiskProperties")} value={propertyHealthSummary.highRiskCount} to="/properties"  tone="rose" />
         <StatCard title={t("portfolio.hero.attentionNeeded")} value={propertyHealthSummary.attentionCount} to="/properties" tone="amber" />
       </StatGroup>
+
+      {importedReviewCount > 0 && (
+        <Card
+          className="p-4 border border-sky-200 bg-sky-50"
+          data-testid="portfolio-imported-review-note"
+        >
+          <p className="text-sm font-semibold text-sky-800">
+            {importedReviewCount} imported compliance{" "}
+            {importedReviewCount === 1 ? "record needs" : "records need"} review.
+          </p>
+          <p className="mt-1 text-xs text-sky-700">
+            These records do not currently affect your Portfolio Health score. They were
+            supplied through spreadsheet import and have not been independently verified.
+          </p>
+        </Card>
+      )}
 
       {/* Occupancy & Leases */}
       <StatGroup label={t("portfolio.section.occupancy")}>

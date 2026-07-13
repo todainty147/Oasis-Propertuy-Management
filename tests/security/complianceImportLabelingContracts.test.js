@@ -168,12 +168,20 @@ describe("P-009B compliance import labeling gate", () => {
 
   // ── Unreachable surfaces (confirm no accidental labels added) ───────────────
 
-  it("PropertyComplianceCard does not reference import_batch_id (IMPORTED-DATA-CANNOT-REACH-IT)", () => {
+  it("PropertyComplianceCard list shows attested rows but native summary counts exclude them (P-009C1 containment)", () => {
     const card = read("src/components/PropertyComplianceCard.jsx");
-    // This card reads from compliance_items (old table), not tenancy_compliance_items.
-    // It should not render an import badge — no imported data can reach it.
-    expect(card).not.toContain("import_batch_id");
-    expect(card).not.toContain("Attested import");
+    // P-009C1: attested imported rows ARE now visible in the list section.
+    // Contract: summary counts (overdue/dueSoon/active) iterate 'rows' only — NOT attestedRows.
+    // The list section may show attestedRows with the Attested import badge.
+    expect(card).toContain("Attested import");
+    expect(card).toContain("attestedRows");
+    // Containment: summary useMemo iterates 'rows' not attestedRows
+    const summaryIdx = card.indexOf("const summary = useMemo");
+    const forRowsIdx = card.indexOf("for (const row of rows)", summaryIdx);
+    const forAttestedIdx = card.indexOf("for (const row of attestedRows)", summaryIdx);
+    expect(summaryIdx).toBeGreaterThan(0);
+    expect(forRowsIdx).toBeGreaterThan(summaryIdx);
+    expect(forAttestedIdx).toBe(-1); // attestedRows must NOT be in summary loop
   });
 
   it("command_center_items SQL reads from compliance_items only — no import_batch_id exposure", () => {

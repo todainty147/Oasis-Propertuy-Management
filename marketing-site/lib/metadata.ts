@@ -2,6 +2,16 @@ import type { Metadata } from "next";
 
 import { siteConfig } from "../content/site";
 
+// German locale is withdrawn: strip "de" alternates site-wide so no hreflang points to /de pages.
+function stripGermanAlternates(
+  languages: Record<string, string> | undefined,
+): Record<string, string> | undefined {
+  if (!languages) return undefined;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { de: _de, ...rest } = languages;
+  return Object.keys(rest).length > 0 ? rest : undefined;
+}
+
 export function buildMetadata({
   title,
   description,
@@ -19,7 +29,7 @@ export function buildMetadata({
     description,
     alternates: {
       canonical,
-      languages,
+      languages: stripGermanAlternates(languages),
     },
     openGraph: {
       title,

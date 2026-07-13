@@ -632,6 +632,16 @@ const bootstrapSteps = [
     file: path.join(supabaseDir, "spreadsheet_import_v1.sql"),
     onErrorStop: true,
   },
+  {
+    label: "Apply compliance import labeling overlay",
+    file: path.join(supabaseDir, "compliance_import_labeling.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply P-009C1 compliance gap unified overlay",
+    file: path.join(supabaseDir, "p009c1_compliance_gap_unified.sql"),
+    onErrorStop: true,
+  },
 ];
 
 function resolvePsqlCommand() {

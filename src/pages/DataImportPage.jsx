@@ -23,6 +23,13 @@ const TABS = [
   { key: "maintenance", label: "Maintenance" },
 ];
 
+const TAB_COPY = {
+  compliance:
+    "Compliance imports create attested landlord-supplied records. They do not prove historic compliance and are not Tenaqo-verified evidence.",
+  maintenance:
+    "Maintenance imports are for historical records and open issues. Re-imported maintenance rows may need review to avoid duplicates.",
+};
+
 const STATUS_BADGE = {
   imported: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300",
   skipped: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
@@ -256,8 +263,8 @@ export default function DataImportPage() {
   }, [activeAccountId, file, parsedRows, activeTab, csvText]);
 
   const handleDownloadTemplate = () => {
-    const headers = getTemplateHeaders(activeTab);
-    const blob = new Blob([headers + "\n"], { type: "text/csv" });
+    const csv = getTemplateHeaders(activeTab);
+    const blob = new Blob([csv + "\n"], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -288,7 +295,7 @@ export default function DataImportPage() {
           className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
         >
           <Download className="h-4 w-4" />
-          CSV template
+          {TABS.find((t) => t.key === activeTab)?.label} CSV template
         </button>
       </div>
 
@@ -319,6 +326,16 @@ export default function DataImportPage() {
           </button>
         ))}
       </div>
+
+      {/* Tab-specific helper copy */}
+      {TAB_COPY[activeTab] && (
+        <div
+          className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-800 dark:border-sky-900/40 dark:bg-sky-950/40 dark:text-sky-200"
+          data-testid="tab-import-copy"
+        >
+          {TAB_COPY[activeTab]}
+        </div>
+      )}
 
       {/* File drop zone */}
       <div

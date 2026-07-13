@@ -193,6 +193,7 @@ const OVERLAY_SEQUENCE = [
   "work_order_evidence_pack.sql",
   "spreadsheet_import_v1.sql",
   "compliance_import_labeling.sql",
+  "p009c1_compliance_gap_unified.sql",
 ];
 
 function resolvePsqlCommand() {

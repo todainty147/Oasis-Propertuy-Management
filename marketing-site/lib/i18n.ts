@@ -19,7 +19,7 @@ const localizedPaths = new Set([
   "/tenant-portal-software",
   "/blog",
   "/impressum",
-  "/compare/oasis-vs-landlordstudio",
+  "/compare/tenaqo-vs-landlord-management-apps",
 ]);
 
 const localizedPathAliases: Partial<Record<string, string>> = {};

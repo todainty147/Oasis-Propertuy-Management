@@ -156,7 +156,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       imageSrc: "/screenshots/command-center.png",
       imageAlt:
         "Tenaqo landlord dashboard showing rent status, maintenance workflows, and portfolio action queue",
-      primaryCta: { label: "Claim Founder Access", href: siteConfig.appUrl },
+      primaryCta: { label: "Claim Founder Access", href: siteConfig.signupUrl },
       secondaryCta: { label: "Compare with Traditional Agents", href: "#agent-comparison" },
     },
     trustBar: {
@@ -503,7 +503,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       title: "See Tenaqo before public launch",
       body:
         "If your real problem is keeping maintenance, documents, payments visibility, compliance evidence, and follow-up moving together — and you want to start from the spreadsheet you already use — Tenaqo is built for that stage.",
-      primaryCta: { label: "Claim Founder Access", href: siteConfig.appUrl },
+      primaryCta: { label: "Claim Founder Access", href: siteConfig.signupUrl },
       secondaryCta: { label: "Explore Tenaqo features", href: "/features" },
     },
   },
@@ -526,7 +526,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       imageSrc: "/screenshots/command-center.png",
       imageAlt:
         "Panel właściciela Tenaqo pokazujący status czynszów, obiegi napraw i kolejkę zadań dla portfela",
-      primaryCta: { label: "Odbierz dostęp Founder", href: siteConfig.appUrl },
+      primaryCta: { label: "Odbierz dostęp Founder", href: siteConfig.signupUrl },
       secondaryCta: { label: "Porównaj z tradycyjnymi agencjami", href: "/features/tenant-portal" },
     },
     problemSection: {
@@ -732,7 +732,7 @@ export const homepageContentByLocale: Record<Locale, HomePageContent> = {
       title: "Zobacz Tenaqo przed publiczną premierą",
       body:
         "Jeśli Twoim prawdziwym problemem jest jednoczesne zapanowanie nad naprawami, dokumentami, widocznością płatności i ciągłością działań, Tenaqo zostało stworzone właśnie na ten etap.",
-      primaryCta: { label: "Odbierz dostęp Founder", href: siteConfig.appUrl },
+      primaryCta: { label: "Odbierz dostęp Founder", href: siteConfig.signupUrl },
       secondaryCta: { label: "Zobacz, jak działa Tenaqo", href: "/features/tenant-portal" },
     },
   },

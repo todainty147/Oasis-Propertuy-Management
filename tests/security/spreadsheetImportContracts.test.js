@@ -426,3 +426,74 @@ describe("Decision M — maintenance re-import → needs_review (no silent dup, 
     expect(sql).not.toMatch(/maintenance.*import_key/i);
   });
 });
+
+// ── §12 Template content contracts (P-009 template pass) ─────────────────────
+
+describe("CSV template structure — all four tabs", () => {
+  const parserSrc = read("src/lib/spreadsheetParser.js");
+  // Isolate the TEMPLATES literal inside getTemplateHeaders
+  const templatesStart = parserSrc.indexOf("const TEMPLATES = {");
+  const templatesEnd = parserSrc.indexOf("return (TEMPLATES", templatesStart);
+  const templatesBlock = parserSrc.slice(templatesStart, templatesEnd);
+
+  it("getTemplateHeaders is still exported (contract lock)", () => {
+    expect(parserSrc).toContain("export function getTemplateHeaders");
+  });
+
+  it("compliance template uses compliance_type as header column (not requirement_type)", () => {
+    // The header row in the compliance TEMPLATES array must use compliance_type
+    expect(templatesBlock).toContain("compliance_type");
+    // requirement_type must NOT appear in the TEMPLATES literal (it's an internal canonical key)
+    expect(templatesBlock).not.toContain("requirement_type");
+  });
+
+  it("compliance template includes tenancy_start_date column", () => {
+    expect(templatesBlock).toContain("tenancy_start_date");
+  });
+
+  it("compliance template includes all 6 compliance_type example values", () => {
+    const TYPES = [
+      "epc",
+      "gas_safety_certificate",
+      "eicr",
+      "deposit_protection_certificate",
+      "how_to_rent",
+      "deposit_prescribed_information",
+    ];
+    for (const t of TYPES) {
+      expect(templatesBlock).toContain(t);
+    }
+  });
+
+  it("maintenance template header includes reported_date, completed_date, contractor_name, cost, notes", () => {
+    expect(templatesBlock).toContain("reported_date");
+    expect(templatesBlock).toContain("completed_date");
+    expect(templatesBlock).toContain("contractor_name");
+    expect(templatesBlock).toContain("cost");
+  });
+
+  it("templates do not include phantom single-type compliance columns", () => {
+    const PHANTOM = ["epc_expiry", "gas_cp12_date", "eicr_date", "gas_safety_expiry", "deposit_ref_number"];
+    for (const col of PHANTOM) {
+      expect(parserSrc).not.toContain(col);
+    }
+  });
+
+  it("DataImportPage tab-specific copy contains attested-import wording for compliance", () => {
+    const page = read("src/pages/DataImportPage.jsx");
+    expect(page).toContain("attested landlord-supplied records");
+    expect(page).toContain("do not prove historic compliance");
+  });
+
+  it("DataImportPage tab-specific copy for maintenance mentions duplicates review", () => {
+    const page = read("src/pages/DataImportPage.jsx");
+    expect(page).toContain("duplicates");
+  });
+
+  it("DataImportPage template button label is tab-aware (not generic)", () => {
+    const page = read("src/pages/DataImportPage.jsx");
+    // Button must reference the active tab label, not a hardcoded string
+    expect(page).toContain("activeTab");
+    expect(page).not.toContain('"CSV template"');
+  });
+});

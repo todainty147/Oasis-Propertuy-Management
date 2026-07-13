@@ -39,7 +39,7 @@ export function PricingCards({
                 ))}
               </ul>
               <div className="button-row">
-                <Link href={siteConfig.appUrl} className="button button-primary">
+                <Link href={siteConfig.signupUrl} className="button button-primary">
                   {ctaLabel}
                 </Link>
               </div>

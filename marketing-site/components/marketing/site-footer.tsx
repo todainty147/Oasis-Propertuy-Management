@@ -38,13 +38,13 @@ export function SiteFooter() {
         <div className="footer-links">
           <Link href={getLocalizedMarketingHref(locale, "/features")}>{copy.footerLinks.features}</Link>
           <Link href={getLocalizedMarketingHref(locale, "/pricing")}>{copy.footerLinks.pricing}</Link>
-          <Link href={getLocalizedMarketingHref(locale, "/compare/oasis-vs-landlordstudio")}>
+          <Link href={getLocalizedMarketingHref(locale, "/compare/tenaqo-vs-landlord-management-apps")}>
             {copy.footerLinks.compare}
           </Link>
           {locale === "en" ? <Link href="/landlord-tools">{copy.footerLinks.tools}</Link> : null}
           <Link href={getLocalizedMarketingHref(locale, "/blog")}>{copy.footerLinks.blog}</Link>
           <Link href={getLocalizedMarketingHref(locale, "/impressum")}>{copy.footerLinks.legalNotice}</Link>
-          <Link href={siteConfig.appUrl}>{copy.footerLinks.earlyAccess}</Link>
+          <Link href={siteConfig.signupUrl}>{copy.footerLinks.earlyAccess}</Link>
         </div>
       </div>
     </footer>

@@ -63,7 +63,7 @@ const trustPoints = [
 
 export function MarketingHomePage({ locale }: { locale: Locale }) {
   const c = homepageContentByLocale[locale];
-  const founderHref = getLocalizedMarketingHref(locale, c.hero.primaryCta.href || siteConfig.appUrl);
+  const founderHref = getLocalizedMarketingHref(locale, c.hero.primaryCta.href || siteConfig.signupUrl);
   const pricingHref = getLocalizedMarketingHref(locale, "/pricing");
 
   return (
