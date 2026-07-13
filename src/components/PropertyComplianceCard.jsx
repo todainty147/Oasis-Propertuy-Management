@@ -18,6 +18,7 @@ import {
   listMissingComplianceSetup,
   unlinkComplianceDocument,
 } from "../services/complianceService";
+import { listAttestedComplianceItems } from "../services/legalSecurityService";
 
 const CATEGORY_OPTIONS = [
   "gas_safety",
@@ -53,6 +54,7 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [rows, setRows] = useState([]);
+  const [attestedRows, setAttestedRows] = useState([]);
   const [missingRows, setMissingRows] = useState([]);
   const [propertyDocuments, setPropertyDocuments] = useState([]);
   const [linkedDocuments, setLinkedDocuments] = useState([]);
@@ -90,7 +92,7 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
     setLoading(true);
     setError("");
     try {
-      const [next, missing, docs] = await Promise.all([
+      const [next, missing, docs, attested] = await Promise.all([
         listComplianceItems({
           accountId,
           propertyId,
@@ -102,6 +104,7 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
           accountId,
           propertyId,
         }),
+        listAttestedComplianceItems({ accountId, propertyId }),
       ]);
       const links = await listComplianceDocumentLinks({
         accountId,
@@ -109,11 +112,13 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
         complianceItemIds: next.map((row) => row.id),
       });
       setRows(next);
+      setAttestedRows(Array.isArray(attested) ? attested : []);
       setMissingRows(missing);
       setPropertyDocuments(Array.isArray(docs) ? docs : []);
       setLinkedDocuments(Array.isArray(links) ? links : []);
     } catch (e) {
       setRows([]);
+      setAttestedRows([]);
       setMissingRows([]);
       setPropertyDocuments([]);
       setLinkedDocuments([]);
@@ -132,6 +137,7 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
     enabled: !!accountId && !!propertyId,
     subscriptions: [
       { channel: `property-compliance:${propertyId}`, table: "compliance_items", filter: `account_id=eq.${accountId}` },
+      { channel: `property-compliance-attested:${propertyId}`, table: "tenancy_compliance_items", filter: `account_id=eq.${accountId}` },
       { channel: `property-compliance-links:${propertyId}`, table: "compliance_document_links", filter: `account_id=eq.${accountId}` },
       { channel: `property-compliance-documents:${propertyId}`, table: "documents", filter: `account_id=eq.${accountId}` },
     ],
@@ -434,6 +440,38 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {attestedRows.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-2">
+                Attested imports
+              </p>
+              <div className="space-y-2">
+                {attestedRows.map((row) => {
+                  const relevantDate = row.expires_at || row.due_date;
+                  const days = dueDays(relevantDate);
+                  const label = row.compliance_requirements?.label || "Compliance item";
+                  return (
+                    <div key={row.id} data-testid="attested-compliance-row" className="rounded-lg border border-sky-100 bg-sky-50/50 px-3 py-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium text-slate-900">{label}</p>
+                        <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs text-sky-700">
+                          Attested import
+                        </span>
+                        <span className={`rounded-full border px-2 py-0.5 text-xs ${dueTone(days)}`}>
+                          {row.status}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {relevantDate ? `Expires: ${relevantDate}` : "No expiry date"}
+                      </p>
+                      {row.notes ? <p className="mt-0.5 text-xs text-slate-600">{row.notes}</p> : null}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

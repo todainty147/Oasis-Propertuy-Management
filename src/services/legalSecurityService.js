@@ -24,7 +24,7 @@ const COMPLIANCE_TEMPLATE_SELECT = [
 const COMPLIANCE_ACK_SELECT = [
   "id", "account_id", "compliance_item_id", "tenant_id", "acknowledged_by",
   "acknowledgement_status", "message", "acknowledged_at", "comment", "created_at", "updated_at",
-  "tenancy_compliance_items(id, account_id, property_id, tenant_id, status, due_date, served_at, expires_at, evidence_document_id, evidence_source_type, evidence_source_id, notes, compliance_requirements(label, description, requirement_key, requirement_type, compliance_templates(country_code, jurisdiction, name)))",
+  "tenancy_compliance_items(id, account_id, property_id, tenant_id, status, due_date, served_at, expires_at, evidence_document_id, evidence_source_type, evidence_source_id, notes, import_batch_id, compliance_requirements(label, description, requirement_key, requirement_type, compliance_templates(country_code, jurisdiction, name)))",
 ].join(", ");
 
 const COMPLIANCE_EVENT_SELECT = "id, account_id, compliance_item_id, user_id, event_type, metadata, created_at";
@@ -75,6 +75,25 @@ const APPLICATION_SELECT = [
 function isMissingBackendObject(error) {
   const message = String(error?.message || "").toLowerCase();
   return error?.code === "42P01" || message.includes("relation") || message.includes("does not exist");
+}
+
+export async function listAttestedComplianceItems({ accountId, propertyId } = {}) {
+  if (!accountId) return [];
+  let query = supabase
+    .from("tenancy_compliance_items")
+    .select("id, account_id, property_id, tenant_id, status, expires_at, due_date, notes, import_batch_id, compliance_requirements(label)")
+    .eq("account_id", accountId)
+    .not("import_batch_id", "is", null)
+    .order("expires_at", { ascending: true });
+
+  if (propertyId) query = query.eq("property_id", propertyId);
+
+  const { data, error } = await query.limit(50);
+  if (error) {
+    if (isMissingBackendObject(error)) return [];
+    throw error;
+  }
+  return data || [];
 }
 
 export async function listComplianceSafeItems(accountId, filters = {}) {

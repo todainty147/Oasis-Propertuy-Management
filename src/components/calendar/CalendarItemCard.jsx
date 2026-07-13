@@ -83,6 +83,11 @@ export function CalendarItemCard({ item }) {
           {item.urgency === "critical" && (
             <AlertTriangle size={11} className="text-red-500 shrink-0" aria-label="Critical urgency" />
           )}
+          {item.is_attested_import && (
+            <span data-testid="attested-calendar-badge" className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border border-sky-200 bg-sky-50 text-sky-700">
+              Attested import
+            </span>
+          )}
         </div>
         {item.tenant_label && item.tenant_label !== "—" && (
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{item.tenant_label}</p>

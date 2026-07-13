@@ -196,6 +196,11 @@ function ItemCard({ item, t, lang }) {
               {t("commandCenter.badge.automation")}
             </span>
           )}
+          {item.source === "tenancy_compliance_items" && (
+            <span data-testid="attested-badge" className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
+              Attested import
+            </span>
+          )}
           {isFinancialApprovalItem(item) && (
             <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
               {t("commandCenter.badge.approval")}
@@ -419,6 +424,7 @@ export default function CommandCenterPage() {
       { channel: `command-center-leases:${activeAccountId}`, table: "leases", filter: `account_id=eq.${activeAccountId}` },
       { channel: `command-center-preventive:${activeAccountId}`, table: "preventive_maintenance_tasks", filter: `account_id=eq.${activeAccountId}` },
       { channel: `command-center-compliance:${activeAccountId}`, table: "compliance_items", filter: `account_id=eq.${activeAccountId}` },
+      { channel: `command-center-attested-compliance:${activeAccountId}`, table: "tenancy_compliance_items", filter: `account_id=eq.${activeAccountId}` },
       { channel: `command-center-notifications:${activeAccountId}`, table: "notifications", filter: `account_id=eq.${activeAccountId}` },
       { channel: `command-center-automation-runs:${activeAccountId}`, table: "automation_runs", filter: `account_id=eq.${activeAccountId}` },
       { channel: `command-center-security-alerts:${activeAccountId}`, table: "security_anomaly_alerts", filter: `account_id=eq.${activeAccountId}` },
