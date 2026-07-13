@@ -37,6 +37,7 @@ import {
   getDashboardSnapshot,
   mapDashboardHubItems,
 } from "../services/dashboardService";
+import { getImportedReviewCount } from "../services/complianceImportService";
 import { countActiveContractors } from "../services/contractorDirectoryService";
 import { isManageRole } from "../utils/permissions";
 import OnboardingHintCard from "../components/OnboardingHintCard";
@@ -107,6 +108,7 @@ export default function Dashboard({
   const [leaseSummary, setLeaseSummary] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
   const [hubExtras, setHubExtras] = useState([]);
+  const [importedReviewCount, setImportedReviewCount] = useState(0);
   const [contractorCount, setContractorCount] = useState(0);
   const [propertyHealthRows, setPropertyHealthRows] = useState([]);
   const [dismissedChecklistKeys, setDismissedChecklistKeys] = useState({});
@@ -168,6 +170,7 @@ export default function Dashboard({
         setLeaseSummary(null);
         setSnapshot(null);
         setHubExtras([]);
+        setImportedReviewCount(0);
         return;
       }
 
@@ -189,12 +192,14 @@ export default function Dashboard({
         if (canManage && !isTenant) {
           work.push(getMaintenanceAttention(activeAccountId));
           work.push(listPropertyOperationalHealthScores(activeAccountId, { limit: 200 }));
+          work.push(getImportedReviewCount(activeAccountId).catch(() => 0));
         } else {
           work.push(Promise.resolve([]));
           work.push(Promise.resolve([]));
+          work.push(Promise.resolve(0));
         }
 
-        const [snapshotRow, extras, leaseRows, leaseSummaryRow, rows, healthRows] = await Promise.all(work);
+        const [snapshotRow, extras, leaseRows, leaseSummaryRow, rows, healthRows, importedCount] = await Promise.all(work);
         if (!dead) {
           setSnapshot(snapshotRow || null);
           setHubExtras(Array.isArray(extras) ? extras : []);
@@ -202,6 +207,7 @@ export default function Dashboard({
           setLeaseSummary(leaseSummaryRow || null);
           setAttentionRows(Array.isArray(rows) ? rows : []);
           setPropertyHealthRows(Array.isArray(healthRows) ? healthRows : []);
+          setImportedReviewCount(Number(importedCount) || 0);
         }
       } catch {
         if (!dead) {
@@ -211,6 +217,7 @@ export default function Dashboard({
           setSnapshot(null);
           setHubExtras([]);
           setPropertyHealthRows([]);
+          setImportedReviewCount(0);
         }
       }
     }
@@ -248,14 +255,16 @@ export default function Dashboard({
         canManage && !isTenant ? getLeaseSummary(activeAccountId) : Promise.resolve(null),
         canManage && !isTenant ? getMaintenanceAttention(activeAccountId) : Promise.resolve([]),
         canManage && !isTenant ? listPropertyOperationalHealthScores(activeAccountId, { limit: 200 }) : Promise.resolve([]),
+        canManage && !isTenant ? getImportedReviewCount(activeAccountId).catch(() => 0) : Promise.resolve(0),
       ])
-        .then(([snapshotRow, extras, leaseRows, leaseSummaryRow, rows, healthRows]) => {
+        .then(([snapshotRow, extras, leaseRows, leaseSummaryRow, rows, healthRows, importedCount]) => {
           setSnapshot(snapshotRow || null);
           setHubExtras(Array.isArray(extras) ? extras : []);
           setLeaseAttentionRows(Array.isArray(leaseRows) ? leaseRows : []);
           setLeaseSummary(leaseSummaryRow || null);
           setAttentionRows(Array.isArray(rows) ? rows : []);
           setPropertyHealthRows(Array.isArray(healthRows) ? healthRows : []);
+          setImportedReviewCount(Number(importedCount) || 0);
         })
         .catch(() => {
           setSnapshot(null);
@@ -264,6 +273,7 @@ export default function Dashboard({
           setLeaseSummary(null);
           setAttentionRows([]);
           setPropertyHealthRows([]);
+          setImportedReviewCount(0);
         });
     },
   });
@@ -784,6 +794,24 @@ export default function Dashboard({
                 </OperationalListItem>
               ))}
             </OperationalList>
+          )}
+          {importedReviewCount > 0 && (
+            <div
+              className="mt-4 border-t border-[var(--border-soft)] pt-3"
+              data-testid="dashboard-imported-review-block"
+            >
+              <p className="text-xs font-semibold text-sky-700">
+                Imported compliance records to review
+              </p>
+              <p className="mt-0.5 text-sm text-[var(--text-primary)]">
+                {importedReviewCount} spreadsheet-supplied{" "}
+                {importedReviewCount === 1 ? "record needs" : "records need"} review.
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                Dates were supplied through spreadsheet import and have not been independently
+                verified. Review the source record before acting.
+              </p>
+            </div>
           )}
         </TenaqoCard>
 

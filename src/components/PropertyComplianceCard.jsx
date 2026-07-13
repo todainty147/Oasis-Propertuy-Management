@@ -158,6 +158,17 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
     return { overdue, dueSoon, active };
   }, [rows]);
 
+  // Canonical imported-review predicate (P-009C2):
+  // scan_status IN ('overdue', 'due_soon', 'missing') — derived from expires_at/reminder_days_before,
+  // matching the server-side scan_status logic in compliance_gap_unified.
+  const attestedReviewCount = useMemo(() => {
+    return attestedRows.filter((row) => {
+      const days = dueDays(row.expires_at || row.due_date);
+      if (days === null) return true; // no expiry date → 'missing'
+      return days < 0 || days <= Number(row.reminder_days_before || 30);
+    }).length;
+  }, [attestedRows]);
+
   async function handleCreate(e) {
     e.preventDefault();
     if (!accountId || !propertyId) return;
@@ -445,6 +456,19 @@ export default function PropertyComplianceCard({ accountId, propertyId }) {
 
           {attestedRows.length > 0 && (
             <div className="mt-4">
+              {attestedReviewCount > 0 && (
+                <div
+                  className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2"
+                  data-testid="attested-review-count"
+                >
+                  <p className="text-xs font-semibold text-sky-700">
+                    Imported compliance records to review: {attestedReviewCount}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-sky-600">
+                    Dates were supplied through spreadsheet import. Review before acting.
+                  </p>
+                </div>
+              )}
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-2">
                 Attested imports
               </p>
