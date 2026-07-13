@@ -49,6 +49,46 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
   outputFileTracingRoot: __dirname,
+  async redirects() {
+    return [
+      // Old OASIS comparison routes → new generic Tenaqo comparison page (permanent 301)
+      {
+        source: "/compare/oasis-vs-landlordstudio",
+        destination: "/compare/tenaqo-vs-landlord-management-apps",
+        permanent: true,
+      },
+      {
+        source: "/compare/oasis-vs-buildium",
+        destination: "/compare/tenaqo-vs-landlord-management-apps",
+        permanent: true,
+      },
+      {
+        source: "/compare/oasis-vs-tenantcloud",
+        destination: "/compare/tenaqo-vs-landlord-management-apps",
+        permanent: true,
+      },
+      {
+        source: "/pl/compare/oasis-vs-landlordstudio",
+        destination: "/pl/compare/tenaqo-vs-landlord-management-apps",
+        permanent: true,
+      },
+      // German locale fully withdrawn.
+      // The German comparison route is redirected directly (single hop) rather than letting the
+      // catch-all produce a chain via /compare/oasis-vs-landlordstudio.
+      {
+        source: "/de/compare/:slug*",
+        destination: "/compare/tenaqo-vs-landlord-management-apps",
+        permanent: true,
+      },
+      // /de/:path+ (one-or-more) skips the bare /de so middleware.ts handles that exact case.
+      // next.config.mjs redirects run before middleware; :path* (zero-or-more) would intercept /de and produce empty Location.
+      {
+        source: "/de/:path+",
+        destination: "/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

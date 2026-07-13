@@ -13,7 +13,7 @@ import {
   type Locale,
 } from "../../lib/i18n";
 
-const languageOrder: Locale[] = ["en", "pl", "de"];
+const languageOrder: Locale[] = ["en", "pl"];
 const languageFlags: Record<Locale, string> = {
   en: "🇬🇧",
   pl: "🇵🇱",
@@ -138,7 +138,7 @@ export function SiteHeader() {
           <Link href={siteConfig.appUrl} onClick={closeNav}>
             {copy.signIn}
           </Link>
-          <Link href={siteConfig.appUrl} className="button button-primary" onClick={closeNav}>
+          <Link href={siteConfig.signupUrl} className="button button-primary" onClick={closeNav}>
             {copy.primaryCta}
           </Link>
         </nav>

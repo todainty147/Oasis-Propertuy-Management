@@ -142,7 +142,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
         ],
       },
     ],
-    planCtaLabel: "Open the Tenaqo app",
+    planCtaLabel: "Start with Tenaqo",
     included: {
       title: "Every plan includes the core rental workflow",
       bullets: [
@@ -207,7 +207,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       title: "Try Tenaqo before we launch publicly",
       body:
         "Get early access, test the workflows, and help shape how Tenaqo supports landlords as it evolves.",
-      primaryCta: { label: "Open the Tenaqo app", href: siteConfig.appUrl },
+      primaryCta: { label: "Start with Tenaqo", href: siteConfig.signupUrl },
     },
   },
   pl: {
@@ -296,7 +296,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
         ],
       },
     ],
-    planCtaLabel: "Zobacz, jak działa Tenaqo",
+    planCtaLabel: "Zacznij z Tenaqo",
     included: {
       title: "Każdy plan obejmuje podstawowy workflow najmu",
       bullets: [
@@ -350,7 +350,7 @@ export const pricingContentByLocale: Record<Locale, PricingPageContent> = {
       title: "Wypróbuj Tenaqo przed publicznym startem",
       body:
         "Uzyskaj wcześniejszy dostęp, przetestuj workflow i pomóż kształtować to, jak Tenaqo wspiera właścicieli mieszkań.",
-      primaryCta: { label: "Zobacz, jak działa Tenaqo", href: siteConfig.appUrl },
+      primaryCta: { label: "Zacznij z Tenaqo", href: siteConfig.signupUrl },
     },
   },
   de: {

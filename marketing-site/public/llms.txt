@@ -27,9 +27,7 @@
 - [HMRC Expense Tester](https://www.tenaqo.com/landlord-tools/hmrc-expense-tester): UK landlord expense categorisation helper.
 - [Section 24 Shock Calculator](https://www.tenaqo.com/landlord-tools/section-24-shock-calculator): UK finance cost tax impact estimator.
 - [MTD Readiness Check](https://www.tenaqo.com/landlord-tools/mtd-readiness-check): Making Tax Digital readiness helper.
-- [Tenaqo vs Landlord Studio](https://www.tenaqo.com/compare/oasis-vs-landlordstudio): Product comparison.
-- [Tenaqo vs Buildium](https://www.tenaqo.com/compare/oasis-vs-buildium): Product comparison.
-- [Tenaqo vs TenantCloud](https://www.tenaqo.com/compare/oasis-vs-tenantcloud): Product comparison.
+- [Tenaqo vs Landlord Management Apps](https://www.tenaqo.com/compare/tenaqo-vs-landlord-management-apps): Product comparison.
 
 ## Content Indexes
 

@@ -7,13 +7,16 @@ export const siteConfig = {
   url: process.env.NEXT_PUBLIC_SITE_URL || "https://www.tenaqo.com",
   appUrl:
     process.env.NEXT_PUBLIC_APP_URL ||
-    (isProduction ? "https://oasisrentalmgt.app" : "http://localhost:5173"),
+    (isProduction ? "https://app.tenaqo.com" : "http://localhost:5173"),
+  signupUrl:
+    process.env.NEXT_PUBLIC_SIGNUP_URL ||
+    (isProduction ? "https://app.tenaqo.com/signup" : "http://localhost:5173/signup"),
   nav: [
     { key: "features", href: "/features" },
     { key: "tenantPortal", href: "/features/tenant-portal" },
     { key: "tools", href: "/landlord-tools" },
     { key: "pricing", href: "/pricing" },
-    { key: "compare", href: "/compare/oasis-vs-landlordstudio" },
+    { key: "compare", href: "/compare/tenaqo-vs-landlord-management-apps" },
     { key: "blog", href: "/blog" },
   ] as const,
 };
