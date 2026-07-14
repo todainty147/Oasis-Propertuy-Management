@@ -44,6 +44,7 @@ export function SiteFooter() {
           {locale === "en" ? <Link href="/landlord-tools">{copy.footerLinks.tools}</Link> : null}
           <Link href={getLocalizedMarketingHref(locale, "/blog")}>{copy.footerLinks.blog}</Link>
           {locale !== "de" ? <Link href="/help">{copy.footerLinks.help}</Link> : null}
+          {locale !== "de" ? <Link href="/changelog">{copy.footerLinks.changelog}</Link> : null}
           <Link href={getLocalizedMarketingHref(locale, "/impressum")}>{copy.footerLinks.legalNotice}</Link>
           <Link href={siteConfig.signupUrl}>{copy.footerLinks.earlyAccess}</Link>
         </div>

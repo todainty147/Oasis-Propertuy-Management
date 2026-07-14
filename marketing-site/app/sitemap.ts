@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 
 import { blogArticles } from "../content/blog";
+import { changelogEntries } from "../content/changelog";
 import { helpArticles } from "../content/help";
 import { cityPages } from "../content/locations";
 import { siteConfig } from "../content/site";
@@ -43,6 +44,8 @@ const routes = [
   ...blogArticles.map((article) => `/blog/${article.slug}`),
   "/help",
   ...helpArticles.map((article) => `/help/${article.slug}`),
+  "/changelog",
+  ...changelogEntries.map((entry) => `/changelog/${entry.slug}`),
   "/locations",
   ...cityPages.map((c) => `/locations/${c.slug}`),
 ];
