@@ -35,6 +35,7 @@ type SiteCopy = {
     tools: string;
     blog: string;
     help: string;
+    changelog: string;
     legalNotice: string;
     earlyAccess: string;
   };
@@ -67,6 +68,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       tools: "Landlord tax tools",
       blog: "Blog",
       help: "Help",
+      changelog: "Changelog",
       legalNotice: "Legal notice",
       earlyAccess: "Early access",
     },
@@ -101,6 +103,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       tools: "Narzędzia podatkowe",
       blog: "Blog",
       help: "Help",
+      changelog: "Changelog",
       legalNotice: "Informacje prawne",
       earlyAccess: "Wczesny dostęp",
     },
@@ -138,6 +141,8 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       tools: "Vermieter-Steuertools",
       blog: "Blog",
       help: "Help",
+      // German marketing routes were withdrawn in WP1; changelog label present for type completeness only.
+      changelog: "Changelog",
       legalNotice: "Impressum",
       earlyAccess: "Frühzugang",
     },
