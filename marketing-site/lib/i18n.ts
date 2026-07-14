@@ -19,7 +19,9 @@ const localizedPaths = new Set([
   "/tenant-portal-software",
   "/blog",
   "/impressum",
-  "/compare/tenaqo-vs-landlord-management-apps",
+  // /compare/tenaqo-vs-landlord-management-apps is English-only (WP4C).
+  // Polish navigation links directly to the English route; the /pl/compare/...
+  // page issues a permanent redirect (308) to the canonical English URL.
 ]);
 
 const localizedPathAliases: Partial<Record<string, string>> = {};
