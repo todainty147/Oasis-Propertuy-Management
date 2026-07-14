@@ -1,0 +1,14 @@
+My Property Portfolio 2024
+external_property_ref,address ,  city  ,Monthly Rent,Property Type,notes
+MESSY-001,14 Oak Street,London,£1250,flat,Standard entry
+MESSY-002, 14 Oak St ,London,1250,flat,Variant spelling — normalised match expected
+MESSY-003,"14, Oak Street",London,1250,flat,Comma in address variant
+
+MESSY-004,14 Oak Street,,£1250,flat,Missing city — should still import
+MESSY-005, 14 Oak Street ,London,1250,flat,Leading/trailing whitespace variant
+Explanatory note — the following rows are additional properties not related to the above
+MESSY-006,25 Birch Road,Manchester,900,terraced,Standard property
+MESSY-006,25 Birch Road,Manchester,900,terraced,Exact duplicate — should be skipped on re-import
+MESSY-007,40 Elm Close  ,Birmingham  ,800,semi-detached,Trailing whitespace in city
+MESSY-008,  Flat 1 50 Cedar Lane  ,London,1100,flat,Flat with surrounding whitespace
+MESSY-009,Unit 2B The Maltings,Bristol,950,flat,Unit reference with building name

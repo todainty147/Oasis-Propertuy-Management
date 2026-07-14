@@ -194,6 +194,7 @@ const OVERLAY_SEQUENCE = [
   "spreadsheet_import_v1.sql",
   "compliance_import_labeling.sql",
   "p009c1_compliance_gap_unified.sql",
+  "migrations/20260714000000_fix_compliance_import_provenance_fail_closed.sql",
 ];
 
 function resolvePsqlCommand() {

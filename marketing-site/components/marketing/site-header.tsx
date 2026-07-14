@@ -90,7 +90,11 @@ export function SiteHeader() {
           className={`site-nav${navOpen ? " site-nav--open" : ""}`}
           aria-label="Primary"
         >
-          {siteConfig.nav.filter((item) => locale === "en" || item.key !== "tools").map((item) => (
+          {siteConfig.nav.filter((item) => {
+            if (item.key === "tools" && locale !== "en") return false;
+            if (item.key === "help" && locale === "de") return false;
+            return true;
+          }).map((item) => (
             <Link
               key={item.key}
               href={getLocalizedMarketingHref(

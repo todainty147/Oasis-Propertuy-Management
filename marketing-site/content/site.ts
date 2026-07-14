@@ -18,6 +18,7 @@ export const siteConfig = {
     { key: "pricing", href: "/pricing" },
     { key: "compare", href: "/compare/tenaqo-vs-landlord-management-apps" },
     { key: "blog", href: "/blog" },
+    { key: "help", href: "/help" },
   ] as const,
 };
 
@@ -33,6 +34,7 @@ type SiteCopy = {
     compare: string;
     tools: string;
     blog: string;
+    help: string;
     legalNotice: string;
     earlyAccess: string;
   };
@@ -49,6 +51,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       pricing: "Pricing",
       compare: "Compare",
       blog: "Blog",
+      help: "Help",
     },
     navHrefOverrides: {
       tenantPortal: "/tenant-portal-software",
@@ -63,6 +66,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       compare: "Compare",
       tools: "Landlord tax tools",
       blog: "Blog",
+      help: "Help",
       legalNotice: "Legal notice",
       earlyAccess: "Early access",
     },
@@ -81,6 +85,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       pricing: "Cennik",
       compare: "Porównanie",
       blog: "Blog",
+      help: "Help",
     },
     navHrefOverrides: {
       tenantPortal: "/tenant-portal-software",
@@ -95,6 +100,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       compare: "Porównanie",
       tools: "Narzędzia podatkowe",
       blog: "Blog",
+      help: "Help",
       legalNotice: "Informacje prawne",
       earlyAccess: "Wczesny dostęp",
     },
@@ -105,6 +111,9 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       de: "DE",
     },
   },
+  // German marketing routes were withdrawn in WP1.
+  // Keep the help label in the locale record for type completeness,
+  // but do not render Help navigation for the de locale.
   de: {
     nav: {
       features: "Funktionen",
@@ -113,6 +122,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       pricing: "Preise",
       compare: "Vergleich",
       blog: "Blog",
+      help: "Help",
     },
     navHrefOverrides: {
       tenantPortal: "/tenant-portal-software",
@@ -127,6 +137,7 @@ export const siteCopyByLocale: Record<Locale, SiteCopy> = {
       compare: "Vergleich",
       tools: "Vermieter-Steuertools",
       blog: "Blog",
+      help: "Help",
       legalNotice: "Impressum",
       earlyAccess: "Frühzugang",
     },

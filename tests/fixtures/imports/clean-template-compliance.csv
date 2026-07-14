@@ -1,0 +1,8 @@
+external_property_ref,address,tenant_email,compliance_type,completed_date,expiry_date,scheme_reference,notes
+TMPL-001,10 Clean Street,alice@clean.test,epc,,2028-05-01,,EPC expiry from landlord spreadsheet
+TMPL-001,10 Clean Street,alice@clean.test,gas_safety_certificate,,2026-03-15,,CP12 expiry supplied by landlord
+TMPL-001,10 Clean Street,alice@clean.test,eicr,,2027-08-20,,EICR expiry supplied by landlord
+TMPL-001,10 Clean Street,alice@clean.test,deposit_protection_certificate,2024-01-12,,DPS-TMPL-001,Deposit protected date and scheme ref
+TMPL-001,10 Clean Street,alice@clean.test,how_to_rent,2024-01-10,,,How to Rent served date
+TMPL-002,20 Clean Avenue,bob@clean.test,epc,,2027-06-01,,
+TMPL-002,20 Clean Avenue,bob@clean.test,gas_safety_certificate,,2026-09-30,,

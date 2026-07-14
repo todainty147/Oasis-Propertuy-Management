@@ -1,0 +1,4 @@
+external_property_ref,address,city,bedrooms,property_type,rent,notes
+TMPL-001,10 Clean Street,London,2,flat,1200,Two-bed flat zone 2
+TMPL-002,20 Clean Avenue,Manchester,3,terraced,900,Three-bed house with garden
+TMPL-003,30 Clean Lane,Birmingham,1,studio,800,Studio flat city centre

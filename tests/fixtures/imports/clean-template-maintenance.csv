@@ -1,0 +1,4 @@
+external_property_ref,address,title,description,reported_date,completed_date,priority,status,contractor_name,cost,notes
+TMPL-001,10 Clean Street,Leaking tap,Tenant reported leaking kitchen tap,2025-02-01,2025-02-05,normal,closed,ABC Plumbing,85.00,Imported from landlord spreadsheet
+TMPL-002,20 Clean Avenue,Broken boiler,No heating reported by tenant,2025-03-10,,urgent,open,,,Still open at time of import
+TMPL-003,30 Clean Lane,Fence repair,Rear fence panel replaced,2024-11-20,2024-11-25,normal,closed,Local Handyman,120.00,Historical maintenance
