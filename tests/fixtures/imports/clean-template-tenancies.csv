@@ -1,0 +1,4 @@
+external_property_ref,address,tenant_name,tenant_email,start_date,end_date,rent_amount,deposit_amount,status
+TMPL-001,10 Clean Street,Alice Smith,alice@clean.test,2024-01-10,2025-01-09,1200,3600,active
+TMPL-002,20 Clean Avenue,Bob Jones,bob@clean.test,2024-06-01,,900,2700,active
+TMPL-003,30 Clean Lane,Carol Davies,carol@clean.test,2024-09-01,2025-08-31,800,2400,active

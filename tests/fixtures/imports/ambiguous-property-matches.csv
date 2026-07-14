@@ -1,0 +1,6 @@
+external_property_ref,address,city,rent,notes
+AMB-001,Flat 1 10 Ambiguous Road,London,900,Flat 1 — distinct from Flat 2 and bare address
+AMB-002,Flat 2 10 Ambiguous Road,London,950,Flat 2 — distinct from Flat 1 and bare address
+AMB-003,10 Ambiguous Road,London,1100,Bare address — must NOT match either flat
+AMB-004,10 Ambiguous Rd,London,1100,Abbreviated Road — normalised match to AMB-003 expected
+AMB-005,10 ambiguous road,London,1100,Lowercase — normalised match to AMB-003 expected

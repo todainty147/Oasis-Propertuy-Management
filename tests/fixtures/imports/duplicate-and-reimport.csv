@@ -1,0 +1,5 @@
+external_property_ref,address,city,rent,notes
+REIMP-001,10 Reimport Street,London,1200,First import row
+REIMP-002,20 Reimport Avenue,Manchester,900,Second import row
+REIMP-001,10 Reimport Street,London,1200,Exact duplicate of row 1 in same batch
+REIMP-003,30 Reimport Lane,Birmingham,800,New property not previously imported

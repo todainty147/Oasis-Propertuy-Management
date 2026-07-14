@@ -1,0 +1,5 @@
+external_property_ref,address,city,rent,notes
+ISO-001,10 Isolation Street,London,1200,This row belongs to the calling account — should import normally
+ISO-002,20 Isolation Avenue,London,900,This row also belongs to the calling account — should import normally
+XACCT-001,30 Foreign Street,London,800,Identifier styled as cross-account — RLS prevents writes to another account
+XACCT-002,40 Foreign Avenue,Manchester,750,Another cross-account-styled identifier — RLS should deny

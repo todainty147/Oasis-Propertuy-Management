@@ -1,0 +1,13 @@
+external_property_ref,compliance_type,completed_date,expiry_date,notes
+DATE-001,epc,2024-06-01,2029-06-01,ISO format — valid
+DATE-001,gas_safety_certificate,01/06/2024,01/06/2025,UK DD/MM/YYYY — valid format (JS parses MM/DD so may reject or swap)
+DATE-001,eicr,June 1st 2024,2029-01-01,Natural language date — should be flagged
+DATE-001,how_to_rent,1 Jun 24,2024-06-01,Short natural language — should be flagged
+DATE-001,deposit_protection_certificate,renewed last summer,,Invalid text in date field — must be rejected
+DATE-001,deposit_prescribed_information,45123,2029-01-01,Excel serial number — must be rejected (ND-04)
+DATE-002,epc,yes,,yes/no in date field — must be rejected
+DATE-002,gas_safety_certificate,,2028-03-15,Blank completed_date (optional) — valid
+DATE-002,eicr,,,"Missing required expiry_date and completed_date — blank optional fields accepted"
+DATE-003,epc,2024-06-01,,Missing expiry_date (optional) — valid
+DATE-003,,2024-06-01,2029-01-01,Missing required compliance_type — must error
+DATE-003,unknown_cert_type_xyz,2024-06-01,2029-01-01,Invalid compliance type — must go to needs_review
