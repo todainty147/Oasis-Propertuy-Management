@@ -174,8 +174,8 @@ const _rows: ComparisonRow[] = [
       },
       {
         provider: "Landlord Vision",
-        sourceTitle: "Landlord Vision vs Landlord Studio 2026",
-        sourceUrl: "https://rentalbux.com/blogs/landlord-vision-vs-landlord-studio",
+        sourceTitle: "Landlord Vision — compliance management (primary; no import-source distinction feature found)",
+        sourceUrl: "https://www.landlordvision.co.uk",
         reviewedAt: "2026-07-14",
       },
     ],
@@ -316,8 +316,8 @@ const _rows: ComparisonRow[] = [
       },
       {
         provider: "Landlord Vision",
-        sourceTitle: "Landlord Vision vs Landlord Studio 2026 — financial overview",
-        sourceUrl: "https://rentalbux.com/blogs/landlord-vision-vs-landlord-studio",
+        sourceTitle: "Landlord Vision — reporting suite (primary; portfolio overview confirmed; no compliance-pressure-by-origin feature found)",
+        sourceUrl: "https://www.landlordvision.co.uk",
         reviewedAt: "2026-07-14",
       },
       {
@@ -361,8 +361,8 @@ const _rows: ComparisonRow[] = [
       },
       {
         provider: "Arthur Online",
-        sourceTitle: "Best landlord software UK 2026 — MTD coverage",
-        sourceUrl: "https://www.uselatch.co.uk/blog/best-landlord-software-uk-2026",
+        sourceTitle: "Arthur Online — features overview (primary; no MTD/HMRC submission found; Xero listed as financial integration)",
+        sourceUrl: "https://www.arthuronline.co.uk",
         reviewedAt: "2026-07-14",
       },
     ],
@@ -398,8 +398,8 @@ const _rows: ComparisonRow[] = [
       },
       {
         provider: "Landlord Vision",
-        sourceTitle: "Landlord Vision — MTD support since pilot",
-        sourceUrl: "https://rentalbux.com/blogs/landlord-vision-vs-landlord-studio",
+        sourceTitle: "Landlord Vision — full MTD functionality at no additional cost on all plans (primary)",
+        sourceUrl: "https://www.landlordvision.co.uk",
         reviewedAt: "2026-07-14",
       },
     ],
@@ -435,8 +435,8 @@ const _rows: ComparisonRow[] = [
       },
       {
         provider: "Arthur Online",
-        sourceTitle: "Best landlord software UK 2026 — Arthur Online, Goodlord, PayProp do not offer MTD",
-        sourceUrl: "https://www.uselatch.co.uk/blog/best-landlord-software-uk-2026",
+        sourceTitle: "Arthur Online — features overview (primary; no MTD/HMRC submission found; Xero listed as financial integration)",
+        sourceUrl: "https://www.arthuronline.co.uk",
         reviewedAt: "2026-07-14",
       },
     ],
@@ -471,8 +471,8 @@ const _rows: ComparisonRow[] = [
       },
       {
         provider: "Landlord Vision",
-        sourceTitle: "Landlord Vision — desktop-first web application",
-        sourceUrl: "https://rentalbux.com/blogs/landlord-vision-vs-landlord-studio",
+        sourceTitle: "Landlord Vision — responsive web access confirmed; iOS and Android apps also available (primary)",
+        sourceUrl: "https://www.landlordvision.co.uk",
         reviewedAt: "2026-07-14",
       },
     ],
@@ -505,8 +505,8 @@ const _rows: ComparisonRow[] = [
       },
       {
         provider: "Landlord Vision",
-        sourceTitle: "Landlord Vision — desktop-first, limited mobile access",
-        sourceUrl: "https://rentalbux.com/blogs/landlord-vision-vs-landlord-studio",
+        sourceTitle: "Landlord Vision — iOS and Android native apps confirmed on primary page ('NOW ON iOS & ANDROID')",
+        sourceUrl: "https://www.landlordvision.co.uk",
         reviewedAt: "2026-07-14",
       },
     ],

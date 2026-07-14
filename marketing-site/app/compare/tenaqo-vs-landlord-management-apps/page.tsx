@@ -22,9 +22,7 @@ export const metadata: Metadata = {
       "x-default": "/compare/tenaqo-vs-landlord-management-apps",
     },
   }),
-  // Keep noindex until both evidence gates (Tenaqo status audit + market-category
-  // source audit) are explicitly approved. Do not remove before that sign-off.
-  robots: { index: false, follow: true },
+  // Both evidence gates passed 2026-07-14. Page is indexed from this commit.
 };
 
 // Maps a status to a descriptive style. Pilot/planned/not-offered must be
