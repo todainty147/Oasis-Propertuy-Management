@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 
 import { blogArticles } from "../content/blog";
+import { helpArticles } from "../content/help";
 import { cityPages } from "../content/locations";
 import { siteConfig } from "../content/site";
 
@@ -40,6 +41,8 @@ const routes = [
   "/pl/features/tenant-management",
   "/pl/features/tenant-portal",
   ...blogArticles.map((article) => `/blog/${article.slug}`),
+  "/help",
+  ...helpArticles.map((article) => `/help/${article.slug}`),
   "/locations",
   ...cityPages.map((c) => `/locations/${c.slug}`),
 ];
