@@ -716,7 +716,10 @@ export const helpArticles: HelpArticle[] = [
       {
         heading: "Accessing your packs",
         paragraphs: [
-          "Evidence Packs are available in the Documents section of the product. You can generate a pack for any active or ended tenancy at any time. The pack is generated from the records available at that moment.",
+          "Evidence-pack availability depends on the pack type, your account plan and the relevant workflow.",
+          "Maintenance Evidence Packs are generated from completed maintenance jobs and are available through supported maintenance workflows.",
+          "Compliance Proof Packs are available through eligible Renters' Rights workflows.",
+          "Deposit Dispute Pack workspaces require a Growth or Pro plan. Eligible users can prepare a pack from the Documents section using the records available for the relevant tenancy. Production print availability also depends on the feature's current release status.",
         ],
       },
     ],
@@ -742,7 +745,7 @@ export const helpArticles: HelpArticle[] = [
           {
             term: "Starter.",
             definition:
-              "Covers core operations: property and tenancy records, compliance tracking, maintenance inbox, tenant portal, spreadsheet import and evidence packs.",
+              "Covers core operations: property and tenancy records, compliance tracking, maintenance inbox, tenant portal, spreadsheet import, maintenance evidence packs and compliance evidence packs.",
           },
           {
             term: "Growth.",
