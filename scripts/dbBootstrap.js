@@ -642,6 +642,11 @@ const bootstrapSteps = [
     file: path.join(supabaseDir, "p009c1_compliance_gap_unified.sql"),
     onErrorStop: true,
   },
+  {
+    label: "Apply Gate-B1 deposit release registry overlay",
+    file: path.join(supabaseDir, "gate_b1_deposit_release_registry.sql"),
+    onErrorStop: true,
+  },
 ];
 
 function resolvePsqlCommand() {
