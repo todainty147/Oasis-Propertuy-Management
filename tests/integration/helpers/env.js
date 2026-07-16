@@ -71,3 +71,12 @@ export function isIntegrationHarnessConfigured() {
   const env = getIntegrationEnv();
   return Boolean(env.url && env.anonKey && env.serviceRoleKey);
 }
+
+// Returns true only when pointed at a local Supabase instance (127.0.0.1 or localhost).
+// Tests that perform release-state transitions must guard on this to avoid mutating a
+// shared or production registry. The env guard is a defence-in-depth layer on top of
+// the isolated TEST_PACK_TYPE pattern used by Gate-B1 transition tests.
+export function isLocalSupabase() {
+  const { url } = getIntegrationEnv();
+  return url.includes("127.0.0.1") || url.includes("localhost");
+}
