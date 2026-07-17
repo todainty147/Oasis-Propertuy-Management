@@ -140,6 +140,17 @@ export default function DepositDisputePackPrintPage({ properties = [], tenants =
     return () => document.body.classList.remove("evidence-vault-print-mode");
   }, []);
 
+  useEffect(() => {
+    if (!pack) return;
+    const prop = propertyById[pack.property_id];
+    const address = prop?.address || prop?.name || "";
+    const prev = document.title;
+    document.title = address
+      ? `Deposit Dispute Pack – ${address}`
+      : "Deposit Dispute Pack";
+    return () => { document.title = prev; };
+  }, [pack, propertyById]);
+
   const items = pack?.deposit_dispute_pack_items || [];
   const deductionItems = items.filter((item) => item.item_type === "deduction");
   const evidenceIndex = buildEvidenceIndex(items);
