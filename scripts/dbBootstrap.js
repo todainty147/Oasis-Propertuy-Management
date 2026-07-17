@@ -677,6 +677,16 @@ const bootstrapSteps = [
     file: path.join(supabaseDir, "gate_b_ent_effective_feature_resolver.sql"),
     onErrorStop: true,
   },
+  {
+    label: "Apply Gate-B-ENT deposit export column-name corrective overlay",
+    file: path.join(supabaseDir, "gate_b_ent_deposit_export_fix.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply Gate-B1G release registry and ledger write guard",
+    file: path.join(supabaseDir, "gate_b1g_release_guard.sql"),
+    onErrorStop: true,
+  },
 ];
 
 function resolvePsqlCommand() {

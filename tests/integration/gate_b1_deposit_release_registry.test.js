@@ -53,7 +53,11 @@ import {
   getIntegrationAdminClient,
   signInAsFixtureUser,
 } from "./helpers/localSupabaseHarness.js";
-import { isIntegrationHarnessConfigured, isLocalSupabase } from "./helpers/env.js";
+import {
+  isIntegrationHarnessConfigured,
+  isLocalSupabase,
+  localPsqlBreakGlassDelete,
+} from "./helpers/env.js";
 
 // ── Fixture IDs ─────────────────────────────────────────────────────────────
 
@@ -166,6 +170,10 @@ describe.skipIf(!isIntegrationHarnessConfigured() || !isLocalSupabase())(
       admin = getIntegrationAdminClient();
       await cleanupPack();
 
+      // Clean any residual test registry/ledger rows from a prior failed run.
+      // Gate-B1G guard blocks admin DELETE on these tables; use psql break-glass.
+      localPsqlBreakGlassDelete(TEST_PACK_TYPE, TEST_PACK_TYPE);
+
       // Seed the test pack used by export-auth tests.
       const { error } = await admin.from("deposit_dispute_packs").upsert(
         {
@@ -192,29 +200,20 @@ describe.skipIf(!isIntegrationHarnessConfigured() || !isLocalSupabase())(
         .single();
       REGISTRY_START_STATE = reg?.release_state;
 
-      // Seed isolated test pack type at internal_preview.
-      // Upsert: recovers safely if a previous run left the row in any state.
-      await admin.from("deposit_pack_release_registry").upsert(
-        {
-          pack_type: TEST_PACK_TYPE,
-          release_state: "internal_preview",
-          pack_version: "gate_b1_test",
-        },
-        { onConflict: "pack_type" },
-      );
+      // Seed isolated test pack type at internal_preview (fresh INSERT after psql cleanup).
+      const { error: regErr } = await admin.from("deposit_pack_release_registry").insert({
+        pack_type: TEST_PACK_TYPE,
+        release_state: "internal_preview",
+        pack_version: "gate_b1_test",
+      });
+      if (regErr) throw new Error(`seed registry: ${regErr.message}`);
     });
 
     afterAll(async () => {
       await cleanupPack();
-      // Remove isolated test pack rows. Transitions first (FK dep on pack_type index).
-      await admin
-        .from("deposit_pack_release_transitions")
-        .delete()
-        .eq("pack_type", TEST_PACK_TYPE);
-      await admin
-        .from("deposit_pack_release_registry")
-        .delete()
-        .eq("pack_type", TEST_PACK_TYPE);
+      // Gate-B1G guard blocks admin DELETE on registry and ledger tables.
+      // Use psql break-glass (session_replication_role=replica) for cleanup.
+      localPsqlBreakGlassDelete(TEST_PACK_TYPE, TEST_PACK_TYPE);
     });
 
     // ── T-03: Real registry state capture ────────────────────────────────────
