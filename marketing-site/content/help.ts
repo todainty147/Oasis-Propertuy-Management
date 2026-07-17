@@ -76,7 +76,7 @@ export const helpHubCopy = {
   backToHelp: "Back to Help Centre",
   contactCta: {
     heading: "Still have a question?",
-    body: "If you cannot find the answer here, email us directly. We respond to all support queries within one business day.",
+    body: "If you cannot find the answer here, email us directly and we'll get back to you as soon as we can.",
     primaryCta: { label: "Email support", href: "mailto:support@tenaqo.com" },
     secondaryCta: { label: "View all articles", href: "/help" },
   },
@@ -732,7 +732,7 @@ export const helpArticles: HelpArticle[] = [
     category: "Account and support",
     title: "Plans, limits and feature access",
     summary:
-      "A plain summary of what each Tenaqo plan includes, the property limits that apply at each tier and which features are available only on higher tiers.",
+      "A plain summary of what each Tenaqo plan includes and which features are available only on higher tiers. For current property limits, see the Pricing page.",
     metaDescription:
       "Tenaqo plan comparison: Starter, Growth and Pro, property limits, AI feature access and HMRC MTD availability.",
     lastUpdated: "2026-07-14",
@@ -805,9 +805,9 @@ export const helpArticles: HelpArticle[] = [
     category: "Account and support",
     title: "Contact Tenaqo support",
     summary:
-      "How to reach Tenaqo, what to include in a support request, what to expect in terms of response times and what falls within and outside support scope.",
+      "How to reach Tenaqo, what to include in a support request and what falls within and outside support scope.",
     metaDescription:
-      "How to contact Tenaqo support, response times, what to include in a request and what support covers.",
+      "How to contact Tenaqo support, what to include in a request and what support covers.",
     lastUpdated: "2026-07-14",
     readingTime: "3 min read",
     relatedSlugs: ["plans-and-limits", "getting-started"],
