@@ -24,7 +24,7 @@ const routes = [
   "/landlord-tools/section-24-shock-calculator",
   "/landlord-tools/mtd-readiness-check",
   "/pl/blog",
-  // /compare/tenaqo-vs-landlord-management-apps is noindex (WP4 stub) — excluded until real page ships
+  "/compare/tenaqo-vs-landlord-management-apps",
   "/features/command-center",
   "/features/compliance",
   "/features/maintenance-management",

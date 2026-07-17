@@ -195,6 +195,10 @@ const OVERLAY_SEQUENCE = [
   "compliance_import_labeling.sql",
   "p009c1_compliance_gap_unified.sql",
   "migrations/20260714000000_fix_compliance_import_provenance_fail_closed.sql",
+  "gate_b1_deposit_release_registry.sql",
+  "gate_b_ent_effective_feature_resolver.sql",
+  "gate_b_ent_deposit_export_fix.sql",
+  "gate_b1g_release_guard.sql",
 ];
 
 function resolvePsqlCommand() {

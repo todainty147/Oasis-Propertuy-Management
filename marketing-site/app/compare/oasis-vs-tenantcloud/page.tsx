@@ -8,7 +8,12 @@ import { PageHero } from "../../../components/marketing/page-hero";
 import { oasisVsTenantCloudContent } from "../../../content/comparisons/oasis-vs-tenantcloud";
 import { buildMetadata } from "../../../lib/metadata";
 
-export const metadata: Metadata = buildMetadata(oasisVsTenantCloudContent.seo);
+export const metadata: Metadata = {
+  ...buildMetadata(oasisVsTenantCloudContent.seo),
+  // Legacy OASIS-era comparison page. Keep dark until content is refreshed
+  // and the page strategy is separately approved.
+  robots: { index: false, follow: true },
+};
 
 export default function OasisVsTenantCloudPage() {
   return (

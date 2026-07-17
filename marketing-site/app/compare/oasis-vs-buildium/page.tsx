@@ -8,7 +8,12 @@ import { PageHero } from "../../../components/marketing/page-hero";
 import { oasisVsBuildiumContent } from "../../../content/comparisons/oasis-vs-buildium";
 import { buildMetadata } from "../../../lib/metadata";
 
-export const metadata: Metadata = buildMetadata(oasisVsBuildiumContent.seo);
+export const metadata: Metadata = {
+  ...buildMetadata(oasisVsBuildiumContent.seo),
+  // Legacy OASIS-era comparison page. Keep dark until content is refreshed
+  // and the page strategy is separately approved.
+  robots: { index: false, follow: true },
+};
 
 export default function OasisVsBuildiumPage() {
   return (

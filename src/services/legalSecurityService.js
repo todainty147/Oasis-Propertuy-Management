@@ -1312,6 +1312,15 @@ export async function updateDepositDisputePackStatus(accountId, packId, status) 
   return data;
 }
 
+export async function prepareDepositDisputePackExport(packId) {
+  if (!packId) throw new Error("Missing dispute pack id");
+  const { data, error } = await supabase.rpc("prepare_deposit_dispute_pack_export", {
+    p_pack_id: packId,
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function recordDepositDisputePackExport(accountId, packId, payload = {}) {
   if (!accountId) throw new Error("Missing accountId");
   if (!packId) throw new Error("Missing dispute pack id");

@@ -389,6 +389,31 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply operator agency grants overlay",
+    file: path.join(supabaseDir, "operator_agency_grants.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply trial period enforcement overlay",
+    file: path.join(supabaseDir, "trial_period_enforcement.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply founder launch offer tables and RPCs overlay",
+    file: path.join(supabaseDir, "founder_launch_offer.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply account subscription plan founder override overlay",
+    file: path.join(supabaseDir, "account_subscription_plan_founder.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply reserve AI call checked founder override overlay",
+    file: path.join(supabaseDir, "reserve_ai_call_checked_founder.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply create_landlord_invitation overlay",
     file: path.join(supabaseDir, "create_landlord_invitation.sql"),
     onErrorStop: true,
@@ -640,6 +665,26 @@ const bootstrapSteps = [
   {
     label: "Apply P-009C1 compliance gap unified overlay",
     file: path.join(supabaseDir, "p009c1_compliance_gap_unified.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply Gate-B1 deposit release registry overlay",
+    file: path.join(supabaseDir, "gate_b1_deposit_release_registry.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply Gate-B-ENT authoritative effective entitlement resolver overlay",
+    file: path.join(supabaseDir, "gate_b_ent_effective_feature_resolver.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply Gate-B-ENT deposit export column-name corrective overlay",
+    file: path.join(supabaseDir, "gate_b_ent_deposit_export_fix.sql"),
+    onErrorStop: true,
+  },
+  {
+    label: "Apply Gate-B1G release registry and ledger write guard",
+    file: path.join(supabaseDir, "gate_b1g_release_guard.sql"),
     onErrorStop: true,
   },
 ];

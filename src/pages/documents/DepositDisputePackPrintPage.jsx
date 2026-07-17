@@ -19,7 +19,7 @@ import {
   getDepositDisputePackDetails,
   getInspectionReportDetails,
   listInspectionReports,
-  recordDepositDisputePackExport,
+  prepareDepositDisputePackExport,
 } from "../../services/legalSecurityService";
 
 function getReferencedReportIds(pack) {
@@ -99,7 +99,8 @@ export default function DepositDisputePackPrintPage({ properties = [], tenants =
   const [reports, setReports] = useState([]);
   const [referencedReports, setReferencedReports] = useState([]);
   const [error, setError] = useState("");
-  const [recordingExport, setRecordingExport] = useState(false);
+  const [authorising, setAuthorising] = useState(false);
+  const [exportAuthError, setExportAuthError] = useState("");
 
   const propertyById = useMemo(() => Object.fromEntries(properties.map((property) => [property.id, property])), [properties]);
   const tenantById = useMemo(() => Object.fromEntries(tenants.map((tenant) => [tenant.id, tenant])), [tenants]);
@@ -159,15 +160,20 @@ export default function DepositDisputePackPrintPage({ properties = [], tenants =
     )
   );
 
-  function handlePrint() {
-    window.print();
+  async function handlePrint() {
     if (!activeAccountId || !packId) return;
-    setRecordingExport(true);
-    recordDepositDisputePackExport(activeAccountId, packId, { metadata: { source: "browser_print" } })
-      .catch(() => {
-        // Printing should remain available even if audit/export recording is unavailable.
-      })
-      .finally(() => setRecordingExport(false));
+    setExportAuthError("");
+    setAuthorising(true);
+    try {
+      await prepareDepositDisputePackExport(packId);
+      window.print();
+    } catch (err) {
+      setExportAuthError(
+        err?.message || "Export authorisation failed. The pack cannot be printed at this time.",
+      );
+    } finally {
+      setAuthorising(false);
+    }
   }
 
   return (
@@ -198,10 +204,16 @@ export default function DepositDisputePackPrintPage({ properties = [], tenants =
       <div className="mx-auto max-w-5xl">
         <div className="no-print mb-6 flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4">
           <Link to={pack ? `/documents/evidence-vault/dispute-packs/${pack.id}` : "/documents/evidence-vault/dispute-packs"} className="text-sm font-medium text-blue-700">Back to pack</Link>
-          <button type="button" onClick={handlePrint} disabled={recordingExport} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
-            Print / save PDF
+          <button type="button" onClick={handlePrint} disabled={authorising} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+            {authorising ? "Authorising..." : "Print / save PDF"}
           </button>
         </div>
+
+        {exportAuthError ? (
+          <div className="no-print mb-4 rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            {exportAuthError}
+          </div>
+        ) : null}
 
         {error ? <p className="rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</p> : null}
         {!pack && !error ? <p className="text-sm text-slate-500">Loading dispute pack...</p> : null}
