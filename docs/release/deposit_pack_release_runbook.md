@@ -163,6 +163,64 @@ The test suite cleanup helper (`localPsqlBreakGlassDelete`) also uses
 
 ---
 
+## Defect disclosure: export-authorisation `pack_version` — Gate-B1V (2026-07-18)
+
+**Status**: Corrected by Gate-B1V (`gate_b1v_export_version_integrity.sql`).
+Historic rows preserved unedited; this note is the permanent disclosure record.
+
+### What happened
+
+`prepare_deposit_dispute_pack_export` read `pack_version` from the
+`deposit_dispute_packs` table column rather than from the registry row.
+For packs whose `pack_version` column is `NULL` (all pre-Gate-B packs),
+the function applied `coalesce(NULL, 'pre_gate_b')`, producing the literal
+`pre_gate_b` regardless of what the registry held. The registry version was
+read correctly into `v_registry_version` but was returned in the JSON payload
+only, never inserted into `deposit_pack_export_authorisations`.
+
+### Affected rows — `deposit_pack_export_authorisations`
+
+| id | release_mode | pack_version | authorised_at (UTC) |
+|---|---|---|---|
+| `8e5276b0-725a-439f-95ac-f8c586714888` | `internal_preview` | `pre_gate_b` | 2026-07-17 18:11:32 |
+| `814276a1-176f-45dd-a27e-5fe5d78beaaa` | `production` | `pre_gate_b` | 2026-07-18 10:50:40 |
+
+Defect period: `2026-07-17 18:11:32 UTC` → `2026-07-18 10:50:40 UTC`.
+Both rows are for `pack_type = deposit_dispute_pack`.
+No other pack types are present in the table.
+
+### Transition ledger — CLEAN
+
+The release transition event is unaffected. `transition_deposit_pack_release_state`
+takes `pack_version` as an explicit caller-supplied parameter; it does not read
+from the pack record column.
+
+| id | pack_version | new_release_state | approved_at (UTC) |
+|---|---|---|---|
+| `3d298390-59d3-4eb4-a809-0c975e11d232` | `gate_b1_v1` | `production` | 2026-07-18 10:38:08 |
+
+The birth-certificate event (the authorisation that advanced the pack to production)
+carries the correct version. Only the per-print export-authorisation rows are wrong.
+
+### Correction
+
+`gate_b1v_export_version_integrity.sql` (Gate-B1V, committed 2026-07-19):
+- Removes `v_pack_version_col` and `v_historical_version` from the function.
+- Step 4 reads `release_state` and `pack_version` atomically from the same
+  registry row used for the state gate.
+- The INSERT into `deposit_pack_export_authorisations` now uses `v_registry_version`.
+- All rows written after this hotfix carry the registry version (e.g. `gate_b1_v1`).
+
+### Historic rows
+
+The two defective rows are preserved unedited in the append-only table.
+They must not be deleted or corrected. Their `pack_version = pre_gate_b` is
+the accurate record of what the system wrote at that time. Gate-B1 final closure
+requires a second production print (post-B1V deploy) that confirms a new row with
+`pack_version = gate_b1_v1` exists alongside the two historic rows.
+
+---
+
 ## Ledger reference
 
 | Table | Insert | Update | Delete |

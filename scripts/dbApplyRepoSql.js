@@ -198,6 +198,7 @@ const OVERLAY_SEQUENCE = [
   "gate_b1_deposit_release_registry.sql",
   "gate_b_ent_effective_feature_resolver.sql",
   "gate_b_ent_deposit_export_fix.sql",
+  "gate_b1v_export_version_integrity.sql",
   "gate_b1g_release_guard.sql",
 ];
 

@@ -35,7 +35,7 @@
  *   T-07  Export-auth — root owner allowed in internal_preview [TEST_PACK_TYPE]
  *   T-17  Workspace-vs-export split [workspace: real pack; export: TEST_PACK_TYPE]
  *   T-08  Export-auth — ownerA allowed in production [TEST_PACK_TYPE]
- *   T-09  Export-auth — null pack_version classified as pre_gate_b [TEST_PACK_TYPE]
+ *   T-09  Export-auth — null pack record version uses registry pack_version [TEST_PACK_TYPE]
  *   T-10  Export-auth — tenantA1 denied (no manage permission) [TEST_PACK_TYPE]
  *   T-11  Export-auth — ownerB denied (cross-account) [TEST_PACK_TYPE]
  *   T-12  Export-auth — suspended state blocks all actors [TEST_PACK_TYPE]
@@ -186,7 +186,7 @@ describe.skipIf(!isIntegrationHarnessConfigured() || !isLocalSupabase())(
           deposit_amount: 800,
           proposed_deduction_amount: 100,
           summary: "Seeded by Gate-B1 integration test suite.",
-          // pack_version intentionally null — tests pre_gate_b classification
+          // pack_version intentionally null — confirms null pack record does not affect authorisation version (B1V hotfix)
         },
         { onConflict: "id" },
       );
@@ -387,13 +387,15 @@ describe.skipIf(!isIntegrationHarnessConfigured() || !isLocalSupabase())(
         expect(data?.is_root_preview).toBe(false);
       });
 
-      it("T-09: null pack_version is classified as pre_gate_b in authorisation payload", async () => {
+      it("T-09: null pack record pack_version uses registry pack_version in authorisation payload", async () => {
         const { data, error } = await ownerAClient.rpc(
           "prepare_deposit_dispute_pack_export",
           { p_pack_id: GB1_PACK_ID, p_registry_pack_type: TEST_PACK_TYPE },
         );
         expect(error).toBeNull();
-        expect(data?.pack_version).toBe("pre_gate_b");
+        // gate_b1v hotfix: registry pack_version ('gate_b1_test') is used,
+        // not the pack record's null value which previously defaulted to 'pre_gate_b'.
+        expect(data?.pack_version).toBe("gate_b1_test");
       });
 
       it("T-10: tenantA1 denied — no account-management authority", async () => {
