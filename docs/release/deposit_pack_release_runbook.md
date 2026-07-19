@@ -211,13 +211,22 @@ carries the correct version. Only the per-print export-authorisation rows are wr
 - The INSERT into `deposit_pack_export_authorisations` now uses `v_registry_version`.
 - All rows written after this hotfix carry the registry version (e.g. `gate_b1_v1`).
 
+### Post-B1V acceptance proof — CONFIRMED (2026-07-19)
+
+A second production print was executed after deploying Gate-B1V. The new
+authorisation row confirms the fix is working in production:
+
+| id | pack_version | release_mode | authorised_at (UTC) |
+|---|---|---|---|
+| `c0999f06-d738-449a-86aa-f30549b2bcbb` | `gate_b1_v1` | `production` | 2026-07-19 17:09:53 |
+
+The table now holds 3 rows: the 2 defective historic rows and 1 correct post-B1V row.
+
 ### Historic rows
 
 The two defective rows are preserved unedited in the append-only table.
 They must not be deleted or corrected. Their `pack_version = pre_gate_b` is
-the accurate record of what the system wrote at that time. Gate-B1 final closure
-requires a second production print (post-B1V deploy) that confirms a new row with
-`pack_version = gate_b1_v1` exists alongside the two historic rows.
+the accurate record of what the system wrote at that time.
 
 ---
 

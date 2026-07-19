@@ -78,7 +78,6 @@ const DataImportPage              = lazy(() => import("../pages/DataImportPage")
 const ApplicationsPage            = lazy(() => import("../pages/applications/ApplicationsPage"));
 const BalanceEvidenceSummaryPage  = lazy(() => import("../pages/provenance/BalanceEvidenceSummaryPage"));
 const DocumentServiceTimelinePage = lazy(() => import("../pages/provenance/DocumentServiceTimelinePage"));
-const DepositPackReleasePage      = lazy(() => import("../pages/internal/DepositPackReleasePage"));
 
 // ── Route guard helpers ──────────────────────────────────────────────────────
 
@@ -657,14 +656,7 @@ export default function ManagerRoutes() {
           </InternalDiagnosticRoute>
         }
       />
-      <Route
-        path="internal/release/deposit-pack"
-        element={
-          <InternalDiagnosticRoute>
-            <DepositPackReleasePage />
-          </InternalDiagnosticRoute>
-        }
-      />
+
       <Route
         path="compliance/poland"
         element={
