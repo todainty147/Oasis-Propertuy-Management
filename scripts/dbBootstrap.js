@@ -688,6 +688,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply Gate-B-ENT bounded seed-deny cleanup (12 plan-accessible keys, retires R5)",
+    file: path.join(supabaseDir, "gate_b_ent_seed_cleanup.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply Gate-B1G release registry and ledger write guard",
     file: path.join(supabaseDir, "gate_b1g_release_guard.sql"),
     onErrorStop: true,
