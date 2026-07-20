@@ -30,6 +30,9 @@ jobs:
       - name: Scan tracked files for secrets
         run: npm run security:secrets
 
+      - name: Check SECURITY DEFINER definition safety
+        run: npm run security:definer-check
+
       - name: Audit root dependencies
         run: npm audit --omit=dev --audit-level=low
 
