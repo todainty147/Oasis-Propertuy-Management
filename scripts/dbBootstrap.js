@@ -2,6 +2,15 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import {
+  parseBootstrapBoundaryArgs,
+  resolveStepIdentities,
+  computeSequenceHash,
+  validateStopBefore,
+  isDisposableEnvironment,
+  buildCheckpoint,
+  validateCheckpointForResume,
+} from "./dbBootstrapCheckpoint.mjs";
 
 const repoRoot = process.cwd();
 const supabaseDir = path.join(repoRoot, "supabase");
@@ -1013,17 +1022,168 @@ async function waitForDatabaseConnectivity(dbUrl) {
   }
 }
 
+function applyStep(step, dbUrl, tempFiles) {
+  const filePath = path.basename(step.file) === "baseline_schema.sql"
+    ? (() => {
+        const sanitizedPath = createSanitizedBaselineFile(step.file);
+        tempFiles.push(sanitizedPath);
+        return sanitizedPath;
+      })()
+    : step.file;
+  runPsql({
+    label: step.label,
+    args: [
+      "--set",
+      `ON_ERROR_STOP=${step.onErrorStop ? "1" : "0"}`,
+      "--dbname",
+      dbUrl,
+      "--file",
+      filePath,
+    ],
+  });
+}
+
+function printSequence(steps) {
+  console.log("Overlay order:");
+  steps.forEach((step, index) => {
+    console.log(`${index + 1}. ${path.relative(repoRoot, step.file)}`);
+  });
+}
+
 async function main() {
+  const boundaryArgs = parseBootstrapBoundaryArgs(process.argv.slice(2));
   const dbUrl = process.env.DB_BOOTSTRAP_URL || process.env.DATABASE_URL || defaultDbUrl;
   const tempFiles = [];
 
+  // ── --stop-before flow ────────────────────────────────────────────────────
+  if (boundaryArgs.stopBefore !== null) {
+    if (!isDisposableEnvironment(dbUrl)) {
+      throw new Error(
+        `Boundary mode (--stop-before) refused: target database does not appear to be ` +
+        `a local/disposable environment.\n` +
+        `  DB: ${dbUrl}\n` +
+        `Boundary operations are only permitted against local databases (127.0.0.1, ` +
+        `localhost, ::1, or unqualified Docker service hostnames). ` +
+        `Remote and staging databases are rejected to prevent accidental partial application.`
+      );
+    }
+
+    const stepIdentities = resolveStepIdentities(bootstrapSteps);
+    const sequenceHash = computeSequenceHash(stepIdentities);
+    const { index: targetIndex } = validateStopBefore(boundaryArgs.stopBefore, stepIdentities);
+
+    const checkpointPath = boundaryArgs.writeCheckpoint
+      || path.join(os.tmpdir(), "oasis-pf-tool-checkpoint.json");
+
+    console.log("OASIS local DB bootstrap — STOP-BEFORE mode");
+    console.log(`Target database: ${dbUrl}`);
+    console.log(`Stop before:     ${boundaryArgs.stopBefore} (sequence index ${targetIndex}, position ${targetIndex + 1} of ${stepIdentities.length})`);
+    console.log(`Checkpoint:      ${checkpointPath}`);
+    console.log(`Sequence hash:   ${sequenceHash}`);
+    console.log("");
+    printSequence(bootstrapSteps);
+
+    console.log("");
+    console.log("Preflight: resetting local Supabase DB");
+    await resetLocalSupabaseDb(dbUrl);
+
+    console.log("");
+    console.log("Preflight: checking database connectivity");
+    await waitForDatabaseConnectivity(dbUrl);
+
+    // Apply all steps before the target (0..targetIndex-1)
+    for (let i = 0; i < targetIndex; i++) {
+      const step = bootstrapSteps[i];
+      console.log("");
+      console.log(`==> [${i + 1}/${stepIdentities.length}] ${step.label}`);
+      applyStep(step, dbUrl, tempFiles);
+    }
+
+    // Write checkpoint — only after all preceding steps succeeded
+    const lastAppliedIndex = targetIndex - 1;
+    const checkpoint = buildCheckpoint({
+      sequenceHash,
+      stepIdentities,
+      targetIndex,
+      lastAppliedIndex,
+      dbUrl,
+    });
+    fs.writeFileSync(checkpointPath, JSON.stringify(checkpoint, null, 2), "utf8");
+
+    // Emit BOUNDARY_REACHED
+    console.log("");
+    console.log("BOUNDARY_REACHED");
+    console.log(`last_applied:  ${lastAppliedIndex >= 0 ? stepIdentities[lastAppliedIndex] : "(none — target was first step)"}`);
+    console.log(`next_to_apply: ${stepIdentities[targetIndex]}`);
+    console.log(`position:      ${targetIndex + 1} of ${stepIdentities.length}`);
+    console.log(`sequence_hash: ${sequenceHash}`);
+    console.log(`checkpoint:    ${checkpointPath}`);
+
+    for (const filePath of tempFiles) {
+      try { fs.unlinkSync(filePath); } catch { /* best-effort */ }
+    }
+    return;
+  }
+
+  // ── --resume-from-checkpoint flow ─────────────────────────────────────────
+  if (boundaryArgs.resumeFromCheckpoint !== null) {
+    if (!isDisposableEnvironment(dbUrl)) {
+      throw new Error(
+        `Resume mode (--resume-from-checkpoint) refused: target database does not appear ` +
+        `to be a local/disposable environment.\n  DB: ${dbUrl}`
+      );
+    }
+
+    const checkpointPath = boundaryArgs.resumeFromCheckpoint;
+    let checkpointData;
+    try {
+      checkpointData = JSON.parse(fs.readFileSync(checkpointPath, "utf8"));
+    } catch (err) {
+      throw new Error(`Failed to load checkpoint from "${checkpointPath}": ${err.message}`);
+    }
+
+    const stepIdentities = resolveStepIdentities(bootstrapSteps);
+    const sequenceHash = computeSequenceHash(stepIdentities);
+    validateCheckpointForResume(checkpointData, sequenceHash, dbUrl);
+
+    const startIndex = checkpointData.nextIndex;
+
+    console.log("OASIS local DB bootstrap — RESUME mode");
+    console.log(`Target database:  ${dbUrl}`);
+    console.log(`Checkpoint:       ${checkpointPath}`);
+    console.log(`Resuming from:    ${checkpointData.nextToApply} (index ${startIndex})`);
+    console.log(`Steps remaining:  ${stepIdentities.length - startIndex} of ${stepIdentities.length}`);
+    console.log(`Sequence hash:    ${sequenceHash}`);
+    console.log("");
+
+    // DO NOT reset the DB — preserve the inspection state from the stopped run
+    console.log("Preflight: checking database connectivity (no reset — preserving stopped state)");
+    await waitForDatabaseConnectivity(dbUrl);
+
+    for (let i = startIndex; i < bootstrapSteps.length; i++) {
+      const step = bootstrapSteps[i];
+      console.log("");
+      console.log(`==> [${i + 1}/${stepIdentities.length}] ${step.label}`);
+      applyStep(step, dbUrl, tempFiles);
+    }
+
+    console.log("");
+    console.log("Bootstrap resume complete.");
+    console.log("Next steps:");
+    console.log("  npm run test:integration:seed");
+    console.log("  npm run test:integration:run");
+
+    for (const filePath of tempFiles) {
+      try { fs.unlinkSync(filePath); } catch { /* best-effort */ }
+    }
+    return;
+  }
+
+  // ── Normal (no-flag) flow ─────────────────────────────────────────────────
   console.log("OASIS local DB bootstrap");
   console.log(`Target database: ${dbUrl}`);
   console.log("Resetting local Supabase database before baseline apply");
-  console.log(`Overlay order:`);
-  bootstrapSteps.forEach((step, index) => {
-    console.log(`${index + 1}. ${path.relative(repoRoot, step.file)}`);
-  });
+  printSequence(bootstrapSteps);
 
   console.log("");
   console.log("Preflight: resetting local Supabase DB");
@@ -1033,27 +1193,11 @@ async function main() {
   console.log("Preflight: checking database connectivity");
   await waitForDatabaseConnectivity(dbUrl);
 
-  for (const step of bootstrapSteps) {
+  for (let i = 0; i < bootstrapSteps.length; i++) {
+    const step = bootstrapSteps[i];
     console.log("");
     console.log(`==> ${step.label}`);
-    const filePath = path.basename(step.file) === "baseline_schema.sql"
-      ? (() => {
-          const sanitizedPath = createSanitizedBaselineFile(step.file);
-          tempFiles.push(sanitizedPath);
-          return sanitizedPath;
-        })()
-      : step.file;
-    runPsql({
-      label: step.label,
-      args: [
-        "--set",
-        `ON_ERROR_STOP=${step.onErrorStop ? "1" : "0"}`,
-        "--dbname",
-        dbUrl,
-        "--file",
-        filePath,
-      ],
-    });
+    applyStep(step, dbUrl, tempFiles);
   }
 
   console.log("");
@@ -1063,11 +1207,7 @@ async function main() {
   console.log("  npm run test:integration:run");
 
   for (const filePath of tempFiles) {
-    try {
-      fs.unlinkSync(filePath);
-    } catch {
-      // best-effort cleanup
-    }
+    try { fs.unlinkSync(filePath); } catch { /* best-effort */ }
   }
 }
 

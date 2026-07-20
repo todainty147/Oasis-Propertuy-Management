@@ -9,6 +9,8 @@
     "lint": "node scripts/with-local-node.mjs eslint .",
     "security:secrets": "node scripts/checkSecrets.mjs",
     "security:definer-check": "node scripts/checkSecurityDefinerFunctions.mjs",
+    "bootstrap:stop-before": "node scripts/dbBootstrap.js --stop-before",
+    "bootstrap:resume": "node scripts/dbBootstrap.js --resume-from-checkpoint",
     "check:edge-functions": "node scripts/with-local-node.mjs node scripts/checkEdgeFunctions.mjs --scope=hmrc",
     "check:edge-functions:all": "node scripts/with-local-node.mjs node scripts/checkEdgeFunctions.mjs --scope=all",
     "preview": "node scripts/with-local-node.mjs vite preview",
