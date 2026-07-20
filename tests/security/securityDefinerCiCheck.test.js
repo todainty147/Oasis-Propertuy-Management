@@ -11,6 +11,45 @@ import {
 const ROOT = resolve(import.meta.dirname, '../..');
 const readSql = (rel) => readFileSync(resolve(ROOT, 'supabase', rel), 'utf8');
 
+// ── Static contracts: REVOKE FROM public for post-hardening DROP+CREATE functions ─
+// These 6 functions were created as new objects after the hardening overlay
+// (via DROP+CREATE, not CREATE OR REPLACE) and therefore do not inherit the
+// bulk ACL revoke. Each must explicitly REVOKE FROM public.
+
+describe('C2 REVOKE contracts — post-hardening DROP+CREATE functions', () => {
+  it('p009c1_compliance_gap_unified.sql REVOKEs command_center_items from public', () => {
+    const sql = readSql('p009c1_compliance_gap_unified.sql');
+    expect(sql).toContain('revoke all on function public.command_center_items(uuid, integer) from public');
+  });
+
+  it('p009c1_compliance_gap_unified.sql REVOKEs attention_center_items from public', () => {
+    const sql = readSql('p009c1_compliance_gap_unified.sql');
+    expect(sql).toContain('revoke all on function public.attention_center_items(uuid, integer) from public');
+  });
+
+  it('p009c1_compliance_gap_unified.sql REVOKEs get_operating_calendar from public', () => {
+    const sql = readSql('p009c1_compliance_gap_unified.sql');
+    expect(sql).toContain('revoke all on function public.get_operating_calendar(uuid, date, date, uuid, text, text, text) from public');
+  });
+
+  it('spreadsheet_import_v1.sql REVOKEs record_import_provenance_event from public', () => {
+    const sql = readSql('spreadsheet_import_v1.sql');
+    expect(sql.toLowerCase()).toContain('revoke all on function public.record_import_provenance_event(');
+    expect(sql.toLowerCase()).toContain(') from public');
+  });
+
+  it('spreadsheet_import_v1.sql REVOKEs process_import_batch from public', () => {
+    const sql = readSql('spreadsheet_import_v1.sql');
+    expect(sql.toLowerCase()).toContain('revoke all on function public.process_import_batch(uuid, text, jsonb, text, text)');
+    expect(sql.toLowerCase()).toContain('from public');
+  });
+
+  it('compliance_import_labeling.sql REVOKEs _set_compliance_item_import_batch from public', () => {
+    const sql = readSql('compliance_import_labeling.sql');
+    expect(sql.toLowerCase()).toContain('revoke all on function public._set_compliance_item_import_batch() from public');
+  });
+});
+
 // Synthetic hardeningIndex used in all state/criterion tests
 const H = 5;
 const NO_ALLOWLIST = {};

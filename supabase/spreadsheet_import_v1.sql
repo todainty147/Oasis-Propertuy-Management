@@ -233,6 +233,9 @@ $$;
 GRANT EXECUTE ON FUNCTION public.record_import_provenance_event(
   uuid, text, uuid, text, text, uuid, jsonb, text
 ) TO authenticated;
+REVOKE ALL ON FUNCTION public.record_import_provenance_event(
+  uuid, text, uuid, text, text, uuid, jsonb, text
+) FROM public;
 
 COMMENT ON FUNCTION public.record_import_provenance_event(
   uuid, text, uuid, text, text, uuid, jsonb, text
@@ -920,6 +923,8 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.process_import_batch(uuid, text, jsonb, text, text)
   TO authenticated;
+REVOKE ALL ON FUNCTION public.process_import_batch(uuid, text, jsonb, text, text)
+  FROM public;
 
 COMMENT ON FUNCTION public.process_import_batch(uuid, text, jsonb, text, text) IS
   'Spreadsheet import batch processor. Row-level partial commit via EXCEPTION blocks. '

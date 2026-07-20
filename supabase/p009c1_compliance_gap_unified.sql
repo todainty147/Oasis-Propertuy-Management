@@ -233,6 +233,7 @@ as $$
 $$;
 
 grant execute on function public.command_center_items(uuid, integer) to authenticated;
+revoke all on function public.command_center_items(uuid, integer) from public;
 
 -- ── §3  attention_center_items — extend with attested compliance rows ────────────
 -- Same RENAME + WRAPPER pattern.
@@ -338,6 +339,7 @@ as $$
 $$;
 
 grant execute on function public.attention_center_items(uuid, integer) to authenticated;
+revoke all on function public.attention_center_items(uuid, integer) from public;
 
 -- ── §4  get_operating_calendar — add is_attested_import + attested rows ──────────
 -- Adds is_attested_import boolean to return type (requires DROP + CREATE).
@@ -493,5 +495,6 @@ $$;
 
 grant execute on function public.get_operating_calendar(uuid, date, date, uuid, text, text, text)
   to authenticated;
+revoke all on function public.get_operating_calendar(uuid, date, date, uuid, text, text, text) from public;
 
 commit;
