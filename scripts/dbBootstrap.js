@@ -662,6 +662,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply Supabase linter security hardening overlay",
+    file: path.join(supabaseDir, "supabase_linter_security_hardening.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply spreadsheet import v1 overlay",
     file: path.join(supabaseDir, "spreadsheet_import_v1.sql"),
     onErrorStop: true,
