@@ -683,6 +683,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply Gate-B-ENT explain path overlay (account_effective_feature_check + explain wrapper)",
+    file: path.join(supabaseDir, "gate_b_ent_explain_path.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply Gate-B1G release registry and ledger write guard",
     file: path.join(supabaseDir, "gate_b1g_release_guard.sql"),
     onErrorStop: true,
