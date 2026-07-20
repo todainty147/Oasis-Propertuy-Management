@@ -47,9 +47,12 @@ describe('C2 REVOKE contracts — post-hardening DROP+CREATE functions', () => {
     expect(sql.toLowerCase()).toContain('from public, anon');
   });
 
-  it('compliance_import_labeling.sql REVOKEs _set_compliance_item_import_batch from public, anon', () => {
+  it('compliance_import_labeling.sql REVOKEs _set_compliance_item_import_batch from public, anon, authenticated', () => {
     const sql = readSql('compliance_import_labeling.sql');
-    expect(sql.toLowerCase()).toContain('revoke all on function public._set_compliance_item_import_batch() from public, anon');
+    // Trigger-only function — no direct callers in frontend or Edge Functions.
+    // Authenticated execute is unnecessary (trigger mechanism does not use caller EXECUTE privilege)
+    // and would leave it tenant-callable as a broken-access surface.
+    expect(sql.toLowerCase()).toContain('revoke all on function public._set_compliance_item_import_batch() from public, anon, authenticated');
   });
 });
 

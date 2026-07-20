@@ -45,7 +45,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-REVOKE ALL ON FUNCTION public._set_compliance_item_import_batch() FROM public, anon;
+REVOKE ALL ON FUNCTION public._set_compliance_item_import_batch() FROM public, anon, authenticated;
 
 DROP TRIGGER IF EXISTS trg_set_compliance_item_import_batch
   ON public.provenance_events;
