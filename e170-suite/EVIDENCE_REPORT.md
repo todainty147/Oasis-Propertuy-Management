@@ -240,8 +240,8 @@ before any `remaining`-based path. Downstream consumers are safe.
 | `getFinancePropertyBalanceMap` | `src/utils/financeSnapshot.js` | Accumulates `remaining` (0 for unknowns); downstream gates on status | Yes — unknown contribution is 0 |
 | `financeAmountForProperty` | `src/utils/financeSnapshot.js` | Gates on `balance.status !== "overdue"` | Yes |
 | `buildFinancePaymentDisplayRows` | `src/utils/financePayments.js` | Maps all properties to `remaining`; for unknowns (remaining=0) open rows get zeroed/excluded | Yes — appropriate behavior |
-| `PropertyDetails.jsx:308` | `src/pages/PropertyDetails.jsx` | Uses `calculatePropertyFinance` (local util, not snapshot consumer) | n/a — not a snapshot consumer |
-| `PropertyPerformanceCard.jsx:166` | `src/pages/PropertyDetails.jsx` | Uses `calculatePropertyFinance` (local util, not snapshot consumer) | n/a — not a snapshot consumer |
+| `PropertyDetails.jsx:144` | `src/pages/PropertyDetails.jsx` | `calculatePropertyFinance({ property, payments: propertyPayments })` — takes raw payments array from `usePayments` hook, not from snapshot. Function signature: `({ property, payments, date, leaseEndDate })` — no RPC call inside. | n/a — not a snapshot consumer |
+| `PropertyPerformanceCard.jsx:160` | `src/components/PropertyPerformanceCard.jsx` | Same pattern — `calculatePropertyFinance({ property, payments })` with payments passed from component props, not from snapshot RPC. | n/a — not a snapshot consumer |
 
 **Conclusion:** No unconditional consumer of `remaining` exists. All snapshot consumers
 gate on `paymentStatus !== "overdue"` before using `remaining` for any decision.
@@ -294,8 +294,8 @@ GREEN-G1 tests the second scenario (renewal_status='ended'). Both paths are prov
 | ID | Description | Blocking E-170? |
 |----|-------------|-----------------|
 | E-172 | `is_tenancy_ended = false` for imported leases with `renewal_status='active'` despite past `lease_end_date` (DB default on import). EC-02 asserts correct target (true) and FAILS. | **No** — E-170 eliminates phantoms regardless |
-| BLOCKED-RPC-1 | `record_finance_transaction` does not exist | Deferred — not in E-170 scope |
-| BLOCKED-RPC-2 | `get_finance_portfolio_summary` does not exist | Deferred — not in E-170 scope |
+| BLOCKED-RPC-1 | `record_finance_transaction` does not exist | Deferred — not in E-170 scope. No suite test calls this RPC; 14/14 verify tests do not depend on it. |
+| BLOCKED-RPC-2 | `get_finance_portfolio_summary` does not exist | Deferred — not in E-170 scope. No suite test calls this RPC; portfolio-summary assertions were omitted, not routed around. |
 
 ---
 
