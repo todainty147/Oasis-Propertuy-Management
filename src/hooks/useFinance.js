@@ -21,6 +21,7 @@ export function useFinance({ enabled = true } = {}) {
     overdueIncome: 0,
     dueSoonIncome: 0,
     outstandingIncome: 0,
+    unknownTenancyCount: 0,
   });
 
   const [payments, setPayments] = useState([]);
@@ -78,6 +79,7 @@ export function useFinance({ enabled = true } = {}) {
         overdueIncome: getFinanceOverdueAmount(snapshot),
         dueSoonIncome: safeNumber(snapshot?.due_soon_income),
         outstandingIncome: safeNumber(snapshot?.outstanding_income),
+        unknownTenancyCount: safeNumber(snapshot?.unknown_tenancy_count),
       });
       setPropertyFinance(propertyFinanceRows);
     }

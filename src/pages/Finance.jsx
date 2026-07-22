@@ -23,6 +23,8 @@ import {
   occupancyStatusLabelKey,
   paymentStatusLabelKey,
 } from "../utils/statuses";
+import FinanceActivationDrawer from "../components/finance/FinanceActivationDrawer";
+import { BALANCE_REASON_COPY } from "../types/finance";
 
 /* ======================
    SKELETON
@@ -68,6 +70,7 @@ export default function Finance({
   onDeletePayment,
   onMarkPaid,
   onVoidPayment,
+  onRefresh,
   mutating = false,
   mutationError = null,
 }) {
@@ -86,6 +89,8 @@ export default function Finance({
   // B-5: inline delete confirmation — stores the payment id pending confirmation
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const [pendingVoidId, setPendingVoidId] = useState(null);
+  // P0-E: activation drawer — stores the property being activated, or null
+  const [activationDrawerProperty, setActivationDrawerProperty] = useState(null);
   const [voidReason, setVoidReason] = useState("");
   const [overdueCharges, setOverdueCharges] = useState(null);
 
@@ -433,6 +438,18 @@ export default function Finance({
             />
           </div>
 
+          {/* P0: unknown tenancy count notice */}
+          {(summary?.unknownTenancyCount ?? 0) > 0 && (
+            <div data-testid="finance-unknown-notice" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <span className="font-medium">
+                Balance unavailable for {summary.unknownTenancyCount}{" "}
+                {summary.unknownTenancyCount === 1 ? "tenancy" : "tenancies"}
+              </span>
+              {" — "}
+              finance tracking has not been set up. Outstanding totals above exclude these.
+            </div>
+          )}
+
           {/* By Property */}
           <div className="bg-white rounded-xl border overflow-hidden">
             <div className="px-4 sm:px-6 py-4 border-b">
@@ -447,33 +464,54 @@ export default function Finance({
                 {/* Mobile cards */}
                 <div className="md:hidden divide-y" data-testid="property-finance-cards">
                   {visiblePropertyFinance.map((p) => (
-                    <button
-                      key={p.propertyId}
-                      type="button"
-                      onClick={() => navigate(`/properties/${p.propertyId}?tab=financials`)}
-                      className="w-full text-left px-4 py-4 hover:bg-slate-50 transition-colors"
-                    >
-                      <p className="text-sm font-semibold text-slate-900">{p.address}</p>
-                      {p.city && <p className="mt-0.5 text-xs text-slate-500">{p.city}</p>}
-                      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
-                        <div>
-                          <p className="text-[11px] uppercase tracking-wide text-slate-400">{t("finance.table.rent")}</p>
-                          <p className="mt-0.5 text-sm font-medium text-slate-900">{formatCurrency(p.rent, activeCurrency, activeCountryCode)}</p>
+                    <div key={p.propertyId} className="px-4 py-4">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/properties/${p.propertyId}?tab=financials`)}
+                        className="w-full text-left"
+                      >
+                        <p className="text-sm font-semibold text-slate-900">{p.address}</p>
+                        {p.city && <p className="mt-0.5 text-xs text-slate-500">{p.city}</p>}
+                        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
+                          <div>
+                            <p className="text-[11px] uppercase tracking-wide text-slate-400">{t("finance.table.rent")}</p>
+                            <p className="mt-0.5 text-sm font-medium text-slate-900">{formatCurrency(p.rent, activeCurrency, activeCountryCode)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] uppercase tracking-wide text-slate-400">{t("finance.table.paid")}</p>
+                            <p className="mt-0.5 text-sm font-medium text-emerald-700">
+                              {p.balanceState === "known"
+                                ? formatCurrency(p.paid, activeCurrency, activeCountryCode)
+                                : "—"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] uppercase tracking-wide text-slate-400">{t("finance.table.remaining")}</p>
+                            {p.balanceState === "known" ? (
+                              <p className="mt-0.5 text-sm font-medium text-rose-600">{formatCurrency(p.remaining, activeCurrency, activeCountryCode)}</p>
+                            ) : (
+                              <p className="mt-0.5 text-xs text-slate-400 italic">
+                                {(p.reasonCode && BALANCE_REASON_COPY[p.reasonCode]?.primary) || "Balance unavailable"}
+                              </p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-[11px] uppercase tracking-wide text-slate-400">{t("finance.table.status")}</p>
+                            <div className="mt-1"><StatusBadge status={p.paymentStatus} t={t} /></div>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-[11px] uppercase tracking-wide text-slate-400">{t("finance.table.paid")}</p>
-                          <p className="mt-0.5 text-sm font-medium text-emerald-700">{formatCurrency(p.paid, activeCurrency, activeCountryCode)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[11px] uppercase tracking-wide text-slate-400">{t("finance.table.remaining")}</p>
-                          <p className="mt-0.5 text-sm font-medium text-rose-600">{formatCurrency(p.remaining, activeCurrency, activeCountryCode)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[11px] uppercase tracking-wide text-slate-400">{t("finance.table.status")}</p>
-                          <div className="mt-1"><StatusBadge status={p.paymentStatus} t={t} /></div>
-                        </div>
-                      </div>
-                    </button>
+                      </button>
+                      {/* P0-E: activation prompt — active tenancies without finance tracking only */}
+                      {!p.isTenancyEnded && p.balanceState !== "known" && p.paymentStatus !== "vacant" && (
+                        <button
+                          type="button"
+                          onClick={() => setActivationDrawerProperty({ id: p.propertyId, address: p.address, city: p.city })}
+                          className="mt-3 w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-left text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                        >
+                          Set up finance tracking →
+                        </button>
+                      )}
+                    </div>
                   ))}
                 </div>
 
@@ -493,17 +531,43 @@ export default function Finance({
                       {visiblePropertyFinance.map((p) => (
                         <tr
                           key={p.propertyId}
+                          data-testid={`finance-prop-row-${p.propertyId}`}
                           className="hover:bg-slate-50 cursor-pointer transition-colors"
                           onClick={() => navigate(`/properties/${p.propertyId}?tab=financials`)}
                         >
                           <td className="px-6 py-3">
                             <div className="font-medium text-slate-900">{p.address}</div>
                             <div className="text-xs text-slate-500">{p.city}</div>
+                            {/* P0-E: activation prompt — active tenancies without finance tracking only */}
+                            {!p.isTenancyEnded && p.balanceState !== "known" && p.paymentStatus !== "vacant" && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActivationDrawerProperty({ id: p.propertyId, address: p.address, city: p.city });
+                                }}
+                                className="mt-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                              >
+                                Set up finance tracking →
+                              </button>
+                            )}
                           </td>
                           <td className="px-6 py-3 text-right text-slate-900">{formatCurrency(p.rent, activeCurrency, activeCountryCode)}</td>
-                          <td className="px-6 py-3 text-right text-emerald-700 font-medium">{formatCurrency(p.paid, activeCurrency, activeCountryCode)}</td>
-                          <td className="px-6 py-3 text-right text-rose-600 font-medium">{formatCurrency(p.remaining, activeCurrency, activeCountryCode)}</td>
-                          <td className="px-6 py-3"><StatusBadge status={p.paymentStatus} t={t} /></td>
+                          <td className="px-6 py-3 text-right font-medium">
+                            {p.balanceState === "known"
+                              ? <span className="text-emerald-700">{formatCurrency(p.paid, activeCurrency, activeCountryCode)}</span>
+                              : <span className="text-slate-400">—</span>
+                            }
+                          </td>
+                          <td data-testid={`finance-remaining-${p.propertyId}`} className="px-6 py-3 text-right font-medium">
+                            {p.balanceState === "known"
+                              ? <span className="text-rose-600">{formatCurrency(p.remaining, activeCurrency, activeCountryCode)}</span>
+                              : <span className="text-xs text-slate-400 italic">
+                                  {(p.reasonCode && BALANCE_REASON_COPY[p.reasonCode]?.primary) || "Balance unavailable"}
+                                </span>
+                            }
+                          </td>
+                          <td data-testid={`finance-status-${p.propertyId}`} className="px-6 py-3"><StatusBadge status={p.paymentStatus} t={t} /></td>
                         </tr>
                       ))}
                     </tbody>
@@ -706,6 +770,18 @@ export default function Finance({
           t={t}
         />
       )}
+
+      {/* P0-E: Finance activation drawer */}
+      <FinanceActivationDrawer
+        isOpen={activationDrawerProperty !== null}
+        onClose={() => setActivationDrawerProperty(null)}
+        onActivated={() => {
+          onRefresh?.();
+          setActivationDrawerProperty(null);
+        }}
+        property={activationDrawerProperty ?? { id: "", address: "" }}
+        currency={activeCurrency}
+      />
     </div>
   );
 }

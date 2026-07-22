@@ -127,6 +127,7 @@ export default function FinancePage() {
         propertyFinance={propertyFinance}
         mutating={mutating}
         mutationError={mutationError}
+        onRefresh={() => reload?.({ forceRefresh: true })}
         onAddPayment={() => {
           setEditingPayment(null);
           setIsAddOpen(true);

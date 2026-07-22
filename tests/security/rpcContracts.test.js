@@ -71,6 +71,16 @@ describe("rpc contracts", () => {
         paid: 300,
         remaining: 900,
         paymentStatus: "partial",
+        // P0 typed balance fields — null/false when absent from source row
+        balanceState: null,
+        reasonCode: null,
+        outstandingMinor: null,
+        paidMinor: null,
+        expectedMinor: null,
+        accrualThrough: null,
+        coverageStart: null,
+        balanceBasis: null,
+        isTenancyEnded: false,
       },
     ]);
   });

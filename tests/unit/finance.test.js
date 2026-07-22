@@ -207,3 +207,55 @@ describe("calculatePropertyFinance — fallbacks", () => {
     expect(result.paymentStatus).toBe("pending");
   });
 });
+
+// ── Fix 1 (P0-A): lease-end accrual cap ──────────────────────────────────────
+
+describe("calculatePropertyFinance — Fix 1: leaseEndDate accrual cap", () => {
+  it("stops accrual at lease_end when ended before today", () => {
+    // Lease ended 2026-02-28; today is May 12 2026.
+    // Months billed: Dec 2025, Jan 2026, Feb 2026 = 3 months.
+    // Dec paid → 2 months outstanding (Jan + Feb), not 5.
+    const result = calculatePropertyFinance({
+      property: property(10_000),
+      payments: [paidPayment(10_000, "2025-12-01", "2025-12-22")],
+      date: MAY_12_2026,
+      leaseEndDate: "2026-02-28",
+    });
+
+    expect(result.remaining).toBe(20_000); // 3 months exp - 1 paid = 2 × £10k
+  });
+
+  it("uses today as accrual end when no leaseEndDate (open-ended lease)", () => {
+    const result = calculatePropertyFinance({
+      property: property(10_000),
+      payments: [paidPayment(10_000, "2025-12-01", "2025-12-22")],
+      date: MAY_12_2026,
+    });
+
+    expect(result.remaining).toBe(50_000); // Dec–May = 6 months; 1 paid = 5 × £10k
+  });
+
+  it("ignores leaseEndDate that is after today (future lease end = no cap yet)", () => {
+    const result = calculatePropertyFinance({
+      property: property(10_000),
+      payments: [paidPayment(10_000, "2025-12-01", "2025-12-22")],
+      date: MAY_12_2026,
+      leaseEndDate: "2026-12-31",
+    });
+
+    expect(result.remaining).toBe(50_000); // same as open-ended
+  });
+
+  it("caps at a single month when lease ended same month as first payment", () => {
+    // Lease ended 2026-01-31; first (and only) payment in Jan
+    const result = calculatePropertyFinance({
+      property: property(1_000),
+      payments: [paidPayment(1_000, "2026-01-01", "2026-01-01")],
+      date: MAY_12_2026,
+      leaseEndDate: "2026-01-31",
+    });
+
+    expect(result.remaining).toBe(0);
+    expect(result.paymentStatus).toBe("paid");
+  });
+});

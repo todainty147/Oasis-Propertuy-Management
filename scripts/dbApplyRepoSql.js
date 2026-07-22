@@ -64,6 +64,7 @@ const OVERLAY_SEQUENCE = [
   "marketplace_integrations.sql",
   "checkatrade_job_trades.sql",
   "dashboard_snapshot.sql",
+  "finance_tracking_activation.sql",
   "finance_snapshot.sql",
   "portfolio_health_snapshot.sql",
   "payment_integrity_improvements.sql",

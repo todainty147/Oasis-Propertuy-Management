@@ -203,6 +203,11 @@ const bootstrapSteps = [
     onErrorStop: true,
   },
   {
+    label: "Apply finance tracking activation overlay",
+    file: path.join(supabaseDir, "finance_tracking_activation.sql"),
+    onErrorStop: true,
+  },
+  {
     label: "Apply finance snapshot overlay",
     file: path.join(supabaseDir, "finance_snapshot.sql"),
     onErrorStop: true,
