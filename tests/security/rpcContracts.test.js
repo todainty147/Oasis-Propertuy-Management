@@ -81,6 +81,8 @@ describe("rpc contracts", () => {
         coverageStart: null,
         balanceBasis: null,
         isTenancyEnded: false,
+        // Scope identifier — null when snapshot fetched without tenant scope
+        scopeTenancyId: null,
       },
     ]);
   });

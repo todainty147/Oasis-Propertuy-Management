@@ -153,6 +153,10 @@ function parsePropertyFinanceRow(row) {
   const paidMinor         = rawPaid        != null ? Number(rawPaid)        : null;
   const expectedMinor     = rawExpected    != null ? Number(rawExpected)    : null;
   const isTenancyEnded    = toBooleanOr(value.isTenancyEnded ?? value.is_tenancy_ended, false);
+  // Scope identifier — echoes the authenticated tenant scope used for property
+  // selection and tenant-filtered payment retrieval. NOT attribution evidence;
+  // rent, activation and lease boundaries remain property-scoped. See ARCH-FIN-01.
+  const scopeTenancyId = toNullableString(value.scopeTenancyId ?? value.scope_tenancy_id);
 
   return {
     // Legacy fields (backward compatible)
@@ -173,6 +177,7 @@ function parsePropertyFinanceRow(row) {
     coverageStart,
     balanceBasis,
     isTenancyEnded,
+    scopeTenancyId,
   };
 }
 

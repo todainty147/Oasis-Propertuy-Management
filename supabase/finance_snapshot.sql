@@ -547,7 +547,13 @@ BEGIN
           'accrualThrough',     accrual_through,
           'coverageStart',      coverage_start_text,
           'balanceBasis',       balance_basis,
-          'isTenancyEnded',     is_tenancy_ended
+          'isTenancyEnded',     is_tenancy_ended,
+          -- Scope identifier: echoes the authenticated tenant scope used for
+          -- property selection and tenant-filtered payment retrieval.
+          -- NOT attribution evidence — rent, activation, opening_balance_minor
+          -- and lease_end_date remain property-scoped. See ARCH-FIN-01.
+          -- NULL when called without a tenant scope (landlord view).
+          'scopeTenancyId',     v_tenant_id
         )
         ORDER BY address
       ),
