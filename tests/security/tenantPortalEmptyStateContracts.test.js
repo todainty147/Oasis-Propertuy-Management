@@ -97,32 +97,43 @@ vi.mock("../../src/components/TenantMaintenanceDashboard", () => ({
 
 // ── payment empty state ────────────────────────────────────────────────────────
 
+const AUTHORITY_UNAVAILABLE_BALANCE = {
+  attributed: false,
+  attributionState: "authority_unavailable",
+  balance: null,
+  reasonCode: "TENANCY_BALANCE_AUTHORITY_UNAVAILABLE",
+  scopeValidated: false,
+};
+
 describe("tenant payment section — empty state", () => {
-  it("renders cleanly with zero rows and shows the 'all clear' helper text", async () => {
+  it("renders cleanly with zero rows and shows the unavailable balance copy", async () => {
     const { TenantPaymentsContent } = await import("../../src/pages/TenantPayments.jsx");
 
+    // P0-C R3 amendment: balance is always authority_unavailable under current finance model.
     const html = renderToStaticMarkup(
       React.createElement(TenantPaymentsContent, {
         rows: [],
         loading: false,
         err: null,
         onRefresh: () => {},
+        tenantBalance: AUTHORITY_UNAVAILABLE_BALANCE,
         t,
       }),
     );
 
-    // The zero-row case renders the 'clear' helper text (no overdue items).
-    expect(html).toContain("There are no overdue or due items needing attention right now.");
-    // The component must render summary stats showing £0 amounts.
-    expect(html).toContain("£0.00");
-    // Zero-row state must not expose runtime error markers.
+    // Outstanding card shows unavailable copy (authority_unavailable state).
+    expect(html).toContain("Balance unavailable");
+    expect(html).toContain("A tenancy-specific balance has not been established.");
+    expect(html).toContain("tenant-payments-balance-unavailable");
+    // No runtime error markers.
     expect(html).not.toContain("undefined");
     expect(html).not.toContain("NaN");
   });
 
-  it("shows overdue helper text when rows contain an overdue payment", async () => {
+  it("(b) outstanding card present with unavailable copy; overdue helper text absent from outstanding section", async () => {
     const { TenantPaymentsContent } = await import("../../src/pages/TenantPayments.jsx");
 
+    // Payment history row exists for Tenant A; outstanding card still shows unavailable.
     const html = renderToStaticMarkup(
       React.createElement(TenantPaymentsContent, {
         rows: [
@@ -131,13 +142,44 @@ describe("tenant payment section — empty state", () => {
         loading: false,
         err: null,
         onRefresh: () => {},
+        tenantBalance: { ...AUTHORITY_UNAVAILABLE_BALANCE, scopeValidated: true },
         t,
       }),
     );
 
-    expect(html).toContain("overdue rent");
-    // Amount must appear somewhere in the rendered output.
+    // (b) Outstanding card is present and shows unavailable copy.
+    expect(html).toContain("tenant-payments-outstanding-card");
+    expect(html).toContain("tenant-payments-balance-unavailable");
+    expect(html).toContain("Balance unavailable");
+    expect(html).toContain("A tenancy-specific balance has not been established.");
+    // Payment transaction amount IS present in history section.
     expect(html).toContain("950");
+    // Monetary outstanding helper text is absent from the card (attributed branch only).
+    expect(html).not.toContain("overdue rent");
+    expect(html).not.toContain("There are no overdue");
+  });
+
+  it("(a) Tenant A payment transaction is visible in history; Tenant B amount is absent", async () => {
+    const { TenantPaymentsContent } = await import("../../src/pages/TenantPayments.jsx");
+
+    // rows contains only Tenant A's payments — backend filters by tenant_id.
+    const html = renderToStaticMarkup(
+      React.createElement(TenantPaymentsContent, {
+        rows: [
+          { id: "tx-tenant-a", amount: 950, status: "paid", due_date: "2026-06-01", paid_at: "2026-06-01" },
+        ],
+        loading: false,
+        err: null,
+        onRefresh: () => {},
+        tenantBalance: { ...AUTHORITY_UNAVAILABLE_BALANCE, scopeValidated: true },
+        t,
+      }),
+    );
+
+    // (a) Tenant A's own payment IS visible in the history section.
+    expect(html).toContain("950");
+    // Tenant B's transaction amount (deliberately different: 750) is ABSENT.
+    expect(html).not.toContain("750");
   });
 
   it("does not render admin/landlord-only actions in tenant payment view", async () => {

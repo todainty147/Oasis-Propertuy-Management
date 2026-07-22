@@ -11,6 +11,17 @@ import { paymentStatusLabelKey, normalizePaymentStatus } from "../utils/statuses
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { getAccountPaymentCollectionSettings } from "../services/paymentCollectionSettingsService";
+import { useFinance } from "../hooks/useFinance";
+import { selectTenantBalance } from "../utils/balanceSelector";
+import { useTenant } from "../context/TenantContext";
+
+const TENANT_BALANCE_FALLBACK = {
+  attributed: false,
+  attributionState: "authority_unavailable",
+  balance: null,
+  reasonCode: "TENANCY_BALANCE_AUTHORITY_UNAVAILABLE",
+  scopeValidated: false,
+};
 
 function statusBadge(status) {
   const base = "text-xs px-2 py-0.5 rounded border";
@@ -166,7 +177,7 @@ function TenantPaymentCollectionCard({ settings, t }) {
   );
 }
 
-export function TenantPaymentsContent({ rows = [], loading = false, err = null, onRefresh, settings = null, t }) {
+export function TenantPaymentsContent({ rows = [], loading = false, err = null, onRefresh, settings = null, tenantBalance = TENANT_BALANCE_FALLBACK, t }) {
   const displayRows = buildTenantPaymentDisplayRows(rows);
   const summary = buildTenantPaymentSummaryFromDisplayRows(displayRows);
 
@@ -187,18 +198,31 @@ export function TenantPaymentsContent({ rows = [], loading = false, err = null, 
 
       {!loading && !err ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <Card className="p-5">
+          <Card className="p-5" data-testid="tenant-payments-outstanding-card">
             <p className="text-sm font-medium text-slate-500">{t("tenantPortal.payments.summary.outstanding")}</p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">
-              {formatCurrencyAmount(summary.outstanding)}
-            </p>
-            <p className="mt-2 text-sm text-slate-500">
-              {summary.overdue > 0
-                ? t("tenantPortal.payment.helper.overdue")
-                : summary.outstanding > 0
-                  ? t("tenantPortal.payment.helper.due")
-                  : t("tenantPortal.payment.helper.clear")}
-            </p>
+            {!tenantBalance.attributed || !tenantBalance.balance?.isKnown ? (
+              <>
+                <p className="mt-2 text-sm font-medium text-slate-700" data-testid="tenant-payments-balance-unavailable">
+                  Balance unavailable
+                </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  A tenancy-specific balance has not been established.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-2 text-2xl font-semibold text-slate-900">
+                  {formatCurrencyAmount(tenantBalance.balance.remaining)}
+                </p>
+                <p className="mt-2 text-sm text-slate-500">
+                  {tenantBalance.balance.isOverdue
+                    ? t("tenantPortal.payment.helper.overdue")
+                    : (tenantBalance.balance.remaining ?? 0) > 0
+                      ? t("tenantPortal.payment.helper.due")
+                      : t("tenantPortal.payment.helper.clear")}
+                </p>
+              </>
+            )}
           </Card>
           <Card className="p-5">
             <p className="text-sm font-medium text-slate-500">{t("tenantPortal.payments.summary.paid")}</p>
@@ -280,12 +304,15 @@ export function TenantPaymentsContent({ rows = [], loading = false, err = null, 
 
 export default function TenantPayments() {
   const { activeAccountId, accountLoading } = useAccount();
+  const { activeTenantId } = useTenant();
   const { t } = useI18n();
   const { setTitle } = usePageTitle();
   const [rows, setRows] = useState([]);
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
+  const { propertyFinance } = useFinance();
+  const tenantBalance = selectTenantBalance(propertyFinance, activeTenantId);
 
   useEffect(() => {
     setTitle(t("payments.title"));
@@ -325,5 +352,5 @@ export default function TenantPayments() {
     );
   }
 
-  return <TenantPaymentsContent rows={rows} loading={loading} err={err} onRefresh={load} settings={settings} t={t} />;
+  return <TenantPaymentsContent rows={rows} loading={loading} err={err} onRefresh={load} settings={settings} tenantBalance={tenantBalance} t={t} />;
 }
