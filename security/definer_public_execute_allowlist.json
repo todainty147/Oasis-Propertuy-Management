@@ -1,0 +1,8 @@
+{
+  "submit_public_rental_application": {
+    "rationale": "Token-gated public rental application — intentionally callable pre-auth; p_public_token gates all data access inside the function"
+  },
+  "record_auth_rate_limit_attempt": {
+    "rationale": "Pre-auth rate limiter — must be callable without a session to throttle unauthenticated sign-in attempts before any session exists"
+  }
+}

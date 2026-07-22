@@ -8,7 +8,7 @@ export default mergeConfig(
     test: {
       environment: "node",
       globals: true,
-      include: ["tests/integration/**/*.test.js"],
+      include: ["tests/integration/**/*.test.js", "e170-suite/integration/**/*.test.js"],
       testTimeout: 30000,
       hookTimeout: 30000,
       fileParallelism: false,

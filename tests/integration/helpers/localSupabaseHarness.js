@@ -400,6 +400,24 @@ export async function ensureIsolationHarnessSeed() {
     throw wrapStepError("account membership seed failed", error);
   }
 
+  // Remove non-canonical properties that accumulate across test runs (same pattern as E-137).
+  // document_audit_log has no ON DELETE action, so it must be cleared first.
+  try {
+    const { data: extraA } = await admin.from("properties").select("id")
+      .eq("account_id", isolationFixtures.accounts.accountA.id)
+      .neq("id", propertyIds.accountA);
+    const { data: extraB } = await admin.from("properties").select("id")
+      .eq("account_id", isolationFixtures.accounts.accountB.id)
+      .neq("id", propertyIds.accountB);
+    const extraIds = [...(extraA || []), ...(extraB || [])].map((p) => p.id);
+    if (extraIds.length > 0) {
+      await admin.from("document_audit_log").delete().in("property_id", extraIds);
+      await admin.from("properties").delete().in("id", extraIds);
+    }
+  } catch (error) {
+    throw wrapStepError("property accumulation cleanup failed", error);
+  }
+
   try {
     await upsertWithContext(admin, "properties", [
       {

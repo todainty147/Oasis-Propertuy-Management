@@ -138,34 +138,68 @@ export function parseDashboardHubExtraRow(row) {
 
 function parsePropertyFinanceRow(row) {
   const value = assertRecord(row, "finance_snapshot.property_finance row");
+
+  // P0 typed balance fields (Fix 4/5)
+  const balanceState  = toStringOr(value.balance_state ?? value.balanceState)   || null;
+  const reasonCode    = toNullableString(value.reason_code ?? value.reasonCode);
+  const balanceBasis  = toNullableString(value.balance_basis ?? value.balanceBasis);
+  const accrualThrough = toNullableString(value.accrual_through ?? value.accrualThrough);
+  const coverageStart  = toNullableString(value.coverage_start  ?? value.coverageStart);
+
+  const rawOutstanding    = value.outstandingMinor ?? value.outstanding_minor;
+  const rawPaid           = value.paidMinor        ?? value.paid_minor;
+  const rawExpected       = value.expectedMinor     ?? value.expected_minor;
+  const outstandingMinor  = rawOutstanding != null ? Number(rawOutstanding) : null;
+  const paidMinor         = rawPaid        != null ? Number(rawPaid)        : null;
+  const expectedMinor     = rawExpected    != null ? Number(rawExpected)    : null;
+  const isTenancyEnded    = toBooleanOr(value.isTenancyEnded ?? value.is_tenancy_ended, false);
+  // Scope identifier — echoes the authenticated tenant scope used for property
+  // selection and tenant-filtered payment retrieval. NOT attribution evidence;
+  // rent, activation and lease boundaries remain property-scoped. See ARCH-FIN-01.
+  const scopeTenancyId = toNullableString(value.scopeTenancyId ?? value.scope_tenancy_id);
+
   return {
-    propertyId: toNullableString(value.property_id ?? value.propertyId),
-    address: toStringOr(value.address),
-    city: toStringOr(value.city),
-    rent: toNumberOr(value.rent),
-    paid: toNumberOr(value.paid),
-    remaining: toNumberOr(value.remaining),
+    // Legacy fields (backward compatible)
+    propertyId:    toNullableString(value.property_id ?? value.propertyId),
+    address:       toStringOr(value.address),
+    city:          toStringOr(value.city),
+    rent:          toNumberOr(value.rent),
+    paid:          toNumberOr(value.paid),
+    remaining:     toNumberOr(value.remaining),
     paymentStatus: toStringOr(value.payment_status ?? value.paymentStatus),
+    // P0 typed fields
+    balanceState,
+    reasonCode,
+    outstandingMinor,
+    paidMinor,
+    expectedMinor,
+    accrualThrough,
+    coverageStart,
+    balanceBasis,
+    isTenancyEnded,
+    scopeTenancyId,
   };
 }
 
 export const EMPTY_FINANCE_SNAPSHOT = {
-  total_income: 0,
-  overdue_income: 0,
-  due_soon_income: 0,
-  outstanding_income: 0,
-  property_finance: [],
+  total_income:          0,
+  overdue_income:        0,
+  due_soon_income:       0,
+  outstanding_income:    0,
+  unknown_tenancy_count: 0,
+  property_finance:      [],
 };
 
 export function parseFinanceSnapshotRow(row) {
   if (!row) return { ...EMPTY_FINANCE_SNAPSHOT };
   const value = assertRecord(row, "finance_snapshot row");
   return {
-    total_income: toNumberOr(value.total_income),
-    overdue_income: toNumberOr(value.overdue_income),
-    due_soon_income: toNumberOr(value.due_soon_income),
-    outstanding_income: toNumberOr(value.outstanding_income),
-    property_finance: toArrayOr(value.property_finance).map(parsePropertyFinanceRow),
+    total_income:          toNumberOr(value.total_income),
+    overdue_income:        toNumberOr(value.overdue_income),
+    due_soon_income:       toNumberOr(value.due_soon_income),
+    outstanding_income:    toNumberOr(value.outstanding_income),
+    unknown_tenancy_count: Number(value.unknown_tenancy_count ?? 0),
+    property_finance:      toArrayOr(value.property_finance).map(parsePropertyFinanceRow),
   };
 }
 

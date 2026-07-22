@@ -4,7 +4,6 @@ import Badge from "../components/Badge";
 import DashboardBreadcrumbs from "../components/DashboardBreadcrumbs";
 import Skeleton from "../components/ui/Skeleton";
 import { usePageTitle } from "../layout/PageTitleContext";
-import { calculatePropertyFinance } from "../utils/finance";
 import PropertyDocumentsSection from "../components/PropertyDocumentsSection";
 import MaintenanceRequestsSection from "../components/MaintenanceRequestsSection";
 import WorkOrdersSection from "../components/WorkOrdersSection";
@@ -22,6 +21,9 @@ import { isManageRole, can } from "../utils/permissions";
 import { listEntityCustomFieldValues } from "../services/customFieldService";
 import { ENTITLEMENT_FEATURES } from "../lib/entitlements";
 import ExplainBalanceDrawer from "../components/provenance/ExplainBalanceDrawer";
+import { useFinance } from "../hooks/useFinance";
+import { findPropertyBalanceRow, selectPropertyBalance } from "../utils/balanceSelector";
+import { BALANCE_REASON_COPY } from "../types/finance";
 
 /* ======================
    SKELETON
@@ -70,6 +72,7 @@ export default function PropertyDetails({
   const [customFieldRows, setCustomFieldRows]     = useState([]);
   const [customFieldsLoading, setCustomFieldsLoading] = useState(false);
   const [showExplainBalance, setShowExplainBalance] = useState(false);
+  const { propertyFinance } = useFinance();
 
   const TABS = [
     { id: "overview",    label: t("propertyDetails.tab.overview")       },
@@ -141,7 +144,8 @@ export default function PropertyDetails({
   const isOccupied       = propertyTenants.length > 0;
   const primaryTenant    = propertyTenants[0] || null;
   const propertyPayments = payments.filter((p) => String(p.propertyId) === String(property.id));
-  const finance          = calculatePropertyFinance({ property, payments: propertyPayments });
+  const balanceRow       = findPropertyBalanceRow(propertyFinance, property.id);
+  const balance          = selectPropertyBalance(balanceRow);
   const ecoPlannerEnabled =
     typeof hasEntitlement === "function" &&
     (hasEntitlement(ENTITLEMENT_FEATURES.ECO_UPGRADE_PLANNER) ||
@@ -231,6 +235,7 @@ export default function PropertyDetails({
               property={property}
               payments={propertyPayments}
               tenantCount={propertyTenants.length}
+              balanceRow={balanceRow}
             />
           )}
 
@@ -290,23 +295,37 @@ export default function PropertyDetails({
       {activeTab === "financials" && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Rent — Type C (scheduled), always from property config */}
             <div className="rounded-xl border border-slate-200 bg-white p-4">
               <p className="text-xs text-slate-500">{t("finance.table.rent")}</p>
               <p className="text-xl font-bold text-slate-900 mt-1">
-                {formatCurrencyAmount(finance.rent)}
+                {formatCurrencyAmount(property.rent)}
               </p>
             </div>
+            {/* Paid — Type D (historic total); shown only when balance is known */}
             <div className="rounded-xl border border-slate-200 bg-white p-4">
               <p className="text-xs text-slate-500">{t("finance.table.paid")}</p>
-              <p className="text-xl font-bold text-emerald-600 mt-1">
-                {formatCurrencyAmount(finance.paid)}
-              </p>
+              {balance.isKnown ? (
+                <p className="text-xl font-bold text-emerald-600 mt-1">
+                  {formatCurrencyAmount(balance.paid)}
+                </p>
+              ) : (
+                <p className="text-xl font-bold text-slate-400 mt-1">—</p>
+              )}
             </div>
+            {/* Remaining — Type A (governed outstanding balance); state-first */}
             <div className="rounded-xl border border-slate-200 bg-white p-4">
               <p className="text-xs text-slate-500">{t("finance.table.remaining")}</p>
-              <p className="text-xl font-bold text-rose-600 mt-1">
-                {formatCurrencyAmount(finance.remaining)}
-              </p>
+              {balance.isKnown ? (
+                <p className="text-xl font-bold text-rose-600 mt-1">
+                  {formatCurrencyAmount(balance.remaining)}
+                </p>
+              ) : (
+                <p className="text-sm text-slate-400 italic mt-2" data-testid="financials-balance-unavailable">
+                  {balance.reasonPrimary ??
+                    (BALANCE_REASON_COPY["PAYMENT_HISTORY_NOT_IMPORTED"]?.primary ?? "Balance unavailable")}
+                </p>
+              )}
             </div>
           </div>
 

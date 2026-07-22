@@ -10,8 +10,9 @@ import {
   calculatePropertyOperationalHealth,
   getPropertyOperationalHealthCategory,
 } from "../services/propertyHealthScoreService";
-import { buildPaymentCycles, calculatePropertyFinance } from "../utils/finance";
+import { buildPaymentCycles } from "../utils/finance";
 import { normalizeWorkOrderStatus } from "../utils/statuses";
+import { selectPropertyBalance } from "../utils/balanceSelector";
 
 function toDate(value) {
   if (!value) return null;
@@ -25,8 +26,9 @@ function normalizeRequestStatus(status) {
   return "open";
 }
 
-function toneForAttention({ overdueRent = 0, openRequests = 0, activeWorkOrders = 0 }) {
-  if (Number(overdueRent || 0) > 0) return "rose";
+function toneForAttention({ overdueRent, openRequests = 0, activeWorkOrders = 0, balanceIsKnown }) {
+  if (!balanceIsKnown) return "slate";
+  if (overdueRent != null && Number(overdueRent) > 0) return "rose";
   if (Number(openRequests || 0) > 0 || Number(activeWorkOrders || 0) > 0) return "amber";
   return "emerald";
 }
@@ -65,6 +67,7 @@ export default function PropertyPerformanceCard({
   property,
   payments = [],
   tenantCount = 0,
+  balanceRow = null,
 }) {
   const { t } = useI18n();
   const [showDetails, setShowDetails] = useState(false);
@@ -157,18 +160,17 @@ export default function PropertyPerformanceCard({
   });
 
   const summary = useMemo(() => {
-    const propertyFinance = calculatePropertyFinance({
-      property,
-      payments,
-    });
-    const monthlyRent = Number(propertyFinance?.rent || property?.rent || 0);
-    const collectedToDate = Number(propertyFinance?.paid || 0);
-    const outstandingRent = Number(propertyFinance?.remaining || 0);
-    const overdueRent =
-      String(propertyFinance?.paymentStatus || "").toLowerCase() === "overdue"
-        ? outstandingRent
-        : 0;
-    const billedToDate = collectedToDate + outstandingRent;
+    const monthlyRent = Number(property?.rent || 0);
+
+    // Balance fields from typed authority only — state-first
+    const balance = selectPropertyBalance(balanceRow);
+    const outstandingRent = balance.isKnown ? balance.remaining : null;
+    const overdueRent = balance.isKnown && balance.isOverdue ? outstandingRent : null;
+    const collectedToDate = balance.isKnown ? balance.paid : null;
+    const billedToDate =
+      balance.isKnown && outstandingRent != null && collectedToDate != null
+        ? collectedToDate + outstandingRent
+        : null;
 
     let openRequests = 0;
     for (const row of requestRows || []) {
@@ -201,7 +203,7 @@ export default function PropertyPerformanceCard({
     const totalOperatingCosts = maintenanceInvoiced + operatingExpenses;
     const netOperatingSnapshot = collectedToDate - totalOperatingCosts;
     const occupancyStatus = tenantCount > 0 ? "occupied" : "vacant";
-    const attentionTone = toneForAttention({ overdueRent, openRequests, activeWorkOrders });
+    const attentionTone = toneForAttention({ overdueRent, openRequests, activeWorkOrders, balanceIsKnown: balance.isKnown });
     const annualizedRent = monthlyRent > 0 ? monthlyRent * 12 : 0;
     const grossYield =
       Number(financialProfile?.estimated_market_value || 0) > 0 && annualizedRent > 0
@@ -209,7 +211,8 @@ export default function PropertyPerformanceCard({
         : null;
 
     let attentionLabel = t("propertyDetails.performanceHealthy");
-    if (overdueRent > 0) attentionLabel = t("propertyDetails.performanceOverdueAttention");
+    if (!balance.isKnown) attentionLabel = t("propertyDetails.performanceBalanceUnknown");
+    else if (overdueRent != null && overdueRent > 0) attentionLabel = t("propertyDetails.performanceOverdueAttention");
     else if (openRequests > 0 || activeWorkOrders > 0) attentionLabel = t("propertyDetails.performanceOperationalAttention");
 
     return {
@@ -231,8 +234,9 @@ export default function PropertyPerformanceCard({
       annualizedRent,
       estimatedMarketValue: Number(financialProfile?.estimated_market_value || 0),
       grossYield,
+      balance,
     };
-  }, [financialProfile?.estimated_market_value, operatingExpenseRows, payments, property?.rent, requestRows, tenantCount, t, workOrderRows]);
+  }, [financialProfile?.estimated_market_value, operatingExpenseRows, balanceRow, property?.rent, requestRows, tenantCount, t, workOrderRows]);
 
   const trendView = useMemo(() => {
     const windows = [30, 90].map((days) => {
@@ -312,7 +316,7 @@ export default function PropertyPerformanceCard({
         label: t("propertyDetails.performanceFlagHighCost"),
       });
     }
-    if (summary.overdueRent > 0) {
+    if (summary.balance?.isKnown && summary.overdueRent != null && summary.overdueRent > 0) {
       flags.push({
         key: "rent-at-risk",
         tone: "rose",
@@ -436,15 +440,31 @@ export default function PropertyPerformanceCard({
               </div>
               <div className="rounded-lg border border-slate-200 bg-white p-3">
                 <p className="text-xs text-slate-500">{t("propertyDetails.performanceCollected")}</p>
-                <p className="text-base font-bold text-emerald-700 mt-1">{formatCurrencyAmount(summary.collectedToDate)}</p>
+                {summary.balance.isKnown ? (
+                  <p className="text-base font-bold text-emerald-700 mt-1">{formatCurrencyAmount(summary.collectedToDate)}</p>
+                ) : (
+                  <p className="text-sm text-slate-400 mt-1">—</p>
+                )}
               </div>
               <div className="rounded-lg border border-slate-200 bg-white p-3">
                 <p className="text-xs text-slate-500">{t("propertyDetails.performanceOverdue")}</p>
-                <p className="text-base font-bold text-rose-700 mt-1">{formatCurrencyAmount(summary.overdueRent)}</p>
+                {summary.balance.isKnown ? (
+                  <p className="text-base font-bold text-rose-700 mt-1">{formatCurrencyAmount(summary.overdueRent ?? 0)}</p>
+                ) : (
+                  <p className="text-xs text-slate-400 italic mt-1" data-testid="perf-overdue-unavailable">
+                    {summary.balance.reasonPrimary ?? "Balance unavailable"}
+                  </p>
+                )}
               </div>
               <div className="rounded-lg border border-slate-200 bg-white p-3">
                 <p className="text-xs text-slate-500">{t("propertyDetails.performanceOutstanding")}</p>
-                <p className="text-base font-bold text-amber-700 mt-1">{formatCurrencyAmount(summary.outstandingRent)}</p>
+                {summary.balance.isKnown ? (
+                  <p className="text-base font-bold text-amber-700 mt-1">{formatCurrencyAmount(summary.outstandingRent ?? 0)}</p>
+                ) : (
+                  <p className="text-xs text-slate-400 italic mt-1" data-testid="perf-outstanding-unavailable">
+                    {summary.balance.reasonPrimary ?? "Balance unavailable"}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -512,7 +532,11 @@ export default function PropertyPerformanceCard({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="rounded-lg border border-slate-200 bg-white p-3">
                   <p className="text-xs text-slate-500">{t("propertyDetails.performanceBilledToDate")}</p>
-                  <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.billedToDate)}</p>
+                  <p className="text-lg font-bold text-slate-900 mt-1">
+                    {summary.balance.isKnown && summary.billedToDate != null
+                      ? formatCurrencyAmount(summary.billedToDate)
+                      : "—"}
+                  </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-white p-3">
                   <p className="text-xs text-slate-500">{t("propertyDetails.performanceMaintenanceCommitted")}</p>
@@ -532,7 +556,11 @@ export default function PropertyPerformanceCard({
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-white p-3">
                   <p className="text-xs text-slate-500">{t("propertyDetails.performanceNetOperating")}</p>
-                  <p className="text-lg font-bold text-slate-900 mt-1">{formatCurrencyAmount(summary.netOperatingSnapshot)}</p>
+                  <p className="text-lg font-bold text-slate-900 mt-1">
+                    {summary.balance.isKnown
+                      ? formatCurrencyAmount(summary.netOperatingSnapshot)
+                      : "—"}
+                  </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-white p-3">
                   <p className="text-xs text-slate-500">{t("propertyDetails.performanceEstimatedValue")}</p>

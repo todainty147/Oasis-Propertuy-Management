@@ -28,7 +28,7 @@ All three conditions must hold for a production export to succeed. Workspace acc
 
 ### 2.2 `deposit_pack_account_has_entitlement`
 
-Returns `true` for accounts whose effective plan rank is ≥ 2 (Growth or Pro). Starter (rank 1) returns false. Self-contained SECURITY DEFINER. Does not rely on `account_feature_required_plan('evidence_vault_dispute_pack')`, which falls through to `'starter'` — a pre-existing misconfiguration. The explicit Growth+ check is authoritative.
+Delegates to `public.account_has_effective_feature(account_id, 'evidence_vault_dispute_pack')`, which applies the six-priority chain of the effective feature resolver. Priority 3 (explicit `enabled = false` flag) denies access regardless of plan tier; priority 4 (explicit `enabled = true` flag) grants access regardless of plan tier; priority 6 resolves the effective plan via `account_subscription_plan()` — which honours active `account_entitlements` rows (e.g. Founder20) without rewriting billing identity — and compares its rank against the `'growth'` catalogue minimum. Billing plan and feature entitlement are kept separate throughout. SECURITY DEFINER; safe `search_path`.
 
 ### 2.3 Root accounts
 
@@ -213,7 +213,7 @@ Do not include customer-identifying details in internal escalation summaries bey
 | Root user reports export blocked | Verify registry state. `suspended` state blocks all callers including root. `internal_preview` allows root but blocks all other users. Confirm which state is in effect. |
 | Request to run an operator preview before production transition | Root can call `prepare_deposit_dispute_pack_export` directly; this writes an audit row with `release_state = internal_preview`. There is no designated operator UI. Treat as an engineering task, not a frontline procedure. |
 | Suspected cross-account data exposure | P1 escalate to engineering immediately. Reference T-14. |
-| Entitlement dispute — Growth user still blocked | Confirm `deposit_pack_account_has_entitlement` for the account UUID. Confirm plan rank ≥ 2. |
+| Entitlement dispute — Growth user still blocked | 1. Run `select public.account_explain_effective_feature('<account_id>', 'evidence_vault_dispute_pack');` (root-operator session). The `reason` field is the authoritative diagnosis: `plan_grant` \| `explicit_grant` \| `explicit_deny` \| `flag_required` \| `not_granted` \| `unknown_feature` \| `unknown_account`. Note `effective_plan` and `min_plan`. 2. If `reason` is `explicit_deny`: a flag row with `enabled = false` is overriding the plan. Inspect with `select enabled, created_by from public.account_feature_flags where account_id = '<id>' and feature_key = 'evidence_vault_dispute_pack';`. A `created_by IS NULL` row is a seed artifact; a populated `created_by` indicates an operator or support action. 3. If `reason` is `not_granted`: check `account_subscription_plan` and `account_entitlements`. The effective plan is below Growth with no active entitlement grant. |
 
 ---
 

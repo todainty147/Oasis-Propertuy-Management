@@ -7,9 +7,10 @@ import { useAccount } from "../context/AccountContext";
 import { useI18n } from "../context/I18nContext";
 import { usePageTitle } from "../layout/PageTitleContext";
 import { fetchMyLease, getDerivedLeaseStatus } from "../services/leaseService";
-import { fetchMyPayments } from "../services/paymentService";
-import { buildTenantPaymentSummaryFromPayments } from "../utils/tenantPortal";
 import { formatCurrencyAmount } from "../utils/currency";
+import { useFinance } from "../hooks/useFinance";
+import { selectTenantBalance } from "../utils/balanceSelector";
+import { useTenant } from "../context/TenantContext";
 
 function formatDate(value) {
   if (!value) return "—";
@@ -82,25 +83,49 @@ function LeaseSummaryCard({ lease, loading, t }) {
   );
 }
 
-function PaymentSummaryCard({ summary, loading, t }) {
+function PaymentSummaryCard({ tenantBalance, loading, t }) {
   if (loading) return <Skeleton className="h-32" />;
+
+  if (!tenantBalance.attributed || !tenantBalance.balance?.isKnown) {
+    return (
+      <Card className="p-5 border border-[var(--border-soft)] bg-[var(--surface-1)]" data-testid="tenant-home-outstanding-card">
+        <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">{t("tenantPortal.home.paymentCard.title")}</p>
+        <p className="mt-2 text-sm font-medium text-slate-700" data-testid="tenant-home-balance-unavailable">
+          Balance unavailable
+        </p>
+        <p className="mt-1 text-sm text-slate-500">
+          A tenancy-specific balance has not been established.
+        </p>
+        <Link to="/tenant/payments" className="mt-4 inline-block text-sm font-medium text-[var(--focus-border)] hover:underline">
+          {t("tenantPortal.home.paymentCard.viewAll")} →
+        </Link>
+      </Card>
+    );
+  }
+
+  const { balance } = tenantBalance;
 
   const stateClasses = {
     overdue: "border-rose-200 bg-rose-50",
     due: "border-amber-200 bg-amber-50",
     clear: "border-[var(--border-soft)] bg-[var(--surface-1)]",
   };
+  const state = balance.isOverdue ? "overdue" : balance.isClear ? "clear" : "due";
 
   return (
-    <Card className={`p-5 border ${stateClasses[summary.state] || stateClasses.clear}`}>
+    <Card className={`p-5 border ${stateClasses[state] || stateClasses.clear}`}>
       <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">{t("tenantPortal.home.paymentCard.title")}</p>
-      <p className={`mt-2 text-2xl font-bold ${summary.state === "overdue" ? "text-rose-700 dark:text-rose-300" : summary.state === "due" ? "text-amber-800 dark:text-amber-300" : "text-[var(--text-primary)]"}`}>
-        {formatCurrencyAmount(summary.outstanding)}
+      <p className={`mt-2 text-2xl font-bold ${
+        state === "overdue" ? "text-rose-700 dark:text-rose-300" :
+        state === "due" ? "text-amber-800 dark:text-amber-300" :
+        "text-[var(--text-primary)]"
+      }`}>
+        {formatCurrencyAmount(balance.remaining)}
       </p>
       <p className="mt-1 text-sm text-[var(--text-secondary)]">
-        {summary.state === "overdue"
+        {state === "overdue"
           ? t("tenantPortal.payment.helper.overdue")
-          : summary.state === "due"
+          : state === "due"
             ? t("tenantPortal.payment.helper.due")
             : t("tenantPortal.payment.helper.clear")}
       </p>
@@ -140,13 +165,13 @@ function QuickLinksCard({ t }) {
 
 export default function TenantHomePage() {
   const { activeAccountId, accountLoading } = useAccount();
+  const { activeTenantId } = useTenant();
   const { t } = useI18n();
   const { setTitle } = usePageTitle();
+  const { propertyFinance, loading: financeLoading } = useFinance();
 
   const [lease, setLease] = useState(null);
   const [leaseLoading, setLeaseLoading] = useState(true);
-  const [payments, setPayments] = useState([]);
-  const [paymentsLoading, setPaymentsLoading] = useState(true);
 
   useEffect(() => {
     setTitle(t("tenantPortal.shell.nav.home"));
@@ -158,18 +183,13 @@ export default function TenantHomePage() {
 
     async function load() {
       setLeaseLoading(true);
-      setPaymentsLoading(true);
-
-      const [leaseResult, paymentsResult] = await Promise.allSettled([
-        fetchMyLease(activeAccountId),
-        fetchMyPayments(activeAccountId),
-      ]);
-
-      if (!cancelled) {
-        setLease(leaseResult.status === "fulfilled" ? leaseResult.value : null);
-        setPayments(paymentsResult.status === "fulfilled" ? paymentsResult.value : []);
-        setLeaseLoading(false);
-        setPaymentsLoading(false);
+      try {
+        const result = await fetchMyLease(activeAccountId);
+        if (!cancelled) setLease(result);
+      } catch {
+        if (!cancelled) setLease(null);
+      } finally {
+        if (!cancelled) setLeaseLoading(false);
       }
     }
 
@@ -177,7 +197,7 @@ export default function TenantHomePage() {
     return () => { cancelled = true; };
   }, [accountLoading, activeAccountId]);
 
-  const summary = buildTenantPaymentSummaryFromPayments(payments);
+  const tenantBalance = selectTenantBalance(propertyFinance, activeTenantId);
 
   if (accountLoading) {
     return (
@@ -199,7 +219,7 @@ export default function TenantHomePage() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <LeaseSummaryCard lease={lease} loading={leaseLoading} t={t} />
-        <PaymentSummaryCard summary={summary} loading={paymentsLoading} t={t} />
+        <PaymentSummaryCard tenantBalance={tenantBalance} loading={financeLoading} t={t} />
       </div>
 
       <QuickLinksCard t={t} />

@@ -17,6 +17,12 @@ function getPropertyFinanceRows(snapshot = {}) {
 
 export function getPropertyOverdueRemaining(snapshot = {}) {
   return getPropertyFinanceRows(snapshot).reduce((sum, row) => {
+    // State-first gate: only rows with a proven known balance may contribute.
+    // Without this check the function relies on the RPC invariant that unknown-state
+    // rows have remaining=null; an adversarial row with paymentStatus="overdue" and
+    // a non-null remaining would otherwise leak into the aggregate.
+    const balanceState = row?.balanceState ?? row?.balance_state ?? "";
+    if (balanceState !== "known") return sum;
     const status = normalize(row?.paymentStatus ?? row?.payment_status);
     const remaining = safeNumber(row?.remaining);
     return status === "overdue" && remaining > 0 ? sum + remaining : sum;

@@ -195,6 +195,7 @@ export function calculatePropertyFinance({
   property,
   payments = [],
   date = new Date(),
+  leaseEndDate = null,
 }) {
   const rent = Number(property?.rent) || 0;
 
@@ -229,10 +230,15 @@ export function calculatePropertyFinance({
   const earliest = new Date(Math.min(...refDates.map((d) => d.getTime())));
   const startY = earliest.getFullYear();
   const startM = earliest.getMonth(); // 0-based
-  const nowY   = date.getFullYear();
-  const nowM   = date.getMonth();   // 0-based
 
-  // Total months billed = from earliest month to current month, inclusive.
+  // Fix 1 (P0-A): cap accrual at min(today, lease_end_date) so ended tenancies
+  // stop generating obligations past their lease end.
+  const leaseEnd = leaseEndDate ? toDate(leaseEndDate) : null;
+  const accrualEnd = leaseEnd && leaseEnd < date ? leaseEnd : date;
+  const nowY   = accrualEnd.getFullYear();
+  const nowM   = accrualEnd.getMonth();   // 0-based
+
+  // Total months billed = from earliest month to accrual-end month, inclusive.
   const totalMonths  = Math.max(1, (nowY - startY) * 12 + (nowM - startM) + 1);
   const totalExpected = totalMonths * rent;
 
