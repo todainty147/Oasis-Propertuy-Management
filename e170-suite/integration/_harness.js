@@ -12,7 +12,6 @@
 
 import { randomUUID }  from "node:crypto";
 import { execSync }    from "node:child_process";
-import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { isolationFixtures } from "../../tests/fixtures/isolationFixtures.js";
@@ -61,27 +60,39 @@ function reloadSchemaCache() {
   });
 }
 
+// Pre-fix SHA: the last commit that touched finance_snapshot.sql BEFORE the E-170
+// Gate-1 fix (534d171). Using a pinned SHA avoids dependence on HEAD, which now
+// contains the post-fix version.
+const PRE_FIX_SHA  = "2475c3b";
+// Post-fix SHA: the last committed version of finance_snapshot.sql (scopeTenancyId).
+const POST_FIX_SHA = "899f494";
+
 export function applyPreFixFunction() {
-  // git show HEAD:supabase/finance_snapshot.sql is the committed pre-E-170 version.
   let preFixSql;
   try {
-    preFixSql = execSync("git show HEAD:supabase/finance_snapshot.sql", {
+    preFixSql = execSync(`git show ${PRE_FIX_SHA}:supabase/finance_snapshot.sql`, {
       encoding: "utf8",
       cwd: REPO_ROOT,
       timeout: 10_000,
     });
   } catch (err) {
-    throw new Error(`Could not read pre-fix function from git HEAD: ${err.message}`);
+    throw new Error(`Could not read pre-fix function from git ${PRE_FIX_SHA}: ${err.message}`);
   }
   applySql(preFixSql);
   reloadSchemaCache();
 }
 
 export function applyPostFixFunction() {
-  const postFixSql = readFileSync(
-    resolve(REPO_ROOT, "supabase", "finance_snapshot.sql"),
-    "utf8",
-  );
+  let postFixSql;
+  try {
+    postFixSql = execSync(`git show ${POST_FIX_SHA}:supabase/finance_snapshot.sql`, {
+      encoding: "utf8",
+      cwd: REPO_ROOT,
+      timeout: 10_000,
+    });
+  } catch (err) {
+    throw new Error(`Could not read post-fix function from git ${POST_FIX_SHA}: ${err.message}`);
+  }
   applySql(postFixSql);
   reloadSchemaCache();
 }

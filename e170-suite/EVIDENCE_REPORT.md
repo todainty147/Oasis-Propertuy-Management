@@ -252,22 +252,18 @@ The SQL paymentStatus invariant (`unknown_payment_history → 'unknown'`) ensure
 
 ## Gate 5b — RED/GREEN environment honesty
 
-**Pre-fix SHA:** `d46d7e2` (HEAD at time of RED/GREEN execution; branch `codex/hmrc-e1-hardening`)
+**Original execution (archived):** Pre-fix SHA `d46d7e2` (HEAD at time of original run). Post-fix loaded via `fs.readFileSync` from working tree (uncommitted at time of run). Both applied as same-DB function swap; 3 s schema-cache wait between states.
 
-**Working tree state at execution:** E-170 working-tree fix uncommitted. The Gate 1
-CTE change (`CASE WHEN EXISTS...`) was also uncommitted (applied after the original
-RED/GREEN run, re-run to confirm GREEN-G1 with the fix in place).
+**Re-executed 2026-07-22 with pinned committed SHAs (stronger):**
 
-**Isolation method:** Same local DB instance. Pre-fix function applied via
-`git show HEAD:supabase/finance_snapshot.sql | psql` (stdin). Post-fix function applied
-from working tree via `fs.readFileSync + psql` (stdin). This is **same-DB function swap**,
-NOT a separate worktree or separate DB. The two states are sequential in one process;
-no concurrent isolation.
+- `_harness.js` `applyPreFixFunction()` now uses `git show 2475c3b:supabase/finance_snapshot.sql` — `2475c3b` is the last commit that touched `finance_snapshot.sql` BEFORE the E-170 Gate-1 fix (`534d171`). Pinned SHA avoids HEAD drift as post-fix commits accumulate.
+- `applyPostFixFunction()` now uses `git show 899f494:supabase/finance_snapshot.sql` — `899f494` is the committed post-fix version (scopeTenancyId + Gate-1 fix). Working-tree read (`fs.readFileSync`) removed.
 
-**Strength note:** Same-DB function swap is weaker than a separate worktree + separate DB.
-It rules out data contamination (fixtures are created fresh per run) but a schema-cache
-timing issue between pre/post-fix apply is theoretically possible. The 3-second wait
-after each `pg_notify('pgrst', 'reload schema')` call is a mitigating safeguard.
+**Re-run result:** 15/15 PASS (same counts as original). RED-01 through RED-05 reproduce phantoms against `2475c3b`; GREEN-01 through GREEN-08 eliminate them against `899f494`.
+
+**Isolation method:** Same local DB instance. Pre-fix function applied via `git show 2475c3b:...` (stdin). Post-fix function applied via `git show 899f494:...` (stdin). Same-DB function swap, NOT a separate worktree or separate DB. No working-tree state dependency remains.
+
+**Strength note:** Pinned-SHA method proves that the specific committed function (not a local working-tree file) eliminates the phantoms. Schema-cache timing remains as before; 3-second wait after each `pg_notify('pgrst', 'reload schema')` call is unchanged.
 
 **Schema fingerprint (post-fix, CODE_READ_ONLY):** `supabase/finance_snapshot.sql`
 working tree; `supabase/finance_tracking_activation.sql` working tree. No migration
@@ -309,7 +305,7 @@ GREEN-G1 tests the second scenario (renewal_status='ended'). Both paths are prov
 - [x] Gate 3 (D-04): D-04a pg_proc confirms function exists; D-04b authenticated has execute; D-04c anon lacks execute — PGRST202 is permission-based denial, not schema miss
 - [x] Gate 4 (E2E): Finance page only (one page, desktop table). No "three surfaces" claim.
 - [x] Gate 5a: all `remaining` consumers safe via paymentStatus SQL invariant (CODE_READ_ONLY)
-- [x] Gate 5b: pre-fix SHA=d46d7e2; same-DB function swap; not separate worktree/DB; 3s schema-cache wait
+- [x] Gate 5b: re-executed 2026-07-22 with pinned SHAs — pre-fix `2475c3b`, post-fix `899f494`; 15/15 PASS; no working-tree dependency; same-DB function swap; not separate worktree/DB; 3s schema-cache wait
 - [x] Deny tests: all 12/12 guards fire with specific messages
 - [x] Verify tests: 14/14 — typed fields, calculation formula, coverage_state, atomic supersede, invariant
 - [x] E2E: 6/6 PASS — EXECUTED_E2E_BROWSER 2026-07-22; Chromium 1280×900; Alice/Bob rows show unknown status and no phantom balances; positive row-visibility assertion before each absence check
@@ -571,7 +567,27 @@ Payment describe (4 tests): (1) zero-row empty state with unavailable copy, (b) 
 Documents describe (3 tests): empty groups, trust copy with documents, admin actions absent.  
 Role boundary (1 test): manager dashboard absent when role=tenant.
 
-**E2E PENDING:** Playwright tests for browser UI (PropertyDetails financials tab, PropertyPerformanceCard tiles, TenantHomePage, TenantPayments) require running dev server + local Supabase. Logged as EXECUTED_E2E_BROWSER gate pending environment.
+**E2E EXECUTED (EXECUTED_E2E_BROWSER 2026-07-22 — 13/13 PASS):**
+
+Spec: `e170-suite/e2e/e170-p0c-surface-routes.spec.js`. Playwright 1.59.1 / Chromium. Viewport 1280×900. Local Supabase (127.0.0.1). Config: `e170-suite/playwright.e170.config.js`.
+
+| Test ID | Surface | Assertion | Result |
+|---------|---------|-----------|--------|
+| R1-E2E-01 | PropertyDetails `?tab=financials` | `financials-balance-unavailable` testid visible; tile text contains no `£\d` | **PASS** 12.1 s |
+| R1-E2E-02 | PropertyDetails `?tab=financials` | No "undefined" or "[object Object]" in body | **PASS** 3.5 s |
+| R2-E2E-01 | PropertyPerformanceCard | `perf-overdue-unavailable` testid visible | **PASS** 4.1 s |
+| R2-E2E-02 | PropertyPerformanceCard | `perf-outstanding-unavailable` testid visible | **PASS** 4.8 s |
+| R2-E2E-03 | PropertyPerformanceCard | "Rent collection risk" absent in unknown state | **PASS** 4.0 s |
+| R3-HOME-01 | TenantHomePage | `tenant-home-outstanding-card` contains "Balance unavailable" + establishment copy | **PASS** 2.7 s |
+| R3-HOME-02 | TenantHomePage | `tenant-home-balance-unavailable` testid visible | **PASS** 2.6 s |
+| R3-HOME-03 | TenantHomePage | No `£\d` inside outstanding card | **PASS** 2.6 s |
+| R3-PAY-01 | TenantPayments | `tenant-payments-outstanding-card` contains "Balance unavailable" + establishment copy | **PASS** 2.9 s |
+| R3-PAY-02 | TenantPayments | `tenant-payments-balance-unavailable` testid visible | **PASS** 2.9 s |
+| R3-PAY-03 | TenantPayments | No `£\d` inside outstanding card (no attributed branch) | **PASS** 2.6 s |
+| R3-PAY-04 | TenantPayments | Tenant A payment (950) visible in payment history | **PASS** 2.5 s |
+| R3-PAY-05 | TenantPayments | Tenant B marker (750) absent from Tenant A view | **PASS** 2.7 s |
+
+Total: **13/13 PASS** in 57.1 s.
 
 ---
 
@@ -612,9 +628,9 @@ Authorized by PO/founder 2026-07-22. Committed in order. Tree clean at `6aa5abd`
 | 5 | `feat(finance): add scopeTenancyId scope identifier to finance_snapshot (unavailable-mode)` | `supabase/finance_snapshot.sql`, `src/services/rpcContracts.js`, `tests/security/rpcContracts.test.js` |
 | 6 | `feat(finance): tenant portal balance unavailable-mode (R3); defer attribution to ARCH-FIN-01` | `src/pages/TenantHomePage.jsx`, `src/pages/TenantPayments.jsx`, `tests/security/tenantPortalEmptyStateContracts.test.js` |
 | 7 | `test(finance): P0-C selectors, tenant portal and attribution contracts (91 tests)` | `tests/unit/e170_balance_selector.test.js`, `tests/security/tenantPortalEmptyStateContracts.test.js`, `e170-suite/EVIDENCE_REPORT.md` |
-| 8 | `test(finance): P0-C browser and isolation validation` | PENDING — browser E2E + RLS isolation tests |
+| 9 | `test(finance): P0-C browser E2E evidence (13/13 PASS)` | `e170-suite/e2e/e170-p0c-surface-routes.spec.js`, `e170-suite/EVIDENCE_REPORT.md` |
 
-**Gate:** PO authorises → commit 1–7 in order → record SHAs → commit 8 after browser E2E environment available.
+**Gate:** PO authorises → commit 1–8 in order → record SHAs → commit 9 after browser E2E passes.
 
 **Committed SHAs:**
 
@@ -633,17 +649,43 @@ Authorized by PO/founder 2026-07-22. Committed in order. Tree clean at `6aa5abd`
 **Post-commit clean-tree rerun (EXECUTED_UNIT 2026-07-22 at `6aa5abd`):**
 
 - Targeted P0-C suite: **91/91 PASS** (65+8+8+10 — consistent across multiple runs)
-- Full suite: **4,706–4,707 passed / 17–18 failed** (4,724 total). All FAIL lines confirmed in pre-P0-C files; grep of FAIL output excluding the 10 known pre-existing files returns empty. Variation of ±1 failure attributed to a flaky timing-sensitive test (`rpcMutationContracts.test.js` — ran 1742ms in one pass; 331ms in isolation). No P0-C test file appears in any failure list.
+- Full suite: **4,706–4,707 passed / 17–18 failed** (4,724 total). Variation of ±1 attributed to a flaky timing-sensitive test (`rpcMutationContracts.test.js`). No P0-C test file appears in any failure list.
 
-**Browser E2E:** PENDING — Playwright tests for PropertyDetails financials tab, PropertyPerformanceCard tiles, TenantHomePage, TenantPayments require running dev server + local Supabase against immutable committed build. R3 browser fixtures must not be written until after attribution contract is committed (commit 5).
+  **Pre-existing failures — named audit (EXECUTED_UNIT 2026-07-22; 17 tests across 10 files):**
 
-**RLS isolation execution:** PENDING — four cross-tenant and anonymous isolation tests (Tenant A sees only Tenant A's balance; Tenant A cannot render Tenant B's balance; Owner A cannot read Account B; anonymous receives nothing) to be run against committed build.
+  | File | Failing tests |
+  |------|--------------|
+  | `tests/unit/obligationProofPackPanel.test.js` | renders an open obligation from mock payload alone — no data layer needed; top-line heading is 'Evidence state summary' — not a compliance headline; watermark appears before all section content in the rendered HTML |
+  | `tests/security/databaseHardeningContracts.test.js` | keeps Supabase linter security remediations wired into repo SQL apply |
+  | `tests/security/legalSecurityPhase3Contracts.test.js` | adds tenant sharing and deposit dispute pack overlays without unsafe legal wording; adds the marketing risk page and avoids launch-blocked legal overclaims in new surfaces |
+  | `tests/security/marketingSeoAssetsContracts.test.js` | keeps localized feature pages, titles, and anchors crawl-friendly |
+  | `tests/security/pilotBillingModeContracts.test.js` | keeps public pricing CTA out of direct Stripe checkout |
+  | `tests/security/proofPackPdfExportContracts.test.js` | uses 'Evidence state summary' as the top-line — not a compliance headline; includes the honest rendering note — not a verification claim; renders review-recommended wording; renders expected events present and missing event types |
+  | `tests/security/provenanceEventsContracts.test.js` | is registered in both database application paths before final hardening |
+  | `tests/security/provenanceExplainBalanceContracts.test.js` | overlay registration > is registered in dbApplyRepoSql.js after cutover and before hardening |
+  | `tests/security/provenanceFinanceCutoverContracts.test.js` | overlay registration > is registered in dbApplyRepoSql.js after provenance_events and before hardening |
+  | `tests/security/rpcMutationContracts.test.js` | returns parsed payment mutation rows; returns parsed document rows from document RPC writes (timing-flaky — ±1 across runs) |
+
+  All 10 files are pre-P0-C; none were introduced or modified by commits `8c6fd1b`–`6aa5abd`.
+
+**Browser E2E (commit 9 — `e170-suite/e2e/e170-p0c-surface-routes.spec.js`):** EXECUTED_E2E_BROWSER 2026-07-22 — **13/13 PASS** in 57.1 s. Chromium 1280×900, local Supabase. R1 financials-balance-unavailable visible; R2 perf-overdue/outstanding-unavailable visible + rent-at-risk absent; R3 Home + Payments unavailable cards present; Tenant A 950 visible; Tenant B 750 absent.
+
+**RLS isolation execution (EXECUTED_INTEGRATION_DB 2026-07-22 — 4/4 PASS):**
+
+Spec: `e170-suite/integration/e170.rls_isolation.test.js`. Vitest / local Supabase. Committed build (`899f494`).
+
+| Test | Assertion | Result |
+|------|-----------|--------|
+| RLS-01 | tenantA1 calling with accountA + tenantA1 scope → `scopeTenancyId` echoes `tenantA1.tenantId`; no accountB property returned | **PASS** 236 ms |
+| RLS-02 | tenantA1 calling with accountB.id → error or zero property rows | **PASS** 162 ms |
+| RLS-03 | ownerA calling with accountB.id → error or zero property rows | **PASS** 157 ms |
+| RLS-04 | anonymous caller (anon key, no session) → error or zero rows | **PASS** 7 ms |
 
 ---
 
 ## P0-C Disposition
 
-**R3 implemented in unavailable-mode per PO ruling 2026-07-22.** Positive attribution deferred to ARCH-FIN-01. P0-C not yet closed — committed-SHA validation and browser evidence (commit 8) are required. E-170 remains open. E-172 still owns the lifecycle-dependent closure conditions (`is_tenancy_ended` for import-defaulted leases).
+**R3 implemented in unavailable-mode per PO ruling 2026-07-22.** Positive attribution deferred to ARCH-FIN-01. Browser E2E: 13/13 PASS. RLS isolation: 4/4 PASS. Gate 5b re-executed with pinned committed SHAs: 15/15 PASS. All P0-C gates closed. E-170 remains open (E-172 lifecycle conditions; ARCH-FIN-01 attribution authority).
 
 ---
 
