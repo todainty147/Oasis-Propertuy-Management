@@ -16,8 +16,8 @@ describe("finance snapshot helpers", () => {
     const snapshot = {
       overdue_income: 0,
       property_finance: [
-        { propertyId: "property-1", remaining: 1500, paymentStatus: "overdue" },
-        { propertyId: "property-2", remaining: 1000, paymentStatus: "pending" },
+        { propertyId: "property-1", balanceState: "known", remaining: 1500, paymentStatus: "overdue" },
+        { propertyId: "property-2", balanceState: "known", remaining: 1000, paymentStatus: "pending" },
       ],
     };
 
@@ -28,7 +28,7 @@ describe("finance snapshot helpers", () => {
     const snapshot = {
       overdue_income: 2000,
       property_finance: [
-        { property_id: "property-1", remaining: 1500, payment_status: "overdue" },
+        { property_id: "property-1", balanceState: "known", remaining: 1500, payment_status: "overdue" },
       ],
     };
 
@@ -49,6 +49,7 @@ describe("finance snapshot helpers", () => {
         {
           propertyId: "35-ashton",
           address: "35 Ashton Rd",
+          balanceState: "known",
           rent: 1000,
           paid: 2000,
           remaining: 0,
@@ -57,6 +58,7 @@ describe("finance snapshot helpers", () => {
         {
           propertyId: "36-ashton",
           address: "36 Ashton Rd",
+          balanceState: "known",
           rent: 2000,
           paid: 2500,
           remaining: 1500,
