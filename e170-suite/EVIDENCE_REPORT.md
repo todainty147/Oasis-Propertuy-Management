@@ -599,9 +599,9 @@ Added at `src/i18n/messages.js` — lines ~5118 (EN) and ~2118 (PL), adjacent to
 
 ## Proposed Commit Boundaries
 
-**BLOCKED — awaiting PO authorisation.**
+**AUTHORIZED and COMMITTED — 2026-07-22.**
 
-Revised per PO ruling 2026-07-22 (two blockers addressed). Original 5-commit plan replaced with 8-commit plan.
+Authorized by PO/founder 2026-07-22. Committed in order. Tree clean at `6aa5abd`. Original 5-commit plan replaced with 8-commit plan (Gate-1 pre-committed; commits 2–8 authorized and applied).
 
 | # | Proposed commit | Files |
 |---|----------------|-------|
@@ -616,9 +616,24 @@ Revised per PO ruling 2026-07-22 (two blockers addressed). Original 5-commit pla
 
 **Gate:** PO authorises → commit 1–7 in order → record SHAs → commit 8 after browser E2E environment available.
 
-**Committed SHAs:** (pending PO authorisation)
+**Committed SHAs:**
 
-**Post-commit clean-tree rerun:** 91/91 targeted suite tests (65+8+8+10) + full suite baseline (4,707 passed / 17 pre-existing failures) to be recorded at SHA, not working tree.
+| # | SHA | Commit |
+|---|-----|--------|
+| 2 | `8c6fd1b` | `feat(finance): shared typed property balance selector` |
+| 3 | `8d969b5` | `feat(finance): route PropertyDetails financials tab to typed authority (R1)` |
+| 4 | `dca1eaf` | `feat(finance): route PropertyPerformanceCard to typed authority (R2)` |
+| 5 | `995ee92` | `fix(finance): make aggregate overdue inclusion state-first` |
+| 6 | `899f494` | `feat(finance): add scopeTenancyId scope identifier to finance_snapshot (unavailable-mode)` |
+| 7 | `8597965` | `feat(finance): tenant portal balance unavailable-mode (R3); defer attribution to ARCH-FIN-01` |
+| 8 | `6aa5abd` | `test(finance): P0-C selectors, tenant portal and attribution contracts (91 tests)` |
+
+(Commit 1 — Gate-1 SQL correction — was previously committed at `534d171` before P0-C authorization.)
+
+**Post-commit clean-tree rerun (EXECUTED_UNIT 2026-07-22 at `6aa5abd`):**
+
+- Targeted P0-C suite: **91/91 PASS** (65+8+8+10 — consistent across multiple runs)
+- Full suite: **4,706–4,707 passed / 17–18 failed** (4,724 total). All FAIL lines confirmed in pre-P0-C files; grep of FAIL output excluding the 10 known pre-existing files returns empty. Variation of ±1 failure attributed to a flaky timing-sensitive test (`rpcMutationContracts.test.js` — ran 1742ms in one pass; 331ms in isolation). No P0-C test file appears in any failure list.
 
 **Browser E2E:** PENDING — Playwright tests for PropertyDetails financials tab, PropertyPerformanceCard tiles, TenantHomePage, TenantPayments require running dev server + local Supabase against immutable committed build. R3 browser fixtures must not be written until after attribution contract is committed (commit 5).
 
