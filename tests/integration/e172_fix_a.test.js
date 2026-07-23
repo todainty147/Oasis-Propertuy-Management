@@ -16,6 +16,10 @@
  *   GREEN evidence: after Fix A, A-01 produces 'ended', A-02 derives 'ended' from date.
  *
  * Evidence tag: EXECUTED_INTEGRATION_DB
+ *
+ * Note on property isolation: the `one_tenant_per_property` unique index on the tenants
+ * table allows only one tenant per property. Each test case creates its own fresh property
+ * (via admin insert in beforeAll) so import rows don't conflict with fixture tenants.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -27,7 +31,6 @@ import {
 import { isIntegrationHarnessConfigured, isLocalSupabase } from "./helpers/env.js";
 
 const ACCOUNT_A = "11111111-1111-1111-1111-111111111111";
-const PROP_A_ID = "44444444-4444-4444-4444-444444444441"; // 11 Starlight Avenue
 
 const RUN_ID = Math.random().toString(36).slice(2, 8);
 
@@ -37,6 +40,11 @@ const FUTURE_DATE = new Date(Date.now() + 365 * 86400 * 1000).toISOString().slic
 
 function uniqueEmail(suffix) {
   return `e172a.${RUN_ID}.${suffix}@test.invalid`;
+}
+
+// Each test case gets its own address → property, avoiding one_tenant_per_property conflicts
+function testAddress(suffix) {
+  return `E172A-${RUN_ID}-${suffix} Test Rd`;
 }
 
 const isEligible = isIntegrationHarnessConfigured() && isLocalSupabase();
@@ -49,11 +57,42 @@ describe.skipIf(!isEligible)(
     const batchIds = [];
     const createdLeaseIds = [];
     const createdTenantIds = [];
+    const createdPropertyIds = [];
+
+    // Property IDs keyed by test suffix — populated in beforeAll
+    const propIdByTest = {};
 
     beforeAll(async () => {
       await ensureIsolationHarnessSeed();
       admin      = getIntegrationAdminClient();
       ownerClient = (await signInAsFixtureUser("ownerA")).client;
+
+      // Look up the real owner_id from an existing account A property
+      // (auth user IDs are dynamically assigned, not matching fixture UUIDs)
+      const { data: existingProp } = await admin
+        .from("properties")
+        .select("owner_id")
+        .eq("account_id", ACCOUNT_A)
+        .limit(1)
+        .single();
+      const ownerAId = existingProp?.owner_id;
+      if (!ownerAId) throw new Error("Could not resolve ownerA auth ID from existing property");
+
+      // Create one fresh property per test case so each import has its own
+      // unoccupied property (one_tenant_per_property index requires this)
+      for (const suffix of ["a01", "a02", "a03", "a04", "a05", "a06"]) {
+        const { data, error } = await admin.from("properties").insert({
+          account_id: ACCOUNT_A,
+          owner_id: ownerAId,
+          address: testAddress(suffix),
+          city: "TestCity",
+          status: "Wolne",
+          rent: 1000,
+        }).select("id").single();
+        if (error) throw new Error(`property create failed (${suffix}): ${JSON.stringify(error)}`);
+        propIdByTest[suffix] = data.id;
+        createdPropertyIds.push(data.id);
+      }
     });
 
     afterAll(async () => {
@@ -66,6 +105,9 @@ describe.skipIf(!isEligible)(
       if (batchIds.length > 0) {
         await admin.from("import_batch_rows").delete().in("batch_id", batchIds);
         await admin.from("import_batches").delete().in("id", batchIds);
+      }
+      if (createdPropertyIds.length > 0) {
+        await admin.from("properties").delete().in("id", createdPropertyIds);
       }
     });
 
@@ -81,7 +123,7 @@ describe.skipIf(!isEligible)(
       return data;
     }
 
-    async function findImportedLease(tenantEmail) {
+    async function findImportedLease(tenantEmail, propId) {
       // find tenant by email (lower-cased by importer)
       const { data: tenants } = await admin
         .from("tenants")
@@ -97,7 +139,7 @@ describe.skipIf(!isEligible)(
         .from("leases")
         .select("id, renewal_status")
         .eq("account_id", ACCOUNT_A)
-        .eq("property_id", PROP_A_ID)
+        .eq("property_id", propId)
         .eq("tenant_id", tenantId)
         .limit(1);
       if (!leases || leases.length === 0) return null;
@@ -110,18 +152,18 @@ describe.skipIf(!isEligible)(
     it("A-01: status=ended + past end_date → renewal_status=ended (not active DB default)", async () => {
       const email = uniqueEmail("a01");
       const result = await importTenancyRow({
-        address:    "11 Starlight Avenue",
+        address:      testAddress("a01"),
         tenant_email: email,
-        start_date:  "2023-01-01",
-        end_date:    PAST_DATE,
-        status:      "ended",
-        rent_amount: "1200",
+        start_date:   "2023-01-01",
+        end_date:     PAST_DATE,
+        status:       "ended",
+        rent_amount:  "1200",
       });
 
       const row = result.rows[0];
       expect(row.status).toBe("imported");
 
-      const lease = await findImportedLease(email);
+      const lease = await findImportedLease(email, propIdByTest["a01"]);
       expect(lease).not.toBeNull();
       // GREEN: renewal_status must be 'ended', not the old DB default 'active'
       expect(lease.renewal_status).toBe("ended");
@@ -132,7 +174,7 @@ describe.skipIf(!isEligible)(
     it("A-02: status absent + past end_date → renewal_status=ended (date-derived, not active)", async () => {
       const email = uniqueEmail("a02");
       const result = await importTenancyRow({
-        address:      "11 Starlight Avenue",
+        address:      testAddress("a02"),
         tenant_email: email,
         start_date:   "2023-01-01",
         end_date:     PAST_DATE,
@@ -143,7 +185,7 @@ describe.skipIf(!isEligible)(
       const row = result.rows[0];
       expect(row.status).toBe("imported");
 
-      const lease = await findImportedLease(email);
+      const lease = await findImportedLease(email, propIdByTest["a02"]);
       expect(lease).not.toBeNull();
       // GREEN: date derivation kicks in; lease_end_date past → 'ended'
       expect(lease.renewal_status).toBe("ended");
@@ -154,7 +196,7 @@ describe.skipIf(!isEligible)(
     it("A-03: status absent + future end_date → renewal_status=active", async () => {
       const email = uniqueEmail("a03");
       const result = await importTenancyRow({
-        address:      "11 Starlight Avenue",
+        address:      testAddress("a03"),
         tenant_email: email,
         start_date:   "2024-01-01",
         end_date:     FUTURE_DATE,
@@ -165,7 +207,7 @@ describe.skipIf(!isEligible)(
       const row = result.rows[0];
       expect(row.status).toBe("imported");
 
-      const lease = await findImportedLease(email);
+      const lease = await findImportedLease(email, propIdByTest["a03"]);
       expect(lease).not.toBeNull();
       expect(lease.renewal_status).toBe("active");
     });
@@ -175,7 +217,7 @@ describe.skipIf(!isEligible)(
     it("A-04: status absent + no end_date → renewal_status=active (open-ended positive state)", async () => {
       const email = uniqueEmail("a04");
       const result = await importTenancyRow({
-        address:      "11 Starlight Avenue",
+        address:      testAddress("a04"),
         tenant_email: email,
         start_date:   "2024-06-01",
         // end_date intentionally omitted (open-ended)
@@ -186,7 +228,7 @@ describe.skipIf(!isEligible)(
       const row = result.rows[0];
       expect(row.status).toBe("imported");
 
-      const lease = await findImportedLease(email);
+      const lease = await findImportedLease(email, propIdByTest["a04"]);
       expect(lease).not.toBeNull();
       expect(lease.renewal_status).toBe("active");
     });
@@ -196,7 +238,7 @@ describe.skipIf(!isEligible)(
     it("A-05: status=active explicit → renewal_status=active", async () => {
       const email = uniqueEmail("a05");
       const result = await importTenancyRow({
-        address:      "11 Starlight Avenue",
+        address:      testAddress("a05"),
         tenant_email: email,
         start_date:   "2024-06-01",
         end_date:     FUTURE_DATE,
@@ -207,7 +249,7 @@ describe.skipIf(!isEligible)(
       const row = result.rows[0];
       expect(row.status).toBe("imported");
 
-      const lease = await findImportedLease(email);
+      const lease = await findImportedLease(email, propIdByTest["a05"]);
       expect(lease).not.toBeNull();
       expect(lease.renewal_status).toBe("active");
     });
@@ -217,7 +259,7 @@ describe.skipIf(!isEligible)(
     it("A-06: unrecognised status → row=needs_review; no lease imported (never coerced to active)", async () => {
       const email = uniqueEmail("a06");
       const result = await importTenancyRow({
-        address:      "11 Starlight Avenue",
+        address:      testAddress("a06"),
         tenant_email: email,
         start_date:   "2024-01-01",
         end_date:     PAST_DATE,
@@ -231,7 +273,7 @@ describe.skipIf(!isEligible)(
       expect(row.review_reason).toMatch(/unrecognised|accepted/i);
 
       // Verify no lease was actually created
-      const lease = await findImportedLease(email);
+      const lease = await findImportedLease(email, propIdByTest["a06"]);
       expect(lease).toBeNull();
     });
   }
