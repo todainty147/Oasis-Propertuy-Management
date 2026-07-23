@@ -501,15 +501,24 @@ export default function Finance({
                           </div>
                         </div>
                       </button>
-                      {/* P0-E: activation prompt — active tenancies without finance tracking only */}
-                      {!p.isTenancyEnded && p.balanceState !== "known" && p.paymentStatus !== "vacant" && (
-                        <button
-                          type="button"
-                          onClick={() => setActivationDrawerProperty({ id: p.propertyId, address: p.address, city: p.city })}
-                          className="mt-3 w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-left text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
-                        >
-                          Set up finance tracking →
-                        </button>
+                      {/* P0-E / E-170: ended-tenancy note or activation prompt.
+                          Ended tenancies show neutral copy — no balance inference.
+                          Active tenancies without tracking show the setup CTA. */}
+                      {p.isTenancyEnded ? (
+                        <div data-testid="finance-tenancy-ended-note" className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                          <strong className="font-medium text-slate-700">Tenancy ended</strong>
+                          <span className="block mt-0.5">No ongoing balance is being tracked.</span>
+                        </div>
+                      ) : (
+                        p.balanceState !== "known" && p.paymentStatus !== "vacant" && (
+                          <button
+                            type="button"
+                            onClick={() => setActivationDrawerProperty({ id: p.propertyId, address: p.address, city: p.city })}
+                            className="mt-3 w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-left text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                          >
+                            Set up finance tracking →
+                          </button>
+                        )
                       )}
                     </div>
                   ))}
@@ -538,18 +547,27 @@ export default function Finance({
                           <td className="px-6 py-3">
                             <div className="font-medium text-slate-900">{p.address}</div>
                             <div className="text-xs text-slate-500">{p.city}</div>
-                            {/* P0-E: activation prompt — active tenancies without finance tracking only */}
-                            {!p.isTenancyEnded && p.balanceState !== "known" && p.paymentStatus !== "vacant" && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActivationDrawerProperty({ id: p.propertyId, address: p.address, city: p.city });
-                                }}
-                                className="mt-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                              >
-                                Set up finance tracking →
-                              </button>
+                            {/* P0-E / E-170: ended-tenancy note or activation prompt.
+                                Ended tenancies show neutral copy — no balance inference.
+                                Active tenancies without tracking show the setup CTA. */}
+                            {p.isTenancyEnded ? (
+                              <div data-testid="finance-tenancy-ended-note" className="mt-1 text-xs text-slate-500">
+                                <strong className="font-medium text-slate-600">Tenancy ended</strong>
+                                <span className="block">No ongoing balance is being tracked.</span>
+                              </div>
+                            ) : (
+                              p.balanceState !== "known" && p.paymentStatus !== "vacant" && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActivationDrawerProperty({ id: p.propertyId, address: p.address, city: p.city });
+                                  }}
+                                  className="mt-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                                >
+                                  Set up finance tracking →
+                                </button>
+                              )
                             )}
                           </td>
                           <td className="px-6 py-3 text-right text-slate-900">{formatCurrency(p.rent, activeCurrency, activeCountryCode)}</td>
