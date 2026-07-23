@@ -44,7 +44,7 @@ function renderDecision(p) {
  * "complete", or any digit-based amount pattern.
  */
 function endedNoteCopyIsNeutral(text) {
-  const forbidden = /[£$€]|\d+\.\d{2}|\b(paid|zero|settled|complete|balance is|no balance|no debt)\b/i;
+  const forbidden = /[£$€]|\d+\.\d{2}|\b(paid|zero|settled|complete|no balance|no debt)\b/i;
   return !forbidden.test(text);
 }
 
