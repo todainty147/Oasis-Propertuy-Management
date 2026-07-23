@@ -132,6 +132,19 @@ Deno.serve(async (req) => {
     }
 
     const generatedAt = new Date().toISOString();
+
+    // FIN-GATE-01 P3: dashboard_snapshot.overdue_amount is NOT joined to
+    // tenancy_finance_activations — it uses a lease-date proxy ((months-1)×rent−paid)
+    // that includes every tenancy regardless of activation state.  The client-side
+    // overlay in dashboardService.js (getFinanceOverdueAmount) does NOT execute in
+    // this edge-function server-side path, so the raw SQL figure arrives ungated.
+    // Per the ruling: "if its feed cannot be gated in this slice, the insight must
+    // not narrate a monetary overdue figure."  Suppress to 0 so the AI prompt
+    // does not receive an ungated monetary balance and cannot narrate it.
+    // Removal condition: restore from snapshotRes when dashboard_snapshot SQL is
+    // joined to tenancy_finance_activations (E-170 authority-layer gate).
+    const governedOverdueAmount = 0;
+
     const input = {
       accountId,
       generatedAt,
@@ -142,10 +155,10 @@ Deno.serve(async (req) => {
         upcomingCount: countBucket(commandCenterRes.data || [], "upcoming"),
         recentCount: countBucket(commandCenterRes.data || [], "recent"),
         unreadAlertsCount: countSource(commandCenterRes.data || [], "notifications"),
-        overdueAmount: Number(snapshotRes.data?.[0]?.overdue_amount || snapshotRes.data?.overdue_amount || 0),
+        overdueAmount: governedOverdueAmount,
         propertiesWithIssuesCount: countDistinctProperties(commandCenterRes.data || []),
       },
-      overdueAmount: Number(snapshotRes.data?.[0]?.overdue_amount || snapshotRes.data?.overdue_amount || 0),
+      overdueAmount: governedOverdueAmount,
     };
 
     const sourceHash = buildAttentionSourceHash(input);
