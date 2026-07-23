@@ -98,10 +98,10 @@ if (anyUnknown) {
 }
 ```
 
-Setting to null causes `PortfolioHealthDashboardPage.jsx`'s `|| 0` defaults to render 0, matching the gated overdue headline of 0. The page-level invariant (overdue total = sum of aging buckets) is now satisfied.
+When any tenancy balance is unknown, the transformer sets `arrearsAgingState` to `unavailable_unknown_balances` and nulls all three bucket fields. `PortfolioHealthDashboardPage` uses a hard render branch: numeric buckets are rendered only when the state is `available`; otherwise it renders the approved neutral explanation ("Arrears breakdown unavailable / Some tenancy balances have not been established."). Suppressed buckets never pass through a numeric fallback — the BarCard component is not rendered when the state is `unavailable_unknown_balances`.
 
-**Before:** `overdue_amount = 0` (patched), `overdue_30_plus_amount = 152332` (unpatched) — internal contradiction  
-**After:** `overdue_amount = 0`, `overdue_0_7_amount = null`, `overdue_8_30_amount = null`, `overdue_30_plus_amount = null` — all render as 0, invariant holds
+**Before:** `overdue_amount = 0` (patched), `overdue_30_plus_amount = 152332` (unpatched) — internal page contradiction  
+**After:** `overdue_amount = 0` (governed headline), `arrearsAgingState = "unavailable_unknown_balances"`, all three buckets null — explanatory card rendered; no numeric bucket values displayed
 
 **Removal condition:** Remove the bucket suppression block when `portfolio_health_snapshot` SQL gates `overdue_0_7_amount`, `overdue_8_30_amount`, `overdue_30_plus_amount` CTEs on `tenancy_finance_activations` (E-170 authority-layer gate).
 
@@ -113,10 +113,10 @@ Setting to null causes `PortfolioHealthDashboardPage.jsx`'s `|| 0` defaults to r
 
 | Check | P1 Dashboard | P2 PH Outstanding | P3 CC Insight | P4 PH Buckets |
 |-------|-------------|-------------------|---------------|---------------|
-| Excluded from headline total | PASS — `?? 0` gives 0 | PASS — gated sum = 0 | PASS — `governedOverdueAmount = 0` | PASS — buckets = null (renders 0) |
-| Excluded from every aging bucket | N/A | N/A | N/A | PASS — all three null |
+| Excluded from headline total | PASS — `?? 0` gives 0 | PASS — gated sum = 0 | PASS — `governedOverdueAmount = 0` | PASS — buckets null; aging BarCard not rendered |
+| Excluded from every aging bucket | N/A | N/A | N/A | PASS — all three null; `unavailable_unknown_balances` state prevents render |
 | No monetary figure narrated | N/A | N/A | PASS — 0 passed to AI | N/A |
-| Page-level invariant | PASS | PASS | N/A | PASS — 0 === 0 |
+| Page-level invariant | PASS | PASS | N/A | PASS — when aging unavailable: no numeric buckets displayed |
 
 ### Case 2 — Known (activated) overdue tenancy
 
@@ -128,13 +128,13 @@ Setting to null causes `PortfolioHealthDashboardPage.jsx`'s `|| 0` defaults to r
 
 **P3 Case 2 note:** When all tenancies are known and there IS overdue, the CC AI insight still receives `governedOverdueAmount = 0` because the edge function cannot call `getFinanceOverdueAmount` (no `finance_snapshot` available server-side without additional RPC). This is a bounded suppression: the non-monetary items (overdue_payment command-center items) remain in the prompt and inform the briefing. The removal condition (E-170 SQL gate) lifts this restriction.
 
-### Case 3 — Mixed known + unknown portfolio
+### Case 3 — Mixed known + unknown portfolio (NON-VACUOUS: £750 known overdue + £50k unknown)
 
 | Check | P1 Dashboard | P2 PH Outstanding | P3 CC Insight | P4 PH Buckets |
 |-------|-------------|-------------------|---------------|---------------|
-| Only known values in totals | PASS — `?? 0` from governed snapshot | PASS — gated known-only sum | PASS — suppressed to 0 | PASS — suppressed to null |
-| Unknown count distinguishable | N/A (Dashboard shows count separately) | PASS — `hasUnactivatedTenancies` is true | N/A | PASS — `hasUnactivatedTenancies` detectable |
-| Page-level invariant | PASS | PASS | N/A | PASS — headline (0 for zero-overdue known tenancy) = suppressed buckets (0) |
+| Only known values in totals | PASS — `?? 0` from governed snapshot (£750) | PASS — gated known-only sum (£750) | PASS — suppressed to 0 | PASS — aging not rendered; unknown contribution excluded |
+| Unknown count distinguishable | N/A (Dashboard shows count separately) | PASS — `hasUnactivatedTenancies` is true | N/A | PASS — `arrearsAgingState = "unavailable_unknown_balances"` |
+| Page-level invariant | PASS | PASS | N/A | PASS — when aging unavailable: no numeric buckets displayed; unknown £50k not assertable as any figure |
 
 ---
 
@@ -149,9 +149,9 @@ Setting to null causes `PortfolioHealthDashboardPage.jsx`'s `|| 0` defaults to r
 | CC AI insight `overdueAmount` | `input.overdueAmount` | £0 | `governedOverdueAmount = 0` (P3 suppression — bounded until E-170) |
 | PH headline "Outstanding balance" | `snapshot.outstanding_amount` | £750 | `getFinanceTotalOutstanding(financeSnapshot)` — known-row sum |
 | PH Finance mix bar "Overdue" | `snapshotView.overdue_amount` | £750 | `getFinanceOverdueAmount(financeSnapshot)` via transformer |
-| PH arrears aging "0–7 days" | `snapshotView.overdue_0_7_amount` | null → 0 | Suppressed (unknown tenancy exists) |
-| PH arrears aging "8–30 days" | `snapshotView.overdue_8_30_amount` | null → 0 | Suppressed (unknown tenancy exists) |
-| PH arrears aging "30+ days" | `snapshotView.overdue_30_plus_amount` | null → 0 | Suppressed (was £152,332 from SQL GREATEST) |
+| PH arrears aging "0–7 days" | `snapshotView.overdue_0_7_amount` | not rendered | Suppressed — `arrearsAgingState = "unavailable_unknown_balances"` → explanatory card rendered instead of BarCard |
+| PH arrears aging "8–30 days" | `snapshotView.overdue_8_30_amount` | not rendered | Suppressed — same state, no numeric fallback |
+| PH arrears aging "30+ days" | `snapshotView.overdue_30_plus_amount` | not rendered | Suppressed (was £152,332 from SQL GREATEST) — raw value excluded, no £0 assertion |
 
 All monetary values reflect the same governed population (known-state tenancies only) with the exception of CC AI insight, which is suppressed to 0 pending E-170.
 
@@ -254,6 +254,6 @@ All four ungated financial pipelines are now suppressed or gated:
 - **P1** — Dashboard overdue tile: `??` operator fix; governed 0 no longer discarded
 - **P2** — Portfolio Health outstanding: `getFinanceTotalOutstanding` replaces phantom SQL Math.max  
 - **P3** — CC AI insight: `governedOverdueAmount = 0` prevents AI from narrating ungated balance
-- **P4** — PH arrears aging buckets: all three null-suppressed atomically when any unactivated tenancy; page-level invariant (headline = sum of buckets) holds for all three PO cases
+- **P4** — PH arrears aging buckets: all three nulled atomically when any unactivated tenancy; `arrearsAgingState = "unavailable_unknown_balances"` causes `PortfolioHealthDashboardPage` to render an explanatory card instead of the BarCard — no numeric buckets are displayed, no null-to-zero coercion exists
 
 The bounded transformer (`applyFinanceGateToPortfolioSnapshot`) is the single point of financial field governance for Portfolio Health, covers every sibling field atomically, carries named removal conditions, and is exported for adversarial unit testing.

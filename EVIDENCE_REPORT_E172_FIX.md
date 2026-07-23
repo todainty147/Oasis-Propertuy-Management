@@ -416,4 +416,4 @@ component. Commit G (69995ce) implements both the mobile-cards and desktop-table
 
 **No migration.** Derived read is sufficient for correctness.
 
-**Not committed** — diffs are staged and commit-ready per task instruction.
+**Committed and executed.** Fix A, Fix B and Commit G were validated against their recorded immutable SHAs. The consolidated evidence-report update was committed at `12df040`.
