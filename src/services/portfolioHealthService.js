@@ -1,6 +1,12 @@
 import { supabase } from "../lib/supabase";
 import { formatCurrencyAmount } from "../utils/currency";
-import { financeAmountForProperty, getFinanceOverdueAmount, safeNumber } from "../utils/financeSnapshot";
+import {
+  financeAmountForProperty,
+  getFinanceOverdueAmount,
+  getFinanceTotalOutstanding,
+  hasUnactivatedTenancies,
+  safeNumber,
+} from "../utils/financeSnapshot";
 import { getFinanceSnapshot } from "./financeService";
 import {
   logOperationalLatencySample,
@@ -35,6 +41,57 @@ function isMissingBackendObject(error) {
     message.includes("relation") ||
     message.includes("does not exist")
   );
+}
+
+/**
+ * FIN-GATE-01 bounded transformer (P2 + P4).
+ *
+ * Atomically gates ALL financial sibling fields on the portfolio health snapshot
+ * object using the state-first gated financeSnapshot authority.  Mutates `snapshot`
+ * in place; always called as a unit — independent field-by-field patches are prohibited.
+ *
+ * Fields covered:
+ *   overdue_amount        — gated overdue sum (known-state rows only)
+ *   outstanding_amount    — gated outstanding sum (replaces SQL Math.max with phantom total)
+ *   arrearsAgingState     — explicit availability flag read by the page component
+ *   overdue_0_7_amount    — suppressed to null when any unactivated tenancy exists
+ *   overdue_8_30_amount   — suppressed to null when any unactivated tenancy exists
+ *   overdue_30_plus_amount — suppressed to null when any unactivated tenancy exists
+ *
+ * Page-level invariant:
+ *   When arrearsAgingState === "available": overdue total === sum of displayed aging buckets.
+ *   When arrearsAgingState === "unavailable_unknown_balances": no numeric aging buckets
+ *   are displayed — the page renders the neutral unavailability copy instead.
+ *
+ * Removal condition: remove the outstanding_amount and arrears-bucket suppression
+ * blocks when portfolio_health_snapshot SQL joins acc_outstanding_total and all
+ * three aging bucket CTEs to tenancy_finance_activations (E-170 authority-layer gate).
+ */
+export function applyFinanceGateToPortfolioSnapshot(snapshot, financeSnapshot) {
+  const overdueAmount = getFinanceOverdueAmount(financeSnapshot);
+  const anyUnknown = hasUnactivatedTenancies(financeSnapshot);
+
+  // P2 — overdue headline (existing correct behavior, kept explicit)
+  snapshot.overdue_amount = overdueAmount;
+
+  // P2 — outstanding: replace SQL lease-date proxy (Math.max was picking the
+  // larger of an ungated SQL value and the gated overdue, exposing phantom
+  // accumulation).  Use the gated sum of known-state remaining amounts.
+  snapshot.outstanding_amount = getFinanceTotalOutstanding(financeSnapshot);
+
+  // P4 — arrears aging state: explicit flag the page reads INSTEAD of
+  // attempting to render numeric values when buckets cannot be trusted.
+  snapshot.arrearsAgingState = anyUnknown ? "unavailable_unknown_balances" : "available";
+
+  // P4 — arrears aging buckets: atomically suppress all three when any tenancy
+  // lacks activation.  The SQL GREATEST() expression in the 30+ bucket and the
+  // raw payment-bucket CTEs for 0–7 and 8–30 days include unknown-tenancy rows;
+  // they cannot be trusted when anyUnknown is true.
+  if (anyUnknown) {
+    snapshot.overdue_0_7_amount = null;
+    snapshot.overdue_8_30_amount = null;
+    snapshot.overdue_30_plus_amount = null;
+  }
 }
 
 export async function getPortfolioHealthSnapshot(accountId, tenantId = null, { forceRefresh = false } = {}) {
@@ -94,9 +151,9 @@ export async function getPortfolioHealthSnapshot(accountId, tenantId = null, { f
   });
   const snapshot = parsePortfolioHealthSnapshotRow(firstRpcRow(data));
   if (financeSnapshot) {
-    const overdueAmount = getFinanceOverdueAmount(financeSnapshot);
-    snapshot.overdue_amount = overdueAmount;
-    snapshot.outstanding_amount = Math.max(safeNumber(snapshot.outstanding_amount), overdueAmount);
+    // FIN-GATE-01 P2+P4: bounded transformer — atomically gates ALL financial
+    // sibling fields on tenancy_finance_activations via the gated financeSnapshot.
+    applyFinanceGateToPortfolioSnapshot(snapshot, financeSnapshot);
   }
   return setSnapshotCacheValue(cacheKey, snapshot);
 }
