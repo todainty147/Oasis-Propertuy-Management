@@ -67,6 +67,36 @@ export function getFinancePropertyBalanceMap(snapshot = {}) {
   return byProperty;
 }
 
+/**
+ * FIN-GATE-01 helper — returns true if the snapshot contains any tenancy row
+ * whose balanceState is not "known" (i.e. finance tracking not yet activated).
+ * Used by the portfolio-health bounded-transformer to decide whether arrears
+ * aging buckets from the SQL RPC can be trusted (they include unknown tenancies).
+ */
+export function hasUnactivatedTenancies(snapshot = {}) {
+  return getPropertyFinanceRows(snapshot).some((row) => {
+    const balanceState = row?.balanceState ?? row?.balance_state ?? "";
+    return balanceState !== "known";
+  });
+}
+
+/**
+ * FIN-GATE-01 helper — sums the `remaining` amount for all known-state rows.
+ * Provides the gated "total outstanding" figure for the Portfolio Health headline
+ * without relying on the SQL acc_outstanding_total (which uses a lease-date proxy
+ * and has no tenancy_finance_activations join).
+ *
+ * Removal condition: remove when portfolio_health_snapshot SQL joins
+ * acc_outstanding_total to tenancy_finance_activations (E-170 authority-layer gate).
+ */
+export function getFinanceTotalOutstanding(snapshot = {}) {
+  return getPropertyFinanceRows(snapshot).reduce((sum, row) => {
+    const balanceState = row?.balanceState ?? row?.balance_state ?? "";
+    if (balanceState !== "known") return sum;
+    return sum + safeNumber(row?.remaining);
+  }, 0);
+}
+
 export function financeAmountForProperty(snapshot = {}, propertyId, fallbackAmount = 0) {
   if (!propertyId) return safeNumber(fallbackAmount);
   const balance = getFinancePropertyBalanceMap(snapshot).get(String(propertyId));

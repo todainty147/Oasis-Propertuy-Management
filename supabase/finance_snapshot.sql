@@ -216,13 +216,21 @@ BEGIN
           LIMIT 1
         )
       END AS lease_end_date,
-      -- Whether the tenancy has an ended lease and no active continuation.
+      -- Whether the tenancy has ended: status-ended OR date-ended (E-172 Fix B).
+      -- A lease is "still active" (blocks is_tenancy_ended) only when:
+      --   (a) renewal_status is not 'ended', AND
+      --   (b) lease_end_date is NULL (open-ended → positive active) OR >= CURRENT_DATE.
+      -- A lease with renewal_status='active' AND lease_end_date in the past
+      -- is treated as date-ended; it does NOT prevent is_tenancy_ended from firing.
+      -- Open-ended (lease_end_date IS NULL) is a positive active state — never ended.
+      -- Gate-1 CASE accrual logic above is NOT touched by this change.
       NOT EXISTS (
         SELECT 1
         FROM public.leases l
         WHERE l.account_id  = p_account_id
           AND l.property_id = sp.id
           AND LOWER(COALESCE(l.renewal_status, 'active')) NOT IN ('ended')
+          AND (l.lease_end_date IS NULL OR l.lease_end_date >= CURRENT_DATE)
       ) AS is_tenancy_ended
     FROM scoped_properties sp
   ),

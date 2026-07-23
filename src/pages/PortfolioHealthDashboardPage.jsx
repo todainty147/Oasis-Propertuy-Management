@@ -568,6 +568,10 @@ export default function PortfolioHealthDashboardPage() {
     property_count: 0, occupied_count: 0, vacant_count: 0, occupancy_rate: 0,
     paid_amount: 0, due_amount: 0, overdue_amount: 0, due_soon_amount: 0, outstanding_amount: 0,
     overdue_0_7_amount: 0, overdue_8_30_amount: 0, overdue_30_plus_amount: 0,
+    // FIN-GATE-01: default "unavailable_unknown_balances" so pre-load and error states
+    // both render the explanatory card rather than £0/£0/£0 bars.  The transformer
+    // upgrades this to "available" only when all tenancies have known balances.
+    arrearsAgingState: "unavailable_unknown_balances",
     open_requests: 0, high_priority_open_requests: 0, waiting_over_48h: 0,
     active_work_orders: 0, work_orders_without_contractor: 0, contractor_ack_overdue: 0,
     stalled_repairs: 0, long_running_repairs: 0, repeat_repair_properties: 0,
@@ -586,10 +590,12 @@ export default function PortfolioHealthDashboardPage() {
     { key: "longRunning",   value: Number(snapshotView.long_running_repairs || 0) },
     { key: "repeatRepairs", value: Number(snapshotView.repeat_repair_properties || 0) },
   ], [snapshotView]);
+  // FIN-GATE-01: only rendered when arrearsAgingState === "available".
+  // Uses ?? 0 (not || 0) so a genuine zero value is not coerced by a falsy check.
   const arrearsAgingRows = useMemo(() => [
-    { key: "overdue_0_7",   value: Math.round(Number(snapshotView.overdue_0_7_amount || 0)) },
-    { key: "overdue_8_30",  value: Math.round(Number(snapshotView.overdue_8_30_amount || 0)) },
-    { key: "overdue_30_plus", value: Math.round(Number(snapshotView.overdue_30_plus_amount || 0)) },
+    { key: "overdue_0_7",   value: Math.round(Number(snapshotView.overdue_0_7_amount ?? 0)) },
+    { key: "overdue_8_30",  value: Math.round(Number(snapshotView.overdue_8_30_amount ?? 0)) },
+    { key: "overdue_30_plus", value: Math.round(Number(snapshotView.overdue_30_plus_amount ?? 0)) },
   ], [snapshotView]);
   const financeRows = useMemo(() => [
     { key: "paid",    value: Math.round(Number(snapshotView.paid_amount || 0)) },
@@ -795,9 +801,22 @@ export default function PortfolioHealthDashboardPage() {
             <BarCard title={t("portfolio.charts.finance")} rows={financeRows}
               labels={{ paid: t("portfolio.labels.paid"), due: t("portfolio.labels.due"), overdue: t("portfolio.labels.overdue") }}
               toByKey={{ paid: "/finance?status=paid", due: "/finance?status=due", overdue: "/finance?status=overdue" }} />
-            <BarCard title={t("portfolio.charts.arrearsAging")} rows={arrearsAgingRows}
-              labels={{ overdue_0_7: t("portfolio.labels.overdue0_7"), overdue_8_30: t("portfolio.labels.overdue8_30"), overdue_30_plus: t("portfolio.labels.overdue30_plus") }}
-              toByKey={{ overdue_0_7: "/finance?status=overdue&bucket=0_7", overdue_8_30: "/finance?status=overdue&bucket=8_30", overdue_30_plus: "/finance?status=overdue&bucket=30_plus" }} />
+            {/* FIN-GATE-01 P4: bifurcate on arrearsAgingState.
+                "available"  → render numeric bucket bars (all tenancies have known balances).
+                anything else → render neutral unavailability copy (unknown balances contaminate SQL buckets). */}
+            {snapshotView.arrearsAgingState === "available" ? (
+              <BarCard title={t("portfolio.charts.arrearsAging")} rows={arrearsAgingRows}
+                labels={{ overdue_0_7: t("portfolio.labels.overdue0_7"), overdue_8_30: t("portfolio.labels.overdue8_30"), overdue_30_plus: t("portfolio.labels.overdue30_plus") }}
+                toByKey={{ overdue_0_7: "/finance?status=overdue&bucket=0_7", overdue_8_30: "/finance?status=overdue&bucket=8_30", overdue_30_plus: "/finance?status=overdue&bucket=30_plus" }} />
+            ) : (
+              <Card className="p-4 border shadow-sm">
+                <h3 className="text-sm font-semibold text-slate-900">{t("portfolio.charts.arrearsAging")}</h3>
+                <div data-testid="ph-arrears-aging-unavailable" className="mt-3">
+                  <span className="block text-sm text-slate-700">Arrears breakdown unavailable</span>
+                  <span className="block text-xs text-slate-500 mt-1">Some tenancy balances have not been established.</span>
+                </div>
+              </Card>
+            )}
             <BarCard title={t("portfolio.charts.maintenance")} rows={maintenanceRows}
               labels={{ open: t("portfolio.labels.openRequests"), high: t("portfolio.labels.highPriority"), waiting48h: t("portfolio.labels.waiting48h"), woNoContractor: t("portfolio.labels.woNoContractor"), ackOverdue: t("portfolio.labels.ackOverdue"), stalledRepairs: t("portfolio.labels.stalledRepairs"), longRunning: t("portfolio.labels.longRunningRepairs"), repeatRepairs: t("portfolio.labels.repeatRepairProperties") }}
               toByKey={{ open: "/maintenance-inbox?status=open,in_progress,waiting,resolved", high: "/maintenance-inbox?priority=high,critical", waiting48h: "/maintenance-inbox?status=waiting&aging=48h", woNoContractor: "/maintenance-kpi?filter=no-contractor", ackOverdue: "/attention-center", stalledRepairs: "/attention-center", longRunning: "/attention-center", repeatRepairs: "/attention-center" }} />
