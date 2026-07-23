@@ -553,11 +553,38 @@ BEGIN
             RAISE EXCEPTION 'done';
           END IF;
 
+          -- ── Fix A (E-172): Derive renewal_status from spreadsheet 'status' column
+          -- or fall back to date-based derivation. Never silently coerce to 'active'.
+          -- Allowed values from leases_renewal_status CHECK constraint:
+          --   active, expiring_soon, renewal_in_progress, renewed, ended
+          v_status_val := lower(trim(coalesce(nullif(v_row->>'status', ''), '')));
+
+          IF v_status_val NOT IN ('', 'active', 'expiring_soon', 'renewal_in_progress', 'renewed', 'ended') THEN
+            v_review := 'Unrecognised lease status value "' || (v_row->>'status') || '". '
+                        'Accepted values: active, expiring_soon, renewal_in_progress, renewed, ended. '
+                        'Row sent to review — no lease imported.';
+            v_row_status := 'needs_review';
+            RAISE EXCEPTION 'unrecognised_lease_status';
+          END IF;
+
+          IF v_status_val = '' THEN
+            -- Status absent/null: derive from lease_end_date
+            -- Past end_date → ended; open-ended or future end_date → active
+            IF nullif(v_row->>'end_date', '') IS NOT NULL
+               AND (v_row->>'end_date')::DATE < CURRENT_DATE THEN
+              v_status_val := 'ended';
+            ELSE
+              v_status_val := 'active';  -- open-ended tenancy is a positive active state
+            END IF;
+          END IF;
+          -- v_status_val now holds a valid, schema-checked renewal_status value
+
           -- Create lease
           INSERT INTO public.leases (
             account_id, property_id, tenant_id,
             start_date, end_date, lease_start_date, lease_end_date,
-            rent_amount, rent_frequency, deposit_amount, status, created_by
+            rent_amount, rent_frequency, deposit_amount, status,
+            renewal_status, created_by
           ) VALUES (
             p_account_id, v_prop_id, v_tenant_id,
             nullif(v_row->>'start_date', '')::DATE,
@@ -570,6 +597,7 @@ BEGIN
             CASE WHEN nullif(v_row->>'deposit_amount', '') IS NOT NULL
                  THEN (v_row->>'deposit_amount')::NUMERIC(12,2) ELSE NULL END,
             'active',
+            v_status_val,
             auth.uid()
           )
           RETURNING id INTO v_entity_id;
