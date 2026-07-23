@@ -314,6 +314,11 @@ export default function Dashboard({
     [attentionRows, dueSoonCount, hubExtras, hubHorizon, leaseAttentionRows, t]
   );
 
+  // FIN-GATE-01 P1: `??` replaces `||` so the governed 0 from getFinanceOverdueAmount
+  // is respected rather than discarded (0 is falsy under `||`, causing fall-through to the
+  // raw sumOverdue(payments) fallback — an ungated client-side payment-row sum).
+  // overdueAmount is retained but is no longer authoritative for the display value;
+  // the governed snapshot is the sole source once it has loaded.
   const overdueAmount = sumOverdue(
     (payments ?? []).map((p) => ({
       ...p,
@@ -321,7 +326,7 @@ export default function Dashboard({
       paidAt: p?.paidAt ?? p?.paid_at ?? null,
     })),
   );
-  const overdueAmountView = Number(snapshotView.overdue_amount || overdueAmount);
+  const overdueAmountView = Number(snapshotView.overdue_amount ?? 0);
   const unassignedWorkOrdersCount = Number(snapshotView.unassigned_work_orders || 0);
   const waiting48hCount = Number(snapshotView.waiting_over_48h || 0);
   const maintenanceStarted =
