@@ -568,10 +568,10 @@ export default function PortfolioHealthDashboardPage() {
     property_count: 0, occupied_count: 0, vacant_count: 0, occupancy_rate: 0,
     paid_amount: 0, due_amount: 0, overdue_amount: 0, due_soon_amount: 0, outstanding_amount: 0,
     overdue_0_7_amount: 0, overdue_8_30_amount: 0, overdue_30_plus_amount: 0,
-    // FIN-GATE-01: default "available" so the empty/pre-load state renders numerically (all zeros)
-    // rather than showing the unavailability copy.  The transformer sets this to
-    // "unavailable_unknown_balances" when any tenancy lacks finance activation.
-    arrearsAgingState: "available",
+    // FIN-GATE-01: default "unavailable_unknown_balances" so pre-load and error states
+    // both render the explanatory card rather than £0/£0/£0 bars.  The transformer
+    // upgrades this to "available" only when all tenancies have known balances.
+    arrearsAgingState: "unavailable_unknown_balances",
     open_requests: 0, high_priority_open_requests: 0, waiting_over_48h: 0,
     active_work_orders: 0, work_orders_without_contractor: 0, contractor_ack_overdue: 0,
     stalled_repairs: 0, long_running_repairs: 0, repeat_repair_properties: 0,
